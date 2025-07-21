@@ -8,7 +8,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { FeedbackButtons } from "@/components/FeedbackButtons";
 import { ResizableDialog } from "@/components/ui/resizable-dialog";
-import { ReactMarkdown } from "react-markdown";
+import ReactMarkdown from "react-markdown";
 
 interface DocumentChatModalProps {
   isOpen: boolean;
@@ -201,11 +201,13 @@ export default function DocumentChatModal({
                         : "bg-blue-50 border border-blue-200"
                     }`}
                   >
-                    <ReactMarkdown className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
-                      {msg.content && msg.content.trim()
-                        ? msg.content
-                        : "ข้อความว่างเปล่า"}
-                    </ReactMarkdown>
+                    <div className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
+                      <ReactMarkdown>
+                        {msg.content && msg.content.trim()
+                          ? msg.content
+                          : "ข้อความว่างเปล่า"}
+                      </ReactMarkdown>
+                    </div>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
                     {new Date(msg.createdAt).toLocaleDateString("th-TH", {
