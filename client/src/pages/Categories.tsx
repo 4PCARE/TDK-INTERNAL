@@ -218,6 +218,8 @@ export default function Categories() {
         isMobileOpen={isMobileMenuOpen} 
         onMobileClose={() => setIsMobileMenuOpen(false)}
         onOpenChat={() => setIsChatModalOpen(true)}
+        isCollapsed={false}
+        onToggleCollapse={() => {}}
       />
       
       <div className="flex-1 flex flex-col overflow-hidden">

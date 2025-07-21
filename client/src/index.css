@@ -36,6 +36,19 @@
   --sidebar-accent-foreground: hsl(240, 5.9%, 10%);
   --sidebar-border: hsl(220, 13%, 91%);
   --sidebar-ring: hsl(217.2, 91.2%, 59.8%);
+  
+  /* Navy Blue Theme Colors */
+  --navy-50: hsl(214, 100%, 97%);
+  --navy-100: hsl(214, 95%, 93%);
+  --navy-200: hsl(213, 97%, 87%);
+  --navy-300: hsl(212, 96%, 78%);
+  --navy-400: hsl(213, 94%, 68%);
+  --navy-500: hsl(217, 91%, 60%);
+  --navy-600: hsl(221, 83%, 53%);
+  --navy-700: hsl(224, 76%, 48%);
+  --navy-800: hsl(226, 71%, 40%);
+  --navy-900: hsl(224, 64%, 33%);
+  --navy-950: hsl(226, 55%, 21%);
 }
 
 .dark {

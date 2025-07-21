@@ -45,6 +45,7 @@ export default function Documents() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showUploadZone, setShowUploadZone] = useState(false);
 
   // Parse search query from URL
@@ -152,6 +153,8 @@ export default function Documents() {
         isMobileOpen={isMobileMenuOpen} 
         onMobileClose={() => setIsMobileMenuOpen(false)}
         onOpenChat={() => setIsChatModalOpen(true)}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
       
       <div className="flex-1 flex flex-col overflow-hidden">

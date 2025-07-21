@@ -44,6 +44,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [selectedDocumentSummary, setSelectedDocumentSummary] = useState<string | null>(null);
 
@@ -178,6 +179,8 @@ export default function Dashboard() {
         isMobileOpen={isMobileMenuOpen} 
         onMobileClose={() => setIsMobileMenuOpen(false)}
         onOpenChat={() => setIsChatModalOpen(true)}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
       
       <div className="flex-1 flex flex-col overflow-hidden">

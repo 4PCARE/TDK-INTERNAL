@@ -21,6 +21,8 @@ import {
   ChevronDown,
   MessageSquare,
   ChevronRight,
+  ChevronLeft,
+  Brain,
 } from "lucide-react";
 
 import kingpowerLogo from "@assets/kingpower_1750867302870.webp";
@@ -29,12 +31,16 @@ interface SidebarProps {
   isMobileOpen: boolean;
   onMobileClose: () => void;
   onOpenChat: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export default function Sidebar({
   isMobileOpen,
   onMobileClose,
   onOpenChat,
+  isCollapsed = false,
+  onToggleCollapse,
 }: SidebarProps) {
   const [location] = useLocation();
   const [isDashboardExpanded, setIsDashboardExpanded] = useState(false);
@@ -80,52 +86,131 @@ export default function Sidebar({
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white shadow-sm border-r border-gray-200 transition-transform duration-300 ease-in-out lg:translate-x-0",
+          "fixed lg:static inset-y-0 left-0 z-50 bg-gradient-to-b from-navy-900 to-navy-800 shadow-xl border-r border-navy-700 transition-all duration-300 ease-in-out lg:translate-x-0",
           isMobileOpen ? "translate-x-0" : "-translate-x-full",
+          isCollapsed ? "w-16" : "w-64"
         )}
       >
         <div className="flex flex-col h-full">
-          {/* Mobile Close Button */}
-          <div className="lg:hidden flex justify-end p-4">
-            <Button variant="ghost" size="sm" onClick={onMobileClose}>
-              <X className="h-5 w-5" />
-            </Button>
+          {/* Header with Toggle */}
+          <div className="p-4 border-b border-navy-700/50">
+            <div className="flex items-center justify-between">
+              {!isCollapsed && (
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                    <Brain className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-lg font-bold text-white">
+                      AI-KMS
+                    </h1>
+                    <p className="text-xs text-navy-300">Knowledge Management</p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex items-center space-x-2">
+                {/* Collapse Toggle for Desktop */}
+                {onToggleCollapse && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onToggleCollapse}
+                    className="hidden lg:flex text-navy-300 hover:text-white hover:bg-navy-700/50 transition-colors"
+                  >
+                    {isCollapsed ? (
+                      <ChevronRight className="w-4 h-4" />
+                    ) : (
+                      <ChevronLeft className="w-4 h-4" />
+                    )}
+                  </Button>
+                )}
+                
+                {/* Mobile Close Button */}
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={onMobileClose}
+                  className="lg:hidden text-navy-300 hover:text-white hover:bg-navy-700/50"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
           </div>
 
-          <div className="flex-1 px-4 py-6 space-y-6">
+          <div className="flex-1 p-3 space-y-6 overflow-y-auto">
             {/* Navigation Menu */}
-            <nav className="space-y-2">
+            <nav className="space-y-1">
               <Link href="/" onClick={onMobileClose}>
-                <Button
-                  variant="ghost"
+                <div
                   className={cn(
-                    "w-full justify-start",
+                    "group flex items-center px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer relative",
                     isActiveRoute("/")
-                      ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
+                      : "text-navy-200 hover:text-white hover:bg-navy-700/50",
+                    isCollapsed ? "justify-center" : "space-x-3"
                   )}
                 >
-                  <Home className="w-5 h-5 mr-3" />
-                  <span>Home</span>
-                </Button>
+                  <Home className={cn(
+                    "flex-shrink-0 transition-transform duration-200",
+                    isActiveRoute("/") ? "w-5 h-5" : "w-4 h-4",
+                    "group-hover:scale-110"
+                  )} />
+                  
+                  {!isCollapsed && (
+                    <span className="truncate">Home</span>
+                  )}
+                  
+                  {isActiveRoute("/") && (
+                    <div className="absolute inset-y-0 left-0 w-1 bg-white rounded-r-full" />
+                  )}
+                  
+                  {/* Tooltip for collapsed state */}
+                  {isCollapsed && (
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                      Home
+                    </div>
+                  )}
+                </div>
               </Link>
 
               <Link href="/documents" onClick={onMobileClose}>
-                <Button
-                  variant="ghost"
+                <div
                   className={cn(
-                    "w-full justify-start",
+                    "group flex items-center px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer relative",
                     isActiveRoute("/documents")
-                      ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
+                      : "text-navy-200 hover:text-white hover:bg-navy-700/50",
+                    isCollapsed ? "justify-center" : "space-x-3"
                   )}
                 >
-                  <FileText className="w-5 h-5 mr-3" />
-                  <span>All Documents</span>
-                  <Badge variant="secondary" className="ml-auto">
-                    {stats?.totalDocuments || 0}
-                  </Badge>
-                </Button>
+                  <FileText className={cn(
+                    "flex-shrink-0 transition-transform duration-200",
+                    isActiveRoute("/documents") ? "w-5 h-5" : "w-4 h-4",
+                    "group-hover:scale-110"
+                  )} />
+                  
+                  {!isCollapsed && (
+                    <>
+                      <span className="truncate">All Documents</span>
+                      <Badge variant="secondary" className="ml-auto bg-navy-600 text-navy-100">
+                        {stats?.totalDocuments || 0}
+                      </Badge>
+                    </>
+                  )}
+                  
+                  {isActiveRoute("/documents") && (
+                    <div className="absolute inset-y-0 left-0 w-1 bg-white rounded-r-full" />
+                  )}
+                  
+                  {/* Tooltip for collapsed state */}
+                  {isCollapsed && (
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                      All Documents ({stats?.totalDocuments || 0})
+                    </div>
+                  )}
+                </div>
               </Link>
 
               <Link href="/categories" onClick={onMobileClose}>

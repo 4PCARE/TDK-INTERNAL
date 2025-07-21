@@ -64,6 +64,7 @@ export default function AgentChatbots() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
   const queryClient = useQueryClient();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -305,7 +306,10 @@ export default function AgentChatbots() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      <Sidebar />
+      <Sidebar 
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
 
       <div className="flex-1 flex flex-col">
         <TopBar />
