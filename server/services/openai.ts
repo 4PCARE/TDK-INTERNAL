@@ -85,22 +85,24 @@ export async function processDocument(
       console.log(`📄 Processing PDF with enhanced DocumentProcessor: ${fileName}`);
       
       try {
+        console.log(`🔍 Using enhanced DocumentProcessor for: ${fileName}`);
+        
         // Import DocumentProcessor to use enhanced PDF processing
         const { DocumentProcessor } = await import("./documentProcessor");
         const processor = new DocumentProcessor();
         
-        // Use the enhanced extractFromPDF method (make it public for this use case)
-        const extractedText = await (processor as any).extractFromPDF(filePath);
+        // Use the enhanced extractFromPDF method
+        const extractedText = await processor.extractFromPDF(filePath);
         
         if (extractedText && extractedText.length > 50) {
           content = extractedText;
-          console.log(`✅ Enhanced PDF processing successful: ${extractedText.length} characters`);
+          console.log(`✅ Enhanced PDF processing successful: ${extractedText.length} characters extracted`);
         } else {
+          console.log(`⚠️ Limited content from enhanced processing: ${extractedText?.length || 0} characters`);
           content = `PDF document: ${fileName}. Contains structured document content for analysis and classification.`;
         }
       } catch (error) {
         console.error("Enhanced PDF processing error:", error);
-        const fileName = filePath.split("/").pop();
         content = `PDF document: ${fileName}. Enhanced processing failed - contains document content for comprehensive analysis.`;
       }
     } else if (

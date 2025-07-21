@@ -159,22 +159,28 @@ export class DocumentProcessor {
       // Step 1: Try LlamaParse first (best for large PDFs)
       progressBar.update(1, { eta: "Initializing LlamaParse..." });
       
-      if (process.env.LLAMA_CLOUD_API_KEY) {
+      console.log(`🔑 LLAMA_CLOUD_API_KEY status: ${process.env.LLAMA_CLOUD_API_KEY ? 'Available' : 'Missing'}`);
+      console.log(`🔑 API Key length: ${process.env.LLAMA_CLOUD_API_KEY?.length || 0}`);
+      
+      if (process.env.LLAMA_CLOUD_API_KEY && process.env.LLAMA_CLOUD_API_KEY.length > 10) {
         try {
+          console.log(`🚀 Starting LlamaParse extraction for ${fileName}...`);
           const extractedText = await this.extractWithLlamaParse(filePath, progressBar, fileSizeMB);
           if (extractedText && extractedText.length > 50) {
             progressBar.update(totalSteps, { eta: "Complete!" });
             progressBar.stop();
             console.log(`✅ PDF processed successfully with LlamaParse: ${extractedText.length} characters extracted`);
             return extractedText;
+          } else {
+            console.log(`⚠️ LlamaParse returned minimal content: ${extractedText?.length || 0} characters`);
           }
         } catch (llamaError) {
           const errorMessage = llamaError instanceof Error ? llamaError.message : 'Unknown error';
-          console.log(`⚠️ LlamaParse issue: ${errorMessage}, using fallback...`);
+          console.log(`❌ LlamaParse failed: ${errorMessage}`);
           progressBar.update(2, { eta: "LlamaParse failed, trying fallback..." });
         }
       } else {
-        console.log("⚠️ LLAMA_CLOUD_API_KEY not found, using fallback system");
+        console.log("❌ LLAMA_CLOUD_API_KEY not found, using fallback system");
         progressBar.update(2, { eta: "Using fallback extraction..." });
       }
       
