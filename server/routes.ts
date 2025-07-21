@@ -5009,6 +5009,8 @@ Memory management: Keep track of conversation context within the last ${agentCon
       }
 
       console.log(`🔔 Line webhook received for integration ${integrationId} (${integration.name})`);
+      console.log(`🔍 Integration verified status: ${integration.isVerified}`);
+      console.log(`📅 Last verified: ${integration.lastVerifiedAt || 'Never'}`);
       
       // Temporarily modify the request to include integration info for handleLineWebhook
       (req as any).lineIntegration = integration;
@@ -5017,6 +5019,56 @@ Memory management: Keep track of conversation context within the last ${agentCon
       return await handleLineWebhook(req, res);
     } catch (error) {
       console.error("💥 Dynamic Line webhook error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Admin debug endpoint for Line OA integrations
+  app.get("/api/admin/line-integrations/debug", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get all Line OA integrations for this user
+      const integrations = await db
+        .select()
+        .from(socialIntegrations)
+        .where(
+          and(
+            eq(socialIntegrations.userId, userId),
+            eq(socialIntegrations.type, "lineoa")
+          )
+        );
+
+      const debugInfo = integrations.map(integration => ({
+        id: integration.id,
+        name: integration.name,
+        channelId: integration.channelId,
+        botUserId: integration.botUserId,
+        isActive: integration.isActive,
+        isVerified: integration.isVerified,
+        lastVerifiedAt: integration.lastVerifiedAt,
+        dynamicWebhookUrl: `/api/line/webhook/${integration.id}`,
+        recommendedAction: !integration.isVerified 
+          ? "ต้อง verify Channel Secret ใหม่ผ่าน Social Integrations page"
+          : "พร้อมใช้งาน",
+        secretPreview: integration.channelSecret 
+          ? `${integration.channelSecret.substring(0, 8)}...`
+          : "ไม่มี",
+        agentId: integration.agentId,
+        createdAt: integration.createdAt
+      }));
+
+      res.json({
+        totalIntegrations: integrations.length,
+        integrations: debugInfo,
+        instructions: {
+          verify: "ไปที่ Social Integrations page และกด 'Test Connection' เพื่อ verify Channel Secret",
+          webhook: "ใช้ dynamic webhook URL ในการตั้งค่า Line Developer Console",
+          troubleshoot: "หาก signature ไม่ถูกต้อง ให้ตรวจสอบ Channel Secret ว่าตรงกับ Line Developer Console หรือไม่"
+        }
+      });
+    } catch (error) {
+      console.error("Error in Line integrations debug:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

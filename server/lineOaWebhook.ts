@@ -754,9 +754,30 @@ export async function handleLineWebhook(req: Request, res: Response) {
       Object.keys(lineIntegration),
     );
 
-    // Verify signature
+    // Verify signature with debug logging
+    console.log("🔐 Debug: Signature verification details:");
+    console.log("📝 Raw body length:", body.length);
+    console.log("🔑 Channel Secret available:", !!lineIntegration.channelSecret);
+    console.log("🔏 Channel Secret length:", lineIntegration.channelSecret?.length || 0);
+    console.log("📋 X-Line-Signature header:", signature);
+    console.log("🔗 Integration ID:", lineIntegration.id);
+    console.log("🏷️ Integration name:", lineIntegration.name);
+    
+    // Generate expected hash for comparison
+    const expectedHash = crypto
+      .createHmac("sha256", lineIntegration.channelSecret!)
+      .update(body)
+      .digest("base64");
+    console.log("🎯 Expected hash:", expectedHash);
+    console.log("📩 Received signature:", signature);
+    console.log("✅ Hash match:", expectedHash === signature);
+
     if (!verifyLineSignature(body, signature, lineIntegration.channelSecret!)) {
       console.log("❌ Invalid Line signature");
+      console.log("🔍 Debug: Possible issues:");
+      console.log("  - Channel Secret mismatch between Line Developer Console and database");
+      console.log("  - Webhook URL configured for wrong integration");
+      console.log("  - Request body modified by middleware");
       return res.status(401).json({ error: "Invalid signature" });
     }
 
