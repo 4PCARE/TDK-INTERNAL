@@ -260,7 +260,7 @@ Respond with JSON in this exact format:
         },
         {
           role: "user",
-          content: `Analyze and classify this document content:\n\n${content.substring(0, 4000)}`,
+          content: `Analyze and classify this document content:\n\n${content.substring(0, 8000)}`,
         },
       ],
       response_format: { type: "json_object" },
@@ -290,7 +290,7 @@ Respond with JSON in this exact format:
     const categoryColor = categoryColors[category] || "#6B7280";
 
     return {
-      content: content.substring(0, 10000),
+      content: content, // Keep full content for vector storage and search
       summary: analysis.summary || "Document processed successfully",
       tags: Array.isArray(analysis.tags) ? analysis.tags : ["document"],
       category,
