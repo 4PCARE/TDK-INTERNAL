@@ -6,12 +6,18 @@ const app = express();
 
 // CORS configuration for widget endpoints
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api/widget/') || req.path.startsWith('/widget/')) {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    
-    if (req.method === 'OPTIONS') {
+  if (req.path.startsWith("/api/widget/") || req.path.startsWith("/widget/")) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, OPTIONS",
+    );
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept, Authorization",
+    );
+
+    if (req.method === "OPTIONS") {
       res.sendStatus(204);
       return;
     }
@@ -23,7 +29,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from public directory
-app.use(express.static('public'));
+app.use(express.static("public"));
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -77,12 +83,16 @@ app.use((req, res, next) => {
 
   // ALWAYS serve the app on port 80 for production or 5000 for development
   // this serves both the API and the client.
-  const port = process.env.NODE_ENV === 'production' ? 80 : 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
+  // const port = process.env.NODE_ENV === 'production' ? 80 : 5000;
+  const port = process.env.PORT || 5000;
+  server.listen(
+    {
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    },
+    () => {
+      log(`serving on port ${port}`);
+    },
+  );
 })();
