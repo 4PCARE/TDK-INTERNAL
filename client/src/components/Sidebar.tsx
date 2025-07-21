@@ -152,7 +152,7 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
                   "group flex items-center px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer relative",
                   isActive
                     ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
-                    : "text-navy-200 hover:text-white hover:bg-navy-700/50",
+                    : "text-white/90 hover:text-white hover:bg-navy-700/50",
                   isCollapsed ? "justify-center" : "space-x-3"
                 )}
               >
@@ -191,10 +191,10 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-white truncate">
-                {(user as any)?.firstName || (user as any)?.email || "User"}
+                {String((user as any)?.firstName || (user as any)?.email || "User")}
               </p>
               <p className="text-xs text-navy-400 capitalize">
-                {(user as any)?.role || "user"}
+                {String((user as any)?.role || "user")}
               </p>
             </div>
           </div>

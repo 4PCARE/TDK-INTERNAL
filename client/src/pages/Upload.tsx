@@ -36,6 +36,7 @@ export default function Upload() {
   const { isAuthenticated, isLoading } = useAuth();
   const queryClient = useQueryClient();
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -198,7 +199,10 @@ export default function Upload() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      <Sidebar 
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
       
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar />

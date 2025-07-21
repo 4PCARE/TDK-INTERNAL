@@ -51,6 +51,7 @@ export default function LiveChatWidget() {
   const [copiedCode, setCopiedCode] = useState(false);
 
   // Form state for creating/editing widgets
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     agentId: null as number | null,
@@ -166,7 +167,10 @@ export default function LiveChatWidget() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      <Sidebar 
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
       
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar />

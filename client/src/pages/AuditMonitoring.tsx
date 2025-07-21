@@ -45,6 +45,7 @@ export default function AuditMonitoring() {
   const [offset, setOffset] = useState(0);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [isExporting, setIsExporting] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -193,7 +194,10 @@ export default function AuditMonitoring() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      <Sidebar 
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
       
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar />
