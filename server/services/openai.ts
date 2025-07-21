@@ -80,73 +80,28 @@ export async function processDocument(
         }
       }
     } else if (mimeType === "application/pdf") {
-      // For PDF files, use LlamaParse for better extraction
+      // For PDF files, delegate to enhanced DocumentProcessor
+      const fileName = filePath.split("/").pop();
+      console.log(`📄 Processing PDF with enhanced DocumentProcessor: ${fileName}`);
+      
       try {
-        const parser = new LlamaParseReader({
-          apiKey:
-            "llx-ttqFBFkplDsndkK88sAH9GRjKWbymaHEvPQivivIP1yHarr1" ||
-            process.env.OPENAI_API_KEY,
-          resultType: "text",
-          language: "en",
-          parsingInstruction:
-            "Extract all text content including tables, headers, and formatted text. Preserve structure and meaning.",
-        });
-
-        const documents = await parser.loadData(filePath);
-
-        if (documents && documents.length > 0) {
-          // Combine all extracted text from document pages
-          const extractedText = documents
-            .map((doc: any) => doc.getText())
-            .join("\n\n")
-            .trim();
-
-          if (extractedText.length > 50) {
-            content = extractedText;
-          } else {
-            const fileName = filePath.split("/").pop();
-            content = `PDF document: ${fileName}. Contains structured document content for analysis and classification.`;
-          }
+        // Import DocumentProcessor to use enhanced PDF processing
+        const { DocumentProcessor } = await import("./documentProcessor");
+        const processor = new DocumentProcessor();
+        
+        // Use the enhanced extractFromPDF method (make it public for this use case)
+        const extractedText = await (processor as any).extractFromPDF(filePath);
+        
+        if (extractedText && extractedText.length > 50) {
+          content = extractedText;
+          console.log(`✅ Enhanced PDF processing successful: ${extractedText.length} characters`);
         } else {
-          const fileName = filePath.split("/").pop();
-          content = `PDF document: ${fileName}. Contains document content for analysis and classification.`;
+          content = `PDF document: ${fileName}. Contains structured document content for analysis and classification.`;
         }
       } catch (error) {
-        console.error("LlamaParse PDF processing error:", error);
-        // Fallback to textract if LlamaParse fails
-        try {
-          content = await new Promise((resolve, reject) => {
-            textract.fromFileWithPath(
-              filePath,
-              {
-                preserveLineBreaks: true,
-              },
-              (error: any, text: string) => {
-                if (error) {
-                  console.error("PDF textract fallback error:", error);
-                  const fileName = filePath.split("/").pop();
-                  resolve(
-                    `PDF document: ${fileName}. Contains structured document content for analysis and classification.`,
-                  );
-                } else {
-                  const extractedText = text ? text.trim() : "";
-                  if (extractedText.length > 10) {
-                    resolve(extractedText);
-                  } else {
-                    const fileName = filePath.split("/").pop();
-                    resolve(
-                      `PDF document: ${fileName}. Contains document content for analysis and classification.`,
-                    );
-                  }
-                }
-              },
-            );
-          });
-        } catch (fallbackError) {
-          console.error("PDF fallback processing error:", fallbackError);
-          const fileName = filePath.split("/").pop();
-          content = `PDF document: ${fileName}. Contains structured document content for comprehensive analysis and intelligent classification.`;
-        }
+        console.error("Enhanced PDF processing error:", error);
+        const fileName = filePath.split("/").pop();
+        content = `PDF document: ${fileName}. Enhanced processing failed - contains document content for comprehensive analysis.`;
       }
     } else if (
       mimeType ===
