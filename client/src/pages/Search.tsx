@@ -63,13 +63,18 @@ export default function SearchPage() {
     return null; // Already handled by redirect effect
   }
 
+ const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      
+      <Sidebar 
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
+
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar />
-        
+
         <main className="flex-1 overflow-auto p-6">
           {/* Header */}
           <div className="mb-6">

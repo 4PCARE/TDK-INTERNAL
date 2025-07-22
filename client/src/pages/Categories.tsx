@@ -41,6 +41,7 @@ export default function Categories() {
   const [newCategoryDescription, setNewCategoryDescription] = useState("");
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -215,16 +216,13 @@ export default function Categories() {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar 
-        isMobileOpen={isMobileMenuOpen} 
-        onMobileClose={() => setIsMobileMenuOpen(false)}
-        onOpenChat={() => setIsChatModalOpen(true)}
-        isCollapsed={false}
-        onToggleCollapse={() => {}}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
-      
+
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar />
-        
+
         <main className="flex-1 overflow-auto p-6">
           {/* Header */}
           <div className="mb-6">
@@ -446,3 +444,4 @@ export default function Categories() {
     </div>
   );
 }
+```
