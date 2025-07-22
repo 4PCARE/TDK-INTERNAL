@@ -562,45 +562,43 @@ export class DatabaseStorage implements IStorage {
   async searchDocuments(userId: string, query: string): Promise<Document[]> {
     console.log(`Storage searchDocuments called - userId: ${userId}, query: "${query}"`);
 
-    const lowerQuery = query.toLowerCase();
-    const searchTerms = lowerQuery.split(/\s+/).filter(term => term.length > 0);
-
+    // For Thai text and mixed queries, be more flexible with term splitting
+    // Split on whitespace but also handle Thai text more gracefully
+    const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
     console.log(`Search terms: ${searchTerms.join(', ')}`);
 
-    if (searchTerms.length === 0) {
-      return [];
+    try {
+      const documents = await this.getDocuments(userId);
+      console.log(`Found ${documents.length} documents for user ${userId}`);
+
+      // Search through documents for matching content
+      const matchingDocuments = documents.filter(doc => {
+        const searchableText = [
+          doc.name || '',
+          doc.description || '',
+          doc.content || '',
+          doc.summary || '',
+          ...(doc.tags || [])
+        ].join(' ').toLowerCase();
+
+        // For keyword search, use OR logic - if ANY term matches, include the document
+        // This is more appropriate for keyword search behavior
+        const hasAnyTerm = searchTerms.some(term => 
+          searchableText.includes(term)
+        );
+
+        // Also check if the entire query appears as a phrase
+        const hasExactPhrase = searchableText.includes(query.toLowerCase());
+
+        return hasAnyTerm || hasExactPhrase;
+      });
+
+      console.log(`Found ${matchingDocuments.length} documents matching search criteria (ANY term OR exact phrase)`);
+      return matchingDocuments;
+    } catch (error) {
+      console.error('Error searching documents:', error);
+      throw error;
     }
-
-    // For proper keyword search, we want documents that contain ALL search terms
-    // Build search conditions for each term using ILIKE for case-insensitive search
-    const searchConditions = searchTerms.map(term => 
-      or(
-        ilike(documents.name, `%${term}%`),
-        ilike(documents.content, `%${term}%`),
-        ilike(documents.summary, `%${term}%`),
-        ilike(documents.aiCategory, `%${term}%`),
-        sql`EXISTS (
-          SELECT 1 FROM unnest(${documents.tags}) AS tag 
-          WHERE tag ILIKE ${`%${term}%`}
-        )`
-      )
-    );
-
-    // Use AND logic to require ALL search terms to be present
-    const whereClause = and(
-      eq(documents.userId, userId),
-      ...searchConditions
-    );
-
-    const results = await db
-      .select()
-      .from(documents)
-      .where(whereClause)
-      .orderBy(desc(documents.updatedAt))
-      .limit(50);
-
-    console.log(`Found ${results.length} documents matching search criteria (ALL terms required)`);
-    return results;
   }
 
   async toggleDocumentFavorite(id: number, userId: string): Promise<Document> {
@@ -871,7 +869,7 @@ export class DatabaseStorage implements IStorage {
         userQuery: aiAssistantFeedback.userQuery,
         assistantResponse: aiAssistantFeedback.assistantResponse,
         createdAt: aiAssistantFeedback.createdAt,
-        documentContext: aiAssistantFeedback.documentContext,
+        documentContext: aiAssistantFeedback.documentContext: aiAssistantFeedback.documentContext,
       })
       .from(aiAssistantFeedback)
       .where(eq(aiAssistantFeedback.userId, userId))
@@ -1224,10 +1222,10 @@ export class DatabaseStorage implements IStorage {
   async updateAgentChatbot(id: number, agent: Partial<InsertAgentChatbot>, userId: string): Promise<AgentChatbot> {
     console.log("Storage updateAgentChatbot - Input data:", JSON.stringify(agent, null, 2));
     console.log("Storage updateAgentChatbot - Guardrails config:", agent.guardrailsConfig);
-    
+
     const updateData = { ...agent, updatedAt: new Date() };
     console.log("Storage updateAgentChatbot - Final update data:", JSON.stringify(updateData, null, 2));
-    
+
     const [updated] = await db
       .update(agentChatbots)
       .set(updateData)
@@ -1328,7 +1326,7 @@ export class DatabaseStorage implements IStorage {
     const { limit = 50, offset = 0, analysisResult } = options;
 
     const conditions = [eq(aiResponseAnalysis.userId, userId)];
-    
+
     if (analysisResult) {
       conditions.push(eq(aiResponseAnalysis.analysisResult, analysisResult));
     }
@@ -1399,7 +1397,7 @@ export class DatabaseStorage implements IStorage {
   // Social Integration operations
   async getSocialIntegrations(userId: string): Promise<SocialIntegration[]> {
     console.log("🔍 Debug: Fetching social integrations for user:", userId);
-    
+
     try {
       const integrations = await db
         .select({
@@ -1425,7 +1423,7 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(socialIntegrations.createdAt));
 
       console.log("✅ Found", integrations.length, "social integrations");
-      
+
       return integrations.map(row => ({
         id: row.id,
         userId: row.userId,
@@ -1458,7 +1456,7 @@ export class DatabaseStorage implements IStorage {
   async getAllSocialIntegrations(): Promise<SocialIntegration[]> {
     try {
       console.log("🔍 Debug: Fetching all social integrations");
-      
+
       const results = await db.execute(sql`
         SELECT si.*, ac.name as agentName
         FROM social_integrations si
@@ -1467,7 +1465,7 @@ export class DatabaseStorage implements IStorage {
       `);
 
       console.log(`✅ Found ${results.rows.length} total social integrations`);
-      
+
       return results.rows.map(row => ({
         id: row.id as number,
         name: row.name as string,
@@ -1542,7 +1540,7 @@ export class DatabaseStorage implements IStorage {
 
   async getSocialIntegration(id: number, userId: string): Promise<SocialIntegration | undefined> {
     console.log("🔍 Debug: Fetching social integration:", id, "for user:", userId);
-    
+
     try {
       const [integration] = await db
         .select({
@@ -1570,9 +1568,9 @@ export class DatabaseStorage implements IStorage {
         console.log("❌ Social integration not found");
         return undefined;
       }
-      
+
       console.log("✅ Found social integration:", integration.name);
-      
+
       return {
         id: integration.id,
         userId: integration.userId,
@@ -1624,9 +1622,9 @@ export class DatabaseStorage implements IStorage {
           NOW()
         ) RETURNING *
       `);
-      
+
       const newIntegration = result.rows[0] as any;
-      
+
       // Return with proper interface structure
       return {
         id: newIntegration.id,
@@ -1661,7 +1659,7 @@ export class DatabaseStorage implements IStorage {
     const updateData: any = {
       updated_at: new Date(),
     };
-    
+
     if (integration.name !== undefined) updateData.name = integration.name;
     if (integration.description !== undefined) updateData.description = integration.description;
     if (integration.type !== undefined) updateData.type = integration.type;
@@ -1671,17 +1669,17 @@ export class DatabaseStorage implements IStorage {
     if (integration.agentId !== undefined) updateData.agent_id = integration.agentId;
     if (integration.isActive !== undefined) updateData.is_active = integration.isActive;
     if (integration.isVerified !== undefined) updateData.is_verified = integration.isVerified;
-    
+
     const [updated] = await db
       .update(socialIntegrations)
       .set(updateData)
       .where(and(eq(socialIntegrations.id, id), eq(socialIntegrations.userId, userId)))
       .returning();
-    
+
     if (!updated) {
       throw new Error("Social integration not found or access denied");
     }
-    
+
     // Return with proper interface structure
     return {
       id: updated.id,
@@ -1729,7 +1727,7 @@ export class DatabaseStorage implements IStorage {
         }, userId);
         return { success: true, message: "LINE OA connection verified successfully" };
       }
-      
+
       return { success: false, message: "Verification not implemented for this platform" };
     } catch (error) {
       return { success: false, message: "Verification failed" };
@@ -1757,7 +1755,7 @@ export class DatabaseStorage implements IStorage {
   async getChatHistory(userId: string, channelType: string, channelId: string, agentId: number, limit: number = 10): Promise<ChatHistory[]> {
     const { chatHistory } = await import('@shared/schema');
     const { desc, and, eq } = await import('drizzle-orm');
-    
+
     const history = await db
       .select()
       .from(chatHistory)
@@ -1769,7 +1767,7 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(desc(chatHistory.createdAt))
       .limit(limit);
-    
+
     // Return in chronological order (oldest first)
     return history.reverse();
   }
@@ -1777,7 +1775,7 @@ export class DatabaseStorage implements IStorage {
   async getChatHistoryWithMemoryStrategy(userId: string, channelType: string, channelId: string, agentId: number, memoryLimit: number): Promise<ChatHistory[]> {
     const { chatHistory } = await import('@shared/schema');
     const { desc, and, eq, sql } = await import('drizzle-orm');
-    
+
     // Get all message types within memory limit
     // This includes user, assistant, system messages (including image analysis)
     const history = await db
@@ -1791,17 +1789,17 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(desc(chatHistory.createdAt))
       .limit(memoryLimit);
-    
+
     console.log(`📚 Retrieved ${history.length} messages for memory (limit: ${memoryLimit})`);
-    
+
     // Count by message type for debugging
     const messageTypeCounts = history.reduce((acc, msg) => {
       acc[msg.messageType] = (acc[msg.messageType] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    
+
     console.log(`📊 Message type breakdown:`, messageTypeCounts);
-    
+
     // Return in chronological order (oldest first)
     return history.reverse();
   }
@@ -1809,7 +1807,7 @@ export class DatabaseStorage implements IStorage {
   async clearChatHistory(userId: string, channelType: string, channelId: string, agentId: number): Promise<void> {
     const { chatHistory } = await import('@shared/schema');
     const { and, eq } = await import('drizzle-orm');
-    
+
     await db
       .delete(chatHistory)
       .where(and(

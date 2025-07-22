@@ -37,7 +37,7 @@ router.post("/debug/ai-input", async (req, res) => {
           // Pure keyword search - find matching content in the specific document
           console.log(`DEBUG: Performing keyword search for "${userMessage}"`);
 
-          // Search for keywords within the specific document content
+          // For Thai text, be more flexible with search terms
           const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
           const docContent = doc.content || '';
           const docContentLower = docContent.toLowerCase();
@@ -48,6 +48,7 @@ router.post("/debug/ai-input", async (req, res) => {
           let matchingSegments = [];
           let hasMatches = false;
 
+          // Search for individual terms
           for (const term of searchTerms) {
             let index = 0;
             while ((index = docContentLower.indexOf(term, index)) !== -1) {
@@ -66,23 +67,52 @@ router.post("/debug/ai-input", async (req, res) => {
 
               index += term.length;
 
-              // Limit to 5 matches per term to avoid too much content
-              if (matchingSegments.filter(s => s.term === term).length >= 5) break;
+              // Limit to 3 matches per term to avoid too much content
+              if (matchingSegments.filter(s => s.term === term).length >= 3) break;
             }
+          }
+
+          // Also search for the entire query as a phrase
+          let phraseIndex = 0;
+          while ((phraseIndex = docContentLower.indexOf(userMessage.toLowerCase(), phraseIndex)) !== -1) {
+            hasMatches = true;
+            const start = Math.max(0, phraseIndex - 500);
+            const end = Math.min(docContent.length, phraseIndex + userMessage.length + 500);
+            const segment = docContent.substring(start, end);
+
+            matchingSegments.push({
+              term: `EXACT_PHRASE: ${userMessage}`,
+              position: phraseIndex,
+              segment: segment,
+              score: 2.0 // Higher score for exact phrase matches
+            });
+
+            phraseIndex += userMessage.length;
+            if (matchingSegments.filter(s => s.term.startsWith('EXACT_PHRASE')).length >= 2) break;
           }
 
           if (hasMatches && matchingSegments.length > 0) {
             console.log(`DEBUG: Found ${matchingSegments.length} keyword matches`);
 
-            // Sort by position and deduplicate overlapping segments
-            matchingSegments.sort((a, b) => a.position - b.position);
+            // Sort by score (exact phrases first) then by position
+            matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);
+            
+            // Take best matches and remove overlaps
             const uniqueSegments = [];
-            let lastEnd = 0;
+            const usedRanges = [];
 
             for (const match of matchingSegments) {
-              if (match.position > lastEnd) {
+              const start = match.position;
+              const end = match.position + 1000;
+              
+              // Check if this range overlaps significantly with existing ones
+              const hasOverlap = usedRanges.some(range => 
+                Math.max(start, range.start) < Math.min(end, range.end) - 200
+              );
+
+              if (!hasOverlap && uniqueSegments.length < 5) {
                 uniqueSegments.push(match);
-                lastEnd = match.position + 1000; // Prevent too much overlap
+                usedRanges.push({ start, end });
               }
             }
 
@@ -106,13 +136,15 @@ router.post("/debug/ai-input", async (req, res) => {
             searchMetrics.keywordResults = uniqueSegments.length;
           } else {
             console.log(`DEBUG: No keyword matches found for "${userMessage}" in document ${doc.name}`);
-            documentContext = `Document: ${doc.name}\nNo matches found for search terms: ${searchTerms.join(', ')}\n\nThis document does not contain the requested information.`;
+            // Instead of showing "no matches", provide a sample of the document content
+            const sampleContent = docContent.substring(0, 2000);
+            documentContext = `Document: ${doc.name}\nNo direct keyword matches found for: "${userMessage}"\n\nDocument sample content:\n${sampleContent}${docContent.length > 2000 ? '...' : ''}`;
 
             chunkDetails.push({
-              chunkId: `kw-${doc.id}-no-match`,
-              content: `No matches found for: ${searchTerms.join(', ')}`,
+              chunkId: `kw-${doc.id}-sample`,
+              content: sampleContent,
               keywordScore: 0.0,
-              type: 'keyword-no-match'
+              type: 'keyword-fallback'
             });
 
             searchMetrics.keywordResults = 0;
