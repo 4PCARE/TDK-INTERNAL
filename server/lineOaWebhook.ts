@@ -365,11 +365,11 @@ async function getAiResponseDirectly(
     if (agentDocs.length > 0) {
       console.log(`📚 Found ${agentDocs.length} documents for agent`);
 
-      // Use vector search instead of pulling full documents
+      // Use hybrid search (keyword + vector) instead of pulling full documents
       try {
         const { vectorService } = await import('./services/vectorService');
         
-        // Search for relevant chunks across agent's documents
+        // Search for relevant chunks across agent's documents using hybrid search
         const vectorResults = await vectorService.searchDocuments(message, userId, 15);
         
         // Filter results to only include chunks from agent's documents

@@ -40,14 +40,14 @@ export class WidgetChatService {
       if (agentDocs.length > 0) {
         console.log(`📚 Widget Chat: Found ${agentDocs.length} documents for agent`);
 
-        // Use vector search instead of pulling full documents
+        // Use hybrid search (keyword + vector) instead of pulling full documents
         try {
           const { vectorService } = await import('./vectorService');
           
           // Get a sample document to get userId for vector search
           const sampleDoc = await storage.getDocumentForWidget(agentDocs[0].documentId);
           if (sampleDoc && sampleDoc.userId) {
-            // Search for relevant chunks across agent's documents
+            // Search for relevant chunks across agent's documents using hybrid search
             const vectorResults = await vectorService.searchDocuments(message, sampleDoc.userId, 15);
             
             // Filter results to only include chunks from agent's documents
