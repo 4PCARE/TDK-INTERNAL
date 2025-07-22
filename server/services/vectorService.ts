@@ -212,7 +212,7 @@ export class VectorService {
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, limit);
 
-      console.log(`Vector search for "${query}": Found ${finalResults.length} relevant chunks from ${documentGroups.size} documents`);
+      console.log(`Vector search for "${query}": Found ${finalResults.length} relevant chunks globally`);
 
       // Debug: Log top results with similarity scores
       console.log(`Debug: Top 5 vector search results for "${query}":`);
