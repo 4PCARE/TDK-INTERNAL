@@ -14,6 +14,15 @@ router.post("/debug/ai-input", async (req, res) => {
     
     let documentContext = "";
     
+    // Initialize search metrics
+    let searchMetrics = {
+      searchType,
+      keywordResults: 0,
+      vectorResults: 0,
+      combinedResults: 0,
+      weights: searchType === 'weighted' ? { keyword: keywordWeight, vector: vectorWeight } : null
+    };
+    
     if (specificDocumentId) {
       // Get the document
       const documents = await storage.getDocuments(userId);
@@ -23,15 +32,6 @@ router.post("/debug/ai-input", async (req, res) => {
         return res.json({ error: "Document not found" });
       }
       
-      // Initialize search metrics
-      let searchMetrics = {
-        searchType,
-        keywordResults: 0,
-        vectorResults: 0,
-        combinedResults: 0,
-        weights: searchType === 'weighted' ? { keyword: keywordWeight, vector: vectorWeight } : null
-      };
-
       try {
         if (searchType === 'keyword') {
           // Pure keyword search
@@ -129,6 +129,9 @@ router.post("/debug/ai-input", async (req, res) => {
         documentContext = `Document: ${doc.name}\nSummary: ${doc.summary || 'No summary'}\nTags: ${doc.tags?.join(", ") || 'No tags'}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
         searchMetrics.error = searchError.message;
       }
+    } else {
+      // No specific document provided
+      documentContext = "No specific document selected for analysis.";
     }
 
     const systemMessage = `You are an AI assistant helping users analyze and understand specific documents. You are currently focusing on a specific document provided in the context below.
