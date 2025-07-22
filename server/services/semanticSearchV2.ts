@@ -280,53 +280,110 @@ export class SemanticSearchServiceV2 {
       
       console.log(`Hybrid search using weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
 
-      // Get semantic results
-      const semanticResults = await this.performSemanticSearch(query, userId, {
-        ...options,
-        limit: Math.ceil((options.limit || 20) * (vectorWeight / (keywordWeight + vectorWeight)))
-      });
-
-      // Get keyword results
-      const keywordResults = await this.performKeywordSearch(query, userId, {
-        ...options,
-        limit: Math.ceil((options.limit || 20) * (keywordWeight / (keywordWeight + vectorWeight)))
-      });
-
-      // Combine and deduplicate results with proper weighting
-      const combinedResults = new Map<number, SearchResult>();
+      // For chatbot integration, use chunk-level hybrid search
+      const chunkResults = await this.performChunkLevelHybridSearch(query, userId, options, keywordWeight, vectorWeight);
       
-      // Add semantic results with vector weight
-      semanticResults.forEach(result => {
-        const weightedScore = result.similarity * vectorWeight;
-        combinedResults.set(result.id, {
-          ...result,
-          similarity: weightedScore
-        });
-      });
-
-      // Add keyword results with keyword weight, combine if already present
-      keywordResults.forEach(result => {
-        const weightedScore = result.similarity * keywordWeight;
-        if (combinedResults.has(result.id)) {
-          // Combine scores if document appears in both results
-          const existing = combinedResults.get(result.id)!;
-          existing.similarity = Math.min(1.0, existing.similarity + weightedScore);
-        } else {
-          combinedResults.set(result.id, {
-            ...result,
-            similarity: weightedScore
-          });
-        }
-      });
-
-      // Sort by weighted similarity and return
-      return Array.from(combinedResults.values())
-        .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, options.limit || 20);
+      return chunkResults;
 
     } catch (error) {
       console.error("Error performing hybrid search:", error);
       throw new Error("Failed to perform hybrid search");
+    }
+  }
+
+  private async performChunkLevelHybridSearch(
+    query: string,
+    userId: string,
+    options: Omit<SearchOptions, "searchType">,
+    keywordWeight: number,
+    vectorWeight: number
+  ): Promise<SearchResult[]> {
+    try {
+      const { vectorService } = await import('./vectorService');
+      
+      // Get vector chunk results (already returns top chunks globally)
+      const vectorResults = await vectorService.searchDocuments(
+        query, 
+        userId, 
+        50, // Get more chunks to work with
+        options.specificDocumentIds
+      );
+
+      console.log(`Hybrid search: Got ${vectorResults.length} vector chunk results`);
+
+      // Extract search terms for keyword scoring
+      const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+      
+      // Calculate hybrid scores for each chunk
+      const hybridResults = vectorResults.map(result => {
+        const chunkText = result.document.content.toLowerCase();
+        
+        // Calculate keyword score (how many terms match in this chunk)
+        const matchingTerms = searchTerms.filter(term => chunkText.includes(term));
+        const keywordScore = matchingTerms.length / searchTerms.length;
+        
+        // Boost keyword score if it's a store location query (like "XOLO Bangkapi")
+        let boostedKeywordScore = keywordScore;
+        const storeKeywords = ['xolo', 'kamu', 'floor', 'ชั้น', 'บางกะปิ', 'bangkapi'];
+        const hasStoreKeyword = searchTerms.some(term => 
+          storeKeywords.some(storeKeyword => term.includes(storeKeyword) || storeKeyword.includes(term))
+        );
+        if (hasStoreKeyword && keywordScore > 0.5) {
+          boostedKeywordScore = Math.min(1.0, keywordScore + 0.3);
+        }
+
+        // Combine vector and keyword scores with weights
+        const hybridScore = (result.similarity * vectorWeight) + (boostedKeywordScore * keywordWeight);
+        
+        console.log(`Chunk from doc ${result.document.metadata.originalDocumentId}: vector=${result.similarity.toFixed(3)}, keyword=${keywordScore.toFixed(3)}, hybrid=${hybridScore.toFixed(3)}`);
+
+        return {
+          vectorResult: result,
+          hybridScore: hybridScore,
+          keywordScore: boostedKeywordScore
+        };
+      })
+      .sort((a, b) => b.hybridScore - a.hybridScore)
+      .slice(0, options.limit || 2); // Take only top N chunks globally
+
+      console.log(`Hybrid search: Selected top ${hybridResults.length} chunks globally`);
+
+      // Convert back to SearchResult format
+      const finalResults: SearchResult[] = [];
+      
+      for (const hybridResult of hybridResults) {
+        const originalDocId = parseInt(hybridResult.vectorResult.document.metadata.originalDocumentId);
+        
+        // Get original document metadata
+        const documents = await storage.getDocuments(userId, { limit: 1000 });
+        const originalDoc = documents.find(doc => doc.id === originalDocId);
+        
+        if (originalDoc) {
+          finalResults.push({
+            id: originalDocId,
+            name: originalDoc.name,
+            content: hybridResult.vectorResult.document.content, // Use chunk content
+            summary: originalDoc.summary,
+            aiCategory: originalDoc.aiCategory,
+            aiCategoryColor: originalDoc.aiCategoryColor,
+            similarity: hybridResult.hybridScore,
+            createdAt: originalDoc.createdAt.toISOString(),
+            categoryId: originalDoc.categoryId,
+            tags: originalDoc.tags,
+            fileSize: originalDoc.fileSize,
+            mimeType: originalDoc.mimeType,
+            isFavorite: originalDoc.isFavorite,
+            updatedAt: originalDoc.updatedAt?.toISOString() || null,
+            userId: originalDoc.userId
+          });
+        }
+      }
+
+      return finalResults;
+
+    } catch (error) {
+      console.error("Error performing chunk-level hybrid search:", error);
+      throw new Error("Failed to perform chunk-level hybrid search");
     }
   }
 }

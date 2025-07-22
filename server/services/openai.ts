@@ -399,7 +399,7 @@ export async function generateChatResponse(
           documents[0]?.userId,
           {
             searchType: 'hybrid',
-            limit: 10,
+            limit: 2, // Only get top 2 chunks globally as requested
             keywordWeight,
             vectorWeight,
             specificDocumentIds: documentIds // Filter to only agent's documents
@@ -428,7 +428,7 @@ export async function generateChatResponse(
         const vectorResults = await vectorService.searchDocuments(
           query, 
           documents[0]?.userId, 
-          10,
+          2, // Only get top 2 chunks as requested
           specificDocumentId ? [specificDocumentId] : documentIds
         );
 

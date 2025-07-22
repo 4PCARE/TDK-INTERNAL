@@ -202,28 +202,10 @@ export class VectorService {
         })
         .sort((a, b) => b.similarity - a.similarity);
 
-      // Group by original document ID and take top chunks per document
-      const documentGroups = new Map<string, Array<{ document: VectorDocument; similarity: number }>>();
-
-      allResults.forEach(result => {
-        const originalDocId = result.document.metadata.originalDocumentId || result.document.id;
-        if (!documentGroups.has(originalDocId)) {
-          documentGroups.set(originalDocId, []);
-        }
-        documentGroups.get(originalDocId)!.push(result);
-      });
-
-      // Take top 5 chunks per document for better coverage
-      const combinedResults: Array<{ document: VectorDocument; similarity: number }> = [];
-
-      documentGroups.forEach((chunks, docId) => {
-        // Sort chunks by similarity and take top 5 per document (increased from 3)
-        const topChunks = chunks
-          .sort((a, b) => b.similarity - a.similarity)
-          .slice(0, 5);
-
-        combinedResults.push(...topChunks);
-      });
+      // For chatbot integration, we want top chunks globally, not per document
+      console.log(`VectorService: Taking top ${limit} chunks globally from ${allResults.length} total chunks`);
+      
+      const combinedResults = allResults.slice(0, limit);
 
       // Sort by similarity and apply final limit
       const finalResults = combinedResults
