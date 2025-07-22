@@ -1223,7 +1223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const query = req.query.query as string;
       const searchType =
-        (req.query.type as "keyword" | "semantic" | "hybrid") || "keyword";
+        (req.query.type as "keyword" | "semantic" | "hybrid") || "hybrid";
 
       console.log(
         `Search request - User: ${userId}, Query: "${query}", Type: ${searchType}`,
@@ -1288,7 +1288,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           results = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
-            { searchType: "hybrid" },
+            { 
+              searchType: "hybrid",
+              keywordWeight: 0.4,
+              vectorWeight: 0.6
+            },
           );
           console.log(`Hybrid search returned ${results.length} results`);
         } catch (hybridError) {
@@ -2055,11 +2059,14 @@ ${document.summary}`;
         documents = await storage.getDocuments(userId, { limit: 100 });
       }
 
-      // Generate AI response with specific document context
+      // Generate AI response with specific document context using hybrid search
       const aiResponse = await generateChatResponse(
         content,
         documents,
         documentId ? documentId : undefined,
+        'hybrid',
+        0.4, // keywordWeight
+        0.6  // vectorWeight
       );
 
       // Create assistant message

@@ -30,6 +30,8 @@ export interface SearchOptions {
     from: Date;
     to: Date;
   };
+  keywordWeight?: number;
+  vectorWeight?: number;
 }
 
 export class SemanticSearchServiceV2 {
@@ -260,37 +262,51 @@ export class SemanticSearchServiceV2 {
     options: Omit<SearchOptions, "searchType">
   ): Promise<SearchResult[]> {
     try {
+      const keywordWeight = options.keywordWeight || 0.4;
+      const vectorWeight = options.vectorWeight || 0.6;
+      
+      console.log(`Hybrid search using weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
+
       // Get semantic results
       const semanticResults = await this.performSemanticSearch(query, userId, {
         ...options,
-        limit: Math.floor((options.limit || 20) * 0.7)
+        limit: Math.ceil((options.limit || 20) * (vectorWeight / (keywordWeight + vectorWeight)))
       });
 
       // Get keyword results
       const keywordResults = await this.performKeywordSearch(query, userId, {
         ...options,
-        limit: Math.floor((options.limit || 20) * 0.3)
+        limit: Math.ceil((options.limit || 20) * (keywordWeight / (keywordWeight + vectorWeight)))
       });
 
-      // Combine and deduplicate results
+      // Combine and deduplicate results with proper weighting
       const combinedResults = new Map<number, SearchResult>();
       
-      // Add semantic results first (higher priority)
+      // Add semantic results with vector weight
       semanticResults.forEach(result => {
-        combinedResults.set(result.id, result);
+        const weightedScore = result.similarity * vectorWeight;
+        combinedResults.set(result.id, {
+          ...result,
+          similarity: weightedScore
+        });
       });
 
-      // Add keyword results if not already present
+      // Add keyword results with keyword weight, combine if already present
       keywordResults.forEach(result => {
-        if (!combinedResults.has(result.id)) {
+        const weightedScore = result.similarity * keywordWeight;
+        if (combinedResults.has(result.id)) {
+          // Combine scores if document appears in both results
+          const existing = combinedResults.get(result.id)!;
+          existing.similarity = Math.min(1.0, existing.similarity + weightedScore);
+        } else {
           combinedResults.set(result.id, {
             ...result,
-            similarity: result.similarity * 0.8 // Slightly lower priority for keyword matches
+            similarity: weightedScore
           });
         }
       });
 
-      // Sort by similarity and return
+      // Sort by weighted similarity and return
       return Array.from(combinedResults.values())
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, options.limit || 20);

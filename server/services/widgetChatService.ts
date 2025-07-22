@@ -43,39 +43,39 @@ export class WidgetChatService {
         // Use hybrid search (keyword + vector) instead of pulling full documents
         try {
           const { vectorService } = await import('./vectorService');
-          
+
           // Get a sample document to get userId for vector search
           const sampleDoc = await storage.getDocumentForWidget(agentDocs[0].documentId);
           if (sampleDoc && sampleDoc.userId) {
             // Search for relevant chunks ONLY from agent's documents using document scope restriction
             const agentDocIds = agentDocs.map(d => d.documentId);
             const vectorResults = await vectorService.searchDocuments(userMessage, sampleDoc.userId, 15, agentDocIds);
-            
+
             console.log(`🔍 Widget Chat: Found ${vectorResults.length} relevant chunks from ${agentDocIds.length} assigned documents`);
-            
+
             if (vectorResults.length > 0) {
               // Group by document and build context from relevant chunks
               const docChunks = new Map<string, {name: string, chunks: string[]}>();
-              
+
               for (const result of vectorResults) {
                 const docId = result.document.metadata.originalDocumentId || result.document.id;
                 const document = await storage.getDocumentForWidget(parseInt(docId));
                 const docName = document?.name || 'Unknown Document';
-                
+
                 if (!docChunks.has(docId)) {
                   docChunks.set(docId, { name: docName, chunks: [] });
                 }
                 docChunks.get(docId)!.chunks.push(result.document.content);
               }
-              
+
               // Build context from relevant chunks
               docChunks.forEach(({ name, chunks }) => {
                 documentContents.push(
                   `=== เอกสาร: ${name} ===\n${chunks.join('\n---\n')}\n`
                 );
               });
-              
-              console.log(`📄 Widget Chat: Using vector search with ${relevantResults.length} relevant chunks from ${docChunks.size} documents`);
+
+              console.log(`📄 Widget Chat: Using vector search with ${vectorResults.length} relevant chunks from ${docChunks.size} documents`);
             } else {
               console.log(`📄 Widget Chat: No relevant chunks found, using fallback approach`);
               // Fallback to original approach with first few documents
@@ -178,7 +178,7 @@ export class WidgetChatService {
       console.log(`💾 Memory Limit: ${memoryLimit}`);
       console.log(`📜 Total Conversation History: ${conversationHistory.length} messages`);
       console.log(`📤 Messages to OpenAI: ${messages.length}`);
-      
+
       // Document content analysis
       if (documentContents.length > 0) {
         console.log(`\n📋 DOCUMENT CONTENT ANALYSIS:`);
@@ -191,19 +191,19 @@ export class WidgetChatService {
       } else {
         console.log(`\n📋 NO DOCUMENTS LINKED TO AGENT`);
       }
-      
+
       // System prompt analysis
       console.log(`\n🧠 SYSTEM PROMPT ANALYSIS:`);
       console.log(`  Base System Prompt: ${agent.systemPrompt?.length || 0} chars`);
       console.log(`  Document Context: ${contextPrompt.length} chars`);
       console.log(`  Total System Prompt: ${systemPrompt.length} chars`);
-      
+
       // Conversation history analysis
       console.log(`\n💬 CONVERSATION HISTORY ANALYSIS:`);
       console.log(`  Raw History: ${conversationHistory.length} messages`);
       console.log(`  Filtered History: ${recentHistory.length} messages (user/assistant only)`);
       console.log(`  Applied Memory Limit: ${memoryLimit} messages`);
-      
+
       if (recentHistory.length > 0) {
         console.log(`  Recent History Details:`);
         recentHistory.forEach((msg, index) => {
@@ -211,19 +211,19 @@ export class WidgetChatService {
           console.log(`    ${index + 1}. ${msg.role}: ${preview}${msg.content.length > 100 ? '...' : ''} (${msg.content.length} chars)`);
         });
       }
-      
+
       // Final OpenAI request analysis
       console.log(`\n📨 FINAL OPENAI REQUEST ANALYSIS:`);
       console.log(`  Total Messages: ${messages.length}`);
       console.log(`  System Message: ${messages[0].content.length} chars`);
       console.log(`  History Messages: ${messages.length - 2} messages`);
       console.log(`  User Message: ${userMessage.length} chars`);
-      
+
       // Token estimation
       const totalContent = messages.map(m => m.content).join('');
       const estimatedTokens = Math.ceil(totalContent.length / 4);
       console.log(`  Estimated Total Tokens: ~${estimatedTokens}`);
-      
+
       // Check for potential issues
       if (estimatedTokens > 8000) {
         console.log(`  ⚠️  WARNING: High token count, may hit limits`);
@@ -231,7 +231,7 @@ export class WidgetChatService {
       if (documentContents.length > 0 && documentContents.every(doc => doc.includes("..."))) {
         console.log(`  ⚠️  WARNING: All documents truncated at 2000 chars`);
       }
-      
+
       console.log(`\n📤 SENDING REQUEST TO OPENAI...`);
       console.log(`=== END DEBUG ===\n`);
 
@@ -301,13 +301,13 @@ export class WidgetChatService {
         if (jsonMatch) {
           return JSON.parse(jsonMatch[1]);
         }
-        
+
         // Try to find JSON-like content between braces
         const braceMatch = response.match(/\{[\s\S]*\}/);
         if (braceMatch) {
           return JSON.parse(braceMatch[0]);
         }
-        
+
         throw new Error("No valid JSON found");
       } catch (parseError) {
         console.error("Failed to extract JSON from response:", response);

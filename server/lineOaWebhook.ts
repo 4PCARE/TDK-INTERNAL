@@ -138,7 +138,7 @@ export async function sendLineImageMessage(
     const protocol = 'https:';
     const host = process.env.REPLIT_DOMAINS || 'localhost:5000';
     const absoluteImageUrl = `${protocol}//${host}${imageUrl}`;
-    
+
     console.log('📸 Sending Line image message:', {
       userId,
       absoluteImageUrl,
@@ -358,7 +358,7 @@ async function getAiResponseDirectly(
     // Get agent's documents for context using vector search
     const agentDocs = await storage.getAgentChatbotDocuments(agentId, userId);
     let contextPrompt = "";
-    
+
     // Initialize documentContents in the correct scope
     const documentContents: string[] = [];
 
@@ -368,35 +368,35 @@ async function getAiResponseDirectly(
       // Use hybrid search (keyword + vector) instead of pulling full documents
       try {
         const { vectorService } = await import('./services/vectorService');
-        
+
         // Search for relevant chunks ONLY from agent's documents using document scope restriction
         const agentDocIds = agentDocs.map(d => d.documentId);
         const vectorResults = await vectorService.searchDocuments(userMessage, userId, 15, agentDocIds);
-        
+
         console.log(`🔍 Line OA: Found ${vectorResults.length} relevant chunks from ${agentDocIds.length} assigned documents`);
-        
+
         if (vectorResults.length > 0) {
           // Group by document and build context from relevant chunks
           const docChunks = new Map<string, {name: string, chunks: string[]}>();
-          
+
           for (const result of vectorResults) {
             const docId = result.document.metadata.originalDocumentId || result.document.id;
             const document = await storage.getDocument(parseInt(docId), userId);
             const docName = document?.name || 'Unknown Document';
-            
+
             if (!docChunks.has(docId)) {
               docChunks.set(docId, { name: docName, chunks: [] });
             }
             docChunks.get(docId)!.chunks.push(result.document.content);
           }
-          
+
           // Build context from relevant chunks
           docChunks.forEach(({ name, chunks }) => {
             documentContents.push(
               `=== เอกสาร: ${name} ===\n${chunks.join('\n---\n')}\n`
             );
           });
-          
+
           console.log(`📄 Line OA: Using vector search with ${vectorResults.length} relevant chunks from ${docChunks.size} documents`);
         } else {
           console.log(`📄 Line OA: No relevant chunks found, using fallback approach`);
@@ -435,7 +435,7 @@ async function getAiResponseDirectly(
 
       if (documentContents.length > 0) {
         contextPrompt = `\n\nเอกสารอ้างอิงสำหรับการตอบคำถาม:\n${documentContents.join("\n")}
-        
+
 กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และระบุแหล่งที่มาของข้อมูลด้วย`;
         console.log(
           `✅ Built context with ${documentContents.length} documents`,
@@ -459,10 +459,12 @@ async function getAiResponseDirectly(
         console.log(
           `✅ Image analysis found: ${imageContext.substring(0, 200)}...`,
         );
-        
+
         // Debug: Show all system messages for analysis
         const systemMessages = chatHistory.filter(
-          (msg) => msg.messageType === "system" && msg.metadata?.messageType === "image_analysis"
+          (msg) =>
+            msg.messageType === "system" &&
+            msg.metadata?.messageType === "image_analysis"
         );
         console.log(`🔍 Found ${systemMessages.length} image analysis messages in chat history`);
         systemMessages.forEach((msg, index) => {
@@ -470,7 +472,7 @@ async function getAiResponseDirectly(
         });
       } else {
         console.log(`ℹ️ No recent image analysis found in chat history`);
-        
+
         // Debug: Show what system messages we have
         const allSystemMessages = chatHistory.filter((msg) => msg.messageType === "system");
         console.log(`🔍 Total system messages in history: ${allSystemMessages.length}`);
@@ -534,7 +536,7 @@ ${imageContext}`;
       console.log(`🛡️ === GUARDRAILS SYSTEM ENABLED ===`);
       console.log(`🛡️ Agent ID: ${agentId}, Agent Name: ${agent.name}`);
       console.log(`🛡️ Guardrails Configuration:`, JSON.stringify(agent.guardrailsConfig, null, 2));
-      
+
       // Show which guardrails features are enabled/disabled
       const features = [];
       if (agent.guardrailsConfig.contentFiltering?.enabled) {
@@ -566,7 +568,7 @@ ${imageContext}`;
       if (agent.guardrailsConfig.businessContext?.enabled) {
         features.push(`Business Context: Professional tone required`);
       }
-      
+
       console.log(`🛡️ Active Features: ${features.join(' | ')}`);
       console.log(`🛡️ === END GUARDRAILS INITIALIZATION ===`);
     } else {
@@ -577,18 +579,18 @@ ${imageContext}`;
     if (guardrailsService) {
       console.log(`🔍 === STARTING INPUT VALIDATION ===`);
       console.log(`📝 Original User Message: "${enhancedUserMessage}"`);
-      
+
       const inputValidation = await guardrailsService.evaluateInput(enhancedUserMessage, {
         documents: documentContents,
         agent: agent
       });
-      
+
       console.log(`📊 Input Validation Summary:`);
       console.log(`   ✓ Allowed: ${inputValidation.allowed}`);
       console.log(`   ✓ Confidence: ${inputValidation.confidence}`);
       console.log(`   ✓ Triggered Rules: ${inputValidation.triggeredRules.join(', ') || 'None'}`);
       console.log(`   ✓ Reason: ${inputValidation.reason || 'No issues found'}`);
-      
+
       if (!inputValidation.allowed) {
         console.log(`🚫 === INPUT BLOCKED BY GUARDRAILS ===`);
         console.log(`🚫 Blocking Reason: ${inputValidation.reason}`);
@@ -598,7 +600,7 @@ ${imageContext}`;
         console.log(`🚫 Returning blocked message: "${blockedMessage}"`);
         return blockedMessage;
       }
-      
+
       // Use modified content if privacy protection applied masking
       if (inputValidation.modifiedContent) {
         console.log(`🔒 User input modified for privacy protection`);
@@ -606,7 +608,7 @@ ${imageContext}`;
         console.log(`🔒 Modified: "${inputValidation.modifiedContent}"`);
         enhancedUserMessage = inputValidation.modifiedContent;
       }
-      
+
       console.log(`✅ INPUT VALIDATION PASSED - Proceeding to OpenAI`);
     } else {
       console.log(`⏭️ Skipping input validation - Guardrails disabled`);
@@ -642,19 +644,19 @@ ${imageContext}`;
     if (guardrailsService) {
       console.log(`🔍 === STARTING OUTPUT VALIDATION ===`);
       console.log(`🤖 Original AI Response: "${aiResponse}"`);
-      
+
       const outputValidation = await guardrailsService.evaluateOutput(aiResponse, {
         documents: documentContents,
         agent: agent,
         userQuery: userMessage
       });
-      
+
       console.log(`📊 Output Validation Summary:`);
       console.log(`   ✓ Allowed: ${outputValidation.allowed}`);
       console.log(`   ✓ Confidence: ${outputValidation.confidence}`);
       console.log(`   ✓ Triggered Rules: ${outputValidation.triggeredRules.join(', ') || 'None'}`);
       console.log(`   ✓ Reason: ${outputValidation.reason || 'No issues found'}`);
-      
+
       if (!outputValidation.allowed) {
         console.log(`🚫 === OUTPUT BLOCKED BY GUARDRAILS ===`);
         console.log(`🚫 Blocking Reason: ${outputValidation.reason}`);
@@ -670,7 +672,7 @@ ${imageContext}`;
         console.log(`🔒 Modified: "${outputValidation.modifiedContent}"`);
         aiResponse = outputValidation.modifiedContent;
       }
-      
+
       console.log(`✅ OUTPUT VALIDATION PASSED - Final response ready`);
       console.log(`📝 Final AI Response: "${aiResponse}"`);
     } else {
@@ -801,7 +803,7 @@ export async function handleLineWebhook(req: Request, res: Response) {
     console.log("📋 X-Line-Signature header:", signature);
     console.log("🔗 Integration ID:", lineIntegration.id);
     console.log("🏷️ Integration name:", lineIntegration.name);
-    
+
     // Generate expected hash for comparison
     const expectedHash = crypto
       .createHmac("sha256", lineIntegration.channelSecret!)
@@ -912,14 +914,14 @@ export async function handleLineWebhook(req: Request, res: Response) {
         // Handle image messages with immediate acknowledgment
         if (message.type === "image" && lineIntegration.channelAccessToken) {
           console.log("🖼️ Image message detected - sending immediate acknowledgment");
-          
+
           // 1. Send immediate acknowledgment
           await sendLineReply(
             replyToken,
             "ได้รับรูปภาพแล้ว ขอเวลาตรวจสอบสักครู่นะคะ",
             lineIntegration.channelAccessToken
           );
-          
+
           // 2. Process image and get analysis
           if (chatHistoryId && lineIntegration.agentId) {
             console.log("🖼️ Starting image processing...");
@@ -937,7 +939,7 @@ export async function handleLineWebhook(req: Request, res: Response) {
                 chatHistoryId,
               );
               console.log("✅ Image processing completed successfully");
-              
+
               // Get the SPECIFIC image analysis for THIS message
               const updatedChatHistory = await storage.getChatHistory(
                 lineIntegration.userId,
@@ -946,18 +948,18 @@ export async function handleLineWebhook(req: Request, res: Response) {
                 lineIntegration.agentId!,
                 10 // Get more messages to find the right analysis
               );
-              
+
               // Find the image analysis that corresponds to THIS specific message
               const imageAnalysisMessage = updatedChatHistory.find(msg => 
                 msg.messageType === 'system' && 
                 msg.metadata?.messageType === 'image_analysis' &&
                 msg.metadata?.relatedImageMessageId === message.id
               );
-              
+
               if (imageAnalysisMessage) {
                 const imageAnalysisResult = imageAnalysisMessage.content.replace('[การวิเคราะห์รูปภาพ] ', '');
                 console.log(`🔍 Found specific image analysis for message ${message.id}: ${imageAnalysisResult.substring(0, 100)}...`);
-                
+
                 // 3. Generate AI response with image analysis
                 const contextMessage = `ผู้ใช้ส่งรูปภาพมา นี่คือผลการวิเคราะห์รูปภาพ:
 
@@ -972,14 +974,14 @@ ${imageAnalysisResult}
                   "lineoa",
                   event.source.userId,
                 );
-                
+
                 // 4. Send follow-up message with AI analysis
                 await sendLinePushMessage(
                   event.source.userId,
                   aiResponse,
                   lineIntegration.channelAccessToken
                 );
-                
+
                 // Save the assistant response
                 await storage.createChatHistory({
                   userId: lineIntegration.userId,
@@ -990,9 +992,9 @@ ${imageAnalysisResult}
                   content: aiResponse,
                   metadata: { relatedImageMessageId: message.id },
                 });
-                
+
                 console.log("✅ Image analysis response sent successfully");
-                
+
               } else {
                 console.log("⚠️ No specific image analysis found for this message");
                 await sendLinePushMessage(
@@ -1001,7 +1003,7 @@ ${imageAnalysisResult}
                   lineIntegration.channelAccessToken
                 );
               }
-              
+
             } catch (error) {
               console.error("⚠️ Error processing image message:", error);
               await sendLinePushMessage(
@@ -1011,7 +1013,7 @@ ${imageAnalysisResult}
               );
             }
           }
-          
+
           // Broadcast to WebSocket for real-time updates
           if (typeof (global as any).broadcastToAgentConsole === "function") {
             (global as any).broadcastToAgentConsole({
@@ -1027,7 +1029,7 @@ ${imageAnalysisResult}
               }
             });
           }
-          
+
           // Skip normal AI response processing for images
           continue;
         }
@@ -1035,14 +1037,89 @@ ${imageAnalysisResult}
         // Get AI response with chat history (only for text messages or provide context for multimedia)
         if (lineIntegration.agentId) {
           let contextMessage = userMessage;
-          
+
           if (message.type === "sticker") {
             contextMessage = "ผู้ใช้ส่งสติ๊กเกอร์มา กรุณาตอบอย่างเป็นมิตรและถามว่ามีอะไรให้ช่วย";
           }
 
+          const { vectorService } = await import('./services/vectorService');
+          const agentId = lineIntegration.agentId;
+          const text = userMessage;
+          const agentDocuments = await storage.getAgentChatbotDocuments(agentId, lineIntegration.userId);
+          let relevantContent = "";
+
+        // Use hybrid search for better context
+        try {
+          console.log(`LINE OA: Performing hybrid search for query: "${text}" with weights: keyword=0.4, vector=0.6`);
+
+          // Use semantic search V2 service for hybrid search
+          const { semanticSearchServiceV2 } = await import('./services/semanticSearchV2');
+
+          // Create a temporary user ID for LINE OA search (using agent ID)
+          const searchUserId = `lineoa_${agentId}`;
+
+          // First try to get search results
+          let searchResults = [];
+          try {
+            searchResults = await semanticSearchServiceV2.searchDocuments(
+              text,
+              searchUserId,
+              {
+                searchType: 'hybrid',
+                limit: 10,
+                keywordWeight: 0.4,
+                vectorWeight: 0.6
+              }
+            );
+          } catch (searchError) {
+            console.log("LINE OA: Semantic search failed, using vector fallback");
+            // Fallback to vector search
+            const vectorResults = await vectorService.searchDocuments(
+              text, 
+              null, // LINE OA doesn't have userId
+              5,
+              undefined,
+              agentDocuments.map(doc => doc.id) // Limit to agent's documents
+            );
+
+            if (vectorResults.length > 0) {
+              console.log(`LINE OA: Found ${vectorResults.length} vector results`);
+              relevantContent = vectorResults
+                .slice(0, 3)
+                .map(result => result.document.content.substring(0, 50000))
+                .join("\n\n");
+            }
+          }
+
+          if (searchResults.length > 0) {
+            console.log(`LINE OA: Found ${searchResults.length} hybrid search results`);
+            relevantContent = searchResults
+              .slice(0, 3)
+              .map(result => result.content.substring(0, 50000))
+              .join("\n\n");
+          } else if (!relevantContent) {
+            console.log("LINE OA: No search results found, using agent document content");
+            relevantContent = agentDocuments
+              .map(doc => doc.content || doc.summary || '')
+              .filter(content => content.length > 0)
+              .slice(0, 3)
+              .map(content => content.substring(0, 50000))
+              .join("\n\n");
+          }
+        } catch (searchError) {
+          console.error("LINE OA: Hybrid search failed:", searchError);
+          console.log("LINE OA: Falling back to agent document content");
+          relevantContent = agentDocuments
+            .map(doc => doc.content || doc.summary || '')
+            .filter(content => content.length > 0)
+            .slice(0, 3)
+            .map(content => content.substring(0, 50000))
+            .join("\n\n");
+        }
+
           // Get AI response WITHOUT saving history (it's already handled in getAiResponse)
           const aiResponse = await getAiResponseDirectly(
-            contextMessage,
+            `${contextMessage}\n${relevantContent}`,
             lineIntegration.agentId,
             lineIntegration.userId,
             "lineoa",
