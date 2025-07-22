@@ -382,40 +382,37 @@ async function getAiResponseDirectly(
     if (agentDocs.length > 0) {
       console.log(`📚 Found ${agentDocs.length} documents for agent`);
 
-      // Use hybrid search (keyword + vector) instead of pulling full documents
+      // Use hybrid search (keyword + vector) with only top 2 chunks globally
       try {
-        const { vectorService } = await import('./services/vectorService');
+        const { semanticSearchServiceV2 } = await import('./services/semanticSearchV2');
 
-        // Search for relevant chunks ONLY from agent's documents using document scope restriction
+        // Search for relevant chunks ONLY from agent's documents using hybrid search
         const agentDocIds = agentDocs.map(d => d.documentId);
-        console.log(`LINE OA: Restricting vector search to agent's ${agentDocIds.length} documents: [${agentDocIds.join(', ')}]`);
-        const vectorResults = await vectorService.searchDocuments(userMessage, userId, 15, agentDocIds);
-
-        console.log(`🔍 Line OA: Found ${vectorResults.length} relevant chunks from ${agentDocIds.length} assigned documents`);
-
-        if (vectorResults.length > 0) {
-          // Group by document and build context from relevant chunks
-          const docChunks = new Map<string, {name: string, chunks: string[]}>();
-
-          for (const result of vectorResults) {
-            const docId = result.document.metadata.originalDocumentId || result.document.id;
-            const document = await storage.getDocument(parseInt(docId), userId);
-            const docName = document?.name || 'Unknown Document';
-
-            if (!docChunks.has(docId)) {
-              docChunks.set(docId, { name: docName, chunks: [] });
-            }
-            docChunks.get(docId)!.chunks.push(result.document.content);
+        console.log(`LINE OA: Using hybrid search with agent's ${agentDocIds.length} documents: [${agentDocIds.join(', ')}]`);
+        
+        const hybridResults = await semanticSearchServiceV2.searchDocuments(
+          userMessage,
+          userId,
+          {
+            searchType: 'hybrid',
+            limit: 2, // Only get top 2 chunks globally as requested
+            keywordWeight: 0.4,
+            vectorWeight: 0.6,
+            specificDocumentIds: agentDocIds
           }
+        );
 
-          // Build context from relevant chunks
-          docChunks.forEach(({ name, chunks }) => {
+        console.log(`🔍 Line OA: Found ${hybridResults.length} relevant chunks using hybrid search`);
+
+        if (hybridResults.length > 0) {
+          // Use only the content from the top 2 chunks
+          hybridResults.forEach((result, index) => {
             documentContents.push(
-              `=== เอกสาร: ${name} ===\n${chunks.join('\n---\n')}\n`
+              `=== เอกสาร: ${result.name} (Chunk ${index + 1}) ===\n${result.content}\n`
             );
           });
 
-          console.log(`📄 Line OA: Using vector search with ${vectorResults.length} relevant chunks from ${docChunks.size} documents`);
+          console.log(`📄 Line OA: Using hybrid search with ${hybridResults.length} top chunks globally (Total chars: ${documentContents.join('').length})`);
         } else {
           console.log(`📄 Line OA: No relevant chunks found, using fallback approach`);
           // Fallback to original approach with first few documents
