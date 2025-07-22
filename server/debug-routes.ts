@@ -6,7 +6,21 @@ const router = express.Router();
 
 router.post("/debug/ai-input", async (req, res) => {
   try {
+    res.setHeader('Content-Type', 'application/json');
+    
+    if (!req.body) {
+      return res.status(400).json({ error: "Request body is required" });
+    }
+    
     const { userMessage, specificDocumentId, userId, searchType = 'vector', keywordWeight = 0.3, vectorWeight = 0.7 } = req.body;
+
+    if (!userMessage || !userId) {
+      return res.status(400).json({ 
+        error: "Missing required parameters",
+        required: ["userMessage", "userId"],
+        received: { userMessage: !!userMessage, userId: !!userId }
+      });
+    }
 
     console.log(`=== DEBUG AI INPUT FOR QUERY: "${userMessage}" ===`);
     console.log(`Document ID: ${specificDocumentId}, User ID: ${userId}`);
@@ -438,7 +452,12 @@ Answer questions specifically about this document. Provide detailed analysis, ex
 
   } catch (error) {
     console.error("Debug error:", error);
-    res.status(500).json({ error: "Debug failed" });
+    res.setHeader('Content-Type', 'application/json');
+    res.status(500).json({ 
+      error: "Debug failed", 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 

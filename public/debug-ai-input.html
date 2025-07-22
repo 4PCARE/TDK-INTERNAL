@@ -246,11 +246,19 @@
             })
           });
 
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            throw new Error(`Expected JSON but received ${contentType}. Response: ${text.substring(0, 200)}...`);
+          }
+
           const data = await response.json();
 
-          if (response.ok) {
-              displayResults(data);
-          } else {
+          if (data.error) {
               results.innerHTML = `
                   <div class="container">
                       <div class="result" style="border-left-color: #dc3545; background: #f8d7da;">
@@ -259,6 +267,8 @@
                       </div>
                   </div>
               `;
+          } else {
+              displayResults(data);
           }
         } catch (error) {
           results.innerHTML = `
