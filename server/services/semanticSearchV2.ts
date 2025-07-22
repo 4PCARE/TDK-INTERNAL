@@ -147,24 +147,48 @@ export class SemanticSearchServiceV2 {
     try {
       const documents = await storage.searchDocuments(userId, query);
       
-      return documents.map(doc => ({
-        id: doc.id,
-        name: doc.name,
-        content: doc.content || "",
-        summary: doc.summary,
-        aiCategory: doc.aiCategory,
-        aiCategoryColor: doc.aiCategoryColor,
-        similarity: 0.8, // Default similarity for keyword matches
-        createdAt: doc.createdAt.toISOString(),
-        // Include all fields needed for proper display (matching DocumentCard interface)
-        categoryId: doc.categoryId,
-        tags: doc.tags,
-        fileSize: doc.fileSize, // Use fileSize instead of size
-        mimeType: doc.mimeType, // Use mimeType instead of fileType
-        isFavorite: doc.isFavorite,
-        updatedAt: doc.updatedAt?.toISOString() || null,
-        userId: doc.userId
-      }));
+      // Calculate keyword matching score for each document
+      const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+      
+      return documents.map(doc => {
+        // Calculate how many keywords match in this document
+        const docText = [
+          doc.name || "",
+          doc.content || "",
+          doc.summary || "",
+          doc.aiCategory || "",
+          ...(doc.tags || [])
+        ].join(" ").toLowerCase();
+        
+        const matchingTerms = searchTerms.filter(term => 
+          docText.includes(term.toLowerCase())
+        );
+        
+        // Calculate similarity score based on keyword match ratio
+        // If 3/4 keywords match = 0.75, if 2/4 keywords match = 0.50, etc.
+        const similarity = matchingTerms.length / searchTerms.length;
+        
+        console.log(`Document ${doc.id}: ${matchingTerms.length}/${searchTerms.length} keywords matched, similarity: ${similarity.toFixed(2)}`);
+        
+        return {
+          id: doc.id,
+          name: doc.name,
+          content: doc.content || "",
+          summary: doc.summary,
+          aiCategory: doc.aiCategory,
+          aiCategoryColor: doc.aiCategoryColor,
+          similarity: similarity,
+          createdAt: doc.createdAt.toISOString(),
+          // Include all fields needed for proper display (matching DocumentCard interface)
+          categoryId: doc.categoryId,
+          tags: doc.tags,
+          fileSize: doc.fileSize, // Use fileSize instead of size
+          mimeType: doc.mimeType, // Use mimeType instead of fileType
+          isFavorite: doc.isFavorite,
+          updatedAt: doc.updatedAt?.toISOString() || null,
+          userId: doc.userId
+        };
+      }).sort((a, b) => b.similarity - a.similarity); // Sort by similarity score descending
     } catch (error) {
       console.error("Error performing keyword search:", error);
       throw new Error("Failed to perform keyword search");

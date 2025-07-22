@@ -567,6 +567,11 @@ export class DatabaseStorage implements IStorage {
 
     console.log(`Search terms: ${searchTerms.join(', ')}`);
 
+    if (searchTerms.length === 0) {
+      return [];
+    }
+
+    // For proper keyword search, we want documents that contain ALL search terms
     // Build search conditions for each term using ILIKE for case-insensitive search
     const searchConditions = searchTerms.map(term => 
       or(
@@ -581,16 +586,11 @@ export class DatabaseStorage implements IStorage {
       )
     );
 
-    let whereClause;
-
-    if (searchConditions.length > 0) {
-      whereClause = and(
-        eq(documents.userId, userId),
-        or(...searchConditions)
-      );
-    } else {
-      whereClause = eq(documents.userId, userId);
-    }
+    // Use AND logic to require ALL search terms to be present
+    const whereClause = and(
+      eq(documents.userId, userId),
+      ...searchConditions
+    );
 
     const results = await db
       .select()
@@ -599,7 +599,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(documents.updatedAt))
       .limit(50);
 
-    console.log(`Found ${results.length} documents matching search criteria`);
+    console.log(`Found ${results.length} documents matching search criteria (ALL terms required)`);
     return results;
   }
 
