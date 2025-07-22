@@ -434,9 +434,9 @@ export async function generateChatResponse(
 
         if (vectorResults.length > 0) {
           console.log(`Chat: Found ${vectorResults.length} vector results`);
-          // Use only top 2 chunks as requested for chatbot integration
+          // Use top 5 chunks for chatbot integration
           relevantContent = vectorResults
-            .slice(0, 2)
+            .slice(0, 5)
             .map(result => result.document.content)
             .join("\n\n");
         } else {

@@ -397,7 +397,7 @@ async function getAiResponseDirectly(
           userId,
           {
             searchType: "hybrid",
-            limit: 5, // Only get top 2 chunks globally as requested
+            limit: 5, // Get top 5 chunks globally
             keywordWeight: 0.4,
             vectorWeight: 0.6,
             specificDocumentIds: agentDocIds,
@@ -1231,14 +1231,14 @@ ${imageAnalysisResult}
                 `LINE OA: Pooled ${allChunks.length} chunks from ${agentDocIds.length} agent documents`,
               );
 
-              // Step 2: Sort ALL chunks globally by similarity and take top 2
+              // Step 2: Sort ALL chunks globally by similarity and take top 5
               allChunks.sort((a, b) => b.similarity - a.similarity);
-              const finalTop2Chunks = allChunks.slice(0, 2);
+              const finalTop5Chunks = allChunks.slice(0, 5);
 
               console.log(
-                `LINE OA: Selected globally top 2 chunks from entire pool:`,
+                `LINE OA: Selected globally top 5 chunks from entire pool:`,
               );
-              finalTop2Chunks.forEach((chunk, idx) => {
+              finalTop5Chunks.forEach((chunk, idx) => {
                 console.log(
                   `  ${idx + 1}. ${chunk.docName} - Similarity: ${chunk.similarity.toFixed(4)}`,
                 );
@@ -1251,8 +1251,8 @@ ${imageAnalysisResult}
               let documentContext = "";
               const maxContextLength = 8000; // String limit as final check
 
-              for (let i = 0; i < finalTop2Chunks.length; i++) {
-                const chunk = finalTop2Chunks[i];
+              for (let i = 0; i < finalTop5Chunks.length; i++) {
+                const chunk = finalTop5Chunks[i];
                 const chunkText = `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
 
                 // Check if adding this chunk would exceed the limit
@@ -1311,7 +1311,7 @@ ${documentContext}
                 completion.choices[0].message.content ||
                 "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
               console.log(
-                `✅ LINE OA: Generated response using top 2 chunks (${aiResponse.length} chars)`,
+                `✅ LINE OA: Generated response using top 5 chunks (${aiResponse.length} chars)`,
               );
             } else {
               console.log(
