@@ -140,26 +140,44 @@ export class VectorService {
     limit: number = 10
   ): Promise<Array<{ document: VectorDocument; similarity: number }>> {
     try {
-      // For specific store location queries, prioritize keyword search first
-      let keywordResults: any[] = [];
-      if (query.includes('XOLO') || query.includes('โซโล่') || query.includes('KAMU') || query.includes('คามุ')) {
-        console.log(`VectorService: Performing keyword search for store query: "${query}"`);
-        keywordResults = await db.select()
+      // Enhanced hybrid search for store location queries
+      const isStoreQuery = query.includes('XOLO') || query.includes('โซโล่') || query.includes('KAMU') || query.includes('คามุ') || 
+                          query.includes('บางกะปิ') || query.includes('Bangkapi') || query.includes('งามวงศ์วาน') || query.includes('ชั้น');
+      
+      if (isStoreQuery) {
+        console.log(`VectorService: Performing enhanced hybrid search for store query: "${query}"`);
+        
+        // Try multiple keyword combinations
+        const keywordConditions = [
+          sql`${documentVectors.content} ILIKE '%XOLO%'`,
+          sql`${documentVectors.content} ILIKE '%โซโล่%'`,
+          sql`${documentVectors.content} ILIKE '%KAMU%'`,
+          sql`${documentVectors.content} ILIKE '%คามุ%'`,
+          sql`${documentVectors.content} ILIKE '%บางกะปิ%'`,
+          sql`${documentVectors.content} ILIKE '%Bangkapi%'`,
+          sql`${documentVectors.content} ILIKE '%งามวงศ์วาน%'`,
+          sql`${documentVectors.content} ILIKE '%ชั้น 1%'`,
+          sql`${documentVectors.content} ILIKE '%Floor 1%'`,
+          sql`${documentVectors.content} ILIKE '%เดอะมอลล์%'`,
+          sql`${documentVectors.content} ILIKE '%The Mall%'`
+        ];
+        
+        const keywordResults = await db.select()
           .from(documentVectors)
           .where(
             and(
               eq(documentVectors.userId, userId),
-              or(
-                sql`${documentVectors.content} ILIKE '%XOLO%'`,
-                sql`${documentVectors.content} ILIKE '%โซโล่%'`,
-                sql`${documentVectors.content} ILIKE '%KAMU%'`,
-                sql`${documentVectors.content} ILIKE '%คามุ%'`
-              )
+              or(...keywordConditions)
             )
           )
-          .limit(10);
+          .limit(15);
         
-        console.log(`VectorService: Found ${keywordResults.length} keyword matches`);
+        console.log(`VectorService: Found ${keywordResults.length} keyword matches for store search`);
+        
+        // Debug: Log some sample results
+        keywordResults.slice(0, 3).forEach((result, i) => {
+          console.log(`  ${i+1}. Doc ${result.documentId}, Chunk ${result.chunkIndex}: ${result.content.substring(0, 100)}...`);
+        });
         
         // If we found keyword matches, prioritize them and boost their similarity scores
         if (keywordResults.length > 0) {
@@ -190,7 +208,9 @@ export class VectorService {
 
             // Calculate base similarity and boost it for keyword matches
             const baseSimilarity = this.cosineSimilarity(queryEmbedding, dbVector.embedding);
-            const boostedSimilarity = Math.min(1.0, baseSimilarity + 0.3); // Boost keyword matches
+            const boostedSimilarity = Math.min(1.0, baseSimilarity + 0.4); // Higher boost for store queries
+            
+            console.log(`  Boosted result: Doc ${dbVector.documentId}, Similarity: ${baseSimilarity.toFixed(4)} -> ${boostedSimilarity.toFixed(4)}`);
             
             return {
               document: vectorDoc,
