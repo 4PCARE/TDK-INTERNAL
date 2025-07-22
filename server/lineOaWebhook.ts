@@ -1106,17 +1106,77 @@ ${imageAnalysisResult}
             console.log(`LINE OA: Hybrid search found ${searchResults.length} relevant chunks from agent's documents`);
 
             if (searchResults.length > 0) {
-              // Take only top 2 chunks like debug page and other systems
-              const topChunks = searchResults.slice(0, 2);
+              // Step 1: Group search results by document and calculate document-level relevance scores
+              const documentGroups = new Map<string, {
+                docName: string,
+                chunks: Array<{content: string, similarity: number}>,
+                maxSimilarity: number,
+                avgSimilarity: number,
+                totalRelevanceScore: number
+              }>();
 
-              console.log(`LINE OA: Using top ${topChunks.length} chunks for context:`);
-              topChunks.forEach((chunk, idx) => {
-                console.log(`  ${idx + 1}. Similarity: ${chunk.similarity.toFixed(4)}, Content: ${chunk.content.substring(0, 100)}...`);
+              for (const result of searchResults) {
+                const docName = result.document.name;
+                if (!documentGroups.has(docName)) {
+                  documentGroups.set(docName, {
+                    docName,
+                    chunks: [],
+                    maxSimilarity: 0,
+                    avgSimilarity: 0,
+                    totalRelevanceScore: 0
+                  });
+                }
+                
+                const group = documentGroups.get(docName)!;
+                group.chunks.push({
+                  content: result.content,
+                  similarity: result.similarity
+                });
+                group.maxSimilarity = Math.max(group.maxSimilarity, result.similarity);
+              }
+
+              // Step 2: Calculate final scores for each document
+              documentGroups.forEach((group, docName) => {
+                const similarities = group.chunks.map(c => c.similarity);
+                group.avgSimilarity = similarities.reduce((a, b) => a + b, 0) / similarities.length;
+                
+                // Combined score: 70% max similarity + 30% average similarity
+                group.totalRelevanceScore = (group.maxSimilarity * 0.7) + (group.avgSimilarity * 0.3);
+                
+                console.log(`LINE OA Document Ranking - ${docName}:`);
+                console.log(`  Max similarity: ${group.maxSimilarity.toFixed(4)}`);
+                console.log(`  Avg similarity: ${group.avgSimilarity.toFixed(4)}`);
+                console.log(`  Total relevance: ${group.totalRelevanceScore.toFixed(4)}`);
+                console.log(`  Chunk count: ${group.chunks.length}`);
               });
 
-              // Build concise context from only top 2 chunks
-              const documentContext = topChunks
-                .map((result, index) => `=== ข้อมูลที่ ${index + 1} ===\nเอกสาร: ${result.document.name}\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${result.content}`)
+              // Step 3: Rank documents by relevance score and filter low-relevance ones
+              const rankedDocuments = Array.from(documentGroups.values())
+                .sort((a, b) => b.totalRelevanceScore - a.totalRelevanceScore);
+
+              // Filter out documents with very low relevance (threshold: 0.3)
+              const relevantDocuments = rankedDocuments.filter(doc => doc.totalRelevanceScore >= 0.3);
+              
+              console.log(`LINE OA: Filtered ${rankedDocuments.length - relevantDocuments.length} low-relevance documents`);
+              console.log(`LINE OA: Using top ${Math.min(2, relevantDocuments.length)} most relevant documents:`);
+
+              // Step 4: Take only top 2 most relevant documents
+              const topDocuments = relevantDocuments.slice(0, 2);
+              
+              topDocuments.forEach((doc, idx) => {
+                console.log(`  ${idx + 1}. ${doc.docName} - Score: ${doc.totalRelevanceScore.toFixed(4)}`);
+              });
+
+              // Step 5: Build context from top documents (1 best chunk per document)
+              const documentContext = topDocuments
+                .map((doc, index) => {
+                  // Get the best chunk from this document
+                  const bestChunk = doc.chunks.reduce((best, current) => 
+                    current.similarity > best.similarity ? current : best
+                  );
+                  
+                  return `=== เอกสารที่ ${index + 1}: ${doc.docName} ===\nคะแนนความเกี่ยวข้อง: ${doc.totalRelevanceScore.toFixed(3)}\nเนื้อหา: ${bestChunk.content}`;
+                })
                 .join('\n\n');
 
               // Generate AI response with focused document context
