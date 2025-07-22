@@ -317,6 +317,15 @@ router.post("/debug/ai-input", async (req, res) => {
             });
           }
 
+          // Get vector results using same logic as pure vector search
+          try {
+            vectorResults = await vectorService.searchDocuments(userMessage, userId, 3, [parseInt(specificDocumentId)]);
+            console.log(`DEBUG: Found ${vectorResults.length} vector results for hybrid search`);
+          } catch (vectorError) {
+            console.error("Vector search failed in hybrid mode:", vectorError);
+            vectorResults = [];
+          }
+
           // Get vector content
           if (vectorResults.length > 0) {
             const vWeight = searchType === 'weighted' ? vectorWeight : 0.5;
@@ -819,6 +828,15 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
                         chunkId: `kw-${doc.id}-sample`
                     });
                 }
+
+          // Get vector results using same logic as pure vector search
+          try {
+            vectorResults = await vectorService.searchDocuments(userMessage, userId, 3, [parseInt(documentId)]);
+            console.log(`DEBUG: Found ${vectorResults.length} vector results for hybrid search`);
+          } catch (vectorError) {
+            console.error("Vector search failed in hybrid mode:", vectorError);
+            vectorResults = [];
+          }
 
           // Get vector content
           if (vectorResults.length > 0) {
