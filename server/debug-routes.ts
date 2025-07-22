@@ -203,52 +203,117 @@ router.post("/debug/ai-input", async (req, res) => {
           let vectorResults = [];
           let combinedContent = [];
 
-          // First, get keyword matches if the document content contains search terms
+          // First, get keyword matches using the same logic as pure keyword search
           const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
           const docContent = doc.content || '';
           const docContentLower = docContent.toLowerCase();
 
-          if (searchTerms.some(term => docContentLower.includes(term))) {
-            console.log(`DEBUG: Found keyword matches in document ${doc.id}`);
-            keywordMatches.push({
-              content: docContent,
-              matchingTerms: searchTerms.filter(term => docContentLower.includes(term)),
-              totalTerms: searchTerms.length
-            });
-          }
+          console.log(`DEBUG: Searching for terms: ${searchTerms.join(', ')} in document ${doc.name}`);
 
-          // Then get vector search results
-          try {
-            const vectorSearchResults = await vectorService.searchDocuments(userMessage, userId, 5);
-            vectorResults = vectorSearchResults.filter(result => {
-              const resultDocId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
-              return resultDocId === parseInt(specificDocumentId);
-            });
-            console.log(`DEBUG: Found ${vectorResults.length} vector results for document ${doc.id}`);
-          } catch (error) {
-            console.error('DEBUG: Vector search failed:', error);
-          }
+          // Find all matches and their positions (same as pure keyword search)
+          let matchingSegments = [];
+          let hasMatches = false;
 
-          searchMetrics.keywordResults = keywordMatches.length;
-          searchMetrics.vectorResults = vectorResults.length;
+          // Search for individual terms
+          for (const term of searchTerms) {
+            let index = 0;
+            while ((index = docContentLower.indexOf(term, index)) !== -1) {
+              hasMatches = true;
+              // Extract context around the match (500 chars before and after)
+              const start = Math.max(0, index - 500);
+              const end = Math.min(docContent.length, index + term.length + 500);
+              const segment = docContent.substring(start, end);
 
-          // Combine results with weights and calculate final weighted scores
-          // Get keyword content
-          if (keywordMatches.length > 0) {
-            const kWeight = searchType === 'weighted' ? keywordWeight : 0.5;
-            keywordMatches.forEach((match, idx) => {
-              const similarity = match.matchingTerms.length / match.totalTerms;
-              const weightedScore = similarity * kWeight;
-              combinedContent.push({
-                type: 'keyword',
-                content: match.content,
-                weight: kWeight,
-                similarity: similarity,
-                weightedScore: weightedScore,
-                source: `Keyword match (${match.matchingTerms.length}/${match.totalTerms} terms)`,
-                chunkId: `kw-${doc.id}`,
-                keywordScore: similarity
+              matchingSegments.push({
+                term: term,
+                position: index,
+                segment: segment,
+                score: 1.0
               });
+
+              index += term.length;
+
+              // Limit to 3 matches per term to avoid too much content
+              if (matchingSegments.filter(s => s.term === term).length >= 3) break;
+            }
+          }
+
+          // Also search for the entire query as a phrase
+          let phraseIndex = 0;
+          while ((phraseIndex = docContentLower.indexOf(userMessage.toLowerCase(), phraseIndex)) !== -1) {
+            hasMatches = true;
+            const start = Math.max(0, phraseIndex - 500);
+            const end = Math.min(docContent.length, phraseIndex + userMessage.length + 500);
+            const segment = docContent.substring(start, end);
+
+            matchingSegments.push({
+              term: `EXACT_PHRASE: ${userMessage}`,
+              position: phraseIndex,
+              segment: segment,
+              score: 2.0 // Higher score for exact phrase matches
+            });
+
+            phraseIndex += userMessage.length;
+            if (matchingSegments.filter(s => s.term.startsWith('EXACT_PHRASE')).length >= 2) break;
+          }
+
+          if (hasMatches && matchingSegments.length > 0) {
+            console.log(`DEBUG: Found ${matchingSegments.length} keyword matches`);
+
+            // Sort by score (exact phrases first) then by position
+            matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);
+
+            // Take best matches and remove overlaps
+            const uniqueSegments = [];
+            const usedRanges = [];
+
+            for (const match of matchingSegments) {
+              const start = Math.max(0, match.position - 1000); // Expand context window
+              const end = Math.min(docContent.length, match.position + match.term.length + 2000); // Larger context
+
+              // Check if this range overlaps significantly with existing ones
+              const hasOverlap = usedRanges.some(range => 
+                Math.max(start, range.start) < Math.min(end, range.end) - 300
+              );
+
+              if (!hasOverlap && uniqueSegments.length < 3) { // Limit to 3 best matches
+                // Extract larger context around the match
+                const contextSegment = docContent.substring(start, end);
+                uniqueSegments.push({
+                  ...match,
+                  segment: contextSegment,
+                  contextStart: start,
+                  contextEnd: end
+                });
+                usedRanges.push({ start, end });
+              }
+            }
+
+            // Build keyword chunks the same way as pure keyword search
+            uniqueSegments.forEach((match, idx) => {
+              const similarity = match.score / 2.0; // Normalize score to 0-1 range
+              keywordMatches.push({
+                content: match.segment,
+                matchingTerms: [match.term],
+                totalTerms: searchTerms.length,
+                score: match.score,
+                similarity: similarity,
+                chunkId: `kw-${doc.id}-match-${idx}`
+              });
+            });
+
+            console.log(`DEBUG: Created ${keywordMatches.length} keyword chunks`);
+          } else {
+            console.log(`DEBUG: No keyword matches found for "${userMessage}" in document ${doc.name}`);
+            // Instead of no matches, provide a sample of the document content (same as pure keyword search)
+            const sampleContent = docContent.substring(0, 2000);
+            keywordMatches.push({
+              content: sampleContent + (docContent.length > 2000 ? '...' : ''),
+              matchingTerms: [],
+              totalTerms: searchTerms.length,
+              score: 0.0,
+              similarity: 0.0,
+              chunkId: `kw-${doc.id}-sample`
             });
           }
 
@@ -267,6 +332,29 @@ router.post("/debug/ai-input", async (req, res) => {
                 source: `Vector chunk ${idx + 1}`,
                 chunkId: result.document.id || `vec-${doc.id}-${idx}`,
                 vectorScore: result.similarity
+              });
+            });
+          }
+
+          // Get keyword content
+          if (keywordMatches.length > 0) {
+            const kWeight = searchType === 'weighted' ? keywordWeight : 0.5;
+            keywordMatches.forEach((match, idx) => {
+              const similarity = match.similarity || 0.0;
+              const weightedScore = similarity * kWeight;
+              const matchTermsDesc = match.matchingTerms.length > 0 ? 
+                  `(${match.matchingTerms.filter(t => !t.startsWith('EXACT_PHRASE')).length}/${match.totalTerms} terms)` :
+                  '(sample content)';
+
+              combinedContent.push({
+                type: 'keyword',
+                content: match.content,
+                weight: kWeight,
+                similarity: similarity,
+                weightedScore: weightedScore,
+                source: `Keyword match ${matchTermsDesc}`,
+                chunkId: match.chunkId || `kw-${doc.id}-${idx}`,
+                keywordScore: similarity
               });
             });
           }
@@ -618,68 +706,161 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
                 let vectorResults = [];
                 let combinedContent = [];
 
+                // First, get keyword matches using the same logic as pure keyword search
                 const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
                 const docContent = doc.content || '';
                 const docContentLower = docContent.toLowerCase();
 
-                if (searchTerms.some(term => docContentLower.includes(term))) {
-                    console.log(`DEBUG: Found keyword matches in document ${doc.id}`);
-                    keywordMatches.push({
-                        content: docContent,
-                        matchingTerms: searchTerms.filter(term => docContentLower.includes(term)),
-                        totalTerms: searchTerms.length
-                    });
+                console.log(`DEBUG: Searching for terms: ${searchTerms.join(', ')} in document ${doc.name}`);
+
+                // Find all matches and their positions (same as pure keyword search)
+                let matchingSegments = [];
+                let hasMatches = false;
+
+                // Search for individual terms
+                for (const term of searchTerms) {
+                    let index = 0;
+                    while ((index = docContentLower.indexOf(term, index)) !== -1) {
+                        hasMatches = true;
+                        // Extract context around the match (500 chars before and after)
+                        const start = Math.max(0, index - 500);
+                        const end = Math.min(docContent.length, index + term.length + 500);
+                        const segment = docContent.substring(start, end);
+
+                        matchingSegments.push({
+                            term: term,
+                            position: index,
+                            segment: segment,
+                            score: 1.0
+                        });
+
+                        index += term.length;
+
+                        // Limit to 3 matches per term to avoid too much content
+                        if (matchingSegments.filter(s => s.term === term).length >= 3) break;
+                    }
                 }
 
-                try {
-                    const vectorSearchResults = await vectorService.searchDocuments(userMessage, userId, 5);
-                    vectorResults = vectorSearchResults.filter(result => {
-                        const resultDocId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
-                        return resultDocId === parseInt(documentId);
+                // Also search for the entire query as a phrase
+                let phraseIndex = 0;
+                while ((phraseIndex = docContentLower.indexOf(userMessage.toLowerCase(), phraseIndex)) !== -1) {
+                    hasMatches = true;
+                    const start = Math.max(0, phraseIndex - 500);
+                    const end = Math.min(docContent.length, phraseIndex + userMessage.length + 500);
+                    const segment = docContent.substring(start, end);
+
+                    matchingSegments.push({
+                        term: `EXACT_PHRASE: ${userMessage}`,
+                        position: phraseIndex,
+                        segment: segment,
+                        score: 2.0 // Higher score for exact phrase matches
                     });
-                    console.log(`DEBUG: Found ${vectorResults.length} vector results for document ${doc.id}`);
-                } catch (error) {
-                    console.error('DEBUG: Vector search failed:', error);
+
+                    phraseIndex += userMessage.length;
+                    if (matchingSegments.filter(s => s.term.startsWith('EXACT_PHRASE')).length >= 2) break;
                 }
 
-                searchMetrics.keywordResults = keywordMatches.length;
-                searchMetrics.vectorResults = vectorResults.length;
+                if (hasMatches && matchingSegments.length > 0) {
+                    console.log(`DEBUG: Found ${matchingSegments.length} keyword matches`);
 
-                if (keywordMatches.length > 0) {
-                    const kWeight = searchType === 'weighted' ? keywordWeight : 0.5;
-                    keywordMatches.forEach((match, idx) => {
-                        const similarity = match.matchingTerms.length / match.totalTerms;
-                        const weightedScore = similarity * kWeight;
-                        combinedContent.push({
-                            type: 'keyword',
-                            content: match.content,
-                            weight: kWeight,
+                    // Sort by score (exact phrases first) then by position
+                    matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);
+
+                    // Take best matches and remove overlaps
+                    const uniqueSegments = [];
+                    const usedRanges = [];
+
+                    for (const match of matchingSegments) {
+                        const start = Math.max(0, match.position - 1000); // Expand context window
+                        const end = Math.min(docContent.length, match.position + match.term.length + 2000); // Larger context
+
+                        // Check if this range overlaps significantly with existing ones
+                        const hasOverlap = usedRanges.some(range => 
+                            Math.max(start, range.start) < Math.min(end, range.end) - 300
+                        );
+
+                        if (!hasOverlap && uniqueSegments.length < 3) { // Limit to 3 best matches
+                            // Extract larger context around the match
+                            const contextSegment = docContent.substring(start, end);
+                            uniqueSegments.push({
+                                ...match,
+                                segment: contextSegment,
+                                contextStart: start,
+                                contextEnd: end
+                            });
+                            usedRanges.push({ start, end });
+                        }
+                    }
+
+                    // Build keyword chunks the same way as pure keyword search
+                    uniqueSegments.forEach((match, idx) => {
+                        const similarity = match.score / 2.0; // Normalize score to 0-1 range
+                        keywordMatches.push({
+                            content: match.segment,
+                            matchingTerms: [match.term],
+                            totalTerms: searchTerms.length,
+                            score: match.score,
                             similarity: similarity,
-                            weightedScore: weightedScore,
-                            source: `Keyword match (${match.matchingTerms.length}/${match.totalTerms} terms)`,
-                            chunkId: `kw-${doc.id}`,
-                            keywordScore: similarity
+                            chunkId: `kw-${doc.id}-match-${idx}`
                         });
+                    });
+
+                    console.log(`DEBUG: Created ${keywordMatches.length} keyword chunks`);
+                } else {
+                    console.log(`DEBUG: No keyword matches found for "${userMessage}" in document ${doc.name}`);
+                    // Instead of no matches, provide a sample of the document content (same as pure keyword search)
+                    const sampleContent = docContent.substring(0, 2000);
+                    keywordMatches.push({
+                        content: sampleContent + (docContent.length > 2000 ? '...' : ''),
+                        matchingTerms: [],
+                        totalTerms: searchTerms.length,
+                        score: 0.0,
+                        similarity: 0.0,
+                        chunkId: `kw-${doc.id}-sample`
                     });
                 }
 
-                if (vectorResults.length > 0) {
-                    const vWeight = searchType === 'weighted' ? vectorWeight : 0.5;
-                    vectorResults.forEach((result, idx) => {
-                        const adjustedWeight = vWeight * (1 - idx * 0.1);
-                        const weightedScore = result.similarity * adjustedWeight;
-                        combinedContent.push({
-                            type: 'vector',
-                            content: result.document.content,
-                            weight: adjustedWeight,
-                            similarity: result.similarity,
-                            weightedScore: weightedScore,
-                            source: `Vector chunk ${idx + 1}`,
-                            chunkId: result.document.id || `vec-${doc.id}-${idx}`,
-                            vectorScore: result.similarity
-                        });
-                    });
-                }
+          // Get vector content
+          if (vectorResults.length > 0) {
+            const vWeight = searchType === 'weighted' ? vectorWeight : 0.5;
+            vectorResults.forEach((result, idx) => {
+              const adjustedWeight = vWeight * (1 - idx * 0.1);
+              const weightedScore = result.similarity * adjustedWeight;
+              combinedContent.push({
+                type: 'vector',
+                content: result.document.content,
+                weight: adjustedWeight,
+                similarity: result.similarity,
+                weightedScore: weightedScore,
+                source: `Vector chunk ${idx + 1}`,
+                chunkId: result.document.id || `vec-${doc.id}-${idx}`,
+                vectorScore: result.similarity
+              });
+            });
+          }
+
+          // Get keyword content
+          if (keywordMatches.length > 0) {
+            const kWeight = searchType === 'weighted' ? keywordWeight : 0.5;
+            keywordMatches.forEach((match, idx) => {
+              const similarity = match.similarity || 0.0;
+              const weightedScore = similarity * kWeight;
+              const matchTermsDesc = match.matchingTerms.length > 0 ? 
+                  `(${match.matchingTerms.filter(t => !t.startsWith('EXACT_PHRASE')).length}/${match.totalTerms} terms)` :
+                  '(sample content)';
+
+              combinedContent.push({
+                type: 'keyword',
+                content: match.content,
+                weight: kWeight,
+                similarity: similarity,
+                weightedScore: weightedScore,
+                source: `Keyword match ${matchTermsDesc}`,
+                chunkId: match.chunkId || `kw-${doc.id}-${idx}`,
+                keywordScore: similarity
+              });
+            });
+          }
 
                 combinedContent.sort((a, b) => b.weightedScore - a.weightedScore);
                 searchMetrics.combinedResults = combinedContent.length;
