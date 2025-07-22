@@ -351,16 +351,16 @@
 
                     <div class="stats">
                         <div class="stat-item">
+                            <strong>Search Keywords</strong><br>
+                            "${data.userMessage}"
+                        </div>
+                        <div class="stat-item">
                             <strong>Context Length</strong><br>
                             ${data.documentContextLength.toLocaleString()} chars
                         </div>
                         <div class="stat-item">
                             <strong>Vector Search</strong><br>
                             ${data.vectorSearchUsed ? '✅ Used' : '❌ Not used'}
-                        </div>
-                        <div class="stat-item">
-                            <strong>User Message</strong><br>
-                            ${data.userMessage.length} chars
                         </div>
                         <div class="stat-item">
                             <strong>Total Chunks</strong><br>

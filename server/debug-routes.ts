@@ -223,6 +223,7 @@ Answer questions specifically about this document. Provide detailed analysis, ex
     res.json({
       systemMessage,
       userMessage,
+      searchKeywords: userMessage, // The actual keywords used for searching
       documentContextLength: documentContext.length,
       documentContext,
       vectorSearchUsed: searchType !== 'keyword',
