@@ -92,7 +92,10 @@ interface SidebarProps {
   onToggleCollapse?: () => void;
 }
 
-export default function Sidebar({ isCollapsed = false, onToggleCollapse }: SidebarProps) {
+export default function Sidebar({
+  isCollapsed = false,
+  onToggleCollapse,
+}: SidebarProps) {
   const [location] = useLocation();
   const { user } = useAuth();
 
@@ -103,10 +106,12 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
   });
 
   return (
-    <div className={cn(
-      "bg-gradient-to-b from-navy-900 to-navy-800 border-r border-navy-700 flex flex-col transition-all duration-300 ease-in-out shadow-xl",
-      isCollapsed ? "w-16" : "w-64"
-    )}>
+    <div
+      className={cn(
+        "bg-gradient-to-b from-navy-900 to-navy-800 border-r border-navy-700 flex flex-col transition-all duration-300 ease-in-out shadow-xl",
+        isCollapsed ? "w-16" : "w-64",
+      )}
+    >
       {/* Header with Toggle */}
       <div className="p-4 border-b border-navy-700/50">
         <div className="flex items-center justify-between">
@@ -116,14 +121,12 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
                 <Brain className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-white">
-                  AI-KMS
-                </h1>
+                <h1 className="text-lg font-bold text-white">AI-KMS</h1>
                 <p className="text-xs text-navy-300">Knowledge Management</p>
               </div>
             </div>
           )}
-          
+
           {onToggleCollapse && (
             <Button
               variant="ghost"
@@ -149,25 +152,25 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
             <Link key={item.name} href={item.href}>
               <div
                 className={cn(
-                  "group flex items-center px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer relative",
+                  "group flex items-center rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer relative",
                   isActive
                     ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
                     : "text-white/90 hover:text-white hover:bg-navy-700/50",
-                  isCollapsed ? "justify-center" : "space-x-3"
+                  isCollapsed
+                    ? "justify-center px-4 py-2"
+                    : "space-x-3 px-3 py-2", // Adjusted padding here
                 )}
               >
-                <item.icon className={cn(
-                  "flex-shrink-0 transition-transform duration-200",
-                  isActive ? "w-5 h-5" : "w-4 h-4",
-                  "group-hover:scale-110"
-                )} />
-                
-                {!isCollapsed && (
-                  <span className="truncate">{item.name}</span>
-                )}
-                
-                
-                
+                <item.icon
+                  className={cn(
+                    "flex-shrink-0 transition-transform duration-200",
+                    isActive ? "w-5 h-5" : "w-4 h-4",
+                    "group-hover:scale-110",
+                  )}
+                />
+
+                {!isCollapsed && <span className="truncate">{item.name}</span>}
+
                 {/* Tooltip for collapsed state */}
                 {isCollapsed && (
                   <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
@@ -189,7 +192,9 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-white truncate">
-                {String((user as any)?.firstName || (user as any)?.email || "User")}
+                {String(
+                  (user as any)?.firstName || (user as any)?.email || "User",
+                )}
               </p>
               <p className="text-xs text-navy-400 capitalize">
                 {String((user as any)?.role || "user")}
