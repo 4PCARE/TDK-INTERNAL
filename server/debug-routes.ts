@@ -13,6 +13,7 @@ router.post("/debug/ai-input", async (req, res) => {
     console.log(`Document ID: ${specificDocumentId}, User ID: ${userId}`);
     
     let documentContext = "";
+    let chunkDetails = [];
     
     // Initialize search metrics
     let searchMetrics = {
@@ -45,9 +46,24 @@ router.post("/debug/ai-input", async (req, res) => {
           if (docResult) {
             console.log(`DEBUG: Found specific document in keyword results`);
             documentContext = `Document: ${doc.name}\nKeyword Match Content: ${docResult.content?.substring(0, 30000) || docResult.summary || 'No content available'}`;
+            
+            // Add keyword chunk details
+            chunkDetails.push({
+              chunkId: `kw-${doc.id}`,
+              content: docResult.content?.substring(0, 30000) || docResult.summary || 'No content available',
+              keywordScore: 1.0,
+              type: 'keyword'
+            });
           } else {
             console.log(`DEBUG: Specific document not found in keyword results, using full content`);
             documentContext = `Document: ${doc.name}\nNo keyword matches found.\nFull content: ${doc.content?.substring(0, 30000) || doc.summary || 'No content available'}`;
+            
+            chunkDetails.push({
+              chunkId: `kw-${doc.id}-fallback`,
+              content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
+              keywordScore: 0.1,
+              type: 'keyword-fallback'
+            });
           }
           
         } else if (searchType === 'vector') {
@@ -64,9 +80,27 @@ router.post("/debug/ai-input", async (req, res) => {
                 `Document: ${doc.name}\nRelevant Content: ${result.document.content}`
               )
               .join("\n\n");
+              
+            // Add vector chunk details
+            vectorResults.slice(0, 3).forEach((result, idx) => {
+              chunkDetails.push({
+                chunkId: result.document.id || `vec-${doc.id}-${idx}`,
+                content: result.document.content,
+                similarity: result.similarity,
+                vectorScore: result.similarity,
+                type: 'vector'
+              });
+            });
           } else {
             console.log(`DEBUG: No vector results, using fallback content`);
             documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
+            
+            chunkDetails.push({
+              chunkId: `vec-${doc.id}-fallback`,
+              content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
+              vectorScore: 0.0,
+              type: 'vector-fallback'
+            });
           }
           
         } else if (searchType === 'hybrid' || searchType === 'weighted') {
@@ -92,7 +126,9 @@ router.post("/debug/ai-input", async (req, res) => {
               type: 'keyword',
               content: keywordDoc.content.substring(0, 15000),
               weight: kwWeight,
-              source: 'Full document keyword search'
+              source: 'Full document keyword search',
+              chunkId: `kw-${doc.id}`,
+              keywordScore: kwWeight
             });
           }
           
@@ -105,7 +141,9 @@ router.post("/debug/ai-input", async (req, res) => {
                 content: result.document.content,
                 weight: vWeight * (1 - idx * 0.1), // Slightly decrease weight for lower ranked results
                 similarity: result.similarity,
-                source: `Vector chunk ${idx + 1}`
+                source: `Vector chunk ${idx + 1}`,
+                chunkId: result.document.id || `vec-${doc.id}-${idx}`,
+                vectorScore: result.similarity
               });
             });
           }
@@ -118,16 +156,41 @@ router.post("/debug/ai-input", async (req, res) => {
             combinedContent.map(item => 
               `[${item.source.toUpperCase()} - Weight: ${item.weight.toFixed(2)}${item.similarity ? `, Similarity: ${item.similarity.toFixed(4)}` : ''}]\n${item.content}`
             ).join("\n\n---\n\n");
+            
+          // Add hybrid chunk details
+          combinedContent.forEach(item => {
+            chunkDetails.push({
+              chunkId: item.chunkId,
+              content: item.content,
+              similarity: item.similarity,
+              keywordScore: item.keywordScore || undefined,
+              vectorScore: item.vectorScore || undefined,
+              type: item.type,
+              weight: item.weight
+            });
+          });
         } else {
           // Fallback for unknown search types
           console.log(`DEBUG: Unknown search type ${searchType}, using fallback`);
           documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
+          
+          chunkDetails.push({
+            chunkId: `fallback-${doc.id}`,
+            content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
+            type: 'fallback'
+          });
         }
         
       } catch (searchError) {
         console.error("Search failed:", searchError);
         documentContext = `Document: ${doc.name}\nSummary: ${doc.summary || 'No summary'}\nTags: ${doc.tags?.join(", ") || 'No tags'}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
         searchMetrics.error = searchError.message;
+        
+        chunkDetails.push({
+          chunkId: `error-${doc.id}`,
+          content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
+          type: 'error'
+        });
       }
     } else {
       // No specific document provided
@@ -147,6 +210,11 @@ Answer questions specifically about this document. Provide detailed analysis, ex
     console.log(userMessage);
     console.log(`\n=== DOCUMENT CONTEXT LENGTH ===`);
     console.log(`${documentContext.length} characters`);
+    console.log(`\n=== CHUNK DETAILS ===`);
+    console.log(`Found ${chunkDetails.length} chunks`);
+    chunkDetails.forEach((chunk, idx) => {
+      console.log(`Chunk ${idx + 1}: ID=${chunk.chunkId}, Type=${chunk.type}, Similarity=${chunk.similarity || 'N/A'}`);
+    });
     console.log(`\n=== FULL DOCUMENT CONTEXT ===`);
     console.log(documentContext);
     console.log(`\n=== END DEBUG ===`);
@@ -158,7 +226,8 @@ Answer questions specifically about this document. Provide detailed analysis, ex
       documentContextLength: documentContext.length,
       documentContext,
       vectorSearchUsed: searchType !== 'keyword',
-      searchMetrics
+      searchMetrics,
+      chunkDetails
     });
 
   } catch (error) {

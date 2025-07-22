@@ -277,6 +277,74 @@
         function displayResults(data) {
             const results = document.getElementById('results');
 
+            let searchDetailsHtml = '';
+            if (data.searchMetrics) {
+                const metrics = data.searchMetrics;
+                searchDetailsHtml = `
+                    <div class="section">
+                        <h3>🔍 Search Analysis</h3>
+                        <div class="stats">
+                            <div class="stat-item">
+                                <strong>Search Type</strong><br>
+                                ${metrics.searchType}
+                            </div>
+                            <div class="stat-item">
+                                <strong>Keyword Results</strong><br>
+                                ${metrics.keywordResults || 0}
+                            </div>
+                            <div class="stat-item">
+                                <strong>Vector Results</strong><br>
+                                ${metrics.vectorResults || 0}
+                            </div>
+                            <div class="stat-item">
+                                <strong>Combined Results</strong><br>
+                                ${metrics.combinedResults || 0}
+                            </div>
+                        </div>
+                        ${metrics.weights ? `
+                            <div style="background: #e9ecef; padding: 10px; border-radius: 4px; margin-top: 10px;">
+                                <strong>Weight Distribution:</strong><br>
+                                Keyword Weight: ${metrics.weights.keyword}<br>
+                                Vector Weight: ${metrics.weights.vector}
+                            </div>
+                        ` : ''}
+                        ${metrics.error ? `
+                            <div style="background: #f8d7da; padding: 10px; border-radius: 4px; margin-top: 10px; color: #721c24;">
+                                <strong>Error:</strong> ${metrics.error}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            let chunkDetailsHtml = '';
+            if (data.chunkDetails && data.chunkDetails.length > 0) {
+                chunkDetailsHtml = `
+                    <div class="section">
+                        <h3>🧩 Chunk Analysis</h3>
+                        <p><strong>Individual chunk scores and details:</strong></p>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            ${data.chunkDetails.map((chunk, index) => `
+                                <div style="border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 4px; background: #f9f9f9;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                        <strong>Chunk ${index + 1}</strong>
+                                        <div style="display: flex; gap: 15px;">
+                                            ${chunk.chunkId ? `<span style="background: #e3f2fd; padding: 2px 8px; border-radius: 3px; font-size: 12px;">ID: ${chunk.chunkId}</span>` : ''}
+                                            ${chunk.similarity ? `<span style="background: ${chunk.similarity > 0.8 ? '#c8e6c9' : chunk.similarity > 0.6 ? '#fff3e0' : '#ffcdd2'}; padding: 2px 8px; border-radius: 3px; font-size: 12px;">Similarity: ${chunk.similarity.toFixed(4)}</span>` : ''}
+                                            ${chunk.keywordScore ? `<span style="background: #e1f5fe; padding: 2px 8px; border-radius: 3px; font-size: 12px;">KW: ${chunk.keywordScore.toFixed(3)}</span>` : ''}
+                                            ${chunk.vectorScore ? `<span style="background: #f3e5f5; padding: 2px 8px; border-radius: 3px; font-size: 12px;">Vec: ${chunk.vectorScore.toFixed(3)}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <div style="font-size: 13px; color: #666; background: white; padding: 8px; border-radius: 3px; max-height: 150px; overflow-y: auto;">
+                                        ${escapeHtml(chunk.content.substring(0, 300))}${chunk.content.length > 300 ? '...' : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
             results.innerHTML = `
                 <div class="container">
                     <h2>🎯 Debug Results</h2>
@@ -294,7 +362,15 @@
                             <strong>User Message</strong><br>
                             ${data.userMessage.length} chars
                         </div>
+                        <div class="stat-item">
+                            <strong>Total Chunks</strong><br>
+                            ${data.chunkDetails ? data.chunkDetails.length : 0}
+                        </div>
                     </div>
+
+                    ${searchDetailsHtml}
+
+                    ${chunkDetailsHtml}
 
                     <div class="section">
                         <h3>📋 System Message (AI Instructions)</h3>
