@@ -102,25 +102,33 @@ router.post("/debug/ai-input", async (req, res) => {
             const usedRanges = [];
 
             for (const match of matchingSegments) {
-              const start = match.position;
-              const end = match.position + 1000;
+              const start = Math.max(0, match.position - 1000); // Expand context window
+              const end = Math.min(docContent.length, match.position + match.term.length + 2000); // Larger context
 
               // Check if this range overlaps significantly with existing ones
               const hasOverlap = usedRanges.some(range => 
-                Math.max(start, range.start) < Math.min(end, range.end) - 200
+                Math.max(start, range.start) < Math.min(end, range.end) - 300
               );
 
-              if (!hasOverlap && uniqueSegments.length < 5) {
-                uniqueSegments.push(match);
+              if (!hasOverlap && uniqueSegments.length < 3) { // Limit to 3 best matches
+                // Extract larger context around the match
+                const contextSegment = docContent.substring(start, end);
+                uniqueSegments.push({
+                  ...match,
+                  segment: contextSegment,
+                  contextStart: start,
+                  contextEnd: end
+                });
                 usedRanges.push({ start, end });
               }
             }
 
-            const keywordContent = uniqueSegments.map((match, idx) => 
-              `[Match ${idx + 1} for "${match.term}"]: ${match.segment}`
-            ).join('\n\n');
+            // Build proper context for AI with full relevant chunks
+            const keywordChunks = uniqueSegments.map((match, idx) => 
+              `=== RELEVANT CHUNK ${idx + 1} (Score: ${match.score}) ===\n${match.segment}`
+            ).join('\n\n---\n\n');
 
-            documentContext = `Document: ${doc.name}\nKeyword Matches Found:\n${keywordContent}`;
+            documentContext = `Document: ${doc.name}\n\n${keywordChunks}`;
 
             // Add keyword chunk details for each match
             uniqueSegments.forEach((match, idx) => {
@@ -267,10 +275,10 @@ router.post("/debug/ai-input", async (req, res) => {
           combinedContent.sort((a, b) => b.weightedScore - a.weightedScore);
           searchMetrics.combinedResults = combinedContent.length;
 
-          // Build document context using the weighted ranking
+          // Build document context using the weighted ranking - provide chunks, not full document
           documentContext = `Document: ${doc.name}\n\n` + 
-            combinedContent.map((item, index) => 
-              `[RANK #${index + 1} - ${item.source.toUpperCase()} - Weighted Score: ${item.weightedScore.toFixed(4)} (Similarity: ${item.similarity.toFixed(4)} × Weight: ${item.weight.toFixed(2)})]\n${item.content}`
+            combinedContent.slice(0, 5).map((item, index) => // Limit to top 5 results
+              `=== RANK #${index + 1} - ${item.source.toUpperCase()} ===\nWeighted Score: ${item.weightedScore.toFixed(4)} (Similarity: ${item.similarity.toFixed(4)} × Weight: ${item.weight.toFixed(2)})\n\n${item.content.length > 3000 ? item.content.substring(0, 3000) + '...' : item.content}`
             ).join("\n\n---\n\n");
 
           // Update chunk details to show weighted ranking
@@ -515,24 +523,30 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
                     const usedRanges = [];
 
                     for (const match of matchingSegments) {
-                        const start = match.position;
-                        const end = match.position + 1000;
+                        const start = Math.max(0, match.position - 1000);
+                        const end = Math.min(docContent.length, match.position + match.term.length + 2000);
 
                         const hasOverlap = usedRanges.some(range =>
-                            Math.max(start, range.start) < Math.min(end, range.end) - 200
+                            Math.max(start, range.start) < Math.min(end, range.end) - 300
                         );
 
-                        if (!hasOverlap && uniqueSegments.length < 5) {
-                            uniqueSegments.push(match);
+                        if (!hasOverlap && uniqueSegments.length < 3) {
+                            const contextSegment = docContent.substring(start, end);
+                            uniqueSegments.push({
+                                ...match,
+                                segment: contextSegment,
+                                contextStart: start,
+                                contextEnd: end
+                            });
                             usedRanges.push({ start, end });
                         }
                     }
 
-                    const keywordContent = uniqueSegments.map((match, idx) =>
-                        `[Match ${idx + 1} for "${match.term}"]: ${match.segment}`
-                    ).join('\n\n');
+                    const keywordChunks = uniqueSegments.map((match, idx) =>
+                        `=== RELEVANT CHUNK ${idx + 1} (Score: ${match.score}) ===\n${match.segment}`
+                    ).join('\n\n---\n\n');
 
-                    documentContext = `Document: ${doc.name}\nKeyword Matches Found:\n${keywordContent}`;
+                    documentContext = `Document: ${doc.name}\n\n${keywordChunks}`;
 
                     uniqueSegments.forEach((match, idx) => {
                         chunkDetails.push({
@@ -671,8 +685,8 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
                 searchMetrics.combinedResults = combinedContent.length;
 
                 documentContext = `Document: ${doc.name}\n\n` +
-                    combinedContent.map((item, index) =>
-                        `[RANK #${index + 1} - ${item.source.toUpperCase()} - Weighted Score: ${item.weightedScore.toFixed(4)} (Similarity: ${item.similarity.toFixed(4)} × Weight: ${item.weight.toFixed(2)})]\n${item.content}`
+                    combinedContent.slice(0, 5).map((item, index) =>
+                        `=== RANK #${index + 1} - ${item.source.toUpperCase()} ===\nWeighted Score: ${item.weightedScore.toFixed(4)} (Similarity: ${item.similarity.toFixed(4)} × Weight: ${item.weight.toFixed(2)})\n\n${item.content.length > 3000 ? item.content.substring(0, 3000) + '...' : item.content}`
                     ).join("\n\n---\n\n");
 
                 chunkDetails = combinedContent.map((item, index) => ({
