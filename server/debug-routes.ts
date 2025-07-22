@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.post("/debug/ai-input", async (req, res) => {
   try {
-    const { userMessage, specificDocumentId, userId } = req.body;
+    const { userMessage, specificDocumentId, userId, searchType = 'vector', keywordWeight = 0.3, vectorWeight = 0.7 } = req.body;
     
     console.log(`=== DEBUG AI INPUT FOR QUERY: "${userMessage}" ===`);
     console.log(`Document ID: ${specificDocumentId}, User ID: ${userId}`);
@@ -23,26 +23,94 @@ router.post("/debug/ai-input", async (req, res) => {
         return res.json({ error: "Document not found" });
       }
       
-      // Use vector search to get relevant content (same as in openai.ts)
+      // Implement different search strategies based on searchType
+      let searchMetrics = {
+        searchType,
+        keywordResults: 0,
+        vectorResults: 0,
+        combinedResults: 0,
+        weights: searchType === 'weighted' ? { keyword: keywordWeight, vector: vectorWeight } : null
+      };
+
       try {
-        const vectorResults = await vectorService.searchDocuments(userMessage, userId, 3, [parseInt(specificDocumentId)]);
-        
-        console.log(`Found ${vectorResults.length} chunks from document ${specificDocumentId}`);
-        
-        if (vectorResults.length > 0) {
-          // Use only top 3 most relevant chunks
-          documentContext = vectorResults
-            .slice(0, 3)
-            .map(result => 
-              `Document: ${doc.name}\nRelevant Content: ${result.document.content}`
-            )
-            .join("\n\n");
-        } else {
-          // Fallback
-          documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 30000)}`;
+        if (searchType === 'keyword') {
+          // Pure keyword search
+          const keywordResults = await storage.searchDocuments(userId, userMessage);
+          const docResult = keywordResults.find(d => d.id === parseInt(specificDocumentId));
+          searchMetrics.keywordResults = keywordResults.length;
+          
+          if (docResult) {
+            documentContext = `Document: ${doc.name}\nKeyword Match Content: ${docResult.content?.substring(0, 30000) || docResult.summary || 'No content available'}`;
+          } else {
+            documentContext = `Document: ${doc.name}\nNo keyword matches found.\nFull content: ${doc.content?.substring(0, 30000)}`;
+          }
+          
+        } else if (searchType === 'vector') {
+          // Pure vector search (current implementation)
+          const vectorResults = await vectorService.searchDocuments(userMessage, userId, 3, [parseInt(specificDocumentId)]);
+          searchMetrics.vectorResults = vectorResults.length;
+          
+          if (vectorResults.length > 0) {
+            documentContext = vectorResults
+              .slice(0, 3)
+              .map(result => 
+                `Document: ${doc.name}\nRelevant Content: ${result.document.content}`
+              )
+              .join("\n\n");
+          } else {
+            documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 30000)}`;
+          }
+          
+        } else if (searchType === 'hybrid' || searchType === 'weighted') {
+          // Hybrid or weighted search - combine both approaches
+          const [keywordResults, vectorResults] = await Promise.all([
+            storage.searchDocuments(userId, userMessage),
+            vectorService.searchDocuments(userMessage, userId, 5, [parseInt(specificDocumentId)])
+          ]);
+          
+          searchMetrics.keywordResults = keywordResults.length;
+          searchMetrics.vectorResults = vectorResults.length;
+          
+          let combinedContent = [];
+          
+          // Get keyword content
+          const keywordDoc = keywordResults.find(d => d.id === parseInt(specificDocumentId));
+          if (keywordDoc && keywordDoc.content) {
+            const kwWeight = searchType === 'weighted' ? keywordWeight : 0.5;
+            combinedContent.push({
+              type: 'keyword',
+              content: keywordDoc.content.substring(0, 15000),
+              weight: kwWeight,
+              source: 'Full document keyword search'
+            });
+          }
+          
+          // Get vector content
+          if (vectorResults.length > 0) {
+            const vWeight = searchType === 'weighted' ? vectorWeight : 0.5;
+            vectorResults.slice(0, 3).forEach((result, idx) => {
+              combinedContent.push({
+                type: 'vector',
+                content: result.document.content,
+                weight: vWeight * (1 - idx * 0.1), // Slightly decrease weight for lower ranked results
+                similarity: result.similarity,
+                source: `Vector chunk ${idx + 1}`
+              });
+            });
+          }
+          
+          // Sort by weight and build context
+          combinedContent.sort((a, b) => b.weight - a.weight);
+          searchMetrics.combinedResults = combinedContent.length;
+          
+          documentContext = `Document: ${doc.name}\n\n` + 
+            combinedContent.map(item => 
+              `[${item.source.toUpperCase()} - Weight: ${item.weight.toFixed(2)}${item.similarity ? `, Similarity: ${item.similarity.toFixed(4)}` : ''}]\n${item.content}`
+            ).join("\n\n---\n\n");
         }
-      } catch (vectorError) {
-        console.error("Vector search failed:", vectorError);
+        
+      } catch (searchError) {
+        console.error("Search failed:", searchError);
         documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 30000)}`;
       }
     }
@@ -70,7 +138,8 @@ Answer questions specifically about this document. Provide detailed analysis, ex
       userMessage,
       documentContextLength: documentContext.length,
       documentContext,
-      vectorSearchUsed: true
+      vectorSearchUsed: searchType !== 'keyword',
+      searchMetrics
     });
 
   } catch (error) {
