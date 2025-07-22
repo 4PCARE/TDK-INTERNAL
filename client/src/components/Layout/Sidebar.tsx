@@ -216,8 +216,8 @@ export default function Sidebar({
                   className={cn(
                     "w-full justify-start",
                     isActiveRoute("/categories")
-                      ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                      : "text-white hover:text-gray-900 hover:bg-gray-50",
+                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
+                      : "text-navy-200 hover:text-white hover:bg-navy-700/50",
                   )}
                 >
                   <FolderOpen className="w-5 h-5 mr-3" />
