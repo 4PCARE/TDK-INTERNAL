@@ -1106,89 +1106,27 @@ ${imageAnalysisResult}
             console.log(`LINE OA: Hybrid search found ${searchResults.length} relevant chunks from agent's documents`);
 
             if (searchResults.length > 0) {
-              // Step 1: Group search results by document and calculate document-level relevance scores
-              const documentGroups = new Map<string, {
-                docName: string,
-                chunks: Array<{content: string, similarity: number}>,
-                maxSimilarity: number,
-                avgSimilarity: number,
-                totalRelevanceScore: number
-              }>();
-
+              // Step 1: Pool ALL chunks from ALL documents together
+              const allChunks = [];
+              
               for (const result of searchResults) {
-                const docName = result.document.name;
-                if (!documentGroups.has(docName)) {
-                  documentGroups.set(docName, {
-                    docName,
-                    chunks: [],
-                    maxSimilarity: 0,
-                    avgSimilarity: 0,
-                    totalRelevanceScore: 0
-                  });
-                }
-                
-                const group = documentGroups.get(docName)!;
-                group.chunks.push({
+                allChunks.push({
+                  docName: result.document.name,
                   content: result.content,
                   similarity: result.similarity
                 });
-                group.maxSimilarity = Math.max(group.maxSimilarity, result.similarity);
               }
 
-              // Step 2: Calculate final scores for each document
-              documentGroups.forEach((group, docName) => {
-                const similarities = group.chunks.map(c => c.similarity);
-                group.avgSimilarity = similarities.reduce((a, b) => a + b, 0) / similarities.length;
-                
-                // Combined score: 70% max similarity + 30% average similarity
-                group.totalRelevanceScore = (group.maxSimilarity * 0.7) + (group.avgSimilarity * 0.3);
-                
-                console.log(`LINE OA Document Ranking - ${docName}:`);
-                console.log(`  Max similarity: ${group.maxSimilarity.toFixed(4)}`);
-                console.log(`  Avg similarity: ${group.avgSimilarity.toFixed(4)}`);
-                console.log(`  Total relevance: ${group.totalRelevanceScore.toFixed(4)}`);
-                console.log(`  Chunk count: ${group.chunks.length}`);
-              });
+              console.log(`LINE OA: Pooled ${allChunks.length} chunks from ${agentDocIds.length} agent documents`);
 
-              // Step 3: Rank documents by relevance score and filter low-relevance ones
-              const rankedDocuments = Array.from(documentGroups.values())
-                .sort((a, b) => b.totalRelevanceScore - a.totalRelevanceScore);
-
-              // Filter out documents with very low relevance (threshold: 0.3)
-              const relevantDocuments = rankedDocuments.filter(doc => doc.totalRelevanceScore >= 0.3);
+              // Step 2: Sort ALL chunks globally by similarity and take top 2
+              allChunks.sort((a, b) => b.similarity - a.similarity);
+              const finalTop2Chunks = allChunks.slice(0, 2);
               
-              console.log(`LINE OA: Filtered ${rankedDocuments.length - relevantDocuments.length} low-relevance documents`);
-              console.log(`LINE OA: Using top ${Math.min(2, relevantDocuments.length)} most relevant documents:`);
-
-              // Step 4: Take only top 2 most relevant documents
-              const topDocuments = relevantDocuments.slice(0, 2);
-              
-              topDocuments.forEach((doc, idx) => {
-                console.log(`  ${idx + 1}. ${doc.docName} - Score: ${doc.totalRelevanceScore.toFixed(4)}`);
-              });
-
-              // Step 5: Build context from top 2 chunks only (regardless of document count)
-              const topChunks = [];
-              
-              // Collect all chunks from top documents and sort by similarity
-              for (const doc of topDocuments) {
-                for (const chunk of doc.chunks) {
-                  topChunks.push({
-                    docName: doc.docName,
-                    content: chunk.content,
-                    similarity: chunk.similarity,
-                    docScore: doc.totalRelevanceScore
-                  });
-                }
-              }
-              
-              // Sort all chunks by similarity and take only top 2
-              topChunks.sort((a, b) => b.similarity - a.similarity);
-              const finalTop2Chunks = topChunks.slice(0, 2);
-              
-              console.log(`LINE OA: Selected final top 2 chunks:`);
+              console.log(`LINE OA: Selected globally top 2 chunks from entire pool:`);
               finalTop2Chunks.forEach((chunk, idx) => {
                 console.log(`  ${idx + 1}. ${chunk.docName} - Similarity: ${chunk.similarity.toFixed(4)}`);
+                console.log(`      Content preview: ${chunk.content.substring(0, 100)}...`);
               });
 
               // Build context with string length limit as final safeguard
