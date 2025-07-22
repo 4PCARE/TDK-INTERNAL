@@ -559,17 +559,26 @@ export class DatabaseStorage implements IStorage {
     await db.delete(documents).where(and(eq(documents.id, id), eq(documents.userId, userId)));
   }
 
-  async searchDocuments(userId: string, query: string): Promise<Document[]> {
-    console.log(`Storage searchDocuments called - userId: ${userId}, query: "${query}"`);
+  async searchDocuments(userId: string, query: string, specificDocumentIds?: number[]): Promise<Document[]> {
+    console.log(`Storage searchDocuments called - userId: ${userId}, query: "${query}", specificDocumentIds: ${specificDocumentIds?.join(', ') || 'all'}`);
 
-    // For Thai text and mixed queries, be more flexible with term splitting
-    // Split on whitespace but also handle Thai text more gracefully
     const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
     console.log(`Search terms: ${searchTerms.join(', ')}`);
 
+    if (searchTerms.length === 0) {
+      return [];
+    }
+
     try {
-      const documents = await this.getDocuments(userId);
-      console.log(`Found ${documents.length} documents for user ${userId}`);
+      // Get documents - either all user docs or filtered by specific IDs
+      let documents;
+      if (specificDocumentIds && specificDocumentIds.length > 0) {
+        documents = await this.getDocumentsByIds(specificDocumentIds, userId);
+        console.log(`Found ${documents.length} specific documents for user ${userId}`);
+      } else {
+        documents = await this.getDocuments(userId);
+        console.log(`Found ${documents.length} total documents for user ${userId}`);
+      }
 
       // Search through documents for matching content
       const matchingDocuments = documents.filter(doc => {
@@ -581,19 +590,15 @@ export class DatabaseStorage implements IStorage {
           ...(doc.tags || [])
         ].join(' ').toLowerCase();
 
-        // For keyword search, use OR logic - if ANY term matches, include the document
-        // This is more appropriate for keyword search behavior
-        const hasAnyTerm = searchTerms.some(term => 
+        // For proper keyword search, require ALL terms to be present (AND logic)
+        const hasAllTerms = searchTerms.every(term => 
           searchableText.includes(term)
         );
 
-        // Also check if the entire query appears as a phrase
-        const hasExactPhrase = searchableText.includes(query.toLowerCase());
-
-        return hasAnyTerm || hasExactPhrase;
+        return hasAllTerms;
       });
 
-      console.log(`Found ${matchingDocuments.length} documents matching search criteria (ANY term OR exact phrase)`);
+      console.log(`Found ${matchingDocuments.length} documents matching ALL search terms`);
       return matchingDocuments;
     } catch (error) {
       console.error('Error searching documents:', error);

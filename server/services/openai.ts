@@ -386,9 +386,13 @@ export async function generateChatResponse(
     // Use hybrid search for better context
     try {
       console.log(`Chat: Performing ${searchType} search for query: "${query}" with weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
+      
+      // Get document IDs to filter search scope to only agent's documents
+      const documentIds = documents.map(doc => doc.id).filter(id => id !== undefined);
+      console.log(`Chat: Restricting search to ${documentIds.length} agent documents: [${documentIds.join(', ')}]`);
 
       if (searchType === 'hybrid') {
-        // Use semantic search V2 service for hybrid search
+        // Use semantic search V2 service for hybrid search with document filtering
         const { semanticSearchServiceV2 } = await import('./semanticSearchV2');
         const searchResults = await semanticSearchServiceV2.searchDocuments(
           query,
@@ -397,14 +401,16 @@ export async function generateChatResponse(
             searchType: 'hybrid',
             limit: 10,
             keywordWeight,
-            vectorWeight
+            vectorWeight,
+            specificDocumentIds: documentIds // Filter to only agent's documents
           }
         );
 
         if (searchResults.length > 0) {
           console.log(`Chat: Found ${searchResults.length} hybrid search results`);
+          // Use only top 2 chunks as requested for chatbot integration
           relevantContent = searchResults
-            .slice(0, 5)
+            .slice(0, 2)
             .map(result => result.content)
             .join("\n\n");
         } else {
@@ -423,13 +429,14 @@ export async function generateChatResponse(
           query, 
           documents[0]?.userId, 
           10,
-          specificDocumentId ? [specificDocumentId] : undefined
+          specificDocumentId ? [specificDocumentId] : documentIds
         );
 
         if (vectorResults.length > 0) {
           console.log(`Chat: Found ${vectorResults.length} vector results`);
+          // Use only top 2 chunks as requested for chatbot integration
           relevantContent = vectorResults
-            .slice(0, 5)
+            .slice(0, 2)
             .map(result => result.document.content)
             .join("\n\n");
         } else {
