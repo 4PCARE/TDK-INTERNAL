@@ -140,6 +140,70 @@ export class VectorService {
     limit: number = 10
   ): Promise<Array<{ document: VectorDocument; similarity: number }>> {
     try {
+      // For specific store location queries, prioritize keyword search first
+      let keywordResults: any[] = [];
+      if (query.includes('XOLO') || query.includes('โซโล่') || query.includes('KAMU') || query.includes('คามุ')) {
+        console.log(`VectorService: Performing keyword search for store query: "${query}"`);
+        keywordResults = await db.select()
+          .from(documentVectors)
+          .where(
+            and(
+              eq(documentVectors.userId, userId),
+              or(
+                sql`${documentVectors.content} ILIKE '%XOLO%'`,
+                sql`${documentVectors.content} ILIKE '%โซโล่%'`,
+                sql`${documentVectors.content} ILIKE '%KAMU%'`,
+                sql`${documentVectors.content} ILIKE '%คามุ%'`
+              )
+            )
+          )
+          .limit(10);
+        
+        console.log(`VectorService: Found ${keywordResults.length} keyword matches`);
+        
+        // If we found keyword matches, prioritize them and boost their similarity scores
+        if (keywordResults.length > 0) {
+          console.log(`VectorService: Using keyword-boosted search for store location query`);
+          
+          // Generate embedding for semantic comparison
+          const response = await openai.embeddings.create({
+            model: "text-embedding-3-small",
+            input: query,
+          });
+          const queryEmbedding = response.data[0].embedding;
+          
+          // Process keyword results with boosted similarity scores
+          const boostedResults = keywordResults.map(dbVector => {
+            const vectorDoc: VectorDocument = {
+              id: `${dbVector.documentId}_chunk_${dbVector.chunkIndex}`,
+              content: dbVector.content,
+              embedding: dbVector.embedding,
+              metadata: {
+                originalDocumentId: dbVector.documentId.toString(),
+                userId: dbVector.userId,
+                chunkIndex: dbVector.chunkIndex,
+                totalChunks: dbVector.totalChunks
+              },
+              chunkIndex: dbVector.chunkIndex,
+              totalChunks: dbVector.totalChunks
+            };
+
+            // Calculate base similarity and boost it for keyword matches
+            const baseSimilarity = this.cosineSimilarity(queryEmbedding, dbVector.embedding);
+            const boostedSimilarity = Math.min(1.0, baseSimilarity + 0.3); // Boost keyword matches
+            
+            return {
+              document: vectorDoc,
+              similarity: boostedSimilarity
+            };
+          });
+          
+          return boostedResults
+            .sort((a, b) => b.similarity - a.similarity)
+            .slice(0, limit);
+        }
+      }
+
       // Get all vectors from database for this user
       const dbVectors = await db.select()
         .from(documentVectors)
@@ -214,6 +278,17 @@ export class VectorService {
         .slice(0, limit);
 
       console.log(`Vector search for "${query}": Found ${finalResults.length} relevant chunks from ${documentGroups.size} documents`);
+      
+      // Debug: Log top results with similarity scores
+      console.log(`Debug: Top 5 vector search results for "${query}":`);
+      finalResults.slice(0, 5).forEach((result, index) => {
+        console.log(`${index + 1}. Doc ID: ${result.document.metadata.originalDocumentId}, Similarity: ${result.similarity.toFixed(4)}`);
+        console.log(`   Content: ${result.document.content.substring(0, 200)}...`);
+        // Check if this content contains XOLO information
+        if (result.document.content.includes('XOLO') || result.document.content.includes('โซโล่')) {
+          console.log(`   *** FOUND XOLO CHUNK ***`);
+        }
+      });
       
       return finalResults;
     } catch (error) {

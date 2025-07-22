@@ -446,6 +446,18 @@ export async function generateChatResponse(
               .join("\n\n");
               
             console.log(`General chat: Using vector search with ${vectorResults.length} relevant chunks from ${documentChunks.size} documents`);
+            
+            // Debug: Log first few results to understand what's being retrieved
+            console.log(`Debug: Top 3 vector search results:`);
+            vectorResults.slice(0, 3).forEach((result, index) => {
+              const docName = documents.find(d => d.id.toString() === (result.document.metadata.originalDocumentId || result.document.id))?.name || 'Unknown';
+              console.log(`${index + 1}. Document: ${docName}, Similarity: ${result.similarity.toFixed(4)}`);
+              console.log(`   Content preview: ${result.document.content.substring(0, 200)}...`);
+              // Check if this content contains XOLO information
+              if (result.document.content.includes('XOLO') || result.document.content.includes('โซโล่')) {
+                console.log(`   *** FOUND XOLO CHUNK ***`);
+              }
+            });
           } else {
             // Fallback if no vector results
             documentContext = documents
