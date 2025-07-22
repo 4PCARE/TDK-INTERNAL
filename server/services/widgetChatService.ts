@@ -33,89 +33,41 @@ export class WidgetChatService {
 
       console.log(`✅ Widget Chat: Found agent: ${agent.name}`);
 
-      // Get agent's documents for context
+      // Get agent's documents for context and convert to format expected by generateChatResponse
       const agentDocs = await storage.getAgentChatbotDocumentsForWidget(agentId);
-      const documentContents: string[] = [];
+      console.log(`📚 Widget Chat: Found ${agentDocs.length} documents for agent`);
 
-      if (agentDocs.length > 0) {
-        console.log(`📚 Widget Chat: Found ${agentDocs.length} documents for agent`);
-
-        // Use hybrid search (keyword + vector) instead of pulling full documents
+      const agentDocuments = [];
+      for (const agentDoc of agentDocs) {
         try {
-          const { vectorService } = await import('./vectorService');
-
-          // Get a sample document to get userId for vector search
-          const sampleDoc = await storage.getDocumentForWidget(agentDocs[0].documentId);
-          if (sampleDoc && sampleDoc.userId) {
-            // Search for relevant chunks ONLY from agent's documents using document scope restriction
-            const agentDocIds = agentDocs.map(d => d.documentId);
-            const vectorResults = await vectorService.searchDocuments(userMessage, sampleDoc.userId, 15, agentDocIds);
-
-            console.log(`🔍 Widget Chat: Found ${vectorResults.length} relevant chunks from ${agentDocIds.length} assigned documents`);
-
-            if (vectorResults.length > 0) {
-              // Group by document and build context from relevant chunks
-              const docChunks = new Map<string, {name: string, chunks: string[]}>();
-
-              for (const result of vectorResults) {
-                const docId = result.document.metadata.originalDocumentId || result.document.id;
-                const document = await storage.getDocumentForWidget(parseInt(docId));
-                const docName = document?.name || 'Unknown Document';
-
-                if (!docChunks.has(docId)) {
-                  docChunks.set(docId, { name: docName, chunks: [] });
-                }
-                docChunks.get(docId)!.chunks.push(result.document.content);
-              }
-
-              // Build context from relevant chunks
-              docChunks.forEach(({ name, chunks }) => {
-                documentContents.push(
-                  `=== เอกสาร: ${name} ===\n${chunks.join('\n---\n')}\n`
-                );
-              });
-
-              console.log(`📄 Widget Chat: Using vector search with ${vectorResults.length} relevant chunks from ${docChunks.size} documents`);
-            } else {
-              console.log(`📄 Widget Chat: No relevant chunks found, using fallback approach`);
-              // Fallback to original approach with first few documents
-              for (const agentDoc of agentDocs.slice(0, 3)) {
-                try {
-                  const document = await storage.getDocumentForWidget(agentDoc.documentId);
-                  if (document && document.content) {
-                    const contentPreview = document.content.substring(0, 3000) + (document.content.length > 3000 ? '...' : '');
-                    documentContents.push(
-                      `=== เอกสาร: ${document.name} ===\n${contentPreview}\n`
-                    );
-                  }
-                } catch (error) {
-                  console.error(`❌ Widget Chat: Error fetching document ${agentDoc.documentId}:`, error);
-                }
-              }
-            }
+          const document = await storage.getDocumentForWidget(agentDoc.documentId);
+          if (document) {
+            agentDocuments.push(document);
           }
-        } catch (vectorError) {
-          console.error(`❌ Widget Chat: Vector search failed, using fallback:`, vectorError);
-          // Fallback to original approach with limited documents
-          for (const agentDoc of agentDocs.slice(0, 3)) {
-            try {
-              const document = await storage.getDocumentForWidget(agentDoc.documentId);
-              if (document && document.content) {
-                const contentPreview = document.content.substring(0, 3000) + (document.content.length > 3000 ? '...' : '');
-                documentContents.push(
-                  `=== เอกสาร: ${document.name} ===\n${contentPreview}\n`
-                );
-              }
-            } catch (error) {
-              console.error(`❌ Widget Chat: Error fetching document ${agentDoc.documentId}:`, error);
-            }
-          }
+        } catch (error) {
+          console.error(`❌ Widget Chat: Error fetching document ${agentDoc.documentId}:`, error);
         }
       }
 
-      let contextPrompt = "";
-      if (documentContents.length > 0) {
-        contextPrompt = `\n\nเอกสารที่เกี่ยวข้อง:\n${documentContents.join('\n')}`;
+      console.log(`📄 Widget Chat: Using ${agentDocuments.length} documents for hybrid search`);
+
+      // Use the same generateChatResponse logic as general chat with hybrid search
+      const { generateChatResponse } = await import('./openai');
+      let aiResponseFromDocs = "";
+      
+      try {
+        aiResponseFromDocs = await generateChatResponse(
+          userMessage,
+          agentDocuments,
+          undefined, // No specific document ID - search across all agent docs
+          'hybrid',  // Use hybrid search like debug page
+          0.4,       // keywordWeight
+          0.6        // vectorWeight
+        );
+        console.log(`✅ Widget Chat: Generated response using hybrid search (${aiResponseFromDocs.length} chars)`);
+      } catch (error) {
+        console.error("Widget Chat: generateChatResponse failed:", error);
+        aiResponseFromDocs = "";
       }
 
       // Initialize guardrails service if configured
@@ -136,8 +88,41 @@ export class WidgetChatService {
         }
       }
 
+      // If we got a response from hybrid search, use it directly
+      if (aiResponseFromDocs && aiResponseFromDocs.trim()) {
+        console.log(`✅ Widget Chat: Using hybrid search response directly`);
+        
+        // Validate output with guardrails if configured
+        let finalResponse = aiResponseFromDocs;
+        if (guardrailsService) {
+          const outputValidation = await guardrailsService.evaluateOutput(finalResponse);
+          if (outputValidation.blocked) {
+            console.log(`🚫 Widget Chat: Output blocked by guardrails: ${outputValidation.reason}`);
+            finalResponse = outputValidation.modifiedContent || "ขออภัย ไม่สามารถให้คำตอบนี้ได้";
+          } else if (outputValidation.modifiedContent) {
+            finalResponse = outputValidation.modifiedContent;
+          }
+        }
+
+        return {
+          response: finalResponse,
+          messageType: "ai_response",
+          metadata: {
+            agentId: agent.id,
+            agentName: agent.name,
+            hasDocuments: agentDocs.length > 0,
+            documentCount: agentDocs.length,
+            guardrailsApplied: !!guardrailsService,
+            searchMethod: "hybrid"
+          }
+        };
+      }
+
+      // Fallback to agent's system prompt if no documents or hybrid search failed
+      console.log(`⚠️ Widget Chat: Falling back to system prompt conversation`);
+
       // Build conversation messages
-      const systemPrompt = `${agent.systemPrompt}${contextPrompt}
+      const systemPrompt = `${agent.systemPrompt}
 
 สำคัญ: ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
 ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
@@ -273,7 +258,8 @@ export class WidgetChatService {
           agentName: agent.name,
           hasDocuments: agentDocs.length > 0,
           documentCount: agentDocs.length,
-          guardrailsApplied: !!guardrailsService
+          guardrailsApplied: !!guardrailsService,
+          searchMethod: "fallback_conversation"
         }
       };
 

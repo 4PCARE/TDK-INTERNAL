@@ -1042,89 +1042,53 @@ ${imageAnalysisResult}
             contextMessage = "ผู้ใช้ส่งสติ๊กเกอร์มา กรุณาตอบอย่างเป็นมิตรและถามว่ามีอะไรให้ช่วย";
           }
 
-          const { vectorService } = await import('./services/vectorService');
-          const agentId = lineIntegration.agentId;
-          const text = userMessage;
-          const agentDocuments = await storage.getAgentChatbotDocuments(agentId, lineIntegration.userId);
-          let relevantContent = "";
+          // Get agent's documents for proper scope restriction
+          const agentDocs = await storage.getAgentChatbotDocuments(lineIntegration.agentId, lineIntegration.userId);
+          console.log(`LINE OA: Found ${agentDocs.length} assigned documents for agent ${lineIntegration.agentId}`);
 
-        // Use hybrid search for better context
-        try {
-          console.log(`LINE OA: Performing hybrid search for query: "${text}" with weights: keyword=0.4, vector=0.6`);
-
-          // Use semantic search V2 service for hybrid search
-          const { semanticSearchServiceV2 } = await import('./services/semanticSearchV2');
-
-          // Create a temporary user ID for LINE OA search (using agent ID)
-          const searchUserId = `lineoa_${agentId}`;
-
-          // First try to get search results
-          let searchResults = [];
-          try {
-            searchResults = await semanticSearchServiceV2.searchDocuments(
-              text,
-              searchUserId,
-              {
-                searchType: 'hybrid',
-                limit: 10,
-                keywordWeight: 0.4,
-                vectorWeight: 0.6
+          // Convert agent docs to format expected by generateChatResponse
+          const agentDocuments = [];
+          for (const agentDoc of agentDocs) {
+            try {
+              const document = await storage.getDocument(agentDoc.documentId, lineIntegration.userId);
+              if (document) {
+                agentDocuments.push({
+                  ...document,
+                  userId: lineIntegration.userId
+                });
               }
-            );
-          } catch (searchError) {
-            console.log("LINE OA: Semantic search failed, using vector fallback");
-            // Fallback to vector search
-            const vectorResults = await vectorService.searchDocuments(
-              text, 
-              null, // LINE OA doesn't have userId
-              5,
-              undefined,
-              agentDocuments.map(doc => doc.id) // Limit to agent's documents
-            );
-
-            if (vectorResults.length > 0) {
-              console.log(`LINE OA: Found ${vectorResults.length} vector results`);
-              relevantContent = vectorResults
-                .slice(0, 3)
-                .map(result => result.document.content.substring(0, 50000))
-                .join("\n\n");
+            } catch (error) {
+              console.error(`LINE OA: Error fetching document ${agentDoc.documentId}:`, error);
             }
           }
 
-          if (searchResults.length > 0) {
-            console.log(`LINE OA: Found ${searchResults.length} hybrid search results`);
-            relevantContent = searchResults
-              .slice(0, 3)
-              .map(result => result.content.substring(0, 50000))
-              .join("\n\n");
-          } else if (!relevantContent) {
-            console.log("LINE OA: No search results found, using agent document content");
-            relevantContent = agentDocuments
-              .map(doc => doc.content || doc.summary || '')
-              .filter(content => content.length > 0)
-              .slice(0, 3)
-              .map(content => content.substring(0, 50000))
-              .join("\n\n");
-          }
-        } catch (searchError) {
-          console.error("LINE OA: Hybrid search failed:", searchError);
-          console.log("LINE OA: Falling back to agent document content");
-          relevantContent = agentDocuments
-            .map(doc => doc.content || doc.summary || '')
-            .filter(content => content.length > 0)
-            .slice(0, 3)
-            .map(content => content.substring(0, 50000))
-            .join("\n\n");
-        }
+          console.log(`LINE OA: Using ${agentDocuments.length} documents for hybrid search`);
 
-          // Get AI response WITHOUT saving history (it's already handled in getAiResponse)
-          const aiResponse = await getAiResponseDirectly(
-            `${contextMessage}\n${relevantContent}`,
-            lineIntegration.agentId,
-            lineIntegration.userId,
-            "lineoa",
-            event.source.userId, // Use Line user ID as channel identifier
-          );
+          // Use the same generateChatResponse logic as general chat with hybrid search
+          const { generateChatResponse } = await import('./services/openai');
+          let aiResponse = "";
+          
+          try {
+            aiResponse = await generateChatResponse(
+              contextMessage,
+              agentDocuments,
+              undefined, // No specific document ID - search across all agent docs
+              'hybrid',  // Use hybrid search like debug page
+              0.4,       // keywordWeight
+              0.6        // vectorWeight
+            );
+            console.log(`✅ LINE OA: Generated response using hybrid search (${aiResponse.length} chars)`);
+          } catch (error) {
+            console.error("LINE OA: generateChatResponse failed, using fallback:", error);
+            // Fallback to agent conversation without documents
+            aiResponse = await getAiResponseDirectly(
+              contextMessage,
+              lineIntegration.agentId,
+              lineIntegration.userId,
+              "lineoa",
+              event.source.userId, // Use Line user ID as channel identifier
+            );
+          }
           console.log("🤖 AI response:", aiResponse);
 
           // Save only the assistant response (user message already saved above)

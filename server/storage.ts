@@ -1313,6 +1313,34 @@ export class DatabaseStorage implements IStorage {
       .where(eq(agentChatbotDocuments.agentId, agentId));
   }
 
+  // Widget Chat specific operations (without userId requirement)
+  async getAgentChatbotForWidget(agentId: number): Promise<AgentChatbot | null> {
+    const [agent] = await db
+      .select()
+      .from(agentChatbots)
+      .where(eq(agentChatbots.id, agentId))
+      .limit(1);
+    
+    return agent || null;
+  }
+
+  async getAgentChatbotDocumentsForWidget(agentId: number): Promise<any[]> {
+    return await db
+      .select()
+      .from(agentChatbotDocuments)
+      .where(eq(agentChatbotDocuments.agentId, agentId));
+  }
+
+  async getDocumentForWidget(documentId: number): Promise<any | null> {
+    const [document] = await db
+      .select()
+      .from(documents)
+      .where(eq(documents.id, documentId))
+      .limit(1);
+    
+    return document || null;
+  }
+
   // AI Response Analysis operations
   async createAiResponseAnalysis(analysis: InsertAiResponseAnalysis): Promise<AiResponseAnalysis> {
     const [newAnalysis] = await db
