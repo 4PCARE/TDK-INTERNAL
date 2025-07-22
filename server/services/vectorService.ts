@@ -141,27 +141,34 @@ export class VectorService {
     specificDocumentIds?: number[]
   ): Promise<Array<{ document: VectorDocument; similarity: number }>> {
     try {
-      // Enhanced hybrid search for store location queries
-      const isStoreQuery = query.includes('XOLO') || query.includes('โซโล่') || query.includes('KAMU') || query.includes('คามุ') || 
-                          query.includes('บางกะปิ') || query.includes('Bangkapi') || query.includes('งามวงศ์วาน') || query.includes('ชั้น');
+      // Check for exact matches first
+      const queryLower = query.toLowerCase();
+      const exactMatchTerms = ['xolo', 'โซโล่', 'kamu', 'คามุ'];
+      const hasExactMatch = exactMatchTerms.some(term => queryLower.includes(term));
 
-      if (isStoreQuery) {
-        console.log(`VectorService: Performing enhanced hybrid search for store query: "${query}"`);
+      if (hasExactMatch) {
+        console.log(`VectorService: Exact match detected for query: "${query}" - prioritizing keyword search`);
 
-        // Try multiple keyword combinations
+        // Build keyword conditions for exact matches
         const keywordConditions = [
           sql`${documentVectors.content} ILIKE '%XOLO%'`,
           sql`${documentVectors.content} ILIKE '%โซโล่%'`,
           sql`${documentVectors.content} ILIKE '%KAMU%'`,
-          sql`${documentVectors.content} ILIKE '%คามุ%'`,
-          sql`${documentVectors.content} ILIKE '%บางกะปิ%'`,
-          sql`${documentVectors.content} ILIKE '%Bangkapi%'`,
-          sql`${documentVectors.content} ILIKE '%งามวงศ์วาน%'`,
-          sql`${documentVectors.content} ILIKE '%ชั้น 1%'`,
-          sql`${documentVectors.content} ILIKE '%Floor 1%'`,
-          sql`${documentVectors.content} ILIKE '%เดอะมอลล์%'`,
-          sql`${documentVectors.content} ILIKE '%The Mall%'`
+          sql`${documentVectors.content} ILIKE '%คามุ%'`
         ];
+
+        // Add location-specific terms if present in query
+        if (queryLower.includes('บางกะปิ') || queryLower.includes('bangkapi')) {
+          keywordConditions.push(sql`${documentVectors.content} ILIKE '%บางกะปิ%'`);
+          keywordConditions.push(sql`${documentVectors.content} ILIKE '%Bangkapi%'`);
+        }
+        if (queryLower.includes('งามวงศ์วาน')) {
+          keywordConditions.push(sql`${documentVectors.content} ILIKE '%งามวงศ์วาน%'`);
+        }
+        if (queryLower.includes('ชั้น')) {
+          keywordConditions.push(sql`${documentVectors.content} ILIKE '%ชั้น%'`);
+          keywordConditions.push(sql`${documentVectors.content} ILIKE '%Floor%'`);
+        }
 
         // Build WHERE conditions with optional document ID filtering
         const whereConditions = [
@@ -176,21 +183,21 @@ export class VectorService {
           );
         }
 
-        const keywordResults = await db.select()
+        const exactMatchResults = await db.select()
           .from(documentVectors)
           .where(and(...whereConditions))
-          .limit(15);
+          .limit(20);
 
-        console.log(`VectorService: Found ${keywordResults.length} keyword matches for store search`);
+        console.log(`VectorService: Found ${exactMatchResults.length} exact keyword matches`);
 
-        // Debug: Log some sample results
-        keywordResults.slice(0, 3).forEach((result, i) => {
-          console.log(`  ${i+1}. Doc ${result.documentId}, Chunk ${result.chunkIndex}: ${result.content.substring(0, 100)}...`);
-        });
-
-        // If we found keyword matches, prioritize them and boost their similarity scores
-        if (keywordResults.length > 0) {
-          console.log(`VectorService: Using keyword-boosted search for store location query`);
+        if (exactMatchResults.length > 0) {
+          // Debug: Log content that contains exact matches
+          exactMatchResults.forEach((result, i) => {
+            const content = result.content.toLowerCase();
+            const hasXolo = content.includes('xolo') || content.includes('โซโล่');
+            const hasKamu = content.includes('kamu') || content.includes('คามุ');
+            console.log(`  ${i+1}. Doc ${result.documentId}, Chunk ${result.chunkIndex}: ${hasXolo ? 'XOLO' : hasKamu ? 'KAMU' : 'OTHER'} - ${result.content.substring(0, 100)}...`);
+          });
 
           // Generate embedding for semantic comparison
           const response = await openai.embeddings.create({
@@ -200,8 +207,8 @@ export class VectorService {
 
           const queryEmbedding = response.data[0].embedding;
 
-          // Calculate similarities for keyword results and boost them
-          const keywordResultsWithSimilarity = keywordResults.map(dbVector => {
+          // Calculate similarities and prioritize exact matches
+          const exactMatchResultsWithSimilarity = exactMatchResults.map(dbVector => {
             const vectorDoc: VectorDocument = {
               id: `${dbVector.documentId}_chunk_${dbVector.chunkIndex}`,
               content: dbVector.content,
@@ -217,35 +224,43 @@ export class VectorService {
             };
 
             const originalSimilarity = this.cosineSimilarity(queryEmbedding, dbVector.embedding);
-
-            // Check for exact matches and give them highest priority
-            let boostedSimilarity = originalSimilarity;
             const content = dbVector.content.toLowerCase();
-            const queryLower = query.toLowerCase();
 
-            // Exact match detection - highest boost
-            if (content.includes('xolo') && (queryLower.includes('xolo') || queryLower.includes('โซโล่'))) {
-              boostedSimilarity = Math.min(1.0, originalSimilarity + 0.6); // Highest boost for exact XOLO match
-            } else if (content.includes('ชั้น') && queryLower.includes('ชั้น')) {
-              boostedSimilarity = Math.min(1.0, originalSimilarity + 0.5); // High boost for floor info
+            // Give very high priority to exact brand matches
+            let finalSimilarity = originalSimilarity;
+            if (content.includes('xolo') && queryLower.includes('xolo')) {
+              finalSimilarity = Math.min(1.0, originalSimilarity + 0.8); // Highest priority for XOLO
+              console.log(`  *** EXACT XOLO MATCH FOUND *** Doc ${dbVector.documentId}, boosted to ${finalSimilarity.toFixed(4)}`);
+            } else if (content.includes('โซโล่') && queryLower.includes('โซโล่')) {
+              finalSimilarity = Math.min(1.0, originalSimilarity + 0.8); // Highest priority for Thai XOLO
+              console.log(`  *** EXACT โซโล่ MATCH FOUND *** Doc ${dbVector.documentId}, boosted to ${finalSimilarity.toFixed(4)}`);
+            } else if (content.includes('kamu') && queryLower.includes('kamu')) {
+              finalSimilarity = Math.min(1.0, originalSimilarity + 0.7); // High priority for KAMU
+            } else if (content.includes('คามุ') && queryLower.includes('คามุ')) {
+              finalSimilarity = Math.min(1.0, originalSimilarity + 0.7); // High priority for Thai KAMU
             } else {
-              boostedSimilarity = Math.min(1.0, originalSimilarity + 0.4); // Standard boost
+              finalSimilarity = Math.min(1.0, originalSimilarity + 0.3); // Lower boost for other matches
             }
-
-            console.log(`  Boosted result: Doc ${dbVector.documentId}, Similarity: ${originalSimilarity.toFixed(4)} -> ${boostedSimilarity.toFixed(4)}`);
 
             return {
               document: vectorDoc,
-              similarity: boostedSimilarity
+              similarity: finalSimilarity
             };
           });
 
-          // Sort by boosted similarity and return only top 3 results
-          return keywordResultsWithSimilarity
+          // Sort by similarity and return top results
+          const sortedResults = exactMatchResultsWithSimilarity
             .sort((a, b) => b.similarity - a.similarity)
-            .slice(0, 3);
+            .slice(0, limit);
+
+          console.log(`VectorService: Returning ${sortedResults.length} prioritized keyword search results`);
+          return sortedResults;
         }
       }
+
+      console.log(`VectorService: No exact matches found, falling back to vector similarity search`);
+
+      // Fall back to vector similarity search when no exact matches
 
       // Get all vectors from database for this user (with optional document filtering)
       let whereCondition: any = eq(documentVectors.userId, userId);
