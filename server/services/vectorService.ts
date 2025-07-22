@@ -196,14 +196,14 @@ export class VectorService {
         documentGroups.get(originalDocId)!.push(result);
       });
 
-      // Take top 3 chunks per document and flatten
+      // Take top 5 chunks per document for better coverage
       const combinedResults: Array<{ document: VectorDocument; similarity: number }> = [];
       
       documentGroups.forEach((chunks, docId) => {
-        // Sort chunks by similarity and take top 3 per document
+        // Sort chunks by similarity and take top 5 per document (increased from 3)
         const topChunks = chunks
           .sort((a, b) => b.similarity - a.similarity)
-          .slice(0, 3);
+          .slice(0, 5);
         
         combinedResults.push(...topChunks);
       });

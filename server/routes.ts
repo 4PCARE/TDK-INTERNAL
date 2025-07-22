@@ -3642,6 +3642,15 @@ ${agentConfig.blockedTopics?.length > 0 ? `Blocked topics: ${agentConfig.blocked
               documentContext = `\n\nRelevant documents:\n${documents.map(doc => 
                 `- ${doc.name}: ${doc.summary || doc.description || 'No summary available'}`
               ).join('\n')}`;
+              
+              // Add actual document content for better context
+              for (const doc of documents) {
+                if (doc.content && doc.content.length > 0) {
+                  const contentLimit = 30000; // Much larger content for test context
+                  const contentSnippet = doc.content.substring(0, contentLimit) + (doc.content.length > contentLimit ? '...' : '');
+                  documentContext += `\n\nContent from ${doc.name}:\n${contentSnippet}`;
+                }
+              }
             }
           } catch (error) {
             console.error("Error fetching documents for test:", error);
@@ -3764,10 +3773,11 @@ Memory management: Keep track of conversation context within the last ${agentCon
                 `- ${doc.name}: ${doc.summary || doc.description || 'No summary available'}`
               ).join('\n')}`;
               
-              // Try to use actual document content for better context
+              // Use significantly more document content for better context
               for (const doc of documents) {
                 if (doc.content && doc.content.length > 0) {
-                  const contentSnippet = doc.content.substring(0, 500) + (doc.content.length > 500 ? '...' : '');
+                  const contentLimit = 30000; // Increased from 500 to 30000 characters
+                  const contentSnippet = doc.content.substring(0, contentLimit) + (doc.content.length > contentLimit ? '...' : '');
                   documentContext += `\n\nContent from ${doc.name}:\n${contentSnippet}`;
                 }
               }

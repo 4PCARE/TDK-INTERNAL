@@ -44,8 +44,10 @@ export class WidgetChatService {
           try {
             const document = await storage.getDocumentForWidget(agentDoc.documentId);
             if (document && document.content) {
-              const truncatedContent = document.content.length > 8000
-                ? document.content.substring(0, 8000) + "..."
+              // Increase content limit significantly for better context
+              const contentLimit = 50000; // Increased from 8000 to 50000 characters
+              const truncatedContent = document.content.length > contentLimit
+                ? document.content.substring(0, contentLimit) + "..."
                 : document.content;
 
               documentContents.push(

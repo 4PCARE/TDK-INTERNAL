@@ -396,32 +396,32 @@ export async function generateChatResponse(
         );
         
         if (specificDocResults.length > 0) {
-          // Use the most relevant chunks
+          // Use more relevant chunks for better coverage
           documentContext = specificDocResults
-            .slice(0, 5) // Take top 5 most relevant chunks
+            .slice(0, 10) // Increased from 5 to 10 chunks for better content coverage
             .map(result => 
               `Document: ${documents[0].name}\nRelevant Content: ${result.document.content}`
             )
             .join("\n\n");
         } else {
-          // Fallback to document summary and first part if no vector results
+          // Fallback with much more content if no vector results
           const doc = documents[0];
-          documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent Preview: ${doc.content?.substring(0, 8000)}`;
+          documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 30000)}`;
         }
       } catch (vectorError) {
         console.error("Vector search failed for document chat, using fallback:", vectorError);
-        // Fallback to using more content from the document
+        // Fallback to using much more content from the document
         const doc = documents[0];
-        documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 3000)}`;
+        documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 30000)}`;
       }
     } else {
-      // For general chat, use limited document content
+      // For general chat, use more document content for better responses
       documentContext = documents
         .filter((doc) => doc.content && doc.content.trim().length > 0)
         .slice(0, 5)
         .map(
           (doc) =>
-            `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 1500)}`,
+            `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 8000)}`, // Increased from 1500 to 8000
         )
         .join("\n\n");
     }
