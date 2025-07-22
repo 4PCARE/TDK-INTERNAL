@@ -752,9 +752,9 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
                         <div>
                             ${
                                 chunkDetails.length > 0 ?
-                                    chunkDetails.forEach((chunk, idx) => {
+                                    chunkDetails.map((chunk, idx) => {
                                         const content = chunk.content || '';
-                                        html += `
+                                        return `
                                         <div style="border: 1px solid #ddd; margin: 10px 0; padding: 10px; border-radius: 5px;">
                                             <div style="font-weight: bold; margin-bottom: 5px;">
                                                 Chunk ${idx + 1}: ${chunk.id || chunk.chunkId || 'Unknown ID'}
@@ -768,7 +768,8 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
                                                 ${escapeHtml(content.substring(0, 300))}${content.length > 300 ? '...' : ''}
                                             </div>
                                         </div>
-                                    `).join('')
+                                        `;
+                                    }).join('')
                                     : '<p>No chunks available.</p>'
                             }
                         </div>
