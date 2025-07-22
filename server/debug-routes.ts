@@ -276,6 +276,7 @@ router.post("/debug/ai-input", async (req, res) => {
           // Update chunk details to show weighted ranking
           chunkDetails = combinedContent.map((item, index) => ({
             id: item.chunkId,
+            content: item.content || '',
             type: item.type,
             similarity: item.type === 'vector' ? item.vectorScore : item.keywordScore,
             weight: item.weight,
@@ -676,6 +677,7 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
 
                 chunkDetails = combinedContent.map((item, index) => ({
                     id: item.chunkId,
+                    content: item.content || '',
                     type: item.type,
                     similarity: item.type === 'vector' ? item.vectorScore : item.keywordScore,
                     weight: item.weight,
