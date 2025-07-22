@@ -1065,22 +1065,71 @@ ${imageAnalysisResult}
 
           console.log(`LINE OA: Using ${agentDocuments.length} documents for hybrid search`);
 
-          // Use the same generateChatResponse logic as general chat with hybrid search
-          const { generateChatResponse } = await import('./services/openai');
+          // Use hybrid search with document scope restriction like debug routes
+          const { semanticSearchV2 } = await import('./services/semanticSearchV2');
           let aiResponse = "";
           
           try {
-            aiResponse = await generateChatResponse(
+            console.log(`LINE OA: Performing hybrid search with document restriction to ${agentDocIds.length} documents: [${agentDocIds.join(', ')}]`);
+            
+            // Use hybrid search with proper document filtering
+            const searchResults = await semanticSearchV2.hybridSearch(
               contextMessage,
-              agentDocuments,
-              undefined, // No specific document ID - search across all agent docs
-              'hybrid',  // Use hybrid search like debug page
-              0.4,       // keywordWeight
-              0.6        // vectorWeight
+              lineIntegration.userId,
+              {
+                keywordWeight: 0.4,
+                vectorWeight: 0.6,
+                limit: 12,
+                specificDocumentIds: agentDocIds // Restrict to agent's documents only
+              }
             );
-            console.log(`✅ LINE OA: Generated response using hybrid search (${aiResponse.length} chars)`);
+
+            console.log(`LINE OA: Hybrid search found ${searchResults.length} relevant chunks from agent's documents`);
+
+            if (searchResults.length > 0) {
+              // Build context from search results
+              const documentContext = searchResults
+                .slice(0, 2) // Use top 2 chunks like other systems
+                .map(result => `Document: ${result.document.name}\nContent: ${result.content}`)
+                .join('\n\n');
+
+              // Generate AI response with document context
+              const { OpenAI } = await import('openai');
+              const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+              const agent = await storage.getAgentChatbot(lineIntegration.agentId, lineIntegration.userId);
+              const systemPrompt = `${agent?.systemPrompt || 'You are a helpful assistant.'}
+
+เอกสารอ้างอิงสำหรับการตอบคำถาม:
+${documentContext}
+
+กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น`;
+
+              const completion = await openai.chat.completions.create({
+                model: "gpt-4o",
+                messages: [
+                  { role: "system", content: systemPrompt },
+                  { role: "user", content: contextMessage }
+                ],
+                max_tokens: 1000,
+                temperature: 0.7,
+              });
+
+              aiResponse = completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+              console.log(`✅ LINE OA: Generated response using hybrid search with document restriction (${aiResponse.length} chars)`);
+            } else {
+              console.log(`⚠️ LINE OA: No relevant content found in agent's documents, using system prompt only`);
+              // Fallback to system prompt conversation
+              aiResponse = await getAiResponseDirectly(
+                contextMessage,
+                lineIntegration.agentId,
+                lineIntegration.userId,
+                "lineoa",
+                event.source.userId,
+              );
+            }
           } catch (error) {
-            console.error("LINE OA: generateChatResponse failed, using fallback:", error);
+            console.error("LINE OA: Hybrid search failed, using fallback:", error);
             // Fallback to agent conversation without documents
             aiResponse = await getAiResponseDirectly(
               contextMessage,
