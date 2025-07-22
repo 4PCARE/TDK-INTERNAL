@@ -320,6 +320,55 @@
             div.textContent = text;
             return div.innerHTML;
         }
+
+        async function findXolo() {
+            try {
+                const userId = document.getElementById('userId').value;
+                if (!userId) {
+                    alert('Please enter a User ID');
+                    return;
+                }
+
+                console.log('Searching for XOLO across all documents...');
+                const response = await fetch(`/api/debug/find-xolo/${userId}`);
+                const data = await response.json();
+
+                console.log('=== XOLO SEARCH RESULTS ===');
+                console.log('Total documents:', data.totalDocuments);
+                console.log('Documents with XOLO:', data.documentsWithXolo.length);
+                console.log('Vector results with XOLO:', data.summary.foundInVector);
+
+                if (data.documentsWithXolo.length > 0) {
+                    console.log('\n=== DOCUMENTS CONTAINING XOLO ===');
+                    data.documentsWithXolo.forEach(doc => {
+                        console.log(`\nDocument ${doc.documentId}: ${doc.documentName}`);
+                        console.log(`Found terms: ${doc.foundTerms.join(', ')}`);
+                        console.log(`Has vector data: ${doc.hasVectorData}`);
+                        console.log('Sample lines:');
+                        doc.matchingLines.forEach(line => console.log(`  - ${line.substring(0, 200)}`));
+                    });
+                } else {
+                    console.log('❌ NO XOLO FOUND IN ANY DOCUMENT');
+                }
+
+                if (data.vectorResults && data.vectorResults.length > 0) {
+                    console.log('\n=== VECTOR SEARCH RESULTS ===');
+                    data.vectorResults.forEach((result, index) => {
+                        console.log(`\nVector result ${index + 1}:`);
+                        console.log(`Document ID: ${result.documentId}`);
+                        console.log(`Similarity: ${result.similarity}`);
+                        console.log(`Contains XOLO: ${result.hasXolo}`);
+                        console.log(`Content preview: ${result.content.substring(0, 200)}...`);
+                    });
+                }
+
+                alert(`XOLO Search Complete!\nFound in ${data.documentsWithXolo.length} documents\nCheck console for details`);
+
+            } catch (error) {
+                console.error('XOLO search failed:', error);
+                alert('XOLO search failed: ' + error.message);
+            }
+        }
     </script>
 </body>
 </html>

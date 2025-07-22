@@ -167,4 +167,100 @@ Answer questions specifically about this document. Provide detailed analysis, ex
   }
 });
 
+router.get("/debug/find-xolo/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(`=== SEARCHING FOR XOLO ACROSS ALL DOCUMENTS FOR USER ${userId} ===`);
+    
+    // Get all documents for the user
+    const documents = await storage.getDocuments(userId);
+    console.log(`Found ${documents.length} total documents`);
+    
+    const xoloResults = [];
+    
+    // Search through each document
+    for (const doc of documents) {
+      const content = doc.content?.toLowerCase() || '';
+      const name = doc.name?.toLowerCase() || '';
+      const summary = doc.summary?.toLowerCase() || '';
+      
+      // Check for various XOLO variations
+      const searchTerms = ['xolo', 'โซโล่', 'โซโล', 'XOLO'];
+      let found = false;
+      let foundTerms = [];
+      
+      for (const term of searchTerms) {
+        if (content.includes(term.toLowerCase()) || 
+            name.includes(term.toLowerCase()) || 
+            summary.includes(term.toLowerCase())) {
+          found = true;
+          foundTerms.push(term);
+        }
+      }
+      
+      if (found) {
+        // Find the specific line/context where XOLO appears
+        const lines = content.split('\n');
+        const matchingLines = lines.filter(line => 
+          searchTerms.some(term => line.toLowerCase().includes(term.toLowerCase()))
+        );
+        
+        xoloResults.push({
+          documentId: doc.id,
+          documentName: doc.name,
+          foundTerms,
+          matchingLines: matchingLines.slice(0, 5), // First 5 matching lines
+          contentLength: content.length,
+          hasVectorData: doc.isInVectorDb || false
+        });
+        
+        console.log(`FOUND XOLO in Document ${doc.id}: ${doc.name}`);
+        console.log(`Found terms: ${foundTerms.join(', ')}`);
+        console.log(`Matching lines: ${matchingLines.slice(0, 2).join(' | ')}`);
+      }
+    }
+    
+    // Also search in vector database if available
+    console.log(`\n=== SEARCHING VECTOR DATABASE ===`);
+    try {
+      const vectorResults = await vectorService.searchDocuments('XOLO', userId, 10);
+      console.log(`Vector search returned ${vectorResults.length} results`);
+      
+      const vectorXoloResults = vectorResults.map(result => ({
+        similarity: result.similarity,
+        documentId: result.document.metadata.originalDocumentId || result.document.id,
+        content: result.document.content.substring(0, 500),
+        hasXolo: result.document.content.toLowerCase().includes('xolo')
+      }));
+      
+      res.json({
+        totalDocuments: documents.length,
+        documentsWithXolo: xoloResults,
+        vectorResults: vectorXoloResults,
+        summary: {
+          foundInDocuments: xoloResults.length,
+          foundInVector: vectorXoloResults.filter(r => r.hasXolo).length
+        }
+      });
+      
+    } catch (vectorError) {
+      console.error("Vector search failed:", vectorError);
+      res.json({
+        totalDocuments: documents.length,
+        documentsWithXolo: xoloResults,
+        vectorResults: [],
+        vectorError: vectorError.message,
+        summary: {
+          foundInDocuments: xoloResults.length,
+          foundInVector: 0
+        }
+      });
+    }
+    
+  } catch (error) {
+    console.error("XOLO search debug error:", error);
+    res.status(500).json({ error: "XOLO search debug failed" });
+  }
+});
+
 export default router;
