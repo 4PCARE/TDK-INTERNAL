@@ -277,6 +277,23 @@ async function getAiResponseDirectly(
     console.log(`✅ Found agent: ${agent.name}`);
 
     // Check if this is an image-related query
+    const isImageRelatedQuery = (message: string): boolean => {
+      const imageKeywords = [
+        "รูป",
+        "รูปภาพ",
+        "ภาพ",
+        "ภาพถ่าย",
+        "ภาพในรูป",
+        "รูปภาพที่ส่งมา",
+        "รูปภาพล่าสุด",
+        "image",
+        "picture",
+        "photo",
+      ];
+
+      const lowerMessage = message.toLowerCase();
+      return imageKeywords.some((keyword) => lowerMessage.includes(keyword));
+    };
     const isImageQuery = isImageRelatedQuery(userMessage);
     console.log(`🖼️ Image-related query detected: ${isImageQuery}`);
     console.log(`🔍 User message for analysis: "${userMessage}"`);
@@ -1074,15 +1091,14 @@ ${imageAnalysisResult}
             const agentDocIds = agentDocs.map(d => d.documentId);
             console.log(`LINE OA: Performing hybrid search with document restriction to ${agentDocIds.length} documents: [${agentDocIds.join(', ')}]`);
 
-            // Use hybrid search with proper document filtering
-            const searchResults = await semanticSearchV2.searchDocuments(
+            // Use hybrid search with proper document filtering - same as debug page
+            const searchResults = await semanticSearchV2.hybridSearch(
               contextMessage,
               lineIntegration.userId,
               {
-                searchType: 'hybrid',
                 keywordWeight: 0.4,
                 vectorWeight: 0.6,
-                limit: 12,
+                limit: 12, // Get more results for ranking
                 specificDocumentIds: agentDocIds // Restrict to agent's documents only
               }
             );
@@ -1090,23 +1106,32 @@ ${imageAnalysisResult}
             console.log(`LINE OA: Hybrid search found ${searchResults.length} relevant chunks from agent's documents`);
 
             if (searchResults.length > 0) {
-              // Build context from search results
-              const documentContext = searchResults
-                .slice(0, 2) // Use top 2 chunks like other systems
-                .map(result => `Document: ${result.document.name}\nContent: ${result.content}`)
+              // Take only top 2 chunks like debug page and other systems
+              const topChunks = searchResults.slice(0, 2);
+
+              console.log(`LINE OA: Using top ${topChunks.length} chunks for context:`);
+              topChunks.forEach((chunk, idx) => {
+                console.log(`  ${idx + 1}. Similarity: ${chunk.similarity.toFixed(4)}, Content: ${chunk.content.substring(0, 100)}...`);
+              });
+
+              // Build concise context from only top 2 chunks
+              const documentContext = topChunks
+                .map((result, index) => `=== ข้อมูลที่ ${index + 1} ===\nเอกสาร: ${result.document.name}\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${result.content}`)
                 .join('\n\n');
 
-              // Generate AI response with document context
+              // Generate AI response with focused document context
               const { OpenAI } = await import('openai');
               const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
               const agent = await storage.getAgentChatbot(lineIntegration.agentId, lineIntegration.userId);
               const systemPrompt = `${agent?.systemPrompt || 'You are a helpful assistant.'}
 
-เอกสารอ้างอิงสำหรับการตอบคำถาม:
+เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
 ${documentContext}
 
 กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น`;
+
+              console.log(`LINE OA: System prompt length: ${systemPrompt.length} characters`);
 
               const completion = await openai.chat.completions.create({
                 model: "gpt-4o",
@@ -1119,7 +1144,7 @@ ${documentContext}
               });
 
               aiResponse = completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
-              console.log(`✅ LINE OA: Generated response using hybrid search with document restriction (${aiResponse.length} chars)`);
+              console.log(`✅ LINE OA: Generated response using top 2 chunks (${aiResponse.length} chars)`);
             } else {
               console.log(`⚠️ LINE OA: No relevant content found in agent's documents, using system prompt only`);
               // Fallback to system prompt conversation
