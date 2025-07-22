@@ -38,7 +38,7 @@ import {
   Trash2,
   User
 } from "lucide-react";
-import Sidebar from "@/components/Layout/Sidebar";
+import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -236,9 +236,8 @@ export default function UserManagement() {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <Sidebar 
-        isMobileOpen={isMobileMenuOpen}
-        onMobileClose={() => setIsMobileMenuOpen(false)}
-        onOpenChat={() => {}}
+        isCollapsed={false}
+        onToggleCollapse={() => {}}
       />
       
       <div className="flex-1 flex flex-col overflow-hidden">
