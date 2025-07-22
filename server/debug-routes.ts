@@ -1,4 +1,3 @@
-
 import express from "express";
 import { vectorService } from "./services/vectorService";
 import { storage } from "./storage";
@@ -8,13 +7,13 @@ const router = express.Router();
 router.post("/debug/ai-input", async (req, res) => {
   try {
     const { userMessage, specificDocumentId, userId, searchType = 'vector', keywordWeight = 0.3, vectorWeight = 0.7 } = req.body;
-    
+
     console.log(`=== DEBUG AI INPUT FOR QUERY: "${userMessage}" ===`);
     console.log(`Document ID: ${specificDocumentId}, User ID: ${userId}`);
-    
+
     let documentContext = "";
     let chunkDetails = [];
-    
+
     // Initialize search metrics
     let searchMetrics = {
       searchType,
@@ -23,55 +22,108 @@ router.post("/debug/ai-input", async (req, res) => {
       combinedResults: 0,
       weights: searchType === 'weighted' ? { keyword: keywordWeight, vector: vectorWeight } : null
     };
-    
+
     if (specificDocumentId) {
       // Get the document
       const documents = await storage.getDocuments(userId);
       const doc = documents.find(d => d.id === parseInt(specificDocumentId));
-      
+
       if (!doc) {
         return res.json({ error: "Document not found" });
       }
-      
+
       try {
         if (searchType === 'keyword') {
-          // Pure keyword search
+          // Pure keyword search - find matching content in the specific document
           console.log(`DEBUG: Performing keyword search for "${userMessage}"`);
-          const keywordResults = await storage.searchDocuments(userId, userMessage);
-          searchMetrics.keywordResults = keywordResults.length;
-          
-          console.log(`DEBUG: Found ${keywordResults.length} keyword results`);
-          const docResult = keywordResults.find(d => d.id === parseInt(specificDocumentId));
-          
-          if (docResult) {
-            console.log(`DEBUG: Found specific document in keyword results`);
-            documentContext = `Document: ${doc.name}\nKeyword Match Content: ${docResult.content?.substring(0, 30000) || docResult.summary || 'No content available'}`;
-            
-            // Add keyword chunk details
-            chunkDetails.push({
-              chunkId: `kw-${doc.id}`,
-              content: docResult.content?.substring(0, 30000) || docResult.summary || 'No content available',
-              keywordScore: 1.0,
-              type: 'keyword'
-            });
-          } else {
-            console.log(`DEBUG: Specific document not found in keyword results, using full content`);
-            documentContext = `Document: ${doc.name}\nNo keyword matches found.\nFull content: ${doc.content?.substring(0, 30000) || doc.summary || 'No content available'}`;
-            
-            chunkDetails.push({
-              chunkId: `kw-${doc.id}-fallback`,
-              content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
-              keywordScore: 0.1,
-              type: 'keyword-fallback'
-            });
+
+          // Search for keywords within the specific document content
+          const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+          const docContent = doc.content || '';
+          const docContentLower = docContent.toLowerCase();
+
+          console.log(`DEBUG: Searching for terms: ${searchTerms.join(', ')} in document ${doc.name}`);
+
+          // Find all matches and their positions
+          let matchingSegments = [];
+          let hasMatches = false;
+
+          for (const term of searchTerms) {
+            let index = 0;
+            while ((index = docContentLower.indexOf(term, index)) !== -1) {
+              hasMatches = true;
+              // Extract context around the match (500 chars before and after)
+              const start = Math.max(0, index - 500);
+              const end = Math.min(docContent.length, index + term.length + 500);
+              const segment = docContent.substring(start, end);
+
+              matchingSegments.push({
+                term: term,
+                position: index,
+                segment: segment,
+                score: 1.0
+              });
+
+              index += term.length;
+
+              // Limit to 5 matches per term to avoid too much content
+              if (matchingSegments.filter(s => s.term === term).length >= 5) break;
+            }
           }
-          
+
+          if (hasMatches && matchingSegments.length > 0) {
+            console.log(`DEBUG: Found ${matchingSegments.length} keyword matches`);
+
+            // Sort by position and deduplicate overlapping segments
+            matchingSegments.sort((a, b) => a.position - b.position);
+            const uniqueSegments = [];
+            let lastEnd = 0;
+
+            for (const match of matchingSegments) {
+              if (match.position > lastEnd) {
+                uniqueSegments.push(match);
+                lastEnd = match.position + 1000; // Prevent too much overlap
+              }
+            }
+
+            const keywordContent = uniqueSegments.map((match, idx) => 
+              `[Match ${idx + 1} for "${match.term}"]: ${match.segment}`
+            ).join('\n\n');
+
+            documentContext = `Document: ${doc.name}\nKeyword Matches Found:\n${keywordContent}`;
+
+            // Add keyword chunk details for each match
+            uniqueSegments.forEach((match, idx) => {
+              chunkDetails.push({
+                chunkId: `kw-${doc.id}-match-${idx}`,
+                content: match.segment,
+                keywordScore: match.score,
+                type: 'keyword',
+                matchedTerm: match.term
+              });
+            });
+
+            searchMetrics.keywordResults = uniqueSegments.length;
+          } else {
+            console.log(`DEBUG: No keyword matches found for "${userMessage}" in document ${doc.name}`);
+            documentContext = `Document: ${doc.name}\nNo matches found for search terms: ${searchTerms.join(', ')}\n\nThis document does not contain the requested information.`;
+
+            chunkDetails.push({
+              chunkId: `kw-${doc.id}-no-match`,
+              content: `No matches found for: ${searchTerms.join(', ')}`,
+              keywordScore: 0.0,
+              type: 'keyword-no-match'
+            });
+
+            searchMetrics.keywordResults = 0;
+          }
+
         } else if (searchType === 'vector') {
           // Pure vector search (current implementation)
           console.log(`DEBUG: Performing vector search for "${userMessage}"`);
           const vectorResults = await vectorService.searchDocuments(userMessage, userId, 3, [parseInt(specificDocumentId)]);
           searchMetrics.vectorResults = vectorResults.length;
-          
+
           console.log(`DEBUG: Found ${vectorResults.length} vector results`);
           if (vectorResults.length > 0) {
             documentContext = vectorResults
@@ -80,7 +132,7 @@ router.post("/debug/ai-input", async (req, res) => {
                 `Document: ${doc.name}\nRelevant Content: ${result.document.content}`
               )
               .join("\n\n");
-              
+
             // Add vector chunk details
             vectorResults.slice(0, 3).forEach((result, idx) => {
               chunkDetails.push({
@@ -94,7 +146,7 @@ router.post("/debug/ai-input", async (req, res) => {
           } else {
             console.log(`DEBUG: No vector results, using fallback content`);
             documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
-            
+
             chunkDetails.push({
               chunkId: `vec-${doc.id}-fallback`,
               content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
@@ -102,7 +154,7 @@ router.post("/debug/ai-input", async (req, res) => {
               type: 'vector-fallback'
             });
           }
-          
+
         } else if (searchType === 'hybrid' || searchType === 'weighted') {
           // Hybrid or weighted search - combine both approaches
           console.log(`DEBUG: Performing ${searchType} search for "${userMessage}"`);
@@ -110,14 +162,14 @@ router.post("/debug/ai-input", async (req, res) => {
             storage.searchDocuments(userId, userMessage),
             vectorService.searchDocuments(userMessage, userId, 5, [parseInt(specificDocumentId)])
           ]);
-          
+
           searchMetrics.keywordResults = keywordResults.length;
           searchMetrics.vectorResults = vectorResults.length;
-          
+
           console.log(`DEBUG: Found ${keywordResults.length} keyword results and ${vectorResults.length} vector results`);
-          
+
           let combinedContent = [];
-          
+
           // Get keyword content
           const keywordDoc = keywordResults.find(d => d.id === parseInt(specificDocumentId));
           if (keywordDoc && keywordDoc.content) {
@@ -131,7 +183,7 @@ router.post("/debug/ai-input", async (req, res) => {
               keywordScore: kwWeight
             });
           }
-          
+
           // Get vector content
           if (vectorResults.length > 0) {
             const vWeight = searchType === 'weighted' ? vectorWeight : 0.5;
@@ -147,16 +199,16 @@ router.post("/debug/ai-input", async (req, res) => {
               });
             });
           }
-          
+
           // Sort by weight and build context
           combinedContent.sort((a, b) => b.weight - a.weight);
           searchMetrics.combinedResults = combinedContent.length;
-          
+
           documentContext = `Document: ${doc.name}\n\n` + 
             combinedContent.map(item => 
               `[${item.source.toUpperCase()} - Weight: ${item.weight.toFixed(2)}${item.similarity ? `, Similarity: ${item.similarity.toFixed(4)}` : ''}]\n${item.content}`
             ).join("\n\n---\n\n");
-            
+
           // Add hybrid chunk details
           combinedContent.forEach(item => {
             chunkDetails.push({
@@ -173,19 +225,19 @@ router.post("/debug/ai-input", async (req, res) => {
           // Fallback for unknown search types
           console.log(`DEBUG: Unknown search type ${searchType}, using fallback`);
           documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
-          
+
           chunkDetails.push({
             chunkId: `fallback-${doc.id}`,
             content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
             type: 'fallback'
           });
         }
-        
+
       } catch (searchError) {
         console.error("Search failed:", searchError);
         documentContext = `Document: ${doc.name}\nSummary: ${doc.summary || 'No summary'}\nTags: ${doc.tags?.join(", ") || 'No tags'}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
         searchMetrics.error = searchError.message;
-        
+
         chunkDetails.push({
           chunkId: `error-${doc.id}`,
           content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
@@ -241,24 +293,24 @@ router.get("/debug/find-xolo/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     console.log(`=== SEARCHING FOR XOLO ACROSS ALL DOCUMENTS FOR USER ${userId} ===`);
-    
+
     // Get all documents for the user
     const documents = await storage.getDocuments(userId);
     console.log(`Found ${documents.length} total documents`);
-    
+
     const xoloResults = [];
-    
+
     // Search through each document
     for (const doc of documents) {
       const content = doc.content?.toLowerCase() || '';
       const name = doc.name?.toLowerCase() || '';
       const summary = doc.summary?.toLowerCase() || '';
-      
+
       // Check for various XOLO variations
       const searchTerms = ['xolo', 'โซโล่', 'โซโล', 'XOLO'];
       let found = false;
       let foundTerms = [];
-      
+
       for (const term of searchTerms) {
         if (content.includes(term.toLowerCase()) || 
             name.includes(term.toLowerCase()) || 
@@ -267,14 +319,14 @@ router.get("/debug/find-xolo/:userId", async (req, res) => {
           foundTerms.push(term);
         }
       }
-      
+
       if (found) {
         // Find the specific line/context where XOLO appears
         const lines = content.split('\n');
         const matchingLines = lines.filter(line => 
           searchTerms.some(term => line.toLowerCase().includes(term.toLowerCase()))
         );
-        
+
         xoloResults.push({
           documentId: doc.id,
           documentName: doc.name,
@@ -283,26 +335,26 @@ router.get("/debug/find-xolo/:userId", async (req, res) => {
           contentLength: content.length,
           hasVectorData: doc.isInVectorDb || false
         });
-        
+
         console.log(`FOUND XOLO in Document ${doc.id}: ${doc.name}`);
         console.log(`Found terms: ${foundTerms.join(', ')}`);
         console.log(`Matching lines: ${matchingLines.slice(0, 2).join(' | ')}`);
       }
     }
-    
+
     // Also search in vector database if available
     console.log(`\n=== SEARCHING VECTOR DATABASE ===`);
     try {
       const vectorResults = await vectorService.searchDocuments('XOLO', userId, 10);
       console.log(`Vector search returned ${vectorResults.length} results`);
-      
+
       const vectorXoloResults = vectorResults.map(result => ({
         similarity: result.similarity,
         documentId: result.document.metadata.originalDocumentId || result.document.id,
         content: result.document.content.substring(0, 500),
         hasXolo: result.document.content.toLowerCase().includes('xolo')
       }));
-      
+
       res.json({
         totalDocuments: documents.length,
         documentsWithXolo: xoloResults,
@@ -312,7 +364,7 @@ router.get("/debug/find-xolo/:userId", async (req, res) => {
           foundInVector: vectorXoloResults.filter(r => r.hasXolo).length
         }
       });
-      
+
     } catch (vectorError) {
       console.error("Vector search failed:", vectorError);
       res.json({
@@ -326,7 +378,7 @@ router.get("/debug/find-xolo/:userId", async (req, res) => {
         }
       });
     }
-    
+
   } catch (error) {
     console.error("XOLO search debug error:", error);
     res.status(500).json({ error: "XOLO search debug failed" });
