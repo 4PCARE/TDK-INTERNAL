@@ -869,7 +869,7 @@ export class DatabaseStorage implements IStorage {
         userQuery: aiAssistantFeedback.userQuery,
         assistantResponse: aiAssistantFeedback.assistantResponse,
         createdAt: aiAssistantFeedback.createdAt,
-        documentContext: aiAssistantFeedback.documentContext: aiAssistantFeedback.documentContext,
+        documentContext: aiAssistantFeedback.documentContext,
       })
       .from(aiAssistantFeedback)
       .where(eq(aiAssistantFeedback.userId, userId))
