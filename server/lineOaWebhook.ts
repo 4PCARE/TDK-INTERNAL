@@ -1167,21 +1167,56 @@ ${imageAnalysisResult}
                 console.log(`  ${idx + 1}. ${doc.docName} - Score: ${doc.totalRelevanceScore.toFixed(4)}`);
               });
 
-              // Step 5: Build context from top documents (1 best chunk per document)
-              const documentContext = topDocuments
-                .map((doc, index) => {
-                  // Get the best chunk from this document
-                  const bestChunk = doc.chunks.reduce((best, current) => 
-                    current.similarity > best.similarity ? current : best
-                  );
-                  
-                  return `=== เอกสารที่ ${index + 1}: ${doc.docName} ===\nคะแนนความเกี่ยวข้อง: ${doc.totalRelevanceScore.toFixed(3)}\nเนื้อหา: ${bestChunk.content}`;
-                })
-                .join('\n\n');
+              // Step 5: Build context from top 2 chunks only (regardless of document count)
+              const topChunks = [];
+              
+              // Collect all chunks from top documents and sort by similarity
+              for (const doc of topDocuments) {
+                for (const chunk of doc.chunks) {
+                  topChunks.push({
+                    docName: doc.docName,
+                    content: chunk.content,
+                    similarity: chunk.similarity,
+                    docScore: doc.totalRelevanceScore
+                  });
+                }
+              }
+              
+              // Sort all chunks by similarity and take only top 2
+              topChunks.sort((a, b) => b.similarity - a.similarity);
+              const finalTop2Chunks = topChunks.slice(0, 2);
+              
+              console.log(`LINE OA: Selected final top 2 chunks:`);
+              finalTop2Chunks.forEach((chunk, idx) => {
+                console.log(`  ${idx + 1}. ${chunk.docName} - Similarity: ${chunk.similarity.toFixed(4)}`);
+              });
+
+              // Build context with string length limit as final safeguard
+              let documentContext = "";
+              const maxContextLength = 8000; // String limit as final check
+              
+              for (let i = 0; i < finalTop2Chunks.length; i++) {
+                const chunk = finalTop2Chunks[i];
+                const chunkText = `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
+                
+                // Check if adding this chunk would exceed the limit
+                if (documentContext.length + chunkText.length <= maxContextLength) {
+                  documentContext += chunkText;
+                } else {
+                  // Truncate the chunk to fit within limit
+                  const remainingSpace = maxContextLength - documentContext.length;
+                  if (remainingSpace > 200) { // Only add if there's meaningful space
+                    const truncatedContent = chunk.content.substring(0, remainingSpace - 150) + "...";
+                    documentContext += `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
+                  }
+                  break;
+                }
+              }
+
+              console.log(`LINE OA: Final context length: ${documentContext.length} characters (limit: ${maxContextLength})`);
 
               // Generate AI response with focused document context
-              const { OpenAI } = await import('openai');
-              const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+              // Use existing OpenAI instance from module scope
 
               const agent = await storage.getAgentChatbot(lineIntegration.agentId, lineIntegration.userId);
               const systemPrompt = `${agent?.systemPrompt || 'You are a helpful assistant.'}
