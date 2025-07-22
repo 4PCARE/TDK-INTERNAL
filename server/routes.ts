@@ -1237,9 +1237,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let results = [];
 
       if (searchType === "keyword") {
-        console.log("Performing keyword search...");
-        results = await storage.searchDocuments(userId, query);
-        console.log(`Keyword search returned ${results.length} results`);
+        console.log("Performing advanced keyword search...");
+        try {
+          const { advancedKeywordSearchService } = await import('./services/advancedKeywordSearch');
+          const advancedResults = await advancedKeywordSearchService.searchDocuments(query, userId, 50);
+          
+          // Convert advanced results to match expected format
+          results = advancedResults.map(result => ({
+            id: result.id,
+            name: result.name,
+            content: result.content,
+            summary: result.summary,
+            aiCategory: result.aiCategory,
+            createdAt: result.createdAt,
+            similarity: result.similarity,
+            tags: [], // Will be populated from storage if needed
+            categoryId: null,
+            userId: userId
+          }));
+          
+          console.log(`Advanced keyword search returned ${results.length} results`);
+        } catch (error) {
+          console.error("Advanced keyword search failed, falling back to basic:", error);
+          results = await storage.searchDocuments(userId, query);
+          console.log(`Fallback keyword search returned ${results.length} results`);
+        }
       } else if (searchType === "semantic") {
         console.log("Performing semantic search...");
         try {

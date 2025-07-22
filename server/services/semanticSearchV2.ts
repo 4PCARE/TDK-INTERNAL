@@ -145,6 +145,67 @@ export class SemanticSearchServiceV2 {
     options: Omit<SearchOptions, "searchType">
   ): Promise<SearchResult[]> {
     try {
+      // Use the new advanced keyword search service
+      const { advancedKeywordSearchService } = await import('./advancedKeywordSearch');
+      const results = await advancedKeywordSearchService.searchDocuments(
+        query,
+        userId,
+        options.limit || 20
+      );
+      
+      // Convert to the expected SearchResult format
+      const searchResults: SearchResult[] = results.map(result => ({
+        id: result.id,
+        name: result.name,
+        content: result.content,
+        summary: result.summary,
+        aiCategory: result.aiCategory,
+        aiCategoryColor: null, // Will be filled from original document if available
+        similarity: result.similarity,
+        createdAt: result.createdAt,
+        categoryId: null,
+        tags: null,
+        fileSize: null,
+        mimeType: null,
+        isFavorite: null,
+        updatedAt: null,
+        userId: userId
+      }));
+
+      // Get full document details to fill missing fields
+      const documents = await storage.getDocuments(userId, { limit: 1000 });
+      const docMap = new Map(documents.map(doc => [doc.id, doc]));
+
+      // Fill in missing fields from original documents
+      searchResults.forEach(result => {
+        const originalDoc = docMap.get(result.id);
+        if (originalDoc) {
+          result.aiCategoryColor = originalDoc.aiCategoryColor;
+          result.categoryId = originalDoc.categoryId;
+          result.tags = originalDoc.tags;
+          result.fileSize = originalDoc.fileSize;
+          result.mimeType = originalDoc.mimeType;
+          result.isFavorite = originalDoc.isFavorite;
+          result.updatedAt = originalDoc.updatedAt?.toISOString() || null;
+        }
+      });
+
+      console.log(`Advanced keyword search returned ${searchResults.length} results`);
+      return searchResults;
+
+    } catch (error) {
+      console.error("Error performing advanced keyword search:", error);
+      // Fallback to basic search if advanced search fails
+      return this.performBasicKeywordSearch(query, userId, options);
+    }
+  }
+
+  private async performBasicKeywordSearch(
+    query: string,
+    userId: string,
+    options: Omit<SearchOptions, "searchType">
+  ): Promise<SearchResult[]> {
+    try {
       const documents = await storage.searchDocuments(userId, query);
       
       // Calculate keyword matching score for each document
@@ -165,7 +226,6 @@ export class SemanticSearchServiceV2 {
         );
         
         // Calculate similarity score based on keyword match ratio
-        // If 3/4 keywords match = 0.75, if 2/4 keywords match = 0.50, etc.
         const similarity = matchingTerms.length / searchTerms.length;
         
         console.log(`Document ${doc.id}: ${matchingTerms.length}/${searchTerms.length} keywords matched, similarity: ${similarity.toFixed(2)}`);
@@ -179,18 +239,17 @@ export class SemanticSearchServiceV2 {
           aiCategoryColor: doc.aiCategoryColor,
           similarity: similarity,
           createdAt: doc.createdAt.toISOString(),
-          // Include all fields needed for proper display (matching DocumentCard interface)
           categoryId: doc.categoryId,
           tags: doc.tags,
-          fileSize: doc.fileSize, // Use fileSize instead of size
-          mimeType: doc.mimeType, // Use mimeType instead of fileType
+          fileSize: doc.fileSize,
+          mimeType: doc.mimeType,
           isFavorite: doc.isFavorite,
           updatedAt: doc.updatedAt?.toISOString() || null,
           userId: doc.userId
         };
-      }).sort((a, b) => b.similarity - a.similarity); // Sort by similarity score descending
+      }).sort((a, b) => b.similarity - a.similarity);
     } catch (error) {
-      console.error("Error performing keyword search:", error);
+      console.error("Error performing basic keyword search:", error);
       throw new Error("Failed to perform keyword search");
     }
   }

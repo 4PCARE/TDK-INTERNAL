@@ -37,125 +37,110 @@ router.post("/debug/ai-input", async (req, res) => {
           // Pure keyword search - find matching content in the specific document
           console.log(`DEBUG: Performing keyword search for "${userMessage}"`);
 
-          // For Thai text, be more flexible with search terms
-          const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
-          const docContent = doc.content || '';
-          const docContentLower = docContent.toLowerCase();
+          // Use advanced keyword search for better results
+          try {
+            const { advancedKeywordSearchService } = await import('./services/advancedKeywordSearch');
+            
+            // Create a mock document array with just this document
+            const mockDocuments = [{
+              ...doc,
+              userId: userId
+            }];
+            
+            // Temporarily override storage.getDocuments for this search
+            const originalGetDocuments = storage.getDocuments;
+            storage.getDocuments = async () => mockDocuments as any;
+            
+            const advancedResults = await advancedKeywordSearchService.searchDocuments(
+              userMessage, userId, 5
+            );
+            
+            // Restore original method
+            storage.getDocuments = originalGetDocuments;
+            
+            if (advancedResults.length > 0 && advancedResults[0].similarity > 0.1) {
+              const result = advancedResults[0];
+              console.log(`DEBUG: Advanced keyword search found match with similarity ${result.similarity}`);
+              
+              // Get highlights for better context
+              const highlights = advancedKeywordSearchService.getHighlights(
+                doc.content || '', result.matchedTerms, 1500
+              );
+              
+              const keywordChunks = highlights.map((highlight, idx) => 
+                `=== RELEVANT CHUNK ${idx + 1} (Advanced Score: ${result.similarity.toFixed(3)}) ===\n${highlight}`
+              ).join('\n\n---\n\n');
 
-          console.log(`DEBUG: Searching for terms: ${searchTerms.join(', ')} in document ${doc.name}`);
+              documentContext = `Document: ${doc.name}\n\nAdvanced Keyword Search Results:\n${keywordChunks}`;
 
-          // Find all matches and their positions
-          let matchingSegments = [];
-          let hasMatches = false;
-
-          // Search for individual terms
-          for (const term of searchTerms) {
-            let index = 0;
-            while ((index = docContentLower.indexOf(term, index)) !== -1) {
-              hasMatches = true;
-              // Extract context around the match (500 chars before and after)
-              const start = Math.max(0, index - 500);
-              const end = Math.min(docContent.length, index + term.length + 500);
-              const segment = docContent.substring(start, end);
-
-              matchingSegments.push({
-                term: term,
-                position: index,
-                segment: segment,
-                score: 1.0
+              highlights.forEach((highlight, idx) => {
+                chunkDetails.push({
+                  chunkId: `kw-advanced-${doc.id}-${idx}`,
+                  content: highlight,
+                  keywordScore: result.similarity,
+                  type: 'keyword-advanced',
+                  matchedTerms: result.matchedTerms
+                });
               });
 
-              index += term.length;
+              searchMetrics.keywordResults = highlights.length;
+            } else {
+              console.log(`DEBUG: No advanced keyword matches found for "${userMessage}" in document ${doc.name}`);
+              // Fallback to basic sample
+              const sampleContent = (doc.content || '').substring(0, 2000);
+              documentContext = `Document: ${doc.name}\nNo advanced keyword matches found for: "${userMessage}"\n\nDocument sample content:\n${sampleContent}${(doc.content || '').length > 2000 ? '...' : ''}`;
 
-              // Limit to 3 matches per term to avoid too much content
-              if (matchingSegments.filter(s => s.term === term).length >= 3) break;
+              chunkDetails.push({
+                chunkId: `kw-${doc.id}-sample`,
+                content: sampleContent,
+                keywordScore: 0.0,
+                type: 'keyword-fallback'
+              });
+
+              searchMetrics.keywordResults = 0;
             }
-          }
+            
+          } catch (advancedSearchError) {
+            console.error("Advanced keyword search failed, falling back to basic:", advancedSearchError);
+            
+            // Fallback to basic keyword search
+            const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+            const docContent = doc.content || '';
+            const docContentLower = docContent.toLowerCase();
 
-          // Also search for the entire query as a phrase
-          let phraseIndex = 0;
-          while ((phraseIndex = docContentLower.indexOf(userMessage.toLowerCase(), phraseIndex)) !== -1) {
-            hasMatches = true;
-            const start = Math.max(0, phraseIndex - 500);
-            const end = Math.min(docContent.length, phraseIndex + userMessage.length + 500);
-            const segment = docContent.substring(start, end);
-
-            matchingSegments.push({
-              term: `EXACT_PHRASE: ${userMessage}`,
-              position: phraseIndex,
-              segment: segment,
-              score: 2.0 // Higher score for exact phrase matches
-            });
-
-            phraseIndex += userMessage.length;
-            if (matchingSegments.filter(s => s.term.startsWith('EXACT_PHRASE')).length >= 2) break;
-          }
-
-          if (hasMatches && matchingSegments.length > 0) {
-            console.log(`DEBUG: Found ${matchingSegments.length} keyword matches`);
-
-            // Sort by score (exact phrases first) then by position
-            matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);
-
-            // Take best matches and remove overlaps
-            const uniqueSegments = [];
-            const usedRanges = [];
-
-            for (const match of matchingSegments) {
-              const start = Math.max(0, match.position - 1000); // Expand context window
-              const end = Math.min(docContent.length, match.position + match.term.length + 2000); // Larger context
-
-              // Check if this range overlaps significantly with existing ones
-              const hasOverlap = usedRanges.some(range => 
-                Math.max(start, range.start) < Math.min(end, range.end) - 300
-              );
-
-              if (!hasOverlap && uniqueSegments.length < 3) { // Limit to 3 best matches
-                // Extract larger context around the match
-                const contextSegment = docContent.substring(start, end);
-                uniqueSegments.push({
-                  ...match,
-                  segment: contextSegment,
-                  contextStart: start,
-                  contextEnd: end
-                });
-                usedRanges.push({ start, end });
+            let hasBasicMatches = false;
+            for (const term of searchTerms) {
+              if (docContentLower.includes(term)) {
+                hasBasicMatches = true;
+                break;
               }
             }
 
-            // Build proper context for AI with full relevant chunks
-            const keywordChunks = uniqueSegments.map((match, idx) => 
-              `=== RELEVANT CHUNK ${idx + 1} (Score: ${match.score}) ===\n${match.segment}`
-            ).join('\n\n---\n\n');
+            if (hasBasicMatches) {
+              const sampleContent = docContent.substring(0, 3000);
+              documentContext = `Document: ${doc.name}\n\nBasic keyword matches found for: "${userMessage}"\n\nDocument content:\n${sampleContent}${docContent.length > 3000 ? '...' : ''}`;
 
-            documentContext = `Document: ${doc.name}\n\n${keywordChunks}`;
-
-            // Add keyword chunk details for each match
-            uniqueSegments.forEach((match, idx) => {
               chunkDetails.push({
-                chunkId: `kw-${doc.id}-match-${idx}`,
-                content: match.segment || '',
-                keywordScore: match.score,
-                type: 'keyword',
-                matchedTerm: match.term
+                chunkId: `kw-basic-${doc.id}`,
+                content: sampleContent,
+                keywordScore: 0.5,
+                type: 'keyword-basic'
               });
-            });
 
-            searchMetrics.keywordResults = uniqueSegments.length;
-          } else {
-            console.log(`DEBUG: No keyword matches found for "${userMessage}" in document ${doc.name}`);
-            // Instead of showing "no matches", provide a sample of the document content
-            const sampleContent = docContent.substring(0, 2000);
-            documentContext = `Document: ${doc.name}\nNo direct keyword matches found for: "${userMessage}"\n\nDocument sample content:\n${sampleContent}${docContent.length > 2000 ? '...' : ''}`;
+              searchMetrics.keywordResults = 1;
+            } else {
+              const sampleContent = docContent.substring(0, 2000);
+              documentContext = `Document: ${doc.name}\nNo keyword matches found for: "${userMessage}"\n\nDocument sample content:\n${sampleContent}${docContent.length > 2000 ? '...' : ''}`;
 
-            chunkDetails.push({
-              chunkId: `kw-${doc.id}-sample`,
-              content: sampleContent,
-              keywordScore: 0.0,
-              type: 'keyword-fallback'
-            });
+              chunkDetails.push({
+                chunkId: `kw-${doc.id}-sample`,
+                content: sampleContent,
+                keywordScore: 0.0,
+                type: 'keyword-fallback'
+              });
 
-            searchMetrics.keywordResults = 0;
+              searchMetrics.keywordResults = 0;
+            }
           }
 
         } else if (searchType === 'vector') {
