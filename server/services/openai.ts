@@ -412,8 +412,8 @@ export async function generateChatResponse(
           relevantContent = documents
             .map(doc => doc.content || doc.summary || '')
             .filter(content => content.length > 0)
-            .slice(0, 3)
-            .map(content => content.substring(0, 30000))
+            .slice(0, 2)
+            .map(content => content.substring(0, 15000))
             .join("\n\n");
         }
       } else {
@@ -437,8 +437,8 @@ export async function generateChatResponse(
           relevantContent = documents
             .map(doc => doc.content || doc.summary || '')
             .filter(content => content.length > 0)
-            .slice(0, 3)
-            .map(content => content.substring(0, 30000))
+            .slice(0, 2)
+            .map(content => content.substring(0, 15000))
             .join("\n\n");
         }
       }
@@ -448,8 +448,8 @@ export async function generateChatResponse(
       relevantContent = documents
         .map(doc => doc.content || doc.summary || '')
         .filter(content => content.length > 0)
-        .slice(0, 3)
-        .map(content => content.substring(0, 30000))
+        .slice(0, 2)
+        .map(content => content.substring(0, 15000))
         .join("\n\n");
     }
 
