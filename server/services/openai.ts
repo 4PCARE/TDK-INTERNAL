@@ -386,18 +386,14 @@ export async function generateChatResponse(
       const userId = documents[0].userId; // Assume all documents belong to the same user
       
       try {
-        // Search for relevant chunks from the specific document
-        const vectorResults = await vectorService.searchDocuments(userMessage, userId, 10);
+        // Search for relevant chunks ONLY from the specific document
+        const vectorResults = await vectorService.searchDocuments(userMessage, userId, 10, [specificDocumentId]);
         
-        // Filter results to only include chunks from the specific document
-        const specificDocResults = vectorResults.filter(result => 
-          result.document.metadata.originalDocumentId === specificDocumentId.toString() ||
-          result.document.id === specificDocumentId.toString()
-        );
+        console.log(`Specific document chat: Found ${vectorResults.length} chunks from document ${specificDocumentId}`);
         
-        if (specificDocResults.length > 0) {
+        if (vectorResults.length > 0) {
           // Use more relevant chunks for better coverage
-          documentContext = specificDocResults
+          documentContext = vectorResults
             .slice(0, 10) // Increased from 5 to 10 chunks for better content coverage
             .map(result => 
               `Document: ${documents[0].name}\nRelevant Content: ${result.document.content}`

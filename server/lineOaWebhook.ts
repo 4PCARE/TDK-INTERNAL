@@ -369,20 +369,17 @@ async function getAiResponseDirectly(
       try {
         const { vectorService } = await import('./services/vectorService');
         
-        // Search for relevant chunks across agent's documents using hybrid search
-        const vectorResults = await vectorService.searchDocuments(message, userId, 15);
+        // Search for relevant chunks ONLY from agent's documents using document scope restriction
+        const agentDocIds = agentDocs.map(d => d.documentId);
+        const vectorResults = await vectorService.searchDocuments(userMessage, userId, 15, agentDocIds);
         
-        // Filter results to only include chunks from agent's documents
-        const agentDocIds = agentDocs.map(d => d.documentId.toString());
-        const relevantResults = vectorResults.filter(result => 
-          agentDocIds.includes(result.document.metadata.originalDocumentId || result.document.id)
-        );
+        console.log(`🔍 Line OA: Found ${vectorResults.length} relevant chunks from ${agentDocIds.length} assigned documents`);
         
-        if (relevantResults.length > 0) {
+        if (vectorResults.length > 0) {
           // Group by document and build context from relevant chunks
           const docChunks = new Map<string, {name: string, chunks: string[]}>();
           
-          for (const result of relevantResults) {
+          for (const result of vectorResults) {
             const docId = result.document.metadata.originalDocumentId || result.document.id;
             const document = await storage.getDocument(parseInt(docId), userId);
             const docName = document?.name || 'Unknown Document';
@@ -400,7 +397,7 @@ async function getAiResponseDirectly(
             );
           });
           
-          console.log(`📄 Line OA: Using vector search with ${relevantResults.length} relevant chunks from ${docChunks.size} documents`);
+          console.log(`📄 Line OA: Using vector search with ${vectorResults.length} relevant chunks from ${docChunks.size} documents`);
         } else {
           console.log(`📄 Line OA: No relevant chunks found, using fallback approach`);
           // Fallback to original approach with first few documents

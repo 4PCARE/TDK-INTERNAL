@@ -47,20 +47,17 @@ export class WidgetChatService {
           // Get a sample document to get userId for vector search
           const sampleDoc = await storage.getDocumentForWidget(agentDocs[0].documentId);
           if (sampleDoc && sampleDoc.userId) {
-            // Search for relevant chunks across agent's documents using hybrid search
-            const vectorResults = await vectorService.searchDocuments(message, sampleDoc.userId, 15);
+            // Search for relevant chunks ONLY from agent's documents using document scope restriction
+            const agentDocIds = agentDocs.map(d => d.documentId);
+            const vectorResults = await vectorService.searchDocuments(userMessage, sampleDoc.userId, 15, agentDocIds);
             
-            // Filter results to only include chunks from agent's documents
-            const agentDocIds = agentDocs.map(d => d.documentId.toString());
-            const relevantResults = vectorResults.filter(result => 
-              agentDocIds.includes(result.document.metadata.originalDocumentId || result.document.id)
-            );
+            console.log(`🔍 Widget Chat: Found ${vectorResults.length} relevant chunks from ${agentDocIds.length} assigned documents`);
             
-            if (relevantResults.length > 0) {
+            if (vectorResults.length > 0) {
               // Group by document and build context from relevant chunks
               const docChunks = new Map<string, {name: string, chunks: string[]}>();
               
-              for (const result of relevantResults) {
+              for (const result of vectorResults) {
                 const docId = result.document.metadata.originalDocumentId || result.document.id;
                 const document = await storage.getDocumentForWidget(parseInt(docId));
                 const docName = document?.name || 'Unknown Document';

@@ -137,7 +137,8 @@ export class VectorService {
   async searchDocuments(
     query: string, 
     userId: string, 
-    limit: number = 10
+    limit: number = 10,
+    specificDocumentIds?: number[]
   ): Promise<Array<{ document: VectorDocument; similarity: number }>> {
     try {
       // Enhanced hybrid search for store location queries
@@ -162,14 +163,22 @@ export class VectorService {
           sql`${documentVectors.content} ILIKE '%The Mall%'`
         ];
         
+        // Build WHERE conditions with optional document ID filtering
+        const whereConditions = [
+          eq(documentVectors.userId, userId),
+          or(...keywordConditions)
+        ];
+        
+        // Add document ID filtering if specified
+        if (specificDocumentIds && specificDocumentIds.length > 0) {
+          whereConditions.push(
+            or(...specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
+          );
+        }
+        
         const keywordResults = await db.select()
           .from(documentVectors)
-          .where(
-            and(
-              eq(documentVectors.userId, userId),
-              or(...keywordConditions)
-            )
-          )
+          .where(and(...whereConditions))
           .limit(15);
         
         console.log(`VectorService: Found ${keywordResults.length} keyword matches for store search`);
@@ -224,10 +233,19 @@ export class VectorService {
         }
       }
 
-      // Get all vectors from database for this user
+      // Get all vectors from database for this user (with optional document filtering)
+      let whereCondition: any = eq(documentVectors.userId, userId);
+      
+      if (specificDocumentIds && specificDocumentIds.length > 0) {
+        whereCondition = and(
+          eq(documentVectors.userId, userId),
+          or(...specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
+        );
+      }
+      
       const dbVectors = await db.select()
         .from(documentVectors)
-        .where(eq(documentVectors.userId, userId));
+        .where(whereCondition);
       
       console.log(`VectorService: Total documents in database: ${dbVectors.length}`);
       console.log(`VectorService: Documents for user ${userId}: ${dbVectors.length}`);
