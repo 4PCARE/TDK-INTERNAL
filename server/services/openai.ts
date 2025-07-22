@@ -453,9 +453,9 @@ export async function generateChatResponse(
         .join("\n\n");
     }
 
-    const systemMessage = `You are an AI assistant helping users with their document management system. You have access to the user's documents and can answer questions about them, help with searches, provide summaries, and assist with document organization.
+    const systemMessage = `You are a helpful AI assistant. Use the following information to answer questions accurately and naturally. Provide helpful responses based on the available information without mentioning that you were provided documents or data.
 
-Available documents:
+Available information:
 ${relevantContent}
 `;
 
