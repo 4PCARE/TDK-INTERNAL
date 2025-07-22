@@ -387,14 +387,14 @@ export async function generateChatResponse(
       
       try {
         // Search for relevant chunks ONLY from the specific document
-        const vectorResults = await vectorService.searchDocuments(userMessage, userId, 10, [specificDocumentId]);
+        const vectorResults = await vectorService.searchDocuments(userMessage, userId, 3, [specificDocumentId]);
         
         console.log(`Specific document chat: Found ${vectorResults.length} chunks from document ${specificDocumentId}`);
         
         if (vectorResults.length > 0) {
-          // Use more relevant chunks for better coverage
+          // Use only top 3 most relevant chunks
           documentContext = vectorResults
-            .slice(0, 10) // Increased from 5 to 10 chunks for better content coverage
+            .slice(0, 3) // Limited to 3 chunks for focused content
             .map(result => 
               `Document: ${documents[0].name}\nRelevant Content: ${result.document.content}`
             )

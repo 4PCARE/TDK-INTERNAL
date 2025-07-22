@@ -26,21 +26,21 @@ export class VectorService {
 
     while (start < text.length) {
       let end = start + maxChunkSize;
-      
+
       // Try to break at a sentence or paragraph boundary
       if (end < text.length) {
         const lastPeriod = text.lastIndexOf('.', end);
         const lastNewline = text.lastIndexOf('\n', end);
         const lastBreak = Math.max(lastPeriod, lastNewline);
-        
+
         if (lastBreak > start + maxChunkSize * 0.5) {
           end = lastBreak + 1;
         }
       }
-      
+
       chunks.push(text.slice(start, end).trim());
       start = end - overlap;
-      
+
       if (start >= text.length) break;
     }
 
@@ -65,7 +65,7 @@ export class VectorService {
       // Process each chunk
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
-        
+
         try {
           // Generate embedding for this chunk
           const response = await openai.embeddings.create({
@@ -100,7 +100,7 @@ export class VectorService {
             embedding,
             userId: metadata.userId
           });
-          
+
           addedChunks++;
 
           // Add a small delay to avoid rate limiting
@@ -113,7 +113,7 @@ export class VectorService {
           // Continue with next chunk instead of failing entirely
         }
       }
-      
+
       console.log(`Document ${id}: Successfully added ${addedChunks}/${chunks.length} chunks to vector database`);
       return `Document ${id} added to vector database with ${addedChunks} chunks`;
     } catch (error) {
@@ -127,7 +127,7 @@ export class VectorService {
       // Remove all chunks related to this document
       const result = await db.delete(documentVectors)
         .where(eq(documentVectors.documentId, parseInt(id)));
-      
+
       console.log(`Removed vector data for document ${id}`);
     } catch (error) {
       console.error(`Error removing document ${id} from vector database:`, error);
@@ -144,10 +144,10 @@ export class VectorService {
       // Enhanced hybrid search for store location queries
       const isStoreQuery = query.includes('XOLO') || query.includes('โซโล่') || query.includes('KAMU') || query.includes('คามุ') || 
                           query.includes('บางกะปิ') || query.includes('Bangkapi') || query.includes('งามวงศ์วาน') || query.includes('ชั้น');
-      
+
       if (isStoreQuery) {
         console.log(`VectorService: Performing enhanced hybrid search for store query: "${query}"`);
-        
+
         // Try multiple keyword combinations
         const keywordConditions = [
           sql`${documentVectors.content} ILIKE '%XOLO%'`,
@@ -162,45 +162,46 @@ export class VectorService {
           sql`${documentVectors.content} ILIKE '%เดอะมอลล์%'`,
           sql`${documentVectors.content} ILIKE '%The Mall%'`
         ];
-        
+
         // Build WHERE conditions with optional document ID filtering
         const whereConditions = [
           eq(documentVectors.userId, userId),
           or(...keywordConditions)
         ];
-        
+
         // Add document ID filtering if specified
         if (specificDocumentIds && specificDocumentIds.length > 0) {
           whereConditions.push(
             or(...specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
           );
         }
-        
+
         const keywordResults = await db.select()
           .from(documentVectors)
           .where(and(...whereConditions))
           .limit(15);
-        
+
         console.log(`VectorService: Found ${keywordResults.length} keyword matches for store search`);
-        
+
         // Debug: Log some sample results
         keywordResults.slice(0, 3).forEach((result, i) => {
           console.log(`  ${i+1}. Doc ${result.documentId}, Chunk ${result.chunkIndex}: ${result.content.substring(0, 100)}...`);
         });
-        
+
         // If we found keyword matches, prioritize them and boost their similarity scores
         if (keywordResults.length > 0) {
           console.log(`VectorService: Using keyword-boosted search for store location query`);
-          
+
           // Generate embedding for semantic comparison
           const response = await openai.embeddings.create({
             model: "text-embedding-3-small",
             input: query,
           });
+
           const queryEmbedding = response.data[0].embedding;
-          
-          // Process keyword results with boosted similarity scores
-          const boostedResults = keywordResults.map(dbVector => {
+
+          // Calculate similarities for keyword results and boost them
+          const keywordResultsWithSimilarity = keywordResults.map(dbVector => {
             const vectorDoc: VectorDocument = {
               id: `${dbVector.documentId}_chunk_${dbVector.chunkIndex}`,
               content: dbVector.content,
@@ -215,41 +216,54 @@ export class VectorService {
               totalChunks: dbVector.totalChunks
             };
 
-            // Calculate base similarity and boost it for keyword matches
-            const baseSimilarity = this.cosineSimilarity(queryEmbedding, dbVector.embedding);
-            const boostedSimilarity = Math.min(1.0, baseSimilarity + 0.4); // Higher boost for store queries
-            
-            console.log(`  Boosted result: Doc ${dbVector.documentId}, Similarity: ${baseSimilarity.toFixed(4)} -> ${boostedSimilarity.toFixed(4)}`);
-            
+            const originalSimilarity = this.cosineSimilarity(queryEmbedding, dbVector.embedding);
+
+            // Check for exact matches and give them highest priority
+            let boostedSimilarity = originalSimilarity;
+            const content = dbVector.content.toLowerCase();
+            const queryLower = query.toLowerCase();
+
+            // Exact match detection - highest boost
+            if (content.includes('xolo') && (queryLower.includes('xolo') || queryLower.includes('โซโล่'))) {
+              boostedSimilarity = Math.min(1.0, originalSimilarity + 0.6); // Highest boost for exact XOLO match
+            } else if (content.includes('ชั้น') && queryLower.includes('ชั้น')) {
+              boostedSimilarity = Math.min(1.0, originalSimilarity + 0.5); // High boost for floor info
+            } else {
+              boostedSimilarity = Math.min(1.0, originalSimilarity + 0.4); // Standard boost
+            }
+
+            console.log(`  Boosted result: Doc ${dbVector.documentId}, Similarity: ${originalSimilarity.toFixed(4)} -> ${boostedSimilarity.toFixed(4)}`);
+
             return {
               document: vectorDoc,
               similarity: boostedSimilarity
             };
           });
-          
-          return boostedResults
+
+          // Sort by boosted similarity and return only top 3 results
+          return keywordResultsWithSimilarity
             .sort((a, b) => b.similarity - a.similarity)
-            .slice(0, limit);
+            .slice(0, 3);
         }
       }
 
       // Get all vectors from database for this user (with optional document filtering)
       let whereCondition: any = eq(documentVectors.userId, userId);
-      
+
       if (specificDocumentIds && specificDocumentIds.length > 0) {
         whereCondition = and(
           eq(documentVectors.userId, userId),
           or(...specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
         );
       }
-      
+
       const dbVectors = await db.select()
         .from(documentVectors)
         .where(whereCondition);
-      
+
       console.log(`VectorService: Total documents in database: ${dbVectors.length}`);
       console.log(`VectorService: Documents for user ${userId}: ${dbVectors.length}`);
-      
+
       if (dbVectors.length === 0) {
         console.log("VectorService: No documents in vector database");
         return [];
@@ -289,7 +303,7 @@ export class VectorService {
 
       // Group by original document ID and take top chunks per document
       const documentGroups = new Map<string, Array<{ document: VectorDocument; similarity: number }>>();
-      
+
       allResults.forEach(result => {
         const originalDocId = result.document.metadata.originalDocumentId || result.document.id;
         if (!documentGroups.has(originalDocId)) {
@@ -300,13 +314,13 @@ export class VectorService {
 
       // Take top 5 chunks per document for better coverage
       const combinedResults: Array<{ document: VectorDocument; similarity: number }> = [];
-      
+
       documentGroups.forEach((chunks, docId) => {
         // Sort chunks by similarity and take top 5 per document (increased from 3)
         const topChunks = chunks
           .sort((a, b) => b.similarity - a.similarity)
           .slice(0, 5);
-        
+
         combinedResults.push(...topChunks);
       });
 
@@ -316,7 +330,7 @@ export class VectorService {
         .slice(0, limit);
 
       console.log(`Vector search for "${query}": Found ${finalResults.length} relevant chunks from ${documentGroups.size} documents`);
-      
+
       // Debug: Log top results with similarity scores
       console.log(`Debug: Top 5 vector search results for "${query}":`);
       finalResults.slice(0, 5).forEach((result, index) => {
@@ -327,7 +341,7 @@ export class VectorService {
           console.log(`   *** FOUND XOLO CHUNK ***`);
         }
       });
-      
+
       return finalResults;
     } catch (error) {
       console.error("Error searching vector database:", error);
@@ -373,7 +387,7 @@ export class VectorService {
       .where(eq(documentVectors.userId, userId));
 
     const stats: { [docId: string]: { chunks: number; totalLength: number } } = {};
-    
+
     dbVectors.forEach(dbVector => {
       const originalDocId = dbVector.documentId.toString();
       if (!stats[originalDocId]) {
@@ -382,7 +396,7 @@ export class VectorService {
       stats[originalDocId].chunks++;
       stats[originalDocId].totalLength += dbVector.content.length;
     });
-    
+
     return stats;
   }
 }
