@@ -1,3 +1,4 @@
+
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,70 +23,10 @@ import {
   Menu,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  FileText,
+  Shield,
 } from "lucide-react";
-
-const allNavigation = [
-  { name: "Home", href: "/", icon: Home, roles: ["admin", "user"] },
-  // { name: "Upload Documents", href: "/upload", icon: Upload, roles: ["admin", "user"] },
-  // { name: "My Documents", href: "/documents", icon: FolderOpen, roles: ["admin", "user"] },
-  // { name: "Search & Discovery", href: "/search", icon: Search, roles: ["admin", "user"] },
-  // { name: "AI Assistant", href: "/ai-assistant", icon: MessageSquare, roles: ["admin", "user"] },
-  {
-    name: "Meeting Notes",
-    href: "/meeting-notes",
-    icon: Video,
-    roles: ["admin", "user"],
-  },
-  {
-    name: "Agent Chatbots",
-    href: "/agent-chatbots",
-    icon: Bot,
-    roles: ["admin", "user"],
-  },
-  {
-    name: "Agent Console",
-    href: "/agent-console",
-    icon: UserCheck,
-    roles: ["admin", "user"],
-  },
-  {
-    name: "Integrations",
-    href: "/integrations",
-    icon: Building,
-    roles: ["admin", "user"],
-  },
-  {
-    name: "Categories & Tags",
-    href: "/categories",
-    icon: Tags,
-    roles: ["admin", "user"],
-  },
-  {
-    name: "User Management",
-    href: "/user-management",
-    icon: Users,
-    roles: ["admin"],
-  },
-  {
-    name: "Role Management",
-    href: "/role-management",
-    icon: Users,
-    roles: ["admin"],
-  },
-  {
-    name: "Live Chat Widget",
-    href: "/live-chat-widget",
-    icon: MessageSquare,
-    roles: ["admin"],
-  },
-  // {
-  //   name: "User Feedback",
-  //   href: "/user-feedback",
-  //   icon: BarChart3,
-  //   roles: ["admin"],
-  // },
-  { name: "Settings", href: "/settings", icon: Settings, roles: ["admin"] },
-];
 
 interface SidebarProps {
   isCollapsed?: boolean;
@@ -98,12 +39,27 @@ export default function Sidebar({
 }: SidebarProps) {
   const [location] = useLocation();
   const { user } = useAuth();
+  const [documentsExpanded, setDocumentsExpanded] = useState(false);
+  const [dashboardsExpanded, setDashboardsExpanded] = useState(false);
+  const [adminExpanded, setAdminExpanded] = useState(false);
 
   // Filter navigation based on user role - default to "user" role
   const userRole = (user as any)?.role || "user";
-  const navigation = allNavigation.filter((item) => {
-    return item.roles.includes(userRole);
-  });
+
+  // Auto-expand sections based on current route
+  useEffect(() => {
+    if (location.startsWith("/documents") || location.startsWith("/categories") || location.startsWith("/meeting-notes")) {
+      setDocumentsExpanded(true);
+    }
+    if (location.startsWith("/dashboards")) {
+      setDashboardsExpanded(true);
+    }
+    if (location.startsWith("/agent") || location.startsWith("/settings") || location.startsWith("/user-management") || location.startsWith("/role-management") || location.startsWith("/live-chat") || location.startsWith("/integrations")) {
+      setAdminExpanded(true);
+    }
+  }, [location]);
+
+  const isActiveRoute = (path: string) => location === path;
 
   return (
     <div
@@ -145,42 +101,440 @@ export default function Sidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {navigation.map((item) => {
-          const isActive = location === item.href;
-          return (
-            <Link key={item.name} href={item.href}>
-              <div
-                className={cn(
-                  "group flex items-center rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer relative",
-                  isActive
-                    ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
-                    : "text-white/90 hover:text-white hover:bg-navy-700/50",
-                  isCollapsed
-                    ? "justify-center px-4 py-2"
-                    : "space-x-3 px-3 py-2", // Adjusted padding here
-                )}
-              >
-                <item.icon
+      <nav className="flex-1 p-3 space-y-2 overflow-y-auto">
+        {/* Home */}
+        <Link href="/">
+          <div
+            className={cn(
+              "group flex items-center rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer relative",
+              isActiveRoute("/")
+                ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
+                : "text-white/90 hover:text-white hover:bg-navy-700/50",
+              isCollapsed
+                ? "justify-center px-4 py-3"
+                : "space-x-3 px-3 py-3",
+            )}
+          >
+            <Home
+              className={cn(
+                "flex-shrink-0 transition-transform duration-200",
+                isActiveRoute("/") ? "w-5 h-5" : "w-4 h-4",
+                "group-hover:scale-110",
+              )}
+            />
+            {!isCollapsed && <span className="truncate">Home</span>}
+
+            {isCollapsed && (
+              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                Home
+              </div>
+            )}
+          </div>
+        </Link>
+
+        {/* Documents Section */}
+        <div className="space-y-1">
+          <div
+            onClick={() => !isCollapsed && setDocumentsExpanded(!documentsExpanded)}
+            className={cn(
+              "group flex items-center rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer relative",
+              (location.startsWith("/documents") || location.startsWith("/categories") || location.startsWith("/meeting-notes"))
+                ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
+                : "text-white/90 hover:text-white hover:bg-navy-700/50",
+              isCollapsed
+                ? "justify-center px-4 py-3"
+                : "space-x-3 px-3 py-3",
+            )}
+          >
+            <FileText
+              className={cn(
+                "flex-shrink-0 transition-transform duration-200",
+                "w-4 h-4",
+                "group-hover:scale-110",
+              )}
+            />
+            {!isCollapsed && (
+              <>
+                <span className="truncate flex-1">Documents</span>
+                <ChevronDown
                   className={cn(
-                    "flex-shrink-0 transition-transform duration-200",
-                    isActive ? "w-5 h-5" : "w-4 h-4",
-                    "group-hover:scale-110",
+                    "w-4 h-4 transition-transform duration-200",
+                    documentsExpanded ? "rotate-180" : ""
                   )}
                 />
+              </>
+            )}
 
-                {!isCollapsed && <span className="truncate">{item.name}</span>}
-
-                {/* Tooltip for collapsed state */}
-                {isCollapsed && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-                    {item.name}
-                  </div>
-                )}
+            {isCollapsed && (
+              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                Documents
               </div>
-            </Link>
-          );
-        })}
+            )}
+          </div>
+
+          {/* Documents Sub-menu */}
+          {!isCollapsed && documentsExpanded && (
+            <div className="ml-6 space-y-1">
+              <Link href="/documents">
+                <div
+                  className={cn(
+                    "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                    isActiveRoute("/documents")
+                      ? "bg-blue-500/20 text-blue-300"
+                      : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                  )}
+                >
+                  <span className="truncate">All Documents</span>
+                </div>
+              </Link>
+
+              <Link href="/categories">
+                <div
+                  className={cn(
+                    "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                    isActiveRoute("/categories")
+                      ? "bg-blue-500/20 text-blue-300"
+                      : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                  )}
+                >
+                  <span className="truncate">Categories</span>
+                </div>
+              </Link>
+
+              <Link href="/meeting-notes">
+                <div
+                  className={cn(
+                    "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                    isActiveRoute("/meeting-notes")
+                      ? "bg-blue-500/20 text-blue-300"
+                      : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                  )}
+                >
+                  <span className="truncate">Meeting Notes</span>
+                </div>
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Dashboards Section */}
+        <div className="space-y-1">
+          <div
+            onClick={() => !isCollapsed && setDashboardsExpanded(!dashboardsExpanded)}
+            className={cn(
+              "group flex items-center rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer relative",
+              location.startsWith("/dashboards")
+                ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
+                : "text-white/90 hover:text-white hover:bg-navy-700/50",
+              isCollapsed
+                ? "justify-center px-4 py-3"
+                : "space-x-3 px-3 py-3",
+            )}
+          >
+            <BarChart3
+              className={cn(
+                "flex-shrink-0 transition-transform duration-200",
+                "w-4 h-4",
+                "group-hover:scale-110",
+              )}
+            />
+            {!isCollapsed && (
+              <>
+                <span className="truncate flex-1">Dashboards</span>
+                <ChevronDown
+                  className={cn(
+                    "w-4 h-4 transition-transform duration-200",
+                    dashboardsExpanded ? "rotate-180" : ""
+                  )}
+                />
+              </>
+            )}
+
+            {isCollapsed && (
+              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                Dashboards
+              </div>
+            )}
+          </div>
+
+          {/* Dashboard Sub-menu */}
+          {!isCollapsed && dashboardsExpanded && (
+            <div className="ml-6 space-y-1">
+              <Link href="/dashboards/document-usage">
+                <div
+                  className={cn(
+                    "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                    isActiveRoute("/dashboards/document-usage")
+                      ? "bg-blue-500/20 text-blue-300"
+                      : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                  )}
+                >
+                  <span className="truncate">Document Usage Overview</span>
+                </div>
+              </Link>
+
+              <Link href="/dashboards/ai-interaction">
+                <div
+                  className={cn(
+                    "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                    isActiveRoute("/dashboards/ai-interaction")
+                      ? "bg-blue-500/20 text-blue-300"
+                      : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                  )}
+                >
+                  <span className="truncate">AI Agent Interaction</span>
+                </div>
+              </Link>
+
+              <Link href="/dashboards/user-activity">
+                <div
+                  className={cn(
+                    "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                    isActiveRoute("/dashboards/user-activity")
+                      ? "bg-blue-500/20 text-blue-300"
+                      : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                  )}
+                >
+                  <span className="truncate">User Activity Monitoring</span>
+                </div>
+              </Link>
+
+              <Link href="/dashboards/system-health">
+                <div
+                  className={cn(
+                    "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                    isActiveRoute("/dashboards/system-health")
+                      ? "bg-blue-500/20 text-blue-300"
+                      : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                  )}
+                >
+                  <span className="truncate">System Health & AI Performance</span>
+                </div>
+              </Link>
+
+              <Link href="/dashboards/security-governance">
+                <div
+                  className={cn(
+                    "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                    isActiveRoute("/dashboards/security-governance")
+                      ? "bg-blue-500/20 text-blue-300"
+                      : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                  )}
+                >
+                  <span className="truncate">Security & Governance</span>
+                </div>
+              </Link>
+
+              <Link href="/dashboards/customer-survey">
+                <div
+                  className={cn(
+                    "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                    isActiveRoute("/dashboards/customer-survey")
+                      ? "bg-blue-500/20 text-blue-300"
+                      : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                  )}
+                >
+                  <span className="truncate">Customer Survey</span>
+                </div>
+              </Link>
+
+              <Link href="/dashboards/user-feedback">
+                <div
+                  className={cn(
+                    "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                    isActiveRoute("/dashboards/user-feedback")
+                      ? "bg-blue-500/20 text-blue-300"
+                      : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                  )}
+                >
+                  <span className="truncate">User Feedback</span>
+                </div>
+              </Link>
+
+              <Link href="/dashboards/ai-response-analysis">
+                <div
+                  className={cn(
+                    "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                    isActiveRoute("/dashboards/ai-response-analysis")
+                      ? "bg-blue-500/20 text-blue-300"
+                      : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                  )}
+                >
+                  <span className="truncate">AI Response Analysis</span>
+                </div>
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Administration & Settings Section (only for admin) */}
+        {userRole === "admin" && (
+          <div className="space-y-1">
+            <div
+              onClick={() => !isCollapsed && setAdminExpanded(!adminExpanded)}
+              className={cn(
+                "group flex items-center rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer relative",
+                (location.startsWith("/agent") || location.startsWith("/settings") || location.startsWith("/user-management") || location.startsWith("/role-management") || location.startsWith("/live-chat") || location.startsWith("/integrations"))
+                  ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
+                  : "text-white/90 hover:text-white hover:bg-navy-700/50",
+                isCollapsed
+                  ? "justify-center px-4 py-3"
+                  : "space-x-3 px-3 py-3",
+              )}
+            >
+              <Settings
+                className={cn(
+                  "flex-shrink-0 transition-transform duration-200",
+                  "w-4 h-4",
+                  "group-hover:scale-110",
+                )}
+              />
+              {!isCollapsed && (
+                <>
+                  <span className="truncate flex-1">Administration & Settings</span>
+                  <ChevronDown
+                    className={cn(
+                      "w-4 h-4 transition-transform duration-200",
+                      adminExpanded ? "rotate-180" : ""
+                    )}
+                  />
+                </>
+              )}
+
+              {isCollapsed && (
+                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                  Administration & Settings
+                </div>
+              )}
+            </div>
+
+            {/* Admin Sub-menu */}
+            {!isCollapsed && adminExpanded && (
+              <div className="ml-6 space-y-1">
+                <Link href="/agent-chatbots">
+                  <div
+                    className={cn(
+                      "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                      isActiveRoute("/agent-chatbots")
+                        ? "bg-blue-500/20 text-blue-300"
+                        : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                    )}
+                  >
+                    <span className="truncate">Agent Chatbots</span>
+                  </div>
+                </Link>
+
+                <Link href="/agent-console">
+                  <div
+                    className={cn(
+                      "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                      isActiveRoute("/agent-console")
+                        ? "bg-blue-500/20 text-blue-300"
+                        : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                    )}
+                  >
+                    <span className="truncate">Agent Console</span>
+                  </div>
+                </Link>
+
+                <Link href="/integrations">
+                  <div
+                    className={cn(
+                      "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                      isActiveRoute("/integrations")
+                        ? "bg-blue-500/20 text-blue-300"
+                        : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                    )}
+                  >
+                    <span className="truncate">Integrations</span>
+                  </div>
+                </Link>
+
+                <Link href="/user-management">
+                  <div
+                    className={cn(
+                      "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                      isActiveRoute("/user-management")
+                        ? "bg-blue-500/20 text-blue-300"
+                        : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                    )}
+                  >
+                    <span className="truncate">User Management</span>
+                  </div>
+                </Link>
+
+                <Link href="/role-management">
+                  <div
+                    className={cn(
+                      "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                      isActiveRoute("/role-management")
+                        ? "bg-blue-500/20 text-blue-300"
+                        : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                    )}
+                  >
+                    <span className="truncate">Role Management</span>
+                  </div>
+                </Link>
+
+                <Link href="/live-chat-widget">
+                  <div
+                    className={cn(
+                      "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                      isActiveRoute("/live-chat-widget")
+                        ? "bg-blue-500/20 text-blue-300"
+                        : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                    )}
+                  >
+                    <span className="truncate">Live Chat Widget</span>
+                  </div>
+                </Link>
+
+                <Link href="/settings">
+                  <div
+                    className={cn(
+                      "group flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer",
+                      isActiveRoute("/settings")
+                        ? "bg-blue-500/20 text-blue-300"
+                        : "text-navy-300 hover:text-white hover:bg-navy-700/30",
+                    )}
+                  >
+                    <span className="truncate">Settings</span>
+                  </div>
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Survey */}
+        <Link href="/survey">
+          <div
+            className={cn(
+              "group flex items-center rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer relative",
+              isActiveRoute("/survey")
+                ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
+                : "text-white/90 hover:text-white hover:bg-navy-700/50",
+              isCollapsed
+                ? "justify-center px-4 py-3"
+                : "space-x-3 px-3 py-3",
+            )}
+          >
+            <MessageSquare
+              className={cn(
+                "flex-shrink-0 transition-transform duration-200",
+                isActiveRoute("/survey") ? "w-5 h-5" : "w-4 h-4",
+                "group-hover:scale-110",
+              )}
+            />
+            {!isCollapsed && <span className="truncate">Survey</span>}
+
+            {isCollapsed && (
+              <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                Survey
+              </div>
+            )}
+          </div>
+        </Link>
       </nav>
 
       {/* Footer */}
