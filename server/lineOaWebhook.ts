@@ -371,6 +371,7 @@ async function getAiResponseDirectly(
 
         // Search for relevant chunks ONLY from agent's documents using document scope restriction
         const agentDocIds = agentDocs.map(d => d.documentId);
+        console.log(`LINE OA: Restricting vector search to agent's ${agentDocIds.length} documents: [${agentDocIds.join(', ')}]`);
         const vectorResults = await vectorService.searchDocuments(userMessage, userId, 15, agentDocIds);
 
         console.log(`🔍 Line OA: Found ${vectorResults.length} relevant chunks from ${agentDocIds.length} assigned documents`);

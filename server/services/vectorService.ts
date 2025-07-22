@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { Document, documentVectors, InsertDocumentVector } from "@shared/schema";
 import { db } from '../db';
-import { eq, and, or, sql } from "drizzle-orm";
+import { eq, and, or, sql, inArray } from "drizzle-orm";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ 
@@ -153,6 +153,9 @@ export class VectorService {
           eq(documentVectors.userId, userId),
           or(...specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
         );
+        console.log(`VectorService: Filtering search to ${specificDocumentIds.length} specific documents: [${specificDocumentIds.join(', ')}]`);
+      } else {
+        console.log(`VectorService: No document ID filter applied - searching all user documents`);
       }
 
       const dbVectors = await db.select()

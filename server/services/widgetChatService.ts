@@ -56,10 +56,14 @@ export class WidgetChatService {
       let aiResponseFromDocs = "";
       
       try {
+        // Get agent document IDs to restrict search scope
+        const agentDocumentIds = agentDocuments.map(doc => doc.id);
+        console.log(`Widget Chat: Restricting search to agent's ${agentDocumentIds.length} documents: [${agentDocumentIds.join(', ')}]`);
+        
         aiResponseFromDocs = await generateChatResponse(
           userMessage,
           agentDocuments,
-          undefined, // No specific document ID - search across all agent docs
+          undefined, // No specific document ID - will be handled by hybrid search internally
           'hybrid',  // Use hybrid search like debug page
           0.4,       // keywordWeight
           0.6        // vectorWeight
