@@ -448,16 +448,28 @@ export async function generateChatResponse(
             console.log(`General chat: Using vector search with ${vectorResults.length} relevant chunks from ${documentChunks.size} documents`);
             
             // Debug: Log first few results to understand what's being retrieved
-            console.log(`Debug: Top 3 vector search results:`);
-            vectorResults.slice(0, 3).forEach((result, index) => {
+            console.log(`Debug: Top 5 vector search results for "${userMessage}":`);
+            vectorResults.slice(0, 5).forEach((result, index) => {
               const docName = documents.find(d => d.id.toString() === (result.document.metadata.originalDocumentId || result.document.id))?.name || 'Unknown';
-              console.log(`${index + 1}. Document: ${docName}, Similarity: ${result.similarity.toFixed(4)}`);
-              console.log(`   Content preview: ${result.document.content.substring(0, 200)}...`);
-              // Check if this content contains XOLO information
+              console.log(`${index + 1}. Document: ${docName}, Doc ID: ${result.document.metadata.originalDocumentId}, Similarity: ${result.similarity.toFixed(4)}`);
+              console.log(`   Content: ${result.document.content.substring(0, 300)}...`);
+              
+              // Check if this content contains store information
               if (result.document.content.includes('XOLO') || result.document.content.includes('โซโล่')) {
-                console.log(`   *** FOUND XOLO CHUNK ***`);
+                console.log(`   *** FOUND XOLO DATA ***`);
+              }
+              if (result.document.content.includes('บางกะปิ') || result.document.content.includes('Bangkapi')) {
+                console.log(`   *** FOUND BANGKAPI DATA ***`);
+              }
+              if (result.document.content.includes('ชั้น') || result.document.content.includes('Floor')) {
+                console.log(`   *** FOUND FLOOR DATA ***`);
               }
             });
+            
+            // Log the actual document context that will be sent to AI
+            console.log(`\n=== DOCUMENT CONTEXT SENT TO AI (${documentContext.length} chars) ===`);
+            console.log(documentContext.substring(0, 1000) + (documentContext.length > 1000 ? '...' : ''));
+            console.log('=== END CONTEXT ===\n');
           } else {
             // Fallback if no vector results
             documentContext = documents
@@ -495,10 +507,18 @@ ${documentContext}
 Answer questions specifically about this document. Provide detailed analysis, explanations, and insights based on the document's content. If the user's question cannot be answered from this specific document, clearly state that and explain what information is available in the document.`
       : `You are an AI assistant helping users with their document management system. You have access to the user's documents and can answer questions about them, help with searches, provide summaries, and assist with document organization.
 
+IMPORTANT: The context below contains ONLY the most relevant chunks from the user's documents based on their query. Use ONLY this context to answer questions. Do not claim information is missing if it's clearly present in the provided context.
+
+For store location queries (like "XOLO บางกะปิ อยู่ชั้นไหน"), carefully examine the provided document chunks for:
+- Store names (both Thai and English)
+- Location information (mall names, branches)
+- Floor numbers or levels
+- Any combination of these details
+
 Available documents context:
 ${documentContext}
 
-Provide helpful, accurate responses based on the available documents. If you can't find relevant information in the documents, let the user know and suggest how they might upload or organize documents to get better assistance.`;
+Provide helpful, accurate responses based ONLY on the provided document context above. If specific information is present in the context, use it directly in your response. Do not claim that information is missing if it appears in the context.`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
