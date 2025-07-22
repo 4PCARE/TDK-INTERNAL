@@ -96,7 +96,7 @@ router.post("/debug/ai-input", async (req, res) => {
 
             // Sort by score (exact phrases first) then by position
             matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);
-            
+
             // Take best matches and remove overlaps
             const uniqueSegments = [];
             const usedRanges = [];
@@ -104,7 +104,7 @@ router.post("/debug/ai-input", async (req, res) => {
             for (const match of matchingSegments) {
               const start = match.position;
               const end = match.position + 1000;
-              
+
               // Check if this range overlaps significantly with existing ones
               const hasOverlap = usedRanges.some(range => 
                 Math.max(start, range.start) < Math.min(end, range.end) - 200
@@ -188,43 +188,74 @@ router.post("/debug/ai-input", async (req, res) => {
           }
 
         } else if (searchType === 'hybrid' || searchType === 'weighted') {
-          // Hybrid or weighted search - combine both approaches
-          console.log(`DEBUG: Performing ${searchType} search for "${userMessage}"`);
-          const [keywordResults, vectorResults] = await Promise.all([
-            storage.searchDocuments(userId, userMessage),
-            vectorService.searchDocuments(userMessage, userId, 5, [parseInt(specificDocumentId)])
-          ]);
+          // Hybrid search combining keyword and vector results
+          console.log(`DEBUG: Performing ${searchType} search`);
 
-          searchMetrics.keywordResults = keywordResults.length;
-          searchMetrics.vectorResults = vectorResults.length;
-
-          console.log(`DEBUG: Found ${keywordResults.length} keyword results and ${vectorResults.length} vector results`);
-
+          let keywordMatches = [];
+          let vectorResults = [];
           let combinedContent = [];
 
+          // First, get keyword matches if the document content contains search terms
+          const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+          const docContent = doc.content || '';
+          const docContentLower = docContent.toLowerCase();
+
+          if (searchTerms.some(term => docContentLower.includes(term))) {
+            console.log(`DEBUG: Found keyword matches in document ${doc.id}`);
+            keywordMatches.push({
+              content: docContent,
+              matchingTerms: searchTerms.filter(term => docContentLower.includes(term)),
+              totalTerms: searchTerms.length
+            });
+          }
+
+          // Then get vector search results
+          try {
+            const vectorSearchResults = await vectorService.searchDocuments(userMessage, userId, 5);
+            vectorResults = vectorSearchResults.filter(result => {
+              const resultDocId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
+              return resultDocId === parseInt(specificDocumentId);
+            });
+            console.log(`DEBUG: Found ${vectorResults.length} vector results for document ${doc.id}`);
+          } catch (error) {
+            console.error('DEBUG: Vector search failed:', error);
+          }
+
+          searchMetrics.keywordResults = keywordMatches.length;
+          searchMetrics.vectorResults = vectorResults.length;
+
+          // Combine results with weights and calculate final weighted scores
           // Get keyword content
-          const keywordDoc = keywordResults.find(d => d.id === parseInt(specificDocumentId));
-          if (keywordDoc && keywordDoc.content) {
-            const kwWeight = searchType === 'weighted' ? keywordWeight : 0.5;
-            combinedContent.push({
-              type: 'keyword',
-              content: keywordDoc.content.substring(0, 15000),
-              weight: kwWeight,
-              source: 'Full document keyword search',
-              chunkId: `kw-${doc.id}`,
-              keywordScore: kwWeight
+          if (keywordMatches.length > 0) {
+            const kWeight = searchType === 'weighted' ? keywordWeight : 0.5;
+            keywordMatches.forEach((match, idx) => {
+              const similarity = match.matchingTerms.length / match.totalTerms;
+              const weightedScore = similarity * kWeight;
+              combinedContent.push({
+                type: 'keyword',
+                content: match.content,
+                weight: kWeight,
+                similarity: similarity,
+                weightedScore: weightedScore,
+                source: `Keyword match (${match.matchingTerms.length}/${match.totalTerms} terms)`,
+                chunkId: `kw-${doc.id}`,
+                keywordScore: similarity
+              });
             });
           }
 
           // Get vector content
           if (vectorResults.length > 0) {
             const vWeight = searchType === 'weighted' ? vectorWeight : 0.5;
-            vectorResults.slice(0, 3).forEach((result, idx) => {
+            vectorResults.forEach((result, idx) => {
+              const adjustedWeight = vWeight * (1 - idx * 0.1); // Slightly decrease weight for lower ranked results
+              const weightedScore = result.similarity * adjustedWeight;
               combinedContent.push({
                 type: 'vector',
                 content: result.document.content,
-                weight: vWeight * (1 - idx * 0.1), // Slightly decrease weight for lower ranked results
+                weight: adjustedWeight,
                 similarity: result.similarity,
+                weightedScore: weightedScore,
                 source: `Vector chunk ${idx + 1}`,
                 chunkId: result.document.id || `vec-${doc.id}-${idx}`,
                 vectorScore: result.similarity
@@ -232,27 +263,26 @@ router.post("/debug/ai-input", async (req, res) => {
             });
           }
 
-          // Sort by weight and build context
-          combinedContent.sort((a, b) => b.weight - a.weight);
+          // Sort by final weighted score (this is the key change!)
+          combinedContent.sort((a, b) => b.weightedScore - a.weightedScore);
           searchMetrics.combinedResults = combinedContent.length;
 
+          // Build document context using the weighted ranking
           documentContext = `Document: ${doc.name}\n\n` + 
-            combinedContent.map(item => 
-              `[${item.source.toUpperCase()} - Weight: ${item.weight.toFixed(2)}${item.similarity ? `, Similarity: ${item.similarity.toFixed(4)}` : ''}]\n${item.content}`
+            combinedContent.map((item, index) => 
+              `[RANK #${index + 1} - ${item.source.toUpperCase()} - Weighted Score: ${item.weightedScore.toFixed(4)} (Similarity: ${item.similarity.toFixed(4)} × Weight: ${item.weight.toFixed(2)})]\n${item.content}`
             ).join("\n\n---\n\n");
 
-          // Add hybrid chunk details
-          combinedContent.forEach(item => {
-            chunkDetails.push({
-              chunkId: item.chunkId,
-              content: item.content,
-              similarity: item.similarity,
-              keywordScore: item.keywordScore || undefined,
-              vectorScore: item.vectorScore || undefined,
-              type: item.type,
-              weight: item.weight
-            });
-          });
+          // Update chunk details to show weighted ranking
+          chunkDetails = combinedContent.map((item, index) => ({
+            id: item.chunkId,
+            type: item.type,
+            similarity: item.type === 'vector' ? item.vectorScore : item.keywordScore,
+            weight: item.weight,
+            weightedScore: item.weightedScore,
+            finalRank: index + 1,
+            source: item.source
+          }));
         } else {
           // Fallback for unknown search types
           console.log(`DEBUG: Unknown search type ${searchType}, using fallback`);
@@ -297,7 +327,7 @@ Answer questions specifically about this document. Provide detailed analysis, ex
     console.log(`\n=== CHUNK DETAILS ===`);
     console.log(`Found ${chunkDetails.length} chunks`);
     chunkDetails.forEach((chunk, idx) => {
-      console.log(`Chunk ${idx + 1}: ID=${chunk.chunkId}, Type=${chunk.type}, Similarity=${chunk.similarity || 'N/A'}`);
+      console.log(`Chunk ${idx + 1}: ID=${chunk.id}, Type=${chunk.type}, Similarity=${chunk.similarity || 'N/A'}, Weight=${chunk.weight || 'N/A'}, WeightedScore=${chunk.weightedScore || 'N/A'}, FinalRank=${chunk.finalRank}`);
     });
     console.log(`\n=== FULL DOCUMENT CONTEXT ===`);
     console.log(documentContext);
