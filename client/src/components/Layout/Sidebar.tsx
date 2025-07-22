@@ -88,7 +88,7 @@ export default function Sidebar({
         className={cn(
           "fixed lg:static inset-y-0 left-0 z-50 bg-gradient-to-b from-navy-900 to-navy-800 shadow-xl border-r border-navy-700 transition-all duration-300 ease-in-out lg:translate-x-0",
           isMobileOpen ? "translate-x-0" : "-translate-x-full",
-          isCollapsed ? "w-16" : "w-64"
+          isCollapsed ? "w-16" : "w-64",
         )}
       >
         <div className="flex flex-col h-full">
@@ -101,14 +101,14 @@ export default function Sidebar({
                     <Brain className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-lg font-bold text-white">
-                      AI-KMS
-                    </h1>
-                    <p className="text-xs text-navy-300">Knowledge Management</p>
+                    <h1 className="text-lg font-bold text-white">AI-KMS</h1>
+                    <p className="text-xs text-navy-300">
+                      Knowledge Management
+                    </p>
                   </div>
                 </div>
               )}
-              
+
               <div className="flex items-center space-x-2">
                 {/* Collapse Toggle for Desktop */}
                 {onToggleCollapse && (
@@ -125,11 +125,11 @@ export default function Sidebar({
                     )}
                   </Button>
                 )}
-                
+
                 {/* Mobile Close Button */}
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={onMobileClose}
                   className="lg:hidden text-navy-300 hover:text-white hover:bg-navy-700/50"
                 >
@@ -149,23 +149,23 @@ export default function Sidebar({
                     isActiveRoute("/")
                       ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
                       : "text-navy-200 hover:text-white hover:bg-navy-700/50",
-                    isCollapsed ? "justify-center" : "space-x-3"
+                    isCollapsed ? "justify-center" : "space-x-3",
                   )}
                 >
-                  <Home className={cn(
-                    "flex-shrink-0 transition-transform duration-200",
-                    isActiveRoute("/") ? "w-5 h-5" : "w-4 h-4",
-                    "group-hover:scale-110"
-                  )} />
-                  
-                  {!isCollapsed && (
-                    <span className="truncate">Home</span>
-                  )}
-                  
+                  <Home
+                    className={cn(
+                      "flex-shrink-0 transition-transform duration-200",
+                      isActiveRoute("/") ? "w-5 h-5" : "w-4 h-4",
+                      "group-hover:scale-110",
+                    )}
+                  />
+
+                  {!isCollapsed && <span className="truncate">Home</span>}
+
                   {isActiveRoute("/") && (
                     <div className="absolute inset-y-0 left-0 w-1 bg-white rounded-r-full" />
                   )}
-                  
+
                   {/* Tooltip for collapsed state */}
                   {isCollapsed && (
                     <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
@@ -182,28 +182,33 @@ export default function Sidebar({
                     isActiveRoute("/documents")
                       ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
                       : "text-navy-200 hover:text-white hover:bg-navy-700/50",
-                    isCollapsed ? "justify-center" : "space-x-3"
+                    isCollapsed ? "justify-center" : "space-x-3",
                   )}
                 >
-                  <FileText className={cn(
-                    "flex-shrink-0 transition-transform duration-200",
-                    isActiveRoute("/documents") ? "w-5 h-5" : "w-4 h-4",
-                    "group-hover:scale-110"
-                  )} />
-                  
+                  <FileText
+                    className={cn(
+                      "flex-shrink-0 transition-transform duration-200",
+                      isActiveRoute("/documents") ? "w-5 h-5" : "w-4 h-4",
+                      "group-hover:scale-110",
+                    )}
+                  />
+
                   {!isCollapsed && (
                     <>
                       <span className="truncate">All Documents</span>
-                      <Badge variant="secondary" className="ml-auto bg-navy-600 text-navy-100">
+                      <Badge
+                        variant="secondary"
+                        className="ml-auto bg-navy-600 text-navy-100"
+                      >
                         {stats?.totalDocuments || 0}
                       </Badge>
                     </>
                   )}
-                  
+
                   {isActiveRoute("/documents") && (
                     <div className="absolute inset-y-0 left-0 w-1 bg-white rounded-r-full" />
                   )}
-                  
+
                   {/* Tooltip for collapsed state */}
                   {isCollapsed && (
                     <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
@@ -220,7 +225,7 @@ export default function Sidebar({
                     "w-full justify-start",
                     isActiveRoute("/categories")
                       ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                      : "text-white hover:text-gray-900 hover:bg-gray-50",
                   )}
                 >
                   <FolderOpen className="w-5 h-5 mr-3" />
@@ -236,7 +241,7 @@ export default function Sidebar({
                     "w-full justify-start",
                     isDashboardActive
                       ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                      : "text-white hover:text-gray-900 hover:bg-gray-50",
                   )}
                   onClick={() => setIsDashboardExpanded(!isDashboardExpanded)}
                 >
@@ -262,7 +267,7 @@ export default function Sidebar({
                           "w-full justify-start text-sm",
                           isActiveRoute("/dashboards/document-usage")
                             ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50",
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
                         )}
                       >
                         Document Usage Overview
@@ -280,7 +285,7 @@ export default function Sidebar({
                           "w-full justify-start text-sm",
                           isActiveRoute("/dashboards/ai-interaction")
                             ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50",
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
                         )}
                       >
                         AI Agent Interaction
@@ -298,7 +303,7 @@ export default function Sidebar({
                           "w-full justify-start text-sm",
                           isActiveRoute("/dashboards/user-activity")
                             ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50",
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
                         )}
                       >
                         User Activity Monitoring
@@ -316,7 +321,7 @@ export default function Sidebar({
                           "w-full justify-start text-sm",
                           isActiveRoute("/dashboards/system-health")
                             ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50",
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
                         )}
                       >
                         System Health & AI Performance
@@ -334,7 +339,7 @@ export default function Sidebar({
                           "w-full justify-start text-sm",
                           isActiveRoute("/dashboards/security-governance")
                             ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50",
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
                         )}
                       >
                         Security & Governance
@@ -352,7 +357,7 @@ export default function Sidebar({
                           "w-full justify-start text-sm",
                           isActiveRoute("/dashboards/customer-survey")
                             ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50",
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
                         )}
                       >
                         Customer Survey
@@ -370,7 +375,7 @@ export default function Sidebar({
                           "w-full justify-start text-sm",
                           isActiveRoute("/dashboards/user-feedback")
                             ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50",
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
                         )}
                       >
                         User Feedback
@@ -388,7 +393,7 @@ export default function Sidebar({
                           "w-full justify-start text-sm",
                           isActiveRoute("/dashboards/ai-response-analysis")
                             ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50",
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
                         )}
                       >
                         AI Response Analysis
@@ -407,7 +412,7 @@ export default function Sidebar({
                       "w-full justify-start",
                       isActiveRoute("/settings")
                         ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                        : "text-white hover:text-gray-900 hover:bg-gray-50",
                     )}
                   >
                     <Settings className="w-5 h-5 mr-3" />
@@ -423,7 +428,7 @@ export default function Sidebar({
                     "w-full justify-start",
                     isActiveRoute("/survey")
                       ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                      : "text-white hover:text-gray-900 hover:bg-gray-50",
                   )}
                 >
                   <Bot className="w-5 h-5 mr-3" />
