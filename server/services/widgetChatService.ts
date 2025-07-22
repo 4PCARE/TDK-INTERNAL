@@ -40,23 +40,78 @@ export class WidgetChatService {
       if (agentDocs.length > 0) {
         console.log(`📚 Widget Chat: Found ${agentDocs.length} documents for agent`);
 
-        for (const agentDoc of agentDocs) {
-          try {
-            const document = await storage.getDocumentForWidget(agentDoc.documentId);
-            if (document && document.content) {
-              // Increase content limit significantly for better context
-              const contentLimit = 50000; // Increased from 8000 to 50000 characters
-              const truncatedContent = document.content.length > contentLimit
-                ? document.content.substring(0, contentLimit) + "..."
-                : document.content;
-
-              documentContents.push(
-                `=== เอกสาร: ${document.name} ===\n${truncatedContent}\n`
-              );
-              console.log(`📄 Widget Chat: Added document: ${document.name}`);
+        // Use vector search instead of pulling full documents
+        try {
+          const { vectorService } = await import('./vectorService');
+          
+          // Get a sample document to get userId for vector search
+          const sampleDoc = await storage.getDocumentForWidget(agentDocs[0].documentId);
+          if (sampleDoc && sampleDoc.userId) {
+            // Search for relevant chunks across agent's documents
+            const vectorResults = await vectorService.searchDocuments(message, sampleDoc.userId, 15);
+            
+            // Filter results to only include chunks from agent's documents
+            const agentDocIds = agentDocs.map(d => d.documentId.toString());
+            const relevantResults = vectorResults.filter(result => 
+              agentDocIds.includes(result.document.metadata.originalDocumentId || result.document.id)
+            );
+            
+            if (relevantResults.length > 0) {
+              // Group by document and build context from relevant chunks
+              const docChunks = new Map<string, {name: string, chunks: string[]}>();
+              
+              for (const result of relevantResults) {
+                const docId = result.document.metadata.originalDocumentId || result.document.id;
+                const document = await storage.getDocumentForWidget(parseInt(docId));
+                const docName = document?.name || 'Unknown Document';
+                
+                if (!docChunks.has(docId)) {
+                  docChunks.set(docId, { name: docName, chunks: [] });
+                }
+                docChunks.get(docId)!.chunks.push(result.document.content);
+              }
+              
+              // Build context from relevant chunks
+              docChunks.forEach(({ name, chunks }) => {
+                documentContents.push(
+                  `=== เอกสาร: ${name} ===\n${chunks.join('\n---\n')}\n`
+                );
+              });
+              
+              console.log(`📄 Widget Chat: Using vector search with ${relevantResults.length} relevant chunks from ${docChunks.size} documents`);
+            } else {
+              console.log(`📄 Widget Chat: No relevant chunks found, using fallback approach`);
+              // Fallback to original approach with first few documents
+              for (const agentDoc of agentDocs.slice(0, 3)) {
+                try {
+                  const document = await storage.getDocumentForWidget(agentDoc.documentId);
+                  if (document && document.content) {
+                    const contentPreview = document.content.substring(0, 3000) + (document.content.length > 3000 ? '...' : '');
+                    documentContents.push(
+                      `=== เอกสาร: ${document.name} ===\n${contentPreview}\n`
+                    );
+                  }
+                } catch (error) {
+                  console.error(`❌ Widget Chat: Error fetching document ${agentDoc.documentId}:`, error);
+                }
+              }
             }
-          } catch (error) {
-            console.error(`❌ Widget Chat: Error fetching document ${agentDoc.documentId}:`, error);
+          }
+        } catch (vectorError) {
+          console.error(`❌ Widget Chat: Vector search failed, using fallback:`, vectorError);
+          // Fallback to original approach with limited documents
+          for (const agentDoc of agentDocs.slice(0, 3)) {
+            try {
+              const document = await storage.getDocumentForWidget(agentDoc.documentId);
+              if (document && document.content) {
+                const contentPreview = document.content.substring(0, 3000) + (document.content.length > 3000 ? '...' : '');
+                documentContents.push(
+                  `=== เอกสาร: ${document.name} ===\n${contentPreview}\n`
+                );
+              }
+            } catch (error) {
+              console.error(`❌ Widget Chat: Error fetching document ${agentDoc.documentId}:`, error);
+            }
           }
         }
       }

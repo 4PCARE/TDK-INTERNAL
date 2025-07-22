@@ -415,15 +415,63 @@ export async function generateChatResponse(
         documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 30000)}`;
       }
     } else {
-      // For general chat, use more document content for better responses
-      documentContext = documents
-        .filter((doc) => doc.content && doc.content.trim().length > 0)
-        .slice(0, 5)
-        .map(
-          (doc) =>
-            `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 8000)}`, // Increased from 1500 to 8000
-        )
-        .join("\n\n");
+      // For general chat, use vector search to get relevant chunks across all documents
+      if (documents.length > 0) {
+        const { vectorService } = await import('./vectorService');
+        const userId = documents[0].userId;
+        
+        try {
+          // Search for relevant chunks across all user's documents
+          const vectorResults = await vectorService.searchDocuments(userMessage, userId, 15); // Get more results for general chat
+          
+          if (vectorResults.length > 0) {
+            // Group results by document and build context from relevant chunks
+            const documentChunks = new Map<string, {name: string, chunks: string[]}>();
+            
+            vectorResults.forEach(result => {
+              const docId = result.document.metadata.originalDocumentId || result.document.id;
+              const docName = documents.find(d => d.id.toString() === docId)?.name || 'Unknown Document';
+              
+              if (!documentChunks.has(docId)) {
+                documentChunks.set(docId, { name: docName, chunks: [] });
+              }
+              documentChunks.get(docId)!.chunks.push(result.document.content);
+            });
+            
+            // Build context from relevant chunks instead of truncated full documents
+            documentContext = Array.from(documentChunks.entries())
+              .map(([docId, { name, chunks }]) => 
+                `Document: ${name}\nRelevant Content:\n${chunks.join('\n---\n')}`
+              )
+              .join("\n\n");
+              
+            console.log(`General chat: Using vector search with ${vectorResults.length} relevant chunks from ${documentChunks.size} documents`);
+          } else {
+            // Fallback if no vector results
+            documentContext = documents
+              .filter((doc) => doc.content && doc.content.trim().length > 0)
+              .slice(0, 3)
+              .map(
+                (doc) =>
+                  `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent Preview: ${doc.content?.substring(0, 5000)}`,
+              )
+              .join("\n\n");
+              
+            console.log(`General chat: No vector results, using fallback with ${documents.length} documents`);
+          }
+        } catch (vectorError) {
+          console.error("Vector search failed for general chat, using fallback:", vectorError);
+          // Fallback to document summaries and previews
+          documentContext = documents
+            .filter((doc) => doc.content && doc.content.trim().length > 0)
+            .slice(0, 3)
+            .map(
+              (doc) =>
+                `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent Preview: ${doc.content?.substring(0, 5000)}`,
+            )
+            .join("\n\n");
+        }
+      }
     }
 
     const systemMessage = specificDocumentId 
