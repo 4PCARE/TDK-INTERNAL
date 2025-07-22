@@ -162,10 +162,6 @@ export default function Sidebar({
 
                   {!isCollapsed && <span className="truncate">Home</span>}
 
-                  {isActiveRoute("/") && (
-                    <div className="absolute inset-y-0 left-0 w-1 bg-white rounded-r-full" />
-                  )}
-
                   {/* Tooltip for collapsed state */}
                   {isCollapsed && (
                     <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
@@ -203,10 +199,6 @@ export default function Sidebar({
                         {stats?.totalDocuments || 0}
                       </Badge>
                     </>
-                  )}
-
-                  {isActiveRoute("/documents") && (
-                    <div className="absolute inset-y-0 left-0 w-1 bg-white rounded-r-full" />
                   )}
 
                   {/* Tooltip for collapsed state */}
