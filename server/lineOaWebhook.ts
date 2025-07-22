@@ -860,7 +860,7 @@ export async function handleLineWebhook(req: Request, res: Response) {
         } else if (message.type === "sticker") {
           userMessage = "[สติ๊กเกอร์]";
           messageMetadata = {
-            messageType: "sticker",
+            messageType: message.packageId,
             packageId: message.packageId,
             stickerId: message.stickerId,
           };
@@ -1068,15 +1068,18 @@ ${imageAnalysisResult}
           // Use hybrid search with document scope restriction like debug routes
           const { semanticSearchV2 } = await import('./services/semanticSearchV2');
           let aiResponse = "";
-          
+
           try {
+            // Ensure agentDocIds is defined before using it
+            const agentDocIds = agentDocs.map(d => d.documentId);
             console.log(`LINE OA: Performing hybrid search with document restriction to ${agentDocIds.length} documents: [${agentDocIds.join(', ')}]`);
-            
+
             // Use hybrid search with proper document filtering
-            const searchResults = await semanticSearchV2.hybridSearch(
+            const searchResults = await semanticSearchV2.searchDocuments(
               contextMessage,
               lineIntegration.userId,
               {
+                searchType: 'hybrid',
                 keywordWeight: 0.4,
                 vectorWeight: 0.6,
                 limit: 12,

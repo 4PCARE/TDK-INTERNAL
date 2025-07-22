@@ -1,4 +1,3 @@
-
 import { storage } from '../storage';
 
 interface SearchTerm {
@@ -29,7 +28,8 @@ export class AdvancedKeywordSearchService {
   async searchDocuments(
     query: string,
     userId: string,
-    limit: number = 20
+    limit: number = 20,
+    specificDocumentIds?: number[]
   ): Promise<Array<{
     id: number;
     name: string;
@@ -42,15 +42,18 @@ export class AdvancedKeywordSearchService {
     matchDetails: any;
   }>> {
     try {
-      console.log(`Advanced keyword search for: "${query}"`);
+      // Get all documents for the user
+      let documents = await storage.getDocuments(userId);
+      console.log(`Advanced keyword search: Found ${documents.length} total documents for user ${userId}`);
 
-      // Get all documents
-      const documents = await storage.getDocuments(userId);
-      if (documents.length === 0) {
-        return [];
+      // Filter by specific document IDs if provided
+      if (specificDocumentIds && specificDocumentIds.length > 0) {
+        documents = documents.filter(doc => specificDocumentIds.includes(doc.id));
+        console.log(`Advanced keyword search: Filtered to ${documents.length} documents from specific IDs: [${specificDocumentIds.join(', ')}]`);
       }
 
       // Parse and analyze query
+      console.log(`Advanced keyword search for: "${query}"`);
       const searchTerms = this.parseQuery(query);
       console.log(`Parsed search terms:`, searchTerms.map(t => `${t.term}(${t.weight})`));
 
@@ -66,7 +69,7 @@ export class AdvancedKeywordSearchService {
         .filter(doc => doc.score > 0.1) // Minimum relevance threshold
         .map(docScore => {
           const document = documents.find(d => d.id === docScore.documentId)!;
-          
+
           return {
             id: document.id,
             name: document.name,
@@ -91,11 +94,11 @@ export class AdvancedKeywordSearchService {
 
   private parseQuery(query: string): SearchTerm[] {
     const terms: SearchTerm[] = [];
-    
+
     // Handle quoted phrases
     const quotedPhrases = query.match(/"([^"]+)"/g);
     let remainingQuery = query;
-    
+
     if (quotedPhrases) {
       quotedPhrases.forEach(phrase => {
         const cleanPhrase = phrase.replace(/"/g, '').trim();
@@ -133,7 +136,7 @@ export class AdvancedKeywordSearchService {
     for (const document of documents) {
       const docText = this.extractDocumentText(document);
       const docTokens = this.tokenizeText(docText);
-      
+
       const docScore: DocumentScore = {
         documentId: document.id,
         score: 0,
@@ -195,7 +198,7 @@ export class AdvancedKeywordSearchService {
 
     for (const searchTerm of searchTerms) {
       let docsWithTerm = 0;
-      
+
       for (const document of documents) {
         const docText = this.extractDocumentText(document);
         if (this.termExistsInDocument(searchTerm.term, docText, searchTerm.fuzzy)) {
@@ -343,9 +346,9 @@ export class AdvancedKeywordSearchService {
         const start = Math.max(0, index - 100);
         const end = Math.min(content.length, index + term.length + 100);
         const highlight = content.substring(start, end);
-        
+
         highlights.push((start > 0 ? '...' : '') + highlight + (end < content.length ? '...' : ''));
-        
+
         index += term.length;
         if (highlights.length >= 3) break; // Limit highlights per term
       }

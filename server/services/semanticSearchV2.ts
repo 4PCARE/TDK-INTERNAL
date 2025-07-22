@@ -32,6 +32,7 @@ export interface SearchOptions {
   };
   keywordWeight?: number;
   vectorWeight?: number;
+  specificDocumentIds?: number[];
 }
 
 export class SemanticSearchServiceV2 {
@@ -68,7 +69,12 @@ export class SemanticSearchServiceV2 {
     try {
       // Use vector service for semantic search
       console.log(`SemanticSearchV2: Searching for "${query}" for user ${userId}`);
-      const vectorResults = await vectorService.searchDocuments(query, userId, limit * 2);
+      const vectorResults = await vectorService.searchDocuments(
+        query, 
+        userId, 
+        limit * 2, 
+        options.specificDocumentIds
+      );
       console.log(`SemanticSearchV2: Vector service returned ${vectorResults.length} results`);
 
       if (vectorResults.length === 0) {
@@ -152,7 +158,8 @@ export class SemanticSearchServiceV2 {
       const results = await advancedKeywordSearchService.searchDocuments(
         query,
         userId,
-        options.limit || 20
+        options.limit || 20,
+        options.specificDocumentIds
       );
       
       // Convert to the expected SearchResult format
@@ -208,7 +215,13 @@ export class SemanticSearchServiceV2 {
     options: Omit<SearchOptions, "searchType">
   ): Promise<SearchResult[]> {
     try {
-      const documents = await storage.searchDocuments(userId, query);
+      let documents = await storage.searchDocuments(userId, query);
+      
+      // Filter by specific document IDs if provided
+      if (options.specificDocumentIds && options.specificDocumentIds.length > 0) {
+        documents = documents.filter(doc => options.specificDocumentIds!.includes(doc.id));
+        console.log(`Filtered to ${documents.length} documents from specific IDs: [${options.specificDocumentIds.join(', ')}]`);
+      }
       
       // Calculate keyword matching score for each document
       const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
