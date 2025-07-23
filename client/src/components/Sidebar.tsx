@@ -36,7 +36,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
-  const location = useLocation();
+  const [location] = useLocation();
   const { user, userRole } = useAuth();
   const [documentsExpanded, setDocumentsExpanded] = useState(false);
   const [dashboardsExpanded, setDashboardsExpanded] = useState(false);
