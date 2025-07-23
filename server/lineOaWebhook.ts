@@ -431,58 +431,15 @@ async function getAiResponseDirectly(
           console.log(documentContents.join("\n").substring(0, 500) + "...");
         } else {
           console.log(
-            `📄 Line OA: No relevant chunks found, using fallback approach`,
+            `📄 Line OA: No relevant chunks found via unified search`,
           );
-          // Fallback to original approach with first few documents
-          for (const agentDoc of agentDocs.slice(0, 3)) {
-            try {
-              const document = await storage.getDocument(
-                agentDoc.documentId,
-                userId,
-              );
-              if (document && document.content) {
-                const contentPreview =
-                  document.content.substring(0, 3000) +
-                  (document.content.length > 3000 ? "..." : "");
-                documentContents.push(
-                  `=== เอกสาร: ${document.name} ===\n${contentPreview}\n`,
-                );
-              }
-            } catch (error) {
-              console.error(
-                `❌ Error fetching document ${agentDoc.documentId}:`,
-                error,
-              );
-            }
-          }
         }
       } catch (vectorError) {
         console.error(
-          `❌ Line OA: Vector search failed, using fallback:`,
+          `❌ Line OA: Unified search failed:`,
           vectorError,
         );
-        // Fallback to original approach with limited documents
-        for (const agentDoc of agentDocs.slice(0, 3)) {
-          try {
-            const document = await storage.getDocument(
-              agentDoc.documentId,
-              userId,
-            );
-            if (document && document.content) {
-              const contentPreview =
-                document.content.substring(0, 3000) +
-                (document.content.length > 3000 ? "..." : "");
-              documentContents.push(
-                `=== เอกสาร: ${document.name} ===\n${contentPreview}\n`,
-              );
-            }
-          } catch (error) {
-            console.error(
-              `❌ Error fetching document ${agentDoc.documentId}:`,
-              error,
-            );
-          }
-        }
+        // No fallback - rely solely on unified search service
       }
 
       if (documentContents.length > 0) {
