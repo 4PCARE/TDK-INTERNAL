@@ -174,7 +174,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto"></nav>
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {/* Home */}
         <NavItem
           to="/"
@@ -226,7 +226,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div>
           <NavItem
             icon={BarChart3}
-            isActive={location.startsWith('/dashboards')}
+            isActive={isActiveRoute('/dashboards')}
             onClick={() => !isCollapsed && setDashboardsExpanded(!dashboardsExpanded)}
             className="flex justify-between"
           >
