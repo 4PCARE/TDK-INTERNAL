@@ -401,6 +401,9 @@ async function getAiResponseDirectly(
             limit: 2, // Only get top 2 chunks globally as requested
             keywordWeight: 0.4,
             vectorWeight: 0.6,
+            enableQueryAugmentation: true,
+            chatType: "lineoa",
+            contextId: channelId
           },
         );
 

@@ -5,6 +5,7 @@ import mammoth from "mammoth";
 import XLSX from "xlsx";
 import textract from "textract";
 import { LlamaParseReader } from "@llamaindex/cloud";
+import { storage } from "../storage";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({
@@ -515,48 +516,34 @@ export async function generateGeneralChatResponse(
   userId: string
 ): Promise<string> {
   try {
-    // === CONVERSATIONAL KEYWORD OPTIMIZATION ===
+    // === OPENAI QUERY AUGMENTATION ===
     let optimizedSearchQuery = userMessage;
     try {
-      console.log(`🔍 General Chat: Starting conversational keyword optimization for: "${userMessage}"`);
+      console.log(`🧠 General Chat: Starting OpenAI query augmentation for: "${userMessage}"`);
 
-      // Get recent chat history for keyword optimization
-      const recentChatHistory = await storage.getChatHistory(
+      const { queryAugmentationService } = await import("./queryAugmentationService");
+      
+      const augmentationResult = await queryAugmentationService.augmentQuery(
+        userMessage,
         userId,
         "general",
         "general",
-        null, // No specific agent
-        10
+        10 // Analyze last 10 messages
       );
 
-      if (recentChatHistory.length > 0) {
-        const { conversationalKeywordOptimizer } = await import("./conversationalKeywordOptimizer");
-
-        // Extract conversation context
-        const conversationContext = conversationalKeywordOptimizer.extractConversationContext(recentChatHistory);
-
-        // Optimize keywords based on conversation context
-        const optimization = await conversationalKeywordOptimizer.optimizeKeywords(
-          userMessage,
-          conversationContext,
-          8 // Use last 8 messages for context
-        );
-
-        if (optimization.confidence >= 0.6) {
-          optimizedSearchQuery = optimization.searchQuery;
-          console.log(`✅ General Chat: Keyword optimization successful!`);
-          console.log(`   📝 Original query: "${userMessage}"`);
-          console.log(`   🎯 Optimized query: "${optimizedSearchQuery}"`);
-          console.log(`   🔧 Keywords: [${optimization.optimizedKeywords.join(', ')}]`);
-          console.log(`   📊 Confidence: ${optimization.confidence}`);
-        } else {
-          console.log(`⚠️ General Chat: Low confidence (${optimization.confidence}), using original query`);
-        }
+      if (augmentationResult.shouldUseAugmented && augmentationResult.confidence >= 0.6) {
+        optimizedSearchQuery = augmentationResult.augmentedQuery;
+        console.log(`✅ General Chat: Query augmentation successful!`);
+        console.log(`   📝 Original query: "${userMessage}"`);
+        console.log(`   🎯 Augmented query: "${optimizedSearchQuery}"`);
+        console.log(`   🔑 Keywords: [${augmentationResult.extractedKeywords.join(', ')}]`);
+        console.log(`   📊 Confidence: ${augmentationResult.confidence}`);
+        console.log(`   💡 Insights: ${augmentationResult.contextualInsights}`);
       } else {
-        console.log(`ℹ️ General Chat: No chat history available for keyword optimization`);
+        console.log(`⚠️ General Chat: Low confidence (${augmentationResult.confidence}), using original query`);
       }
-    } catch (optimizationError) {
-      console.error("⚠️ General Chat: Keyword optimization failed:", optimizationError);
+    } catch (augmentationError) {
+      console.error("⚠️ General Chat: Query augmentation failed:", augmentationError);
       console.log(`🔄 General Chat: Falling back to original query: "${userMessage}"`);
     }
 
