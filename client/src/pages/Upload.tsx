@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import Sidebar from "@/components/Layout/Sidebar";
 import TopBar from "@/components/TopBar";
+import ChatModal from "@/components/Chat/ChatModal";
 import FileUpload from "@/components/FileUpload";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,8 @@ export default function Upload() {
   const { isAuthenticated, isLoading } = useAuth();
   const queryClient = useQueryClient();
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Redirect to login if not authenticated
@@ -200,9 +203,9 @@ export default function Upload() {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar 
-        isMobileOpen={false}
-        onMobileClose={() => {}}
-        onOpenChat={() => {}}
+        isMobileOpen={isMobileMenuOpen}
+        onMobileClose={() => setIsMobileMenuOpen(false)}
+        onOpenChat={() => setIsChatModalOpen(true)}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
@@ -400,6 +403,11 @@ export default function Upload() {
           </div>
         </main>
       </div>
+
+      <ChatModal 
+        isOpen={isChatModalOpen} 
+        onClose={() => setIsChatModalOpen(false)} 
+      />
     </div>
   );
 }

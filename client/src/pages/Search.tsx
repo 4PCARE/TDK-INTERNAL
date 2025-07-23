@@ -6,6 +6,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect } from "react";
 import Sidebar from "@/components/Layout/Sidebar";
 import TopBar from "@/components/TopBar";
+import ChatModal from "@/components/Chat/ChatModal";
 import DocumentCard from "@/components/DocumentCard";
 import SearchBar from "@/components/SearchBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +28,9 @@ export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState<"keyword" | "semantic">("keyword");
   const [hasSearched, setHasSearched] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -63,14 +67,12 @@ export default function SearchPage() {
     return null; // Already handled by redirect effect
   }
 
- const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar 
-        isMobileOpen={false}
-        onMobileClose={() => {}}
-        onOpenChat={() => {}}
+        isMobileOpen={isMobileMenuOpen}
+        onMobileClose={() => setIsMobileMenuOpen(false)}
+        onOpenChat={() => setIsChatModalOpen(true)}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
@@ -238,6 +240,11 @@ export default function SearchPage() {
           )}
         </main>
       </div>
+
+      <ChatModal 
+        isOpen={isChatModalOpen} 
+        onClose={() => setIsChatModalOpen(false)} 
+      />
     </div>
   );
 }

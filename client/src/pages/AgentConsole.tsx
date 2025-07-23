@@ -118,6 +118,11 @@ export default function AgentConsole() {
   const wsRef = useRef<WebSocket | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Sidebar state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
   // WebSocket connection setup
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -585,9 +590,11 @@ export default function AgentConsole() {
       <div className="min-h-screen bg-slate-50">
         <div className="flex">
           <Sidebar 
-          isMobileOpen={false}
-          onMobileClose={() => {}}
-          onOpenChat={() => {}}
+          isMobileOpen={isMobileMenuOpen}
+          onMobileClose={() => setIsMobileMenuOpen(false)}
+          onOpenChat={() => setIsChatModalOpen(true)}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         />
           <div className="flex-1">
             <TopBar />
@@ -604,9 +611,11 @@ export default function AgentConsole() {
     <div className="min-h-screen bg-slate-50">
       <div className="flex">
         <Sidebar 
-          isMobileOpen={false}
-          onMobileClose={() => {}}
-          onOpenChat={() => {}}
+          isMobileOpen={isMobileMenuOpen}
+          onMobileClose={() => setIsMobileMenuOpen(false)}
+          onOpenChat={() => setIsChatModalOpen(true)}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         />
         <div className="flex-1">
           <TopBar />
