@@ -1190,253 +1190,15 @@ ${imageAnalysisResult}
           `LINE OA: Found ${agentDocs.length} assigned documents for agent ${lineIntegration.agentId}`,
         );
 
-        // === CONVERSATIONAL KEYWORD OPTIMIZATION ===
-        // Get recent chat history for keyword optimization
-        let optimizedQuery = contextMessage;
-        try {
-          console.log(`🔍 LINE OA: Starting conversational keyword optimization for: "${contextMessage}"`);
-
-          // Get recent chat history (last 10 messages)
-          const recentChatHistory = await storage.getChatHistory(
+          // Use the unified getAiResponseDirectly function for consistent behavior
+          const aiResponse = await getAiResponseDirectly(
+            contextMessage,
+            lineIntegration.agentId,
             lineIntegration.userId,
             "lineoa",
-            event.source.userId,
-            lineIntegration.agentId,
-            10
+            event.source.userId
           );
-
-          if (recentChatHistory.length > 0) {
-            const { conversationalKeywordOptimizer } = await import("./services/conversationalKeywordOptimizer");
-
-            // Extract conversation context
-            const conversationContext = conversationalKeywordOptimizer.extractConversationContext(recentChatHistory);
-
-            // Optimize keywords based on conversation context
-            const optimization = await conversationalKeywordOptimizer.optimizeKeywords(
-              contextMessage,
-              conversationContext,
-              8 // Use last 8 messages for context
-            );
-
-            if (optimization.confidence >= 0.6) {
-              optimizedQuery = optimization.searchQuery;
-              console.log(`✅ LINE OA: Keyword optimization successful!`);
-              console.log(`   📝 Original query: "${contextMessage}"`);
-              console.log(`   🎯 Optimized query: "${optimizedQuery}"`);
-              console.log(`   🔧 Keywords: [${optimization.optimizedKeywords.join(', ')}]`);
-              console.log(`   📊 Confidence: ${optimization.confidence}`);
-              console.log(`   💭 Reasoning: ${optimization.reasoning}`);
-            } else {
-              console.log(`⚠️ LINE OA: Low confidence (${optimization.confidence}), using original query`);
-            }
-          } else {
-            console.log(`ℹ️ LINE OA: No chat history available for keyword optimization`);
-          }
-        } catch (optimizationError) {
-          console.error("⚠️ LINE OA: Keyword optimization failed:", optimizationError);
-          console.log(`🔄 LINE OA: Falling back to original query: "${contextMessage}"`);
-        }
-
-          // Convert agent docs to format expected by generateChatResponse
-          const agentDocuments = [];
-          const agentDocIds = agentDocs.map((d) => d.documentId);
           
-          for (const agentDoc of agentDocs) {
-            try {
-              const document = await storage.getDocument(
-                agentDoc.documentId,
-                lineIntegration.userId,
-              );
-              if (document) {
-                agentDocuments.push({
-                  ...document,
-                  userId: lineIntegration.userId,
-                });
-              }
-            } catch (error) {
-              console.error(
-                `LINE OA: Error fetching document ${agentDoc.documentId}:`,
-                error,
-              );
-            }
-          }
-
-          console.log(
-            `LINE OA: Using ${agentDocuments.length} documents for hybrid search`,
-          );
-
-          // Use unified search service with optimized query
-          let aiResponse = "";
-
-          try {
-            // Perform single hybrid search call with optimized query
-            console.log(
-              `LINE OA: Performing unified search with optimized query on ${agentDocIds.length} documents: [${agentDocIds.join(", ")}]`,
-            );
-
-            const { unifiedSearchService } = await import(
-              "./services/unifiedSearchService"
-            );
-
-            const hybridResults = await unifiedSearchService.searchAgentDocuments(
-              optimizedQuery, // Use the optimized query from conversational keyword optimizer
-              lineIntegration.userId,
-              agentDocIds,
-              {
-                searchType: 'hybrid',
-                limit: 2, // Get only top 2 most relevant chunks globally
-                keywordWeight: 0.4,
-                vectorWeight: 0.6,
-                enableQueryAugmentation: false // Already optimized by conversational optimizer
-              }
-            );
-
-            console.log(
-              `LINE OA: Hybrid search found ${hybridResults.length} relevant chunks from agent's documents`,
-            );
-
-            if (hybridResults.length > 0) {
-              // Use top results with more lenient threshold for better context
-              const finalChunks = hybridResults.filter(result => result.similarity >= 0.15);
-
-              console.log(
-                `LINE OA: Using ${finalChunks.length} relevant chunks (similarity ≥ 0.15)`,
-              );
-
-              // Build context efficiently
-              let documentContext = "";
-              const maxContextLength = 15000; // Reasonable limit for faster processing
-
-              for (let i = 0; i < finalChunks.length; i++) {
-                const result = finalChunks[i];
-                const chunkText = `=== ข้อมูลที่ ${i + 1}: ${result.name} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${result.content}\n\n`;
-
-                if (documentContext.length + chunkText.length <= maxContextLength) {
-                  documentContext += chunkText;
-                } else {
-                  break; // Stop when limit reached
-                }
-              }
-
-              console.log(
-                `LINE OA: Built context with ${finalChunks.length} chunks (${documentContext.length} chars)`,
-              );
-
-              // Generate AI response with focused document context
-              // Use existing OpenAI instance from module scope
-
-              const agent = await storage.getAgentChatbot(
-                lineIntegration.agentId,
-                lineIntegration.userId,
-              );
-
-              // Get chat history for context
-              const recentChatHistory = await storage.getChatHistory(
-                lineIntegration.userId,
-                "lineoa",
-                event.source.userId,
-                lineIntegration.agentId,
-                8
-              );
-
-              // Build conversation context
-              let conversationContext = "";
-              if (recentChatHistory.length > 0) {
-                const userBotMessages = recentChatHistory.filter(
-                  (msg) => msg.messageType === "user" || msg.messageType === "assistant",
-                );
-                conversationContext = userBotMessages
-                  .map(msg => `${msg.messageType === "user" ? "ผู้ใช้" : "ผู้ช่วย"}: ${msg.content}`)
-                  .join('\n');
-              }
-
-              const systemPrompt = `${agent?.systemPrompt || "You are a helpful assistant."}
-
-บริบทการสนทนาก่อนหน้า:
-${conversationContext}
-
-เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
-${documentContext}
-
-ข้อมูลสำคัญ:
-- คำถามของผู้ใช้: "${contextMessage}"
-- คำค้นหาที่ปรับปรุงแล้ว: "${optimizedQuery}"
-- ระบบได้วิเคราะห์แล้วว่าผู้ใช้กำลังถามเกี่ยวกับ: ${optimizedQuery.includes('XOLO') ? 'ร้าน XOLO' : 'ร้านที่กล่าวถึงในบทสนทนา'}
-
-สำคัญมาก: 
-- ระบบค้นหาได้ปรับคำถาม "${contextMessage}" เป็น "${optimizedQuery}" แล้ว
-- หากคำค้นหาที่ปรับปรุงมีชื่อร้านเฉพาะ (เช่น XOLO) แสดงว่าผู้ใช้กำลังถามเกี่ยวกับร้านนั้น
-- ใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม
-- พิจารณาบริบทการสนทนาก่อนหน้าเพื่อเข้าใจคำถามที่ชัดเจน
-- หากผู้ใช้ถามเกี่ยวกับ "ร้านนี้" ให้ใช้ข้อมูลจากคำค้นหาที่ปรับปรุงแล้วเป็นหลัก
-- ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
-- ให้ข้อมูลที่เฉพาะเจาะจงและตรงประเด็น
-- หากไม่พบข้อมูลชัดเจนในเอกสาร ให้บอกว่าต้องการข้อมูลเพิ่มเติม`;
-
-              console.log(
-                `LINE OA: System prompt length: ${systemPrompt.length} characters`,
-              );
-
-              // Build conversation messages for better context understanding
-              const messages: any[] = [
-                { role: "system", content: systemPrompt }
-              ];
-
-              // Add recent conversation history
-              const userBotMessages = recentChatHistory
-                .filter(msg => msg.messageType === "user" || msg.messageType === "assistant")
-                .slice(-6); // Last 6 messages for context
-
-              userBotMessages.forEach((msg) => {
-                messages.push({
-                  role: msg.messageType === "user" ? "user" : "assistant",
-                  content: msg.content,
-                });
-              });
-
-              // Add current user message
-              messages.push({ role: "user", content: contextMessage });
-
-              const completion = await openai.chat.completions.create({
-                model: "gpt-4o",
-                messages: messages,
-                max_tokens: 1000,
-                temperature: 0.7,
-              });
-
-              aiResponse =
-                completion.choices[0].message.content ||
-                "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
-              console.log(
-                `✅ LINE OA: Generated response using ${finalChunks.length} chunks above similarity threshold (${aiResponse.length} chars)`,
-              );
-            } else {
-              console.log(
-                `⚠️ LINE OA: No relevant content found in agent's documents, using system prompt only`,
-              );
-              // Fallback to system prompt conversation
-              aiResponse = await getAiResponseDirectly(
-                contextMessage,
-                lineIntegration.agentId,
-                lineIntegration.userId,
-                "lineoa",
-                event.source.userId,
-              );
-            }
-          } catch (error) {
-            console.error(
-              "LINE OA: Hybrid search failed, using fallback:",
-              error,
-            );
-            // Fallback to agent conversation without documents
-            aiResponse = await getAiResponseDirectly(
-              contextMessage,
-              lineIntegration.agentId,
-              lineIntegration.userId,
-              "lineoa",
-              event.source.userId, // Use Line user ID as channel identifier
-            );
-          }
           console.log("🤖 AI response:", aiResponse);
 
           // Save only the assistant response (user message already saved above)
@@ -1479,21 +1241,145 @@ ${documentContext}
               aiResponse,
               lineIntegration.channelAccessToken,
             );
+            console.log("✅ LINE OA: Reply sent successfully");
           } else {
-            console.log(
-              "❌ No channel access token available for Line integration",
-            );
+            console.error("❌ LINE OA: No access token found for this integration");
+          }
+        } else if (event.type === "image") {
+          // Image acknowledgment - immediate response
+          const immediateAck = "ได้รับรูปภาพแล้ว ขอเวลาตรวจสอบสักครู่นะคะ";
+          
+          console.log("🖼️ LINE OA: Processing image upload");
+          
+          // Send immediate acknowledgment
+          if (lineIntegration.channelAccessToken) {
             await sendLineReply(
               replyToken,
-              "ขออภัย ระบบยังไม่ได้ตั้งค่า access token กรุณาติดต่อผู้ดูแลระบบ",
-              lineIntegration.channelSecret!,
+              immediateAck,
+              lineIntegration.channelAccessToken,
             );
+            console.log("📤 Sent immediate image acknowledgment");
+          }
+
+          // Save user image message to chat history
+          await storage.createChatHistory({
+            userId: lineIntegration.userId,
+            channelType: "lineoa",
+            channelId: event.source.userId,
+            agentId: lineIntegration.agentId,
+            messageType: "user",
+            content: "ส่งรูปภาพ",
+            metadata: {
+              messageId: message.id,
+              imageUrl: `https://api-data.line.me/v2/bot/message/${message.id}/content`,
+              messageType: "image",
+            },
+          });
+
+          // Save acknowledgment message to chat history
+          await storage.createChatHistory({
+            userId: lineIntegration.userId,
+            channelType: "lineoa", 
+            channelId: event.source.userId,
+            agentId: lineIntegration.agentId,
+            messageType: "assistant",
+            content: immediateAck,
+            metadata: {},
+          });
+
+          // Process image analysis
+          try {
+            const imageService = new LineImageService();
+            const imageAnalysis = await imageService.processImage(
+              message.id,
+              lineIntegration.channelAccessToken!,
+            );
+
+            console.log("🔍 Image analysis completed:", imageAnalysis?.substring(0, 100));
+
+            if (imageAnalysis) {
+              // Save image analysis as system message for AI context
+              await storage.createChatHistory({
+                userId: lineIntegration.userId,
+                channelType: "lineoa",
+                channelId: event.source.userId,
+                agentId: lineIntegration.agentId,
+                messageType: "system",
+                content: `Image Analysis: ${imageAnalysis}`,
+                metadata: {
+                  relatedImageMessageId: message.id,
+                  analysisType: "gpt4o-vision",
+                },
+              });
+
+              // Send follow-up message with analysis using getAiResponseDirectly
+              const analysisResponse = await getAiResponseDirectly(
+                `รูปภาพที่ผู้ใช้ส่งมาได้รับการวิเคราะห์แล้ว: ${imageAnalysis}`,
+                lineIntegration.agentId,
+                lineIntegration.userId,
+                "lineoa",
+                event.source.userId,
+              );
+
+              // Send analysis response to Line
+              if (lineIntegration.channelAccessToken) {
+                await sendLineReply(
+                  null, // No reply token for push message
+                  analysisResponse,
+                  lineIntegration.channelAccessToken,
+                  event.source.userId,
+                );
+                console.log("📤 Sent image analysis response");
+              }
+
+              // Save analysis response to chat history
+              await storage.createChatHistory({
+                userId: lineIntegration.userId,
+                channelType: "lineoa",
+                channelId: event.source.userId,
+                agentId: lineIntegration.agentId,
+                messageType: "assistant",
+                content: analysisResponse,
+                metadata: {
+                  relatedImageMessageId: message.id,
+                },
+              });
+
+              // Broadcast to Agent Console
+              if (typeof (global as any).broadcastToAgentConsole === "function") {
+                (global as any).broadcastToAgentConsole({
+                  type: "new_message",
+                  data: {
+                    userId: lineIntegration.userId,
+                    channelType: "lineoa",
+                    channelId: event.source.userId,
+                    agentId: lineIntegration.agentId,
+                    userMessage: "ส่งรูปภาพ",
+                    aiResponse: analysisResponse,
+                    timestamp: new Date().toISOString(),
+                  },
+                });
+              }
+            }
+          } catch (error) {
+            console.error("❌ Image processing error:", error);
+            const errorMessage = "ขออภัย เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ กรุณาลองใหม่อีกครั้ง";
+            
+            if (lineIntegration.channelAccessToken) {
+              await sendLineReply(
+                null,
+                errorMessage,
+                lineIntegration.channelAccessToken,
+                event.source.userId,
+              );
+            }
           }
         } else {
+          console.log("🤖 No Line integration found, using fallback response");
           await sendLineReply(
             replyToken,
             "ขออภัย ระบบยังไม่ได้เชื่อมต่อกับ AI Agent กรุณาติดต่อผู้ดูแลระบบ",
-            lineIntegration.channelSecret!,
+            "fallback",
           );
         }
       }
