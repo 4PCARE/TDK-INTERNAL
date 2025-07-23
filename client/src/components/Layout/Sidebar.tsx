@@ -88,7 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     const content = (
       <div
         className={cn(
-          "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+          "flex items-center space-x-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer",
           isActive
             ? "bg-blue-100 text-blue-700 border-r-2 border-blue-700"
             : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
@@ -121,7 +121,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     <Link href={to} onClick={onMobileClose}>
       <div
         className={cn(
-          "flex items-center space-x-3 px-6 py-2 text-sm transition-colors cursor-pointer",
+          "flex items-center space-x-3 px-6 py-1 text-sm transition-colors cursor-pointer",
           isActive
             ? "text-blue-700 bg-blue-50 border-r-2 border-blue-700"
             : "text-slate-500 hover:text-slate-700 hover:bg-slate-50",
@@ -174,7 +174,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto"></nav>
         {/* Home */}
         <NavItem
           to="/"
@@ -199,7 +199,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </NavItem>
 
           {documentsExpanded && !isCollapsed && (
-            <div className="ml-2 space-y-1">
+            <div className="ml-2 space-y-0">
               <SubNavItem
                 to="/documents"
                 isActive={isActiveRoute('/documents')}
@@ -237,7 +237,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </NavItem>
 
           {dashboardsExpanded && !isCollapsed && (
-            <div className="ml-2 space-y-1">
+            <div className="ml-2 space-y-0">
               {dashboardPages.map((dashboard) => (
                 <SubNavItem
                   key={dashboard.path}
@@ -266,7 +266,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </NavItem>
 
           {adminExpanded && !isCollapsed && (
-            <div className="ml-2 space-y-1">
+            <div className="ml-2 space-y-0">
               <SubNavItem
                 to="/settings"
                 isActive={isActiveRoute('/settings')}
