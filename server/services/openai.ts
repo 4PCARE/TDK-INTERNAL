@@ -392,9 +392,9 @@ export async function generateChatResponse(
       console.log(`Chat: Restricting search to ${documentIds.length} agent documents: [${documentIds.join(', ')}]`);
 
       if (searchType === 'hybrid') {
-        // Use semantic search V2 service for hybrid search with document filtering
-        const { semanticSearchServiceV2 } = await import('./semanticSearchV2');
-        const searchResults = await semanticSearchServiceV2.searchDocuments(
+        // Use unified search service for consistent behavior across all platforms
+        const { unifiedSearchService } = await import('./unifiedSearchService');
+        const searchResults = await unifiedSearchService.searchDocuments(
           query,
           documents[0]?.userId,
           {

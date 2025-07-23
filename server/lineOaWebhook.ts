@@ -380,27 +380,27 @@ async function getAiResponseDirectly(
     if (agentDocs.length > 0) {
       console.log(`📚 Found ${agentDocs.length} documents for agent`);
 
-      // Use hybrid search (keyword + vector) with only top 2 chunks globally
+      // Use unified search service for consistent behavior across all platforms
       try {
-        const { semanticSearchServiceV2 } = await import(
-          "./services/semanticSearchV2"
+        const { unifiedSearchService } = await import(
+          "./services/unifiedSearchService"
         );
 
-        // Search for relevant chunks ONLY from agent's documents using hybrid search
+        // Search for relevant chunks ONLY from agent's documents using unified search
         const agentDocIds = agentDocs.map((d) => d.documentId);
         console.log(
-          `LINE OA: Using hybrid search with agent's ${agentDocIds.length} documents: [${agentDocIds.join(", ")}]`,
+          `LINE OA: Using unified search with agent's ${agentDocIds.length} documents: [${agentDocIds.join(", ")}]`,
         );
 
-        const hybridResults = await semanticSearchServiceV2.searchDocuments(
+        const hybridResults = await unifiedSearchService.searchAgentDocuments(
           userMessage,
           userId,
+          agentDocIds,
           {
             searchType: "hybrid",
-            limit: 5, // Get top 5 chunks globally
+            limit: 2, // Only get top 2 chunks globally as requested
             keywordWeight: 0.4,
             vectorWeight: 0.6,
-            specificDocumentIds: agentDocIds,
           },
         );
 

@@ -1265,10 +1265,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (searchType === "semantic") {
         console.log("Performing semantic search...");
         try {
-          results = await semanticSearchServiceV2.searchDocuments(
+          const { unifiedSearchService } = await import('./services/unifiedSearchService');
+          results = await unifiedSearchService.searchDocuments(
             query,
             userId,
-            { searchType: "semantic" },
+            { 
+              searchType: "semantic",
+              limit: 20
+            },
           );
           console.log(`Semantic search returned ${results.length} results`);
         } catch (semanticError) {
@@ -1285,13 +1289,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // hybrid
         console.log("Performing hybrid search...");
         try {
-          results = await semanticSearchServiceV2.searchDocuments(
+          const { unifiedSearchService } = await import('./services/unifiedSearchService');
+          results = await unifiedSearchService.searchDocuments(
             query,
             userId,
             { 
               searchType: "hybrid",
               keywordWeight: 0.4,
-              vectorWeight: 0.6
+              vectorWeight: 0.6,
+              limit: 20
             },
           );
           console.log(`Hybrid search returned ${results.length} results`);
