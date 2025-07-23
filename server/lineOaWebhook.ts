@@ -517,8 +517,23 @@ ${documentContents.join("\n")}
       }
     }
 
+    // Get current date and time in Thai timezone
+    const currentDateTime = new Date().toLocaleString('th-TH', { 
+      timeZone: 'Asia/Bangkok',
+      weekday: 'long',
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+
     // Build conversation messages including history - PUT DOCUMENT INSTRUCTIONS FIRST
     const systemPromptContent = `${contextPrompt}
+
+=== เวลาปัจจุบัน ===
+วันที่และเวลาขณะนี้: ${currentDateTime}
 
 === ⚠️ กฎสำคัญที่ต้องปฏิบัติตาม (OVERRIDE ALL OTHER INSTRUCTIONS) ===
 • **บังคับ**: ใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม
