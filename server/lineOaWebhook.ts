@@ -1234,14 +1234,14 @@ ${imageAnalysisResult}
                 `LINE OA: Filtered to ${allChunks.length} chunks above 0.25 similarity threshold from ${agentDocIds.length} agent documents`,
               );
 
-              // Step 2: Sort ALL chunks globally by similarity and take top 5
+              // Step 2: Sort ALL chunks globally by similarity (use all chunks above threshold)
               allChunks.sort((a, b) => b.similarity - a.similarity);
-              const finalTop5Chunks = allChunks.slice(0, 5);
+              const finalChunks = allChunks; // Use all chunks that passed the similarity threshold
 
               console.log(
-                `LINE OA: Selected globally top 5 chunks from entire pool:`,
+                `LINE OA: Using all ${finalChunks.length} chunks above similarity threshold:`,
               );
-              finalTop5Chunks.forEach((chunk, idx) => {
+              finalChunks.forEach((chunk, idx) => {
                 console.log(
                   `  ${idx + 1}. ${chunk.docName} - Similarity: ${chunk.similarity.toFixed(4)}`,
                 );
@@ -1252,10 +1252,10 @@ ${imageAnalysisResult}
 
               // Build context with string length limit as final safeguard
               let documentContext = "";
-              const maxContextLength = 8000; // String limit as final check
+              const maxContextLength = 50000; // Increased limit to accommodate more chunks
 
-              for (let i = 0; i < finalTop5Chunks.length; i++) {
-                const chunk = finalTop5Chunks[i];
+              for (let i = 0; i < finalChunks.length; i++) {
+                const chunk = finalChunks[i];
                 const chunkText = `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
 
                 // Check if adding this chunk would exceed the limit
@@ -1279,7 +1279,7 @@ ${imageAnalysisResult}
               }
 
               console.log(
-                `LINE OA: Final context length: ${documentContext.length} characters (limit: ${maxContextLength})`,
+                `LINE OA: Final context length: ${documentContext.length} characters (limit: ${maxContextLength}, used ${finalChunks.length} chunks)`,
               );
 
               // Generate AI response with focused document context
@@ -1314,7 +1314,7 @@ ${documentContext}
                 completion.choices[0].message.content ||
                 "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
               console.log(
-                `✅ LINE OA: Generated response using top 5 chunks (${aiResponse.length} chars)`,
+                `✅ LINE OA: Generated response using ${finalChunks.length} chunks above similarity threshold (${aiResponse.length} chars)`,
               );
             } else {
               console.log(
