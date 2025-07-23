@@ -1,4 +1,3 @@
-
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -31,6 +30,22 @@ import {
 // This component has been moved to @/components/Layout/Sidebar
 // Please use the Layout/Sidebar component instead
 export { default } from "@/components/Layout/Sidebar";
+
+interface SidebarProps {
+  isCollapsed: boolean;
+  onToggleCollapse?: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
+  const location = useLocation();
+  const { user, userRole } = useAuth();
+  const [documentsExpanded, setDocumentsExpanded] = useState(false);
+  const [dashboardsExpanded, setDashboardsExpanded] = useState(false);
+  const [adminExpanded, setAdminExpanded] = useState(false);
+
+  const isActiveRoute = (route: string) => {
+    return location === route;
+  };
 
   return (
     <div
@@ -530,4 +545,6 @@ export { default } from "@/components/Layout/Sidebar";
       </div>
     </div>
   );
-}
+};
+
+export default Sidebar;
