@@ -1238,32 +1238,31 @@ ${imageAnalysisResult}
             `LINE OA: Using ${agentDocuments.length} documents for hybrid search`,
           );
 
-          // Use hybrid search with document scope restriction like debug routes
-          const { semanticSearchV2 } = await import(
-            "./services/semanticSearchV2"
-          );
+          // Use unified search service with optimized query
           let aiResponse = "";
 
           try {
-            // Perform hybrid search with document restriction
-              console.log(
-                `LINE OA: Performing hybrid search with document restriction to ${agentDocIds.length} documents: [${agentDocIds.join(", ")}]`,
-              );
+            // Perform single hybrid search call with optimized query
+            console.log(
+              `LINE OA: Performing unified search with optimized query on ${agentDocIds.length} documents: [${agentDocIds.join(", ")}]`,
+            );
 
-              const { unifiedSearchService } = await import(
-                "./services/unifiedSearchService"
-              );
+            const { unifiedSearchService } = await import(
+              "./services/unifiedSearchService"
+            );
 
-              const hybridResults = await unifiedSearchService.searchDocuments(
-                optimizedQuery,
-                lineIntegration.userId,
-                {
-                  searchType: 'hybrid',
-                  limit: 5, // Get only top 5 most relevant chunks
-                  specificDocumentIds: agentDocIds, // Restrict to agent's documents
-                  enableQueryAugmentation: false // Already optimized by conversational optimizer
-                }
-              );
+            const hybridResults = await unifiedSearchService.searchAgentDocuments(
+              optimizedQuery, // Use the optimized query from conversational keyword optimizer
+              lineIntegration.userId,
+              agentDocIds,
+              {
+                searchType: 'hybrid',
+                limit: 2, // Get only top 2 most relevant chunks globally
+                keywordWeight: 0.4,
+                vectorWeight: 0.6,
+                enableQueryAugmentation: false // Already optimized by conversational optimizer
+              }
+            );
 
             console.log(
               `LINE OA: Hybrid search found ${hybridResults.length} relevant chunks from agent's documents`,

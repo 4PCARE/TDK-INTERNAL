@@ -174,29 +174,7 @@ export class UnifiedSearchService {
     });
   }
 
-  /**
-   * Search within agent's assigned documents only
-   * 
-   * @param query - The search query  
-   * @param userId - User ID for document access
-   * @param agentDocumentIds - Array of document IDs assigned to the agent
-   * @param options - Search configuration options
-   * @returns Array of search results from agent's documents only
-   */
-  async searchAgentDocuments(
-    query: string,
-    userId: string, 
-    agentDocumentIds: number[],
-    options: Omit<UnifiedSearchOptions, 'specificDocumentIds'> = { searchType: 'hybrid' }
-  ): Promise<UnifiedSearchResult[]> {
-    
-    console.log(`🤖 Unified Search (Agent-specific): "${query}" in ${agentDocumentIds.length} agent documents`);
-    
-    return this.searchDocuments(query, userId, {
-      ...options,
-      specificDocumentIds: agentDocumentIds
-    });
-  }
+  
 }
 
 // Export singleton instance
