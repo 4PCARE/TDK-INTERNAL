@@ -495,7 +495,19 @@ ${relevantContent}
   }
 }
 
-import { storage } from "@shared/utils";
+// Utility function to extract JSON from response
+function extractJsonFromResponse(response: string): any {
+  try {
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    return {};
+  } catch (error) {
+    console.error('Failed to parse JSON from response:', error);
+    return {};
+  }
+}
 
 export async function generateGeneralChatResponse(
   userMessage: string,
