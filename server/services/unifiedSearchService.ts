@@ -201,6 +201,3 @@ export class UnifiedSearchService {
 
 // Export singleton instance
 export const unifiedSearchService = new UnifiedSearchService();
-
-// Export singleton instance
-export const unifiedSearchService = new UnifiedSearchService();

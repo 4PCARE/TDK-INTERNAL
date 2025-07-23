@@ -88,7 +88,9 @@ ${conversationContext}
       // Parse JSON response
       let optimizationResult: KeywordOptimizationResult;
       try {
-        optimizationResult = JSON.parse(aiResponse);
+        // Extract JSON from response, handling markdown code blocks
+        const cleanedResponse = this.extractJsonFromResponse(aiResponse);
+        optimizationResult = JSON.parse(cleanedResponse);
       } catch (parseError) {
         console.error('Failed to parse AI response as JSON:', aiResponse);
         // Fallback to basic optimization
@@ -117,6 +119,23 @@ ${conversationContext}
       
       // Return fallback optimization
       return this.createFallbackOptimization(currentQuery, recentMessages);
+    }
+  }
+
+  /**
+   * Extract JSON from AI response, handling markdown code blocks
+   */
+  private extractJsonFromResponse(response: string): string {
+    try {
+      // Remove markdown code blocks if present
+      const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/) || response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return jsonMatch[1] || jsonMatch[0];
+      }
+      return response;
+    } catch (error) {
+      console.error('Failed to extract JSON from response:', error);
+      return response;
     }
   }
 

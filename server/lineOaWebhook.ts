@@ -1165,7 +1165,7 @@ ${imageAnalysisResult}
 
         // === CONVERSATIONAL KEYWORD OPTIMIZATION ===
         // Get recent chat history for keyword optimization
-        let optimizedSearchQuery = contextMessage;
+        let optimizedQuery = contextMessage;
         try {
           console.log(`🔍 LINE OA: Starting conversational keyword optimization for: "${contextMessage}"`);
 
@@ -1192,10 +1192,10 @@ ${imageAnalysisResult}
             );
 
             if (optimization.confidence >= 0.6) {
-              optimizedSearchQuery = optimization.searchQuery;
+              optimizedQuery = optimization.searchQuery;
               console.log(`✅ LINE OA: Keyword optimization successful!`);
               console.log(`   📝 Original query: "${contextMessage}"`);
-              console.log(`   🎯 Optimized query: "${optimizedSearchQuery}"`);
+              console.log(`   🎯 Optimized query: "${optimizedQuery}"`);
               console.log(`   🔧 Keywords: [${optimization.optimizedKeywords.join(', ')}]`);
               console.log(`   📊 Confidence: ${optimization.confidence}`);
               console.log(`   💭 Reasoning: ${optimization.reasoning}`);
@@ -1243,26 +1243,24 @@ ${imageAnalysisResult}
           let aiResponse = "";
 
           try {
-            // Ensure agentDocIds is defined before using it
-            const agentDocIds = agentDocs.map((d) => d.documentId);
-            console.log(
-              `LINE OA: Performing hybrid search with document restriction to ${agentDocIds.length} documents: [${agentDocIds.join(", ")}]`,
-            );
+            // Perform hybrid search with document restriction
+              console.log(
+                `LINE OA: Performing hybrid search with document restriction to ${agentDocIds.length} documents: [${agentDocIds.join(", ")}]`,
+              );
 
-            // Use hybrid search with proper document filtering - same as debug page
-            const searchResults = await semanticSearchV2.hybridSearch(
-              contextMessage,
-              lineIntegration.userId,
-              {
-                keywordWeight: 0.4,
-                vectorWeight: 0.6,
-                limit: 100, // Get arbitrarily large number of results
-                specificDocumentIds: agentDocIds, // Restrict to agent's documents only
-              },
-            );
+              const hybridResults = await unifiedSearchService.searchDocuments(
+                optimizedQuery,
+                lineIntegration.userId,
+                {
+                  searchType: 'hybrid',
+                  limit: 100, // Fetch up to 100 chunks initially
+                  specificDocumentIds: agentDocIds, // Restrict to agent's documents
+                  enableQueryAugmentation: false // Already optimized by conversational optimizer
+                }
+              );
 
             console.log(
-              `LINE OA: Hybrid search found ${searchResults.length} relevant chunks from agent's documents`,
+              `LINE OA: Hybrid search found ${hybridResults.length} relevant chunks from agent's documents`,
             );
 
             if (searchResults.length > 0) {
