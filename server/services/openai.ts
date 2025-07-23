@@ -578,10 +578,17 @@ export async function generateGeneralChatResponse(
       documentContext = "No documents available for general chat.";
     }
 
-    const systemMessage = `You are an AI assistant helping users with their document management system. You have access to the user's documents and can answer questions about them, help with searches, provide summaries, and assist with document organization.
+    const systemMessage = `คุณเป็น AI Assistant ที่ช่วยเหลือผู้ใช้ในการจัดการระบบเอกสาร คุณสามารถตอบคำถาม ช่วยค้นหา สรุป และช่วยจัดระเบียบเอกสาร
 
-Available documents:
+=== เอกสารที่เกี่ยวข้อง ===
 ${documentContext}
+
+=== คำสั่งสำคัญ ===
+• ใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม
+• ห้ามบอกว่า "ไม่ทราบ" หรือ "ไม่มีข้อมูล" ถ้ามีข้อมูลในเอกสาร
+• ตอบคำถามให้ตรงประเด็นและครบถ้วนจากข้อมูลที่มี
+• ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
+• ระบุแหล่งที่มาของข้อมูลเมื่อเป็นไปได้
 `;
 
     const openai = new OpenAI({
