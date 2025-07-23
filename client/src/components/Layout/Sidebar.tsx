@@ -45,7 +45,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { user, userRole } = useAuth();
   const [documentsExpanded, setDocumentsExpanded] = useState(true);
   const [dashboardsExpanded, setDashboardsExpanded] = useState(false);
-  const [adminExpanded, setAdminExpanded] = useState(false);
+  const [adminExpanded, setAdminExpanded] = useState(true);
 
   const isActiveRoute = (route: string) => {
     return location === route || location.startsWith(route + '/');
@@ -252,35 +252,36 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Settings & Administration */}
-        {(userRole === 'admin' || userRole === 'super_admin') && (
-          <div>
-            <NavItem
-              icon={Settings}
-              isActive={adminPages.some(page => isActiveRoute(page.path))}
-              onClick={() => !isCollapsed && setAdminExpanded(!adminExpanded)}
-              className="flex justify-between"
-            >
-              <span>Settings & Administration</span>
-              {!isCollapsed && (
-                adminExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
-              )}
-            </NavItem>
-
-            {adminExpanded && !isCollapsed && (
-              <div className="ml-2 space-y-1">
-                {adminPages.map((adminPage) => (
-                  <SubNavItem
-                    key={adminPage.path}
-                    to={adminPage.path}
-                    isActive={isActiveRoute(adminPage.path)}
-                  >
-                    {adminPage.name}
-                  </SubNavItem>
-                ))}
-              </div>
+        <div>
+          <NavItem
+            icon={Settings}
+            isActive={adminPages.some(page => isActiveRoute(page.path))}
+            onClick={() => !isCollapsed && setAdminExpanded(!adminExpanded)}
+            className="flex justify-between"
+          >
+            <span>Settings & Administration</span>
+            {!isCollapsed && (
+              adminExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
             )}
-          </div>
-        )}
+          </NavItem>
+
+          {adminExpanded && !isCollapsed && (
+            <div className="ml-2 space-y-1">
+              <SubNavItem
+                to="/settings"
+                isActive={isActiveRoute('/settings')}
+              >
+                Settings
+              </SubNavItem>
+              <SubNavItem
+                to="/user-management"
+                isActive={isActiveRoute('/user-management')}
+              >
+                User Management
+              </SubNavItem>
+            </div>
+          )}
+        </div>
 
         {/* Survey */}
         <NavItem
