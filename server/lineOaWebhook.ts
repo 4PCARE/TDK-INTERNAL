@@ -1234,9 +1234,9 @@ ${imageAnalysisResult}
                 `LINE OA: Filtered to ${allChunks.length} chunks above 0.25 similarity threshold from ${agentDocIds.length} agent documents`,
               );
 
-              // Step 2: Sort ALL chunks globally by similarity (use all chunks above threshold)
+              // Step 2: Sort ALL chunks globally by similarity and use ALL chunks above threshold (not limited to 5)
               allChunks.sort((a, b) => b.similarity - a.similarity);
-              const finalChunks = allChunks; // Use all chunks that passed the similarity threshold
+              const finalChunks = allChunks; // Use ALL chunks that passed the similarity threshold
 
               console.log(
                 `LINE OA: Using all ${finalChunks.length} chunks above similarity threshold:`,
