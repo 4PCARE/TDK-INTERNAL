@@ -1212,6 +1212,8 @@ ${imageAnalysisResult}
 
           // Convert agent docs to format expected by generateChatResponse
           const agentDocuments = [];
+          const agentDocIds = agentDocs.map((d) => d.documentId);
+          
           for (const agentDoc of agentDocs) {
             try {
               const document = await storage.getDocument(
@@ -1248,6 +1250,10 @@ ${imageAnalysisResult}
                 `LINE OA: Performing hybrid search with document restriction to ${agentDocIds.length} documents: [${agentDocIds.join(", ")}]`,
               );
 
+              const { unifiedSearchService } = await import(
+                "./services/unifiedSearchService"
+              );
+
               const hybridResults = await unifiedSearchService.searchDocuments(
                 optimizedQuery,
                 lineIntegration.userId,
@@ -1263,11 +1269,11 @@ ${imageAnalysisResult}
               `LINE OA: Hybrid search found ${hybridResults.length} relevant chunks from agent's documents`,
             );
 
-            if (searchResults.length > 0) {
+            if (hybridResults.length > 0) {
               // Step 1: Pool ALL chunks from ALL documents together and filter by similarity threshold
               const allChunks = [];
 
-              for (const result of searchResults) {
+              for (const result of hybridResults) {
                 // Only include chunks with similarity >= 0.25
                 if (result.similarity >= 0.25) {
                   allChunks.push({
