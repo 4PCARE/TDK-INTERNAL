@@ -5,7 +5,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/components/Layout/Sidebar";
 import TopBar from "@/components/TopBar";
 import FileUpload from "@/components/FileUpload";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -200,6 +200,9 @@ export default function Upload() {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar 
+        isMobileOpen={false}
+        onMobileClose={() => {}}
+        onOpenChat={() => {}}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />

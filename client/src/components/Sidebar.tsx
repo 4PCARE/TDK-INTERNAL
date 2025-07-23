@@ -28,38 +28,9 @@ import {
   Shield,
 } from "lucide-react";
 
-interface SidebarProps {
-  isCollapsed?: boolean;
-  onToggleCollapse?: () => void;
-}
-
-export default function Sidebar({
-  isCollapsed = false,
-  onToggleCollapse,
-}: SidebarProps) {
-  const [location] = useLocation();
-  const { user } = useAuth();
-  const [documentsExpanded, setDocumentsExpanded] = useState(false);
-  const [dashboardsExpanded, setDashboardsExpanded] = useState(false);
-  const [adminExpanded, setAdminExpanded] = useState(false);
-
-  // Filter navigation based on user role - default to "user" role
-  const userRole = (user as any)?.role || "user";
-
-  // Auto-expand sections based on current route
-  useEffect(() => {
-    if (location.startsWith("/documents") || location.startsWith("/categories") || location.startsWith("/meeting-notes")) {
-      setDocumentsExpanded(true);
-    }
-    if (location.startsWith("/dashboards")) {
-      setDashboardsExpanded(true);
-    }
-    if (location.startsWith("/agent") || location.startsWith("/settings") || location.startsWith("/user-management") || location.startsWith("/role-management") || location.startsWith("/live-chat") || location.startsWith("/integrations")) {
-      setAdminExpanded(true);
-    }
-  }, [location]);
-
-  const isActiveRoute = (path: string) => location === path;
+// This component has been moved to @/components/Layout/Sidebar
+// Please use the Layout/Sidebar component instead
+export { default } from "@/components/Layout/Sidebar";
 
   return (
     <div
