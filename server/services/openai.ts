@@ -386,7 +386,7 @@ export async function generateChatResponse(
     // Use hybrid search for better context
     try {
       console.log(`Chat: Performing ${searchType} search for query: "${query}" with weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
-      
+
       // Get document IDs to filter search scope to only agent's documents
       const documentIds = documents.map(doc => doc.id).filter(id => id !== undefined);
       console.log(`Chat: Restricting search to ${documentIds.length} agent documents: [${documentIds.join(', ')}]`);
@@ -491,6 +491,125 @@ ${relevantContent}
     );
   } catch (error) {
     console.error("Error generating chat response:", error);
+    return "I'm experiencing some technical difficulties. Please try again later.";
+  }
+}
+
+import { storage } from "@shared/utils";
+
+export async function generateGeneralChatResponse(
+  userMessage: string,
+  documents: any[],
+  userId: string
+): Promise<string> {
+  try {
+    // === CONVERSATIONAL KEYWORD OPTIMIZATION ===
+    let optimizedSearchQuery = userMessage;
+    try {
+      console.log(`🔍 General Chat: Starting conversational keyword optimization for: "${userMessage}"`);
+
+      // Get recent chat history for keyword optimization
+      const recentChatHistory = await storage.getChatHistory(
+        userId,
+        "general",
+        "general",
+        null, // No specific agent
+        10
+      );
+
+      if (recentChatHistory.length > 0) {
+        const { conversationalKeywordOptimizer } = await import("./conversationalKeywordOptimizer");
+
+        // Extract conversation context
+        const conversationContext = conversationalKeywordOptimizer.extractConversationContext(recentChatHistory);
+
+        // Optimize keywords based on conversation context
+        const optimization = await conversationalKeywordOptimizer.optimizeKeywords(
+          userMessage,
+          conversationContext,
+          8 // Use last 8 messages for context
+        );
+
+        if (optimization.confidence >= 0.6) {
+          optimizedSearchQuery = optimization.searchQuery;
+          console.log(`✅ General Chat: Keyword optimization successful!`);
+          console.log(`   📝 Original query: "${userMessage}"`);
+          console.log(`   🎯 Optimized query: "${optimizedSearchQuery}"`);
+          console.log(`   🔧 Keywords: [${optimization.optimizedKeywords.join(', ')}]`);
+          console.log(`   📊 Confidence: ${optimization.confidence}`);
+        } else {
+          console.log(`⚠️ General Chat: Low confidence (${optimization.confidence}), using original query`);
+        }
+      } else {
+        console.log(`ℹ️ General Chat: No chat history available for keyword optimization`);
+      }
+    } catch (optimizationError) {
+      console.error("⚠️ General Chat: Keyword optimization failed:", optimizationError);
+      console.log(`🔄 General Chat: Falling back to original query: "${userMessage}"`);
+    }
+
+    // Use vector search to find relevant chunks from documents
+    let documentContext = "";
+
+    if (documents.length > 0) {
+      console.log(`General Chat: Using vector search with optimized query "${optimizedSearchQuery}" and ${documents.length} total documents`);
+
+      try {
+        const { vectorService } = await import('./vectorService');
+
+        // Use vector search to find relevant content from all user documents
+        const vectorResults = await vectorService.searchDocuments(
+          optimizedSearchQuery, // Use optimized query instead of original
+          userId,
+          2 // Get top 2 chunks globally as per recent optimization
+        );
+
+        if (vectorResults.length > 0) {
+          documentContext = vectorResults
+            .map((result) => result.document.content)
+            .join("\n\n");
+        } else {
+          documentContext = "No relevant documents found.";
+        }
+      } catch (vectorError) {
+        console.error("Vector search failed:", vectorError);
+        documentContext = "Error retrieving relevant documents.";
+      }
+    } else {
+      documentContext = "No documents available for general chat.";
+    }
+
+    const systemMessage = `You are an AI assistant helping users with their document management system. You have access to the user's documents and can answer questions about them, help with searches, provide summaries, and assist with document organization.
+
+Available documents:
+${documentContext}
+`;
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: systemMessage,
+        },
+        {
+          role: "user",
+          content: userMessage,
+        },
+      ],
+      max_tokens: 700,
+    });
+
+    return (
+      response.choices[0].message.content ||
+      "I'm sorry, I couldn't generate a response at this time."
+    );
+  } catch (error) {
+    console.error("Error generating general chat response:", error);
     return "I'm experiencing some technical difficulties. Please try again later.";
   }
 }

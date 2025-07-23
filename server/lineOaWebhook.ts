@@ -955,6 +955,7 @@ export async function handleLineWebhook(req: Request, res: Response) {
             originalContentUrl,
             previewImageUrl,
           });
+        ```
         } else if (message.type === "sticker") {
           userMessage = "[สติ๊กเกอร์]";
           messageMetadata = {
@@ -1151,6 +1152,62 @@ ${imageAnalysisResult}
               "ผู้ใช้ส่งสติ๊กเกอร์มา กรุณาตอบอย่างเป็นมิตรและถามว่ามีอะไรให้ช่วย";
           }
 
+        // Get agent's documents for proper scope restriction
+        const agentDocs = await storage.getAgentChatbotDocuments(
+          lineIntegration.agentId,
+          lineIntegration.userId,
+        );
+        console.log(
+          `LINE OA: Found ${agentDocs.length} assigned documents for agent ${lineIntegration.agentId}`,
+        );
+
+        // === CONVERSATIONAL KEYWORD OPTIMIZATION ===
+        // Get recent chat history for keyword optimization
+        let optimizedSearchQuery = contextMessage;
+        try {
+          console.log(`🔍 LINE OA: Starting conversational keyword optimization for: "${contextMessage}"`);
+
+          // Get recent chat history (last 10 messages)
+          const recentChatHistory = await storage.getChatHistory(
+            lineIntegration.userId,
+            "lineoa",
+            event.source.userId,
+            lineIntegration.agentId,
+            10
+          );
+
+          if (recentChatHistory.length > 0) {
+            const { conversationalKeywordOptimizer } = await import("./services/conversationalKeywordOptimizer");
+
+            // Extract conversation context
+            const conversationContext = conversationalKeywordOptimizer.extractConversationContext(recentChatHistory);
+
+            // Optimize keywords based on conversation context
+            const optimization = await conversationalKeywordOptimizer.optimizeKeywords(
+              contextMessage,
+              conversationContext,
+              8 // Use last 8 messages for context
+            );
+
+            if (optimization.confidence >= 0.6) {
+              optimizedSearchQuery = optimization.searchQuery;
+              console.log(`✅ LINE OA: Keyword optimization successful!`);
+              console.log(`   📝 Original query: "${contextMessage}"`);
+              console.log(`   🎯 Optimized query: "${optimizedSearchQuery}"`);
+              console.log(`   🔧 Keywords: [${optimization.optimizedKeywords.join(', ')}]`);
+              console.log(`   📊 Confidence: ${optimization.confidence}`);
+              console.log(`   💭 Reasoning: ${optimization.reasoning}`);
+            } else {
+              console.log(`⚠️ LINE OA: Low confidence (${optimization.confidence}), using original query`);
+            }
+          } else {
+            console.log(`ℹ️ LINE OA: No chat history available for keyword optimization`);
+          }
+        } catch (optimizationError) {
+          console.error("⚠️ LINE OA: Keyword optimization failed:", optimizationError);
+          console.log(`🔄 LINE OA: Falling back to original query: "${contextMessage}"`);
+        }
+
           // Get agent's documents for proper scope restriction
           const agentDocs = await storage.getAgentChatbotDocuments(
             lineIntegration.agentId,
@@ -1159,6 +1216,109 @@ ${imageAnalysisResult}
           console.log(
             `LINE OA: Found ${agentDocs.length} assigned documents for agent ${lineIntegration.agentId}`,
           );
+
+          // === CONVERSATIONAL KEYWORD OPTIMIZATION ===
+          // Get recent chat history for keyword optimization
+          let optimizedSearchQuery2 = contextMessage;
+          try {
+            console.log(`🔍 LINE OA: Starting conversational keyword optimization for: "${contextMessage}"`);
+
+            // Get recent chat history (last 10 messages)
+            const recentChatHistory = await storage.getChatHistory(
+              lineIntegration.userId,
+              "lineoa",
+              event.source.userId,
+              lineIntegration.agentId,
+              10
+            );
+
+            if (recentChatHistory.length > 0) {
+              const { conversationalKeywordOptimizer } = await import("./services/conversationalKeywordOptimizer");
+
+              // Extract conversation context
+              const conversationContext = conversationalKeywordOptimizer.extractConversationContext(recentChatHistory);
+
+              // Optimize keywords based on conversation context
+              const optimization = await conversationalKeywordOptimizer.optimizeKeywords(
+                contextMessage,
+                conversationContext,
+                8 // Use last 8 messages for context
+              );
+
+              if (optimization.confidence >= 0.6) {
+                optimizedSearchQuery2 = optimization.searchQuery;
+                console.log(`✅ LINE OA: Keyword optimization successful!`);
+                console.log(`   📝 Original query: "${contextMessage}"`);
+                console.log(`   🎯 Optimized query: "${optimizedSearchQuery2}"`);
+                console.log(`   🔧 Keywords: [${optimization.optimizedKeywords.join(', ')}]`);
+                console.log(`   📊 Confidence: ${optimization.confidence}`);
+                console.log(`   💭 Reasoning: ${optimization.reasoning}`);
+              } else {
+                console.log(`⚠️ LINE OA: Low confidence (${optimization.confidence}), using original query`);
+              }
+            } else {
+              console.log(`ℹ️ LINE OA: No chat history available for keyword optimization`);
+            }
+          } catch (optimizationError) {
+            console.error("⚠️ LINE OA: Keyword optimization failed:", optimizationError);
+            console.log(`🔄 LINE OA: Falling back to original query: "${contextMessage}"`);
+          }
+
+          // Get agent's documents for proper scope restriction
+          const agentDocs3 = await storage.getAgentChatbotDocuments(
+            lineIntegration.agentId,
+            lineIntegration.userId,
+          );
+          console.log(
+            `LINE OA: Found ${agentDocs3.length} assigned documents for agent ${lineIntegration.agentId}`,
+          );
+
+          // === CONVERSATIONAL KEYWORD OPTIMIZATION ===
+          // Get recent chat history for keyword optimization
+          let optimizedSearchQuery3 = contextMessage;
+          try {
+            console.log(`🔍 LINE OA: Starting conversational keyword optimization for: "${contextMessage}"`);
+
+            // Get recent chat history (last 10 messages)
+            const recentChatHistory = await storage.getChatHistory(
+              lineIntegration.userId,
+              "lineoa",
+              event.source.userId,
+              lineIntegration.agentId,
+              10
+            );
+
+            if (recentChatHistory.length > 0) {
+              const { conversationalKeywordOptimizer } = await import("./services/conversationalKeywordOptimizer");
+
+              // Extract conversation context
+              const conversationContext = conversationalKeywordOptimizer.extractConversationContext(recentChatHistory);
+
+              // Optimize keywords based on conversation context
+              const optimization = await conversationalKeywordOptimizer.optimizeKeywords(
+                contextMessage,
+                conversationContext,
+                8 // Use last 8 messages for context
+              );
+
+              if (optimization.confidence >= 0.6) {
+                optimizedSearchQuery3 = optimization.searchQuery;
+                console.log(`✅ LINE OA: Keyword optimization successful!`);
+                console.log(`   📝 Original query: "${contextMessage}"`);
+                console.log(`   🎯 Optimized query: "${optimizedSearchQuery3}"`);
+                console.log(`   🔧 Keywords: [${optimization.optimizedKeywords.join(', ')}]`);
+                console.log(`   📊 Confidence: ${optimization.confidence}`);
+                console.log(`   💭 Reasoning: ${optimization.reasoning}`);
+              } else {
+                console.log(`⚠️ LINE OA: Low confidence (${optimization.confidence}), using original query`);
+              }
+            } else {
+              console.log(`ℹ️ LINE OA: No chat history available for keyword optimization`);
+            }
+          } catch (optimizationError) {
+            console.error("⚠️ LINE OA: Keyword optimization failed:", optimizationError);
+            console.log(`🔄 LINE OA: Falling back to original query: "${contextMessage}"`);
+          }
 
           // Convert agent docs to format expected by generateChatResponse
           const agentDocuments = [];
