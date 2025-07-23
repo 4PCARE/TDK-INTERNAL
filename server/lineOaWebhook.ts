@@ -1259,7 +1259,7 @@ ${imageAnalysisResult}
                 lineIntegration.userId,
                 {
                   searchType: 'hybrid',
-                  limit: 100, // Fetch up to 100 chunks initially
+                  limit: 5, // Get only top 5 most relevant chunks
                   specificDocumentIds: agentDocIds, // Restrict to agent's documents
                   enableQueryAugmentation: false // Already optimized by conversational optimizer
                 }
@@ -1270,70 +1270,30 @@ ${imageAnalysisResult}
             );
 
             if (hybridResults.length > 0) {
-              // Step 1: Pool ALL chunks from ALL documents together and filter by similarity threshold
-              const allChunks = [];
-
-              for (const result of hybridResults) {
-                // Only include chunks with similarity >= 0.25
-                if (result.similarity >= 0.25) {
-                  allChunks.push({
-                    docName: result.document.name,
-                    content: result.content,
-                    similarity: result.similarity,
-                  });
-                }
-              }
+              // Use top results directly without additional filtering
+              const finalChunks = hybridResults.filter(result => result.similarity >= 0.25);
 
               console.log(
-                `LINE OA: Filtered to ${allChunks.length} chunks above 0.25 similarity threshold from ${agentDocIds.length} agent documents`,
+                `LINE OA: Using ${finalChunks.length} relevant chunks (similarity ≥ 0.25)`,
               );
 
-              // Step 2: Sort ALL chunks globally by similarity and use ALL chunks above threshold (not limited to 5)
-              allChunks.sort((a, b) => b.similarity - a.similarity);
-              const finalChunks = allChunks; // Use ALL chunks that passed the similarity threshold
-
-              console.log(
-                `LINE OA: Using all ${finalChunks.length} chunks above similarity threshold:`,
-              );
-              finalChunks.forEach((chunk, idx) => {
-                console.log(
-                  `  ${idx + 1}. ${chunk.docName} - Similarity: ${chunk.similarity.toFixed(4)}`,
-                );
-                console.log(
-                  `      Content preview: ${chunk.content.substring(0, 100)}...`,
-                );
-              });
-
-              // Build context with string length limit as final safeguard
+              // Build context efficiently
               let documentContext = "";
-              const maxContextLength = 50000; // Increased limit to accommodate more chunks
+              const maxContextLength = 15000; // Reasonable limit for faster processing
 
               for (let i = 0; i < finalChunks.length; i++) {
-                const chunk = finalChunks[i];
-                const chunkText = `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
+                const result = finalChunks[i];
+                const chunkText = `=== ข้อมูลที่ ${i + 1}: ${result.name} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${result.content}\n\n`;
 
-                // Check if adding this chunk would exceed the limit
-                if (
-                  documentContext.length + chunkText.length <=
-                  maxContextLength
-                ) {
+                if (documentContext.length + chunkText.length <= maxContextLength) {
                   documentContext += chunkText;
                 } else {
-                  // Truncate the chunk to fit within limit
-                  const remainingSpace =
-                    maxContextLength - documentContext.length;
-                  if (remainingSpace > 200) {
-                    // Only add if there's meaningful space
-                    const truncatedContent =
-                      chunk.content.substring(0, remainingSpace - 150) + "...";
-                    documentContext += `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
-                  }
-                  break;
+                  break; // Stop when limit reached
                 }
               }
 
               console.log(
-                `LINE OA: Final context length: ${documentContext.length} characters (limit: ${maxContextLength}, used ${finalChunks.length} chunks)`,
+                `LINE OA: Built context with ${finalChunks.length} chunks (${documentContext.length} chars)`,
               );
 
               // Generate AI response with focused document context
