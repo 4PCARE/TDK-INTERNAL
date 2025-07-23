@@ -305,7 +305,7 @@ export class SemanticSearchServiceV2 {
       const vectorResults = await vectorService.searchDocuments(
         query, 
         userId, 
-        50, // Get more chunks to work with
+        options.limit || 100, // Use the full limit passed from caller
         options.specificDocumentIds
       );
 
