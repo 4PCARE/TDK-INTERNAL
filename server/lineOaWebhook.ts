@@ -955,7 +955,6 @@ export async function handleLineWebhook(req: Request, res: Response) {
             originalContentUrl,
             previewImageUrl,
           });
-        ```
         } else if (message.type === "sticker") {
           userMessage = "[สติ๊กเกอร์]";
           messageMetadata = {
