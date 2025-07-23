@@ -69,7 +69,7 @@ export default function Upload() {
         const uploadedDoc = data.documents.find((doc: any) => 
           doc.originalName === uploadFile.file.name
         );
-        
+
         if (uploadedDoc) {
           return {
             ...uploadFile,
@@ -84,7 +84,7 @@ export default function Upload() {
       // Invalidate queries to refresh document lists
       queryClient.invalidateQueries({ queryKey: ['/api/documents'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
-      
+
       toast({
         title: "Upload Successful",
         description: `${data.documents.length} document(s) uploaded and queued for processing.`,
@@ -206,10 +206,10 @@ export default function Upload() {
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
-      
+
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar />
-        
+
         <main className="flex-1 overflow-auto p-6">
           {/* Header */}
           <div className="mb-6">
@@ -230,7 +230,7 @@ export default function Upload() {
                 </CardHeader>
                 <CardContent>
                   <FileUpload onFilesSelected={handleFilesSelected} />
-                  
+
                   {uploadFiles.length > 0 && (
                     <div className="mt-6">
                       <div className="flex items-center justify-between mb-4">
@@ -256,7 +256,7 @@ export default function Upload() {
                           </Button>
                         </div>
                       </div>
-                      
+
                       <div className="space-y-3">
                         {uploadFiles.map((uploadFile) => (
                           <div 
@@ -266,7 +266,7 @@ export default function Upload() {
                             <div className="flex-shrink-0">
                               {getStatusIcon(uploadFile.status)}
                             </div>
-                            
+
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-1">
                                 <p className="text-sm font-medium text-slate-800 truncate">
@@ -274,24 +274,24 @@ export default function Upload() {
                                 </p>
                                 {getStatusBadge(uploadFile.status)}
                               </div>
-                              
+
                               <div className="flex items-center space-x-2 text-xs text-slate-500">
                                 <span>{(uploadFile.file.size / 1024 / 1024).toFixed(2)} MB</span>
                                 <span>•</span>
                                 <span>{uploadFile.file.type}</span>
                               </div>
-                              
+
                               {uploadFile.status === 'uploading' && (
                                 <Progress value={uploadFile.progress} className="mt-2" />
                               )}
-                              
+
                               {uploadFile.error && (
                                 <p className="text-xs text-red-600 mt-1">
                                   {uploadFile.error}
                                 </p>
                               )}
                             </div>
-                            
+
                             <Button
                               variant="ghost"
                               size="sm"
@@ -325,21 +325,21 @@ export default function Upload() {
                         {uploadFiles.length}
                       </span>
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-500">Pending</span>
                       <span className="text-sm font-medium text-amber-600">
                         {pendingFiles.length}
                       </span>
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-500">Uploaded</span>
                       <span className="text-sm font-medium text-emerald-600">
                         {successFiles.length}
                       </span>
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-slate-500">Failed</span>
                       <span className="text-sm font-medium text-red-600">
@@ -369,7 +369,7 @@ export default function Upload() {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-start space-x-3">
                       <Clock className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
                       <div>
@@ -381,7 +381,7 @@ export default function Upload() {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-start space-x-3">
                       <FileText className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
                       <div>
