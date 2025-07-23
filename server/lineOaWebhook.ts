@@ -1302,23 +1302,71 @@ ${imageAnalysisResult}
                 lineIntegration.agentId,
                 lineIntegration.userId,
               );
+
+              // Get chat history for context
+              const recentChatHistory = await storage.getChatHistory(
+                lineIntegration.userId,
+                "lineoa",
+                event.source.userId,
+                lineIntegration.agentId,
+                8
+              );
+
+              // Build conversation context
+              let conversationContext = "";
+              if (recentChatHistory.length > 0) {
+                const userBotMessages = recentChatHistory.filter(
+                  (msg) => msg.messageType === "user" || msg.messageType === "assistant",
+                );
+                conversationContext = userBotMessages
+                  .map(msg => `${msg.messageType === "user" ? "ผู้ใช้" : "ผู้ช่วย"}: ${msg.content}`)
+                  .join('\n');
+              }
+
               const systemPrompt = `${agent?.systemPrompt || "You are a helpful assistant."}
+
+บริบทการสนทนาก่อนหน้า:
+${conversationContext}
 
 เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
 ${documentContext}
 
-กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น`;
+คำค้นหาที่ปรับปรุงแล้ว: "${optimizedQuery}"
+
+สำคัญ: 
+- ใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม
+- พิจารณาบริบทการสนทนาก่อนหน้าเพื่อเข้าใจคำถามที่ชัดเจน
+- หากผู้ใช้ถามเกี่ยวกับ "ร้านนี้" หรือใช้คำสรรพนาม ให้อ้างอิงจากบริบทการสนทนา
+- ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
+- ให้ข้อมูลที่เฉพาะเจาะจงและตรงประเด็น`;
 
               console.log(
                 `LINE OA: System prompt length: ${systemPrompt.length} characters`,
               );
 
+              // Build conversation messages for better context understanding
+              const messages: any[] = [
+                { role: "system", content: systemPrompt }
+              ];
+
+              // Add recent conversation history
+              const userBotMessages = recentChatHistory
+                .filter(msg => msg.messageType === "user" || msg.messageType === "assistant")
+                .slice(-6); // Last 6 messages for context
+
+              userBotMessages.forEach((msg) => {
+                messages.push({
+                  role: msg.messageType === "user" ? "user" : "assistant",
+                  content: msg.content,
+                });
+              });
+
+              // Add current user message
+              messages.push({ role: "user", content: contextMessage });
+
               const completion = await openai.chat.completions.create({
                 model: "gpt-4o",
-                messages: [
-                  { role: "system", content: systemPrompt },
-                  { role: "user", content: contextMessage },
-                ],
+                messages: messages,
                 max_tokens: 1000,
                 temperature: 0.7,
               });
