@@ -36,7 +36,7 @@ export interface SearchOptions {
 }
 
 export class SemanticSearchServiceV2 {
-  private similarityThreshold = 0.3;
+  private similarityThreshold = 0.2;
 
   async searchDocuments(
     query: string,
@@ -99,7 +99,7 @@ export class SemanticSearchServiceV2 {
         const docId = parseInt(vectorResult.document.metadata.originalDocumentId || vectorResult.document.id);
         const doc = docMap.get(docId);
 
-        if (doc && vectorResult.similarity >= threshold && !processedDocs.has(docId)) {
+        if (doc && vectorResult.similarity >= 0 && !processedDocs.has(docId)) { // Always include results, filter later
           // Apply filters
           if (options.categoryFilter && options.categoryFilter !== "all" && 
               doc.aiCategory !== options.categoryFilter) {
@@ -274,19 +274,98 @@ export class SemanticSearchServiceV2 {
     userId: string,
     options: Omit<SearchOptions, "searchType">
   ): Promise<SearchResult[]> {
+    const { 
+      limit = 20, 
+      threshold = this.similarityThreshold,
+      keywordWeight = 0.4,
+      vectorWeight = 0.6
+    } = options;
+
+    console.log(`🔍 HYBRID SEARCH WORKFLOW: Starting for "${query}"`);
+    console.log(`⚖️ WEIGHTS: Keyword=${keywordWeight}, Vector=${vectorWeight}, Threshold=${threshold}`);
+
     try {
-      const keywordWeight = options.keywordWeight || 0.4;
-      const vectorWeight = options.vectorWeight || 0.6;
+      // Step 3A: Perform Keyword Search (get ALL results without threshold filtering)
+      console.log(`🔍 Step 3A: Performing keyword search...`);
+      const keywordResults = await this.performKeywordSearch(query, userId, { 
+        ...options, 
+        limit: limit * 3, // Get more results for combination
+        threshold: 0 // Don't filter during individual searches
+      });
+      console.log(`✅ Step 3A Complete: Found ${keywordResults.length} keyword results`);
 
-      console.log(`Hybrid search using weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
+      // Step 3B: Perform Vector Search (get ALL results without threshold filtering)  
+      console.log(`🔍 Step 3B: Performing semantic/vector search...`);
+      const semanticResults = await this.performSemanticSearch(query, userId, { 
+        ...options, 
+        limit: limit * 3, // Get more results for combination
+        threshold: 0 // Don't filter during individual searches
+      });
+      console.log(`✅ Step 3B Complete: Found ${semanticResults.length} semantic results`);
 
-      // For chatbot integration, use chunk-level hybrid search
-      const chunkResults = await this.performChunkLevelHybridSearch(query, userId, options, keywordWeight, vectorWeight);
+      // Step 4: Aggregate scores with weighted calculation for each chunk
+      console.log(`🔍 Step 4: Aggregating scores with weighted calculation...`);
+      const combinedResults = new Map<number, SearchResult>();
 
-      return chunkResults;
+      // Process semantic results first (apply vector weight)
+      semanticResults.forEach(result => {
+        const weightedScore = result.similarity * vectorWeight;
+        console.log(`📊 Vector: Doc ${result.id} = ${result.similarity.toFixed(3)} × ${vectorWeight} = ${weightedScore.toFixed(3)}`);
+        
+        combinedResults.set(result.id, {
+          ...result,
+          similarity: weightedScore
+        });
+      });
+
+      // Process keyword results and combine (apply keyword weight)
+      keywordResults.forEach(result => {
+        const weightedKeywordScore = result.similarity * keywordWeight;
+        console.log(`📊 Keyword: Doc ${result.id} = ${result.similarity.toFixed(3)} × ${keywordWeight} = ${weightedKeywordScore.toFixed(3)}`);
+        
+        const existing = combinedResults.get(result.id);
+        if (existing) {
+          // Combine both weighted scores
+          const finalScore = existing.similarity + weightedKeywordScore;
+          console.log(`📊 Combined: Doc ${result.id} = ${existing.similarity.toFixed(3)} + ${weightedKeywordScore.toFixed(3)} = ${finalScore.toFixed(3)}`);
+          existing.similarity = finalScore;
+        } else {
+          // Only keyword match (no vector score)
+          console.log(`📊 Keyword Only: Doc ${result.id} = ${weightedKeywordScore.toFixed(3)}`);
+          combinedResults.set(result.id, {
+            ...result,
+            similarity: weightedKeywordScore
+          });
+        }
+      });
+
+      console.log(`✅ Step 4 Complete: Aggregated ${combinedResults.size} unique documents`);
+
+      // Step 5: Filter out low-score chunks (below threshold)
+      console.log(`🔍 Step 5: Filtering chunks below threshold ${threshold}...`);
+      const beforeFilter = Array.from(combinedResults.values());
+      const afterFilter = beforeFilter.filter(result => {
+        const passed = result.similarity >= threshold;
+        console.log(`🎯 Filter: Doc ${result.id} score=${result.similarity.toFixed(3)} ${passed ? '✅ PASS' : '❌ REJECT'}`);
+        return passed;
+      });
+
+      console.log(`✅ Step 5 Complete: ${beforeFilter.length} → ${afterFilter.length} documents passed filter`);
+
+      // Step 6: Sort by final score and limit results for ChatAgent
+      const finalResults = afterFilter
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, limit);
+
+      console.log(`✅ HYBRID SEARCH COMPLETE: Returning ${finalResults.length} chunks for ChatAgent`);
+      finalResults.forEach((result, index) => {
+        console.log(`${index + 1}. Doc ${result.id}: "${result.name}" (final score: ${result.similarity.toFixed(3)})`);
+      });
+
+      return finalResults;
 
     } catch (error) {
-      console.error("Error performing hybrid search:", error);
+      console.error("❌ Error performing hybrid search:", error);
       throw new Error("Failed to perform hybrid search");
     }
   }
