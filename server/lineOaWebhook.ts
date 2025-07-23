@@ -1206,7 +1206,7 @@ ${imageAnalysisResult}
               {
                 keywordWeight: 0.4,
                 vectorWeight: 0.6,
-                limit: 12, // Get more results for ranking
+                limit: 100, // Get arbitrarily large number of results
                 specificDocumentIds: agentDocIds, // Restrict to agent's documents only
               },
             );
@@ -1216,19 +1216,22 @@ ${imageAnalysisResult}
             );
 
             if (searchResults.length > 0) {
-              // Step 1: Pool ALL chunks from ALL documents together
+              // Step 1: Pool ALL chunks from ALL documents together and filter by similarity threshold
               const allChunks = [];
 
               for (const result of searchResults) {
-                allChunks.push({
-                  docName: result.document.name,
-                  content: result.content,
-                  similarity: result.similarity,
-                });
+                // Only include chunks with similarity >= 0.25
+                if (result.similarity >= 0.25) {
+                  allChunks.push({
+                    docName: result.document.name,
+                    content: result.content,
+                    similarity: result.similarity,
+                  });
+                }
               }
 
               console.log(
-                `LINE OA: Pooled ${allChunks.length} chunks from ${agentDocIds.length} agent documents`,
+                `LINE OA: Filtered to ${allChunks.length} chunks above 0.25 similarity threshold from ${agentDocIds.length} agent documents`,
               );
 
               // Step 2: Sort ALL chunks globally by similarity and take top 5
