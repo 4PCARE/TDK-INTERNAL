@@ -38,20 +38,74 @@ export class QueryAugmentationService {
         userId,
         chatType,
         contextId,
-        null, // No specific agent filter
+        undefined, // No specific agent filter
         memoryLimit
       );
 
       if (chatHistory.length === 0) {
-        console.log(`ℹ️ Query Augmentation: No chat history available, using original query`);
-        return {
-          originalQuery: userQuery,
-          augmentedQuery: userQuery,
-          extractedKeywords: [],
-          contextualInsights: "No previous conversation context available",
-          confidence: 0.5,
-          shouldUseAugmented: false
-        };
+        console.log(`🔍 Query Augmentation: No chat history available, optimizing query directly`);
+        
+        // Still perform query optimization even without chat history
+        try {
+          const directOptimizationPrompt = `
+คุณเป็นผู้เชี่ยวชาญด้านการปรับปรุงคำค้นหาสำหรับระบบค้นหาเอกสาร
+
+ภารกิจ: ปรับปรุงคำค้นหาต่อไปนี้ให้เหมาะสมกับการค้นหาในเอกสารเกี่ยวกับห้างสรรพสินค้า ร้านค้า และบริการต่างๆ
+
+คำค้นหาเดิม: "${userQuery}"
+
+กฎการปรับปรุง:
+1. เพิ่มคำที่เกี่ยวข้องและคำพ้องความหมาย
+2. ปรับรูปแบบให้เหมาะกับการค้นหาแบบ keyword และ vector
+3. เพิ่มบริบทที่อาจช่วยในการค้นหา
+4. รักษาความหมายและจุดประสงค์เดิมไว้
+
+ตอบกลับเป็น JSON ในรูปแบบ:
+{
+  "augmentedQuery": "คำค้นหาที่ปรับปรุงแล้ว",
+  "extractedKeywords": ["คำสำคัญ1", "คำสำคัญ2"],
+  "contextualInsights": "คำอธิบายการปรับปรุง",
+  "confidence": 0.8
+}`;
+
+          const response = await openai.chat.completions.create({
+            model: 'gpt-4o',
+            messages: [{ role: 'user', content: directOptimizationPrompt }],
+            temperature: 0.3,
+            max_tokens: 500
+          });
+
+          const content = response.choices[0]?.message?.content;
+          if (!content) {
+            throw new Error('No content in OpenAI response');
+          }
+
+          const result = this.extractJsonFromResponse(content);
+          
+          console.log(`✅ Direct Query Optimization: "${userQuery}" → "${result.augmentedQuery}"`);
+          console.log(`🔑 Extracted keywords: ${result.extractedKeywords.join(', ')}`);
+          console.log(`💡 Optimization insights: ${result.contextualInsights}`);
+
+          return {
+            originalQuery: userQuery,
+            augmentedQuery: result.augmentedQuery,
+            extractedKeywords: result.extractedKeywords || [],
+            contextualInsights: result.contextualInsights || "Direct query optimization performed",
+            confidence: result.confidence || 0.8,
+            shouldUseAugmented: true // Always use the optimized version
+          };
+          
+        } catch (error) {
+          console.error(`❌ Direct query optimization failed:`, error);
+          return {
+            originalQuery: userQuery,
+            augmentedQuery: userQuery,
+            extractedKeywords: [],
+            contextualInsights: "Direct optimization failed, using original query",
+            confidence: 0.5,
+            shouldUseAugmented: false
+          };
+        }
       }
 
       // Build conversation context
