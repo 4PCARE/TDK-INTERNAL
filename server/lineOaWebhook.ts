@@ -1269,11 +1269,11 @@ ${imageAnalysisResult}
             );
 
             if (hybridResults.length > 0) {
-              // Use top results directly without additional filtering
-              const finalChunks = hybridResults.filter(result => result.similarity >= 0.25);
+              // Use top results with more lenient threshold for better context
+              const finalChunks = hybridResults.filter(result => result.similarity >= 0.15);
 
               console.log(
-                `LINE OA: Using ${finalChunks.length} relevant chunks (similarity ≥ 0.25)`,
+                `LINE OA: Using ${finalChunks.length} relevant chunks (similarity ≥ 0.15)`,
               );
 
               // Build context efficiently
@@ -1331,14 +1331,20 @@ ${conversationContext}
 เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
 ${documentContext}
 
-คำค้นหาที่ปรับปรุงแล้ว: "${optimizedQuery}"
+ข้อมูลสำคัญ:
+- คำถามของผู้ใช้: "${contextMessage}"
+- คำค้นหาที่ปรับปรุงแล้ว: "${optimizedQuery}"
+- ระบบได้วิเคราะห์แล้วว่าผู้ใช้กำลังถามเกี่ยวกับ: ${optimizedQuery.includes('XOLO') ? 'ร้าน XOLO' : 'ร้านที่กล่าวถึงในบทสนทนา'}
 
-สำคัญ: 
+สำคัญมาก: 
+- ระบบค้นหาได้ปรับคำถาม "${contextMessage}" เป็น "${optimizedQuery}" แล้ว
+- หากคำค้นหาที่ปรับปรุงมีชื่อร้านเฉพาะ (เช่น XOLO) แสดงว่าผู้ใช้กำลังถามเกี่ยวกับร้านนั้น
 - ใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม
 - พิจารณาบริบทการสนทนาก่อนหน้าเพื่อเข้าใจคำถามที่ชัดเจน
-- หากผู้ใช้ถามเกี่ยวกับ "ร้านนี้" หรือใช้คำสรรพนาม ให้อ้างอิงจากบริบทการสนทนา
+- หากผู้ใช้ถามเกี่ยวกับ "ร้านนี้" ให้ใช้ข้อมูลจากคำค้นหาที่ปรับปรุงแล้วเป็นหลัก
 - ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
-- ให้ข้อมูลที่เฉพาะเจาะจงและตรงประเด็น`;
+- ให้ข้อมูลที่เฉพาะเจาะจงและตรงประเด็น
+- หากไม่พบข้อมูลชัดเจนในเอกสาร ให้บอกว่าต้องการข้อมูลเพิ่มเติม`;
 
               console.log(
                 `LINE OA: System prompt length: ${systemPrompt.length} characters`,
