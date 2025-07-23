@@ -403,7 +403,8 @@ async function getAiResponseDirectly(
             vectorWeight: 0.6,
             enableQueryAugmentation: true,
             chatType: "lineoa",
-            contextId: channelId
+            contextId: channelId,
+            agentId: agentId // Pass agent ID for chat history retrieval
           },
         );
 

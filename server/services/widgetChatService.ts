@@ -73,7 +73,8 @@ export class WidgetChatService {
             vectorWeight: 0.6,
             enableQueryAugmentation: true,
             chatType: "widget",
-            contextId: sessionId
+            contextId: sessionId,
+            agentId: agentId // Pass agent ID for chat history retrieval
           }
         );
 

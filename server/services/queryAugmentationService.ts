@@ -20,7 +20,8 @@ export class QueryAugmentationService {
    * @param userQuery The original user query
    * @param userId User ID for chat history retrieval
    * @param chatType Type of chat (general, document, agent)
-   * @param contextId Context ID (document ID, agent ID, etc.)
+   * @param contextId Context ID (channel ID for Line OA, session ID for widgets)
+   * @param agentId Agent ID for chat history filtering
    * @param memoryLimit Number of recent messages to analyze
    */
   async augmentQuery(
@@ -28,19 +29,29 @@ export class QueryAugmentationService {
     userId: string,
     chatType: string = "general",
     contextId: string = "general",
+    agentId?: number,
     memoryLimit: number = 10
   ): Promise<QueryAugmentationResult> {
     try {
       console.log(`🔍 Query Augmentation: Starting for "${userQuery}"`);
 
       // Get recent chat history for context
-      const chatHistory = await storage.getChatHistory(
-        userId,
-        chatType,
-        contextId,
-        undefined, // No specific agent filter
-        memoryLimit
-      );
+      console.log(`🔍 Query Augmentation: Retrieving chat history - userId: ${userId}, chatType: ${chatType}, contextId: ${contextId}, agentId: ${agentId}`);
+      
+      let chatHistory: any[] = [];
+      if (agentId) {
+        chatHistory = await storage.getChatHistory(
+          userId,
+          chatType,
+          contextId,
+          agentId,
+          memoryLimit
+        );
+      } else {
+        console.log(`⚠️ Query Augmentation: No agentId provided, cannot retrieve chat history`);
+      }
+      
+      console.log(`📚 Query Augmentation: Retrieved ${chatHistory.length} chat history messages`);
 
       if (chatHistory.length === 0) {
         console.log(`🔍 Query Augmentation: No chat history available, optimizing query directly`);
