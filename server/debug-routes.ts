@@ -432,36 +432,11 @@ Answer questions specifically about this document. Provide detailed analysis, ex
     console.log(`\n=== CHUNK DETAILS ===`);
     console.log(`Found ${chunkDetails.length} chunks`);
     chunkDetails.forEach((chunk, idx) => {
-      console.log(`Chunk ${idx + 1}: ID=${chunk.id || chunk.chunkId}, Type=${chunk.type}, Similarity=${chunk.similarity || 'N/A'}, Weight=${chunk.weight || 'N/A'}, WeightedScore=${chunk.weightedScore || 'N/A'}, FinalRank=${chunk.finalRank || 'N/A'}`);
-    });
+      console.log(`Chunk ${idx + 1}: ID=${chunk.id}, Type=${chunk.type}, Similarity=${chunk.similarity || 'N/A'}, Weight=${chunk.weight || 'N/A'}, WeightedScore=${chunk.weightedScore || 'N/A'}, FinalRank=${chunk.finalRank}`);
+        });
     console.log(`\n=== FULL DOCUMENT CONTEXT ===`);
     console.log(documentContext);
-    console.log(`\n=== 🛑 STOPPING HERE - NOT SENDING TO OPENAI (DEBUG MODE) ===`);
-    console.log(`=== END DEBUG - WOULD HAVE SENT ${systemMessage.length + userMessage.length} CHARACTERS TO OPENAI ===`);
-
-    // Get full document details for input documents section
-    let inputDocuments = [];
-    if (specificDocumentId) {
-      const documents = await storage.getDocuments(userId);
-      const doc = documents.find(d => d.id === parseInt(specificDocumentId));
-      if (doc) {
-        inputDocuments = [{
-          id: doc.id,
-          name: doc.name,
-          content: doc.content,
-          summary: doc.summary,
-          tags: doc.tags,
-          mimeType: doc.mimeType
-        }];
-        console.log(`DEBUG: Added input document - ID: ${doc.id}, Name: ${doc.name}, Content length: ${doc.content?.length || 0}`);
-      } else {
-        console.log(`DEBUG: Document ${specificDocumentId} not found for user ${userId}`);
-      }
-    } else {
-      console.log(`DEBUG: No specific document ID provided`);
-    }
-
-    console.log(`DEBUG: Final inputDocuments array length: ${inputDocuments.length}`);
+    console.log(`\n=== END DEBUG ===`);
 
     // Return the full input that would be sent to AI
     res.json({
@@ -472,8 +447,7 @@ Answer questions specifically about this document. Provide detailed analysis, ex
       documentContext,
       vectorSearchUsed: searchType !== 'keyword',
       searchMetrics,
-      chunkDetails,
-      inputDocuments
+      chunkDetails
     });
 
   } catch (error) {
