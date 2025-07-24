@@ -70,7 +70,7 @@ function Router() {
           <Route path="/audit-monitoring" component={AuditMonitoring} />
           <Route path="/role-management" component={RoleManagement} />
           <Route path="/live-chat-widget" component={LiveChatWidget} />
-          
+
           {/* Dashboard Routes */}
           <Route path="/dashboards/document-usage" component={DocumentUsage} />
           <Route path="/dashboards/ai-interaction" component={AIInteraction} />
@@ -81,8 +81,18 @@ function Router() {
           <Route path="/dashboards/user-feedback" component={UserFeedback} />
           <Route path="/dashboards/ai-response-analysis" component={AiResponseAnalysis} />
 
+          <Route path="/user-feedback" component={UserFeedback} />
+          <Route path="/ai-interaction" component={AIInteraction} />
+          <Route path="/ai-response-analysis" component={AiResponseAnalysis} />
+          <Route path="/customer-survey" component={CustomerSurvey} />
+          <Route path="/document-demand-insights" component={DocumentUsage} />
+          <Route path="/document-usage" component={DocumentUsage} />
+          <Route path="/security-governance" component={SecurityGovernance} />
+          <Route path="/system-health" component={SystemHealth} />
+          <Route path="/user-activity" component={UserActivity} />
           <Route path="/survey" component={Survey} />
-          
+          <Route path="/audit-monitoring" component={AuditMonitoring} />
+          <Route path="/not-found" component={NotFound} />
           <Route component={NotFound} />
         </Switch>
       )}
