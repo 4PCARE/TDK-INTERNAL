@@ -318,11 +318,11 @@ export class SemanticSearchServiceV2 {
         console.log(`⚠️ SemanticSearchV2: No document ID filter - will search ALL user documents`);
       }
 
-      // Use vector search for semantic similarity
+      // Use vector search for semantic similarity (increase limit to find more chunks)
       const vectorResults = await vectorService.searchDocuments(
         query, 
         userId, 
-        limit,
+        Math.max(limit * 3, 50), // Get more chunks to ensure we don't miss relevant ones like chunk 31
         options.specificDocumentIds // Pass document filtering to vector service
       );
       console.log(`✅ Step 3B Complete: Found ${vectorResults.length} semantic results`);
@@ -464,15 +464,44 @@ export class SemanticSearchServiceV2 {
         console.log(`${index + 1}. Doc ID: ${result.id} (chunk ${actualChunkIndex}), Similarity: ${result.similarity.toFixed(4)}`);
         console.log(`   Content: ${result.content.substring(0, 300)}...`);
 
-        // Check for XOLO in various formats
+        // Check for XOLO in various formats (case insensitive and more variations)
         const content = result.content.toLowerCase();
-        const hasXolo = content.includes('xolo') || content.includes('โซโล่') || content.includes('โซโลว์') || content.includes('solo');
+        const xoloVariations = ['xolo', 'โซโล่', 'โซโลว์', 'โซโล', 'solo', 'xolo.', 'xolo,', 'xolo '];
+        const hasXolo = xoloVariations.some(variation => content.includes(variation));
+        
         if (hasXolo) {
           console.log(`   *** FOUND XOLO CHUNK *** - Contains XOLO reference`);
+          // Show which variation was found
+          const foundVariations = xoloVariations.filter(variation => content.includes(variation));
+          console.log(`   Found variations: ${foundVariations.join(', ')}`);
         } else {
           console.log(`   No XOLO reference found in this chunk`);
         }
       });
+
+      // Additional debug: Check if chunk 31 exists in vector results
+      console.log(`\n🔍 DEBUG: Checking for chunk 31 in all vector results...`);
+      const chunk31Results = vectorResults.filter(vr => {
+        const chunkIndex = vr.document.metadata?.chunkIndex || vr.document.chunkIndex;
+        return chunkIndex === 31 || chunkIndex === '31';
+      });
+      
+      if (chunk31Results.length > 0) {
+        console.log(`✅ Found chunk 31 in vector results:`);
+        chunk31Results.forEach((result, idx) => {
+          const docId = parseInt(result.document.metadata?.originalDocumentId || result.document.id);
+          console.log(`   Chunk 31 from Doc ${docId}: Similarity ${result.similarity.toFixed(4)}`);
+          console.log(`   Content preview: ${result.document.content.substring(0, 500)}...`);
+          
+          // Check for XOLO in chunk 31
+          const content = result.document.content.toLowerCase();
+          const xoloVariations = ['xolo', 'โซโล่', 'โซโลว์', 'โซโล', 'solo'];
+          const hasXolo = xoloVariations.some(variation => content.includes(variation));
+          console.log(`   Contains XOLO: ${hasXolo}`);
+        });
+      } else {
+        console.log(`❌ Chunk 31 not found in vector results (total ${vectorResults.length} chunks returned)`);
+      }
 
       console.log(`✅ HYBRID SEARCH COMPLETE: Returning ${finalResults.length} chunks for ChatAgent`);
       finalResults.forEach((result, index) => {
