@@ -375,95 +375,147 @@ Format your response in a clear, conversational way that helps the user understa
   }
 }
 
-  export async function generateChatResponse(
-    query: string,
-    documents: any[],
-    relevantChunks: any[] = [],
-    chatHistory: {role: 'user'|'assistant', content: string}[] = [],
-    agentId?: number
-  ): Promise<string> {
-    try {
-      const MAX_CHUNKS = 5;
-      const MAX_CHUNK_CHARS = 4000;
-      const SIMILARITY_THRESHOLD = 0.2;
+export async function generateChatResponse(
+  message: string,
+  documents: Document[],
+  searchResults?: any[],
+  chatHistory: ChatCompletionMessageParam[] = [],
+  agentId?: number
+): Promise<string> {
+  try {
+    console.log(`General Chat: Processing message "${message}" with ${documents.length} documents available`);
 
-      // 1. Use Unified Search Service with query augmentation
-      const { unifiedSearchService } = await import('./unifiedSearchService');
-      
-      const searchResults = await unifiedSearchService.searchDocuments(
-        query,
-        documents[0]?.userId || 'unknown', // Get userId from documents
-        {
-          searchType: 'hybrid',
-          limit: MAX_CHUNKS,
-          keywordWeight: 0.4,
-          vectorWeight: 0.6,
-          enableQueryAugmentation: true,
-          chatType: "document_chat",
-          contextId: "document_specific",
-          agentId: agentId
+    // Use vector search to find relevant chunks from documents
+    let documentContext = "";
+
+    if (documents.length > 0) {
+      console.log(`General Chat: Document search strategy - using ${searchResults && searchResults.length > 0 ? 'pre-filtered' : 'new'} search`);
+
+      try {
+        // Use pre-filtered search results if provided, otherwise perform search
+        let results;
+        if (searchResults && searchResults.length > 0) {
+          console.log(`✅ General Chat: Using pre-filtered search results (${searchResults.length} results) - skipping duplicate search`);
+          results = searchResults;
+        } else {
+          console.log(`🔍 General Chat: No pre-filtered results provided, performing new search with query augmentation`);
+
+          // Only perform query augmentation if we're doing a new search
+          let optimizedSearchQuery = message;
+
+          if (chatHistory.length > 0) {
+            console.log(`General Chat: Optimizing search query using ${chatHistory.length} chat history messages`);
+
+            try {
+              const { queryAugmentationService } = await import('./queryAugmentationService');
+
+              const augmentationResult = await queryAugmentationService.augmentQuery(
+                message,
+                "general", // userId - will be ignored since no agentId
+                "document_chat",
+                "document_specific",
+                agentId, // Pass agentId for proper history retrieval
+                10
+              );
+
+              if (augmentationResult.shouldUseAugmented && augmentationResult.confidence >= 0.6) {
+                optimizedSearchQuery = augmentationResult.augmentedQuery;
+                console.log(`✅ General Chat: Query augmentation successful!`);
+                console.log(`   📝 Original query: "${message}"`);
+                console.log(`   🎯 Augmented query: "${optimizedSearchQuery}"`);
+                console.log(`   🔑 Keywords: [${augmentationResult.extractedKeywords.join(', ')}]`);
+                console.log(`   📊 Confidence: ${augmentationResult.confidence}`);
+                console.log(`   💡 Insights: ${augmentationResult.contextualInsights}`);
+              } else {
+                console.log(`⚠️ General Chat: Low confidence (${augmentationResult.confidence}), using original query`);
+              }
+            } catch (augmentationError) {
+              console.error("⚠️ General Chat: Query augmentation failed:", augmentationError);
+              console.log(`🔄 General Chat: Falling back to original query: "${message}"`);
+            }
+          }
+
+          const { unifiedSearchService } = await import('./unifiedSearchService');
+          results = await unifiedSearchService.searchDocuments(
+            optimizedSearchQuery,
+            "general", // This will be overridden by specific implementations
+            {
+              searchType: "hybrid",
+              limit: 5,
+              enableQueryAugmentation: false, // Disable since we already did it above
+              chatType: "document_chat",
+              contextId: "document_specific",
+              agentId: agentId
+            }
+          );
         }
-      );
 
-      // 2. Filter by similarity threshold
-      const filteredChunks = searchResults
-        .filter(chunk => chunk.similarity >= SIMILARITY_THRESHOLD)
-        .slice(0, MAX_CHUNKS);
+        // Build document context string (from 'results')
+        if (results && results.length > 0) {
+          documentContext = results
+            .map((result) => `Document: ${result.name}\nContent: ${result.content}`)
+            .join("\n\n");
+        } else {
+          documentContext = "No relevant documents found.";
+        }
 
-      // 3. Build document context string
-      const promptChunks = filteredChunks.map((chunk, i) => {
-        const chunkName = chunk.name || `Document ${chunk.id || 'Unknown'}`;
-        const chunkContent = chunk.content || chunk.summary || 'No content available';
-        const similarity = chunk.similarity || 0;
-        return `--- Chunk #${i + 1} (${chunkName}, similarity: ${similarity.toFixed(3)}) ---\n${chunkContent.slice(0, MAX_CHUNK_CHARS)}`;
-      });
-
-      const documentContext = promptChunks.length > 0
-        ? promptChunks.join("\n\n")
-        : "No highly relevant document chunks found.";
-
-
-      const systemPrompt = `
-  You are an AI assistant helping users with their document management system.
-  Below are the most relevant document chunks for the current user query.
-
-  ${documentContext}
-
-  Use ONLY these chunks to answer the question below. If the answer cannot be found, say you cannot find it based on the documents.
-      `;
-
-      const openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-      });
-
-      const messages: ChatCompletionMessageParam[] = [
-          { role: "system", content: systemPrompt },
-          ...chatHistory.map(m => ({
-            role: m.role as "user" | "assistant",
-            content: m.content
-          })),
-          { role: "user", content: query }
-        ];
-
-      // Optional debug
-      console.log("📏 Sending prompt of", systemPrompt.length, "chars (approx", Math.round(systemPrompt.length/4), "tokens)");
-
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: messages,
-        max_tokens: 700,
-      });
-
-      return (
-        response.choices[0].message.content ||
-        "I'm sorry, I couldn't generate a response at this time."
-      );
-    } catch (error) {
-      console.error("Error generating chat response:", error);
-      return "I'm experiencing some technical difficulties. Please try again later.";
+      } catch (searchError) {
+        console.error("Unified search failed:", searchError);
+        documentContext = "Error retrieving relevant documents.";
+      }
+    } else {
+      documentContext = "No documents available for general chat.";
     }
-  }
 
+    const systemMessage = `You are an AI Assistant that helps users with their document management system. You can answer questions, find information, summarize content, and help organize documents.
+
+=== Relevant Documents ===
+${documentContext}
+
+=== Instructions ===
+• Use the information from the provided documents as the primary source for answering questions.
+• Answer questions directly and completely from the available information.
+• Always respond in the language used by the user.
+• If possible, cite the source of information.
+
+=== Current Time ===
+${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}
+`;
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    const messages: ChatCompletionMessageParam[] = [
+      {
+        role: "system",
+        content: systemMessage,
+      },
+      ...chatHistory.map(m => ({
+        role: m.role as "user" | "assistant",
+        content: m.content
+      })),
+      {
+        role: "user",
+        content: message,
+      },
+    ];
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: messages,
+      max_tokens: 700,
+    });
+
+    return (
+      response.choices[0].message.content ||
+      "I'm sorry, I couldn't generate a response at this time."
+    );
+  } catch (error) {
+    console.error("Error generating general chat response:", error);
+    return "I'm experiencing some technical difficulties. Please try again later.";
+  }
+}
 
 // Utility function to extract JSON from response
 function extractJsonFromResponse(response: string): any {
@@ -491,7 +543,7 @@ export async function generateGeneralChatResponse(
       console.log(`🧠 General Chat: Starting OpenAI query augmentation for: "${userMessage}"`);
 
       const { queryAugmentationService } = await import("./queryAugmentationService");
-      
+
       const augmentationResult = await queryAugmentationService.augmentQuery(
         userMessage,
         userId,
