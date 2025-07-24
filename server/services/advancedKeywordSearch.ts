@@ -214,32 +214,10 @@ export class AdvancedKeywordSearchService {
   }
 
   private tokenizeText(text: string): string[] {
-    // Split on whitespace and common punctuation, but preserve Thai compound words
     return text
       .split(/[\s\-_,\.!?\(\)\[\]]+/)
       .map(token => token.trim().toLowerCase())
-      .filter(token => token.length > 0)
-      // Also add individual Thai characters for better matching
-      .flatMap(token => {
-        // If it's a Thai compound word, also include it as-is and split it
-        if (/[\u0E00-\u0E7F]/.test(token) && token.length > 3) {
-          // Keep the original token and also split it into smaller parts
-          const parts = [];
-          parts.push(token); // Keep original
-          
-          // For very long Thai words, also try splitting them
-          if (token.length > 6) {
-            for (let i = 0; i < token.length - 2; i += 3) {
-              const part = token.substring(i, i + 3);
-              if (part.length >= 2) {
-                parts.push(part);
-              }
-            }
-          }
-          return parts;
-        }
-        return [token];
-      });
+      .filter(token => token.length > 0);
   }
 
   private calculateIDF(documents: any[], searchTerms: SearchTerm[]): Map<string, number> {
@@ -270,86 +248,30 @@ export class AdvancedKeywordSearchService {
     idf: number
   ): { score: number; positions: number[]; fuzzyMatch?: boolean } {
     const term = searchTerm.term.toLowerCase();
+    const lowerDocText = docText.toLowerCase();
     const positions: number[] = [];
     let exactMatches = 0;
-    let fuzzyMatches = 0;
 
-    // Check for exact matches
+    // Simple case-insensitive string matching
     let index = 0;
-    while ((index = docText.indexOf(term, index)) !== -1) {
+    while ((index = lowerDocText.indexOf(term, index)) !== -1) {
       positions.push(index);
       exactMatches++;
       index += term.length;
     }
 
-    // For Thai text and important terms, also check for partial matches
-    if (exactMatches === 0) {
-      // Check if the term contains Thai characters
-      const isThaiTerm = /[\u0E00-\u0E7F]/.test(term);
-      
-      if (isThaiTerm || ['xolo', 'bangkapi', 'mall'].includes(term)) {
-        // For Thai terms and important English terms, be more flexible
-        for (let i = 0; i < docTokens.length; i++) {
-          const token = docTokens[i];
-          
-          // Check if token contains the search term or vice versa
-          if (token.includes(term) || term.includes(token)) {
-            exactMatches++;
-            const tokenIndex = docText.indexOf(token, i > 0 ? positions[positions.length - 1] || 0 : 0);
-            if (tokenIndex !== -1) {
-              positions.push(tokenIndex);
-            }
-          }
-        }
-      }
-    }
-
-    // Check for fuzzy matches if enabled and still no matches
-    let fuzzyMatch = false;
-    if (searchTerm.fuzzy && exactMatches === 0) {
-      for (let i = 0; i < docTokens.length; i++) {
-        const token = docTokens[i];
-        if (this.isFuzzyMatch(term, token)) {
-          fuzzyMatches++;
-          fuzzyMatch = true;
-          // Find position in original text
-          const tokenIndex = docText.indexOf(token, i > 0 ? positions[positions.length - 1] || 0 : 0);
-          if (tokenIndex !== -1) {
-            positions.push(tokenIndex);
-          }
-        }
-      }
-    }
-
-    // Calculate TF (term frequency) with more lenient scoring
-    const totalMatches = exactMatches + (fuzzyMatches * 0.7); // Fuzzy matches get lower weight
-    const tf = totalMatches / Math.max(docTokens.length, 1);
-
-    // Apply boost for important terms that should have higher scores
-    let boostedTF = tf;
-    if (['xolo', 'เดอะมอลบางกะปิ', 'บางกะปิ'].includes(term) && totalMatches > 0) {
-      boostedTF = Math.max(tf, 0.01); // Ensure minimum score for important matches
-    }
+    // Calculate TF (term frequency)
+    const tf = exactMatches / Math.max(docTokens.length, 1);
 
     // Calculate TF-IDF score
-    const score = boostedTF * Math.max(idf, 1.0); // Ensure minimum IDF
+    const score = tf * idf;
 
-    return { score, positions, fuzzyMatch };
+    return { score, positions, fuzzyMatch: false };
   }
 
   private termExistsInDocument(term: string, docText: string, fuzzy?: boolean): boolean {
-    // Check exact match first
-    if (docText.includes(term.toLowerCase())) {
-      return true;
-    }
-
-    // Check fuzzy match if enabled
-    if (fuzzy) {
-      const tokens = this.tokenizeText(docText);
-      return tokens.some(token => this.isFuzzyMatch(term, token));
-    }
-
-    return false;
+    // Simple case-insensitive string matching
+    return docText.toLowerCase().includes(term.toLowerCase());
   }
 
   private isFuzzyMatch(term1: string, term2: string): boolean {
