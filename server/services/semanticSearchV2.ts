@@ -98,7 +98,7 @@ export class SemanticSearchServiceV2 {
       for (const vectorResult of vectorResults) {
         const docId = parseInt(vectorResult.document.metadata.originalDocumentId || vectorResult.document.id);
         const doc = docMap.get(docId);
-
+        
         if (doc && vectorResult.similarity >= threshold && !processedDocs.has(docId)) {
           // Apply filters
           if (options.categoryFilter && options.categoryFilter !== "all" && 
@@ -131,7 +131,7 @@ export class SemanticSearchServiceV2 {
             updatedAt: doc.updatedAt?.toISOString() || null,
             userId: doc.userId
           });
-
+          
           processedDocs.add(docId);
         }
       }
@@ -161,7 +161,7 @@ export class SemanticSearchServiceV2 {
         options.limit || 20,
         options.specificDocumentIds
       );
-
+      
       // Convert to the expected SearchResult format
       const searchResults: SearchResult[] = results.map(result => ({
         id: result.id,
@@ -216,16 +216,16 @@ export class SemanticSearchServiceV2 {
   ): Promise<SearchResult[]> {
     try {
       let documents = await storage.searchDocuments(userId, query);
-
+      
       // Filter by specific document IDs if provided
       if (options.specificDocumentIds && options.specificDocumentIds.length > 0) {
         documents = documents.filter(doc => options.specificDocumentIds!.includes(doc.id));
         console.log(`Filtered to ${documents.length} documents from specific IDs: [${options.specificDocumentIds.join(', ')}]`);
       }
-
+      
       // Calculate keyword matching score for each document
       const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
-
+      
       return documents.map(doc => {
         // Calculate how many keywords match in this document
         const docText = [
@@ -235,16 +235,16 @@ export class SemanticSearchServiceV2 {
           doc.aiCategory || "",
           ...(doc.tags || [])
         ].join(" ").toLowerCase();
-
+        
         const matchingTerms = searchTerms.filter(term => 
           docText.includes(term.toLowerCase())
         );
-
+        
         // Calculate similarity score based on keyword match ratio
         const similarity = matchingTerms.length / searchTerms.length;
-
+        
         console.log(`Document ${doc.id}: ${matchingTerms.length}/${searchTerms.length} keywords matched, similarity: ${similarity.toFixed(2)}`);
-
+        
         return {
           id: doc.id,
           name: doc.name,
@@ -277,12 +277,12 @@ export class SemanticSearchServiceV2 {
     try {
       const keywordWeight = options.keywordWeight || 0.4;
       const vectorWeight = options.vectorWeight || 0.6;
-
+      
       console.log(`Hybrid search using weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
 
       // For chatbot integration, use chunk-level hybrid search
       const chunkResults = await this.performChunkLevelHybridSearch(query, userId, options, keywordWeight, vectorWeight);
-
+      
       return chunkResults;
 
     } catch (error) {
@@ -300,12 +300,12 @@ export class SemanticSearchServiceV2 {
   ): Promise<SearchResult[]> {
     try {
       const { vectorService } = await import('./vectorService');
-
+      
       // Get vector chunk results (already returns top chunks globally)
       const vectorResults = await vectorService.searchDocuments(
         query, 
         userId, 
-        options.limit || 100, // Use the full limit passed from caller
+        50, // Get more chunks to work with
         options.specificDocumentIds
       );
 
@@ -313,15 +313,15 @@ export class SemanticSearchServiceV2 {
 
       // Extract search terms for keyword scoring
       const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
-
+      
       // Calculate hybrid scores for each chunk
       const hybridResults = vectorResults.map(result => {
         const chunkText = result.document.content.toLowerCase();
-
+        
         // Calculate keyword score (how many terms match in this chunk)
         const matchingTerms = searchTerms.filter(term => chunkText.includes(term));
         const keywordScore = matchingTerms.length / searchTerms.length;
-
+        
         // Boost keyword score if it's a store location query (like "XOLO Bangkapi")
         let boostedKeywordScore = keywordScore;
         const storeKeywords = ['xolo', 'kamu', 'floor', 'ชั้น', 'บางกะปิ', 'bangkapi'];
@@ -334,6 +334,8 @@ export class SemanticSearchServiceV2 {
 
         // Combine vector and keyword scores with weights
         const hybridScore = (result.similarity * vectorWeight) + (boostedKeywordScore * keywordWeight);
+        
+        console.log(`Chunk from doc ${result.document.metadata.originalDocumentId}: vector=${result.similarity.toFixed(3)}, keyword=${keywordScore.toFixed(3)}, hybrid=${hybridScore.toFixed(3)}`);
 
         return {
           vectorResult: result,
@@ -348,17 +350,14 @@ export class SemanticSearchServiceV2 {
 
       // Convert back to SearchResult format
       const finalResults: SearchResult[] = [];
-
-      // Log summary instead of individual chunks
-      console.log(`Hybrid search: Processed ${hybridResults.length} chunks, top score: ${hybridResults[0]?.hybridScore.toFixed(3) || 'N/A'}`);
-
+      
       for (const hybridResult of hybridResults) {
         const originalDocId = parseInt(hybridResult.vectorResult.document.metadata.originalDocumentId);
-
+        
         // Get original document metadata
         const documents = await storage.getDocuments(userId, { limit: 1000 });
         const originalDoc = documents.find(doc => doc.id === originalDocId);
-
+        
         if (originalDoc) {
           finalResults.push({
             id: originalDocId,

@@ -5,7 +5,6 @@ import mammoth from "mammoth";
 import XLSX from "xlsx";
 import textract from "textract";
 import { LlamaParseReader } from "@llamaindex/cloud";
-import { storage } from "../storage";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({
@@ -387,15 +386,15 @@ export async function generateChatResponse(
     // Use hybrid search for better context
     try {
       console.log(`Chat: Performing ${searchType} search for query: "${query}" with weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
-
+      
       // Get document IDs to filter search scope to only agent's documents
       const documentIds = documents.map(doc => doc.id).filter(id => id !== undefined);
       console.log(`Chat: Restricting search to ${documentIds.length} agent documents: [${documentIds.join(', ')}]`);
 
       if (searchType === 'hybrid') {
-        // Use unified search service for consistent behavior across all platforms
-        const { unifiedSearchService } = await import('./unifiedSearchService');
-        const searchResults = await unifiedSearchService.searchDocuments(
+        // Use semantic search V2 service for hybrid search with document filtering
+        const { semanticSearchServiceV2 } = await import('./semanticSearchV2');
+        const searchResults = await semanticSearchServiceV2.searchDocuments(
           query,
           documents[0]?.userId,
           {
@@ -435,9 +434,9 @@ export async function generateChatResponse(
 
         if (vectorResults.length > 0) {
           console.log(`Chat: Found ${vectorResults.length} vector results`);
-          // Use top 5 chunks for chatbot integration
+          // Use only top 2 chunks as requested for chatbot integration
           relevantContent = vectorResults
-            .slice(0, 5)
+            .slice(0, 2)
             .map(result => result.document.content)
             .join("\n\n");
         } else {
@@ -492,130 +491,6 @@ ${relevantContent}
     );
   } catch (error) {
     console.error("Error generating chat response:", error);
-    return "I'm experiencing some technical difficulties. Please try again later.";
-  }
-}
-
-// Utility function to extract JSON from response
-function extractJsonFromResponse(response: string): any {
-  try {
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    }
-    return {};
-  } catch (error) {
-    console.error('Failed to parse JSON from response:', error);
-    return {};
-  }
-}
-
-export async function generateGeneralChatResponse(
-  userMessage: string,
-  documents: any[],
-  userId: string
-): Promise<string> {
-  try {
-    // === OPENAI QUERY AUGMENTATION ===
-    let optimizedSearchQuery = userMessage;
-    try {
-      console.log(`🧠 General Chat: Starting OpenAI query augmentation for: "${userMessage}"`);
-
-      const { queryAugmentationService } = await import("./queryAugmentationService");
-      
-      const augmentationResult = await queryAugmentationService.augmentQuery(
-        userMessage,
-        userId,
-        "general",
-        "general",
-        10 // Analyze last 10 messages
-      );
-
-      if (augmentationResult.shouldUseAugmented && augmentationResult.confidence >= 0.6) {
-        optimizedSearchQuery = augmentationResult.augmentedQuery;
-        console.log(`✅ General Chat: Query augmentation successful!`);
-        console.log(`   📝 Original query: "${userMessage}"`);
-        console.log(`   🎯 Augmented query: "${optimizedSearchQuery}"`);
-        console.log(`   🔑 Keywords: [${augmentationResult.extractedKeywords.join(', ')}]`);
-        console.log(`   📊 Confidence: ${augmentationResult.confidence}`);
-        console.log(`   💡 Insights: ${augmentationResult.contextualInsights}`);
-      } else {
-        console.log(`⚠️ General Chat: Low confidence (${augmentationResult.confidence}), using original query`);
-      }
-    } catch (augmentationError) {
-      console.error("⚠️ General Chat: Query augmentation failed:", augmentationError);
-      console.log(`🔄 General Chat: Falling back to original query: "${userMessage}"`);
-    }
-
-    // Use vector search to find relevant chunks from documents
-    let documentContext = "";
-
-    if (documents.length > 0) {
-      console.log(`General Chat: Using vector search with optimized query "${optimizedSearchQuery}" and ${documents.length} total documents`);
-
-      try {
-        const { vectorService } = await import('./vectorService');
-
-        // Use vector search to find relevant content from all user documents
-        const vectorResults = await vectorService.searchDocuments(
-          optimizedSearchQuery, // Use optimized query instead of original
-          userId,
-          2 // Get top 2 chunks globally as per recent optimization
-        );
-
-        if (vectorResults.length > 0) {
-          documentContext = vectorResults
-            .map((result) => result.document.content)
-            .join("\n\n");
-        } else {
-          documentContext = "No relevant documents found.";
-        }
-      } catch (vectorError) {
-        console.error("Vector search failed:", vectorError);
-        documentContext = "Error retrieving relevant documents.";
-      }
-    } else {
-      documentContext = "No documents available for general chat.";
-    }
-
-    const systemMessage = `คุณเป็น AI Assistant ที่ช่วยเหลือผู้ใช้ในการจัดการระบบเอกสาร คุณสามารถตอบคำถาม ช่วยค้นหา สรุป และช่วยจัดระเบียบเอกสาร
-
-=== เอกสารที่เกี่ยวข้อง ===
-${documentContext}
-
-=== คำสั่งสำคัญ ===
-• ใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม
-• ห้ามบอกว่า "ไม่ทราบ" หรือ "ไม่มีข้อมูล" ถ้ามีข้อมูลในเอกสาร
-• ตอบคำถามให้ตรงประเด็นและครบถ้วนจากข้อมูลที่มี
-• ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
-• ระบุแหล่งที่มาของข้อมูลเมื่อเป็นไปได้
-`;
-
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: systemMessage,
-        },
-        {
-          role: "user",
-          content: userMessage,
-        },
-      ],
-      max_tokens: 700,
-    });
-
-    return (
-      response.choices[0].message.content ||
-      "I'm sorry, I couldn't generate a response at this time."
-    );
-  } catch (error) {
-    console.error("Error generating general chat response:", error);
     return "I'm experiencing some technical difficulties. Please try again later.";
   }
 }
