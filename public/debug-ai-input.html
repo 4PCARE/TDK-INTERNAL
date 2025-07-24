@@ -119,6 +119,14 @@
 
         <form id="debugForm">
             <div class="form-group">
+                <label for="debugMode">Debug Mode:</label>
+                <select id="debugMode">
+                    <option value="document">Document Search (Original)</option>
+                    <option value="agent">AI Agent Input</option>
+                </select>
+            </div>
+
+            <div class="form-group">
                 <label for="userMessage">User Message:</label>
                 <textarea 
                     id="userMessage" 
@@ -128,14 +136,25 @@
                 >XOLO เดอะมอลล์บางกะปิอยู่ชั้นไหน</textarea>
             </div>
 
-            <div class="form-group">
-                <label for="searchType">Search Type:</label>
-                <select id="searchType">
-                    <option value="vector">Pure Vector Search (Current)</option>
-                    <option value="keyword">Pure Keyword Search</option>
-                    <option value="hybrid">Hybrid (Keyword + Vector)</option>
-                    <option value="weighted">Weighted Hybrid (Adjustable)</option>
-                </select>
+            <div id="documentOptions">
+                <div class="form-group">
+                    <label for="searchType">Search Type:</label>
+                    <select id="searchType">
+                        <option value="vector">Pure Vector Search (Current)</option>
+                        <option value="keyword">Pure Keyword Search</option>
+                        <option value="hybrid">Hybrid (Keyword + Vector)</option>
+                        <option value="weighted">Weighted Hybrid (Adjustable)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="agentOptions" style="display: none;">
+                <div class="form-group">
+                    <label for="agentId">AI Agent:</label>
+                    <select id="agentId">
+                        <option value="">Select an AI Agent...</option>
+                    </select>
+                </div>
             </div>
 
             <div id="weightControls" class="form-group" style="display: none;">
@@ -178,6 +197,25 @@
     <div id="results"></div>
 
     <script>
+      // Handle debug mode changes
+      document.getElementById('debugMode').addEventListener('change', function() {
+        const debugMode = this.value;
+        const documentOptions = document.getElementById('documentOptions');
+        const agentOptions = document.getElementById('agentOptions');
+        const documentIdGroup = document.querySelector('.form-group:has(#documentId)');
+
+        if (debugMode === 'agent') {
+          documentOptions.style.display = 'none';
+          agentOptions.style.display = 'block';
+          documentIdGroup.style.display = 'none';
+          loadAgents();
+        } else {
+          documentOptions.style.display = 'block';
+          agentOptions.style.display = 'none';
+          documentIdGroup.style.display = 'block';
+        }
+      });
+
       // Handle search type changes
       document.getElementById('searchType').addEventListener('change', function() {
         const searchType = this.value;
@@ -189,6 +227,30 @@
           weightControls.style.display = 'none';
         }
       });
+
+      // Load available agents
+      async function loadAgents() {
+        try {
+          const response = await fetch('/api/agent-chatbots', {
+            credentials: 'include'
+          });
+          
+          if (response.ok) {
+            const agents = await response.json();
+            const agentSelect = document.getElementById('agentId');
+            agentSelect.innerHTML = '<option value="">Select an AI Agent...</option>';
+            
+            agents.forEach(agent => {
+              const option = document.createElement('option');
+              option.value = agent.id;
+              option.textContent = `${agent.name} - ${agent.description || 'No description'}`;
+              agentSelect.appendChild(option);
+            });
+          }
+        } catch (error) {
+          console.error('Failed to load agents:', error);
+        }
+      }
 
       // Handle weight slider changes
       document.getElementById('keywordWeight').addEventListener('input', function() {
@@ -212,12 +274,9 @@
       document.getElementById('debugForm').addEventListener('submit', async function(e) {
         e.preventDefault();
 
+        const debugMode = document.getElementById('debugMode').value;
         const userMessage = document.getElementById('userMessage').value;
-        const specificDocumentId = document.getElementById('documentId').value;
         const userId = document.getElementById('userId').value;
-        const searchType = document.getElementById('searchType').value;
-        const keywordWeight = parseFloat(document.getElementById('keywordWeight').value);
-        const vectorWeight = parseFloat(document.getElementById('vectorWeight').value);
 
         if (!userMessage.trim()) {
           alert('Please enter a message');
@@ -231,32 +290,74 @@
         results.innerHTML = '';
 
         try {
-          const response = await fetch('/api/debug/ai-input', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              userMessage,
-              specificDocumentId: specificDocumentId || null,
-              userId,
-              searchType,
-              keywordWeight,
-              vectorWeight
-            })
-          });
+          let response, data;
 
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          if (debugMode === 'agent') {
+            const agentId = document.getElementById('agentId').value;
+            if (!agentId) {
+              alert('Please select an AI Agent');
+              loading.style.display = 'none';
+              return;
+            }
+
+            // Get agent configuration first
+            const agentResponse = await fetch(`/api/agent-chatbots/${agentId}`, {
+              credentials: 'include'
+            });
+
+            if (!agentResponse.ok) {
+              throw new Error('Failed to fetch agent configuration');
+            }
+
+            const agentConfig = await agentResponse.json();
+
+            // Get agent documents
+            const documentsResponse = await fetch(`/api/agent-chatbots/${agentId}/documents`, {
+              credentials: 'include'
+            });
+
+            let documentIds = [];
+            if (documentsResponse.ok) {
+              const documents = await documentsResponse.json();
+              documentIds = documents.map(doc => doc.id);
+            }
+
+            // Generate agent input without actually calling the agent
+            data = await generateAgentInput(userMessage, agentConfig, documentIds, userId);
+          } else {
+            // Original document search mode
+            const specificDocumentId = document.getElementById('documentId').value;
+            const searchType = document.getElementById('searchType').value;
+            const keywordWeight = parseFloat(document.getElementById('keywordWeight').value);
+            const vectorWeight = parseFloat(document.getElementById('vectorWeight').value);
+
+            response = await fetch('/api/debug/ai-input', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                userMessage,
+                specificDocumentId: specificDocumentId || null,
+                userId,
+                searchType,
+                keywordWeight,
+                vectorWeight
+              })
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+              const text = await response.text();
+              throw new Error(`Expected JSON but received ${contentType}. Response: ${text.substring(0, 200)}...`);
+            }
+
+            data = await response.json();
           }
-
-          const contentType = response.headers.get('content-type');
-          if (!contentType || !contentType.includes('application/json')) {
-            const text = await response.text();
-            throw new Error(`Expected JSON but received ${contentType}. Response: ${text.substring(0, 200)}...`);
-          }
-
-          const data = await response.json();
 
           if (data.error) {
               results.innerHTML = `
@@ -284,8 +385,133 @@
         }
       });
 
+      // Generate agent input for debugging (without actually calling the agent)
+      async function generateAgentInput(userMessage, agentConfig, documentIds, userId) {
+        try {
+          // Build system prompt from agent configuration
+          const personality = agentConfig.personality ? `, with a ${agentConfig.personality} personality` : '';
+          const profession = agentConfig.profession ? ` as a ${agentConfig.profession}` : '';
+          const responseStyle = agentConfig.responseStyle ? ` in a ${agentConfig.responseStyle} style` : '';
+          
+          let systemPrompt = `${agentConfig.systemPrompt}
+
+You are ${agentConfig.name || 'an AI assistant'}${profession}${personality}. Respond ${responseStyle}.
+
+Additional skills: ${agentConfig.specialSkills?.join(', ') || 'General assistance'}
+
+Response guidelines:
+- Response length: ${agentConfig.responseLength || 'medium'}
+- Content filtering: ${agentConfig.contentFiltering ? 'enabled' : 'disabled'}
+- Toxicity prevention: ${agentConfig.toxicityPrevention ? 'enabled' : 'disabled'}
+- Privacy protection: ${agentConfig.privacyProtection ? 'enabled' : 'disabled'}
+- Factual accuracy: ${agentConfig.factualAccuracy ? 'prioritized' : 'standard'}
+
+${agentConfig.allowedTopics?.length > 0 ? `Allowed topics: ${agentConfig.allowedTopics.join(', ')}` : ''}
+${agentConfig.blockedTopics?.length > 0 ? `Blocked topics: ${agentConfig.blockedTopics.join(', ')}` : ''}
+
+Memory management: Keep track of conversation context within the last ${agentConfig.memoryLimit || 10} messages.`;
+
+          // Get document context if documents are available
+          let documentContext = '';
+          if (documentIds && documentIds.length > 0) {
+            try {
+              const documentsResponse = await fetch('/api/documents', {
+                credentials: 'include'
+              });
+              
+              if (documentsResponse.ok) {
+                const allDocuments = await documentsResponse.json();
+                const agentDocuments = allDocuments.filter(doc => documentIds.includes(doc.id));
+                
+                if (agentDocuments.length > 0) {
+                  documentContext = `\n\nRelevant documents for context:\n${agentDocuments.map(doc => 
+                    `- ${doc.name}: ${doc.summary || doc.description || 'No summary available'}`
+                  ).join('\n')}`;
+                  
+                  // Add actual document content for better context
+                  for (const doc of agentDocuments) {
+                    if (doc.content && doc.content.length > 0) {
+                      const contentLimit = 5000; // Limit content for display
+                      const contentSnippet = doc.content.substring(0, contentLimit) + (doc.content.length > contentLimit ? '...' : '');
+                      documentContext += `\n\nContent from ${doc.name}:\n${contentSnippet}`;
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('Error fetching documents:', error);
+              documentContext = '\n\nError loading document context';
+            }
+          }
+
+          const fullSystemPrompt = systemPrompt + documentContext;
+
+          return {
+            systemMessage: fullSystemPrompt,
+            userMessage: userMessage,
+            agentConfig: agentConfig,
+            documentContext: documentContext,
+            documentIds: documentIds,
+            agentMode: true
+          };
+        } catch (error) {
+          throw new Error('Failed to generate agent input: ' + error.message);
+        }
+      }
+
         function displayResults(data) {
             const results = document.getElementById('results');
+
+            // Handle agent mode display
+            if (data.agentMode) {
+                results.innerHTML = `
+                    <div class="container">
+                        <h2>🤖 AI Agent Debug Results</h2>
+
+                        <div class="stats">
+                            <div class="stat-item">
+                                <strong>Agent Name</strong><br>
+                                "${data.agentConfig.name || 'Unknown'}"
+                            </div>
+                            <div class="stat-item">
+                                <strong>System Prompt Length</strong><br>
+                                ${data.systemMessage.length.toLocaleString()} chars
+                            </div>
+                            <div class="stat-item">
+                                <strong>Documents</strong><br>
+                                ${data.documentIds ? data.documentIds.length : 0} linked
+                            </div>
+                            <div class="stat-item">
+                                <strong>Memory Limit</strong><br>
+                                ${data.agentConfig.memoryLimit || 10} messages
+                            </div>
+                        </div>
+
+                        <div class="section">
+                            <h3>🎯 Agent Configuration</h3>
+                            <pre>${escapeHtml(JSON.stringify(data.agentConfig, null, 2))}</pre>
+                        </div>
+
+                        <div class="section">
+                            <h3>📋 System Message (AI Instructions)</h3>
+                            <pre>${escapeHtml(data.systemMessage)}</pre>
+                        </div>
+
+                        <div class="section">
+                            <h3>💬 User Message</h3>
+                            <pre>${escapeHtml(data.userMessage)}</pre>
+                        </div>
+
+                        ${data.documentContext ? `
+                        <div class="section">
+                            <h3>📄 Document Context</h3>
+                            <pre>${escapeHtml(data.documentContext)}</pre>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+                return;
+            }
 
             let searchDetailsHtml = '';
             if (data.searchMetrics) {
