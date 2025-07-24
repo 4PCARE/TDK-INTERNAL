@@ -398,6 +398,22 @@ export class SemanticSearchServiceV2 {
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, limit);
 
+      // Debug: Log top results with similarity scores and check for XOLO
+      console.log(`Debug: Top 5 vector search results for "${query}":`);
+      finalResults.slice(0, 5).forEach((result, index) => {
+        console.log(`${index + 1}. Doc ID: ${result.id}, Similarity: ${result.similarity.toFixed(4)}`);
+        console.log(`   Content: ${result.content.substring(0, 300)}...`);
+
+        // Check for XOLO in various formats
+        const content = result.content.toLowerCase();
+        const hasXolo = content.includes('xolo') || content.includes('โซโล่') || content.includes('โซโลว์') || content.includes('solo');
+        if (hasXolo) {
+          console.log(`   *** FOUND XOLO CHUNK *** - Contains XOLO reference`);
+        } else {
+          console.log(`   No XOLO reference found in this chunk`);
+        }
+      });
+
       console.log(`✅ HYBRID SEARCH COMPLETE: Returning ${finalResults.length} chunks for ChatAgent`);
       finalResults.forEach((result, index) => {
         console.log(`${index + 1}. Doc ${result.id}: "${result.name}" (final score: ${result.similarity.toFixed(3)})`);
