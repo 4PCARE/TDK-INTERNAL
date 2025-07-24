@@ -556,7 +556,7 @@ export async function generateGeneralChatResponse(
     const systemMessage = `คุณเป็น AI Assistant ที่ช่วยเหลือผู้ใช้ในการจัดการระบบเอกสาร คุณสามารถตอบคำถาม ช่วยค้นหา สรุป และช่วยจัดระเบียบเอกสาร
 
 === เอกสารที่เกี่ยวข้อง ===
-${documentContext}
+
 
 === คำสั่งสำคัญ ===
 • ใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม
@@ -566,7 +566,7 @@ ${documentContext}
 === เวลาปัจจุบัน ===
 ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}
 `;
-
+//${documentContext}
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
