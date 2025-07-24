@@ -130,11 +130,13 @@ export class UnifiedSearchService {
         }
       }
 
-      console.log(`✅ Unified Search: Found ${results.length} results (${results.map(r => r.content.length).reduce((a, b) => a + b, 0)} total characters)`);
+      const totalChars = results.map(r => (r.content || '').length).reduce((a, b) => a + b, 0);
+      console.log(`✅ Unified Search: Found ${results.length} results (${totalChars} total characters)`);
       
       // Log search results for debugging
       results.forEach((result, index) => {
-        console.log(`${index + 1}. Doc ${result.id}: "${result.name}" (${result.content.length} chars, similarity: ${result.similarity.toFixed(3)})`);
+        const contentLength = (result.content || '').length;
+        console.log(`${index + 1}. Doc ${result.id}: "${result.name}" (${contentLength} chars, similarity: ${result.similarity.toFixed(3)})`);
       });
 
       return results;
