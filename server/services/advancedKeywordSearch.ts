@@ -157,11 +157,18 @@ export class AdvancedKeywordSearchService {
 
   private calculateChunkScores(documents: any[], searchTerms: SearchTerm[]): ChunkScore[] {
     const chunkScores: ChunkScore[] = [];
+    const maxChunkScores = 100; // Limit total chunk scores to prevent memory issues
 
     console.log(`📚 Calculating chunk scores for ${documents.length} documents`);
     console.log(`🔍 Search terms: ${searchTerms.map(t => `"${t.term}" (weight: ${t.weight})`).join(', ')}`);
 
     for (const document of documents) {
+      // Skip if we already have enough results
+      if (chunkScores.length >= maxChunkScores) {
+        console.log(`⚠️ Reached maximum chunk limit (${maxChunkScores}), skipping remaining documents`);
+        break;
+      }
+
       const docText = this.extractDocumentText(document);
       
       console.log(`\n📄 Processing document ID: ${document.id}, Name: "${document.name}"`);
@@ -172,7 +179,13 @@ export class AdvancedKeywordSearchService {
       console.log(`📦 Created ${chunks.length} chunks for document ${document.id}`);
 
       // Score each chunk
-      chunks.forEach((chunk, chunkIndex) => {
+      for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+        if (chunkScores.length >= maxChunkScores) {
+          console.log(`⚠️ Reached maximum chunk limit, stopping chunk processing`);
+          break;
+        }
+
+        const chunk = chunks[chunkIndex];
         const chunkScore: ChunkScore = {
           documentId: document.id,
           chunkIndex,
@@ -192,23 +205,25 @@ export class AdvancedKeywordSearchService {
             chunkScore.matchDetails.push({
               term: searchTerm.term,
               score: termScore.score,
-              positions: termScore.positions
+              positions: termScore.positions.slice(0, 10) // Limit positions to prevent memory bloat
             });
-            console.log(`✅ Chunk ${chunkIndex}: Term "${searchTerm.term}" contributed score: ${termScore.score * searchTerm.weight}`);
           }
         }
 
         // Apply chunk-level boosters
-        const originalScore = chunkScore.score;
-        chunkScore.score = this.applyChunkBoosters(document, chunk, chunkScore.score, searchTerms);
-
-        console.log(`📊 Document ${document.id}, Chunk ${chunkIndex} final score: ${chunkScore.score.toFixed(4)} (original: ${originalScore.toFixed(4)})`);
-
         if (chunkScore.score > 0) {
+          const originalScore = chunkScore.score;
+          chunkScore.score = this.applyChunkBoosters(document, chunk, chunkScore.score, searchTerms);
+
           chunkScores.push(chunkScore);
-          console.log(`✅ Chunk ${chunkIndex} from Document ${document.id} added to results`);
+          console.log(`✅ Chunk ${chunkIndex} from Document ${document.id} added (score: ${chunkScore.score.toFixed(4)})`);
         }
-      });
+      }
+
+      // Force garbage collection hint after processing each document
+      if (global.gc) {
+        global.gc();
+      }
     }
 
     console.log(`\n📊 Total chunks with scores > 0: ${chunkScores.length}`);
@@ -219,24 +234,33 @@ export class AdvancedKeywordSearchService {
     const chunks: string[] = [];
     const textLength = text.length;
     
-    if (textLength <= this.chunkSize) {
-      return [text];
+    // Limit maximum text length to prevent memory issues
+    const maxTextLength = 100000; // 100KB limit per document
+    const processText = textLength > maxTextLength ? text.substring(0, maxTextLength) : text;
+    const processTextLength = processText.length;
+    
+    if (processTextLength <= this.chunkSize) {
+      return [processText];
     }
 
     let start = 0;
-    while (start < textLength) {
-      let end = Math.min(start + this.chunkSize, textLength);
+    const maxChunks = 50; // Limit maximum number of chunks per document
+    let chunkCount = 0;
+    
+    while (start < processTextLength && chunkCount < maxChunks) {
+      let end = Math.min(start + this.chunkSize, processTextLength);
       
       // Try to break at word boundary if we're not at the end
-      if (end < textLength) {
-        const lastSpace = text.lastIndexOf(' ', end);
+      if (end < processTextLength) {
+        const lastSpace = processText.lastIndexOf(' ', end);
         if (lastSpace > start + this.chunkSize * 0.8) {
           end = lastSpace;
         }
       }
       
-      chunks.push(text.substring(start, end));
+      chunks.push(processText.substring(start, end));
       start = end - this.chunkOverlap;
+      chunkCount++;
       
       // Prevent infinite loop
       if (start >= end) {
@@ -244,24 +268,26 @@ export class AdvancedKeywordSearchService {
       }
     }
 
+    console.log(`📦 Created ${chunks.length} chunks from ${processTextLength} characters (original: ${textLength})`);
     return chunks;
   }
 
   private extractDocumentText(document: any): string {
-    const parts = [
-      document.name || '',
-      document.summary || '',
-      document.content || '',
-      ...(document.tags || [])
-    ];
+    // Limit individual field lengths to prevent memory issues
+    const maxFieldLength = 50000; // 50KB per field
+    
+    const name = (document.name || '').substring(0, 1000); // Limit name to 1KB
+    const summary = (document.summary || '').substring(0, 5000); // Limit summary to 5KB
+    const content = (document.content || '').substring(0, maxFieldLength); // Limit content to 50KB
+    const tags = (document.tags || []).slice(0, 20).join(' '); // Limit to 20 tags
 
-    const text = parts.join(' ').toLowerCase();
+    const text = [name, summary, content, tags].join(' ').toLowerCase();
 
     console.log(`📄 Document ${document.id} text extraction:`);
-    console.log(`   Name: "${document.name || 'N/A'}"`);
-    console.log(`   Summary: "${(document.summary || 'N/A').substring(0, 100)}${(document.summary || '').length > 100 ? '...' : ''}"`);
-    console.log(`   Content length: ${(document.content || '').length} chars`);
-    console.log(`   Tags: [${(document.tags || []).join(', ')}]`);
+    console.log(`   Name: "${name || 'N/A'}"`);
+    console.log(`   Summary: "${summary.substring(0, 100)}${summary.length > 100 ? '...' : ''}"`);
+    console.log(`   Content length: ${content.length} chars (original: ${(document.content || '').length})`);
+    console.log(`   Tags: [${tags.substring(0, 100)}${tags.length > 100 ? '...' : ''}]`);
     console.log(`   Combined text length: ${text.length} chars`);
 
     return text;
