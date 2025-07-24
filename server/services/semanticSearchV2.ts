@@ -98,12 +98,12 @@ export class SemanticSearchServiceV2 {
       for (const vectorResult of vectorResults) {
         const originalDocId = vectorResult.document.metadata?.originalDocumentId || vectorResult.document.id;
         const docId = originalDocId ? parseInt(originalDocId) : null;
-        
+
         if (!docId) {
           console.warn("SemanticSearchV2: Skipping vector result with no document ID");
           continue;
         }
-        
+
         const doc = docMap.get(docId);
 
         if (doc && vectorResult.similarity >= 0 && !processedDocs.has(docId)) { // Always include results, filter later

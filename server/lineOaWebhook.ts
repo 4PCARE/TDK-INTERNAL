@@ -397,6 +397,9 @@ async function getAiResponseDirectly(
         console.log(`   🔍 Query: "${userMessage}"`);
         console.log(`   👤 User ID: ${userId}`);
 
+        console.log(`🔍 LINE OA: Document IDs being passed to unified search: [${agentDocIds.join(', ')}]`);
+        console.log(`🤖 LINE OA: Bot should ONLY search within these ${agentDocIds.length} documents, not all user documents`);
+        
         const searchResults = await unifiedSearchService.searchAgentDocuments(
           userMessage,
           userId,

@@ -149,12 +149,20 @@ export class VectorService {
       let whereCondition: any = eq(documentVectors.userId, userId);
 
       if (specificDocumentIds && specificDocumentIds.length > 0) {
+        console.log(`🔍 BEFORE STEP 3A - VectorService: Bot document IDs to search: [${specificDocumentIds.join(', ')}]`);
+        console.log(`VectorService: Filtering to ${specificDocumentIds.length} specific documents: [${specificDocumentIds.join(', ')}]`);
+
+        // Create a filter condition for specific document IDs
+        const docIdFilter = specificDocumentIds.map(id => `metadata.originalDocumentId = '${id}'`).join(' OR ');
+        console.log(`VectorService: Using document filter: ${docIdFilter}`);
+
         whereCondition = and(
           eq(documentVectors.userId, userId),
           or(...specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
         );
         console.log(`VectorService: Filtering search to ${specificDocumentIds.length} specific documents: [${specificDocumentIds.join(', ')}]`);
       } else {
+        console.log(`🚨 BEFORE STEP 3A - VectorService: NO DOCUMENT FILTER! This will search ALL user documents`);
         console.log(`VectorService: No document ID filter applied - searching all user documents`);
       }
 

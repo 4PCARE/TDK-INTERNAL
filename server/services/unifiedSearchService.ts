@@ -44,7 +44,7 @@ export interface UnifiedSearchResult {
  * - Consistent search behavior across all platforms
  */
 export class UnifiedSearchService {
-  
+
   /**
    * Perform search using the unified search system with optional query augmentation
    * 
@@ -58,9 +58,9 @@ export class UnifiedSearchService {
     userId: string,
     options: UnifiedSearchOptions
   ): Promise<UnifiedSearchResult[]> {
-    
+
     console.log(`🔍 Unified Search: "${query}" | Type: ${options.searchType} | Limit: ${options.limit || 2} | User: ${userId}`);
-    
+
     if (options.specificDocumentIds && options.specificDocumentIds.length > 0) {
       console.log(`📋 Unified Search: Filtering to ${options.specificDocumentIds.length} specific documents: [${options.specificDocumentIds.join(', ')}]`);
       console.log(`🎯 Unified Search: Document IDs being passed to semanticSearchV2: ${JSON.stringify(options.specificDocumentIds)}`);
@@ -75,7 +75,7 @@ export class UnifiedSearchService {
     if (options.enableQueryAugmentation) {
       try {
         console.log(`🧠 Query Augmentation: Enabled for "${query}"`);
-        
+
         const augmentationResult = await queryAugmentationService.augmentQuery(
           query,
           userId,
@@ -88,7 +88,7 @@ export class UnifiedSearchService {
         if (augmentationResult.shouldUseAugmented && augmentationResult.confidence >= 0.6) {
           finalQuery = augmentationResult.augmentedQuery;
           searchKeywords = augmentationResult.extractedKeywords;
-          
+
           console.log(`✅ Query Augmentation: Applied (confidence: ${augmentationResult.confidence.toFixed(2)})`);
           console.log(`   📝 Original: "${query}"`);
           console.log(`   🎯 Augmented: "${finalQuery}"`);
@@ -120,7 +120,7 @@ export class UnifiedSearchService {
       if (options.specificDocumentIds && options.specificDocumentIds.length > 0) {
         const resultDocIds = [...new Set(results.map(r => r.id))];
         console.log(`🔍 Unified Search: Results came from document IDs: [${resultDocIds.join(', ')}]`);
-        
+
         // Check if any results came from outside the specified documents
         const outsideResults = resultDocIds.filter(id => !options.specificDocumentIds!.includes(id));
         if (outsideResults.length > 0) {
@@ -132,7 +132,7 @@ export class UnifiedSearchService {
 
       const totalChars = results.map(r => (r.content || '').length).reduce((a, b) => a + b, 0);
       console.log(`✅ Unified Search: Found ${results.length} results (${totalChars} total characters)`);
-      
+
       // Log search results for debugging
       results.forEach((result, index) => {
         const contentLength = (result.content || '').length;
@@ -162,9 +162,9 @@ export class UnifiedSearchService {
     documentId: number,
     options: Omit<UnifiedSearchOptions, 'specificDocumentIds'> = { searchType: 'hybrid' }
   ): Promise<UnifiedSearchResult[]> {
-    
+
     console.log(`🎯 Unified Search (Document-specific): "${query}" in document ${documentId}`);
-    
+
     return this.searchDocuments(query, userId, {
       ...options,
       specificDocumentIds: [documentId]
@@ -186,16 +186,16 @@ export class UnifiedSearchService {
     agentDocumentIds: number[],
     options: Omit<UnifiedSearchOptions, 'specificDocumentIds'> = { searchType: 'hybrid' }
   ): Promise<UnifiedSearchResult[]> {
-    
+
     console.log(`🤖 Unified Search (Agent-specific): "${query}" in ${agentDocumentIds.length} agent documents`);
-    
+
     return this.searchDocuments(query, userId, {
       ...options,
       specificDocumentIds: agentDocumentIds
     });
   }
 
-  
+
 }
 
 // Export singleton instance
