@@ -407,11 +407,15 @@ export class SemanticSearchServiceV2 {
         .slice(0, limit);
 
       // Debug: Log top results with similarity scores and check for XOLO
-      console.log(`Debug: Top 5 vector search results for "${query}":`);
+      console.log(`Debug: Top 5 hybrid search results for "${query}":`);
       finalResults.slice(0, 5).forEach((result, index) => {
-        // Try to extract chunk info from content or use index as fallback
-        const chunkInfo = `chunk ${index}`;
-        console.log(`${index + 1}. Doc ID: ${result.id} (${chunkInfo}), Similarity: ${result.similarity.toFixed(4)}`);
+        // Find the corresponding vector result to get actual chunk info
+        const vectorResult = vectorResults.find(vr => 
+          parseInt(vr.document.metadata?.originalDocumentId || vr.document.id) === result.id
+        );
+        const actualChunkIndex = vectorResult?.document.metadata?.chunkIndex || vectorResult?.document.chunkIndex || 'unknown';
+        
+        console.log(`${index + 1}. Doc ID: ${result.id} (chunk ${actualChunkIndex}), Similarity: ${result.similarity.toFixed(4)}`);
         console.log(`   Content: ${result.content.substring(0, 300)}...`);
 
         // Check for XOLO in various formats
