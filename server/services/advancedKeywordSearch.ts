@@ -124,18 +124,34 @@ export class AdvancedKeywordSearchService {
     // Improved tokenization for Thai and English text
     const individualTerms = remainingQuery
       .toLowerCase()
-      // Split on spaces, punctuation, and Thai sentence boundaries
-      .split(/[\s\-_,\.!?\(\)\[\]]+|(?=[ๆ])|(?<=[ๆ])|(?=[ไม่])|(?<=[ไม่])/)
+      // First, preserve known compound words and brand names
+      .replace(/เดอะมอล/g, ' เดอะมอล ')  // Preserve "The Mall"
+      .replace(/บางกะปิ/g, ' บางกะปิ ')   // Preserve "Bangkapi"
+      .replace(/เดอะมอลบางกะปิ/g, ' เดอะมอลบางกะปิ ') // Preserve full location name
+      .replace(/xolo/g, ' xolo ')        // Preserve brand name
+      // Split on spaces and punctuation, but preserve Thai compound words
+      .split(/[\s\-_,\.!?\(\)\[\]]+/)
       .map(term => term.trim())
       .filter(term => term.length > 0)
-      // Further split Thai compound words and filter stop words
+      // Handle Thai compound words more intelligently
       .flatMap(term => {
-        // Split on common Thai particles and connectors
-        const subTerms = term.split(/(?=[หรือ])|(?<=[หรือ])|(?=[ที่])|(?<=[ที่])|(?=[จาก])|(?<=[จาก])|(?=[ของ])|(?<=[ของ])/)
-          .map(subTerm => subTerm.trim())
-          .filter(subTerm => subTerm.length > 0 && !this.stopWords.has(subTerm));
+        // Don't split known location names and brand names
+        const knownCompounds = ['เดอะมอล', 'บางกะปิ', 'เดอะมอลบางกะปิ', 'xolo'];
+        if (knownCompounds.some(compound => term.includes(compound))) {
+          return [term];
+        }
         
-        return subTerms.length > 0 ? subTerms : [term];
+        // For other Thai terms, split more conservatively
+        if (/[\u0E00-\u0E7F]/.test(term)) { // Contains Thai characters
+          // Only split on very common particles, not all characters
+          const subTerms = term.split(/(?=หรือ)|(?<=หรือ)|(?=ที่)|(?<=ที่)/)
+            .map(subTerm => subTerm.trim())
+            .filter(subTerm => subTerm.length > 1 && !this.stopWords.has(subTerm));
+          
+          return subTerms.length > 0 ? subTerms : [term];
+        }
+        
+        return [term];
       })
       .filter(term => term.length > 1 && !this.stopWords.has(term))
       .filter(term => term.length > 0);
@@ -147,15 +163,17 @@ export class AdvancedKeywordSearchService {
     uniqueTerms.forEach(term => {
       // Higher weight for brand names and location names
       let weight = 1.0;
-      if (['xolo', 'เดอะมอล', 'บางกะปิ', 'bangkapi', 'mall'].includes(term.toLowerCase())) {
-        weight = 1.5; // Brand and location boost
+      if (['xolo', 'เดอะมอล', 'บางกะปิ', 'เดอะมอลบางกะปิ', 'bangkapi', 'mall'].includes(term.toLowerCase())) {
+        weight = 2.0; // Brand and location boost
       } else if (term.length >= 3) {
         weight = 1.0;
       } else {
-        weight = 0.7;
+        weight = 0.5; // Lower weight for short fragments
       }
       
-      const fuzzy = term.length >= 4 && !['xolo'].includes(term.toLowerCase()); // No fuzzy for exact brand names
+      // No fuzzy matching for exact brand names and locations
+      const exactTerms = ['xolo', 'เดอะมอล', 'บางกะปิ', 'เดอะมอลบางกะปิ'];
+      const fuzzy = term.length >= 4 && !exactTerms.includes(term.toLowerCase());
       terms.push({ term, weight, fuzzy });
     });
 
