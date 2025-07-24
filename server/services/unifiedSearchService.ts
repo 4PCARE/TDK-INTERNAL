@@ -78,7 +78,7 @@ export class UnifiedSearchService {
           userId,
           options.chatType || "general",
           options.contextId || "general",
-          options.agentId, // Pass the agent ID for proper history retrieval
+          options.agentId || undefined, // Pass the agent ID for proper history retrieval
           10 // Analyze last 10 messages
         );
 

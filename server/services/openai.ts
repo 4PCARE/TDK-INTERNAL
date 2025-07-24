@@ -379,7 +379,8 @@ Format your response in a clear, conversational way that helps the user understa
     query: string,
     documents: any[],
     relevantChunks: any[] = [],
-    chatHistory: {role: 'user'|'assistant', content: string}[] = []
+    chatHistory: {role: 'user'|'assistant', content: string}[] = [],
+    agentId?: number
   ): Promise<string> {
     try {
       const MAX_CHUNKS = 5;
@@ -399,7 +400,8 @@ Format your response in a clear, conversational way that helps the user understa
           vectorWeight: 0.6,
           enableQueryAugmentation: true,
           chatType: "document_chat",
-          contextId: "document_specific"
+          contextId: "document_specific",
+          agentId: agentId
         }
       );
 

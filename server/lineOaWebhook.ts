@@ -1180,7 +1180,8 @@ ${imageAnalysisResult}
           contextMessage,
           agentDocs,
           [], // relevantChunks - will be handled by unified search inside the function
-          [] // chatHistory - will be fetched inside the function
+          [], // chatHistory - will be fetched inside the function
+          lineIntegration.agentId // Pass agent ID for proper query augmentation
         );
           
           console.log("🤖 AI response:", aiResponse);
