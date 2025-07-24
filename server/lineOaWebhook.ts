@@ -392,6 +392,11 @@ async function getAiResponseDirectly(
           `LINE OA: Using unified search with agent's ${agentDocIds.length} documents: [${agentDocIds.join(", ")}]`,
         );
 
+        console.log(`🔍 LINE OA: About to call unifiedSearchService.searchAgentDocuments with:`);
+        console.log(`   📋 Agent Document IDs: [${agentDocIds.join(', ')}]`);
+        console.log(`   👤 User ID: ${userId}`);
+        console.log(`   💬 Query: "${userMessage}"`);
+        
         const hybridResults = await unifiedSearchService.searchAgentDocuments(
           userMessage,
           userId,
@@ -407,6 +412,12 @@ async function getAiResponseDirectly(
             agentId: agentId // Pass agent ID for chat history retrieval
           },
         );
+
+        console.log(`✅ LINE OA: unifiedSearchService returned ${hybridResults.length} results`);
+        if (hybridResults.length > 0) {
+          console.log(`🔍 LINE OA: First result document ID: ${hybridResults[0].id}`);
+          console.log(`🔍 LINE OA: All result document IDs: [${hybridResults.map(r => r.id).join(', ')}]`);
+        }
 
         console.log(
           `🔍 Line OA: Found ${hybridResults.length} relevant chunks using hybrid search`,

@@ -63,6 +63,9 @@ export class UnifiedSearchService {
     
     if (options.specificDocumentIds && options.specificDocumentIds.length > 0) {
       console.log(`📋 Unified Search: Filtering to ${options.specificDocumentIds.length} specific documents: [${options.specificDocumentIds.join(', ')}]`);
+      console.log(`🎯 Unified Search: Document IDs being passed to semanticSearchV2: ${JSON.stringify(options.specificDocumentIds)}`);
+    } else {
+      console.log(`⚠️ Unified Search: No document ID filter specified - searching ALL user documents`);
     }
 
     let finalQuery = query;
