@@ -417,7 +417,17 @@ export class SemanticSearchServiceV2 {
           
           // Check if this chunk also has keyword score
           const keywordResult = keywordResults.find(kr => kr.id === originalDocId);
-          const weightedKeywordScore = keywordResult ? (keywordResult.similarity * keywordWeight) : 0;
+          let weightedKeywordScore = keywordResult ? (keywordResult.similarity * keywordWeight) : 0;
+          
+          // Boost keyword score for exact store matches in the chunk content
+          const chunkContent = vr.document.content.toLowerCase();
+          const storeKeywords = ['xolo', 'kamu', 'ชั้น', 'floor', 'บางกะปิ', 'bangkapi'];
+          const hasExactStoreMatch = storeKeywords.some(keyword => chunkContent.includes(keyword));
+          
+          if (hasExactStoreMatch && weightedKeywordScore > 0) {
+            weightedKeywordScore = Math.min(0.6, weightedKeywordScore + 0.3); // Significant boost for exact matches
+            console.log(`🏪 Store Boost: Chunk ${chunkIndex} boosted keyword score to ${weightedKeywordScore.toFixed(3)} for exact store match`);
+          }
           
           const finalScore = weightedVectorScore + weightedKeywordScore;
           
@@ -445,10 +455,29 @@ export class SemanticSearchServiceV2 {
         }
       });
       
-      // Filter each chunk individually
+      // Filter each chunk individually with special handling for exact store matches
       const passedChunks = chunkResults.filter(chunkData => {
-        const passed = chunkData.result.similarity >= threshold;
-        console.log(`🎯 Filter: Chunk ${chunkData.chunkIndex} from Doc ${chunkData.result.id} score=${chunkData.result.similarity.toFixed(3)} ${passed ? '✅ PASS' : '❌ REJECT'}`);
+        let dynamicThreshold = threshold;
+        
+        // Check if this chunk contains exact store keywords - lower threshold for exact matches
+        const content = chunkData.result.content.toLowerCase();
+        const storeKeywords = ['xolo', 'kamu', 'ชั้น', 'floor', 'บางกะปิ', 'bangkapi', 'level'];
+        const hasExactStoreMatch = storeKeywords.some(keyword => content.includes(keyword));
+        
+        if (hasExactStoreMatch) {
+          dynamicThreshold = Math.min(threshold, 0.1); // Lower threshold for store matches
+          console.log(`🏪 Store Match: Chunk ${chunkData.chunkIndex} contains store keywords, using lower threshold ${dynamicThreshold}`);
+        }
+        
+        const passed = chunkData.result.similarity >= dynamicThreshold;
+        console.log(`🎯 Filter: Chunk ${chunkData.chunkIndex} from Doc ${chunkData.result.id} score=${chunkData.result.similarity.toFixed(3)} threshold=${dynamicThreshold.toFixed(2)} ${passed ? '✅ PASS' : '❌ REJECT'}`);
+        
+        // Additional debug for XOLO specifically
+        if (content.includes('xolo')) {
+          console.log(`🔍 XOLO CHUNK FILTER: score=${chunkData.result.similarity.toFixed(3)}, threshold=${dynamicThreshold.toFixed(2)}, passed=${passed}`);
+          console.log(`🔍 XOLO CONTENT PREVIEW: ${content.substring(0, 200)}...`);
+        }
+        
         return passed;
       });
 
