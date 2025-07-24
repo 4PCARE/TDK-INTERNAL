@@ -725,7 +725,7 @@ ${imageContext}`;
     let aiResponse = await generateChatResponse(
       enhancedUserMessage,
       agentDocs,
-      [], // relevantChunks - handled by unified search
+      [], // relevantChunks - handled by unified search inside the function
       userBotMessages.map(msg => ({
         role: msg.messageType === "user" ? "user" as const : "assistant" as const,
         content: msg.content
