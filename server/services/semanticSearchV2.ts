@@ -295,6 +295,10 @@ export class SemanticSearchServiceV2 {
     console.log(`⚖️ WEIGHTS: Keyword=${keywordWeight}, Vector=${vectorWeight}, Threshold=${threshold}`);
 
     try {
+      // Get documents for mapping vector results to proper document data
+      const documents = await storage.getDocuments(userId, { limit: 1000 });
+      const docMap = new Map(documents.map(doc => [doc.id, doc]));
+
       // Step 3A: Perform Keyword Search (get ALL results without threshold filtering)
       console.log(`🔍 Step 3A: Performing keyword search...`);
       const keywordResults = await this.performKeywordSearch(query, userId, { 
@@ -329,13 +333,30 @@ export class SemanticSearchServiceV2 {
 
       // Process semantic results first (apply vector weight)
       vectorResults.forEach(result => {
+        const originalDocId = parseInt(result.document.metadata?.originalDocumentId || result.document.id);
         const weightedScore = result.similarity * vectorWeight;
-        console.log(`📊 Vector: Doc ${result.id} = ${result.similarity.toFixed(3)} × ${vectorWeight} = ${weightedScore.toFixed(3)}`);
+        console.log(`📊 Vector: Doc ${originalDocId} = ${result.similarity.toFixed(3)} × ${vectorWeight} = ${weightedScore.toFixed(3)}`);
 
-        combinedResults.set(result.id, {
-          ...result,
-          similarity: weightedScore
-        });
+        const doc = docMap.get(originalDocId);
+        if (doc) {
+          combinedResults.set(originalDocId, {
+            id: originalDocId,
+            name: doc.name,
+            content: result.document.content,
+            summary: doc.summary,
+            aiCategory: doc.aiCategory,
+            aiCategoryColor: doc.aiCategoryColor,
+            similarity: weightedScore,
+            createdAt: doc.createdAt.toISOString(),
+            categoryId: doc.categoryId,
+            tags: doc.tags,
+            fileSize: doc.fileSize,
+            mimeType: doc.mimeType,
+            isFavorite: doc.isFavorite,
+            updatedAt: doc.updatedAt?.toISOString() || null,
+            userId: doc.userId
+          });
+        }
       });
 
       // Process keyword results and combine (apply keyword weight)
