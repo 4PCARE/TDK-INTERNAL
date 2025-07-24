@@ -23,6 +23,7 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,  // <-- Make sure this is imported!
   Menu,
   X,
   BarChart3,
@@ -61,30 +62,11 @@ export default function Sidebar({
     queryKey: ["/api/stats"],
   }) as { data: { totalDocuments: number } | undefined };
 
-  const categoryColors = [
-    "bg-blue-500",
-    "bg-green-500",
-    "bg-purple-500",
-    "bg-yellow-500",
-    "bg-red-500",
-    "bg-indigo-500",
-  ];
-
-  const isActiveRoute = (path: string) => location === path;
-  const isDashboardActive = location.startsWith("/dashboards");
-
-  // Auto-expand dashboard menu if user is on a dashboard route
-  useEffect(() => {
-    if (isDashboardActive) {
-      setIsDashboardExpanded(true);
-    }
-  }, [isDashboardActive]);
-
   const navigationGroups = [
     {
-      label: "Home",
+      label: "Main",
       items: [
-        { name: "Dashboard", href: "/", icon: Home },
+        { name: "Home", href: "/", icon: Home },
       ]
     },
     {
@@ -137,6 +119,37 @@ export default function Sidebar({
       ]
     }
   ];
+
+  // ---- Collapsible groups state logic ----
+  const initialExpanded = navigationGroups.reduce(
+    (acc, group) => ({ ...acc, [group.label]: false }),
+    {} as Record<string, boolean>
+  );
+  const [expandedGroups, setExpandedGroups] = useState(initialExpanded);
+
+  const toggleGroup = (label: string) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [label]: !prev[label],
+    }));
+  };
+
+  // Auto-expand group if current route matches any of its items
+  useEffect(() => {
+    navigationGroups.forEach(group => {
+      const isGroupActive = group.items.some(item =>
+        location === item.href ||
+        (item.href !== "/" && location.startsWith(item.href))
+      );
+      if (isGroupActive && !expandedGroups[group.label]) {
+        setExpandedGroups(prev => ({
+          ...prev,
+          [group.label]: true
+        }));
+      }
+    });
+    // eslint-disable-next-line
+  }, [location]);
 
   return (
     <>
@@ -207,60 +220,61 @@ export default function Sidebar({
           <div className="flex-1 p-3 space-y-6 overflow-y-auto">
             {/* Navigation Menu */}
             <nav className="flex-1 px-4 py-4 space-y-6">
-          {navigationGroups.map((group, groupIndex) => (
-            <div key={group.label} className="space-y-2">
-              {!isCollapsed && (
-                <h3 className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  {group.label}
-                </h3>
-              )}
-              <div className="space-y-1">
-                {group.items.map((item) => {
-                  const isActive = location === item.href || 
-                                 (item.href !== "/" && location.startsWith(item.href));
-
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className={cn(
-                        "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-                        isActive
-                          ? "bg-blue-100 text-blue-700 shadow-sm"
-                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              {navigationGroups.map((group, groupIndex) => (
+                <div key={group.label} className="space-y-2">
+                  {/* Group header (button) */}
+                  {!isCollapsed && (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.label)}
+                    className="flex items-center w-full px-3 py-2 text-xs font-semibold text-slate-100 uppercase tracking-wider hover:text-white transition"
+                  >
+                    <span className="flex-1 text-left">{group.label}</span>
+                    <span className="ml-2 flex-shrink-0">
+                      {expandedGroups[group.label] ? (
+                        <ChevronDown className="w-4 h-4 inline" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 inline" />
                       )}
-                    >
-                      <item.icon className={cn("w-5 h-5", isCollapsed && "w-6 h-6")} />
-                      {!isCollapsed && <span>{item.name}</span>}
-                    </Link>
-                  );
-                })}
-              </div>
-              {groupIndex < navigationGroups.length - 1 && !isCollapsed && (
-                <div className="border-t border-slate-200 mt-4"></div>
-              )}
-            </div>
-          ))}
-        </nav>
-
-            {/* AI Assistant */}
-            {/* <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
-              <div className="flex items-center space-x-3 mb-2">
-                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                  <Bot className="w-4 h-4 text-white" />
+                    </span>
+                  </button>
+                  )}
+                  {/* Group items (collapsible) */}
+                  <div className={cn(
+                    "space-y-1 pl-1 transition-all duration-200 overflow-hidden",
+                    expandedGroups[group.label] ? "max-h-96" : "max-h-0"
+                  )}>
+                    {expandedGroups[group.label] && group.items.map((item) => {
+                      const isActive = location === item.href ||
+                        (item.href !== "/" && location.startsWith(item.href));
+                      return (
+                        <Link
+                          key={item.name}
+                          href={item.href}
+                          className={cn(
+                            "flex items-start space-x-3 px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200",
+                            isActive
+                              ? "bg-blue-100 text-blue-700 shadow-sm"
+                              : "text-white hover:bg-navy-700/50 hover:text-white"
+                          )}
+                        >
+                          <item.icon className={cn("w-5 h-5 mt-0.5", isCollapsed && "w-6 h-6")} />
+                          {!isCollapsed && (
+                            <span className="break-words whitespace-normal text-left drop-shadow-sm">
+                              {item.name}
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  {groupIndex < navigationGroups.length - 1 && !isCollapsed && (
+                    <div className="border-t border-slate-200 mt-4"></div>
+                  )}
                 </div>
-                <h4 className="font-medium text-gray-900">AI Assistant</h4>
-              </div>
-              <p className="text-sm text-gray-600 mb-3">
-                Ask questions about your documents
-              </p>
-              <Button
-                className="w-full bg-blue-500 text-white hover:bg-blue-600"
-                onClick={onOpenChat}
-              >
-                Start Chat
-              </Button>
-            </div> */}
+              ))}
+            </nav>
+            {/* ...other sidebar content */}
           </div>
         </div>
       </aside>
