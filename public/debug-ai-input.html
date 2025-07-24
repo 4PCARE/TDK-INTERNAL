@@ -234,12 +234,12 @@
           const response = await fetch('/api/agent-chatbots', {
             credentials: 'include'
           });
-          
+
           if (response.ok) {
             const agents = await response.json();
             const agentSelect = document.getElementById('agentId');
             agentSelect.innerHTML = '<option value="">Select an AI Agent...</option>';
-            
+
             agents.forEach(agent => {
               const option = document.createElement('option');
               option.value = agent.id;
@@ -392,7 +392,7 @@
           const personality = agentConfig.personality ? `, with a ${agentConfig.personality} personality` : '';
           const profession = agentConfig.profession ? ` as a ${agentConfig.profession}` : '';
           const responseStyle = agentConfig.responseStyle ? ` in a ${agentConfig.responseStyle} style` : '';
-          
+
           let systemPrompt = `${agentConfig.systemPrompt}
 
 You are ${agentConfig.name || 'an AI assistant'}${profession}${personality}. Respond ${responseStyle}.
@@ -418,16 +418,16 @@ Memory management: Keep track of conversation context within the last ${agentCon
               const documentsResponse = await fetch('/api/documents', {
                 credentials: 'include'
               });
-              
+
               if (documentsResponse.ok) {
                 const allDocuments = await documentsResponse.json();
                 const agentDocuments = allDocuments.filter(doc => documentIds.includes(doc.id));
-                
+
                 if (agentDocuments.length > 0) {
                   documentContext = `\n\nRelevant documents for context:\n${agentDocuments.map(doc => 
                     `- ${doc.name}: ${doc.summary || doc.description || 'No summary available'}`
                   ).join('\n')}`;
-                  
+
                   // Add actual document content for better context
                   for (const doc of agentDocuments) {
                     if (doc.content && doc.content.length > 0) {
@@ -502,12 +502,30 @@ Memory management: Keep track of conversation context within the last ${agentCon
                             <pre>${escapeHtml(data.userMessage)}</pre>
                         </div>
 
-                        ${data.documentContext ? `
                         <div class="section">
-                            <h3>📄 Document Context</h3>
+                            <h3>📚 Input Documents (Source Material)</h3>
+                            <p><strong>These are the individual documents that were processed and fed into the AI:</strong></p>
+                            ${data.inputDocuments ? data.inputDocuments.map((doc, index) => `
+                                <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 4px; background: #fafafa;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                        <strong>Document ${index + 1}: ${escapeHtml(doc.name || 'Unknown Document')}</strong>
+                                        <div style="display: flex; gap: 10px;">
+                                            <span style="background: #e3f2fd; padding: 2px 8px; border-radius: 3px; font-size: 12px;">ID: ${doc.id}</span>
+                                            <span style="background: #f3e5f5; padding: 2px 8px; border-radius: 3px; font-size: 12px;">Size: ${doc.content ? doc.content.length.toLocaleString() : 0} chars</span>
+                                        </div>
+                                    </div>
+                                    <div style="background: white; padding: 10px; border-radius: 3px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px; white-space: pre-wrap;">
+${escapeHtml(doc.content || 'No content available')}
+                                    </div>
+                                </div>
+                            `).join('') : '<p style="color: #666; font-style: italic;">No input documents available</p>'}
+                        </div>
+
+                        <div class="section">
+                            <h3>📄 Document Context (What the AI sees)</h3>
+                            <p><strong>This is the actual document content that gets sent to the AI:</strong></p>
                             <pre>${escapeHtml(data.documentContext)}</pre>
                         </div>
-                        ` : ''}
                     </div>
                 `;
                 return;
@@ -619,12 +637,31 @@ Memory management: Keep track of conversation context within the last ${agentCon
                     </div>
 
                     <div class="section">
-                        <h3>📄 Document Context (What the AI sees)</h3>
-                        <p><strong>This is the actual document content that gets sent to the AI:</strong></p>
-                        <pre>${escapeHtml(data.documentContext)}</pre>
+                        <h3>📚 Input Documents (Source Material)</h3>
+                        <p><strong>These are the individual documents that were processed and fed into the AI:</strong></p>
+                        ${data.inputDocuments ? data.inputDocuments.map((doc, index) => `
+                                <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 4px; background: #fafafa;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                        <strong>Document ${index + 1}: ${escapeHtml(doc.name || 'Unknown Document')}</strong>
+                                        <div style="display: flex; gap: 10px;">
+                                            <span style="background: #e3f2fd; padding: 2px 8px; border-radius: 3px; font-size: 12px;">ID: ${doc.id}</span>
+                                            <span style="background: #f3e5f5; padding: 2px 8px; border-radius: 3px; font-size: 12px;">Size: ${doc.content ? doc.content.length.toLocaleString() : 0} chars</span>
+                                        </div>
+                                    </div>
+                                    <div style="background: white; padding: 10px; border-radius: 3px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px; white-space: pre-wrap;">
+${escapeHtml(doc.content || 'No content available')}
+                                    </div>
+                                </div>
+                            `).join('') : '<p style="color: #666; font-style: italic;">No input documents available</p>'}
+                        </div>
+
+                        <div class="section">
+                            <h3>📄 Document Context (What the AI sees)</h3>
+                            <p><strong>This is the actual document content that gets sent to the AI:</strong></p>
+                            <pre>${escapeHtml(data.documentContext)}</pre>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
         }
 
         function escapeHtml(text) {

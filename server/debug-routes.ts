@@ -438,6 +438,23 @@ Answer questions specifically about this document. Provide detailed analysis, ex
     console.log(documentContext);
     console.log(`\n=== END DEBUG ===`);
 
+    // Get full document details for input documents section
+    let inputDocuments = [];
+    if (specificDocumentId) {
+      const documents = await storage.getDocuments(userId);
+      const doc = documents.find(d => d.id === parseInt(specificDocumentId));
+      if (doc) {
+        inputDocuments = [{
+          id: doc.id,
+          name: doc.name,
+          content: doc.content,
+          summary: doc.summary,
+          tags: doc.tags,
+          mimeType: doc.mimeType
+        }];
+      }
+    }
+
     // Return the full input that would be sent to AI
     res.json({
       systemMessage,
@@ -447,7 +464,8 @@ Answer questions specifically about this document. Provide detailed analysis, ex
       documentContext,
       vectorSearchUsed: searchType !== 'keyword',
       searchMetrics,
-      chunkDetails
+      chunkDetails,
+      inputDocuments
     });
 
   } catch (error) {
