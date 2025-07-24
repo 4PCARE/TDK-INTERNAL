@@ -311,14 +311,14 @@ export class SemanticSearchServiceV2 {
         limit,
         options.specificDocumentIds // Pass document filtering to vector service
       );
-      console.log(`✅ Step 3B Complete: Found ${semanticResults.length} semantic results`);
+      console.log(`✅ Step 3B Complete: Found ${vectorResults.length} semantic results`);
 
       // Step 4: Aggregate scores with weighted calculation for each chunk
       console.log(`🔍 Step 4: Aggregating scores with weighted calculation...`);
       const combinedResults = new Map<number, SearchResult>();
 
       // Process semantic results first (apply vector weight)
-      semanticResults.forEach(result => {
+      vectorResults.forEach(result => {
         const weightedScore = result.similarity * vectorWeight;
         console.log(`📊 Vector: Doc ${result.id} = ${result.similarity.toFixed(3)} × ${vectorWeight} = ${weightedScore.toFixed(3)}`);
 
