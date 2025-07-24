@@ -363,17 +363,24 @@ export class SemanticSearchServiceV2 {
       // Process keyword results and combine (apply keyword weight)
       keywordResults.forEach(result => {
         const weightedKeywordScore = result.similarity * keywordWeight;
-        console.log(`📊 Keyword: Doc ${result.id} = ${result.similarity.toFixed(3)} × ${keywordWeight} = ${weightedKeywordScore.toFixed(3)}`);
+        
+        // Find the corresponding vector result to get chunk info
+        const vectorResult = vectorResults.find(vr => 
+          parseInt(vr.document.metadata?.originalDocumentId || vr.document.id) === result.id
+        );
+        const chunkIndex = vectorResult?.document.metadata?.chunkIndex || vectorResult?.document.chunkIndex || 0;
+        
+        console.log(`📊 Keyword: Doc ${result.id} (chunk ${chunkIndex}) = ${result.similarity.toFixed(3)} × ${keywordWeight} = ${weightedKeywordScore.toFixed(3)}`);
 
         const existing = combinedResults.get(result.id);
         if (existing) {
           // Combine both weighted scores
           const finalScore = existing.similarity + weightedKeywordScore;
-          console.log(`📊 Combined: Doc ${result.id} = ${existing.similarity.toFixed(3)} + ${weightedKeywordScore.toFixed(3)} = ${finalScore.toFixed(3)}`);
+          console.log(`📊 Combined: Doc ${result.id} (chunk ${chunkIndex}) = ${existing.similarity.toFixed(3)} + ${weightedKeywordScore.toFixed(3)} = ${finalScore.toFixed(3)}`);
           existing.similarity = finalScore;
         } else {
           // Only keyword match (no vector score)
-          console.log(`📊 Keyword Only: Doc ${result.id} = ${weightedKeywordScore.toFixed(3)}`);
+          console.log(`📊 Keyword Only: Doc ${result.id} (chunk ${chunkIndex}) = ${weightedKeywordScore.toFixed(3)}`);
           combinedResults.set(result.id, {
             ...result,
             similarity: weightedKeywordScore
