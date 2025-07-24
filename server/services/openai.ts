@@ -386,24 +386,36 @@ Format your response in a clear, conversational way that helps the user understa
       const MAX_CHUNK_CHARS = 4000;
       const SIMILARITY_THRESHOLD = 0.2;
 
-      // 1. Rank all chunks by similarity (desc)
-      const rankedChunks = allChunks
-        .filter(chunk => typeof chunk.similarity === "number") // ensure score exists
-        .filter(chunk => chunk.similarity >= SIMILARITY_THRESHOLD) // pass threshold
-        .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, MAX_CHUNKS);
-
-      // 2. Trim each chunk's content for safety
-      const promptChunks = rankedChunks.map((chunk, i) =>
-        `--- Chunk #${i + 1} (${chunk.name || "Doc"}, similarity: ${chunk.similarity.toFixed(3)}) ---\n${chunk.content.slice(0, MAX_CHUNK_CHARS)}`
+      // 1. Use Unified Search Service with query augmentation
+      const { unifiedSearchService } = await import('./unifiedSearchService');
+      
+      const searchResults = await unifiedSearchService.searchDocuments(
+        query,
+        documents[0]?.userId || 'unknown', // Get userId from documents
+        {
+          searchType: 'hybrid',
+          limit: MAX_CHUNKS,
+          keywordWeight: 0.4,
+          vectorWeight: 0.6,
+          enableQueryAugmentation: true,
+          chatType: "document_chat",
+          contextId: "document_specific"
+        }
       );
 
+      // 2. Filter by similarity threshold
+      const filteredChunks = searchResults
+        .filter(chunk => chunk.similarity >= SIMILARITY_THRESHOLD)
+        .slice(0, MAX_CHUNKS);
+
       // 3. Build document context string
+      const promptChunks = filteredChunks.map((chunk, i) =>
+        `--- Chunk #${i + 1} (${chunk.name}, similarity: ${chunk.similarity.toFixed(3)}) ---\n${chunk.content.slice(0, MAX_CHUNK_CHARS)}`
+      );
+
       const documentContext = promptChunks.length > 0
         ? promptChunks.join("\n\n")
         : "No highly relevant document chunks found.";
-
-      // ...use `documentContext` in your system prompt
 
 
       const systemPrompt = `
@@ -503,27 +515,38 @@ export async function generateGeneralChatResponse(
     let documentContext = "";
 
     if (documents.length > 0) {
-      console.log(`General Chat: Using vector search with optimized query "${optimizedSearchQuery}" and ${documents.length} total documents`);
+      console.log(`General Chat: Using unified search with optimized query "${optimizedSearchQuery}" and ${documents.length} total documents`);
 
       try {
-        const { vectorService } = await import('./vectorService');
+        const { unifiedSearchService } = await import('./unifiedSearchService');
 
-        // Use vector search to find relevant content from all user documents
-        const vectorResults = await vectorService.searchDocuments(
+        // Use unified search with hybrid approach and query augmentation
+        const searchResults = await unifiedSearchService.searchDocuments(
           optimizedSearchQuery, // Use optimized query instead of original
           userId,
-          2 // Get top 2 chunks globally as per recent optimization
+          {
+            searchType: 'hybrid',
+            limit: 3,
+            keywordWeight: 0.4,
+            vectorWeight: 0.6,
+            enableQueryAugmentation: true,
+            chatType: "general",
+            contextId: "general"
+          }
         );
 
-        if (vectorResults.length > 0) {
-          documentContext = vectorResults
-            .map((result) => result.document.content)
+        // Apply 0.2 threshold filter as requested
+        const filteredResults = searchResults.filter(result => result.similarity >= 0.2);
+
+        if (filteredResults.length > 0) {
+          documentContext = filteredResults
+            .map((result) => `Document: ${result.name}\nContent: ${result.content}`)
             .join("\n\n");
         } else {
           documentContext = "No relevant documents found.";
         }
-      } catch (vectorError) {
-        console.error("Vector search failed:", vectorError);
+      } catch (searchError) {
+        console.error("Unified search failed:", searchError);
         documentContext = "Error retrieving relevant documents.";
       }
     } else {

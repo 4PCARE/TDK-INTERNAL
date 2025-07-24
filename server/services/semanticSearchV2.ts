@@ -311,7 +311,7 @@ export class SemanticSearchServiceV2 {
       semanticResults.forEach(result => {
         const weightedScore = result.similarity * vectorWeight;
         console.log(`📊 Vector: Doc ${result.id} = ${result.similarity.toFixed(3)} × ${vectorWeight} = ${weightedScore.toFixed(3)}`);
-        
+
         combinedResults.set(result.id, {
           ...result,
           similarity: weightedScore
@@ -322,7 +322,7 @@ export class SemanticSearchServiceV2 {
       keywordResults.forEach(result => {
         const weightedKeywordScore = result.similarity * keywordWeight;
         console.log(`📊 Keyword: Doc ${result.id} = ${result.similarity.toFixed(3)} × ${keywordWeight} = ${weightedKeywordScore.toFixed(3)}`);
-        
+
         const existing = combinedResults.get(result.id);
         if (existing) {
           // Combine both weighted scores
@@ -341,7 +341,7 @@ export class SemanticSearchServiceV2 {
 
       console.log(`✅ Step 4 Complete: Aggregated ${combinedResults.size} unique documents`);
 
-      // Step 5: Filter out low-score chunks (below threshold)
+      // Step 5: Filtering out low-score chunks (below threshold)
       console.log(`🔍 Step 5: Filtering chunks below threshold ${threshold}...`);
       const beforeFilter = Array.from(combinedResults.values());
       const afterFilter = beforeFilter.filter(result => {
