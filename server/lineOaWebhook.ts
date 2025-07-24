@@ -393,7 +393,42 @@ async function getAiResponseDirectly(
         );
 
         console.log(`🔍 LINE OA: About to call unifiedSearchService.searchAgentDocuments with:`);
-        console.log(`   📋 Agent Document IDs: [${agentDocIds.join(', ')}]`);
+        console.log(`   📋 Agent Document IDs: [${agentDocIds.join(", ")}]`);
+        console.log(`   🔍 Query: "${userMessage}"`);
+        console.log(`   👤 User ID: ${userId}`);
+
+        const searchResults = await unifiedSearchService.searchAgentDocuments(
+          userMessage,
+          userId,
+          agentDocIds,
+          {
+            searchType: "hybrid",
+            limit: 5,
+            keywordWeight: 0.4,
+            vectorWeight: 0.6,
+            enableQueryAugmentation: true,
+            chatType: "lineoa",
+            contextId: lineUserId,
+            agentId: agentId
+          }
+        );
+
+        console.log(`🔍 LINE OA: Search completed, found ${searchResults.length} results`);
+
+        if (searchResults.length > 0) {
+          const documentContext = searchResults
+            .map((result) => `=== เอกสาร: ${result.name} ===\n${result.content}`)
+            .join("\n\n");
+
+          documentContents.push(documentContext);
+          
+          console.log(`📄 LINE OA: Added ${searchResults.length} search results to context`);
+          searchResults.forEach((result, index) => {
+            console.log(`   ${index + 1}. Doc ${result.id}: "${result.name}" (${result.content.length} chars, similarity: ${result.similarity.toFixed(3)})`);
+          });
+        } else {
+          console.log(`⚠️ LINE OA: No relevant documents found for query: "${userMessage}"`);
+        }entDocIds.join(', ')}]`);
         console.log(`   👤 User ID: ${userId}`);
         console.log(`   💬 Query: "${userMessage}"`);
         
