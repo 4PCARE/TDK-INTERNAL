@@ -285,4 +285,3 @@ export class VectorService {
 }
 
 export const vectorService = new VectorService();
-```
