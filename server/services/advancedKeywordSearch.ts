@@ -121,40 +121,15 @@ export class AdvancedKeywordSearchService {
       });
     }
 
-    // Improved tokenization for Thai and English text
+    // Simple space-based tokenization to preserve keywords from query augmentation
+    // This prevents fragmenting compound words like "เดอะมอลบางกะปิ"
     const individualTerms = remainingQuery
       .toLowerCase()
-      // First, preserve known compound words and brand names
-      .replace(/เดอะมอล/g, ' เดอะมอล ')  // Preserve "The Mall"
-      .replace(/บางกะปิ/g, ' บางกะปิ ')   // Preserve "Bangkapi"
-      .replace(/เดอะมอลบางกะปิ/g, ' เดอะมอลบางกะปิ ') // Preserve full location name
-      .replace(/xolo/g, ' xolo ')        // Preserve brand name
-      // Split on spaces and punctuation, but preserve Thai compound words
-      .split(/[\s\-_,\.!?\(\)\[\]]+/)
+      .split(/\s+/) // Only split on spaces
       .map(term => term.trim())
       .filter(term => term.length > 0)
-      // Handle Thai compound words more intelligently
-      .flatMap(term => {
-        // Don't split known location names and brand names
-        const knownCompounds = ['เดอะมอล', 'บางกะปิ', 'เดอะมอลบางกะปิ', 'xolo'];
-        if (knownCompounds.some(compound => term.includes(compound))) {
-          return [term];
-        }
-        
-        // For other Thai terms, split more conservatively
-        if (/[\u0E00-\u0E7F]/.test(term)) { // Contains Thai characters
-          // Only split on very common particles, not all characters
-          const subTerms = term.split(/(?=หรือ)|(?<=หรือ)|(?=ที่)|(?<=ที่)/)
-            .map(subTerm => subTerm.trim())
-            .filter(subTerm => subTerm.length > 1 && !this.stopWords.has(subTerm));
-          
-          return subTerms.length > 0 ? subTerms : [term];
-        }
-        
-        return [term];
-      })
-      .filter(term => term.length > 1 && !this.stopWords.has(term))
-      .filter(term => term.length > 0);
+      .filter(term => !this.stopWords.has(term)) // Remove stop words
+      .filter(term => term.length > 1); // Remove single characters
 
     // Remove duplicates while preserving order
     const uniqueTerms = [...new Set(individualTerms)];
@@ -163,7 +138,7 @@ export class AdvancedKeywordSearchService {
     uniqueTerms.forEach(term => {
       // Higher weight for brand names and location names
       let weight = 1.0;
-      if (['xolo', 'เดอะมอล', 'บางกะปิ', 'เดอะมอลบางกะปิ', 'bangkapi', 'mall'].includes(term.toLowerCase())) {
+      if (['xolo', 'เดอะมอล', 'บางกะปิ', 'เดอะมอลบางกะปิ', 'bangkapi', 'mall', 'ร้าน', 'ร้านค้า', 'สินค้า', 'บริการ'].includes(term.toLowerCase())) {
         weight = 2.0; // Brand and location boost
       } else if (term.length >= 3) {
         weight = 1.0;
@@ -172,7 +147,7 @@ export class AdvancedKeywordSearchService {
       }
       
       // No fuzzy matching for exact brand names and locations
-      const exactTerms = ['xolo', 'เดอะมอล', 'บางกะปิ', 'เดอะมอลบางกะปิ'];
+      const exactTerms = ['xolo', 'เดอะมอล', 'บางกะปิ', 'เดอะมอลบางกะปิ', 'ร้าน', 'ร้านค้า', 'สินค้า', 'บริการ'];
       const fuzzy = term.length >= 4 && !exactTerms.includes(term.toLowerCase());
       terms.push({ term, weight, fuzzy });
     });
