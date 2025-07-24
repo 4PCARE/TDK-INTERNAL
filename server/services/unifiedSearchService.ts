@@ -1,4 +1,5 @@
 import { semanticSearchServiceV2 } from './semanticSearchV2';
+import { queryAugmentationService } from './queryAugmentationService';
 
 export interface UnifiedSearchOptions {
   searchType: 'semantic' | 'keyword' | 'hybrid';
@@ -6,6 +7,9 @@ export interface UnifiedSearchOptions {
   keywordWeight?: number;
   vectorWeight?: number;
   specificDocumentIds?: number[];
+  enableQueryAugmentation?: boolean;
+  chatType?: string;
+  contextId?: string;
 }
 
 export interface UnifiedSearchResult {
@@ -41,7 +45,7 @@ export interface UnifiedSearchResult {
 export class UnifiedSearchService {
   
   /**
-   * Perform search using the unified search system
+   * Perform search using the unified search system with optional query augmentation
    * 
    * @param query - The search query
    * @param userId - User ID for document filtering
@@ -60,10 +64,43 @@ export class UnifiedSearchService {
       console.log(`📋 Unified Search: Filtering to ${options.specificDocumentIds.length} specific documents: [${options.specificDocumentIds.join(', ')}]`);
     }
 
+    let finalQuery = query;
+    let searchKeywords: string[] = [];
+
+    // Apply query augmentation if enabled
+    if (options.enableQueryAugmentation) {
+      try {
+        console.log(`🧠 Query Augmentation: Enabled for "${query}"`);
+        
+        const augmentationResult = await queryAugmentationService.augmentQuery(
+          query,
+          userId,
+          options.chatType || "general",
+          options.contextId || "general",
+          10 // Analyze last 10 messages
+        );
+
+        if (augmentationResult.shouldUseAugmented && augmentationResult.confidence >= 0.6) {
+          finalQuery = augmentationResult.augmentedQuery;
+          searchKeywords = augmentationResult.extractedKeywords;
+          
+          console.log(`✅ Query Augmentation: Applied (confidence: ${augmentationResult.confidence.toFixed(2)})`);
+          console.log(`   📝 Original: "${query}"`);
+          console.log(`   🎯 Augmented: "${finalQuery}"`);
+          console.log(`   🔑 Keywords: [${searchKeywords.join(', ')}]`);
+          console.log(`   💡 Insights: ${augmentationResult.contextualInsights}`);
+        } else {
+          console.log(`⚠️ Query Augmentation: Low confidence (${augmentationResult.confidence.toFixed(2)}), using original query`);
+        }
+      } catch (error) {
+        console.error("❌ Query Augmentation: Failed, falling back to original query", error);
+      }
+    }
+
     try {
       // Use semantic search V2 for all search types
       const results = await semanticSearchServiceV2.searchDocuments(
-        query,
+        finalQuery, // Use augmented query if available
         userId,
         {
           searchType: options.searchType,
@@ -114,17 +151,17 @@ export class UnifiedSearchService {
   }
 
   /**
-   * Search within agent's assigned documents only
+   * Search for content within specific agent documents
    * 
-   * @param query - The search query  
+   * @param query - The search query
    * @param userId - User ID for document access
    * @param agentDocumentIds - Array of document IDs assigned to the agent
    * @param options - Search configuration options
-   * @returns Array of search results from agent's documents only
+   * @returns Array of search results from the agent's documents only
    */
   async searchAgentDocuments(
     query: string,
-    userId: string, 
+    userId: string,
     agentDocumentIds: number[],
     options: Omit<UnifiedSearchOptions, 'specificDocumentIds'> = { searchType: 'hybrid' }
   ): Promise<UnifiedSearchResult[]> {
@@ -136,6 +173,8 @@ export class UnifiedSearchService {
       specificDocumentIds: agentDocumentIds
     });
   }
+
+  
 }
 
 // Export singleton instance
