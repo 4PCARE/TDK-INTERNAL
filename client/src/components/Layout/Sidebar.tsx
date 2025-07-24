@@ -42,7 +42,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapse
 }) => {
   const [location] = useLocation();
-  const { user, userRole } = useAuth();
+  const { user } = useAuth();
+  const userRole = (user as any)?.role;
   const [documentsExpanded, setDocumentsExpanded] = useState(true);
   const [dashboardsExpanded, setDashboardsExpanded] = useState(false);
   const [adminExpanded, setAdminExpanded] = useState(true);
@@ -295,23 +296,23 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Footer */}
       <div className="p-4 border-t border-slate-200">
-        {!isCollapsed && user && (
+        {!isCollapsed && user ? (
           <div className="flex items-center">
             <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center">
               <span className="text-xs font-medium text-slate-600">
-                {user.name?.charAt(0).toUpperCase() || 'U'}
+                {(user as any)?.firstName?.charAt(0).toUpperCase() || 'U'}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-slate-700 truncate">
-                {user.name || 'User'}
+                {(user as any)?.firstName || 'User'}
               </p>
               <p className="text-xs text-slate-500 truncate">
                 {userRole || 'user'}
               </p>
             </div>
           </div>
-        )}
+        ) : null}
 
         {onOpenChat && (
           <Button
