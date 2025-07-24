@@ -1201,17 +1201,40 @@ ${imageAnalysisResult}
           lineIntegration.agentId,
           lineIntegration.userId,
         );
+        const agentDocIds = agentDocs.map((d) => d.documentId);
         console.log(
           `LINE OA: Found ${agentDocs.length} assigned documents for agent ${lineIntegration.agentId}`,
         );
+        console.log(`LINE OA: Agent ${lineIntegration.agentId} document IDs: [${agentDocIds.join(', ')}]`);
 
-          // Use generateChatResponse from openai.ts for consistent behavior
+        // Use unified search service directly to ensure document filtering
+        const { unifiedSearchService } = await import("./services/unifiedSearchService");
+        
+        const searchResults = await unifiedSearchService.searchAgentDocuments(
+          contextMessage,
+          lineIntegration.userId,
+          agentDocIds,
+          {
+            searchType: "hybrid",
+            limit: 5,
+            keywordWeight: 0.4,
+            vectorWeight: 0.6,
+            enableQueryAugmentation: true,
+            chatType: "lineoa",
+            contextId: event.source.userId,
+            agentId: lineIntegration.agentId
+          }
+        );
+
+        console.log(`LINE OA: Search completed with ${searchResults.length} results from agent's documents only`);
+
+        // Use generateChatResponse from openai.ts with pre-filtered search results
         const { generateChatResponse } = await import("./services/openai");
         
         const aiResponse = await generateChatResponse(
           contextMessage,
           agentDocs,
-          [], // relevantChunks - will be handled by unified search inside the function
+          searchResults, // Pass pre-filtered search results
           [], // chatHistory - will be fetched inside the function
           lineIntegration.agentId // Pass agent ID for proper query augmentation
         );
