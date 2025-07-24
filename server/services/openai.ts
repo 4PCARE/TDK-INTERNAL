@@ -411,9 +411,12 @@ Format your response in a clear, conversational way that helps the user understa
         .slice(0, MAX_CHUNKS);
 
       // 3. Build document context string
-      const promptChunks = filteredChunks.map((chunk, i) =>
-        `--- Chunk #${i + 1} (${chunk.name}, similarity: ${chunk.similarity.toFixed(3)}) ---\n${chunk.content.slice(0, MAX_CHUNK_CHARS)}`
-      );
+      const promptChunks = filteredChunks.map((chunk, i) => {
+        const chunkName = chunk.name || `Document ${chunk.id || 'Unknown'}`;
+        const chunkContent = chunk.content || chunk.summary || 'No content available';
+        const similarity = chunk.similarity || 0;
+        return `--- Chunk #${i + 1} (${chunkName}, similarity: ${similarity.toFixed(3)}) ---\n${chunkContent.slice(0, MAX_CHUNK_CHARS)}`;
+      });
 
       const documentContext = promptChunks.length > 0
         ? promptChunks.join("\n\n")
