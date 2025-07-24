@@ -138,7 +138,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-slate-200">
         {!isCollapsed && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">AI</span>
             </div>
@@ -296,7 +296,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Footer */}
       <div className="p-4 border-t border-slate-200">
         {!isCollapsed && user && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center">
             <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center">
               <span className="text-xs font-medium text-slate-600">
                 {user.name?.charAt(0).toUpperCase() || 'U'}
