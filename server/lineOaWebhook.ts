@@ -1231,11 +1231,27 @@ ${imageAnalysisResult}
         // Use generateChatResponse from openai.ts with pre-filtered search results
         const { generateChatResponse } = await import("./services/openai");
         
+        // Get chat history for generateChatResponse
+        const chatHistory = await storage.getChatHistory(
+          lineIntegration.userId,
+          "lineoa",
+          event.source.userId,
+          lineIntegration.agentId,
+          10
+        );
+        
+        const chatHistoryFormatted = chatHistory
+          .filter(msg => msg.messageType === "user" || msg.messageType === "assistant")
+          .map(msg => ({
+            role: msg.messageType === "user" ? "user" as const : "assistant" as const,
+            content: msg.content
+          }));
+        
         const aiResponse = await generateChatResponse(
           contextMessage,
           agentDocs,
-          searchResults, // Pass pre-filtered search results
-          [], // chatHistory - will be fetched inside the function
+          searchResults, // Pass pre-filtered search results to prevent duplicate search
+          chatHistoryFormatted, // Pass formatted chat history
           lineIntegration.agentId // Pass agent ID for proper query augmentation
         );
           
