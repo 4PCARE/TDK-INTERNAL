@@ -392,14 +392,60 @@ export class SemanticSearchServiceV2 {
 
       // Step 5: Filtering out low-score chunks (below threshold)
       console.log(`🔍 Step 5: Filtering chunks below threshold ${threshold}...`);
-      const beforeFilter = Array.from(combinedResults.values());
-      const afterFilter = beforeFilter.filter(result => {
-        const passed = result.similarity >= threshold;
-        console.log(`🎯 Filter: Doc ${result.id} score=${result.similarity.toFixed(3)} ${passed ? '✅ PASS' : '❌ REJECT'}`);
+      
+      // For filtering, we need to go back to individual chunks, not aggregated documents
+      const chunkResults: Array<{result: SearchResult, vectorResult?: any, chunkIndex: number}> = [];
+      
+      // Add vector results as individual chunks
+      vectorResults.forEach(vr => {
+        const originalDocId = parseInt(vr.document.metadata?.originalDocumentId || vr.document.id);
+        const chunkIndex = vr.document.metadata?.chunkIndex || vr.document.chunkIndex || 0;
+        const doc = docMap.get(originalDocId);
+        
+        if (doc) {
+          const weightedVectorScore = vr.similarity * vectorWeight;
+          
+          // Check if this chunk also has keyword score
+          const keywordResult = keywordResults.find(kr => kr.id === originalDocId);
+          const weightedKeywordScore = keywordResult ? (keywordResult.similarity * keywordWeight) : 0;
+          
+          const finalScore = weightedVectorScore + weightedKeywordScore;
+          
+          chunkResults.push({
+            result: {
+              id: originalDocId,
+              name: doc.name,
+              content: vr.document.content,
+              summary: doc.summary,
+              aiCategory: doc.aiCategory,
+              aiCategoryColor: doc.aiCategoryColor,
+              similarity: finalScore,
+              createdAt: doc.createdAt.toISOString(),
+              categoryId: doc.categoryId,
+              tags: doc.tags,
+              fileSize: doc.fileSize,
+              mimeType: doc.mimeType,
+              isFavorite: doc.isFavorite,
+              updatedAt: doc.updatedAt?.toISOString() || null,
+              userId: doc.userId
+            },
+            vectorResult: vr,
+            chunkIndex: chunkIndex
+          });
+        }
+      });
+      
+      // Filter each chunk individually
+      const passedChunks = chunkResults.filter(chunkData => {
+        const passed = chunkData.result.similarity >= threshold;
+        console.log(`🎯 Filter: Chunk ${chunkData.chunkIndex} from Doc ${chunkData.result.id} score=${chunkData.result.similarity.toFixed(3)} ${passed ? '✅ PASS' : '❌ REJECT'}`);
         return passed;
       });
 
-      console.log(`✅ Step 5 Complete: ${beforeFilter.length} → ${afterFilter.length} documents passed filter`);
+      console.log(`✅ Step 5 Complete: ${chunkResults.length} chunks → ${passedChunks.length} chunks passed filter`);
+      
+      // Convert back to SearchResult array and take top results
+      const afterFilter = passedChunks.map(chunkData => chunkData.result);
 
       // Step 6: Sort by final score and limit results for ChatAgent
       const finalResults = afterFilter
