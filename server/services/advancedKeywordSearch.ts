@@ -20,9 +20,17 @@ interface DocumentScore {
 
 export class AdvancedKeywordSearchService {
   private stopWords = new Set([
+    // English stop words
     'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
-    'ที่', 'และ', 'หรือ', 'แต่', 'ใน', 'บน', 'ที่', 'เพื่อ', 'ของ', 'กับ', 'โดย', 'ได้', 
-    'เป็น', 'มี', 'จาก', 'ไป', 'มา', 'ก็', 'จะ', 'ถึง', 'ให้', 'ยัง', 'คือ', 'ว่า'
+    'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
+    'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those',
+    
+    // Thai stop words
+    'ที่', 'และ', 'หรือ', 'แต่', 'ใน', 'บน', 'เพื่อ', 'ของ', 'กับ', 'โดย', 'ได้', 
+    'เป็น', 'มี', 'จาก', 'ไป', 'มา', 'ก็', 'จะ', 'ถึง', 'ให้', 'ยัง', 'คือ', 'ว่า',
+    'นี้', 'นั้น', 'นะ', 'ครับ', 'ค่ะ', 'คะ', 'ไหม', 'มั้ย', 'อะไร', 'เมื่อไหร่', 'ที่ไหน',
+    'ทำไม', 'อย่างไร', 'ใคร', 'ขอ', 'ช่วย', 'บอก', 'ดู', 'อยู่', 'เอา', 'ลอง', 'ให้',
+    'หา', 'ต้อง', 'อยาก', 'ไม่', 'ไม่ได้', 'ไม่มี', 'แล้ว', 'เลย', 'เดี๋ยว', 'เอง'
   ]);
 
   async searchDocuments(
@@ -55,7 +63,11 @@ export class AdvancedKeywordSearchService {
       // Parse and analyze query
       console.log(`Advanced keyword search for: "${query}"`);
       const searchTerms = this.parseQuery(query);
-      console.log(`Parsed search terms:`, searchTerms.map(t => `${t.term}(${t.weight})`));
+      console.log(`Parsed search terms:`, searchTerms.map(t => `${t.term}(${t.weight}${t.fuzzy ? ',fuzzy' : ''})`));
+      
+      // Debug: Show what we're actually searching for
+      const significantTerms = searchTerms.filter(t => t.weight >= 1.0).map(t => t.term);
+      console.log(`Significant search terms: [${significantTerms.join(', ')}]`);
 
       // Calculate document scores
       const documentScores = this.calculateDocumentScores(documents, searchTerms);
@@ -95,7 +107,7 @@ export class AdvancedKeywordSearchService {
   private parseQuery(query: string): SearchTerm[] {
     const terms: SearchTerm[] = [];
 
-    // Handle quoted phrases
+    // Handle quoted phrases first
     const quotedPhrases = query.match(/"([^"]+)"/g);
     let remainingQuery = query;
 
@@ -109,18 +121,41 @@ export class AdvancedKeywordSearchService {
       });
     }
 
-    // Handle remaining individual terms
+    // Improved tokenization for Thai and English text
     const individualTerms = remainingQuery
       .toLowerCase()
-      .split(/[\s\-_,\.!?\(\)\[\]]+/)
-      .filter(term => term.length > 1 && !this.stopWords.has(term))
+      // Split on spaces, punctuation, and Thai sentence boundaries
+      .split(/[\s\-_,\.!?\(\)\[\]]+|(?=[ๆ])|(?<=[ๆ])|(?=[ไม่])|(?<=[ไม่])/)
       .map(term => term.trim())
+      .filter(term => term.length > 0)
+      // Further split Thai compound words and filter stop words
+      .flatMap(term => {
+        // Split on common Thai particles and connectors
+        const subTerms = term.split(/(?=[หรือ])|(?<=[หรือ])|(?=[ที่])|(?<=[ที่])|(?=[จาก])|(?<=[จาก])|(?=[ของ])|(?<=[ของ])/)
+          .map(subTerm => subTerm.trim())
+          .filter(subTerm => subTerm.length > 0 && !this.stopWords.has(subTerm));
+        
+        return subTerms.length > 0 ? subTerms : [term];
+      })
+      .filter(term => term.length > 1 && !this.stopWords.has(term))
       .filter(term => term.length > 0);
 
-    // Add individual terms with fuzzy matching for longer terms
-    individualTerms.forEach(term => {
-      const weight = term.length >= 3 ? 1.0 : 0.7;
-      const fuzzy = term.length >= 4;
+    // Remove duplicates while preserving order
+    const uniqueTerms = [...new Set(individualTerms)];
+
+    // Add individual terms with appropriate weights
+    uniqueTerms.forEach(term => {
+      // Higher weight for brand names and location names
+      let weight = 1.0;
+      if (['xolo', 'เดอะมอล', 'บางกะปิ', 'bangkapi', 'mall'].includes(term.toLowerCase())) {
+        weight = 1.5; // Brand and location boost
+      } else if (term.length >= 3) {
+        weight = 1.0;
+      } else {
+        weight = 0.7;
+      }
+      
+      const fuzzy = term.length >= 4 && !['xolo'].includes(term.toLowerCase()); // No fuzzy for exact brand names
       terms.push({ term, weight, fuzzy });
     });
 
