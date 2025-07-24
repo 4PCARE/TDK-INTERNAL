@@ -88,7 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     const content = (
       <div
         className={cn(
-          "flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+          "flex items-center space-x-0.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer",
           isActive
             ? "bg-blue-100 text-blue-700 border-r-2 border-blue-700"
             : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
@@ -121,7 +121,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     <Link href={to} onClick={onMobileClose}>
       <div
         className={cn(
-          "flex items-center space-x-1 px-6 py-1 text-sm transition-colors cursor-pointer",
+          "flex items-center space-x-0.5 px-6 py-1 text-sm transition-colors cursor-pointer",
           isActive
             ? "text-blue-700 bg-blue-50 border-r-2 border-blue-700"
             : "text-slate-500 hover:text-slate-700 hover:bg-slate-50",
@@ -138,7 +138,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-slate-200">
         {!isCollapsed && (
-          <div className="flex items-center space-x-1.5">
+          <div className="flex items-center space-x-1">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">AI</span>
             </div>
@@ -296,7 +296,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Footer */}
       <div className="p-4 border-t border-slate-200">
         {!isCollapsed && user && (
-          <div className="flex items-center space-x-1.5">
+          <div className="flex items-center space-x-1">
             <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center">
               <span className="text-xs font-medium text-slate-600">
                 {user.name?.charAt(0).toUpperCase() || 'U'}
