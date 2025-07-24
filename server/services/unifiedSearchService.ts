@@ -116,6 +116,20 @@ export class UnifiedSearchService {
         }
       );
 
+      // Additional logging to verify document filtering is working
+      if (options.specificDocumentIds && options.specificDocumentIds.length > 0) {
+        const resultDocIds = [...new Set(results.map(r => r.id))];
+        console.log(`🔍 Unified Search: Results came from document IDs: [${resultDocIds.join(', ')}]`);
+        
+        // Check if any results came from outside the specified documents
+        const outsideResults = resultDocIds.filter(id => !options.specificDocumentIds!.includes(id));
+        if (outsideResults.length > 0) {
+          console.log(`⚠️ Unified Search: WARNING - Found results from unfiltered documents: [${outsideResults.join(', ')}]`);
+        } else {
+          console.log(`✅ Unified Search: Document filtering working correctly - all results from specified documents`);
+        }
+      }
+
       console.log(`✅ Unified Search: Found ${results.length} results (${results.map(r => r.content.length).reduce((a, b) => a + b, 0)} total characters)`);
       
       // Log search results for debugging

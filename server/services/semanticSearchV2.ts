@@ -294,13 +294,23 @@ export class SemanticSearchServiceV2 {
       });
       console.log(`✅ Step 3A Complete: Found ${keywordResults.length} keyword results`);
 
-      // Step 3B: Perform Vector Search (get ALL results without threshold filtering)  
+      // Step 3B: Semantic/Vector Search
       console.log(`🔍 Step 3B: Performing semantic/vector search...`);
-      const semanticResults = await this.performSemanticSearch(query, userId, { 
-        ...options, 
-        limit: limit * 3, // Get more results for combination
-        threshold: 0 // Don't filter during individual searches
-      });
+      console.log(`SemanticSearchV2: Searching for "${query}" for user ${userId}`);
+
+      if (options.specificDocumentIds && options.specificDocumentIds.length > 0) {
+        console.log(`🎯 SemanticSearchV2: Passing document ID filter to vector service: [${options.specificDocumentIds.join(', ')}]`);
+      } else {
+        console.log(`⚠️ SemanticSearchV2: No document ID filter - will search ALL user documents`);
+      }
+
+      // Use vector search for semantic similarity
+      const vectorResults = await vectorService.searchDocuments(
+        query, 
+        userId, 
+        limit,
+        options.specificDocumentIds // Pass document filtering to vector service
+      );
       console.log(`✅ Step 3B Complete: Found ${semanticResults.length} semantic results`);
 
       // Step 4: Aggregate scores with weighted calculation for each chunk
