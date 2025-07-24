@@ -11,25 +11,13 @@ import UploadZone from "@/components/Upload/UploadZone";
 import DocumentGrid from "@/components/Documents/DocumentGrid";
 import UploadModal from "@/components/Upload/UploadModal";
 import ChatModal from "@/components/Chat/ChatModal";
-import { cn } from "@/lib/utils";
-
 
 export default function AppShell() {
-  const { user } = useAuth() as {
-    user:
-      | {
-          profileImageUrl?: string;
-          firstName?: string;
-          lastName?: string;
-          role?: string;
-        }
-      | undefined;
-  };
+  const { user } = useAuth() as { user: { profileImageUrl?: string; firstName?: string; lastName?: string; role?: string } | undefined };
   const [searchQuery, setSearchQuery] = useState("");
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const handleLogout = () => {
     window.location.href = "/api/logout";
@@ -39,14 +27,6 @@ export default function AppShell() {
     e.preventDefault();
     // TODO: Implement search functionality
     console.log("Search query:", searchQuery);
-  };
-
-  const toggleSidebar = () => {
-    setSidebarCollapsed((prev) => !prev);
-  };
-
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen((prev) => !prev);
   };
 
   return (
@@ -61,32 +41,18 @@ export default function AppShell() {
                 variant="ghost"
                 size="sm"
                 className="lg:hidden"
-                onClick={toggleMobileMenu}
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               >
-                {isMobileMenuOpen ? (
-                  <X className="h-5 w-5" />
-                ) : (
-                  <Menu className="h-5 w-5" />
-                )}
+                {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
-
+              
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                  <svg
-                    className="w-5 h-5 text-white"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z"
-                      clipRule="evenodd"
-                    />
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z" clipRule="evenodd" />
                   </svg>
                 </div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  DocumentAI
-                </h1>
+                <h1 className="text-xl font-semibold text-gray-900">DocumentAI</h1>
               </div>
             </div>
 
@@ -118,18 +84,11 @@ export default function AppShell() {
 
               {/* User Profile */}
               <div className="relative">
-                <Button
-                  variant="ghost"
-                  className="flex items-center space-x-3 p-2"
-                >
+                <Button variant="ghost" className="flex items-center space-x-3 p-2">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage
-                      src={user?.profileImageUrl || ""}
-                      alt={user?.firstName || ""}
-                    />
+                    <AvatarImage src={user?.profileImageUrl || ""} alt={user?.firstName || ""} />
                     <AvatarFallback>
-                      {user?.firstName?.[0]}
-                      {user?.lastName?.[0]}
+                      {user?.firstName?.[0]}{user?.lastName?.[0]}
                     </AvatarFallback>
                   </Avatar>
                   <div className="hidden sm:block text-left">
@@ -142,7 +101,7 @@ export default function AppShell() {
                   </div>
                 </Button>
               </div>
-
+              
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 Logout
               </Button>
@@ -152,30 +111,22 @@ export default function AppShell() {
       </nav>
 
       <div className="flex h-screen">
-        <Sidebar
-          isCollapsed={sidebarCollapsed}
+        {/* Sidebar */}
+        <Sidebar 
           isMobileOpen={isMobileMenuOpen}
-          onToggleCollapse={toggleSidebar}
           onMobileClose={() => setIsMobileMenuOpen(false)}
+          onOpenChat={() => setIsChatModalOpen(true)}
         />
-        <main
-          className={cn(
-            "flex-1 transition-all duration-300",
-            sidebarCollapsed ? "ml-16" : "ml-64", // Example: margin-left matches sidebar width
-            isMobileMenuOpen && "blur-sm pointer-events-none select-none", // Optional: blur/lock main content on mobile
-          )}
-        >
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-hidden">
           <div className="h-full flex flex-col">
             {/* Content Header */}
             <div className="bg-white border-b border-gray-200 px-6 py-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-semibold text-gray-900">
-                    Dashboard
-                  </h2>
-                  <p className="text-gray-600 mt-1">
-                    Manage and search your documents
-                  </p>
+                  <h2 className="text-2xl font-semibold text-gray-900">Dashboard</h2>
+                  <p className="text-gray-600 mt-1">Manage and search your documents</p>
                 </div>
               </div>
             </div>
@@ -201,19 +152,13 @@ export default function AppShell() {
       {/* Mobile Navigation */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-30">
         <div className="flex items-center justify-around">
-          <Button
-            variant="ghost"
-            className="flex flex-col items-center space-y-1 p-2 text-blue-600"
-          >
+          <Button variant="ghost" className="flex flex-col items-center space-y-1 p-2 text-blue-600">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
             </svg>
             <span className="text-xs">Home</span>
           </Button>
-          <Button
-            variant="ghost"
-            className="flex flex-col items-center space-y-1 p-2 text-gray-500"
-          >
+          <Button variant="ghost" className="flex flex-col items-center space-y-1 p-2 text-gray-500">
             <Search className="w-5 h-5" />
             <span className="text-xs">Search</span>
           </Button>
@@ -231,11 +176,7 @@ export default function AppShell() {
             onClick={() => setIsChatModalOpen(true)}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z"
-                clipRule="evenodd"
-              />
+              <path fillRule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clipRule="evenodd" />
             </svg>
             <span className="text-xs">AI</span>
           </Button>
@@ -243,13 +184,13 @@ export default function AppShell() {
       </div>
 
       {/* Modals */}
-      <UploadModal
-        isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
+      <UploadModal 
+        isOpen={isUploadModalOpen} 
+        onClose={() => setIsUploadModalOpen(false)} 
       />
-      <ChatModal
-        isOpen={isChatModalOpen}
-        onClose={() => setIsChatModalOpen(false)}
+      <ChatModal 
+        isOpen={isChatModalOpen} 
+        onClose={() => setIsChatModalOpen(false)} 
       />
     </div>
   );

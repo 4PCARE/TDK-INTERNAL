@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import Sidebar from "@/components/Layout/Sidebar";
+import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import {
   Card,
@@ -117,11 +117,6 @@ export default function AgentConsole() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Sidebar state
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // WebSocket connection setup
   useEffect(() => {
@@ -590,13 +585,11 @@ export default function AgentConsole() {
       <div className="min-h-screen bg-slate-50">
         <div className="flex">
           <Sidebar 
-          isMobileOpen={isMobileMenuOpen}
-          onMobileClose={() => setIsMobileMenuOpen(false)}
-          onOpenChat={() => setIsChatModalOpen(true)}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          isMobileOpen={false}
+          onMobileClose={() => {}}
+          onOpenChat={() => {}}
         />
-          <div className="flex-1 md:ml-72">
+          <div className="flex-1">
             <TopBar />
             <main className="p-6">
               <div className="text-center py-8">Loading...</div>
@@ -611,11 +604,9 @@ export default function AgentConsole() {
     <div className="min-h-screen bg-slate-50">
       <div className="flex">
         <Sidebar 
-          isMobileOpen={isMobileMenuOpen}
-          onMobileClose={() => setIsMobileMenuOpen(false)}
-          onOpenChat={() => setIsChatModalOpen(true)}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          isMobileOpen={false}
+          onMobileClose={() => {}}
+          onOpenChat={() => {}}
         />
         <div className="flex-1">
           <TopBar />

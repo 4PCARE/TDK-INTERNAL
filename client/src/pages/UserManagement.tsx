@@ -38,7 +38,7 @@ import {
   Trash2,
   User
 } from "lucide-react";
-import Sidebar from "@/components/Layout/Sidebar";
+import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -240,7 +240,7 @@ export default function UserManagement() {
         onToggleCollapse={() => {}}
       />
       
-      <div className="flex-1 flex flex-col overflow-hidden md:ml-72">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar />
         
         <main className="p-6">
