@@ -3,7 +3,6 @@ import { storage } from '../storage';
 interface SearchTerm {
   term: string;
   weight: number;
-  fuzzy?: boolean;
 }
 
 interface DocumentScore {
@@ -14,7 +13,6 @@ interface DocumentScore {
     term: string;
     score: number;
     positions: number[];
-    fuzzyMatch?: boolean;
   }>;
 }
 
@@ -24,7 +22,7 @@ export class AdvancedKeywordSearchService {
     'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
     'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
     'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those',
-    
+
     // Thai stop words
     'ที่', 'และ', 'หรือ', 'แต่', 'ใน', 'บน', 'เพื่อ', 'ของ', 'กับ', 'โดย', 'ได้', 
     'เป็น', 'มี', 'จาก', 'ไป', 'มา', 'ก็', 'จะ', 'ถึง', 'ให้', 'ยัง', 'คือ', 'ว่า',
@@ -64,12 +62,12 @@ export class AdvancedKeywordSearchService {
       console.log(`Advanced keyword search for: "${query}"`);
       const searchTerms = this.parseQuery(query);
       console.log(`Parsed search terms:`, searchTerms.map(t => t.term));
-      
+
       // Debug: Show what we're actually searching for
       const significantTerms = searchTerms.filter(t => t.weight >= 1.0).map(t => t.term);
       console.log(`🔑 Keywords: [${significantTerms.join(', ')}]`);
 
-      // Calculate document scores
+      // Calculate document scores using simple string matching
       const documentScores = this.calculateDocumentScores(documents, searchTerms);
 
       // Sort by relevance and limit results
@@ -78,7 +76,7 @@ export class AdvancedKeywordSearchService {
 
       // Format results
       const results = topDocuments
-        .filter(doc => doc.score > 0.01) // Lower minimum relevance threshold
+        .filter(doc => doc.score > 0) // Only return documents with matches
         .map(docScore => {
           const document = documents.find(d => d.id === docScore.documentId)!;
 
@@ -122,7 +120,6 @@ export class AdvancedKeywordSearchService {
     }
 
     // Simple space-based tokenization to preserve keywords from query augmentation
-    // This prevents fragmenting compound words like "เดอะมอลบางกะปิ"
     const individualTerms = remainingQuery
       .toLowerCase()
       .split(/\s+/) // Only split on spaces
@@ -145,11 +142,8 @@ export class AdvancedKeywordSearchService {
       } else {
         weight = 0.5; // Lower weight for short fragments
       }
-      
-      // No fuzzy matching for exact brand names and locations
-      const exactTerms = ['xolo', 'เดอะมอล', 'บางกะปิ', 'เดอะมอลบางกะปิ', 'ร้าน', 'ร้านค้า', 'สินค้า', 'บริการ'];
-      const fuzzy = term.length >= 4 && !exactTerms.includes(term.toLowerCase());
-      terms.push({ term, weight, fuzzy });
+
+      terms.push({ term, weight });
     });
 
     return terms;
@@ -161,16 +155,11 @@ export class AdvancedKeywordSearchService {
     console.log(`📚 Calculating scores for ${documents.length} documents`);
     console.log(`🔍 Search terms: ${searchTerms.map(t => `"${t.term}" (weight: ${t.weight})`).join(', ')}`);
 
-    // Calculate IDF for each search term
-    const termIDF = this.calculateIDF(documents, searchTerms);
-
     for (const document of documents) {
       const docText = this.extractDocumentText(document);
-      const docTokens = this.tokenizeText(docText);
 
       console.log(`\n📄 Processing document ID: ${document.id}, Name: "${document.name}"`);
       console.log(`📝 Extracted text length: ${docText.length} characters`);
-      console.log(`🔤 Token count: ${docTokens.length}`);
 
       const docScore: DocumentScore = {
         documentId: document.id,
@@ -179,14 +168,9 @@ export class AdvancedKeywordSearchService {
         matchDetails: []
       };
 
-      // Calculate TF-IDF score for each search term
+      // Calculate simple match score for each search term
       for (const searchTerm of searchTerms) {
-        const termScore = this.calculateTermScore(
-          searchTerm,
-          docText,
-          docTokens,
-          termIDF.get(searchTerm.term) || 1.0
-        );
+        const termScore = this.calculateTermScore(searchTerm, docText);
 
         if (termScore.score > 0) {
           docScore.score += termScore.score * searchTerm.weight;
@@ -194,8 +178,7 @@ export class AdvancedKeywordSearchService {
           docScore.matchDetails.push({
             term: searchTerm.term,
             score: termScore.score,
-            positions: termScore.positions,
-            fuzzyMatch: termScore.fuzzyMatch
+            positions: termScore.positions
           });
           console.log(`✅ Term "${searchTerm.term}" contributed score: ${termScore.score * searchTerm.weight}`);
         } else {
@@ -228,125 +211,49 @@ export class AdvancedKeywordSearchService {
       document.content || '',
       ...(document.tags || [])
     ];
-    
+
     const text = parts.join(' ').toLowerCase();
-    
+
     console.log(`📄 Document ${document.id} text extraction:`);
     console.log(`   Name: "${document.name || 'N/A'}"`);
     console.log(`   Summary: "${(document.summary || 'N/A').substring(0, 100)}${(document.summary || '').length > 100 ? '...' : ''}"`);
     console.log(`   Content length: ${(document.content || '').length} chars`);
     console.log(`   Tags: [${(document.tags || []).join(', ')}]`);
     console.log(`   Combined text length: ${text.length} chars`);
-    
+
     return text;
-  }
-
-  private tokenizeText(text: string): string[] {
-    return text
-      .split(/[\s\-_,\.!?\(\)\[\]]+/)
-      .map(token => token.trim().toLowerCase())
-      .filter(token => token.length > 0);
-  }
-
-  private calculateIDF(documents: any[], searchTerms: SearchTerm[]): Map<string, number> {
-    const termIDF = new Map<string, number>();
-    const totalDocs = documents.length;
-
-    for (const searchTerm of searchTerms) {
-      let docsWithTerm = 0;
-
-      for (const document of documents) {
-        const docText = this.extractDocumentText(document);
-        if (this.termExistsInDocument(searchTerm.term, docText, searchTerm.fuzzy)) {
-          docsWithTerm++;
-        }
-      }
-
-      const idf = docsWithTerm > 0 ? Math.log(totalDocs / docsWithTerm) : 1.0;
-      termIDF.set(searchTerm.term, idf);
-    }
-
-    return termIDF;
   }
 
   private calculateTermScore(
     searchTerm: SearchTerm,
-    docText: string,
-    docTokens: string[],
-    idf: number
-  ): { score: number; positions: number[]; fuzzyMatch?: boolean } {
+    docText: string
+  ): { score: number; positions: number[] } {
     const term = searchTerm.term.toLowerCase();
     const lowerDocText = docText.toLowerCase();
     const positions: number[] = [];
-    let exactMatches = 0;
+    let matchCount = 0;
 
     console.log(`🔍 Calculating term score for: "${term}"`);
     console.log(`📄 Document text length: ${docText.length}`);
     console.log(`📝 Document preview: "${docText.substring(0, 200)}..."`);
-    console.log(`🔤 Lowercase term: "${term}"`);
 
     // Simple case-insensitive string matching
     let index = 0;
     while ((index = lowerDocText.indexOf(term, index)) !== -1) {
       positions.push(index);
-      exactMatches++;
+      matchCount++;
       console.log(`✅ Found "${term}" at position ${index}`);
       index += term.length;
     }
 
-    console.log(`📊 Term "${term}": ${exactMatches} exact matches found`);
+    console.log(`📊 Term "${term}": ${matchCount} exact matches found`);
 
-    // Calculate TF (term frequency)
-    const tf = exactMatches / Math.max(docTokens.length, 1);
+    // Simple scoring: number of matches
+    const score = matchCount;
 
-    // Calculate TF-IDF score
-    const score = tf * idf;
+    console.log(`📈 Term "${term}": Score=${score}`);
 
-    console.log(`📈 Term "${term}": TF=${tf.toFixed(4)}, IDF=${idf.toFixed(4)}, Score=${score.toFixed(4)}`);
-
-    return { score, positions, fuzzyMatch: false };
-  }
-
-  private termExistsInDocument(term: string, docText: string, fuzzy?: boolean): boolean {
-    // Simple case-insensitive string matching
-    return docText.toLowerCase().includes(term.toLowerCase());
-  }
-
-  private isFuzzyMatch(term1: string, term2: string): boolean {
-    if (Math.abs(term1.length - term2.length) > 2) {
-      return false;
-    }
-
-    const distance = this.levenshteinDistance(term1, term2);
-    const maxLength = Math.max(term1.length, term2.length);
-    const similarity = (maxLength - distance) / maxLength;
-
-    return similarity >= 0.8; // 80% similarity threshold
-  }
-
-  private levenshteinDistance(str1: string, str2: string): number {
-    const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
-
-    for (let i = 0; i <= str1.length; i++) {
-      matrix[0][i] = i;
-    }
-
-    for (let j = 0; j <= str2.length; j++) {
-      matrix[j][0] = j;
-    }
-
-    for (let j = 1; j <= str2.length; j++) {
-      for (let i = 1; i <= str1.length; i++) {
-        const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
-        matrix[j][i] = Math.min(
-          matrix[j][i - 1] + 1,     // deletion
-          matrix[j - 1][i] + 1,     // insertion
-          matrix[j - 1][i - 1] + indicator // substitution
-        );
-      }
-    }
-
-    return matrix[str2.length][str1.length];
+    return { score, positions };
   }
 
   private applyDocumentBoosters(document: any, baseScore: number, searchTerms: SearchTerm[]): number {
