@@ -114,8 +114,8 @@
 </head>
 <body>
     <div class="container">
-        <h1>🔍 Debug AI Input</h1>
-        <p>This tool shows exactly what system message, user message, and document context is being sent to the AI chatbot.</p>
+        <h1>🔍 Debug AI Input (Retrieval Only)</h1>
+        <p>This tool shows exactly what system message, user message, and document context would be sent to the AI chatbot. <strong>Note: No actual OpenAI API calls are made - this is for debugging the retrieval process only.</strong></p>
 
         <form id="debugForm">
             <div class="form-group">
@@ -628,6 +628,9 @@ ${escapeHtml(doc.content || 'No content available')}
 
                     <div class="section">
                         <h3>📋 System Message (AI Instructions)</h3>
+                        <div style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 15px; border-left: 4px solid #ffc107;">
+                            <strong>🛑 Debug Mode:</strong> This shows what would be sent to OpenAI, but no actual API call is made.
+                        </div>
                         <pre>${escapeHtml(data.systemMessage)}</pre>
                     </div>
 

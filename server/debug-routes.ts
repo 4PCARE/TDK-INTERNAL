@@ -432,11 +432,12 @@ Answer questions specifically about this document. Provide detailed analysis, ex
     console.log(`\n=== CHUNK DETAILS ===`);
     console.log(`Found ${chunkDetails.length} chunks`);
     chunkDetails.forEach((chunk, idx) => {
-      console.log(`Chunk ${idx + 1}: ID=${chunk.id}, Type=${chunk.type}, Similarity=${chunk.similarity || 'N/A'}, Weight=${chunk.weight || 'N/A'}, WeightedScore=${chunk.weightedScore || 'N/A'}, FinalRank=${chunk.finalRank}`);
-        });
+      console.log(`Chunk ${idx + 1}: ID=${chunk.id || chunk.chunkId}, Type=${chunk.type}, Similarity=${chunk.similarity || 'N/A'}, Weight=${chunk.weight || 'N/A'}, WeightedScore=${chunk.weightedScore || 'N/A'}, FinalRank=${chunk.finalRank || 'N/A'}`);
+    });
     console.log(`\n=== FULL DOCUMENT CONTEXT ===`);
     console.log(documentContext);
-    console.log(`\n=== END DEBUG ===`);
+    console.log(`\n=== 🛑 STOPPING HERE - NOT SENDING TO OPENAI (DEBUG MODE) ===`);
+    console.log(`=== END DEBUG - WOULD HAVE SENT ${systemMessage.length + userMessage.length} CHARACTERS TO OPENAI ===`);
 
     // Get full document details for input documents section
     let inputDocuments = [];
