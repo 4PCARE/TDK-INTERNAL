@@ -334,8 +334,9 @@ export class SemanticSearchServiceV2 {
       // Process semantic results first (apply vector weight)
       vectorResults.forEach(result => {
         const originalDocId = parseInt(result.document.metadata?.originalDocumentId || result.document.id);
+        const chunkIndex = result.document.metadata?.chunkIndex || result.document.chunkIndex || 0;
         const weightedScore = result.similarity * vectorWeight;
-        console.log(`📊 Vector: Doc ${originalDocId} = ${result.similarity.toFixed(3)} × ${vectorWeight} = ${weightedScore.toFixed(3)}`);
+        console.log(`📊 Vector: Doc ${originalDocId} (chunk ${chunkIndex}) = ${result.similarity.toFixed(3)} × ${vectorWeight} = ${weightedScore.toFixed(3)}`);
 
         const doc = docMap.get(originalDocId);
         if (doc) {
@@ -401,7 +402,9 @@ export class SemanticSearchServiceV2 {
       // Debug: Log top results with similarity scores and check for XOLO
       console.log(`Debug: Top 5 vector search results for "${query}":`);
       finalResults.slice(0, 5).forEach((result, index) => {
-        console.log(`${index + 1}. Doc ID: ${result.id}, Similarity: ${result.similarity.toFixed(4)}`);
+        // Try to extract chunk info from content or use index as fallback
+        const chunkInfo = `chunk ${index}`;
+        console.log(`${index + 1}. Doc ID: ${result.id} (${chunkInfo}), Similarity: ${result.similarity.toFixed(4)}`);
         console.log(`   Content: ${result.content.substring(0, 300)}...`);
 
         // Check for XOLO in various formats

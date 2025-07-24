@@ -225,7 +225,8 @@ export class VectorService {
       // Debug: Log top results with similarity scores
       console.log(`Debug: Top 5 vector search results for "${query}":`);
       finalResults.slice(0, 5).forEach((result, index) => {
-        console.log(`${index + 1}. Doc ID: ${result.document.metadata.originalDocumentId}, Similarity: ${result.similarity.toFixed(4)}`);
+        const chunkIndex = result.document.metadata?.chunkIndex || result.document.chunkIndex || 'unknown';
+        console.log(`${index + 1}. Doc ID: ${result.document.metadata.originalDocumentId} (chunk ${chunkIndex}), Similarity: ${result.similarity.toFixed(4)}`);
         console.log(`   Content: ${result.document.content.substring(0, 200)}...`);
         // Check if this content contains XOLO information
         if (result.document.content.includes('XOLO') || result.document.content.includes('โซโล่')) {
