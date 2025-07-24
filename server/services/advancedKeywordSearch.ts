@@ -63,11 +63,11 @@ export class AdvancedKeywordSearchService {
       // Parse and analyze query
       console.log(`Advanced keyword search for: "${query}"`);
       const searchTerms = this.parseQuery(query);
-      console.log(`Parsed search terms:`, searchTerms.map(t => `${t.term}(${t.weight}${t.fuzzy ? ',fuzzy' : ''})`));
+      console.log(`Parsed search terms:`, searchTerms.map(t => t.term));
       
       // Debug: Show what we're actually searching for
       const significantTerms = searchTerms.filter(t => t.weight >= 1.0).map(t => t.term);
-      console.log(`Significant search terms: [${significantTerms.join(', ')}]`);
+      console.log(`🔑 Keywords: [${significantTerms.join(', ')}]`);
 
       // Calculate document scores
       const documentScores = this.calculateDocumentScores(documents, searchTerms);
