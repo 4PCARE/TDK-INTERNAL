@@ -87,15 +87,16 @@ export class AdvancedKeywordSearchService {
           const document = documents.find(d => d.id === chunkScore.documentId)!;
 
           return {
-            id: document.id,
+            id: chunkScore.documentId,
             name: document.name,
-            content: chunkScore.chunkContent,
+            content: chunkScore.chunkContent, // This is the actual chunk content
             summary: document.summary,
             aiCategory: document.aiCategory,
             similarity: Math.min(chunkScore.score / 10, 1.0), // Normalize to 0-1
             createdAt: document.createdAt.toISOString(),
             matchedTerms: chunkScore.matchedTerms,
-            matchDetails: chunkScore.matchDetails
+            matchDetails: chunkScore.matchDetails,
+            chunkIndex: chunkScore.chunkIndex // Add chunk index for debugging
           };
         });
 
@@ -207,6 +208,7 @@ export class AdvancedKeywordSearchService {
               score: termScore.score,
               positions: termScore.positions.slice(0, 10) // Limit positions to prevent memory bloat
             });
+            console.log(`🎯 Match found: "${searchTerm.term}" in Doc ${document.id} Chunk ${chunkIndex} (score: ${termScore.score})`);
           }
         }
 
@@ -216,7 +218,7 @@ export class AdvancedKeywordSearchService {
           chunkScore.score = this.applyChunkBoosters(document, chunk, chunkScore.score, searchTerms);
 
           chunkScores.push(chunkScore);
-          console.log(`✅ Chunk ${chunkIndex} from Document ${document.id} added (score: ${chunkScore.score.toFixed(4)})`);
+          console.log(`✅ Document ${document.id} Chunk ${chunkIndex} added (score: ${chunkScore.score.toFixed(4)}, content length: ${chunk.length})`);
         }
       }
 
