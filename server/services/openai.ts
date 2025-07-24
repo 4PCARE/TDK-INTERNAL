@@ -6,6 +6,8 @@ import XLSX from "xlsx";
 import textract from "textract";
 import { LlamaParseReader } from "@llamaindex/cloud";
 import { storage } from "../storage";
+import { ChatCompletionMessageParam } from "openai/resources/chat";
+
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({
@@ -373,128 +375,78 @@ Format your response in a clear, conversational way that helps the user understa
   }
 }
 
-export async function generateChatResponse(
-  query: string,
-  documents: any[],
-  specificDocumentId?: number,
-  searchType: 'semantic' | 'keyword' | 'hybrid' = 'hybrid',
-  keywordWeight: number = 0.4,
-  vectorWeight: number = 0.6
-): Promise<string> {
-  try {
-    let relevantContent = "";
-
-    // Use hybrid search for better context
+  export async function generateChatResponse(
+    query: string,
+    documents: any[],
+    relevantChunks: any[] = [],
+    chatHistory: {role: 'user'|'assistant', content: string}[] = []
+  ): Promise<string> {
     try {
-      console.log(`Chat: Performing ${searchType} search for query: "${query}" with weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
+      const MAX_CHUNKS = 5;
+      const MAX_CHUNK_CHARS = 4000;
+      const SIMILARITY_THRESHOLD = 0.2;
 
-      // Get document IDs to filter search scope to only agent's documents
-      const documentIds = documents.map(doc => doc.id).filter(id => id !== undefined);
-      console.log(`Chat: Restricting search to ${documentIds.length} agent documents: [${documentIds.join(', ')}]`);
+      // 1. Rank all chunks by similarity (desc)
+      const rankedChunks = allChunks
+        .filter(chunk => typeof chunk.similarity === "number") // ensure score exists
+        .filter(chunk => chunk.similarity >= SIMILARITY_THRESHOLD) // pass threshold
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, MAX_CHUNKS);
 
-      if (searchType === 'hybrid') {
-        // Use unified search service for consistent behavior across all platforms
-        const { unifiedSearchService } = await import('./unifiedSearchService');
-        const searchResults = await unifiedSearchService.searchDocuments(
-          query,
-          documents[0]?.userId,
-          {
-            searchType: 'hybrid',
-            limit: 2, // Only get top 2 chunks globally as requested
-            keywordWeight,
-            vectorWeight,
-            specificDocumentIds: documentIds // Filter to only agent's documents
-          }
-        );
+      // 2. Trim each chunk's content for safety
+      const promptChunks = rankedChunks.map((chunk, i) =>
+        `--- Chunk #${i + 1} (${chunk.name || "Doc"}, similarity: ${chunk.similarity.toFixed(3)}) ---\n${chunk.content.slice(0, MAX_CHUNK_CHARS)}`
+      );
 
-        if (searchResults.length > 0) {
-          console.log(`Chat: Found ${searchResults.length} hybrid search results`);
-          // Use only top 2 chunks as requested for chatbot integration
-          relevantContent = searchResults
-            .slice(0, 2)
-            .map(result => result.content)
-            .join("\n\n");
-        } else {
-          console.log("Chat: No hybrid search results found, using document content");
-          relevantContent = documents
-            .map(doc => doc.content || doc.summary || '')
-            .filter(content => content.length > 0)
-            .slice(0, 2)
-            .map(content => content.substring(0, 15000))
-            .join("\n\n");
-        }
-      } else {
-        // Fallback to vector search for non-hybrid modes
-        const { vectorService } = await import('./vectorService');
-        const vectorResults = await vectorService.searchDocuments(
-          query, 
-          documents[0]?.userId, 
-          2, // Only get top 2 chunks as requested
-          specificDocumentId ? [specificDocumentId] : documentIds
-        );
+      // 3. Build document context string
+      const documentContext = promptChunks.length > 0
+        ? promptChunks.join("\n\n")
+        : "No highly relevant document chunks found.";
 
-        if (vectorResults.length > 0) {
-          console.log(`Chat: Found ${vectorResults.length} vector results`);
-          // Use top 5 chunks for chatbot integration
-          relevantContent = vectorResults
-            .slice(0, 5)
-            .map(result => result.document.content)
-            .join("\n\n");
-        } else {
-          console.log("Chat: No vector results found, using document content");
-          relevantContent = documents
-            .map(doc => doc.content || doc.summary || '')
-            .filter(content => content.length > 0)
-            .slice(0, 2)
-            .map(content => content.substring(0, 15000))
-            .join("\n\n");
-        }
-      }
-    } catch (searchError) {
-      console.error(`${searchType} search failed:`, searchError);
-      console.log("Chat: Falling back to document content");
-      relevantContent = documents
-        .map(doc => doc.content || doc.summary || '')
-        .filter(content => content.length > 0)
-        .slice(0, 2)
-        .map(content => content.substring(0, 15000))
-        .join("\n\n");
+      // ...use `documentContext` in your system prompt
+
+
+      const systemPrompt = `
+  You are an AI assistant helping users with their document management system.
+  Below are the most relevant document chunks for the current user query.
+
+  ${documentContext}
+
+  Use ONLY these chunks to answer the question below. If the answer cannot be found, say you cannot find it based on the documents.
+      `;
+
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      const messages: ChatCompletionMessageParam[] = [
+          { role: "system", content: systemPrompt },
+          ...chatHistory.map(m => ({
+            role: m.role as "user" | "assistant",
+            content: m.content
+          })),
+          { role: "user", content: query }
+        ];
+
+      // Optional debug
+      console.log("📏 Sending prompt of", systemPrompt.length, "chars (approx", Math.round(systemPrompt.length/4), "tokens)");
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: messages,
+        max_tokens: 700,
+      });
+
+      return (
+        response.choices[0].message.content ||
+        "I'm sorry, I couldn't generate a response at this time."
+      );
+    } catch (error) {
+      console.error("Error generating chat response:", error);
+      return "I'm experiencing some technical difficulties. Please try again later.";
     }
-
-    const systemMessage = `You are an AI assistant helping users with their document management system. You have access to the user's documents and can answer questions about them, help with searches, provide summaries, and assist with document organization.
-
-Available documents:
-${relevantContent}
-`;
-
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: systemMessage,
-        },
-        {
-          role: "user",
-          content: query,
-        },
-      ],
-      max_tokens: 700,
-    });
-
-    return (
-      response.choices[0].message.content ||
-      "I'm sorry, I couldn't generate a response at this time."
-    );
-  } catch (error) {
-    console.error("Error generating chat response:", error);
-    return "I'm experiencing some technical difficulties. Please try again later.";
   }
-}
+
 
 // Utility function to extract JSON from response
 function extractJsonFromResponse(response: string): any {
@@ -585,7 +537,6 @@ ${documentContext}
 
 === คำสั่งสำคัญ ===
 • ใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม
-• ห้ามบอกว่า "ไม่ทราบ" หรือ "ไม่มีข้อมูล" ถ้ามีข้อมูลในเอกสาร
 • ตอบคำถามให้ตรงประเด็นและครบถ้วนจากข้อมูลที่มี
 • ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
 • ระบุแหล่งที่มาของข้อมูลเมื่อเป็นไปได้
