@@ -113,20 +113,23 @@ export class SemanticSearchServiceV2 {
             }
           }
 
+          // Use chunk content if available, otherwise use document content
+          const contentToUse = vectorResult.content || vectorResult.document?.content || doc.content || "";
+
           results.push({
             id: doc.id,
-            name: doc.name,
-            content: doc.content || "",
+            name: doc.name || `Document ${doc.id}`,
+            content: contentToUse,
             summary: doc.summary,
             aiCategory: doc.aiCategory,
             aiCategoryColor: doc.aiCategoryColor,
-            similarity: vectorResult.similarity,
+            similarity: vectorResult.similarity || 0,
             createdAt: doc.createdAt.toISOString(),
             // Include all fields needed for proper display (matching DocumentCard interface)
             categoryId: doc.categoryId,
             tags: doc.tags,
-            fileSize: doc.fileSize, // Use fileSize instead of size
-            mimeType: doc.mimeType, // Use mimeType instead of fileType
+            fileSize: doc.fileSize, // Changed from size to fileSize
+            mimeType: doc.mimeType, // Changed from fileType to mimeType
             isFavorite: doc.isFavorite,
             updatedAt: doc.updatedAt?.toISOString() || null,
             userId: doc.userId
