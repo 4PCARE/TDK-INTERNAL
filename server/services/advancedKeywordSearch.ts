@@ -158,12 +158,19 @@ export class AdvancedKeywordSearchService {
   private calculateDocumentScores(documents: any[], searchTerms: SearchTerm[]): DocumentScore[] {
     const documentScores: DocumentScore[] = [];
 
+    console.log(`📚 Calculating scores for ${documents.length} documents`);
+    console.log(`🔍 Search terms: ${searchTerms.map(t => `"${t.term}" (weight: ${t.weight})`).join(', ')}`);
+
     // Calculate IDF for each search term
     const termIDF = this.calculateIDF(documents, searchTerms);
 
     for (const document of documents) {
       const docText = this.extractDocumentText(document);
       const docTokens = this.tokenizeText(docText);
+
+      console.log(`\n📄 Processing document ID: ${document.id}, Name: "${document.name}"`);
+      console.log(`📝 Extracted text length: ${docText.length} characters`);
+      console.log(`🔤 Token count: ${docTokens.length}`);
 
       const docScore: DocumentScore = {
         documentId: document.id,
@@ -190,27 +197,48 @@ export class AdvancedKeywordSearchService {
             positions: termScore.positions,
             fuzzyMatch: termScore.fuzzyMatch
           });
+          console.log(`✅ Term "${searchTerm.term}" contributed score: ${termScore.score * searchTerm.weight}`);
+        } else {
+          console.log(`❌ Term "${searchTerm.term}" had no matches`);
         }
       }
 
       // Apply document-level boosters
+      const originalScore = docScore.score;
       docScore.score = this.applyDocumentBoosters(document, docScore.score, searchTerms);
+
+      console.log(`📊 Document ${document.id} final score: ${docScore.score.toFixed(4)} (original: ${originalScore.toFixed(4)})`);
 
       if (docScore.score > 0) {
         documentScores.push(docScore);
+        console.log(`✅ Document ${document.id} added to results`);
+      } else {
+        console.log(`❌ Document ${document.id} excluded (score too low)`);
       }
     }
 
+    console.log(`\n📊 Total documents with scores > 0: ${documentScores.length}`);
     return documentScores;
   }
 
   private extractDocumentText(document: any): string {
-    return [
+    const parts = [
       document.name || '',
       document.summary || '',
       document.content || '',
       ...(document.tags || [])
-    ].join(' ').toLowerCase();
+    ];
+    
+    const text = parts.join(' ').toLowerCase();
+    
+    console.log(`📄 Document ${document.id} text extraction:`);
+    console.log(`   Name: "${document.name || 'N/A'}"`);
+    console.log(`   Summary: "${(document.summary || 'N/A').substring(0, 100)}${(document.summary || '').length > 100 ? '...' : ''}"`);
+    console.log(`   Content length: ${(document.content || '').length} chars`);
+    console.log(`   Tags: [${(document.tags || []).join(', ')}]`);
+    console.log(`   Combined text length: ${text.length} chars`);
+    
+    return text;
   }
 
   private tokenizeText(text: string): string[] {
@@ -252,19 +280,29 @@ export class AdvancedKeywordSearchService {
     const positions: number[] = [];
     let exactMatches = 0;
 
+    console.log(`🔍 Calculating term score for: "${term}"`);
+    console.log(`📄 Document text length: ${docText.length}`);
+    console.log(`📝 Document preview: "${docText.substring(0, 200)}..."`);
+    console.log(`🔤 Lowercase term: "${term}"`);
+
     // Simple case-insensitive string matching
     let index = 0;
     while ((index = lowerDocText.indexOf(term, index)) !== -1) {
       positions.push(index);
       exactMatches++;
+      console.log(`✅ Found "${term}" at position ${index}`);
       index += term.length;
     }
+
+    console.log(`📊 Term "${term}": ${exactMatches} exact matches found`);
 
     // Calculate TF (term frequency)
     const tf = exactMatches / Math.max(docTokens.length, 1);
 
     // Calculate TF-IDF score
     const score = tf * idf;
+
+    console.log(`📈 Term "${term}": TF=${tf.toFixed(4)}, IDF=${idf.toFixed(4)}, Score=${score.toFixed(4)}`);
 
     return { score, positions, fuzzyMatch: false };
   }
