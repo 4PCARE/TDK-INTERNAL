@@ -112,7 +112,8 @@ export class UnifiedSearchService {
           limit: options.limit || 2, // Default to 2 chunks globally
           keywordWeight: options.keywordWeight || 0.4,
           vectorWeight: options.vectorWeight || 0.6,
-          specificDocumentIds: options.specificDocumentIds
+          specificDocumentIds: options.specificDocumentIds,
+          searchKeywords: searchKeywords // Pass extracted keywords
         }
       );
 

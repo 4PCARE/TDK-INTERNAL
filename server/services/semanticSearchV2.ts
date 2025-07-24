@@ -33,6 +33,7 @@ export interface SearchOptions {
   keywordWeight?: number;
   vectorWeight?: number;
   specificDocumentIds?: number[];
+  searchKeywords?: string[];
 }
 
 export class SemanticSearchServiceV2 {
@@ -301,7 +302,16 @@ export class SemanticSearchServiceV2 {
 
       // Step 3A: Perform Keyword Search (get ALL results without threshold filtering)
       console.log(`🔍 Step 3A: Performing keyword search...`);
-      const keywordResults = await this.performKeywordSearch(query, userId, { 
+      
+      // Check if we have keywords from query augmentation, use them instead of the full query
+      let keywordSearchQuery = query;
+      if (options.searchKeywords && options.searchKeywords.length > 0) {
+        keywordSearchQuery = options.searchKeywords.join(' ');
+        console.log(`🔑 Using extracted keywords for search: [${options.searchKeywords.join(', ')}]`);
+        console.log(`🔍 Keyword search query: "${keywordSearchQuery}"`);
+      }
+      
+      const keywordResults = await this.performKeywordSearch(keywordSearchQuery, userId, { 
         ...options, 
         limit: limit * 3, // Get more results for combination
         threshold: 0 // Don't filter during individual searches
