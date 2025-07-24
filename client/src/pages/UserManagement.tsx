@@ -38,7 +38,7 @@ import {
   Trash2,
   User
 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/components/Layout/Sidebar";
 import TopBar from "@/components/TopBar";
 import { apiRequest } from "@/lib/queryClient";
 
