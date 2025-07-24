@@ -1,35 +1,29 @@
-import { Document } from "@shared/schema";
-import { vectorService } from './vectorService';
-import { storage } from '../storage';
+import { storage } from './storage';
 
+// Search result interface
 export interface SearchResult {
   id: number;
   name: string;
   content: string;
-  summary?: string | null;
-  aiCategory?: string | null;
-  aiCategoryColor?: string | null;
+  summary: string | null;
+  aiCategory: string | null;
+  aiCategoryColor: string | null;
   similarity: number;
   createdAt: string;
-  // Include all fields needed for proper display (matching DocumentCard interface)
-  categoryId?: number | null;
-  tags?: string[] | null;
-  fileSize?: number; // Changed from size to fileSize
-  mimeType?: string; // Changed from fileType to mimeType
-  isFavorite?: boolean | null;
-  updatedAt?: string | null;
-  userId?: string;
+  categoryId: number | null;
+  tags: string[] | null;
+  fileSize: number | null;
+  mimeType: string | null;
+  isFavorite: boolean;
+  updatedAt: string | null;
+  userId: string;
 }
 
+// Search options interface
 export interface SearchOptions {
-  searchType: 'semantic' | 'keyword' | 'hybrid';
+  searchType?: "semantic" | "keyword" | "hybrid";
   limit?: number;
   threshold?: number;
-  categoryFilter?: string;
-  dateRange?: {
-    from: Date;
-    to: Date;
-  };
   keywordWeight?: number;
   vectorWeight?: number;
   specificDocumentIds?: number[];
@@ -39,24 +33,20 @@ export interface SearchOptions {
 export class SemanticSearchServiceV2 {
   private similarityThreshold = 0.2;
 
-  async searchDocuments(
-    query: string,
-    userId: string,
-    options: SearchOptions
-  ): Promise<SearchResult[]> {
-    const { searchType, limit = 20, threshold = this.similarityThreshold } = options;
+  async search(query: string, userId: string, options: SearchOptions = {}): Promise<SearchResult[]> {
+    const { searchType = "hybrid" } = options;
 
-    try {
-      if (searchType === 'semantic') {
+    console.log(`🔍 SEMANTIC SEARCH V2: query="${query}", type=${searchType}, userId=${userId}`);
+
+    switch (searchType) {
+      case "semantic":
         return await this.performSemanticSearch(query, userId, options);
-      } else if (searchType === 'keyword') {
+      case "keyword":
         return await this.performKeywordSearch(query, userId, options);
-      } else { // hybrid
+      case "hybrid":
         return await this.performHybridSearch(query, userId, options);
-      }
-    } catch (error) {
-      console.error("Error in semantic search:", error);
-      throw error;
+      default:
+        throw new Error(`Unsupported search type: ${searchType}`);
     }
   }
 
@@ -65,92 +55,54 @@ export class SemanticSearchServiceV2 {
     userId: string,
     options: Omit<SearchOptions, "searchType">
   ): Promise<SearchResult[]> {
-    const { limit = 20, threshold = this.similarityThreshold } = options;
-
     try {
-      // Use vector service for semantic search
-      console.log(`SemanticSearchV2: Searching for "${query}" for user ${userId}`);
+      const { vectorService } = await import('./vectorService');
+      const { limit = 20 } = options;
+
+      console.log(`SemanticSearchV2: Performing semantic search for "${query}"`);
+
+      if (options.specificDocumentIds && options.specificDocumentIds.length > 0) {
+        console.log(`SemanticSearchV2: Filtering to specific documents: [${options.specificDocumentIds.join(', ')}]`);
+      }
+
       const vectorResults = await vectorService.searchDocuments(
         query, 
         userId, 
-        limit * 2, 
+        limit, 
         options.specificDocumentIds
       );
-      console.log(`SemanticSearchV2: Vector service returned ${vectorResults.length} results`);
 
-      if (vectorResults.length === 0) {
-        console.log("SemanticSearchV2: No vector results found");
-        return []; // Semantic search should return empty when no vector data
-      }
-
-      // Get unique document IDs from vector results
-      const documentIds = [...new Set(vectorResults.map(result => 
-        parseInt(result.document.metadata.originalDocumentId || result.document.id)
-      ))];
-
-      // Get document details from storage
+      // Get all documents for mapping
       const documents = await storage.getDocuments(userId, { limit: 1000 });
       const docMap = new Map(documents.map(doc => [doc.id, doc]));
 
-      // Combine vector results with document data
-      const results: SearchResult[] = [];
-      const processedDocs = new Set<number>();
+      const results: SearchResult[] = vectorResults.map(result => {
+        const originalDocId = parseInt(result.document.metadata?.originalDocumentId || result.document.id);
+        const doc = docMap.get(originalDocId);
+        
+        if (!doc) return null;
 
-      for (const vectorResult of vectorResults) {
-        const originalDocId = vectorResult.document.metadata?.originalDocumentId || vectorResult.document.id;
-        const docId = originalDocId ? parseInt(originalDocId) : null;
+        return {
+          id: originalDocId,
+          name: doc.name,
+          content: result.document.content,
+          summary: doc.summary,
+          aiCategory: doc.aiCategory,
+          aiCategoryColor: doc.aiCategoryColor,
+          similarity: result.similarity,
+          createdAt: doc.createdAt.toISOString(),
+          categoryId: doc.categoryId,
+          tags: doc.tags,
+          fileSize: doc.fileSize,
+          mimeType: doc.mimeType,
+          isFavorite: doc.isFavorite,
+          updatedAt: doc.updatedAt?.toISOString() || null,
+          userId: doc.userId
+        };
+      }).filter(result => result !== null);
 
-        if (!docId) {
-          console.warn("SemanticSearchV2: Skipping vector result with no document ID");
-          continue;
-        }
-
-        const doc = docMap.get(docId);
-
-        if (doc && vectorResult.similarity >= 0 && !processedDocs.has(docId)) { // Always include results, filter later
-          // Apply filters
-          if (options.categoryFilter && options.categoryFilter !== "all" && 
-              doc.aiCategory !== options.categoryFilter) {
-            continue;
-          }
-
-          if (options.dateRange) {
-            const docDate = new Date(doc.createdAt);
-            if (docDate < options.dateRange.from || docDate > options.dateRange.to) {
-              continue;
-            }
-          }
-
-          // Use chunk content if available, otherwise use document content
-          const contentToUse = vectorResult.content || vectorResult.document?.content || doc.content || "";
-
-          results.push({
-            id: doc.id,
-            name: doc.name || `Document ${doc.id}`,
-            content: contentToUse,
-            summary: doc.summary,
-            aiCategory: doc.aiCategory,
-            aiCategoryColor: doc.aiCategoryColor,
-            similarity: vectorResult.similarity || 0,
-            createdAt: doc.createdAt.toISOString(),
-            // Include all fields needed for proper display (matching DocumentCard interface)
-            categoryId: doc.categoryId,
-            tags: doc.tags,
-            fileSize: doc.fileSize, // Changed from size to fileSize
-            mimeType: doc.mimeType, // Changed from fileType to mimeType
-            isFavorite: doc.isFavorite,
-            updatedAt: doc.updatedAt?.toISOString() || null,
-            userId: doc.userId
-          });
-
-          processedDocs.add(docId);
-        }
-      }
-
-      // Sort by similarity and limit results
-      return results
-        .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, limit);
+      console.log(`SemanticSearchV2: Found ${results.length} semantic results`);
+      return results;
 
     } catch (error) {
       console.error("Error performing semantic search:", error);
@@ -164,106 +116,46 @@ export class SemanticSearchServiceV2 {
     options: Omit<SearchOptions, "searchType">
   ): Promise<SearchResult[]> {
     try {
-      // Use the new advanced keyword search service
-      const { advancedKeywordSearchService } = await import('./advancedKeywordSearch');
-      const results = await advancedKeywordSearchService.searchDocuments(
-        query,
-        userId,
-        options.limit || 20,
-        options.specificDocumentIds
-      );
+      const { limit = 20, threshold = this.similarityThreshold } = options;
 
-      // Convert to the expected SearchResult format
-      const searchResults: SearchResult[] = results.map(result => ({
-        id: result.id,
-        name: result.name,
-        content: result.content,
-        summary: result.summary,
-        aiCategory: result.aiCategory,
-        aiCategoryColor: null, // Will be filled from original document if available
-        similarity: result.similarity,
-        createdAt: result.createdAt,
-        categoryId: null,
-        tags: null,
-        fileSize: null,
-        mimeType: null,
-        isFavorite: null,
-        updatedAt: null,
-        userId: userId
-      }));
+      console.log(`SemanticSearchV2: Performing keyword search for "${query}"`);
 
-      // Get full document details to fill missing fields
       const documents = await storage.getDocuments(userId, { limit: 1000 });
-      const docMap = new Map(documents.map(doc => [doc.id, doc]));
-
-      // Fill in missing fields from original documents
-      searchResults.forEach(result => {
-        const originalDoc = docMap.get(result.id);
-        if (originalDoc) {
-          result.aiCategoryColor = originalDoc.aiCategoryColor;
-          result.categoryId = originalDoc.categoryId;
-          result.tags = originalDoc.tags;
-          result.fileSize = originalDoc.fileSize;
-          result.mimeType = originalDoc.mimeType;
-          result.isFavorite = originalDoc.isFavorite;
-          result.updatedAt = originalDoc.updatedAt?.toISOString() || null;
-        }
-      });
-
-      console.log(`Advanced keyword search returned ${searchResults.length} results`);
-      return searchResults;
-
-    } catch (error) {
-      console.error("Error performing advanced keyword search:", error);
-      // Fallback to basic search if advanced search fails
-      return this.performBasicKeywordSearch(query, userId, options);
-    }
-  }
-
-  private async performBasicKeywordSearch(
-    query: string,
-    userId: string,
-    options: Omit<SearchOptions, "searchType">
-  ): Promise<SearchResult[]> {
-    try {
-      let documents = await storage.searchDocuments(userId, query);
-
-      // Filter by specific document IDs if provided
+      
+      let filteredDocuments = documents;
       if (options.specificDocumentIds && options.specificDocumentIds.length > 0) {
-        documents = documents.filter(doc => options.specificDocumentIds!.includes(doc.id));
-        console.log(`Filtered to ${documents.length} documents from specific IDs: [${options.specificDocumentIds.join(', ')}]`);
+        filteredDocuments = documents.filter(doc => options.specificDocumentIds.includes(doc.id));
+        console.log(`SemanticSearchV2: Filtered to ${filteredDocuments.length} specific documents`);
       }
 
-      // Calculate keyword matching score for each document
-      const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+      const queryTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
 
-      return documents.map(doc => {
-        // Calculate how many keywords match in this document
-        const docText = [
-          doc.name || "",
-          doc.content || "",
-          doc.summary || "",
-          doc.aiCategory || "",
-          ...(doc.tags || [])
-        ].join(" ").toLowerCase();
+      const results = filteredDocuments.map(doc => {
+        const contentLower = (doc.content || '').toLowerCase();
+        const titleLower = doc.name.toLowerCase();
+        const summaryLower = (doc.summary || '').toLowerCase();
+        const tagsLower = (doc.tags || []).join(' ').toLowerCase();
 
-        const matchingTerms = searchTerms.filter(term => 
-          docText.includes(term.toLowerCase())
-        );
+        let matches = 0;
+        const totalTerms = queryTerms.length;
 
-        // Calculate similarity score based on keyword match ratio
-        const similarity = matchingTerms.length / searchTerms.length;
+        queryTerms.forEach(term => {
+          if (contentLower.includes(term) || titleLower.includes(term) || 
+              summaryLower.includes(term) || tagsLower.includes(term)) {
+            matches++;
+          }
+        });
 
-        console.log(`Document ${doc.id}: ${matchingTerms.length}/${searchTerms.length} keywords matched, similarity: ${similarity.toFixed(2)}`);
+        const similarity = totalTerms > 0 ? matches / totalTerms : 0;
 
         return {
           id: doc.id,
           name: doc.name,
-          content: doc.content || "",
+          content: doc.content || '',
           summary: doc.summary,
           aiCategory: doc.aiCategory,
           aiCategoryColor: doc.aiCategoryColor,
-          similarity: similarity,
+          similarity,
           createdAt: doc.createdAt.toISOString(),
           categoryId: doc.categoryId,
           tags: doc.tags,
@@ -273,9 +165,15 @@ export class SemanticSearchServiceV2 {
           updatedAt: doc.updatedAt?.toISOString() || null,
           userId: doc.userId
         };
-      }).sort((a, b) => b.similarity - a.similarity);
+      }).filter(result => result.similarity >= threshold)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, limit);
+
+      console.log(`SemanticSearchV2: Found ${results.length} keyword results`);
+      return results;
+
     } catch (error) {
-      console.error("Error performing basic keyword search:", error);
+      console.error("Error performing keyword search:", error);
       throw new Error("Failed to perform keyword search");
     }
   }
@@ -292,257 +190,185 @@ export class SemanticSearchServiceV2 {
       vectorWeight = 0.6
     } = options;
 
-    console.log(`🔍 HYBRID SEARCH WORKFLOW: Starting for "${query}"`);
-    console.log(`⚖️ WEIGHTS: Keyword=${keywordWeight}, Vector=${vectorWeight}, Threshold=${threshold}`);
+    console.log(`🔍 NEW HYBRID SEARCH WORKFLOW: Starting for "${query}"`);
+    console.log(`📋 NEW APPROACH: Vector search + nearby strings (no keyword search)`);
 
     try {
+      const { vectorService } = await import('./vectorService');
+      
       // Get documents for mapping vector results to proper document data
       const documents = await storage.getDocuments(userId, { limit: 1000 });
       const docMap = new Map(documents.map(doc => [doc.id, doc]));
 
-      // Step 3A: Perform Keyword Search (get ALL results without threshold filtering)
-      console.log(`🔍 Step 3A: Performing keyword search...`);
-      
-      // Check if we have keywords from query augmentation, use them instead of the full query
-      let keywordSearchQuery = query;
-      if (options.searchKeywords && options.searchKeywords.length > 0) {
-        keywordSearchQuery = options.searchKeywords.join(' ');
-        console.log(`🔑 Using extracted keywords for search: [${options.searchKeywords.join(', ')}]`);
-        console.log(`🔍 Keyword search query: "${keywordSearchQuery}"`);
-      }
-      
-      const keywordResults = await this.performKeywordSearch(keywordSearchQuery, userId, { 
-        ...options, 
-        limit: limit * 3, // Get more results for combination
-        threshold: 0 // Don't filter during individual searches
-      });
-      console.log(`✅ Step 3A Complete: Found ${keywordResults.length} keyword results`);
-
-      // Step 3B: Semantic/Vector Search
-      console.log(`🔍 Step 3B: Performing semantic/vector search...`);
-      console.log(`SemanticSearchV2: Searching for "${query}" for user ${userId}`);
+      // Step 1: Get Vector Search Results
+      console.log(`🔍 Step 1: Performing vector search...`);
 
       if (options.specificDocumentIds && options.specificDocumentIds.length > 0) {
-        console.log(`🎯 SemanticSearchV2: Passing document ID filter to vector service: [${options.specificDocumentIds.join(', ')}]`);
+        console.log(`🎯 Passing document ID filter to vector service: [${options.specificDocumentIds.join(', ')}]`);
       } else {
-        console.log(`⚠️ SemanticSearchV2: No document ID filter - will search ALL user documents`);
+        console.log(`⚠️ No document ID filter - will search ALL user documents`);
       }
 
-      // Use vector search for semantic similarity (increase limit to find more chunks)
+      // Use vector search for semantic similarity
       const vectorResults = await vectorService.searchDocuments(
         query, 
         userId, 
-        Math.max(limit * 3, 50), // Get more chunks to ensure we don't miss relevant ones like chunk 31
+        Math.max(limit * 3, 50), // Get more chunks for better coverage
         options.specificDocumentIds // Pass document filtering to vector service
       );
-      console.log(`✅ Step 3B Complete: Found ${vectorResults.length} semantic results`);
+      console.log(`✅ Step 1 Complete: Found ${vectorResults.length} vector results`);
 
-      // Step 4: Aggregate scores with weighted calculation for each chunk
-      console.log(`🔍 Step 4: Aggregating scores with weighted calculation...`);
-      const combinedResults = new Map<number, SearchResult>();
-
-      // Process semantic results first (apply vector weight)
-      vectorResults.forEach(result => {
-        const originalDocId = parseInt(result.document.metadata?.originalDocumentId || result.document.id);
-        const chunkIndex = result.document.metadata?.chunkIndex || result.document.chunkIndex || 0;
-        const weightedScore = result.similarity * vectorWeight;
-        console.log(`📊 Vector: Doc ${originalDocId} (chunk ${chunkIndex}) = ${result.similarity.toFixed(3)} × ${vectorWeight} = ${weightedScore.toFixed(3)}`);
-
-        const doc = docMap.get(originalDocId);
-        if (doc) {
-          combinedResults.set(originalDocId, {
-            id: originalDocId,
-            name: doc.name,
-            content: result.document.content,
-            summary: doc.summary,
-            aiCategory: doc.aiCategory,
-            aiCategoryColor: doc.aiCategoryColor,
-            similarity: weightedScore,
-            createdAt: doc.createdAt.toISOString(),
-            categoryId: doc.categoryId,
-            tags: doc.tags,
-            fileSize: doc.fileSize,
-            mimeType: doc.mimeType,
-            isFavorite: doc.isFavorite,
-            updatedAt: doc.updatedAt?.toISOString() || null,
-            userId: doc.userId
-          });
-        }
-      });
-
-      // Process keyword results and combine (apply keyword weight)
-      keywordResults.forEach(result => {
-        const weightedKeywordScore = result.similarity * keywordWeight;
-        
-        // Find the corresponding vector result to get chunk info
-        const vectorResult = vectorResults.find(vr => 
-          parseInt(vr.document.metadata?.originalDocumentId || vr.document.id) === result.id
-        );
-        const chunkIndex = vectorResult?.document.metadata?.chunkIndex || vectorResult?.document.chunkIndex || 0;
-        
-        console.log(`📊 Keyword: Doc ${result.id} (chunk ${chunkIndex}) = ${result.similarity.toFixed(3)} × ${keywordWeight} = ${weightedKeywordScore.toFixed(3)}`);
-
-        const existing = combinedResults.get(result.id);
-        if (existing) {
-          // Combine both weighted scores
-          const finalScore = existing.similarity + weightedKeywordScore;
-          console.log(`📊 Combined: Doc ${result.id} (chunk ${chunkIndex}) = ${existing.similarity.toFixed(3)} + ${weightedKeywordScore.toFixed(3)} = ${finalScore.toFixed(3)}`);
-          existing.similarity = finalScore;
-        } else {
-          // Only keyword match (no vector score)
-          console.log(`📊 Keyword Only: Doc ${result.id} (chunk ${chunkIndex}) = ${weightedKeywordScore.toFixed(3)}`);
-          combinedResults.set(result.id, {
-            ...result,
-            similarity: weightedKeywordScore
-          });
-        }
-      });
-
-      console.log(`✅ Step 4 Complete: Aggregated ${combinedResults.size} unique documents`);
-
-      // Step 5: Filtering out low-score chunks (below threshold)
-      console.log(`🔍 Step 5: Filtering chunks below threshold ${threshold}...`);
+      // Step 2: Extract keywords for nearby string search
+      console.log(`🔍 Step 2: Extracting keywords for nearby string search...`);
       
-      // For filtering, we need to go back to individual chunks, not aggregated documents
-      const chunkResults: Array<{result: SearchResult, vectorResult?: any, chunkIndex: number}> = [];
+      let searchKeywords = [];
+      if (options.searchKeywords && options.searchKeywords.length > 0) {
+        searchKeywords = options.searchKeywords;
+        console.log(`🔑 Using augmented keywords: [${searchKeywords.join(', ')}]`);
+      } else {
+        searchKeywords = query.toLowerCase().split(/\s+/).filter(term => term.length > 1);
+        console.log(`🔑 Using query keywords: [${searchKeywords.join(', ')}]`);
+      }
+
+      // Step 3: Process each vector result to extract nearby strings for keyword matches
+      console.log(`🔍 Step 3: Processing chunks for nearby string extraction...`);
       
-      // Add vector results as individual chunks
-      vectorResults.forEach(vr => {
+      const enhancedResults = vectorResults.map(vr => {
+        const chunkContent = vr.document.content;
+        const chunkContentLower = chunkContent.toLowerCase();
         const originalDocId = parseInt(vr.document.metadata?.originalDocumentId || vr.document.id);
         const chunkIndex = vr.document.metadata?.chunkIndex || vr.document.chunkIndex || 0;
         const doc = docMap.get(originalDocId);
         
-        if (doc) {
-          const weightedVectorScore = vr.similarity * vectorWeight;
+        if (!doc) return null;
+        
+        let keywordBoost = 0;
+        let nearbyStrings = [];
+        let hasExactMatch = false;
+        
+        // Check for keyword matches and extract nearby strings
+        searchKeywords.forEach(keyword => {
+          const keywordLower = keyword.toLowerCase();
+          const index = chunkContentLower.indexOf(keywordLower);
           
-          // Check if this chunk also has keyword score
-          const keywordResult = keywordResults.find(kr => kr.id === originalDocId);
-          let weightedKeywordScore = keywordResult ? (keywordResult.similarity * keywordWeight) : 0;
-          
-          // Boost keyword score for exact store matches in the chunk content
-          const chunkContent = vr.document.content.toLowerCase();
-          const storeKeywords = ['xolo', 'kamu', 'ชั้น', 'floor', 'บางกะปิ', 'bangkapi'];
-          const hasExactStoreMatch = storeKeywords.some(keyword => chunkContent.includes(keyword));
-          
-          if (hasExactStoreMatch && weightedKeywordScore > 0) {
-            weightedKeywordScore = Math.min(0.6, weightedKeywordScore + 0.3); // Significant boost for exact matches
-            console.log(`🏪 Store Boost: Chunk ${chunkIndex} boosted keyword score to ${weightedKeywordScore.toFixed(3)} for exact store match`);
+          if (index !== -1) {
+            hasExactMatch = true;
+            
+            // Extract nearby string (150 chars before and after the keyword)
+            const start = Math.max(0, index - 150);
+            const end = Math.min(chunkContent.length, index + keywordLower.length + 150);
+            const nearbyString = chunkContent.substring(start, end);
+            
+            nearbyStrings.push({
+              keyword: keyword,
+              context: nearbyString,
+              position: index,
+              matchLength: keywordLower.length
+            });
+            
+            // Base keyword boost
+            keywordBoost += 0.2;
+            
+            console.log(`📍 Found "${keyword}" in chunk ${chunkIndex} at position ${index}`);
+            console.log(`📝 Context: "${nearbyString.substring(0, 100)}..."`);
           }
-          
-          const finalScore = weightedVectorScore + weightedKeywordScore;
-          
-          chunkResults.push({
-            result: {
-              id: originalDocId,
-              name: doc.name,
-              content: vr.document.content,
-              summary: doc.summary,
-              aiCategory: doc.aiCategory,
-              aiCategoryColor: doc.aiCategoryColor,
-              similarity: finalScore,
-              createdAt: doc.createdAt.toISOString(),
-              categoryId: doc.categoryId,
-              tags: doc.tags,
-              fileSize: doc.fileSize,
-              mimeType: doc.mimeType,
-              isFavorite: doc.isFavorite,
-              updatedAt: doc.updatedAt?.toISOString() || null,
-              userId: doc.userId
-            },
-            vectorResult: vr,
-            chunkIndex: chunkIndex
-          });
+        });
+        
+        // Special boost for store location keywords
+        const storeKeywords = ['xolo', 'kamu', 'ชั้น', 'floor', 'บางกะปิ', 'bangkapi', 'level'];
+        const hasStoreKeyword = storeKeywords.some(storeKeyword => 
+          searchKeywords.some(searchKeyword => 
+            searchKeyword.toLowerCase().includes(storeKeyword) || storeKeyword.includes(searchKeyword.toLowerCase())
+          ) && chunkContentLower.includes(storeKeyword)
+        );
+        
+        if (hasStoreKeyword) {
+          keywordBoost += 0.3;
+          console.log(`🏪 Store keyword boost applied to chunk ${chunkIndex}: +0.3`);
         }
-      });
+        
+        // Calculate final score combining vector similarity and keyword boost
+        const finalScore = vr.similarity + keywordBoost;
+        
+        return {
+          id: originalDocId,
+          name: doc.name,
+          content: chunkContent, // Use full chunk content
+          summary: doc.summary,
+          aiCategory: doc.aiCategory,
+          aiCategoryColor: doc.aiCategoryColor,
+          similarity: finalScore,
+          createdAt: doc.createdAt.toISOString(),
+          categoryId: doc.categoryId,
+          tags: doc.tags,
+          fileSize: doc.fileSize,
+          mimeType: doc.mimeType,
+          isFavorite: doc.isFavorite,
+          updatedAt: doc.updatedAt?.toISOString() || null,
+          userId: doc.userId,
+          // Additional metadata for debugging
+          chunkIndex,
+          originalSimilarity: vr.similarity,
+          keywordBoost,
+          hasExactMatch,
+          nearbyStrings
+        };
+      }).filter(result => result !== null);
+
+      console.log(`✅ Step 3 Complete: Enhanced ${enhancedResults.length} chunks with nearby strings`);
+
+      // Step 4: Filter results with dynamic threshold
+      console.log(`🔍 Step 4: Filtering with dynamic threshold...`);
       
-      // Filter each chunk individually with special handling for exact store matches
-      const passedChunks = chunkResults.filter(chunkData => {
+      const filteredResults = enhancedResults.filter(result => {
         let dynamicThreshold = threshold;
         
-        // Check if this chunk contains exact store keywords - lower threshold for exact matches
-        const content = chunkData.result.content.toLowerCase();
-        const storeKeywords = ['xolo', 'kamu', 'ชั้น', 'floor', 'บางกะปิ', 'bangkapi', 'level'];
-        const hasExactStoreMatch = storeKeywords.some(keyword => content.includes(keyword));
-        
-        if (hasExactStoreMatch) {
-          dynamicThreshold = Math.min(threshold, 0.1); // Lower threshold for store matches
-          console.log(`🏪 Store Match: Chunk ${chunkData.chunkIndex} contains store keywords, using lower threshold ${dynamicThreshold}`);
+        // Lower threshold for exact keyword matches (especially store keywords)
+        if (result.hasExactMatch) {
+          const hasStoreContext = result.nearbyStrings.some(ns => 
+            ['xolo', 'kamu', 'ชั้น', 'floor', 'บางกะปิ', 'bangkapi'].some(store => 
+              ns.context.toLowerCase().includes(store)
+            )
+          );
+          
+          if (hasStoreContext) {
+            dynamicThreshold = Math.min(threshold, 0.1); // Much lower for store matches
+            console.log(`🏪 Store match: Using lower threshold ${dynamicThreshold} for chunk ${result.chunkIndex}`);
+          } else {
+            dynamicThreshold = Math.min(threshold, 0.15); // Lower for any exact match
+            console.log(`🔑 Keyword match: Using lower threshold ${dynamicThreshold} for chunk ${result.chunkIndex}`);
+          }
         }
         
-        const passed = chunkData.result.similarity >= dynamicThreshold;
-        console.log(`🎯 Filter: Chunk ${chunkData.chunkIndex} from Doc ${chunkData.result.id} score=${chunkData.result.similarity.toFixed(3)} threshold=${dynamicThreshold.toFixed(2)} ${passed ? '✅ PASS' : '❌ REJECT'}`);
+        const passed = result.similarity >= dynamicThreshold;
+        console.log(`🎯 Filter: Chunk ${result.chunkIndex} score=${result.similarity.toFixed(3)} threshold=${dynamicThreshold.toFixed(2)} ${passed ? '✅ PASS' : '❌ REJECT'}`);
         
-        // Additional debug for XOLO specifically
-        if (content.includes('xolo')) {
-          console.log(`🔍 XOLO CHUNK FILTER: score=${chunkData.result.similarity.toFixed(3)}, threshold=${dynamicThreshold.toFixed(2)}, passed=${passed}`);
-          console.log(`🔍 XOLO CONTENT PREVIEW: ${content.substring(0, 200)}...`);
+        // Debug XOLO specifically
+        if (result.content.toLowerCase().includes('xolo')) {
+          console.log(`🔍 XOLO CHUNK: ${passed ? 'PASSED' : 'REJECTED'} - score=${result.similarity.toFixed(3)}, threshold=${dynamicThreshold.toFixed(2)}`);
+          if (result.nearbyStrings.length > 0) {
+            result.nearbyStrings.forEach(ns => {
+              console.log(`   📝 XOLO context: "${ns.context.substring(0, 150)}..."`);
+            });
+          }
         }
         
         return passed;
       });
 
-      console.log(`✅ Step 5 Complete: ${chunkResults.length} chunks → ${passedChunks.length} chunks passed filter`);
-      
-      // Convert back to SearchResult array and take top results
-      const afterFilter = passedChunks.map(chunkData => chunkData.result);
+      console.log(`✅ Step 4 Complete: ${enhancedResults.length} chunks → ${filteredResults.length} chunks passed filter`);
 
-      // Step 6: Sort by final score and limit results for ChatAgent
-      const finalResults = afterFilter
+      // Step 5: Sort by final score and return top results
+      const finalResults = filteredResults
         .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, limit);
-
-      // Debug: Log top results with similarity scores and check for XOLO
-      console.log(`Debug: Top 5 hybrid search results for "${query}":`);
-      finalResults.slice(0, 5).forEach((result, index) => {
-        // Find the corresponding vector result to get actual chunk info
-        const vectorResult = vectorResults.find(vr => 
-          parseInt(vr.document.metadata?.originalDocumentId || vr.document.id) === result.id
-        );
-        const actualChunkIndex = vectorResult?.document.metadata?.chunkIndex || vectorResult?.document.chunkIndex || 'unknown';
-        
-        console.log(`${index + 1}. Doc ID: ${result.id} (chunk ${actualChunkIndex}), Similarity: ${result.similarity.toFixed(4)}`);
-        console.log(`   Content: ${result.content.substring(0, 300)}...`);
-
-        // Check for XOLO in various formats (case insensitive and more variations)
-        const content = result.content.toLowerCase();
-        const xoloVariations = ['xolo', 'โซโล่', 'โซโลว์', 'โซโล', 'solo', 'xolo.', 'xolo,', 'xolo '];
-        const hasXolo = xoloVariations.some(variation => content.includes(variation));
-        
-        if (hasXolo) {
-          console.log(`   *** FOUND XOLO CHUNK *** - Contains XOLO reference`);
-          // Show which variation was found
-          const foundVariations = xoloVariations.filter(variation => content.includes(variation));
-          console.log(`   Found variations: ${foundVariations.join(', ')}`);
-        } else {
-          console.log(`   No XOLO reference found in this chunk`);
-        }
-      });
-
-      // Additional debug: Check if chunk 31 exists in vector results
-      console.log(`\n🔍 DEBUG: Checking for chunk 31 in all vector results...`);
-      const chunk31Results = vectorResults.filter(vr => {
-        const chunkIndex = vr.document.metadata?.chunkIndex || vr.document.chunkIndex;
-        return chunkIndex === 31 || chunkIndex === '31';
-      });
-      
-      if (chunk31Results.length > 0) {
-        console.log(`✅ Found chunk 31 in vector results:`);
-        chunk31Results.forEach((result, idx) => {
-          const docId = parseInt(result.document.metadata?.originalDocumentId || result.document.id);
-          console.log(`   Chunk 31 from Doc ${docId}: Similarity ${result.similarity.toFixed(4)}`);
-          console.log(`   Content preview: ${result.document.content.substring(0, 500)}...`);
-          
-          // Check for XOLO in chunk 31
-          const content = result.document.content.toLowerCase();
-          const xoloVariations = ['xolo', 'โซโล่', 'โซโลว์', 'โซโล', 'solo'];
-          const hasXolo = xoloVariations.some(variation => content.includes(variation));
-          console.log(`   Contains XOLO: ${hasXolo}`);
+        .slice(0, limit)
+        .map(result => {
+          // Remove the extra metadata for final response
+          const { chunkIndex, originalSimilarity, keywordBoost, hasExactMatch, nearbyStrings, ...cleanResult } = result;
+          return cleanResult;
         });
-      } else {
-        console.log(`❌ Chunk 31 not found in vector results (total ${vectorResults.length} chunks returned)`);
-      }
 
-      console.log(`✅ HYBRID SEARCH COMPLETE: Returning ${finalResults.length} chunks for ChatAgent`);
+      console.log(`✅ NEW HYBRID SEARCH COMPLETE: Returning ${finalResults.length} chunks`);
       finalResults.forEach((result, index) => {
         console.log(`${index + 1}. Doc ${result.id}: "${result.name}" (final score: ${result.similarity.toFixed(3)})`);
       });
@@ -550,105 +376,8 @@ export class SemanticSearchServiceV2 {
       return finalResults;
 
     } catch (error) {
-      console.error("❌ Error performing hybrid search:", error);
-      throw new Error("Failed to perform hybrid search");
-    }
-  }
-
-  private async performChunkLevelHybridSearch(
-    query: string,
-    userId: string,
-    options: Omit<SearchOptions, "searchType">,
-    keywordWeight: number,
-    vectorWeight: number
-  ): Promise<SearchResult[]> {
-    try {
-      const { vectorService } = await import('./vectorService');
-
-      // Get vector chunk results (already returns top chunks globally)
-      const vectorResults = await vectorService.searchDocuments(
-        query, 
-        userId, 
-        options.limit || 100, // Use the full limit passed from caller
-        options.specificDocumentIds
-      );
-
-      console.log(`Hybrid search: Got ${vectorResults.length} vector chunk results`);
-
-      // Extract search terms for keyword scoring
-      const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
-
-      // Calculate hybrid scores for each chunk
-      const hybridResults = vectorResults.map(result => {
-        const chunkText = result.document.content.toLowerCase();
-
-        // Calculate keyword score (how many terms match in this chunk)
-        const matchingTerms = searchTerms.filter(term => chunkText.includes(term));
-        const keywordScore = matchingTerms.length / searchTerms.length;
-
-        // Boost keyword score if it's a store location query (like "XOLO Bangkapi")
-        let boostedKeywordScore = keywordScore;
-        const storeKeywords = ['xolo', 'kamu', 'floor', 'ชั้น', 'บางกะปิ', 'bangkapi'];
-        const hasStoreKeyword = searchTerms.some(term => 
-          storeKeywords.some(storeKeyword => term.includes(storeKeyword) || storeKeyword.includes(term))
-        );
-        if (hasStoreKeyword && keywordScore > 0.5) {
-          boostedKeywordScore = Math.min(1.0, keywordScore + 0.3);
-        }
-
-        // Combine vector and keyword scores with weights
-        const hybridScore = (result.similarity * vectorWeight) + (boostedKeywordScore * keywordWeight);
-
-        return {
-          vectorResult: result,
-          hybridScore: hybridScore,
-          keywordScore: boostedKeywordScore
-        };
-      })
-      .sort((a, b) => b.hybridScore - a.hybridScore)
-      .slice(0, options.limit || 2); // Take only top N chunks globally
-
-      console.log(`Hybrid search: Selected top ${hybridResults.length} chunks globally`);
-
-      // Convert back to SearchResult format
-      const finalResults: SearchResult[] = [];
-
-      // Log summary instead of individual chunks
-      console.log(`Hybrid search: Processed ${hybridResults.length} chunks, top score: ${hybridResults[0]?.hybridScore.toFixed(3) || 'N/A'}`);
-
-      for (const hybridResult of hybridResults) {
-        const originalDocId = parseInt(hybridResult.vectorResult.document.metadata.originalDocumentId);
-
-        // Get original document metadata
-        const documents = await storage.getDocuments(userId, { limit: 1000 });
-        const originalDoc = documents.find(doc => doc.id === originalDocId);
-
-        if (originalDoc) {
-          finalResults.push({
-            id: originalDocId,
-            name: originalDoc.name,
-            content: hybridResult.vectorResult.document.content, // Use chunk content
-            summary: originalDoc.summary,
-            aiCategory: originalDoc.aiCategory,
-            aiCategoryColor: originalDoc.aiCategoryColor,
-            similarity: hybridResult.hybridScore,
-            createdAt: originalDoc.createdAt.toISOString(),
-            categoryId: originalDoc.categoryId,
-            tags: originalDoc.tags,
-            fileSize: originalDoc.fileSize,
-            mimeType: originalDoc.mimeType,
-            isFavorite: originalDoc.isFavorite,
-            updatedAt: originalDoc.updatedAt?.toISOString() || null,
-            userId: originalDoc.userId
-          });
-        }
-      }
-
-      return finalResults;
-
-    } catch (error) {
-      console.error("Error performing chunk-level hybrid search:", error);
-      throw new Error("Failed to perform chunk-level hybrid search");
+      console.error("❌ Error performing new hybrid search:", error);
+      throw new Error("Failed to perform new hybrid search");
     }
   }
 }
