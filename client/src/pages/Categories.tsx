@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/components/Layout/Sidebar";
 import TopBar from "@/components/TopBar";
 import ChatModal from "@/components/Chat/ChatModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -216,6 +216,9 @@ export default function Categories() {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar 
+        isMobileOpen={isMobileMenuOpen}
+        onMobileClose={() => setIsMobileMenuOpen(false)}
+        onOpenChat={() => setIsChatModalOpen(true)}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
