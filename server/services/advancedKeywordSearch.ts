@@ -1,3 +1,4 @@
+
 import { storage } from '../storage';
 
 interface SearchTerm {
@@ -5,8 +6,10 @@ interface SearchTerm {
   weight: number;
 }
 
-interface DocumentScore {
+interface ChunkScore {
   documentId: number;
+  chunkIndex: number;
+  chunkContent: string;
   score: number;
   matchedTerms: string[];
   matchDetails: Array<{
@@ -30,6 +33,9 @@ export class AdvancedKeywordSearchService {
     'ทำไม', 'อย่างไร', 'ใคร', 'ขอ', 'ช่วย', 'บอก', 'ดู', 'อยู่', 'เอา', 'ลอง', 'ให้',
     'หา', 'ต้อง', 'อยาก', 'ไม่', 'ไม่ได้', 'ไม่มี', 'แล้ว', 'เลย', 'เดี๋ยว', 'เอง'
   ]);
+
+  private chunkSize = 3000; // Characters per chunk
+  private chunkOverlap = 300; // Overlap between chunks
 
   async searchDocuments(
     query: string,
@@ -67,33 +73,33 @@ export class AdvancedKeywordSearchService {
       const significantTerms = searchTerms.filter(t => t.weight >= 1.0).map(t => t.term);
       console.log(`🔑 Keywords: [${significantTerms.join(', ')}]`);
 
-      // Calculate document scores using simple string matching
-      const documentScores = this.calculateDocumentScores(documents, searchTerms);
+      // Calculate chunk scores using chunk-level search
+      const chunkScores = this.calculateChunkScores(documents, searchTerms);
 
       // Sort by relevance and limit results
-      documentScores.sort((a, b) => b.score - a.score);
-      const topDocuments = documentScores.slice(0, limit);
+      chunkScores.sort((a, b) => b.score - a.score);
+      const topChunks = chunkScores.slice(0, limit);
 
-      // Format results
-      const results = topDocuments
-        .filter(doc => doc.score > 0) // Only return documents with matches
-        .map(docScore => {
-          const document = documents.find(d => d.id === docScore.documentId)!;
+      // Format results as chunks (similar to vector search results)
+      const results = topChunks
+        .filter(chunk => chunk.score > 0) // Only return chunks with matches
+        .map(chunkScore => {
+          const document = documents.find(d => d.id === chunkScore.documentId)!;
 
           return {
             id: document.id,
             name: document.name,
-            content: document.content || '',
+            content: chunkScore.chunkContent,
             summary: document.summary,
             aiCategory: document.aiCategory,
-            similarity: Math.min(docScore.score / 10, 1.0), // Normalize to 0-1
+            similarity: Math.min(chunkScore.score / 10, 1.0), // Normalize to 0-1
             createdAt: document.createdAt.toISOString(),
-            matchedTerms: docScore.matchedTerms,
-            matchDetails: docScore.matchDetails
+            matchedTerms: chunkScore.matchedTerms,
+            matchDetails: chunkScore.matchDetails
           };
         });
 
-      console.log(`Advanced keyword search returned ${results.length} results`);
+      console.log(`Advanced keyword search returned ${results.length} chunk results`);
       return results;
 
     } catch (error) {
@@ -149,63 +155,96 @@ export class AdvancedKeywordSearchService {
     return terms;
   }
 
-  private calculateDocumentScores(documents: any[], searchTerms: SearchTerm[]): DocumentScore[] {
-    const documentScores: DocumentScore[] = [];
+  private calculateChunkScores(documents: any[], searchTerms: SearchTerm[]): ChunkScore[] {
+    const chunkScores: ChunkScore[] = [];
 
-    console.log(`📚 Calculating scores for ${documents.length} documents`);
+    console.log(`📚 Calculating chunk scores for ${documents.length} documents`);
     console.log(`🔍 Search terms: ${searchTerms.map(t => `"${t.term}" (weight: ${t.weight})`).join(', ')}`);
 
     for (const document of documents) {
       const docText = this.extractDocumentText(document);
-
+      
       console.log(`\n📄 Processing document ID: ${document.id}, Name: "${document.name}"`);
       console.log(`📝 Extracted text length: ${docText.length} characters`);
 
-      const docScore: DocumentScore = {
-        documentId: document.id,
-        score: 0,
-        matchedTerms: [],
-        matchDetails: []
-      };
+      // Split document into chunks
+      const chunks = this.createChunks(docText);
+      console.log(`📦 Created ${chunks.length} chunks for document ${document.id}`);
 
-      // Calculate simple match score for each search term
-      for (const searchTerm of searchTerms) {
-        const termScore = this.calculateTermScore(searchTerm, docText);
+      // Score each chunk
+      chunks.forEach((chunk, chunkIndex) => {
+        const chunkScore: ChunkScore = {
+          documentId: document.id,
+          chunkIndex,
+          chunkContent: chunk,
+          score: 0,
+          matchedTerms: [],
+          matchDetails: []
+        };
 
-        if (termScore.score > 0) {
-          docScore.score += termScore.score * searchTerm.weight;
-          docScore.matchedTerms.push(searchTerm.term);
-          docScore.matchDetails.push({
-            term: searchTerm.term,
-            score: termScore.score,
-            positions: termScore.positions,
-            chunks: termScore.chunks || []
-          });
-          console.log(`✅ Term "${searchTerm.term}" contributed score: ${termScore.score * searchTerm.weight}`);
-          if (termScore.chunks && termScore.chunks.length > 0) {
-            console.log(`📦 Extracted ${termScore.chunks.length} chunks for term "${searchTerm.term}"`);
+        // Calculate simple match score for each search term in this chunk
+        for (const searchTerm of searchTerms) {
+          const termScore = this.calculateTermScore(searchTerm, chunk);
+
+          if (termScore.score > 0) {
+            chunkScore.score += termScore.score * searchTerm.weight;
+            chunkScore.matchedTerms.push(searchTerm.term);
+            chunkScore.matchDetails.push({
+              term: searchTerm.term,
+              score: termScore.score,
+              positions: termScore.positions
+            });
+            console.log(`✅ Chunk ${chunkIndex}: Term "${searchTerm.term}" contributed score: ${termScore.score * searchTerm.weight}`);
           }
-        } else {
-          console.log(`❌ Term "${searchTerm.term}" had no matches`);
+        }
+
+        // Apply chunk-level boosters
+        const originalScore = chunkScore.score;
+        chunkScore.score = this.applyChunkBoosters(document, chunk, chunkScore.score, searchTerms);
+
+        console.log(`📊 Document ${document.id}, Chunk ${chunkIndex} final score: ${chunkScore.score.toFixed(4)} (original: ${originalScore.toFixed(4)})`);
+
+        if (chunkScore.score > 0) {
+          chunkScores.push(chunkScore);
+          console.log(`✅ Chunk ${chunkIndex} from Document ${document.id} added to results`);
+        }
+      });
+    }
+
+    console.log(`\n📊 Total chunks with scores > 0: ${chunkScores.length}`);
+    return chunkScores;
+  }
+
+  private createChunks(text: string): string[] {
+    const chunks: string[] = [];
+    const textLength = text.length;
+    
+    if (textLength <= this.chunkSize) {
+      return [text];
+    }
+
+    let start = 0;
+    while (start < textLength) {
+      let end = Math.min(start + this.chunkSize, textLength);
+      
+      // Try to break at word boundary if we're not at the end
+      if (end < textLength) {
+        const lastSpace = text.lastIndexOf(' ', end);
+        if (lastSpace > start + this.chunkSize * 0.8) {
+          end = lastSpace;
         }
       }
-
-      // Apply document-level boosters
-      const originalScore = docScore.score;
-      docScore.score = this.applyDocumentBoosters(document, docScore.score, searchTerms);
-
-      console.log(`📊 Document ${document.id} final score: ${docScore.score.toFixed(4)} (original: ${originalScore.toFixed(4)})`);
-
-      if (docScore.score > 0) {
-        documentScores.push(docScore);
-        console.log(`✅ Document ${document.id} added to results`);
-      } else {
-        console.log(`❌ Document ${document.id} excluded (score too low)`);
+      
+      chunks.push(text.substring(start, end));
+      start = end - this.chunkOverlap;
+      
+      // Prevent infinite loop
+      if (start >= end) {
+        start = end;
       }
     }
 
-    console.log(`\n📊 Total documents with scores > 0: ${documentScores.length}`);
-    return documentScores;
+    return chunks;
   }
 
   private extractDocumentText(document: any): string {
@@ -230,50 +269,40 @@ export class AdvancedKeywordSearchService {
 
   private calculateTermScore(
     searchTerm: SearchTerm,
-    docText: string
-  ): { score: number; positions: number[]; chunks?: string[] } {
+    chunkText: string
+  ): { score: number; positions: number[] } {
     const term = searchTerm.term.toLowerCase();
-    const lowerDocText = docText.toLowerCase();
+    const lowerChunkText = chunkText.toLowerCase();
     const positions: number[] = [];
-    const chunks: string[] = [];
     let matchCount = 0;
 
-    console.log(`🔍 Calculating term score for: "${term}"`);
-    console.log(`📄 Document text length: ${docText.length}`);
-    console.log(`📝 Document preview: "${docText.substring(0, 200)}..."`);
+    console.log(`🔍 Calculating term score for: "${term}" in chunk (${chunkText.length} chars)`);
 
     // Simple case-insensitive string matching
     let index = 0;
-    while ((index = lowerDocText.indexOf(term, index)) !== -1) {
+    while ((index = lowerChunkText.indexOf(term, index)) !== -1) {
       positions.push(index);
       matchCount++;
       
-      // Extract chunk around the found term (500 chars before and after)
-      const chunkStart = Math.max(0, index - 500);
-      const chunkEnd = Math.min(docText.length, index + term.length + 500);
-      const chunk = docText.substring(chunkStart, chunkEnd);
-      chunks.push((chunkStart > 0 ? '...' : '') + chunk + (chunkEnd < docText.length ? '...' : ''));
-      
-      console.log(`✅ Found "${term}" at position ${index}`);
-      console.log(`📝 Extracted chunk: "${chunk.substring(0, 200)}..."`);
+      console.log(`✅ Found "${term}" at position ${index} in chunk`);
       
       index += term.length;
     }
 
-    console.log(`📊 Term "${term}": ${matchCount} exact matches found`);
+    console.log(`📊 Term "${term}": ${matchCount} exact matches found in chunk`);
 
     // Simple scoring: number of matches
     const score = matchCount;
 
-    console.log(`📈 Term "${term}": Score=${score}`);
+    console.log(`📈 Term "${term}": Chunk Score=${score}`);
 
-    return { score, positions, chunks };
+    return { score, positions };
   }
 
-  private applyDocumentBoosters(document: any, baseScore: number, searchTerms: SearchTerm[]): number {
+  private applyChunkBoosters(document: any, chunk: string, baseScore: number, searchTerms: SearchTerm[]): number {
     let boostedScore = baseScore;
 
-    // Boost if terms appear in title
+    // Boost if terms appear in document title (even though this is chunk-level search)
     const titleText = (document.name || '').toLowerCase();
     for (const searchTerm of searchTerms) {
       if (titleText.includes(searchTerm.term.toLowerCase())) {
@@ -289,6 +318,13 @@ export class AdvancedKeywordSearchService {
     // Boost documents with summary (likely better quality)
     if (document.summary && document.summary.length > 50) {
       boostedScore *= 1.1; // 10% boost for documents with good summaries
+    }
+
+    // Boost chunks with higher keyword density
+    const chunkLength = chunk.length;
+    const keywordDensity = baseScore / chunkLength * 1000; // Keywords per 1000 characters
+    if (keywordDensity > 5) {
+      boostedScore *= 1.2; // 20% boost for high keyword density
     }
 
     return boostedScore;
@@ -316,24 +352,15 @@ export class AdvancedKeywordSearchService {
     return highlights.slice(0, 5); // Max 5 highlights total
   }
 
-  // Method to get chunks from search results
+  // Method to get chunks from search results - now returns the actual chunk content
   getChunksFromResults(results: Array<{
+    content: string; // This is now chunk content, not full document content
     matchDetails: Array<{
       term: string;
-      chunks?: string[];
     }>;
   }>): string[] {
-    const allChunks: string[] = [];
-    
-    for (const result of results) {
-      for (const detail of result.matchDetails) {
-        if (detail.chunks) {
-          allChunks.push(...detail.chunks);
-        }
-      }
-    }
-    
-    return allChunks.slice(0, 5); // Max 5 chunks total
+    // Since results now contain chunk content directly, just return the content
+    return results.map(result => result.content).slice(0, 5); // Max 5 chunks total
   }
 }
 
