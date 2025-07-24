@@ -119,7 +119,7 @@ export default function AppShell() {
         />
 
         {/* Main Content */}
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-hidden md:ml-72">
           <div className="h-full flex flex-col">
             {/* Content Header */}
             <div className="bg-white border-b border-gray-200 px-6 py-4">

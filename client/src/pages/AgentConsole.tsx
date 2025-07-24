@@ -596,7 +596,7 @@ export default function AgentConsole() {
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         />
-          <div className="flex-1">
+          <div className="flex-1 md:ml-72">
             <TopBar />
             <main className="p-6">
               <div className="text-center py-8">Loading...</div>

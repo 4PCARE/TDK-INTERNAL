@@ -240,7 +240,7 @@ export default function UserManagement() {
         onToggleCollapse={() => {}}
       />
       
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden md:ml-72">
         <TopBar />
         
         <main className="p-6">
