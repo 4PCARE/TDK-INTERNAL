@@ -639,15 +639,26 @@ ${escapeHtml(doc.content || 'No content available')}
                     <div class="section">
                         <h3>📚 Input Documents (Source Material)</h3>
                         <p><strong>These are the individual documents that were processed and fed into the AI:</strong></p>
-                        ${data.inputDocuments ? data.inputDocuments.map((doc, index) => `
+                        ${data.inputDocuments && data.inputDocuments.length > 0 ? data.inputDocuments.map((doc, index) => `
                                 <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 4px; background: #fafafa;">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                         <strong>Document ${index + 1}: ${escapeHtml(doc.name || 'Unknown Document')}</strong>
                                         <div style="display: flex; gap: 10px;">
                                             <span style="background: #e3f2fd; padding: 2px 8px; border-radius: 3px; font-size: 12px;">ID: ${doc.id}</span>
                                             <span style="background: #f3e5f5; padding: 2px 8px; border-radius: 3px; font-size: 12px;">Size: ${doc.content ? doc.content.length.toLocaleString() : 0} chars</span>
+                                            ${doc.mimeType ? `<span style="background: #e8f5e8; padding: 2px 8px; border-radius: 3px; font-size: 12px;">Type: ${doc.mimeType}</span>` : ''}
                                         </div>
                                     </div>
+                                    ${doc.summary ? `
+                                        <div style="background: #fff3cd; padding: 8px; border-radius: 3px; margin-bottom: 10px;">
+                                            <strong>Summary:</strong> ${escapeHtml(doc.summary)}
+                                        </div>
+                                    ` : ''}
+                                    ${doc.tags && doc.tags.length > 0 ? `
+                                        <div style="margin-bottom: 10px;">
+                                            <strong>Tags:</strong> ${doc.tags.map(tag => `<span style="background: #e1f5fe; padding: 2px 6px; border-radius: 2px; font-size: 11px; margin-right: 5px;">${escapeHtml(tag)}</span>`).join('')}
+                                        </div>
+                                    ` : ''}
                                     <div style="background: white; padding: 10px; border-radius: 3px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px; white-space: pre-wrap;">
 ${escapeHtml(doc.content || 'No content available')}
                                     </div>

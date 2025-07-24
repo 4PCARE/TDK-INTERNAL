@@ -452,8 +452,15 @@ Answer questions specifically about this document. Provide detailed analysis, ex
           tags: doc.tags,
           mimeType: doc.mimeType
         }];
+        console.log(`DEBUG: Added input document - ID: ${doc.id}, Name: ${doc.name}, Content length: ${doc.content?.length || 0}`);
+      } else {
+        console.log(`DEBUG: Document ${specificDocumentId} not found for user ${userId}`);
       }
+    } else {
+      console.log(`DEBUG: No specific document ID provided`);
     }
+
+    console.log(`DEBUG: Final inputDocuments array length: ${inputDocuments.length}`);
 
     // Return the full input that would be sent to AI
     res.json({
