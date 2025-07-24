@@ -24,11 +24,7 @@ import kingpowerLogo from "@assets/kingpower_1750867302870.webp";
 import { useState } from "react";
 import NotificationSystem from "./NotificationSystem";
 
-interface TopBarProps {
-  isSidebarCollapsed?: boolean;
-}
-
-export default function TopBar({ isSidebarCollapsed = false }: TopBarProps) {
+export default function TopBar() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -54,12 +50,10 @@ export default function TopBar({ isSidebarCollapsed = false }: TopBarProps) {
           /> */}
           <div>
             <h2 className="text-xl font-semibold text-slate-800">ถามได้คับ</h2>
-            {!isSidebarCollapsed && (
-              <p className="text-sm text-slate-500">
-                Unleash the power of intelligent knowledge discovery and seamless
-                collaboration.
-              </p>
-            )}
+            <p className="text-sm text-slate-500">
+              Unleash the power of intelligent knowledge discovery and seamless
+              collaboration.
+            </p>
           </div>
         </div>
 

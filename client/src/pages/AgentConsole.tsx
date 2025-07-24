@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import Sidebar from "@/components/Layout/Sidebar";
+import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import {
   Card,
@@ -156,7 +156,7 @@ export default function AgentConsole() {
           queryClient.invalidateQueries({
             queryKey: ["/api/agent-console/conversation"],
           });
-
+          
           // Also refetch users to ensure immediate sorting update
           refetchUsers();
 
@@ -218,10 +218,10 @@ export default function AgentConsole() {
       const params = new URLSearchParams();
       if (channelFilter !== "all") params.append("channelFilter", channelFilter);
       if (subChannelFilter !== "all") params.append("subChannelFilter", subChannelFilter);
-
+      
       const response = await apiRequest("GET", `/api/agent-console/users?${params}`);
       const users = await response.json();
-
+      
       // Sort users by latest message time (newest first)
       return users.sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt));
     },
@@ -332,7 +332,7 @@ export default function AgentConsole() {
     },
     onSuccess: () => {
       setMessageInput("");
-
+      
       // Invalidate conversation messages
       queryClient.invalidateQueries({
         queryKey: [
@@ -343,7 +343,7 @@ export default function AgentConsole() {
           selectedUser?.agentId,
         ],
       });
-
+      
       // Also invalidate summary to refresh CSAT and sentiment after new message
       queryClient.invalidateQueries({
         queryKey: [
@@ -437,7 +437,7 @@ export default function AgentConsole() {
       setMessageInput("");
       setSelectedImage(null);
       setImagePreview(null);
-
+      
       // Invalidate conversation messages
       queryClient.invalidateQueries({
         queryKey: [
@@ -448,7 +448,7 @@ export default function AgentConsole() {
           selectedUser?.agentId,
         ],
       });
-
+      
       // Also invalidate summary
       queryClient.invalidateQueries({
         queryKey: [
@@ -526,7 +526,7 @@ export default function AgentConsole() {
       }
 
       setSelectedImage(file);
-
+      
       // Create preview URL
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -584,11 +584,7 @@ export default function AgentConsole() {
     return (
       <div className="min-h-screen bg-slate-50">
         <div className="flex">
-          <Sidebar 
-          isMobileOpen={false}
-          onMobileClose={() => {}}
-          onOpenChat={() => {}}
-        />
+          <Sidebar />
           <div className="flex-1">
             <TopBar />
             <main className="p-6">
@@ -603,11 +599,7 @@ export default function AgentConsole() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="flex">
-        <Sidebar 
-          isMobileOpen={false}
-          onMobileClose={() => {}}
-          onOpenChat={() => {}}
-        />
+        <Sidebar />
         <div className="flex-1">
           <TopBar />
           <main className="p-6">
@@ -659,7 +651,7 @@ export default function AgentConsole() {
                           <SelectItem value="web">🌐 Web Widget</SelectItem>
                         </SelectContent>
                       </Select>
-
+                      
                       {/* Sub-channel filter */}
                       {channelFilter !== "all" && (
                         <Select
@@ -1089,7 +1081,7 @@ export default function AgentConsole() {
                                 <span>Human Agent Mode - Your message will be sent to the user</span>
                               </div>
                             </div>
-
+                            
                             {/* Image Preview */}
                             {imagePreview && (
                               <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
@@ -1122,7 +1114,7 @@ export default function AgentConsole() {
                                 </div>
                               </div>
                             )}
-
+                            
                             <div className="space-y-2">
                               <div className="flex space-x-2">
                                 <Textarea
@@ -1162,7 +1154,7 @@ export default function AgentConsole() {
                                   </Button>
                                 </div>
                               </div>
-
+                              
                               {/* Hidden File Input */}
                               <input
                                 ref={fileInputRef}
@@ -1171,7 +1163,7 @@ export default function AgentConsole() {
                                 onChange={handleImageSelect}
                                 className="hidden"
                               />
-
+                              
                               <div className="text-xs text-gray-500">
                                 {selectedImage ? (
                                   <span className="text-blue-600">

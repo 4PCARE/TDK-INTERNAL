@@ -22,7 +22,7 @@ import {
   Star,
   Trash2
 } from "lucide-react";
-import Sidebar from "@/components/Layout/Sidebar";
+import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import StatsCards from "@/components/Stats/StatsCards";
 import CategoryStatsCards from "@/components/Stats/CategoryStatsCards";
@@ -176,15 +176,12 @@ export default function Dashboard() {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar 
-        isMobileOpen={isMobileMenuOpen}
-        onMobileClose={() => setIsMobileMenuOpen(false)}
-        onOpenChat={() => setIsChatModalOpen(true)}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar isSidebarCollapsed={isSidebarCollapsed} />
+        <TopBar />
         
         <main className="p-6">
           <div className="max-w-7xl mx-auto space-y-6">

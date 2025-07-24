@@ -49,9 +49,10 @@ export class WidgetChatService {
         }
       }
 
-      console.log(`📄 Widget Chat: Using ${agentDocuments.length} documents for hybrid search with query augmentation`);
+      console.log(`📄 Widget Chat: Using ${agentDocuments.length} documents for hybrid search`);
 
-      // Use unified search service with query augmentation for agent documents
+      // Use the same generateChatResponse logic as general chat with hybrid search
+      const { generateChatResponse } = await import('./openai');
       let aiResponseFromDocs = "";
 
       try {
@@ -59,48 +60,17 @@ export class WidgetChatService {
         const agentDocumentIds = agentDocuments.map(doc => doc.id);
         console.log(`Widget Chat: Restricting search to agent's ${agentDocumentIds.length} documents: [${agentDocumentIds.join(', ')}]`);
 
-        // Use unified search service with query augmentation
-        const { unifiedSearchService } = await import('./unifiedSearchService');
-        
-        const searchResults = await unifiedSearchService.searchAgentDocuments(
-          userMessage,
-          userId,
-          agentDocumentIds,
-          {
-            searchType: "hybrid",
-            limit: 2, // Top 2 chunks globally
-            keywordWeight: 0.4,
-            vectorWeight: 0.6,
-            enableQueryAugmentation: true,
-            chatType: "widget",
-            contextId: sessionId,
-            agentId: agentId // Pass agent ID for chat history retrieval
-          }
-        );
-
-        // Build document context from search results
-        let documentContext = "";
-        if (searchResults.length > 0) {
-          documentContext = searchResults
-            .map((result) => `=== เอกสาร: ${result.name} ===\n${result.content}`)
-            .join("\n\n");
-        } else {
-          documentContext = "No relevant documents found.";
-        }
-
-        // Generate AI response using the search context
-        const { generateChatResponse } = await import('./openai');
         aiResponseFromDocs = await generateChatResponse(
           userMessage,
           agentDocuments,
-          undefined, // No specific document ID
-          'hybrid',
-          0.4,
-          0.6
+          undefined, // No specific document ID - will be handled by hybrid search internally
+          'hybrid',  // Use hybrid search like debug page
+          0.4,       // keywordWeight
+          0.6        // vectorWeight
         );
-        console.log(`✅ Widget Chat: Generated response using unified search with augmentation (${aiResponseFromDocs.length} chars)`);
+        console.log(`✅ Widget Chat: Generated response using hybrid search (${aiResponseFromDocs.length} chars)`);
       } catch (error) {
-        console.error("Widget Chat: Unified search with augmentation failed:", error);
+        console.error("Widget Chat: generateChatResponse failed:", error);
         aiResponseFromDocs = "";
       }
 

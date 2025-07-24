@@ -1271,10 +1271,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             userId,
             { 
               searchType: "semantic",
-              limit: 20,
-              enableQueryAugmentation: true,
-              chatType: "search",
-              contextId: "general"
+              limit: 20
             },
           );
           console.log(`Semantic search returned ${results.length} results`);
@@ -1300,10 +1297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               searchType: "hybrid",
               keywordWeight: 0.4,
               vectorWeight: 0.6,
-              limit: 20,
-              enableQueryAugmentation: true,
-              chatType: "search",
-              contextId: "general"
+              limit: 20
             },
           );
           console.log(`Hybrid search returned ${results.length} results`);

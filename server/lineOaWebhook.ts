@@ -392,114 +392,99 @@ async function getAiResponseDirectly(
           `LINE OA: Using unified search with agent's ${agentDocIds.length} documents: [${agentDocIds.join(", ")}]`,
         );
 
-        console.log(`🔍 LINE OA: About to call unifiedSearchService.searchAgentDocuments with:`);
-        console.log(`   📋 Agent Document IDs: [${agentDocIds.join(", ")}]`);
-        console.log(`   🔍 Query: "${userMessage}"`);
-        console.log(`   👤 User ID: ${userId}`);
-
-        console.log(`🔍 LINE OA: Document IDs being passed to unified search: [${agentDocIds.join(', ')}]`);
-        console.log(`🤖 LINE OA: Bot should ONLY search within these ${agentDocIds.length} documents, not all user documents`);
-        console.log(`📋 LINE OA: Agent ${lineIntegration.agentId} assigned documents: ${JSON.stringify(agentDocIds)}`);
-        
-        const searchResults = await unifiedSearchService.searchAgentDocuments(
+        const hybridResults = await unifiedSearchService.searchAgentDocuments(
           userMessage,
           userId,
           agentDocIds,
           {
             searchType: "hybrid",
-            limit: 5,
+            limit: 2, // Only get top 2 chunks globally as requested
             keywordWeight: 0.4,
             vectorWeight: 0.6,
-            enableQueryAugmentation: true,
-            chatType: "lineoa",
-            contextId: channelId,
-            agentId: agentId
-          }
+          },
         );
-
-        console.log(`🔍 LINE OA: Search completed, found ${searchResults.length} results`);
-
-        if (searchResults.length > 0) {
-          const documentContext = searchResults
-            .map((result) => `=== เอกสาร: ${result.name} ===\n${result.content}`)
-            .join("\n\n");
-
-          documentContents.push(documentContext);
-          
-          console.log(`📄 LINE OA: Added ${searchResults.length} search results to context`);
-          searchResults.forEach((result, index) => {
-            console.log(`   ${index + 1}. Doc ${result.id}: "${result.name}" (${result.content.length} chars, similarity: ${result.similarity.toFixed(3)})`);
-          });
-        } else {
-          console.log(`⚠️ LINE OA: No relevant documents found for query: "${userMessage}"`);
-        }
-
-        console.log(`✅ LINE OA: unifiedSearchService returned ${hybridResults.length} results`);
-        if (hybridResults.length > 0) {
-          console.log(`🔍 LINE OA: First result document ID: ${hybridResults[0].id}`);
-          console.log(`🔍 LINE OA: All result document IDs: [${hybridResults.map(r => r.id).join(', ')}]`);
-        }
 
         console.log(
           `🔍 Line OA: Found ${hybridResults.length} relevant chunks using hybrid search`,
         );
 
         if (hybridResults.length > 0) {
-          // Use only the content from the top 2 chunks - ensure we're getting the actual content
+          // Use only the content from the top 2 chunks
           hybridResults.forEach((result, index) => {
-            console.log(`📋 LINE OA: Processing chunk ${index + 1} from ${result.name}, similarity: ${result.similarity.toFixed(3)}`);
-            console.log(`📄 LINE OA: Chunk content preview: ${result.content.substring(0, 200)}...`);
-            
             documentContents.push(
-              `=== เอกสาร: ${result.name} (Chunk ${index + 1}, คล้ายคลึง: ${result.similarity.toFixed(2)}) ===\n${result.content}\n`,
+              `=== เอกสาร: ${result.name} (Chunk ${index + 1}) ===\n${result.content}\n`,
             );
           });
 
           console.log(
             `📄 Line OA: Using hybrid search with ${hybridResults.length} top chunks globally (Total chars: ${documentContents.join("").length})`,
           );
-          
-          // Debug: Log the full context being sent to AI
-          console.log(`🔍 LINE OA: Context preview being sent to AI:`);
-          console.log(documentContents.join("\n").substring(0, 500) + "...");
         } else {
           console.log(
-            `📄 Line OA: No relevant chunks found via unified search`,
+            `📄 Line OA: No relevant chunks found, using fallback approach`,
           );
+          // Fallback to original approach with first few documents
+          for (const agentDoc of agentDocs.slice(0, 3)) {
+            try {
+              const document = await storage.getDocument(
+                agentDoc.documentId,
+                userId,
+              );
+              if (document && document.content) {
+                const contentPreview =
+                  document.content.substring(0, 3000) +
+                  (document.content.length > 3000 ? "..." : "");
+                documentContents.push(
+                  `=== เอกสาร: ${document.name} ===\n${contentPreview}\n`,
+                );
+              }
+            } catch (error) {
+              console.error(
+                `❌ Error fetching document ${agentDoc.documentId}:`,
+                error,
+              );
+            }
+          }
         }
       } catch (vectorError) {
         console.error(
-          `❌ Line OA: Unified search failed:`,
+          `❌ Line OA: Vector search failed, using fallback:`,
           vectorError,
         );
-        // No fallback - rely solely on unified search service
+        // Fallback to original approach with limited documents
+        for (const agentDoc of agentDocs.slice(0, 3)) {
+          try {
+            const document = await storage.getDocument(
+              agentDoc.documentId,
+              userId,
+            );
+            if (document && document.content) {
+              const contentPreview =
+                document.content.substring(0, 3000) +
+                (document.content.length > 3000 ? "..." : "");
+              documentContents.push(
+                `=== เอกสาร: ${document.name} ===\n${contentPreview}\n`,
+              );
+            }
+          } catch (error) {
+            console.error(
+              `❌ Error fetching document ${agentDoc.documentId}:`,
+              error,
+            );
+          }
+        }
       }
 
       if (documentContents.length > 0) {
-        contextPrompt = `
+        contextPrompt = `\n\nเอกสารอ้างอิงสำหรับการตอบคำถาม:\n${documentContents.join("\n")}
 
-=== เอกสารที่เกี่ยวข้องกับคำถาม ===
-${documentContents.join("\n")}
-
-=== คำสั่งสำคัญ ===
-1. ใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม
-2. ห้ามบอกว่า "ไม่ทราบ" หรือ "ไม่มีข้อมูล" ถ้ามีข้อมูลในเอกสาร
-3. ตอบคำถามให้ตรงประเด็นและครบถ้วนจากข้อมูลที่มี
-4. ถ้าผู้ใช้ถามเกี่ยวกับร้าน ชั้น ตำแหน่ง ให้ตรวจสอบข้อมูลในเอกสารและตอบให้ชัดเจน
-5. ระบุแหล่งที่มาของข้อมูลด้วย`;
-        
+กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และระบุแหล่งที่มาของข้อมูลด้วย`;
         console.log(
-          `✅ Built context with ${documentContents.length} chunks (${documentContents.join("").length} chars)`,
+          `✅ Built context with ${documentContents.length} documents`,
         );
         console.log(
-          `📄 LINE OA: System prompt length: ${contextPrompt.length} characters`,
+          `📄 Context prompt length: ${contextPrompt.length} characters`,
         );
-        
-        // Log chunks being used for transparency
-        documentContents.forEach((chunk, index) => {
-          console.log(`📄 LINE OA: Chunk ${index + 1} content: ${chunk.substring(0, 300)}...`);
-        });
-        
       } else {
         console.log(`⚠️ No documents found or no content available`);
       }
@@ -549,46 +534,18 @@ ${documentContents.join("\n")}
       }
     }
 
-    // Get current date and time in Thai timezone
-    const currentDateTime = new Date().toLocaleString('th-TH', { 
-      timeZone: 'Asia/Bangkok',
-      weekday: 'long',
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-
-    // Build conversation messages including history - PUT DOCUMENT INSTRUCTIONS FIRST
-    const systemPromptContent = `${contextPrompt}
-
-=== เวลาปัจจุบัน ===
-วันที่และเวลาขณะนี้: ${currentDateTime}
-
-=== ⚠️ กฎสำคัญที่ต้องปฏิบัติตาม (OVERRIDE ALL OTHER INSTRUCTIONS) ===
-• **บังคับ**: ใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม
-• **ห้ามแน่นอน**: ห้ามบอกว่า "ไม่ทราบ" หรือ "ยังไม่มี" หรือ "ไม่มีข้อมูล" ถ้ามีข้อมูลในเอกสาร
-• **บังคับตอบ**: ถ้าพบข้อมูลในเอกสาร ต้องตอบจากเอกสารเท่านั้น
-• **ถ้าถามเกี่ยวกับร้าน ชั้น ตำแหน่ง**: ตรวจสอบเอกสารและตอบให้ชัดเจน
-• **ระบุแหล่งที่มา**: ระบุว่าข้อมูลมาจากเอกสารไหน
-
-${agent.systemPrompt}
-
-=== กฎการตอบคำถาม ===
-• ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
-• ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
-• สำหรับคำถามเกี่ยวกับรูปภาพ: ใช้ข้อมูลการวิเคราะห์รูปภาพที่มีในข้อความ ไม่ต้องบอกว่า "ไม่สามารถดูรูปภาพได้"
-• อ้างอิงบทสนทนาก่อนหน้าเพื่อให้คำตอบที่ต่อเนื่องและเหมาะสม`;
-
-    console.log(`🔍 LINE OA: Full system prompt length: ${systemPromptContent.length} characters`);
-    console.log(`🔍 LINE OA: System prompt preview: ${systemPromptContent.substring(0, 300)}...`);
-    
+    // Build conversation messages including history
     const messages: any[] = [
       {
         role: "system",
-        content: systemPromptContent,
+        content: `${agent.systemPrompt}${contextPrompt}
+
+สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้อมูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว
+
+ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
+ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
+
+คุณสามารถอ้างอิงบทสนทนาก่อนหน้านี้เพื่อให้คำตอบที่ต่อเนื่องและเหมาะสม`,
       },
     ];
 
@@ -751,18 +708,16 @@ ${imageContext}`;
     );
     console.log(`📊 Total prompt length: ${totalTokens} characters`);
 
-    // Use generateChatResponse from openai.ts for consistent AI logic
-    const { generateChatResponse } = await import("./services/openai");
-    
-    let aiResponse = await generateChatResponse(
-      enhancedUserMessage,
-      agentDocs,
-      [], // relevantChunks - handled by unified search inside the function
-      userBotMessages.map(msg => ({
-        role: msg.messageType === "user" ? "user" as const : "assistant" as const,
-        content: msg.content
-      }))
-    );
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      messages: messages,
+      max_tokens: 1000,
+      temperature: 0.7,
+    });
+
+    let aiResponse =
+      response.choices[0].message.content ||
+      "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
 
     // Validate AI output with guardrails
     if (guardrailsService) {
@@ -1196,65 +1151,198 @@ ${imageAnalysisResult}
               "ผู้ใช้ส่งสติ๊กเกอร์มา กรุณาตอบอย่างเป็นมิตรและถามว่ามีอะไรให้ช่วย";
           }
 
-        // Get agent's documents for proper scope restriction
-        const agentDocs = await storage.getAgentChatbotDocuments(
-          lineIntegration.agentId,
-          lineIntegration.userId,
-        );
-        const agentDocIds = agentDocs.map((d) => d.documentId);
-        console.log(
-          `LINE OA: Found ${agentDocs.length} assigned documents for agent ${lineIntegration.agentId}`,
-        );
-        console.log(`LINE OA: Agent ${lineIntegration.agentId} document IDs: [${agentDocIds.join(', ')}]`);
+          // Get agent's documents for proper scope restriction
+          const agentDocs = await storage.getAgentChatbotDocuments(
+            lineIntegration.agentId,
+            lineIntegration.userId,
+          );
+          console.log(
+            `LINE OA: Found ${agentDocs.length} assigned documents for agent ${lineIntegration.agentId}`,
+          );
 
-        // Use unified search service directly to ensure document filtering
-        const { unifiedSearchService } = await import("./services/unifiedSearchService");
-        
-        const searchResults = await unifiedSearchService.searchAgentDocuments(
-          contextMessage,
-          lineIntegration.userId,
-          agentDocIds,
-          {
-            searchType: "hybrid",
-            limit: 5,
-            keywordWeight: 0.4,
-            vectorWeight: 0.6,
-            enableQueryAugmentation: true,
-            chatType: "lineoa",
-            contextId: event.source.userId,
-            agentId: lineIntegration.agentId
+          // Convert agent docs to format expected by generateChatResponse
+          const agentDocuments = [];
+          for (const agentDoc of agentDocs) {
+            try {
+              const document = await storage.getDocument(
+                agentDoc.documentId,
+                lineIntegration.userId,
+              );
+              if (document) {
+                agentDocuments.push({
+                  ...document,
+                  userId: lineIntegration.userId,
+                });
+              }
+            } catch (error) {
+              console.error(
+                `LINE OA: Error fetching document ${agentDoc.documentId}:`,
+                error,
+              );
+            }
           }
-        );
 
-        console.log(`LINE OA: Search completed with ${searchResults.length} results from agent's documents only`);
+          console.log(
+            `LINE OA: Using ${agentDocuments.length} documents for hybrid search`,
+          );
 
-        // Use generateChatResponse from openai.ts with pre-filtered search results
-        const { generateChatResponse } = await import("./services/openai");
-        
-        // Get chat history for generateChatResponse
-        const chatHistory = await storage.getChatHistory(
-          lineIntegration.userId,
-          "lineoa",
-          event.source.userId,
-          lineIntegration.agentId,
-          10
-        );
-        
-        const chatHistoryFormatted = chatHistory
-          .filter(msg => msg.messageType === "user" || msg.messageType === "assistant")
-          .map(msg => ({
-            role: msg.messageType === "user" ? "user" as const : "assistant" as const,
-            content: msg.content
-          }));
-        
-        const aiResponse = await generateChatResponse(
-          contextMessage,
-          agentDocs,
-          searchResults, // Pass pre-filtered search results to prevent duplicate search
-          chatHistoryFormatted, // Pass formatted chat history
-          lineIntegration.agentId // Pass agent ID for proper query augmentation
-        );
-          
+          // Use hybrid search with document scope restriction like debug routes
+          const { semanticSearchV2 } = await import(
+            "./services/semanticSearchV2"
+          );
+          let aiResponse = "";
+
+          try {
+            // Ensure agentDocIds is defined before using it
+            const agentDocIds = agentDocs.map((d) => d.documentId);
+            console.log(
+              `LINE OA: Performing hybrid search with document restriction to ${agentDocIds.length} documents: [${agentDocIds.join(", ")}]`,
+            );
+
+            // Use hybrid search with proper document filtering - same as debug page
+            const searchResults = await semanticSearchV2.hybridSearch(
+              contextMessage,
+              lineIntegration.userId,
+              {
+                keywordWeight: 0.4,
+                vectorWeight: 0.6,
+                limit: 100, // Get arbitrarily large number of results
+                specificDocumentIds: agentDocIds, // Restrict to agent's documents only
+              },
+            );
+
+            console.log(
+              `LINE OA: Hybrid search found ${searchResults.length} relevant chunks from agent's documents`,
+            );
+
+            if (searchResults.length > 0) {
+              // Step 1: Pool ALL chunks from ALL documents together and filter by similarity threshold
+              const allChunks = [];
+
+              for (const result of searchResults) {
+                // Only include chunks with similarity >= 0.25
+                if (result.similarity >= 0.25) {
+                  allChunks.push({
+                    docName: result.document.name,
+                    content: result.content,
+                    similarity: result.similarity,
+                  });
+                }
+              }
+
+              console.log(
+                `LINE OA: Filtered to ${allChunks.length} chunks above 0.25 similarity threshold from ${agentDocIds.length} agent documents`,
+              );
+
+              // Step 2: Sort ALL chunks globally by similarity and use ALL chunks above threshold (not limited to 5)
+              allChunks.sort((a, b) => b.similarity - a.similarity);
+              const finalChunks = allChunks; // Use ALL chunks that passed the similarity threshold
+
+              console.log(
+                `LINE OA: Using all ${finalChunks.length} chunks above similarity threshold:`,
+              );
+              finalChunks.forEach((chunk, idx) => {
+                console.log(
+                  `  ${idx + 1}. ${chunk.docName} - Similarity: ${chunk.similarity.toFixed(4)}`,
+                );
+                console.log(
+                  `      Content preview: ${chunk.content.substring(0, 100)}...`,
+                );
+              });
+
+              // Build context with string length limit as final safeguard
+              let documentContext = "";
+              const maxContextLength = 50000; // Increased limit to accommodate more chunks
+
+              for (let i = 0; i < finalChunks.length; i++) {
+                const chunk = finalChunks[i];
+                const chunkText = `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
+
+                // Check if adding this chunk would exceed the limit
+                if (
+                  documentContext.length + chunkText.length <=
+                  maxContextLength
+                ) {
+                  documentContext += chunkText;
+                } else {
+                  // Truncate the chunk to fit within limit
+                  const remainingSpace =
+                    maxContextLength - documentContext.length;
+                  if (remainingSpace > 200) {
+                    // Only add if there's meaningful space
+                    const truncatedContent =
+                      chunk.content.substring(0, remainingSpace - 150) + "...";
+                    documentContext += `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
+                  }
+                  break;
+                }
+              }
+
+              console.log(
+                `LINE OA: Final context length: ${documentContext.length} characters (limit: ${maxContextLength}, used ${finalChunks.length} chunks)`,
+              );
+
+              // Generate AI response with focused document context
+              // Use existing OpenAI instance from module scope
+
+              const agent = await storage.getAgentChatbot(
+                lineIntegration.agentId,
+                lineIntegration.userId,
+              );
+              const systemPrompt = `${agent?.systemPrompt || "You are a helpful assistant."}
+
+เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
+${documentContext}
+
+กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น`;
+
+              console.log(
+                `LINE OA: System prompt length: ${systemPrompt.length} characters`,
+              );
+
+              const completion = await openai.chat.completions.create({
+                model: "gpt-4o",
+                messages: [
+                  { role: "system", content: systemPrompt },
+                  { role: "user", content: contextMessage },
+                ],
+                max_tokens: 1000,
+                temperature: 0.7,
+              });
+
+              aiResponse =
+                completion.choices[0].message.content ||
+                "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+              console.log(
+                `✅ LINE OA: Generated response using ${finalChunks.length} chunks above similarity threshold (${aiResponse.length} chars)`,
+              );
+            } else {
+              console.log(
+                `⚠️ LINE OA: No relevant content found in agent's documents, using system prompt only`,
+              );
+              // Fallback to system prompt conversation
+              aiResponse = await getAiResponseDirectly(
+                contextMessage,
+                lineIntegration.agentId,
+                lineIntegration.userId,
+                "lineoa",
+                event.source.userId,
+              );
+            }
+          } catch (error) {
+            console.error(
+              "LINE OA: Hybrid search failed, using fallback:",
+              error,
+            );
+            // Fallback to agent conversation without documents
+            aiResponse = await getAiResponseDirectly(
+              contextMessage,
+              lineIntegration.agentId,
+              lineIntegration.userId,
+              "lineoa",
+              event.source.userId, // Use Line user ID as channel identifier
+            );
+          }
           console.log("🤖 AI response:", aiResponse);
 
           // Save only the assistant response (user message already saved above)
@@ -1297,145 +1385,21 @@ ${imageAnalysisResult}
               aiResponse,
               lineIntegration.channelAccessToken,
             );
-            console.log("✅ LINE OA: Reply sent successfully");
           } else {
-            console.error("❌ LINE OA: No access token found for this integration");
-          }
-        } else if (event.type === "image") {
-          // Image acknowledgment - immediate response
-          const immediateAck = "ได้รับรูปภาพแล้ว ขอเวลาตรวจสอบสักครู่นะคะ";
-          
-          console.log("🖼️ LINE OA: Processing image upload");
-          
-          // Send immediate acknowledgment
-          if (lineIntegration.channelAccessToken) {
+            console.log(
+              "❌ No channel access token available for Line integration",
+            );
             await sendLineReply(
               replyToken,
-              immediateAck,
-              lineIntegration.channelAccessToken,
+              "ขออภัย ระบบยังไม่ได้ตั้งค่า access token กรุณาติดต่อผู้ดูแลระบบ",
+              lineIntegration.channelSecret!,
             );
-            console.log("📤 Sent immediate image acknowledgment");
-          }
-
-          // Save user image message to chat history
-          await storage.createChatHistory({
-            userId: lineIntegration.userId,
-            channelType: "lineoa",
-            channelId: event.source.userId,
-            agentId: lineIntegration.agentId,
-            messageType: "user",
-            content: "ส่งรูปภาพ",
-            metadata: {
-              messageId: message.id,
-              imageUrl: `https://api-data.line.me/v2/bot/message/${message.id}/content`,
-              messageType: "image",
-            },
-          });
-
-          // Save acknowledgment message to chat history
-          await storage.createChatHistory({
-            userId: lineIntegration.userId,
-            channelType: "lineoa", 
-            channelId: event.source.userId,
-            agentId: lineIntegration.agentId,
-            messageType: "assistant",
-            content: immediateAck,
-            metadata: {},
-          });
-
-          // Process image analysis
-          try {
-            const imageService = new LineImageService();
-            const imageAnalysis = await imageService.processImage(
-              message.id,
-              lineIntegration.channelAccessToken!,
-            );
-
-            console.log("🔍 Image analysis completed:", imageAnalysis?.substring(0, 100));
-
-            if (imageAnalysis) {
-              // Save image analysis as system message for AI context
-              await storage.createChatHistory({
-                userId: lineIntegration.userId,
-                channelType: "lineoa",
-                channelId: event.source.userId,
-                agentId: lineIntegration.agentId,
-                messageType: "system",
-                content: `Image Analysis: ${imageAnalysis}`,
-                metadata: {
-                  relatedImageMessageId: message.id,
-                  analysisType: "gpt4o-vision",
-                },
-              });
-
-              // Send follow-up message with analysis using getAiResponseDirectly
-              const analysisResponse = await getAiResponseDirectly(
-                `รูปภาพที่ผู้ใช้ส่งมาได้รับการวิเคราะห์แล้ว: ${imageAnalysis}`,
-                lineIntegration.agentId,
-                lineIntegration.userId,
-                "lineoa",
-                event.source.userId,
-              );
-
-              // Send analysis response to Line
-              if (lineIntegration.channelAccessToken) {
-                await sendLineReply(
-                  null, // No reply token for push message
-                  analysisResponse,
-                  lineIntegration.channelAccessToken,
-                  event.source.userId,
-                );
-                console.log("📤 Sent image analysis response");
-              }
-
-              // Save analysis response to chat history
-              await storage.createChatHistory({
-                userId: lineIntegration.userId,
-                channelType: "lineoa",
-                channelId: event.source.userId,
-                agentId: lineIntegration.agentId,
-                messageType: "assistant",
-                content: analysisResponse,
-                metadata: {
-                  relatedImageMessageId: message.id,
-                },
-              });
-
-              // Broadcast to Agent Console
-              if (typeof (global as any).broadcastToAgentConsole === "function") {
-                (global as any).broadcastToAgentConsole({
-                  type: "new_message",
-                  data: {
-                    userId: lineIntegration.userId,
-                    channelType: "lineoa",
-                    channelId: event.source.userId,
-                    agentId: lineIntegration.agentId,
-                    userMessage: "ส่งรูปภาพ",
-                    aiResponse: analysisResponse,
-                    timestamp: new Date().toISOString(),
-                  },
-                });
-              }
-            }
-          } catch (error) {
-            console.error("❌ Image processing error:", error);
-            const errorMessage = "ขออภัย เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ กรุณาลองใหม่อีกครั้ง";
-            
-            if (lineIntegration.channelAccessToken) {
-              await sendLineReply(
-                null,
-                errorMessage,
-                lineIntegration.channelAccessToken,
-                event.source.userId,
-              );
-            }
           }
         } else {
-          console.log("🤖 No Line integration found, using fallback response");
           await sendLineReply(
             replyToken,
             "ขออภัย ระบบยังไม่ได้เชื่อมต่อกับ AI Agent กรุณาติดต่อผู้ดูแลระบบ",
-            "fallback",
+            lineIntegration.channelSecret!,
           );
         }
       }

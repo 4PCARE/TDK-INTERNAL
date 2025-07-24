@@ -5,32 +5,24 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
-import { 
-  Home, 
-  FileText, 
-  Upload, 
-  Search, 
-  Tag, 
-  Calendar,
-  Bot,
-  MessageSquare,
-  MessageCircle,
-  Share2,
-  Brain,
-  Users,
-  Shield,
-  Settings,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,  // <-- Make sure this is imported!
-  Menu,
-  X,
-  BarChart3,
-  TrendingUp,
+import {
+  Home,
+  FileText,
+  Clock,
   Star,
-  FileBarChart,
-  Activity
+  Share2,
+  Bot,
+  X,
+  Upload,
+  Search,
+  Settings,
+  FolderOpen,
+  BarChart3,
+  ChevronDown,
+  MessageSquare,
+  ChevronRight,
+  ChevronLeft,
+  Brain,
 } from "lucide-react";
 
 import kingpowerLogo from "@assets/kingpower_1750867302870.webp";
@@ -62,94 +54,24 @@ export default function Sidebar({
     queryKey: ["/api/stats"],
   }) as { data: { totalDocuments: number } | undefined };
 
-  const navigationGroups = [
-    {
-      label: "Main",
-      items: [
-        { name: "Home", href: "/", icon: Home },
-      ]
-    },
-    {
-      label: "Manage Documents",
-      items: [
-        { name: "All Documents", href: "/documents", icon: FileText },
-        { name: "Upload", href: "/upload", icon: Upload },
-        { name: "Categories", href: "/categories", icon: Tag },
-        { name: "Meeting Notes", href: "/meeting-notes", icon: Calendar },
-      ]
-    },
-    {
-      label: "AI & Chatbot Features",
-      items: [
-        { name: "Manage Chat Agents", href: "/agent-chatbots", icon: Bot },
-        { name: "Agent Console", href: "/agent-console", icon: MessageSquare },
-        { name: "App Widget", href: "/live-chat-widget", icon: MessageCircle },
-        { name: "Platform Integrations", href: "/integrations", icon: Share2 },
-        { name: "AI Assistant", href: "/ai-assistant", icon: Brain },
-      ]
-    },
-    {
-      label: "Dashboards & Analytics",
-      items: [
-        { name: "AI Interaction", href: "/ai-interaction", icon: BarChart3 },
-        { name: "AI Response Analysis", href: "/ai-response-analysis", icon: TrendingUp },
-        { name: "Customer Survey", href: "/customer-survey", icon: Star },
-        { name: "Document Demand", href: "/document-demand-insights", icon: TrendingUp },
-        { name: "Document Usage", href: "/document-usage", icon: FileBarChart },
-        { name: "Security & Governance", href: "/security-governance", icon: Shield },
-        { name: "System Health", href: "/system-health", icon: Activity },
-        { name: "User Activity", href: "/user-activity", icon: Users },
-        { name: "User Feedback", href: "/user-feedback", icon: MessageSquare },
-      ]
-    },
-    {
-      label: "Administration",
-      items: [
-        { name: "Users", href: "/user-management", icon: Users },
-        { name: "Roles", href: "/role-management", icon: Shield },
-        { name: "Admin Dashboard", href: "/admin", icon: Settings },
-        { name: "Audit Monitoring", href: "/audit-monitoring", icon: Eye },
-        { name: "Settings", href: "/settings", icon: Settings },
-      ]
-    },
-    {
-      label: "Feedback",
-      items: [
-        { name: "Survey", href: "/survey", icon: MessageSquare },
-      ]
-    }
+  const categoryColors = [
+    "bg-blue-500",
+    "bg-green-500",
+    "bg-purple-500",
+    "bg-yellow-500",
+    "bg-red-500",
+    "bg-indigo-500",
   ];
 
-  // ---- Collapsible groups state logic ----
-  const initialExpanded = navigationGroups.reduce(
-    (acc, group) => ({ ...acc, [group.label]: false }),
-    {} as Record<string, boolean>
-  );
-  const [expandedGroups, setExpandedGroups] = useState(initialExpanded);
+  const isActiveRoute = (path: string) => location === path;
+  const isDashboardActive = location.startsWith("/dashboards");
 
-  const toggleGroup = (label: string) => {
-    setExpandedGroups((prev) => ({
-      ...prev,
-      [label]: !prev[label],
-    }));
-  };
-
-  // Auto-expand group if current route matches any of its items
+  // Auto-expand dashboard menu if user is on a dashboard route
   useEffect(() => {
-    navigationGroups.forEach(group => {
-      const isGroupActive = group.items.some(item =>
-        location === item.href ||
-        (item.href !== "/" && location.startsWith(item.href))
-      );
-      if (isGroupActive && !expandedGroups[group.label]) {
-        setExpandedGroups(prev => ({
-          ...prev,
-          [group.label]: true
-        }));
-      }
-    });
-    // eslint-disable-next-line
-  }, [location]);
+    if (isDashboardActive) {
+      setIsDashboardExpanded(true);
+    }
+  }, [isDashboardActive]);
 
   return (
     <>
@@ -219,62 +141,312 @@ export default function Sidebar({
 
           <div className="flex-1 p-3 space-y-6 overflow-y-auto">
             {/* Navigation Menu */}
-            <nav className="flex-1 px-4 py-4 space-y-6">
-              {navigationGroups.map((group, groupIndex) => (
-                <div key={group.label} className="space-y-2">
-                  {/* Group header (button) */}
-                  {!isCollapsed && (
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup(group.label)}
-                    className="flex items-center w-full px-3 py-2 text-xs font-semibold text-slate-100 uppercase tracking-wider hover:text-white transition"
-                  >
-                    <span className="flex-1 text-left">{group.label}</span>
-                    <span className="ml-2 flex-shrink-0">
-                      {expandedGroups[group.label] ? (
-                        <ChevronDown className="w-4 h-4 inline" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4 inline" />
-                      )}
-                    </span>
-                  </button>
+            <nav className="space-y-1">
+              <Link href="/" onClick={onMobileClose}>
+                <div
+                  className={cn(
+                    "group flex items-center px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer relative",
+                    isActiveRoute("/")
+                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
+                      : "text-navy-200 hover:text-white hover:bg-navy-700/50",
+                    isCollapsed ? "justify-center" : "space-x-3",
                   )}
-                  {/* Group items (collapsible) */}
-                  <div className={cn(
-                    "space-y-1 pl-1 transition-all duration-200 overflow-hidden",
-                    expandedGroups[group.label] ? "max-h-96" : "max-h-0"
-                  )}>
-                    {expandedGroups[group.label] && group.items.map((item) => {
-                      const isActive = location === item.href ||
-                        (item.href !== "/" && location.startsWith(item.href));
-                      return (
-                        <Link
-                          key={item.name}
-                          href={item.href}
-                          className={cn(
-                            "flex items-start space-x-3 px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200",
-                            isActive
-                              ? "bg-blue-100 text-blue-700 shadow-sm"
-                              : "text-white hover:bg-navy-700/50 hover:text-white"
-                          )}
-                        >
-                          <item.icon className={cn("w-5 h-5 mt-0.5", isCollapsed && "w-6 h-6")} />
-                          {!isCollapsed && (
-                            <span className="break-words whitespace-normal text-left drop-shadow-sm">
-                              {item.name}
-                            </span>
-                          )}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                  {groupIndex < navigationGroups.length - 1 && !isCollapsed && (
-                    <div className="border-t border-slate-200 mt-4"></div>
+                >
+                  <Home
+                    className={cn(
+                      "flex-shrink-0 transition-transform duration-200",
+                      isActiveRoute("/") ? "w-5 h-5" : "w-4 h-4",
+                      "group-hover:scale-110",
+                    )}
+                  />
+
+                  {!isCollapsed && <span className="truncate">Home</span>}
+
+                  {/* Tooltip for collapsed state */}
+                  {isCollapsed && (
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                      Home
+                    </div>
                   )}
                 </div>
-              ))}
+              </Link>
+
+              <Link href="/documents" onClick={onMobileClose}>
+                <div
+                  className={cn(
+                    "group flex items-center px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer relative",
+                    isActiveRoute("/documents")
+                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
+                      : "text-navy-200 hover:text-white hover:bg-navy-700/50",
+                    isCollapsed ? "justify-center" : "space-x-3",
+                  )}
+                >
+                  <FileText
+                    className={cn(
+                      "flex-shrink-0 transition-transform duration-200",
+                      isActiveRoute("/documents") ? "w-5 h-5" : "w-4 h-4",
+                      "group-hover:scale-110",
+                    )}
+                  />
+
+                  {!isCollapsed && (
+                    <>
+                      <span className="truncate">All Documents</span>
+                      <Badge
+                        variant="secondary"
+                        className="ml-auto bg-navy-600 text-navy-100"
+                      >
+                        {stats?.totalDocuments || 0}
+                      </Badge>
+                    </>
+                  )}
+
+                  {/* Tooltip for collapsed state */}
+                  {isCollapsed && (
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                      All Documents ({stats?.totalDocuments || 0})
+                    </div>
+                  )}
+                </div>
+              </Link>
+
+              <Link href="/categories" onClick={onMobileClose}>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    "w-full justify-start",
+                    isActiveRoute("/categories")
+                      ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg"
+                      : "text-navy-200 hover:text-white hover:bg-navy-700/50",
+                  )}
+                >
+                  <FolderOpen className="w-5 h-5 mr-3" />
+                  <span>Categories</span>
+                </Button>
+              </Link>
+
+              {/* Dashboard Menu with Expandable Sub-items */}
+              <div className="space-y-1">
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    "w-full justify-start",
+                    isDashboardActive
+                      ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                      : "text-white hover:text-gray-900 hover:bg-gray-50",
+                  )}
+                  onClick={() => setIsDashboardExpanded(!isDashboardExpanded)}
+                >
+                  <BarChart3 className="w-5 h-5 mr-3" />
+                  <span>Dashboards</span>
+                  {isDashboardExpanded ? (
+                    <ChevronDown className="w-4 h-4 ml-auto" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 ml-auto" />
+                  )}
+                </Button>
+
+                {isDashboardExpanded && (
+                  <div className="ml-6 space-y-1">
+                    <Link
+                      href="/dashboards/document-usage"
+                      onClick={onMobileClose}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start text-sm",
+                          isActiveRoute("/dashboards/document-usage")
+                            ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
+                        )}
+                      >
+                        Document Usage Overview
+                      </Button>
+                    </Link>
+
+                    <Link
+                      href="/dashboards/ai-interaction"
+                      onClick={onMobileClose}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start text-sm",
+                          isActiveRoute("/dashboards/ai-interaction")
+                            ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
+                        )}
+                      >
+                        AI Agent Interaction
+                      </Button>
+                    </Link>
+
+                    <Link
+                      href="/dashboards/user-activity"
+                      onClick={onMobileClose}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start text-sm",
+                          isActiveRoute("/dashboards/user-activity")
+                            ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
+                        )}
+                      >
+                        User Activity Monitoring
+                      </Button>
+                    </Link>
+
+                    <Link
+                      href="/dashboards/system-health"
+                      onClick={onMobileClose}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start text-sm",
+                          isActiveRoute("/dashboards/system-health")
+                            ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
+                        )}
+                      >
+                        System Health & AI Performance
+                      </Button>
+                    </Link>
+
+                    <Link
+                      href="/dashboards/security-governance"
+                      onClick={onMobileClose}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start text-sm",
+                          isActiveRoute("/dashboards/security-governance")
+                            ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
+                        )}
+                      >
+                        Security & Governance
+                      </Button>
+                    </Link>
+
+                    <Link
+                      href="/dashboards/customer-survey"
+                      onClick={onMobileClose}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start text-sm",
+                          isActiveRoute("/dashboards/customer-survey")
+                            ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
+                        )}
+                      >
+                        Customer Survey
+                      </Button>
+                    </Link>
+
+                    <Link
+                      href="/dashboards/user-feedback"
+                      onClick={onMobileClose}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start text-sm",
+                          isActiveRoute("/dashboards/user-feedback")
+                            ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
+                        )}
+                      >
+                        User Feedback
+                      </Button>
+                    </Link>
+
+                    <Link
+                      href="/dashboards/ai-response-analysis"
+                      onClick={onMobileClose}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start text-sm",
+                          isActiveRoute("/dashboards/ai-response-analysis")
+                            ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                            : "text-white hover:text-gray-700 hover:bg-gray-50",
+                        )}
+                      >
+                        AI Response Analysis
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* Only show Settings for admin users */}
+              {(user as any)?.role === "admin" && (
+                <Link href="/settings" onClick={onMobileClose}>
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      "w-full justify-start",
+                      isActiveRoute("/settings")
+                        ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                        : "text-white hover:text-gray-900 hover:bg-gray-50",
+                    )}
+                  >
+                    <Settings className="w-5 h-5 mr-3" />
+                    <span>Settings</span>
+                  </Button>
+                </Link>
+              )}
+
+              <Link href="/survey" onClick={onMobileClose}>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    "w-full justify-start",
+                    isActiveRoute("/survey")
+                      ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                      : "text-white hover:text-gray-900 hover:bg-gray-50",
+                  )}
+                >
+                  <Bot className="w-5 h-5 mr-3" />
+                  <span>Survey</span>
+                </Button>
+              </Link>
             </nav>
-            {/* ...other sidebar content */}
+
+            {/* AI Assistant */}
+            {/* <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
+              <div className="flex items-center space-x-3 mb-2">
+                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                  <Bot className="w-4 h-4 text-white" />
+                </div>
+                <h4 className="font-medium text-gray-900">AI Assistant</h4>
+              </div>
+              <p className="text-sm text-gray-600 mb-3">
+                Ask questions about your documents
+              </p>
+              <Button
+                className="w-full bg-blue-500 text-white hover:bg-blue-600"
+                onClick={onOpenChat}
+              >
+                Start Chat
+              </Button>
+            </div> */}
           </div>
         </div>
       </aside>

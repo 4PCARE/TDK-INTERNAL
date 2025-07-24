@@ -149,20 +149,12 @@ export class VectorService {
       let whereCondition: any = eq(documentVectors.userId, userId);
 
       if (specificDocumentIds && specificDocumentIds.length > 0) {
-        console.log(`🔍 BEFORE STEP 3A - VectorService: Bot document IDs to search: [${specificDocumentIds.join(', ')}]`);
-        console.log(`VectorService: Filtering to ${specificDocumentIds.length} specific documents: [${specificDocumentIds.join(', ')}]`);
-
-        // Create a filter condition for specific document IDs
-        const docIdFilter = specificDocumentIds.map(id => `metadata.originalDocumentId = '${id}'`).join(' OR ');
-        console.log(`VectorService: Using document filter: ${docIdFilter}`);
-
         whereCondition = and(
           eq(documentVectors.userId, userId),
           or(...specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
         );
         console.log(`VectorService: Filtering search to ${specificDocumentIds.length} specific documents: [${specificDocumentIds.join(', ')}]`);
       } else {
-        console.log(`🚨 BEFORE STEP 3A - VectorService: NO DOCUMENT FILTER! This will search ALL user documents`);
         console.log(`VectorService: No document ID filter applied - searching all user documents`);
       }
 
@@ -212,7 +204,7 @@ export class VectorService {
 
       // For chatbot integration, we want top chunks globally, not per document
       console.log(`VectorService: Taking top ${limit} chunks globally from ${allResults.length} total chunks`);
-
+      
       const combinedResults = allResults.slice(0, limit);
 
       // Sort by similarity and apply final limit
@@ -225,8 +217,7 @@ export class VectorService {
       // Debug: Log top results with similarity scores
       console.log(`Debug: Top 5 vector search results for "${query}":`);
       finalResults.slice(0, 5).forEach((result, index) => {
-        const chunkIndex = result.document.metadata?.chunkIndex || result.document.chunkIndex || 'unknown';
-        console.log(`${index + 1}. Doc ID: ${result.document.metadata.originalDocumentId} (chunk ${chunkIndex}), Similarity: ${result.similarity.toFixed(4)}`);
+        console.log(`${index + 1}. Doc ID: ${result.document.metadata.originalDocumentId}, Similarity: ${result.similarity.toFixed(4)}`);
         console.log(`   Content: ${result.document.content.substring(0, 200)}...`);
         // Check if this content contains XOLO information
         if (result.document.content.includes('XOLO') || result.document.content.includes('โซโล่')) {
