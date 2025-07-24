@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/components/Layout/Sidebar";
 import TopBar from "@/components/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -462,7 +462,13 @@ export default function Settings() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      <Sidebar 
+        isMobileOpen={false}
+        onMobileClose={() => {}}
+        onOpenChat={() => {}}
+        isCollapsed={false}
+        onToggleCollapse={() => {}}
+      />
       
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar />
