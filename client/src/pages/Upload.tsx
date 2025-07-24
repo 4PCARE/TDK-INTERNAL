@@ -208,7 +208,7 @@ export default function Upload() {
       />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar />
+        <TopBar isSidebarCollapsed={isSidebarCollapsed} />
         
         <main className="flex-1 overflow-auto p-6">
           {/* Header */}

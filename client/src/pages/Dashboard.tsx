@@ -184,7 +184,7 @@ export default function Dashboard() {
       />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar />
+        <TopBar isSidebarCollapsed={isSidebarCollapsed} />
         
         <main className="p-6">
           <div className="max-w-7xl mx-auto space-y-6">
