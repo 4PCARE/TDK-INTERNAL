@@ -408,7 +408,7 @@ async function getAiResponseDirectly(
             vectorWeight: 0.6,
             enableQueryAugmentation: true,
             chatType: "lineoa",
-            contextId: lineUserId,
+            contextId: channelId,
             agentId: agentId
           }
         );
@@ -428,25 +428,7 @@ async function getAiResponseDirectly(
           });
         } else {
           console.log(`⚠️ LINE OA: No relevant documents found for query: "${userMessage}"`);
-        }entDocIds.join(', ')}]`);
-        console.log(`   👤 User ID: ${userId}`);
-        console.log(`   💬 Query: "${userMessage}"`);
-        
-        const hybridResults = await unifiedSearchService.searchAgentDocuments(
-          userMessage,
-          userId,
-          agentDocIds,
-          {
-            searchType: "hybrid",
-            limit: 2, // Only get top 2 chunks globally as requested
-            keywordWeight: 0.4,
-            vectorWeight: 0.6,
-            enableQueryAugmentation: true,
-            chatType: "lineoa",
-            contextId: channelId,
-            agentId: agentId // Pass agent ID for chat history retrieval
-          },
-        );
+        }
 
         console.log(`✅ LINE OA: unifiedSearchService returned ${hybridResults.length} results`);
         if (hybridResults.length > 0) {
