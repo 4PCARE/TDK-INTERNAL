@@ -204,7 +204,7 @@ export class VectorService {
 
       // For chatbot integration, we want top chunks globally, not per document
       console.log(`VectorService: Taking top ${limit} chunks globally from ${allResults.length} total chunks`);
-      
+
       const combinedResults = allResults.slice(0, limit);
 
       // Sort by similarity and apply final limit
