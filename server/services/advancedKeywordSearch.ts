@@ -1,22 +1,15 @@
-
 import { storage } from '../storage';
 
-interface SearchTerm {
-  term: string;
-  weight: number;
-}
-
-interface ChunkScore {
-  documentId: number;
-  chunkIndex: number;
-  chunkContent: string;
-  score: number;
+interface SearchResult {
+  id: number;
+  name: string;
+  content: string;
+  summary?: string | null;
+  aiCategory?: string | null;
+  similarity: number;
+  createdAt: string;
   matchedTerms: string[];
-  matchDetails: Array<{
-    term: string;
-    score: number;
-    positions: number[];
-  }>;
+  matchDetails: any;
 }
 
 export class AdvancedKeywordSearchService {
@@ -34,328 +27,164 @@ export class AdvancedKeywordSearchService {
     'หา', 'ต้อง', 'อยาก', 'ไม่', 'ไม่ได้', 'ไม่มี', 'แล้ว', 'เลย', 'เดี๋ยว', 'เอง'
   ]);
 
-  private chunkSize = 3000; // Characters per chunk
-  private chunkOverlap = 300; // Overlap between chunks
-
   async searchDocuments(
     query: string,
     userId: string,
     limit: number = 20,
     specificDocumentIds?: number[]
-  ): Promise<Array<{
-    id: number;
-    name: string;
-    content: string;
-    summary?: string | null;
-    aiCategory?: string | null;
-    similarity: number;
-    createdAt: string;
-    matchedTerms: string[];
-    matchDetails: any;
-  }>> {
+  ): Promise<SearchResult[]> {
     try {
+      console.log(`Simple keyword search for: "${query}"`);
+
       // Get all documents for the user
       let documents = await storage.getDocuments(userId);
-      console.log(`Advanced keyword search: Found ${documents.length} total documents for user ${userId}`);
+      console.log(`Found ${documents.length} total documents for user ${userId}`);
 
       // Filter by specific document IDs if provided
       if (specificDocumentIds && specificDocumentIds.length > 0) {
         documents = documents.filter(doc => specificDocumentIds.includes(doc.id));
-        console.log(`Advanced keyword search: Filtered to ${documents.length} documents from specific IDs: [${specificDocumentIds.join(', ')}]`);
+        console.log(`Filtered to ${documents.length} documents from specific IDs: [${specificDocumentIds.join(', ')}]`);
       }
 
-      // Parse and analyze query
-      console.log(`Advanced keyword search for: "${query}"`);
+      // Parse query into search terms
       const searchTerms = this.parseQuery(query);
-      console.log(`Parsed search terms:`, searchTerms.map(t => t.term));
+      console.log(`Search terms: [${searchTerms.join(', ')}]`);
 
-      // Debug: Show what we're actually searching for
-      const significantTerms = searchTerms.filter(t => t.weight >= 1.0).map(t => t.term);
-      console.log(`🔑 Keywords: [${significantTerms.join(', ')}]`);
+      // Search through documents
+      const results: SearchResult[] = [];
 
-      // Calculate chunk scores using chunk-level search
-      const chunkScores = this.calculateChunkScores(documents, searchTerms);
+      for (const document of documents) {
+        const documentText = this.extractDocumentText(document);
+        const matches = this.findMatches(documentText, searchTerms);
 
-      // Sort by relevance and limit results
-      chunkScores.sort((a, b) => b.score - a.score);
-      const topChunks = chunkScores.slice(0, limit);
+        if (matches.matchedTerms.length > 0) {
+          // Calculate simple similarity score based on number of matched terms
+          const similarity = matches.matchedTerms.length / searchTerms.length;
 
-      // Format results as chunks (similar to vector search results)
-      const results = topChunks
-        .filter(chunk => chunk.score > 0) // Only return chunks with matches
-        .map(chunkScore => {
-          const document = documents.find(d => d.id === chunkScore.documentId)!;
-
-          return {
-            id: chunkScore.documentId,
+          results.push({
+            id: document.id,
             name: document.name,
-            content: chunkScore.chunkContent, // This is the actual chunk content
+            content: matches.relevantContent,
             summary: document.summary,
             aiCategory: document.aiCategory,
-            similarity: Math.min(chunkScore.score / 10, 1.0), // Normalize to 0-1
+            similarity: similarity,
             createdAt: document.createdAt.toISOString(),
-            matchedTerms: chunkScore.matchedTerms,
-            matchDetails: chunkScore.matchDetails,
-            chunkIndex: chunkScore.chunkIndex // Add chunk index for debugging
-          };
-        });
+            matchedTerms: matches.matchedTerms,
+            matchDetails: matches.matchDetails
+          });
+        }
+      }
 
-      console.log(`Advanced keyword search returned ${results.length} chunk results`);
-      return results;
+      // Sort by similarity (highest first) and limit results
+      results.sort((a, b) => b.similarity - a.similarity);
+      const limitedResults = results.slice(0, limit);
+
+      console.log(`Simple keyword search returned ${limitedResults.length} results`);
+      return limitedResults;
 
     } catch (error) {
-      console.error('Advanced keyword search error:', error);
-      throw new Error('Advanced keyword search failed');
+      console.error('Simple keyword search error:', error);
+      throw new Error('Simple keyword search failed');
     }
   }
 
-  private parseQuery(query: string): SearchTerm[] {
-    const terms: SearchTerm[] = [];
-
+  private parseQuery(query: string): string[] {
     // Handle quoted phrases first
-    const quotedPhrases = query.match(/"([^"]+)"/g);
+    const quotedPhrases: string[] = [];
+    const quotedMatches = query.match(/"([^"]+)"/g);
     let remainingQuery = query;
 
-    if (quotedPhrases) {
-      quotedPhrases.forEach(phrase => {
+    if (quotedMatches) {
+      quotedMatches.forEach(phrase => {
         const cleanPhrase = phrase.replace(/"/g, '').trim();
         if (cleanPhrase.length > 0) {
-          terms.push({ term: cleanPhrase, weight: 2.0 }); // Higher weight for exact phrases
+          quotedPhrases.push(cleanPhrase);
         }
         remainingQuery = remainingQuery.replace(phrase, '');
       });
     }
 
-    // Simple space-based tokenization to preserve keywords from query augmentation
+    // Split remaining query into individual terms
     const individualTerms = remainingQuery
       .toLowerCase()
-      .split(/\s+/) // Only split on spaces
+      .split(/\s+/)
       .map(term => term.trim())
-      .filter(term => term.length > 0)
-      .filter(term => !this.stopWords.has(term)) // Remove stop words
-      .filter(term => term.length > 1); // Remove single characters
+      .filter(term => term.length > 1)
+      .filter(term => !this.stopWords.has(term));
 
-    // Remove duplicates while preserving order
-    const uniqueTerms = [...new Set(individualTerms)];
+    // Combine quoted phrases and individual terms
+    const allTerms = [...quotedPhrases, ...individualTerms];
 
-    // Add individual terms with appropriate weights
-    uniqueTerms.forEach(term => {
-      // Higher weight for brand names and location names
-      let weight = 1.0;
-      if (['xolo', 'เดอะมอล', 'บางกะปิ', 'เดอะมอลบางกะปิ', 'bangkapi', 'mall', 'ร้าน', 'ร้านค้า', 'สินค้า', 'บริการ'].includes(term.toLowerCase())) {
-        weight = 2.0; // Brand and location boost
-      } else if (term.length >= 3) {
-        weight = 1.0;
-      } else {
-        weight = 0.5; // Lower weight for short fragments
-      }
-
-      terms.push({ term, weight });
-    });
-
-    return terms;
-  }
-
-  private calculateChunkScores(documents: any[], searchTerms: SearchTerm[]): ChunkScore[] {
-    const chunkScores: ChunkScore[] = [];
-    const maxChunkScores = 100; // Limit total chunk scores to prevent memory issues
-
-    console.log(`📚 Calculating chunk scores for ${documents.length} documents`);
-    console.log(`🔍 Search terms: ${searchTerms.map(t => `"${t.term}" (weight: ${t.weight})`).join(', ')}`);
-
-    for (const document of documents) {
-      // Skip if we already have enough results
-      if (chunkScores.length >= maxChunkScores) {
-        console.log(`⚠️ Reached maximum chunk limit (${maxChunkScores}), skipping remaining documents`);
-        break;
-      }
-
-      const docText = this.extractDocumentText(document);
-      
-      console.log(`\n📄 Processing document ID: ${document.id}, Name: "${document.name}"`);
-      console.log(`📝 Extracted text length: ${docText.length} characters`);
-
-      // Split document into chunks
-      const chunks = this.createChunks(docText);
-      console.log(`📦 Created ${chunks.length} chunks for document ${document.id}`);
-
-      // Score each chunk
-      for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
-        if (chunkScores.length >= maxChunkScores) {
-          console.log(`⚠️ Reached maximum chunk limit, stopping chunk processing`);
-          break;
-        }
-
-        const chunk = chunks[chunkIndex];
-        const chunkScore: ChunkScore = {
-          documentId: document.id,
-          chunkIndex,
-          chunkContent: chunk,
-          score: 0,
-          matchedTerms: [],
-          matchDetails: []
-        };
-
-        // Calculate simple match score for each search term in this chunk
-        for (const searchTerm of searchTerms) {
-          const termScore = this.calculateTermScore(searchTerm, chunk);
-
-          if (termScore.score > 0) {
-            chunkScore.score += termScore.score * searchTerm.weight;
-            chunkScore.matchedTerms.push(searchTerm.term);
-            chunkScore.matchDetails.push({
-              term: searchTerm.term,
-              score: termScore.score,
-              positions: termScore.positions.slice(0, 10) // Limit positions to prevent memory bloat
-            });
-            console.log(`🎯 Match found: "${searchTerm.term}" in Doc ${document.id} Chunk ${chunkIndex} (score: ${termScore.score})`);
-          }
-        }
-
-        // Apply chunk-level boosters
-        if (chunkScore.score > 0) {
-          const originalScore = chunkScore.score;
-          chunkScore.score = this.applyChunkBoosters(document, chunk, chunkScore.score, searchTerms);
-
-          chunkScores.push(chunkScore);
-          console.log(`✅ Document ${document.id} Chunk ${chunkIndex} added (score: ${chunkScore.score.toFixed(4)}, content length: ${chunk.length})`);
-        }
-      }
-
-      // Force garbage collection hint after processing each document
-      if (global.gc) {
-        global.gc();
-      }
-    }
-
-    console.log(`\n📊 Total chunks with scores > 0: ${chunkScores.length}`);
-    return chunkScores;
-  }
-
-  private createChunks(text: string): string[] {
-    const chunks: string[] = [];
-    const textLength = text.length;
-    
-    // Limit maximum text length to prevent memory issues
-    const maxTextLength = 100000; // 100KB limit per document
-    const processText = textLength > maxTextLength ? text.substring(0, maxTextLength) : text;
-    const processTextLength = processText.length;
-    
-    if (processTextLength <= this.chunkSize) {
-      return [processText];
-    }
-
-    let start = 0;
-    const maxChunks = 50; // Limit maximum number of chunks per document
-    let chunkCount = 0;
-    
-    while (start < processTextLength && chunkCount < maxChunks) {
-      let end = Math.min(start + this.chunkSize, processTextLength);
-      
-      // Try to break at word boundary if we're not at the end
-      if (end < processTextLength) {
-        const lastSpace = processText.lastIndexOf(' ', end);
-        if (lastSpace > start + this.chunkSize * 0.8) {
-          end = lastSpace;
-        }
-      }
-      
-      chunks.push(processText.substring(start, end));
-      start = end - this.chunkOverlap;
-      chunkCount++;
-      
-      // Prevent infinite loop
-      if (start >= end) {
-        start = end;
-      }
-    }
-
-    console.log(`📦 Created ${chunks.length} chunks from ${processTextLength} characters (original: ${textLength})`);
-    return chunks;
+    // Remove duplicates
+    return [...new Set(allTerms)];
   }
 
   private extractDocumentText(document: any): string {
-    // Limit individual field lengths to prevent memory issues
-    const maxFieldLength = 50000; // 50KB per field
-    
-    const name = (document.name || '').substring(0, 1000); // Limit name to 1KB
-    const summary = (document.summary || '').substring(0, 5000); // Limit summary to 5KB
-    const content = (document.content || '').substring(0, maxFieldLength); // Limit content to 50KB
-    const tags = (document.tags || []).slice(0, 20).join(' '); // Limit to 20 tags
+    const name = document.name || '';
+    const summary = document.summary || '';
+    const content = document.content || '';
+    const tags = (document.tags || []).join(' ');
 
-    const text = [name, summary, content, tags].join(' ').toLowerCase();
-
-    console.log(`📄 Document ${document.id} text extraction:`);
-    console.log(`   Name: "${name || 'N/A'}"`);
-    console.log(`   Summary: "${summary.substring(0, 100)}${summary.length > 100 ? '...' : ''}"`);
-    console.log(`   Content length: ${content.length} chars (original: ${(document.content || '').length})`);
-    console.log(`   Tags: [${tags.substring(0, 100)}${tags.length > 100 ? '...' : ''}]`);
-    console.log(`   Combined text length: ${text.length} chars`);
-
-    return text;
+    return [name, summary, content, tags].join(' ').toLowerCase();
   }
 
-  private calculateTermScore(
-    searchTerm: SearchTerm,
-    chunkText: string
-  ): { score: number; positions: number[] } {
-    const term = searchTerm.term.toLowerCase();
-    const lowerChunkText = chunkText.toLowerCase();
-    const positions: number[] = [];
-    let matchCount = 0;
+  private findMatches(documentText: string, searchTerms: string[]): {
+    matchedTerms: string[];
+    matchDetails: any[];
+    relevantContent: string;
+  } {
+    const matchedTerms: string[] = [];
+    const matchDetails: any[] = [];
+    const matchPositions: number[] = [];
 
-    console.log(`🔍 Calculating term score for: "${term}" in chunk (${chunkText.length} chars)`);
+    // Find all matches
+    for (const term of searchTerms) {
+      const termLower = term.toLowerCase();
+      let index = 0;
+      let termMatches = 0;
 
-    // Simple case-insensitive string matching
-    let index = 0;
-    while ((index = lowerChunkText.indexOf(term, index)) !== -1) {
-      positions.push(index);
-      matchCount++;
-      
-      console.log(`✅ Found "${term}" at position ${index} in chunk`);
-      
-      index += term.length;
-    }
+      while ((index = documentText.indexOf(termLower, index)) !== -1) {
+        matchPositions.push(index);
+        termMatches++;
+        index += termLower.length;
+      }
 
-    console.log(`📊 Term "${term}": ${matchCount} exact matches found in chunk`);
-
-    // Simple scoring: number of matches
-    const score = matchCount;
-
-    console.log(`📈 Term "${term}": Chunk Score=${score}`);
-
-    return { score, positions };
-  }
-
-  private applyChunkBoosters(document: any, chunk: string, baseScore: number, searchTerms: SearchTerm[]): number {
-    let boostedScore = baseScore;
-
-    // Boost if terms appear in document title (even though this is chunk-level search)
-    const titleText = (document.name || '').toLowerCase();
-    for (const searchTerm of searchTerms) {
-      if (titleText.includes(searchTerm.term.toLowerCase())) {
-        boostedScore *= 1.5; // 50% boost for title matches
+      if (termMatches > 0) {
+        matchedTerms.push(term);
+        matchDetails.push({
+          term: term,
+          count: termMatches,
+          positions: matchPositions.slice(-10) // Keep last 10 positions for this term
+        });
       }
     }
 
-    // Boost recent documents slightly
-    const daysSinceCreated = (Date.now() - new Date(document.createdAt).getTime()) / (1000 * 60 * 60 * 24);
-    const recencyBoost = Math.max(0.1, 1.0 - (daysSinceCreated / 365)); // Decay over a year
-    boostedScore *= (1.0 + recencyBoost * 0.2); // Up to 20% boost for recent docs
+    // Extract relevant content around matches
+    let relevantContent = '';
+    if (matchPositions.length > 0) {
+      // Sort positions and get content around first few matches
+      matchPositions.sort((a, b) => a - b);
+      const uniquePositions = [...new Set(matchPositions)].slice(0, 3); // Max 3 snippets
 
-    // Boost documents with summary (likely better quality)
-    if (document.summary && document.summary.length > 50) {
-      boostedScore *= 1.1; // 10% boost for documents with good summaries
+      const contentSnippets: string[] = [];
+      for (const position of uniquePositions) {
+        const start = Math.max(0, position - 200);
+        const end = Math.min(documentText.length, position + 300);
+        const snippet = documentText.substring(start, end);
+        contentSnippets.push((start > 0 ? '...' : '') + snippet + (end < documentText.length ? '...' : ''));
+      }
+
+      relevantContent = contentSnippets.join('\n\n');
+    } else {
+      // If no matches, return first 500 characters
+      relevantContent = documentText.substring(0, 500) + (documentText.length > 500 ? '...' : '');
     }
 
-    // Boost chunks with higher keyword density
-    const chunkLength = chunk.length;
-    const keywordDensity = baseScore / chunkLength * 1000; // Keywords per 1000 characters
-    if (keywordDensity > 5) {
-      boostedScore *= 1.2; // 20% boost for high keyword density
-    }
-
-    return boostedScore;
+    return {
+      matchedTerms,
+      matchDetails,
+      relevantContent
+    };
   }
 
   // Method to get keyword highlights for display
@@ -380,14 +209,8 @@ export class AdvancedKeywordSearchService {
     return highlights.slice(0, 5); // Max 5 highlights total
   }
 
-  // Method to get chunks from search results - now returns the actual chunk content
-  getChunksFromResults(results: Array<{
-    content: string; // This is now chunk content, not full document content
-    matchDetails: Array<{
-      term: string;
-    }>;
-  }>): string[] {
-    // Since results now contain chunk content directly, just return the content
+  // Method to get chunks from search results
+  getChunksFromResults(results: SearchResult[]): string[] {
     return results.map(result => result.content).slice(0, 5); // Max 5 chunks total
   }
 }
