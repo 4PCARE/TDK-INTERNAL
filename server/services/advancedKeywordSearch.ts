@@ -178,9 +178,13 @@ export class AdvancedKeywordSearchService {
           docScore.matchDetails.push({
             term: searchTerm.term,
             score: termScore.score,
-            positions: termScore.positions
+            positions: termScore.positions,
+            chunks: termScore.chunks || []
           });
           console.log(`✅ Term "${searchTerm.term}" contributed score: ${termScore.score * searchTerm.weight}`);
+          if (termScore.chunks && termScore.chunks.length > 0) {
+            console.log(`📦 Extracted ${termScore.chunks.length} chunks for term "${searchTerm.term}"`);
+          }
         } else {
           console.log(`❌ Term "${searchTerm.term}" had no matches`);
         }
@@ -227,10 +231,11 @@ export class AdvancedKeywordSearchService {
   private calculateTermScore(
     searchTerm: SearchTerm,
     docText: string
-  ): { score: number; positions: number[] } {
+  ): { score: number; positions: number[]; chunks?: string[] } {
     const term = searchTerm.term.toLowerCase();
     const lowerDocText = docText.toLowerCase();
     const positions: number[] = [];
+    const chunks: string[] = [];
     let matchCount = 0;
 
     console.log(`🔍 Calculating term score for: "${term}"`);
@@ -242,7 +247,16 @@ export class AdvancedKeywordSearchService {
     while ((index = lowerDocText.indexOf(term, index)) !== -1) {
       positions.push(index);
       matchCount++;
+      
+      // Extract chunk around the found term (500 chars before and after)
+      const chunkStart = Math.max(0, index - 500);
+      const chunkEnd = Math.min(docText.length, index + term.length + 500);
+      const chunk = docText.substring(chunkStart, chunkEnd);
+      chunks.push((chunkStart > 0 ? '...' : '') + chunk + (chunkEnd < docText.length ? '...' : ''));
+      
       console.log(`✅ Found "${term}" at position ${index}`);
+      console.log(`📝 Extracted chunk: "${chunk.substring(0, 200)}..."`);
+      
       index += term.length;
     }
 
@@ -253,7 +267,7 @@ export class AdvancedKeywordSearchService {
 
     console.log(`📈 Term "${term}": Score=${score}`);
 
-    return { score, positions };
+    return { score, positions, chunks };
   }
 
   private applyDocumentBoosters(document: any, baseScore: number, searchTerms: SearchTerm[]): number {
@@ -288,8 +302,8 @@ export class AdvancedKeywordSearchService {
     for (const term of searchTerms) {
       let index = 0;
       while ((index = lowerContent.indexOf(term.toLowerCase(), index)) !== -1) {
-        const start = Math.max(0, index - 100);
-        const end = Math.min(content.length, index + term.length + 100);
+        const start = Math.max(0, index - 200);
+        const end = Math.min(content.length, index + term.length + 200);
         const highlight = content.substring(start, end);
 
         highlights.push((start > 0 ? '...' : '') + highlight + (end < content.length ? '...' : ''));
@@ -300,6 +314,26 @@ export class AdvancedKeywordSearchService {
     }
 
     return highlights.slice(0, 5); // Max 5 highlights total
+  }
+
+  // Method to get chunks from search results
+  getChunksFromResults(results: Array<{
+    matchDetails: Array<{
+      term: string;
+      chunks?: string[];
+    }>;
+  }>): string[] {
+    const allChunks: string[] = [];
+    
+    for (const result of results) {
+      for (const detail of result.matchDetails) {
+        if (detail.chunks) {
+          allChunks.push(...detail.chunks);
+        }
+      }
+    }
+    
+    return allChunks.slice(0, 5); // Max 5 chunks total
   }
 }
 
