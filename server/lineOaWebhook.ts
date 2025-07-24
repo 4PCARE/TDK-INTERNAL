@@ -719,16 +719,18 @@ ${imageContext}`;
     );
     console.log(`📊 Total prompt length: ${totalTokens} characters`);
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-      messages: messages,
-      max_tokens: 1000,
-      temperature: 0.7,
-    });
-
-    let aiResponse =
-      response.choices[0].message.content ||
-      "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+    // Use generateChatResponse from openai.ts for consistent AI logic
+    const { generateChatResponse } = await import("./services/openai");
+    
+    let aiResponse = await generateChatResponse(
+      enhancedUserMessage,
+      agentDocs,
+      [], // relevantChunks - handled by unified search
+      userBotMessages.map(msg => ({
+        role: msg.messageType === "user" ? "user" as const : "assistant" as const,
+        content: msg.content
+      }))
+    );
 
     // Validate AI output with guardrails
     if (guardrailsService) {
@@ -1171,14 +1173,15 @@ ${imageAnalysisResult}
           `LINE OA: Found ${agentDocs.length} assigned documents for agent ${lineIntegration.agentId}`,
         );
 
-          // Use the unified getAiResponseDirectly function for consistent behavior
-          const aiResponse = await getAiResponseDirectly(
-            contextMessage,
-            lineIntegration.agentId,
-            lineIntegration.userId,
-            "lineoa",
-            event.source.userId
-          );
+          // Use generateChatResponse from openai.ts for consistent behavior
+        const { generateChatResponse } = await import("./services/openai");
+        
+        const aiResponse = await generateChatResponse(
+          contextMessage,
+          agentDocs,
+          [], // relevantChunks - will be handled by unified search inside the function
+          [] // chatHistory - will be fetched inside the function
+        );
           
           console.log("🤖 AI response:", aiResponse);
 
