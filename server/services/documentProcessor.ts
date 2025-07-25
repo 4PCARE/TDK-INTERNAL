@@ -221,20 +221,10 @@ export class DocumentProcessor {
         progressBar.update(2, { eta: "Using fallback extraction..." });
       }
 
-      // Step 2: Enhanced fallback system with Tesseract OCR
+      // Step 2: Enhanced fallback system with automatic retry on low extraction
       progressBar.update(totalSteps - 1, { eta: "Using enhanced fallback with OCR..." });
 
-      // Try Tesseract OCR first (better for Thai text)
-      let fallbackResult = await this.extractWithTesseractOCR(filePath, fileName);
-      
-      // If Tesseract doesn't yield good results, try textract
-      if (!fallbackResult || fallbackResult.length < 100) {
-        console.log(`🔄 Tesseract yielded minimal content, trying textract fallback...`);
-        const textractResult = await this.extractWithTextract(filePath);
-        if (textractResult && textractResult.length > fallbackResult?.length) {
-          fallbackResult = textractResult;
-        }
-      }
+      let fallbackResult = await this.tryMultipleFallbackMethods(filePath, fileName, fileSizeMB);
 
       progressBar.update(totalSteps, { eta: "Complete!" });
       progressBar.stop();
@@ -351,8 +341,19 @@ export class DocumentProcessor {
         console.log(`📊 Extraction results: ${extractedText.length} chars (expected min: ${expectedMinLength})`);
         
         if (extractedText.length < expectedMinLength && extractedText.length > 0) {
-          console.log(`⚠️ Low extraction rate: ${((extractedText.length / expectedMinLength) * 100).toFixed(1)}% of expected`);
+          const extractionRate = ((extractedText.length / expectedMinLength) * 100).toFixed(1);
+          console.log(`⚠️ Low extraction rate: ${extractionRate}% of expected`);
           console.log(`🔍 Sample extracted text (first 200 chars): ${extractedText.substring(0, 200)}...`);
+          
+          // If extraction rate is below 70%, try fallback methods immediately
+          if (parseFloat(extractionRate) < 70) {
+            console.log(`🔄 Low extraction rate detected, trying fallback methods...`);
+            const fallbackResult = await this.tryMultipleFallbackMethods(filePath, fileName, fileSizeMB);
+            if (fallbackResult && fallbackResult.length > extractedText.length) {
+              console.log(`✅ Fallback method improved extraction: ${fallbackResult.length} vs ${extractedText.length} characters`);
+              return fallbackResult;
+            }
+          }
         }
 
         if (extractedText.length > 50) {
@@ -596,6 +597,110 @@ export class DocumentProcessor {
       presentation: "#6366F1",
     };
     return colors[category.toLowerCase() as keyof typeof colors] || "#6B7280";
+  }
+
+  private async tryMultipleFallbackMethods(filePath: string, fileName: string, fileSizeMB: number): Promise<string> {
+    const fallbackMethods = [
+      {
+        name: "Tesseract OCR",
+        method: () => this.extractWithTesseractOCR(filePath, fileName),
+        description: "OCR extraction for Thai/English text"
+      },
+      {
+        name: "Textract",
+        method: () => this.extractWithTextract(filePath),
+        description: "General text extraction"
+      },
+      {
+        name: "PDF-Parse Alternative",
+        method: () => this.extractWithPdfParseAlternative(filePath, fileName),
+        description: "Alternative PDF parsing method"
+      }
+    ];
+
+    let bestResult = "";
+    let bestLength = 0;
+    const results: Array<{method: string, length: number, content: string}> = [];
+
+    console.log(`🔄 Trying ${fallbackMethods.length} fallback extraction methods for ${fileName}...`);
+
+    for (const fallback of fallbackMethods) {
+      try {
+        console.log(`📋 Attempting ${fallback.name}: ${fallback.description}`);
+        const result = await fallback.method();
+        
+        if (result && result.length > 0) {
+          results.push({
+            method: fallback.name,
+            length: result.length,
+            content: result
+          });
+
+          if (result.length > bestLength) {
+            bestResult = result;
+            bestLength = result.length;
+            console.log(`✅ ${fallback.name} extracted ${result.length} characters - new best result`);
+          } else {
+            console.log(`📊 ${fallback.name} extracted ${result.length} characters`);
+          }
+        } else {
+          console.log(`⚠️ ${fallback.name} yielded no content`);
+        }
+      } catch (error) {
+        console.log(`❌ ${fallback.name} failed:`, error instanceof Error ? error.message : 'Unknown error');
+      }
+    }
+
+    // Log comparison of all methods
+    if (results.length > 1) {
+      console.log(`📈 Extraction comparison for ${fileName}:`);
+      results.sort((a, b) => b.length - a.length).forEach((result, index) => {
+        console.log(`   ${index + 1}. ${result.method}: ${result.length} characters`);
+      });
+    }
+
+    // If we have a good result, return it
+    if (bestResult && bestLength > 100) {
+      console.log(`🎯 Selected best extraction method with ${bestLength} characters`);
+      return bestResult;
+    }
+
+    // Try Tesseract OCR first (better for Thai text)
+    let tesseractResult = "";
+    try {
+      tesseractResult = await this.extractWithTesseractOCR(filePath, fileName);
+    } catch (error) {
+      console.log(`⚠️ Tesseract OCR failed:`, error);
+    }
+    
+    // If Tesseract doesn't yield good results, try textract
+    if (!tesseractResult || tesseractResult.length < 100) {
+      console.log(`🔄 Tesseract yielded minimal content, trying textract fallback...`);
+      try {
+        const textractResult = await this.extractWithTextract(filePath);
+        if (textractResult && textractResult.length > (tesseractResult?.length || 0)) {
+          return textractResult;
+        }
+      } catch (error) {
+        console.log(`⚠️ Textract fallback failed:`, error);
+      }
+    }
+
+    return tesseractResult || bestResult || "";
+  }
+
+  private async extractWithPdfParseAlternative(filePath: string, fileName: string): Promise<string> {
+    console.log(`📚 Attempting alternative PDF parsing for ${fileName}`);
+    
+    try {
+      // This is a placeholder for additional PDF parsing libraries
+      // You could integrate pdf2pic + tesseract, pdf-poppler, or other tools here
+      console.log(`⚠️ Alternative PDF parsing not yet implemented for ${fileName}`);
+      return "";
+    } catch (error) {
+      console.error(`❌ Alternative PDF parsing error for ${fileName}:`, error);
+      return "";
+    }
   }
 
   private getCategoryIcon(category: string): string {
