@@ -1172,29 +1172,42 @@ ${imageAnalysisResult}
               if (hasHighConfidenceAI || hasHighSimilarity) {
                 console.log(`LINE OA: High-quality keyword match found (AI confidence: ${topKeywordResult.aiKeywordExpansion?.confidence || 'N/A'}, similarity: ${topKeywordResult.similarity}), blending keyword and vector results`);
 
-                // Convert keyword results to chunk format for consistency
-                const keywordChunks = keywordSearchResults.slice(0, 3).map(result => ({
-                  name: result.name || result.fileName || 'Unknown Document',
-                  content: result.content || '',
-                  similarity: result.similarity || 0
-                }));
+                // Convert keyword results to chunk format for consistency - preserve full content
+                const keywordChunks = keywordSearchResults.slice(0, 3).map(result => {
+                  const content = result.content || result.textContent || '';
+                  console.log(`LINE OA: Converting keyword result - Name: ${result.name}, Content length: ${content.length}, Has OPPO: ${content.toLowerCase().includes('oppo')}`);
+                  
+                  return {
+                    name: result.name || result.fileName || 'Unknown Document',
+                    content: content, // Preserve full content without truncation
+                    similarity: result.similarity || 0
+                  };
+                });
 
                 console.log(`LINE OA: Keyword chunks prepared:`, keywordChunks.map(chunk => ({
                   name: chunk.name,
                   similarity: chunk.similarity,
                   contentLength: chunk.content.length,
-                  hasOPPO: chunk.content.toLowerCase().includes('oppo')
+                  hasOPPO: chunk.content.toLowerCase().includes('oppo'),
+                  contentPreview: chunk.content.substring(0, 200) + '...'
                 })));
 
-                // Blend keyword and vector results instead of discarding vector results
-                // Take top keyword results + top vector results, then sort by similarity
+                // Blend keyword and vector results - prioritize keyword results for high scores
                 const topVectorResults = searchResults.slice(0, 9); // Get more vector results
+                
+                // Prioritize keyword chunks by boosting their similarity scores for ranking
+                const prioritizedKeywordChunks = keywordChunks.map(chunk => ({
+                  ...chunk,
+                  similarity: Math.min(0.99, chunk.similarity + 0.1) // Boost keyword similarity for ranking
+                }));
+                
                 combinedResults = [
-                  ...keywordChunks,
+                  ...prioritizedKeywordChunks,
                   ...topVectorResults
                 ];
 
-                console.log(`LINE OA: Blended ${keywordChunks.length} keyword + ${topVectorResults.length} vector results for intelligent ranking`);
+                console.log(`LINE OA: Blended ${keywordChunks.length} prioritized keyword + ${topVectorResults.length} vector results`);
+                console.log(`LINE OA: Top keyword result content sample:`, keywordChunks[0]?.content?.substring(0, 300) + '...');
               }
             }
 
@@ -1221,14 +1234,16 @@ ${imageAnalysisResult}
                 console.log(`      Content preview: ${chunk.content.substring(0, 100)}...`);
               });
 
-              // Build context with character limit for cost control
+              // Build context with character limit for cost control - prioritize keyword results
               let documentContext = "";
               const maxContextLength = 24000; // Doubled limit to accommodate more chunks
               let chunksUsed = 0;
 
               for (let i = 0; i < allChunks.length; i++) {
                 const chunk = allChunks[i];
-                const chunkText = `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
+                const isKeywordResult = chunk.similarity > 0.9; // High similarity indicates keyword result
+                const resultType = isKeywordResult ? " (คีย์เวิร์ดแมตช์โดยตรง)" : " (เวกเตอร์เสิร์ช)";
+                const chunkText = `=== ข้อมูลที่ ${i + 1}: ${chunk.docName}${resultType} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
 
                 // Check if adding this chunk would exceed the limit
                 if (documentContext.length + chunkText.length <= maxContextLength) {
