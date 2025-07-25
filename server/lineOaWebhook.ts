@@ -1164,17 +1164,27 @@ ${imageAnalysisResult}
             let combinedResults = searchResults;
 
             if (keywordSearchResults.length > 0) {
-              // If AI keyword search found contextual results with high confidence, blend them with vector results
+              // If AI keyword search found contextual results with high confidence OR high similarity score, blend them with vector results
               const topKeywordResult = keywordSearchResults[0];
-              if (topKeywordResult.aiKeywordExpansion?.isContextual && topKeywordResult.aiKeywordExpansion.confidence > 0.7) {
-                console.log(`LINE OA: High-confidence contextual match found, blending keyword and vector results`);
+              const hasHighConfidenceAI = topKeywordResult.aiKeywordExpansion?.isContextual && topKeywordResult.aiKeywordExpansion.confidence > 0.7;
+              const hasHighSimilarity = topKeywordResult.similarity > 0.5; // Include high-scoring results like OPPO (0.532)
+              
+              if (hasHighConfidenceAI || hasHighSimilarity) {
+                console.log(`LINE OA: High-quality keyword match found (AI confidence: ${topKeywordResult.aiKeywordExpansion?.confidence || 'N/A'}, similarity: ${topKeywordResult.similarity}), blending keyword and vector results`);
 
                 // Convert keyword results to chunk format for consistency
                 const keywordChunks = keywordSearchResults.slice(0, 3).map(result => ({
                   name: result.name || result.fileName || 'Unknown Document',
-                  content: (result.content || '').substring(0, 2000), // Limit content size and handle undefined
+                  content: result.content || '',
                   similarity: result.similarity || 0
                 }));
+
+                console.log(`LINE OA: Keyword chunks prepared:`, keywordChunks.map(chunk => ({
+                  name: chunk.name,
+                  similarity: chunk.similarity,
+                  contentLength: chunk.content.length,
+                  hasOPPO: chunk.content.toLowerCase().includes('oppo')
+                })));
 
                 // Blend keyword and vector results instead of discarding vector results
                 // Take top keyword results + top vector results, then sort by similarity
