@@ -480,8 +480,6 @@ export class DocumentProcessor {
     return result;
   }
 
-  
-
   private async extractWithTextract(filePath: string): Promise<string> {
     const fileName = path.basename(filePath);
     console.log(`🔄 Textract fallback processing: ${fileName}`);
