@@ -1263,19 +1263,40 @@ ${imageAnalysisResult}
                 console.log(`      Content preview: ${chunk.content.substring(0, 100)}...`);
               });
 
-              // Separate keyword and vector results for proper prioritization
-              const keywordChunksForContext = allChunks.filter(chunk => chunk.similarity > 0.9); // High similarity indicates keyword result
-              const vectorChunksForContext = allChunks.filter(chunk => chunk.similarity <= 0.9);
+              // Identify keyword results by checking if they came from keyword search with high similarity OR contain important terms
+              const identifyKeywordChunks = (chunks) => {
+                return chunks.filter(chunk => {
+                  // Check if this chunk has boosted similarity (indicating it came from keyword search)
+                  const hasBoostSimilarity = chunk.similarity > 1.0;
+                  
+                  // Check if this chunk contains important search terms
+                  const content = chunk.content.toLowerCase();
+                  const query = contextMessage.toLowerCase();
+                  
+                  // Extract key terms from the query
+                  const queryTerms = query.split(/\s+/).filter(term => term.length > 2);
+                  const hasKeyTerms = queryTerms.some(term => content.includes(term));
+                  
+                  // High similarity threshold for keyword matches
+                  const hasHighSimilarity = chunk.similarity > 0.4;
+                  
+                  return hasBoostSimilarity || (hasKeyTerms && hasHighSimilarity);
+                });
+              };
+
+              const keywordChunksForContext = identifyKeywordChunks(allChunks);
+              const vectorChunksForContext = allChunks.filter(chunk => !keywordChunksForContext.includes(chunk));
 
               // Sort keyword chunks by similarity to ensure winner appears first
               keywordChunksForContext.sort((a, b) => b.similarity - a.similarity);
 
-              console.log(`LINE OA: Separating chunks - ${keywordChunksForContext.length} keyword, ${vectorChunksForContext.length} vector`);
-              console.log(`LINE OA: Top keyword chunk (should be winner):`, {
+              console.log(`LINE OA: Identified chunks - ${keywordChunksForContext.length} keyword, ${vectorChunksForContext.length} vector`);
+              console.log(`LINE OA: Top keyword chunk details:`, {
                 name: keywordChunksForContext[0]?.docName,
                 similarity: keywordChunksForContext[0]?.similarity,
                 hasOPPO: keywordChunksForContext[0]?.content?.toLowerCase().includes('oppo'),
-                preview: keywordChunksForContext[0]?.content?.substring(0, 150) + '...'
+                hasThapra: keywordChunksForContext[0]?.content?.toLowerCase().includes('ท่าพระ') || keywordChunksForContext[0]?.content?.toLowerCase().includes('thapra'),
+                preview: keywordChunksForContext[0]?.content?.substring(0, 300) + '...'
               });
 
               // Build context with character limit - ALWAYS start with keyword results
@@ -1284,32 +1305,35 @@ ${imageAnalysisResult}
               let chunksUsed = 0;
               let chunkNumber = 1;
 
-              // PRIORITY 1: Add ALL keyword results first (these are the best matches)
+              // PRIORITY 1: Add ALL keyword results first - these are the most important matches
+              console.log(`LINE OA: Processing ${keywordChunksForContext.length} keyword chunks first...`);
               for (const chunk of keywordChunksForContext) {
-                const chunkText = `=== ข้อมูลที่ ${chunkNumber} (คีย์เวิร์ดแมตช์โดยตรง - ความเกี่ยวข้องสูง): ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
+                const chunkText = `=== ข้อมูลที่ ${chunkNumber} (คีย์เวิร์ดแมตช์โดยตรง - ความเกี่ยวข้องสูงสุด): ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
 
                 if (documentContext.length + chunkText.length <= maxContextLength) {
                   documentContext += chunkText;
                   chunksUsed++;
+                  console.log(`LINE OA: Added keyword chunk ${chunkNumber}: ${chunk.docName} (similarity: ${chunk.similarity.toFixed(3)})`);
                   chunkNumber++;
                 } else {
-                  // For keyword results, always try to include them even if truncated
+                  // For keyword results, ALWAYS try to include them even if truncated
                   const remainingSpace = maxContextLength - documentContext.length;
-                  if (remainingSpace > 500) { // Ensure meaningful content space
-                    const availableContentSpace = remainingSpace - 200; // Account for headers
-                    const truncatedContent = chunk.content.substring(0, availableContentSpace) + "... [คีย์เวิร์ดแมตช์ที่สำคัญ - ถูกตัดทอน]";
-                    documentContext += `=== ข้อมูลที่ ${chunkNumber} (คีย์เวิร์ดแมตช์โดยตรง - ความเกี่ยวข้องสูง): ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
+                  if (remainingSpace > 500) {
+                    const availableContentSpace = remainingSpace - 300; // Account for headers
+                    const truncatedContent = chunk.content.substring(0, availableContentSpace) + "... [คีย์เวิร์ดแมตช์สำคัญ - ถูกตัดทอน]";
+                    documentContext += `=== ข้อมูลที่ ${chunkNumber} (คีย์เวิร์ดแมตช์โดยตรง - ความเกี่ยวข้องสูงสุด): ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
                     chunksUsed++;
+                    console.log(`LINE OA: Added truncated keyword chunk ${chunkNumber}: ${chunk.docName}`);
                     chunkNumber++;
                   }
-                  // If we can't fit more, stop adding content
                   break;
                 }
               }
 
-              console.log(`LINE OA: Added ${keywordChunksForContext.length} keyword chunks first (${documentContext.length} chars used)`);
+              console.log(`LINE OA: Finished processing keyword chunks. Added ${keywordChunksForContext.length} keyword chunks (${documentContext.length} chars used)`);
 
               // PRIORITY 2: Add vector search results only if space remains
+              console.log(`LINE OA: Processing ${vectorChunksForContext.length} vector chunks...`);
               for (const chunk of vectorChunksForContext) {
                 const chunkText = `=== ข้อมูลที่ ${chunkNumber} (เวกเตอร์เสิร์ช): ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
 
