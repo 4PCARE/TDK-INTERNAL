@@ -1118,10 +1118,13 @@ ${imageAnalysisResult}
 
               console.log(`LINE OA: AI-enhanced keyword search found ${keywordSearchResults.length} results`);
               if (keywordSearchResults.length > 0 && keywordSearchResults[0].aiKeywordExpansion) {
-                console.log(`LINE OA: AI expansion - Contextual: ${keywordSearchResults[0].aiKeywordExpansion.isContextual}, Confidence: ${keywordSearchResults[0].aiKeywordExpansion.confidence}, Keywords: [${keywordSearchResults[0].aiKeywordExpansion.expandedKeywords.join(', ')}]`);
+                const expansion = keywordSearchResults[0].aiKeywordExpansion;
+                const keywords = expansion.expandedKeywords || [];
+                console.log(`LINE OA: AI expansion - Contextual: ${expansion.isContextual}, Confidence: ${expansion.confidence}, Keywords: [${keywords.join(', ')}]`);
               }
             } catch (keywordError) {
               console.error(`LINE OA: AI-enhanced keyword search failed:`, keywordError);
+              keywordSearchResults = []; // Reset to empty array on error
             }
 
             // Use enhanced search query for vector search if available from keyword expansion
@@ -1130,7 +1133,8 @@ ${imageAnalysisResult}
             // Check if we have enhanced keywords from AI expansion
             if (keywordSearchResults.length > 0 && 
                 keywordSearchResults[0].aiKeywordExpansion?.expandedKeywords && 
-                Array.isArray(keywordSearchResults[0].aiKeywordExpansion.expandedKeywords)) {
+                Array.isArray(keywordSearchResults[0].aiKeywordExpansion.expandedKeywords) &&
+                keywordSearchResults[0].aiKeywordExpansion.expandedKeywords.length > 0) {
               const expandedKeywords = keywordSearchResults[0].aiKeywordExpansion.expandedKeywords;
 
               // Combine original query with top 3 expanded keywords for vector search
@@ -1167,9 +1171,9 @@ ${imageAnalysisResult}
 
                 // Convert keyword results to chunk format for consistency
                 const keywordChunks = keywordSearchResults.slice(0, 3).map(result => ({
-                  name: result.name || 'Unknown Document',
-                  content: result.content.substring(0, 2000), // Limit content size
-                  similarity: result.similarity
+                  name: result.name || result.fileName || 'Unknown Document',
+                  content: (result.content || '').substring(0, 2000), // Limit content size and handle undefined
+                  similarity: result.similarity || 0
                 }));
 
                 // Blend keyword and vector results instead of discarding vector results
