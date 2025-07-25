@@ -21,7 +21,7 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="bg-gradient-to-br from-blue-50 to-indigo-100 overflow-y-auto">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -43,7 +43,7 @@ export default function Landing() {
       </header>
 
       {/* Hero Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center">
           <h1 className="text-4xl sm:text-6xl font-bold text-gray-900 mb-6">
             AI-Powered
@@ -60,7 +60,7 @@ export default function Landing() {
         </div>
       </section>
       {/* Features Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-16">
           <h2 className="text-3xl font-bold text-gray-900 mb-4">
             Everything you need to manage documents
@@ -159,7 +159,7 @@ export default function Landing() {
       </section> */}
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 py-1">
+      <footer className="bg-white border-t border-gray-200 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* <div className="flex items-center justify-center space-x-3">
             <div className="w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center">
