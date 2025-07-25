@@ -1177,20 +1177,33 @@ ${imageAnalysisResult}
               // If AI keyword search found contextual results with high confidence OR high similarity score, blend them with vector results
               const topKeywordResult = keywordSearchResults[0];
               const hasHighConfidenceAI = topKeywordResult.aiKeywordExpansion?.isContextual && topKeywordResult.aiKeywordExpansion.confidence > 0.7;
-              const hasHighSimilarity = topKeywordResult.similarity > 0.5; // Include high-scoring results like OPPO (0.532)
+              const hasHighSimilarity = topKeywordResult.similarity > 0.3; // Lower threshold to include more results like OPPO (0.532)
               
               if (hasHighConfidenceAI || hasHighSimilarity) {
                 console.log(`LINE OA: High-quality keyword match found (AI confidence: ${topKeywordResult.aiKeywordExpansion?.confidence || 'N/A'}, similarity: ${topKeywordResult.similarity}), blending keyword and vector results`);
 
                 // Convert keyword results to chunk format for consistency - preserve full content
-                const keywordChunks = keywordSearchResults.slice(0, 3).map(result => {
-                  const content = result.content || result.textContent || '';
-                  console.log(`LINE OA: Converting keyword result - Name: ${result.name}, Content length: ${content.length}, Has OPPO: ${content.toLowerCase().includes('oppo')}`);
+                const keywordChunks = keywordSearchResults.slice(0, 5).map((result, index) => {
+                  // Extract the actual content - handle different possible data structures
+                  let content = '';
+                  if (result.content) {
+                    content = result.content;
+                  } else if (result.textContent) {
+                    content = result.textContent;
+                  } else if (typeof result === 'string') {
+                    content = result;
+                  } else {
+                    // If content is in a different format, try to extract meaningful text
+                    content = JSON.stringify(result).substring(0, 2000);
+                  }
+
+                  console.log(`LINE OA: Converting keyword result ${index + 1} - Name: ${result.name || result.fileName || 'Unknown'}, Content length: ${content.length}, Has OPPO: ${content.toLowerCase().includes('oppo')}`);
+                  console.log(`LINE OA: Content preview: ${content.substring(0, 200)}...`);
                   
                   return {
-                    name: result.name || result.fileName || 'Unknown Document',
+                    name: result.name || result.fileName || `Keyword Match ${index + 1}`,
                     content: content, // Preserve full content without truncation
-                    similarity: result.similarity || 0
+                    similarity: (result.similarity || 0) + 0.2 // Boost keyword results for prioritization
                   };
                 });
 
@@ -1199,25 +1212,22 @@ ${imageAnalysisResult}
                   similarity: chunk.similarity,
                   contentLength: chunk.content.length,
                   hasOPPO: chunk.content.toLowerCase().includes('oppo'),
+                  hasThapra: chunk.content.toLowerCase().includes('ท่าพระ'),
                   contentPreview: chunk.content.substring(0, 200) + '...'
                 })));
 
-                // Blend keyword and vector results - prioritize keyword results for high scores
-                const topVectorResults = searchResults.slice(0, 9); // Get more vector results
-                
-                // Prioritize keyword chunks by boosting their similarity scores for ranking
-                const prioritizedKeywordChunks = keywordChunks.map(chunk => ({
-                  ...chunk,
-                  similarity: Math.min(0.99, chunk.similarity + 0.1) // Boost keyword similarity for ranking
-                }));
+                // Blend keyword and vector results - prioritize keyword results
+                const topVectorResults = searchResults.slice(0, 7); // Get fewer vector results to make room for keyword results
                 
                 combinedResults = [
-                  ...prioritizedKeywordChunks,
+                  ...keywordChunks, // Add keyword results first (they already have boosted similarity)
                   ...topVectorResults
                 ];
 
-                console.log(`LINE OA: Blended ${keywordChunks.length} prioritized keyword + ${topVectorResults.length} vector results`);
+                console.log(`LINE OA: Blended ${keywordChunks.length} keyword + ${topVectorResults.length} vector results`);
                 console.log(`LINE OA: Top keyword result content sample:`, keywordChunks[0]?.content?.substring(0, 300) + '...');
+              } else {
+                console.log(`LINE OA: Keyword results don't meet quality threshold (AI confidence: ${topKeywordResult.aiKeywordExpansion?.confidence || 'N/A'}, similarity: ${topKeywordResult.similarity})`);
               }
             }
 
