@@ -1192,7 +1192,7 @@ ${imageAnalysisResult}
 
               // Build context with character limit for cost control
               let documentContext = "";
-              const maxContextLength = 12000; // Increased limit to accommodate more chunks
+              const maxContextLength = 24000; // Doubled limit to accommodate more chunks
               let chunksUsed = 0;
 
               for (let i = 0; i < allChunks.length; i++) {
