@@ -495,8 +495,21 @@ export class DocumentProcessor {
     console.log(`🔍 Tesseract OCR processing for Thai content: ${fileName}`);
     
     try {
-      // Convert PDF to images first using a simple approach
-      // For now, we'll use Tesseract directly on PDF (it can handle some PDFs)
+      const fileExtension = path.extname(fileName).toLowerCase();
+      
+      // For PDFs, we need to convert to images first
+      if (fileExtension === '.pdf') {
+        console.log(`📄 PDF detected, attempting image-based OCR extraction for ${fileName}`);
+        
+        // Try to use pdf2pic or similar library if available
+        // For now, we'll skip direct PDF OCR and return empty string
+        // This allows the fallback system to try other methods
+        console.log(`⚠️ PDF-to-image conversion not yet implemented for Tesseract OCR`);
+        console.log(`🔄 Skipping Tesseract OCR for PDF, allowing other fallback methods to proceed`);
+        return "";
+      }
+      
+      // For image files, proceed with direct OCR
       const { data: { text } } = await Tesseract.recognize(
         filePath,
         'tha+eng', // Thai + English language support
@@ -693,9 +706,77 @@ export class DocumentProcessor {
     console.log(`📚 Attempting alternative PDF parsing for ${fileName}`);
     
     try {
-      // This is a placeholder for additional PDF parsing libraries
-      // You could integrate pdf2pic + tesseract, pdf-poppler, or other tools here
-      console.log(`⚠️ Alternative PDF parsing not yet implemented for ${fileName}`);
+      // Try using pdf-poppler if available for PDF to image conversion + OCR
+      try {
+        const pdf = require('pdf-poppler');
+        console.log(`🖼️ Converting PDF to images for OCR processing: ${fileName}`);
+        
+        const options = {
+          format: 'jpeg',
+          out_dir: path.join(process.cwd(), 'temp-pdf-images'),
+          out_prefix: path.basename(fileName, '.pdf'),
+          page: null // Convert all pages
+        };
+        
+        // Create temp directory if it doesn't exist
+        await fs.promises.mkdir(options.out_dir, { recursive: true });
+        
+        // Convert PDF to images
+        const imageFiles = await pdf.convert(filePath, options);
+        
+        if (imageFiles && imageFiles.length > 0) {
+          console.log(`📄 Converted PDF to ${imageFiles.length} image(s)`);
+          
+          let combinedText = "";
+          
+          // Process each image with Tesseract
+          for (let i = 0; i < Math.min(imageFiles.length, 10); i++) { // Limit to first 10 pages
+            const imagePath = path.join(options.out_dir, `${options.out_prefix}-${i + 1}.jpeg`);
+            
+            try {
+              const { data: { text } } = await Tesseract.recognize(
+                imagePath,
+                'tha+eng',
+                {
+                  tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+                  tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
+                }
+              );
+              
+              if (text && text.trim().length > 10) {
+                combinedText += `--- Page ${i + 1} ---\n${text.trim()}\n\n`;
+                console.log(`📄 Page ${i + 1}: ${text.trim().length} characters extracted`);
+              }
+            } catch (pageError) {
+              console.log(`⚠️ Failed to OCR page ${i + 1}: ${pageError}`);
+            }
+            
+            // Clean up image file
+            try {
+              await fs.promises.unlink(imagePath);
+            } catch (unlinkError) {
+              // Ignore cleanup errors
+            }
+          }
+          
+          // Clean up temp directory
+          try {
+            await fs.promises.rmdir(options.out_dir);
+          } catch (rmdirError) {
+            // Ignore cleanup errors
+          }
+          
+          if (combinedText.length > 100) {
+            console.log(`✅ PDF-to-image OCR extracted ${combinedText.length} characters from ${fileName}`);
+            return combinedText;
+          }
+        }
+      } catch (pdfError) {
+        console.log(`⚠️ pdf-poppler not available or failed: ${pdfError.message}`);
+      }
+      
+      // Fallback: Try other PDF parsing libraries
+      console.log(`🔄 Attempting basic text extraction fallback for ${fileName}`);
       return "";
     } catch (error) {
       console.error(`❌ Alternative PDF parsing error for ${fileName}:`, error);
