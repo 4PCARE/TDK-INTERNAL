@@ -68,6 +68,7 @@ export default function Sidebar({
       label: "Main",
       items: [
         { name: "Home", href: "/", icon: Home },
+        { name: "Settings", href: "/settings", icon: Settings },
       ]
     },
     {
@@ -110,7 +111,6 @@ export default function Sidebar({
         { name: "Roles", href: "/role-management", icon: Shield },
         { name: "Admin Dashboard", href: "/admin", icon: Settings },
         { name: "Audit Monitoring", href: "/audit-monitoring", icon: Eye },
-        { name: "Settings", href: "/settings", icon: Settings },
       ]
     },
     {
