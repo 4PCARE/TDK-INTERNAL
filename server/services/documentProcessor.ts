@@ -9,8 +9,9 @@ import { processDocument as aiProcessDocument } from "./openai";
 import { vectorService } from "./vectorService";
 import { storage } from "../storage";
 
-// Added import for Tesseract
-const Tesseract = require('tesseract.js');
+// Added imports for PDF processing and OCR
+import Tesseract from 'tesseract.js';
+import pdf2pic from 'pdf-poppler';
 
 export class DocumentProcessor {
   async processDocument(documentId: number): Promise<void> {
@@ -212,23 +213,56 @@ export class DocumentProcessor {
             try {
               console.log(`🚀 Starting Tesseract OCR extraction for ${fileName}...`);
 
-              // Convert PDF page to image (you might need additional libraries for this)
-              // Example: convert -density 300 input.pdf[0] output.png
-              // For simplicity, let's assume the first page is converted to "output.png"
-              const imagePath = 'output.png';  // Replace with actual path
-              const lang = 'tha'; //Thai language support
+              // Convert PDF first page to image
+              const options = {
+                format: 'jpeg',
+                out_dir: path.dirname(filePath),
+                out_prefix: path.basename(filePath, '.pdf'),
+                page: 1 // First page only for quick test
+              };
 
-              const { data: { text } } = await Tesseract.recognize(
-                imagePath,
-                lang,
-                { logger: m => console.log(m) }
-              );
+              const imagePaths = await pdf2pic.convert(filePath, options);
+              if (imagePaths && imagePaths.length > 0) {
+                const imagePath = imagePaths[0];
+                console.log(`📷 Converted PDF to image: ${imagePath}`);
 
-              if (text && text.length > 10) {
-                console.log(`✅ Tesseract OCR extracted ${text.length} characters`);
-                return text;
+                const { data: { text } } = await Tesseract.recognize(
+                  imagePath,
+                  'tha+eng', // Thai + English support
+                  {
+                    logger: m => {
+                      if (m.status === 'recognizing text') {
+                        console.log(`📄 OCR Progress: ${Math.round(m.progress * 100)}%`);
+                      }
+                    },
+                    tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+                    tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
+                    tessedit_char_whitelist: 'กขคฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮะาเแโใไ่้๊๋์ํฯ๐๑๒๓๔๕๖๗๘๙ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?():;-',
+                    preserve_interword_spaces: '1'
+                  }
+                );
+
+                // Clean up temporary image file
+                try {
+                  await fs.promises.unlink(imagePath);
+                } catch (cleanupError) {
+                  console.log(`⚠️ Could not clean up temporary image: ${imagePath}`);
+                }
+
+                if (text && text.length > 10) {
+                  console.log(`✅ Tesseract OCR extracted ${text.length} characters`);
+                  
+                  // Check for Thai content
+                  const thaiRegex = /[\u0E00-\u0E7F]/;
+                  const hasThaiText = thaiRegex.test(text);
+                  console.log(`🇹🇭 Contains Thai text: ${hasThaiText ? 'Yes' : 'No'}`);
+                  
+                  return text;
+                } else {
+                  console.log(`⚠️ Tesseract OCR returned minimal content.`);
+                }
               } else {
-                console.log(`⚠️ Tesseract OCR returned minimal content.`);
+                console.log(`⚠️ Failed to convert PDF to image for OCR.`);
               }
 
             } catch (tesseractError) {
