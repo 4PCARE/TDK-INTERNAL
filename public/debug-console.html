@@ -1,0 +1,1032 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-KMS Debug Console</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .debug-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .debug-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            border: 1px solid #e9ecef;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .debug-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        .debug-card h3 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .debug-card .icon {
+            font-size: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 5px 5px 5px 0;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+            color: #212529;
+        }
+
+        .output {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .output.success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        .output.error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+
+        .output.warning {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+
+        .loading {
+            display: none;
+            color: #667eea;
+            font-style: italic;
+            margin-top: 10px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .status-indicators {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .status-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+
+        .status-card.online {
+            border-left-color: #28a745;
+        }
+
+        .status-card.offline {
+            border-left-color: #dc3545;
+        }
+
+        .status-card.warning {
+            border-left-color: #ffc107;
+        }
+
+        .status-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .status-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .tabs {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+        }
+
+        .tab-buttons {
+            display: flex;
+            border-bottom: 1px solid #e9ecef;
+            border-radius: 12px 12px 0 0;
+            overflow: hidden;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            border-right: 1px solid #e9ecef;
+        }
+
+        .tab-button:last-child {
+            border-right: none;
+        }
+
+        .tab-button.active {
+            background: white;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .tab-content {
+            padding: 25px;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .quick-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .metric {
+            display: inline-block;
+            background: #e9ecef;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            margin: 2px;
+        }
+
+        .metric.good {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .metric.bad {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .metric.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        @media (max-width: 768px) {
+            .debug-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .tab-buttons {
+                flex-direction: column;
+            }
+            
+            .tab-button {
+                border-right: none;
+                border-bottom: 1px solid #e9ecef;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 AI-KMS Debug Console</h1>
+            <p>Comprehensive debugging and testing interface for AI Knowledge Management System</p>
+        </div>
+
+        <!-- Status Indicators -->
+        <div class="status-indicators">
+            <div class="status-card" id="serverStatus">
+                <div class="status-value" id="serverStatusValue">⏳</div>
+                <div class="status-label">Server Status</div>
+            </div>
+            <div class="status-card" id="vectorStatus">
+                <div class="status-value" id="vectorStatusValue">⏳</div>
+                <div class="status-label">Vector Service</div>
+            </div>
+            <div class="status-card" id="dbStatus">
+                <div class="status-value" id="dbStatusValue">⏳</div>
+                <div class="status-label">Database</div>
+            </div>
+            <div class="status-card" id="aiStatus">
+                <div class="status-value" id="aiStatusValue">⏳</div>
+                <div class="status-label">AI Service</div>
+            </div>
+        </div>
+
+        <!-- Main Debug Tabs -->
+        <div class="tabs">
+            <div class="tab-buttons">
+                <button class="tab-button active" onclick="switchTab('search')">🔍 Search Testing</button>
+                <button class="tab-button" onclick="switchTab('ai')">🤖 AI Input Debug</button>
+                <button class="tab-button" onclick="switchTab('vector')">📊 Vector Analysis</button>
+                <button class="tab-button" onclick="switchTab('system')">⚙️ System Health</button>
+                <button class="tab-button" onclick="switchTab('logs')">📋 Logs & Monitoring</button>
+            </div>
+
+            <!-- Search Testing Tab -->
+            <div class="tab-content active" id="search">
+                <div class="debug-grid">
+                    <div class="debug-card">
+                        <h3><span class="icon">🔍</span>Advanced Keyword Search</h3>
+                        <div class="form-group">
+                            <label>Search Query:</label>
+                            <input type="text" id="searchQuery" placeholder="e.g., XOLO restaurant" value="XOLO restaurant">
+                        </div>
+                        <div class="form-group">
+                            <label>User ID:</label>
+                            <input type="text" id="searchUserId" placeholder="43981095" value="43981095">
+                        </div>
+                        <div class="quick-actions">
+                            <button class="btn" onclick="testAdvancedKeywordSearch()">🚀 Test Advanced Search</button>
+                            <button class="btn btn-secondary" onclick="testVectorSearch()">📊 Test Vector Search</button>
+                            <button class="btn btn-warning" onclick="findXoloEverywhere()">🔎 Find XOLO Everywhere</button>
+                        </div>
+                        <div class="loading" id="searchLoading">⏳ Running search tests...</div>
+                        <div class="output" id="searchOutput">Ready to test search functionality...</div>
+                    </div>
+
+                    <div class="debug-card">
+                        <h3><span class="icon">📄</span>Document Analysis</h3>
+                        <div class="form-group">
+                            <label>Document ID:</label>
+                            <input type="number" id="docId" placeholder="213" value="213">
+                        </div>
+                        <div class="form-group">
+                            <label>Analysis Query:</label>
+                            <input type="text" id="docQuery" placeholder="What is this document about?" value="XOLO เดอะมอลล์บางกะปิอยู่ชั้นไหน">
+                        </div>
+                        <div class="form-group">
+                            <label>Search Type:</label>
+                            <select id="docSearchType">
+                                <option value="keyword">Keyword Search</option>
+                                <option value="vector">Vector Search</option>
+                                <option value="hybrid">Hybrid Search</option>
+                                <option value="weighted">Weighted Search</option>
+                            </select>
+                        </div>
+                        <div class="quick-actions">
+                            <button class="btn" onclick="analyzeDocument()">📊 Analyze Document</button>
+                            <button class="btn btn-secondary" onclick="viewDocumentContext()">👁️ View Context</button>
+                        </div>
+                        <div class="loading" id="docLoading">⏳ Analyzing document...</div>
+                        <div class="output" id="docOutput">Ready to analyze documents...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Input Debug Tab -->
+            <div class="tab-content" id="ai">
+                <div class="debug-grid">
+                    <div class="debug-card">
+                        <h3><span class="icon">🤖</span>AI Input Debugging</h3>
+                        <div class="form-group">
+                            <label>User Message:</label>
+                            <textarea id="aiUserMessage" rows="3" placeholder="Enter user question...">XOLO เดอะมอลล์บางกะปิอยู่ชั้นไหน</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Document ID (optional):</label>
+                            <input type="number" id="aiDocId" placeholder="213" value="213">
+                        </div>
+                        <div class="form-group">
+                            <label>User ID:</label>
+                            <input type="text" id="aiUserId" placeholder="43981095" value="43981095">
+                        </div>
+                        <div class="form-group">
+                            <label>Search Strategy:</label>
+                            <select id="aiSearchType">
+                                <option value="vector">Vector Search (Current)</option>
+                                <option value="keyword">Keyword Search</option>
+                                <option value="hybrid">Hybrid Search</option>
+                                <option value="weighted">Weighted Hybrid</option>
+                            </select>
+                        </div>
+                        <div class="quick-actions">
+                            <button class="btn" onclick="debugAIInput()">🔬 Debug AI Input</button>
+                            <button class="btn btn-secondary" onclick="testAIKeywordExpansion()">🧠 Test Keyword Expansion</button>
+                        </div>
+                        <div class="loading" id="aiLoading">⏳ Debugging AI input...</div>
+                        <div class="output" id="aiOutput">Ready to debug AI inputs...</div>
+                    </div>
+
+                    <div class="debug-card">
+                        <h3><span class="icon">💬</span>Chat Response Testing</h3>
+                        <div class="form-group">
+                            <label>Test Message:</label>
+                            <textarea id="chatMessage" rows="2" placeholder="Test chat message...">สวัสดี ช่วยหาข้อมูลเกี่ยวกับ XOLO ให้หน่อย</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Channel Type:</label>
+                            <select id="chatChannelType">
+                                <option value="widget">Widget Chat</option>
+                                <option value="line">Line OA</option>
+                                <option value="agent">Agent Console</option>
+                            </select>
+                        </div>
+                        <div class="quick-actions">
+                            <button class="btn" onclick="testChatResponse()">💬 Test Chat</button>
+                            <button class="btn btn-warning" onclick="testImageAnalysis()">🖼️ Test Image Analysis</button>
+                        </div>
+                        <div class="loading" id="chatLoading">⏳ Testing chat response...</div>
+                        <div class="output" id="chatOutput">Ready to test chat responses...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vector Analysis Tab -->
+            <div class="tab-content" id="vector">
+                <div class="debug-grid">
+                    <div class="debug-card">
+                        <h3><span class="icon">📊</span>Vector Database Analysis</h3>
+                        <div class="form-group">
+                            <label>Query Text:</label>
+                            <input type="text" id="vectorQuery" placeholder="test query" value="XOLO restaurant">
+                        </div>
+                        <div class="form-group">
+                            <label>User ID:</label>
+                            <input type="text" id="vectorUserId" placeholder="43981095" value="43981095">
+                        </div>
+                        <div class="form-group">
+                            <label>Result Limit:</label>
+                            <input type="number" id="vectorLimit" placeholder="5" value="5" min="1" max="20">
+                        </div>
+                        <div class="quick-actions">
+                            <button class="btn" onclick="testVectorDB()">🔍 Query Vector DB</button>
+                            <button class="btn btn-secondary" onclick="checkVectorHealth()">🏥 Check Vector Health</button>
+                            <button class="btn btn-warning" onclick="vectorizeAllDocuments()">⚡ Vectorize All</button>
+                        </div>
+                        <div class="loading" id="vectorLoading">⏳ Analyzing vector database...</div>
+                        <div class="output" id="vectorOutput">Ready to analyze vector database...</div>
+                    </div>
+
+                    <div class="debug-card">
+                        <h3><span class="icon">📈</span>Search Performance</h3>
+                        <div class="quick-actions">
+                            <button class="btn" onclick="runPerformanceTest()">🏃‍♂️ Run Performance Test</button>
+                            <button class="btn btn-secondary" onclick="compareSearchMethods()">⚖️ Compare Methods</button>
+                            <button class="btn btn-success" onclick="benchmarkSearch()">📊 Benchmark All</button>
+                        </div>
+                        <div class="loading" id="perfLoading">⏳ Running performance tests...</div>
+                        <div class="output" id="perfOutput">Ready to run performance tests...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Health Tab -->
+            <div class="tab-content" id="system">
+                <div class="debug-grid">
+                    <div class="debug-card">
+                        <h3><span class="icon">🏥</span>Health Checks</h3>
+                        <div class="quick-actions">
+                            <button class="btn" onclick="checkAllServices()">🔄 Check All Services</button>
+                            <button class="btn btn-secondary" onclick="checkDatabase()">🗄️ Check Database</button>
+                            <button class="btn btn-warning" onclick="checkOpenAI()">🤖 Check OpenAI</button>
+                            <button class="btn btn-success" onclick="checkEndpoints()">🌐 Check Endpoints</button>
+                        </div>
+                        <div class="loading" id="healthLoading">⏳ Running health checks...</div>
+                        <div class="output" id="healthOutput">Ready to run health checks...</div>
+                    </div>
+
+                    <div class="debug-card">
+                        <h3><span class="icon">⚙️</span>Configuration</h3>
+                        <div class="quick-actions">
+                            <button class="btn" onclick="showConfig()">⚙️ Show Config</button>
+                            <button class="btn btn-secondary" onclick="showEnvironment()">🌍 Show Environment</button>
+                            <button class="btn btn-warning" onclick="clearCaches()">🧹 Clear Caches</button>
+                        </div>
+                        <div class="loading" id="configLoading">⏳ Loading configuration...</div>
+                        <div class="output" id="configOutput">Ready to show configuration...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logs & Monitoring Tab -->
+            <div class="tab-content" id="logs">
+                <div class="debug-card">
+                    <h3><span class="icon">📋</span>Real-time Logs</h3>
+                    <div class="quick-actions">
+                        <button class="btn" onclick="startLogStream()">▶️ Start Log Stream</button>
+                        <button class="btn btn-secondary" onclick="stopLogStream()">⏸️ Stop Stream</button>
+                        <button class="btn btn-warning" onclick="clearLogs()">🧹 Clear Logs</button>
+                        <button class="btn btn-danger" onclick="exportLogs()">💾 Export Logs</button>
+                    </div>
+                    <div class="loading" id="logLoading">⏳ Loading logs...</div>
+                    <div class="output" id="logOutput" style="max-height: 500px;">Ready to stream logs...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let logStreamInterval = null;
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Utility functions
+        function setLoading(id, show) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.toggle('show', show);
+            }
+        }
+
+        function setOutput(id, content, type = '') {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = content;
+                element.className = 'output ' + type;
+            }
+        }
+
+        function appendOutput(id, content) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent += '\n' + content;
+                element.scrollTop = element.scrollHeight;
+            }
+        }
+
+        async function makeRequest(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+
+                const contentType = response.headers.get('content-type');
+                let data;
+                
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    data = await response.text();
+                }
+
+                return { response, data, ok: response.ok };
+            } catch (error) {
+                return { response: null, data: null, ok: false, error: error.message };
+            }
+        }
+
+        // Search Testing Functions
+        async function testAdvancedKeywordSearch() {
+            setLoading('searchLoading', true);
+            const query = document.getElementById('searchQuery').value;
+            const userId = document.getElementById('searchUserId').value;
+
+            try {
+                const { response, data, ok, error } = await makeRequest(
+                    `/api/debug/test-advanced-keyword-search?query=${encodeURIComponent(query)}&userId=${userId}`
+                );
+
+                if (error) {
+                    setOutput('searchOutput', `Network Error: ${error}`, 'error');
+                } else if (!ok) {
+                    setOutput('searchOutput', `HTTP ${response.status}: ${JSON.stringify(data, null, 2)}`, 'error');
+                } else {
+                    const output = `✅ Advanced Keyword Search Results:
+Query: "${query}"
+User ID: ${userId}
+
+Regular Search: ${data.regularSearch.results} results
+AI Enhanced Search: ${data.aiEnhancedSearch.results} results
+
+Regular Results:
+${data.regularSearch.documents.map((doc, i) => 
+    `${i+1}. ${doc.name} (ID: ${doc.id})
+   Similarity: ${doc.similarity.toFixed(4)}
+   Matched Terms: ${doc.matchedTerms.join(', ')}
+   Preview: ${doc.contentPreview}`
+).join('\n\n')}
+
+AI Enhanced Results:
+${data.aiEnhancedSearch.documents.map((doc, i) => 
+    `${i+1}. ${doc.name} (ID: ${doc.id})
+   Similarity: ${doc.similarity.toFixed(4)}
+   Matched Terms: ${doc.matchedTerms.join(', ')}
+   AI Keywords: ${doc.aiKeywordExpansion ? doc.aiKeywordExpansion.join(', ') : 'None'}
+   Preview: ${doc.contentPreview}`
+).join('\n\n')}`;
+                    
+                    setOutput('searchOutput', output, 'success');
+                }
+            } catch (err) {
+                setOutput('searchOutput', `Error: ${err.message}`, 'error');
+            } finally {
+                setLoading('searchLoading', false);
+            }
+        }
+
+        async function testVectorSearch() {
+            setLoading('searchLoading', true);
+            const query = document.getElementById('searchQuery').value;
+            const userId = document.getElementById('searchUserId').value;
+
+            try {
+                const { response, data, ok, error } = await makeRequest(
+                    `/api/debug/test-vector-search?query=${encodeURIComponent(query)}&userId=${userId}&limit=5`
+                );
+
+                if (error) {
+                    setOutput('searchOutput', `Network Error: ${error}`, 'error');
+                } else if (!ok) {
+                    setOutput('searchOutput', `HTTP ${response.status}: ${JSON.stringify(data, null, 2)}`, 'error');
+                } else {
+                    const output = `✅ Vector Search Results:
+Query: "${query}"
+User ID: ${userId}
+Results: ${data.results}
+
+Documents:
+${data.documents.map((doc, i) => 
+    `${i+1}. Document ID: ${doc.id}
+   Similarity: ${doc.similarity.toFixed(4)}
+   Content: ${doc.content}
+   Metadata: ${JSON.stringify(doc.metadata, null, 2)}`
+).join('\n\n')}`;
+                    
+                    setOutput('searchOutput', output, 'success');
+                }
+            } catch (err) {
+                setOutput('searchOutput', `Error: ${err.message}`, 'error');
+            } finally {
+                setLoading('searchLoading', false);
+            }
+        }
+
+        async function findXoloEverywhere() {
+            setLoading('searchLoading', true);
+            const userId = document.getElementById('searchUserId').value;
+
+            try {
+                const { response, data, ok, error } = await makeRequest(`/api/debug/find-xolo/${userId}`);
+
+                if (error) {
+                    setOutput('searchOutput', `Network Error: ${error}`, 'error');
+                } else if (!ok) {
+                    setOutput('searchOutput', `HTTP ${response.status}: ${JSON.stringify(data, null, 2)}`, 'error');
+                } else {
+                    const output = `🔍 XOLO Search Results:
+Total Documents: ${data.totalDocuments}
+Documents with XOLO: ${data.summary.foundInDocuments}
+Vector Results with XOLO: ${data.summary.foundInVector}
+
+Documents containing XOLO:
+${data.documentsWithXolo.map(doc => 
+    `📄 ${doc.documentName} (ID: ${doc.documentId})
+   Found terms: ${doc.foundTerms.join(', ')}
+   Has vector data: ${doc.hasVectorData}
+   Sample lines: ${doc.matchingLines.slice(0, 2).join(' | ')}`
+).join('\n\n')}
+
+Vector Search Results:
+${data.vectorResults.map((result, i) => 
+    `${i+1}. Document ID: ${result.documentId}
+   Similarity: ${result.similarity.toFixed(4)}
+   Contains XOLO: ${result.hasXolo}
+   Content: ${result.content.substring(0, 200)}...`
+).join('\n\n')}`;
+                    
+                    setOutput('searchOutput', output, data.documentsWithXolo.length > 0 ? 'success' : 'warning');
+                }
+            } catch (err) {
+                setOutput('searchOutput', `Error: ${err.message}`, 'error');
+            } finally {
+                setLoading('searchLoading', false);
+            }
+        }
+
+        // AI Input Debug Functions
+        async function debugAIInput() {
+            setLoading('aiLoading', true);
+            const userMessage = document.getElementById('aiUserMessage').value;
+            const documentId = document.getElementById('aiDocId').value;
+            const userId = document.getElementById('aiUserId').value;
+            const searchType = document.getElementById('aiSearchType').value;
+
+            try {
+                const { response, data, ok, error } = await makeRequest('/api/debug/ai-input', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        userMessage,
+                        specificDocumentId: documentId || null,
+                        userId,
+                        searchType,
+                        keywordWeight: 0.3,
+                        vectorWeight: 0.7
+                    })
+                });
+
+                if (error) {
+                    setOutput('aiOutput', `Network Error: ${error}`, 'error');
+                } else if (!ok) {
+                    setOutput('aiOutput', `HTTP ${response.status}: ${JSON.stringify(data, null, 2)}`, 'error');
+                } else {
+                    const metrics = data.searchMetrics;
+                    const output = `🤖 AI Input Debug Results:
+User Message: "${data.userMessage}"
+Search Type: ${metrics.searchType}
+Document Context Length: ${data.documentContextLength.toLocaleString()} characters
+
+Search Metrics:
+- Keyword Results: ${metrics.keywordResults || 0}
+- Vector Results: ${metrics.vectorResults || 0}
+- Combined Results: ${metrics.combinedResults || 0}
+${metrics.weights ? `- Weights: Keyword ${metrics.weights.keyword}, Vector ${metrics.weights.vector}` : ''}
+
+System Message:
+${data.systemMessage}
+
+Document Context (first 1000 chars):
+${data.documentContext.substring(0, 1000)}${data.documentContext.length > 1000 ? '...' : ''}
+
+Chunk Details:
+${data.chunkDetails.map((chunk, i) => 
+    `Chunk ${i+1}: ${chunk.chunkId || chunk.id}
+   Type: ${chunk.type}
+   Similarity: ${chunk.similarity ? chunk.similarity.toFixed(4) : 'N/A'}
+   Content: ${(chunk.content || '').substring(0, 200)}...`
+).join('\n\n')}`;
+                    
+                    setOutput('aiOutput', output, 'success');
+                }
+            } catch (err) {
+                setOutput('aiOutput', `Error: ${err.message}`, 'error');
+            } finally {
+                setLoading('aiLoading', false);
+            }
+        }
+
+        async function testAIKeywordExpansion() {
+            setLoading('aiLoading', true);
+            const userMessage = document.getElementById('aiUserMessage').value;
+            const userId = document.getElementById('aiUserId').value;
+
+            try {
+                const { response, data, ok, error } = await makeRequest('/api/debug/ai-keyword-expansion', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        userMessage,
+                        userId,
+                        chatHistory: []
+                    })
+                });
+
+                if (error) {
+                    setOutput('aiOutput', `Network Error: ${error}`, 'error');
+                } else if (!ok) {
+                    setOutput('aiOutput', `HTTP ${response.status}: ${JSON.stringify(data, null, 2)}`, 'error');
+                } else {
+                    const output = `🧠 AI Keyword Expansion Results:
+Original Message: "${data.originalMessage}"
+
+Expanded Keywords: ${JSON.stringify(data.expandedKeywords, null, 2)}`;
+                    
+                    setOutput('aiOutput', output, 'success');
+                }
+            } catch (err) {
+                setOutput('aiOutput', `Error: ${err.message}`, 'error');
+            } finally {
+                setLoading('aiLoading', false);
+            }
+        }
+
+        // Document Analysis Functions
+        async function analyzeDocument() {
+            setLoading('docLoading', true);
+            const docId = document.getElementById('docId').value;
+            const query = document.getElementById('docQuery').value;
+            const searchType = document.getElementById('docSearchType').value;
+            const userId = document.getElementById('searchUserId').value;
+
+            try {
+                const { response, data, ok, error } = await makeRequest(`/api/debug/analyze-document/${userId}/${docId}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        userMessage: query,
+                        searchType,
+                        keywordWeight: 0.3,
+                        vectorWeight: 0.7
+                    })
+                });
+
+                if (error) {
+                    setOutput('docOutput', `Network Error: ${error}`, 'error');
+                } else if (!ok) {
+                    setOutput('docOutput', `HTTP ${response.status}: Response was HTML, opening in new tab...`, 'warning');
+                    // Open in new tab if HTML response
+                    const newTab = window.open('', '_blank');
+                    newTab.document.write(data);
+                } else {
+                    setOutput('docOutput', `✅ Document analysis completed - check response`, 'success');
+                }
+            } catch (err) {
+                setOutput('docOutput', `Error: ${err.message}`, 'error');
+            } finally {
+                setLoading('docLoading', false);
+            }
+        }
+
+        // System Health Functions
+        async function checkAllServices() {
+            setLoading('healthLoading', true);
+            setOutput('healthOutput', 'Checking all services...', '');
+
+            const checks = [
+                { name: 'Server', url: '/api/auth/user' },
+                { name: 'Vector Search', url: '/api/debug/test-vector-search?query=test&userId=43981095&limit=1' },
+                { name: 'Advanced Search', url: '/api/debug/test-advanced-keyword-search?query=test&userId=43981095' }
+            ];
+
+            let results = '🏥 Service Health Check Results:\n\n';
+
+            for (const check of checks) {
+                try {
+                    const { response, ok } = await makeRequest(check.url);
+                    const status = ok ? '✅ Online' : `❌ Error (${response?.status || 'Unknown'})`;
+                    results += `${check.name}: ${status}\n`;
+                    
+                    // Update status indicators
+                    updateStatusIndicator(check.name.toLowerCase().replace(' ', ''), ok);
+                } catch (err) {
+                    results += `${check.name}: ❌ Failed (${err.message})\n`;
+                    updateStatusIndicator(check.name.toLowerCase().replace(' ', ''), false);
+                }
+            }
+
+            setOutput('healthOutput', results, 'success');
+            setLoading('healthLoading', false);
+        }
+
+        function updateStatusIndicator(service, isOnline) {
+            const statusMap = {
+                'server': 'serverStatus',
+                'vectorsearch': 'vectorStatus',
+                'advancedsearch': 'dbStatus'
+            };
+
+            const elementId = statusMap[service];
+            if (elementId) {
+                const element = document.getElementById(elementId);
+                const valueElement = document.getElementById(elementId + 'Value');
+                
+                if (element && valueElement) {
+                    element.className = `status-card ${isOnline ? 'online' : 'offline'}`;
+                    valueElement.textContent = isOnline ? '✅' : '❌';
+                }
+            }
+        }
+
+        // Initialize status check on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAllServices();
+        });
+
+        // Placeholder functions for other features
+        function testChatResponse() {
+            setOutput('chatOutput', 'Chat response testing - Feature coming soon!', 'warning');
+        }
+
+        function testImageAnalysis() {
+            setOutput('chatOutput', 'Image analysis testing - Feature coming soon!', 'warning');
+        }
+
+        function testVectorDB() {
+            const query = document.getElementById('vectorQuery').value;
+            const userId = document.getElementById('vectorUserId').value;
+            const limit = document.getElementById('vectorLimit').value;
+            testVectorSearch(); // Reuse existing function
+        }
+
+        function checkVectorHealth() {
+            setOutput('vectorOutput', 'Vector health check - Feature coming soon!', 'warning');
+        }
+
+        function vectorizeAllDocuments() {
+            setOutput('vectorOutput', 'Bulk vectorization - Feature coming soon!', 'warning');
+        }
+
+        function runPerformanceTest() {
+            setOutput('perfOutput', 'Performance testing - Feature coming soon!', 'warning');
+        }
+
+        function compareSearchMethods() {
+            setOutput('perfOutput', 'Search method comparison - Feature coming soon!', 'warning');
+        }
+
+        function benchmarkSearch() {
+            setOutput('perfOutput', 'Search benchmarking - Feature coming soon!', 'warning');
+        }
+
+        function checkDatabase() {
+            setOutput('healthOutput', 'Database check - Feature coming soon!', 'warning');
+        }
+
+        function checkOpenAI() {
+            setOutput('healthOutput', 'OpenAI API check - Feature coming soon!', 'warning');
+        }
+
+        function checkEndpoints() {
+            setOutput('healthOutput', 'Endpoint check - Feature coming soon!', 'warning');
+        }
+
+        function showConfig() {
+            setOutput('configOutput', 'Configuration display - Feature coming soon!', 'warning');
+        }
+
+        function showEnvironment() {
+            setOutput('configOutput', 'Environment display - Feature coming soon!', 'warning');
+        }
+
+        function clearCaches() {
+            setOutput('configOutput', 'Cache clearing - Feature coming soon!', 'warning');
+        }
+
+        function startLogStream() {
+            setOutput('logOutput', 'Log streaming - Feature coming soon!', 'warning');
+        }
+
+        function stopLogStream() {
+            setOutput('logOutput', 'Stopping log stream...', 'warning');
+        }
+
+        function clearLogs() {
+            setOutput('logOutput', 'Ready to stream logs...', '');
+        }
+
+        function exportLogs() {
+            setOutput('logOutput', 'Log export - Feature coming soon!', 'warning');
+        }
+
+        function viewDocumentContext() {
+            const docId = document.getElementById('docId').value;
+            const userId = document.getElementById('searchUserId').value;
+            const url = `/api/debug/view-ai-input/${userId}/${docId}`;
+            window.open(url, '_blank');
+        }
+    </script>
+</body>
+</html>
