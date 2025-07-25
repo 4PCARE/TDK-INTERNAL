@@ -4,6 +4,7 @@ import mammoth from "mammoth";
 import textract from "textract";
 import cliProgress from "cli-progress";
 import { LlamaParseReader } from "@llamaindex/cloud";
+import Tesseract from "tesseract.js";
 import { processDocument as aiProcessDocument } from "./openai";
 import { vectorService } from "./vectorService";
 import { storage } from "../storage";
@@ -220,18 +221,27 @@ export class DocumentProcessor {
         progressBar.update(2, { eta: "Using fallback extraction..." });
       }
 
-      // Step 2: Enhanced fallback system
-      progressBar.update(totalSteps - 1, { eta: "Using enhanced fallback..." });
+      // Step 2: Enhanced fallback system with Tesseract OCR
+      progressBar.update(totalSteps - 1, { eta: "Using enhanced fallback with OCR..." });
 
-      // Try alternative PDF processing approaches
-      const fallbackResult = await this.extractWithTextract(filePath);
+      // Try Tesseract OCR first (better for Thai text)
+      let fallbackResult = await this.extractWithTesseractOCR(filePath, fileName);
+      
+      // If Tesseract doesn't yield good results, try textract
+      if (!fallbackResult || fallbackResult.length < 100) {
+        console.log(`🔄 Tesseract yielded minimal content, trying textract fallback...`);
+        const textractResult = await this.extractWithTextract(filePath);
+        if (textractResult && textractResult.length > fallbackResult?.length) {
+          fallbackResult = textractResult;
+        }
+      }
 
       progressBar.update(totalSteps, { eta: "Complete!" });
       progressBar.stop();
 
       if (fallbackResult && fallbackResult.length > 10) {
         console.log(
-          `✅ PDF processed with fallback system: ${fallbackResult.length} characters extracted`,
+          `✅ PDF processed with enhanced fallback system: ${fallbackResult.length} characters extracted`,
         );
         return fallbackResult;
       }
@@ -478,6 +488,43 @@ export class DocumentProcessor {
     }
 
     return result;
+  }
+
+  private async extractWithTesseractOCR(filePath: string, fileName: string): Promise<string> {
+    console.log(`🔍 Tesseract OCR processing for Thai content: ${fileName}`);
+    
+    try {
+      // Convert PDF to images first using a simple approach
+      // For now, we'll use Tesseract directly on PDF (it can handle some PDFs)
+      const { data: { text } } = await Tesseract.recognize(
+        filePath,
+        'tha+eng', // Thai + English language support
+        {
+          logger: (m) => {
+            if (m.status === 'recognizing text') {
+              console.log(`📄 Tesseract OCR progress: ${Math.round(m.progress * 100)}%`);
+            }
+          },
+          tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+          tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
+          // Thai-specific optimizations
+          tessedit_char_whitelist: 'กขคฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮะาเแโใไ่้๊๋์ํฯ๐๑๒๓๔๕๖๗๘๙ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?():;-',
+          preserve_interword_spaces: '1'
+        }
+      );
+
+      if (text && text.trim().length > 50) {
+        console.log(`✅ Tesseract OCR extracted ${text.length} characters from ${fileName}`);
+        console.log(`🔤 Thai content preview: ${text.substring(0, 200)}...`);
+        return text.trim();
+      } else {
+        console.log(`⚠️ Tesseract OCR yielded minimal content: ${text?.length || 0} characters`);
+        return text || "";
+      }
+    } catch (error) {
+      console.error(`❌ Tesseract OCR error for ${fileName}:`, error);
+      return "";
+    }
   }
 
   private async extractWithTextract(filePath: string): Promise<string> {

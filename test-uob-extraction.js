@@ -1,5 +1,6 @@
 
 import { LlamaParseReader } from "@llamaindex/cloud";
+import Tesseract from "tesseract.js";
 import fs from "fs";
 import path from "path";
 
@@ -156,6 +157,56 @@ async function testUOBExtraction() {
       message: error.message,
       stack: error.stack?.split('\n').slice(0, 3).join('\n')
     });
+  }
+  
+  // Test Tesseract OCR for Thai content
+  console.log('\n🔍 Testing Tesseract OCR for Thai content...');
+  try {
+    console.log('🚀 Starting Tesseract OCR with Thai+English support...');
+    
+    const { data: { text } } = await Tesseract.recognize(
+      uobFile,
+      'tha+eng',
+      {
+        logger: (m) => {
+          if (m.status === 'recognizing text') {
+            console.log(`📄 OCR Progress: ${Math.round(m.progress * 100)}%`);
+          }
+        },
+        tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+        tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
+        tessedit_char_whitelist: 'กขคฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮะาเแโใไ่้๊๋์ํฯ๐๑๒๓๔๕๖๗๘๙ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?():;-',
+        preserve_interword_spaces: '1'
+      }
+    );
+    
+    console.log(`📝 Tesseract extracted: ${text.length} characters`);
+    
+    if (text && text.length > 100) {
+      console.log(`🔤 OCR Content preview (first 500 chars):`);
+      console.log('=' .repeat(50));
+      console.log(text.substring(0, 500));
+      console.log('=' .repeat(50));
+      
+      // Check for Thai content
+      const thaiRegex = /[\u0E00-\u0E7F]/;
+      const hasThaiText = thaiRegex.test(text);
+      console.log(`🇹🇭 Contains Thai text: ${hasThaiText ? 'Yes' : 'No'}`);
+      
+      // Check for UOB credit card terms
+      const creditTerms = ['บัตรเครดิต', 'UOB', 'เครดิตเงินคืน', 'โปรโมชั่น', 'ส่วนลด', 'แลกรับ'];
+      const foundTerms = creditTerms.filter(term => 
+        text.toLowerCase().includes(term.toLowerCase())
+      );
+      console.log(`💳 Credit card terms found: ${foundTerms.join(', ')}`);
+      
+      console.log('\n✅ Tesseract OCR extraction successful!');
+    } else {
+      console.log('⚠️ Tesseract OCR yielded minimal content');
+    }
+    
+  } catch (ocrError) {
+    console.error('❌ Tesseract OCR test failed:', ocrError.message);
   }
 }
 
