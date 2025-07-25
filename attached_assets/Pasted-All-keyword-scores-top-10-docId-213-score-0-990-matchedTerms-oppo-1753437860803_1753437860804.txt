@@ -1,0 +1,73 @@
+All keyword scores (top 10): [
+  {
+    docId: 213,
+    score: '0.990',
+    matchedTerms: [ 'oppo', 'เดอะมอลล์', 'ท่าพระ', 'ออปโป้', 'The Mall' ],
+    hasOPPO: true,
+    preview: 'he Mall Lifestore Bangkae\tG\tเดอะมอลล์ไลฟ์สโตร์ บางแค\tThe Mall Lifestore Bangkae\tLifestyle & Specialt...'
+  },
+  {
+    docId: 213,
+    score: '0.981',
+    matchedTerms: [ 'oppo', 'เดอะมอลล์', 'ท่าพระ', 'ออปโป้', 'The Mall' ],
+    hasOPPO: true,
+    preview: 'ลล์ไลฟ์สโตร์ บางกะปิ\tTALISA CLINIC The Mall Lifestore Bangkapi\t1\tเดอะมอลล์ไลฟ์สโตร์ บางกะปิ\tThe Mall...'
+  },
+  {
+    docId: 213,
+    score: '0.980',
+    matchedTerms: [ 'oppo', 'เดอะมอลล์', 'ท่าพระ', 'ออปโป้', 'The Mall' ],
+    hasOPPO: true,
+    preview: 'ลฟ์สโตร์ ท่าพระ\tGRANEDA CLINIC The Mall Lifestore Thapra\t11\tเดอะมอลล์ไลฟ์สโตร์ ท่าพระ\tThe Mall Lifes...'
+  },
+  {
+    docId: 213,
+    score: '0.969',
+    matchedTerms: [ 'oppo', 'เดอะมอลล์', 'ท่าพระ', 'ออปโป้', 'The Mall' ],
+    hasOPPO: true,
+    preview: 'ลลิล เดอะมอลล์ไลฟ์สโตร์ บางแค\tLALIL The Mall Lifestore Bangkae\tG\tเดอะมอลล์ไลฟ์สโตร์ บางแค\tThe Mall L...'
+  },
+  {
+    docId: 213,
+    score: '0.951',
+    matchedTerms: [ 'oppo', 'เดอะมอลล์', 'ท่าพระ', 'ออปโป้', 'The Mall' ],
+    hasOPPO: true,
+    preview: 'เดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน\tThe Mall Lifestore Ngamwongwan\tBank & Insurance\tBank & Insurance\tactiv...'
+  },
+  {
+    docId: 213,
+    score: '0.754',
+    matchedTerms: [ 'เดอะมอลล์', 'ท่าพระ', 'The Mall', 'floor' ],
+    hasOPPO: false,
+    preview: 'Sheet: mbiz_shop_list.csv\n' +
+      'no\tbranch_name_th\tbranch_name_en\tfloor\tmall_th\tmall_en\tsub_category_th\tsub...'
+  },
+  {
+    docId: 213,
+    score: '0.663',
+    matchedTerms: [ 'เดอะมอลล์', 'ท่าพระ', 'The Mall' ],
+    hasOPPO: false,
+    preview: 'll Lifestore Bangkapi\tG\tเดอะมอลล์ไลฟ์สโตร์ บางกะปิ\tThe Mall Lifestore Bangkapi\tLifestyle & Specialty...'
+  },
+  {
+    docId: 213,
+    score: '0.660',
+    matchedTerms: [ 'เดอะมอลล์', 'ท่าพระ', 'The Mall' ],
+    hasOPPO: false,
+    preview: 'The Mall Lifestore Ngamwongwan\t2\tเดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน\tThe Mall Lifestore Ngamwongwan\tFashio...'
+  },
+  {
+    docId: 213,
+    score: '0.657',
+    matchedTerms: [ 'เดอะมอลล์', 'ท่าพระ', 'The Mall' ],
+    hasOPPO: false,
+    preview: 'สสิก เดอะมอลล์ไลฟ์สโตร์ บางแค\tZAAP CLASSIC The Mall Lifestore Bangkae\t3\tเดอะมอลล์ไลฟ์สโตร์ บางแค\tThe...'
+  },
+  {
+    docId: 213,
+    score: '0.657',
+    matchedTerms: [ 'เดอะมอลล์', 'ท่าพระ', 'The Mall' ],
+    hasOPPO: false,
+    preview: '์สโตร์ ท่าพระ\tPOTATO CORNER The Mall Lifestore Thapra\tB\tเดอะมอลล์ไลฟ์สโตร์ ท่าพระ\tThe Mall Lifestore...'
+  }
+]
