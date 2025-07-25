@@ -1,4 +1,3 @@
-
 import { storage } from '../storage';
 import { aiKeywordExpansionService } from './aiKeywordExpansion';
 import { db } from '../db';
@@ -97,7 +96,7 @@ export class AdvancedKeywordSearchService {
           if (!document) return;
 
           const existingResult = documentResults.get(chunkScore.documentId);
-          
+
           // If this document already has a result, only replace if this chunk has a better score
           if (!existingResult || chunkScore.score > existingResult.similarity) {
             documentResults.set(chunkScore.documentId, {
@@ -382,7 +381,7 @@ export class AdvancedKeywordSearchService {
       // Get AI keyword expansion
       console.log(`Getting AI keyword expansion for: "${query}"`);
       const expansionResult = await aiKeywordExpansionService.getExpandedSearchTerms(query, chatHistory);
-      
+
       console.log(`AI Expansion Result:`, {
         original: expansionResult.original,
         expanded: expansionResult.expanded,
@@ -392,7 +391,7 @@ export class AdvancedKeywordSearchService {
 
       // Parse original query
       const originalSearchTerms = this.parseQuery(query);
-      
+
       // Create enhanced search terms combining original and AI-expanded
       const enhancedSearchTerms: SearchTerm[] = [
         // Original terms with high weight
@@ -400,7 +399,7 @@ export class AdvancedKeywordSearchService {
           ...term,
           source: 'original' as const
         })),
-        
+
         // AI-expanded terms with contextual weight
         ...expansionResult.expanded
           .filter(keyword => !originalSearchTerms.some(ot => ot.term.toLowerCase() === keyword.toLowerCase()))
@@ -456,7 +455,7 @@ export class AdvancedKeywordSearchService {
           if (!document) return;
 
           const existingResult = documentResults.get(chunkScore.documentId);
-          
+
           // If this document already has a result, only replace if this chunk has a better score
           if (!existingResult || chunkScore.score > existingResult.similarity) {
             documentResults.set(chunkScore.documentId, {
