@@ -38,7 +38,7 @@ import {
   Trash2,
   User
 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/components/Layout/Sidebar";
 import TopBar from "@/components/TopBar";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -79,6 +79,8 @@ export default function UserManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // State for dialogs
   const [isCreateDepartmentOpen, setIsCreateDepartmentOpen] = useState(false);
@@ -236,8 +238,11 @@ export default function UserManagement() {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <Sidebar 
-        isCollapsed={false}
-        onToggleCollapse={() => {}}
+        isMobileOpen={isMobileMenuOpen}
+        onMobileClose={() => setIsMobileMenuOpen(false)}
+        onOpenChat={() => setIsChatModalOpen(true)}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
       
       <div className="flex-1 flex flex-col overflow-hidden">

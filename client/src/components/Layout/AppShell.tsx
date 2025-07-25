@@ -116,6 +116,8 @@ export default function AppShell() {
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={() => setIsMobileMenuOpen(false)}
           onOpenChat={() => setIsChatModalOpen(true)}
+          isCollapsed={false}
+          onToggleCollapse={() => {}}
         />
 
         {/* Main Content */}

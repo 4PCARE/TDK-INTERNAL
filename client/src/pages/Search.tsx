@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect } from "react";
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/components/Layout/Sidebar";
 import TopBar from "@/components/TopBar";
 import DocumentCard from "@/components/DocumentCard";
 import SearchBar from "@/components/SearchBar";
@@ -68,6 +68,9 @@ export default function SearchPage() {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar 
+        isMobileOpen={false}
+        onMobileClose={() => {}}
+        onOpenChat={() => {}}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />

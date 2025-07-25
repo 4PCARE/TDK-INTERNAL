@@ -33,7 +33,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/components/Layout/Sidebar";
 
 // WebhookUrlDisplay component for showing webhook URLs
 function WebhookUrlDisplay({ integrationId }: { integrationId: number }) {
@@ -362,7 +362,13 @@ export default function Integrations() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="flex">
-        <Sidebar />
+        <Sidebar 
+          isMobileOpen={false}
+          onMobileClose={() => {}}
+          onOpenChat={() => {}}
+          isCollapsed={false}
+          onToggleCollapse={() => {}}
+        />
         <main className="flex-1 ml-64">
           <div className="p-8">
             <div className="max-w-6xl mx-auto">
