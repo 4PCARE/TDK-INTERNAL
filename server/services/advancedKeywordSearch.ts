@@ -406,6 +406,9 @@ export class AdvancedKeywordSearchService {
 
       console.log(`Enhanced search terms:`, enhancedSearchTerms.map(t => `${t.term}(${t.weight}, ${t.source})`));
 
+      // Log clean terms that will actually be used for searching
+      console.log(`Clean search terms for processing:`, enhancedSearchTerms.map(t => `"${t.term}" (weight: ${t.weight})`));
+
       // Calculate document scores with enhanced terms
       const documentScores = this.calculateDocumentScores(documents, enhancedSearchTerms);
 
