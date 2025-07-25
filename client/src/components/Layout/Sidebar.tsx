@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +53,7 @@ export default function Sidebar({
   const [location] = useLocation();
   const [isDashboardExpanded, setIsDashboardExpanded] = useState(false);
   const { user } = useAuth();
+  const sidebarRef = useRef<HTMLElement>(null);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["/api/categories"],
@@ -151,6 +152,26 @@ export default function Sidebar({
     // eslint-disable-next-line
   }, [location]);
 
+  // Handle click outside to collapse sidebar
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        sidebarRef.current &&
+        !sidebarRef.current.contains(event.target as Node) &&
+        !isCollapsed &&
+        onToggleCollapse &&
+        window.innerWidth >= 1024 // Only on desktop
+      ) {
+        onToggleCollapse();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isCollapsed, onToggleCollapse]);
+
   return (
     <>
       {/* Mobile Overlay */}
@@ -163,6 +184,7 @@ export default function Sidebar({
 
       {/* Sidebar */}
       <aside
+        ref={sidebarRef}
         className={cn(
           "fixed lg:static inset-y-0 left-0 z-50 bg-gradient-to-b from-navy-900 to-navy-800 shadow-xl border-r border-navy-700 transition-all duration-300 ease-in-out lg:translate-x-0",
           isMobileOpen ? "translate-x-0" : "-translate-x-full",

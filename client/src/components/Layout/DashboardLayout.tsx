@@ -9,6 +9,7 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -16,6 +17,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         isMobileOpen={isMobileMenuOpen} 
         onMobileClose={() => setIsMobileMenuOpen(false)}
         onOpenChat={() => setIsChatModalOpen(true)}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
       />
       
       <div className="flex-1 flex flex-col overflow-hidden">
