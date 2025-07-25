@@ -1143,25 +1143,27 @@ ${imageAnalysisResult}
             let combinedResults = searchResults;
 
             if (keywordSearchResults.length > 0) {
-              // If AI keyword search found contextual results with high confidence, prioritize them
+              // If AI keyword search found contextual results with high confidence, blend them with vector results
               const topKeywordResult = keywordSearchResults[0];
               if (topKeywordResult.aiKeywordExpansion?.isContextual && topKeywordResult.aiKeywordExpansion.confidence > 0.7) {
-                console.log(`LINE OA: High-confidence contextual match found, prioritizing keyword results`);
+                console.log(`LINE OA: High-confidence contextual match found, blending keyword and vector results`);
 
                 // Convert keyword results to chunk format for consistency
-                const keywordChunks = keywordSearchResults.slice(0, 2).map(result => ({
+                const keywordChunks = keywordSearchResults.slice(0, 3).map(result => ({
                   document: { name: result.name },
                   content: result.content.substring(0, 2000), // Limit content size
                   similarity: result.similarity
                 }));
 
-                // Merge with vector results, giving priority to keyword results
+                // Blend keyword and vector results instead of discarding vector results
+                // Take top keyword results + top vector results, then sort by similarity
+                const topVectorResults = searchResults.slice(0, 9); // Get more vector results
                 combinedResults = [
                   ...keywordChunks,
-                  ...searchResults.slice(0, 2 - keywordChunks.length)
+                  ...topVectorResults
                 ];
 
-                console.log(`LINE OA: Combined ${keywordChunks.length} keyword + ${searchResults.slice(0, 2 - keywordChunks.length).length} vector results`);
+                console.log(`LINE OA: Blended ${keywordChunks.length} keyword + ${topVectorResults.length} vector results for intelligent ranking`);
               }
             }
 
