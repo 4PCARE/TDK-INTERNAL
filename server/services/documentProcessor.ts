@@ -678,7 +678,7 @@ export class DocumentProcessor {
   }
 
   /**
-   * OCR Thai PDF using native Tesseract CLI
+   * OCR Thai PDF using native Tesseract CLI with segfault protection
    * Converts PDF pages to images and runs OCR on each page
    */
   private async ocrThaiPDF(pdfPath: string): Promise<string> {
@@ -687,13 +687,44 @@ export class DocumentProcessor {
     const outputPrefix = path.join(tempDir, 'page');
 
     try {
+      // Pre-flight PDF validation
+      const fileStats = await fs.promises.stat(pdfPath);
+      if (fileStats.size < 1024) {
+        throw new Error('PDF file too small, likely corrupted');
+      }
+
+      // Test PDF validity with pdfinfo first
+      try {
+        console.log(`🔍 Validating PDF structure...`);
+        await execAsync(`pdfinfo "${pdfPath}"`, { timeout: 5000 });
+        console.log(`✅ PDF validation passed`);
+      } catch (validationError) {
+        console.log(`⚠️ PDF validation failed: ${validationError.message}`);
+        throw new Error(`PDF validation failed: ${validationError.message}`);
+      }
+
       // Create temporary directory
       await fs.promises.mkdir(tempDir, { recursive: true });
 
       console.log(`📄 Converting PDF pages to images for OCR...`);
       
-      // Convert PDF to PNG images (all pages)
-      await execAsync(`pdftoppm -png "${pdfPath}" "${outputPrefix}"`);
+      // Convert PDF to PNG images with segfault protection
+      try {
+        await execAsync(`pdftoppm -png "${pdfPath}" "${outputPrefix}"`, { 
+          timeout: 30000,
+          maxBuffer: 1024 * 1024 * 10 // 10MB buffer
+        });
+      } catch (conversionError) {
+        // Handle segfault specifically (exit code 139)
+        if (conversionError.code === 139) {
+          console.error(`🧠 Segmentation fault detected in pdftoppm - PDF may be corrupted or incompatible`);
+          throw new Error('PDF conversion failed due to segmentation fault - file may be corrupted');
+        }
+        
+        // Handle other conversion errors
+        console.error(`❌ PDF conversion failed: ${conversionError.message}`);
+        throw new Error(`PDF conversion failed: ${conversionError.message}`);
+      }
 
       // Find all generated image files
       const files = await fs.promises.readdir(tempDir);
@@ -708,10 +739,11 @@ export class DocumentProcessor {
       console.log(`📷 Generated ${imageFiles.length} image files for OCR`);
 
       if (imageFiles.length === 0) {
-        throw new Error('No images generated from PDF');
+        throw new Error('No images generated from PDF - conversion may have failed silently');
       }
 
       let allText = '';
+      let successfulPages = 0;
       
       // Process each page with OCR
       for (let i = 0; i < imageFiles.length; i++) {
@@ -721,19 +753,30 @@ export class DocumentProcessor {
         try {
           console.log(`🔍 OCR processing page ${pageNum}/${imageFiles.length}...`);
           
-          // Run Tesseract OCR with Thai + English support
-          const { stdout } = await execAsync(`tesseract "${imagePath}" stdout -l tha+eng --psm 3 --oem 3`);
+          // Verify image file exists and has content
+          const imageStats = await fs.promises.stat(imagePath);
+          if (imageStats.size < 100) {
+            console.log(`⚠️ Page ${pageNum}: Image file too small, skipping`);
+            continue;
+          }
+          
+          // Run Tesseract OCR with Thai + English support and timeout
+          const { stdout } = await execAsync(`tesseract "${imagePath}" stdout -l tha+eng --psm 3 --oem 3`, {
+            timeout: 15000 // 15 second timeout per page
+          });
           
           if (stdout && stdout.trim().length > 0) {
             const cleanText = stdout.trim();
             allText += `--- Page ${pageNum} ---\n${cleanText}\n\n`;
+            successfulPages++;
             console.log(`📄 Page ${pageNum}: ${cleanText.length} characters extracted`);
           } else {
             console.log(`⚠️ Page ${pageNum}: No text extracted`);
           }
           
         } catch (pageError) {
-          console.log(`⚠️ OCR failed for page ${pageNum}:`, pageError.message);
+          console.log(`⚠️ OCR failed for page ${pageNum}: ${pageError.message}`);
+          // Continue with other pages even if one fails
         }
       }
 
@@ -744,19 +787,19 @@ export class DocumentProcessor {
         console.log(`⚠️ Could not clean up temp directory: ${cleanupError.message}`);
       }
 
-      if (allText.length > 10) {
+      if (allText.length > 10 && successfulPages > 0) {
         // Check for Thai content
         const thaiRegex = /[\u0E00-\u0E7F]/;
         const hasThaiText = thaiRegex.test(allText);
         
         console.log(`✅ OCR completed successfully:`);
         console.log(`   - Total characters: ${allText.length}`);
-        console.log(`   - Pages processed: ${imageFiles.length}`);
+        console.log(`   - Pages processed: ${successfulPages}/${imageFiles.length}`);
         console.log(`   - Contains Thai text: ${hasThaiText ? 'Yes' : 'No'}`);
         
         return allText.trim();
       } else {
-        console.log(`⚠️ OCR completed but extracted minimal text: ${allText.length} characters`);
+        console.log(`⚠️ OCR completed but extracted minimal text: ${allText.length} characters from ${successfulPages} pages`);
         return '';
       }
 
