@@ -90,7 +90,7 @@ export class AdvancedKeywordSearchService {
       const documentResults = new Map<number, any>();
 
       topChunks
-        .filter(chunk => chunk.score > 0.1) // Minimum relevance threshold
+        .filter(chunk => chunk.score > 0.05) // Lower minimum relevance threshold
         .forEach(chunkScore => {
           const document = docMap.get(chunkScore.documentId);
           // Since chunks are already filtered by document IDs in DB query, document should always exist
@@ -106,7 +106,7 @@ export class AdvancedKeywordSearchService {
                 content: chunkScore.content,
                 summary: null,
                 aiCategory: null,
-                similarity: Math.min(chunkScore.score / 10, 1.0),
+                similarity: Math.min(chunkScore.score / 5, 1.0), // Less aggressive normalization
                 createdAt: new Date().toISOString(),
                 matchedTerms: chunkScore.matchedTerms,
                 matchDetails: chunkScore.matchDetails
@@ -125,7 +125,7 @@ export class AdvancedKeywordSearchService {
               content: chunkScore.content, // Use chunk content instead of full document
               summary: document.summary,
               aiCategory: document.aiCategory,
-              similarity: Math.min(chunkScore.score / 10, 1.0), // Normalize to 0-1
+              similarity: Math.min(chunkScore.score / 5, 1.0), // Less aggressive normalization
               createdAt: document.createdAt.toISOString(),
               matchedTerms: chunkScore.matchedTerms,
               matchDetails: chunkScore.matchDetails
@@ -479,21 +479,26 @@ export class AdvancedKeywordSearchService {
       };
     });
 
-    // Filter and sort results with lower threshold
-    const filteredResults = scoredChunks
-      .filter(result => result.similarity > 0.05) // Lower minimum threshold
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, limit);
+    // Sort all results first, then filter
+    const sortedResults = scoredChunks
+      .sort((a, b) => b.similarity - a.similarity);
 
-    console.log(`Advanced keyword search: Filtered ${filteredResults.length} results above threshold 0.05`);
-    console.log(`Top 5 scores:`, 
-      scoredChunks.slice(0, 5).map(r => ({ 
+    console.log(`All keyword scores (top 10):`, 
+      sortedResults.slice(0, 10).map(r => ({ 
         docId: r.id, 
         score: r.similarity.toFixed(3),
         matchedTerms: r.matchedTerms,
+        hasOPPO: r.content.toLowerCase().includes('oppo'),
         preview: r.content.substring(0, 100) + '...'
       }))
     );
+
+    // Filter and limit results
+    const filteredResults = sortedResults
+      .filter(result => result.similarity > 0.05) // Lower minimum threshold
+      .slice(0, limit);
+
+    console.log(`Advanced keyword search: Filtered ${filteredResults.length} results above threshold 0.05`);
 
     if (filteredResults.length === 0) {
       console.log(`❌ No results found above similarity threshold 0.05`);
@@ -594,6 +599,11 @@ export class AdvancedKeywordSearchService {
             matches += variationMatches;
             console.log(`Found OPPO variation "${variation}": ${variationMatches} times`);
           }
+        }
+
+        // Give OPPO matches extra weight since it's a specific brand query
+        if (matches > 0) {
+          matches = matches * 1.5; // 50% boost for brand matches
         }
       } else {
         // Try exact match first (case insensitive)
