@@ -52,7 +52,7 @@ export default function TopBar({ isSidebarCollapsed = false }: TopBarProps) {
             alt="Kingpower" 
             className="h-12 w-auto object-contain"
           /> */}
-          {!isSidebarCollapsed && (
+          {isSidebarCollapsed && (
             <div>
               <h2 className="text-xl font-semibold text-slate-800">ถามได้คับ</h2>
               <p className="text-sm text-slate-500 hidden xl:block">
