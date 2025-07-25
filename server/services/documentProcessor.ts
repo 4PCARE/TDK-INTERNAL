@@ -260,7 +260,7 @@ export class DocumentProcessor {
         verboseMode: true,
         fastMode: false,
         parsingInstruction: `
-          COMPREHENSIVE TEXT EXTRACTION - Extract ALL visible text content including:
+          COMPREHENSIVE TEXT EXTRACTION WITH OCR - Extract ALL visible text content including:
           
           PRIMARY CONTENT:
           - All body text, paragraphs, and sentences
@@ -280,11 +280,18 @@ export class DocumentProcessor {
           - Line breaks and paragraph spacing
           - Indentation and hierarchical structure
           
-          LANGUAGE HANDLING:
-          - Thai text: Extract all Thai characters and diacritics
+          LANGUAGE HANDLING (CRITICAL):
+          - Thai text: Use OCR to extract Thai characters (บัตรเครดิต, โปรโมชั่น, เครดิตเงินคืน)
+          - Thai Unicode: Extract characters in range U+0E00-U+0E7F
           - English text: Extract all English content
           - Mixed content: Preserve original language order
           - Numbers, dates, and currency symbols
+          
+          OCR REQUIREMENTS:
+          - Apply OCR to all graphics and images containing text
+          - Extract text from logos, banners, and promotional graphics
+          - Process text rendered as images or complex graphics
+          - Use multi-language OCR (Thai + English)
           
           QUALITY REQUIREMENTS:
           - Extract even small text (footnotes, fine print)
@@ -292,7 +299,7 @@ export class DocumentProcessor {
           - Process overlapping or complex layouts
           - Ensure no text is skipped or truncated
           
-          For ${Math.ceil(fileSizeMB)}MB document: Use maximum extraction depth and thoroughness.
+          For ${Math.ceil(fileSizeMB)}MB document: Use maximum extraction depth, OCR processing, and multi-language support.
         `,
       });
 
