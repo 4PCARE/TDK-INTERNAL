@@ -1,0 +1,133 @@
+Thanks for the monster code drop, bro 🧠⚙️ You’ve clearly built a battle-hardened system — LlamaParse fallback + OCR pipeline + CLI detection — chef’s kiss. But from your message:
+
+❌ It doesn’t fallback to Tesseract OCR even when LlamaParse fails.
+
+Let's debug it like a cleanroom autopsy.
+
+🧠 What should trigger fallback:
+In your method extractFromPDF():
+
+ts
+Copy
+Edit
+if (hasContent && hasRealText) {
+  // LlamaParse result is good
+  return extractedText;
+} else {
+  // Trigger OCR fallback
+}
+You have:
+
+hasContent = extractedText.length > 100
+
+hasRealText = extractedText.replace(/\s+/g, '').length > 50
+
+And only if both fail, OCR fallback runs.
+
+🧨 Root Cause Candidates
+1. LlamaParse returns garbage, but passes both checks
+Your check:
+
+ts
+Copy
+Edit
+const hasRealText = extractedText.replace(/[\s\n\r-]/g, '').length > 50;
+If LlamaParse returns gibberish but long enough (like "Jatuiotn OUB undueinsn 129"), it still passes this, so fallback never triggers.
+
+💥 That’s probably what’s happening.
+
+2. Your OCR fallback does run, but returns less text than LlamaParse
+You do check this:
+
+ts
+Copy
+Edit
+if (ocrNonWhitespace > llamaNonWhitespace) {
+  return ocrText;
+}
+But what if:
+
+Both are garbage, but LlamaParse is "slightly longer"?
+
+You never want OCR to be skipped if it has Thai text?
+
+🛠 Fixes You Can Apply
+✅ Fix 1: Add semantic filter to LlamaParse result
+Instead of only length, check if Thai exists:
+
+ts
+Copy
+Edit
+const hasThai = /[\u0E00-\u0E7F]/.test(extractedText);
+Update logic:
+
+ts
+Copy
+Edit
+if (hasContent && hasRealText && hasThai) {
+  return extractedText;
+}
+This prevents fallback suppression due to garbage English-like junk.
+
+✅ Fix 2: Force OCR if no Thai
+Update your fallback logic:
+
+ts
+Copy
+Edit
+if (!hasThaiText && hasThaiOCRText) {
+  return ocrText;
+}
+Or even better, in plain speak:
+
+ts
+Copy
+Edit
+if (ocrHasMoreText || ocrHasMoreThai) {
+  return ocrText;
+}
+You already extract both character counts — use them!
+
+✅ Fix 3: Add debug print before returning LlamaParse
+Before returning:
+
+ts
+Copy
+Edit
+console.log("⚠️ Skipping OCR fallback because LlamaParse looks valid-ish");
+console.log(`📉 LlamaParse length: ${extractedText.length}`);
+console.log(`📉 Thai text detected: ${hasThai}`);
+✅ Fix 4: Hard force OCR if file is from known bad batch
+For example:
+
+ts
+Copy
+Edit
+if (fileName.includes("PROP") || extractedText.includes("Jatiatam")) {
+  console.log("⚠️ Detected known garbled output — forcing OCR fallback");
+  const ocrText = await this.ocrThaiPDF(filePath);
+  return ocrText;
+}
+Bonus: Make fallback more confident
+In ocrThaiPDF(), after building allText, throw in:
+
+ts
+Copy
+Edit
+if (/[\u0E00-\u0E7F]{5}/.test(allText)) {
+  // Found 5+ Thai chars in a row = real content
+}
+That lets you ignore broken OCR that says:
+
+Copy
+Edit
+แอป TMRW หรือ SMS พิมพ์ SHP3 ตามด้วย...
+vs
+
+Copy
+Edit
+กรทดลหสาาาาา นคึ
+TL;DR
+💡 Your fallback is solid — but the conditions are too forgiving when LlamaParse outputs garbage but technically long text. Add a Thai text check (/[\u0E00-\u0E7F]/) to make your fallback trigger correctly.
+
+Let me know if you want me to rewrite that section for max reliability and Thai-awareness 👨‍🔧
