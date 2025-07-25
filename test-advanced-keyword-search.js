@@ -22,15 +22,18 @@ async function testAdvancedKeywordSearch() {
     console.log('-'.repeat(40));
     
     try {
-      // Test the debug endpoint (no auth required)
+      // Test the debug endpoint (no auth required) - fix the URL path
       const response = await fetch(`${baseUrl}/api/debug/test-advanced-keyword-search?query=${encodeURIComponent(query)}`);
+      
+      console.log(`🔍 Response status: ${response.status} ${response.statusText}`);
+      console.log(`🔍 Response content-type: ${response.headers.get('content-type')}`);
       
       if (!response.ok) {
         console.log(`❌ HTTP Error: ${response.status} ${response.statusText}`);
         
         // Try to get the response text to see what's actually being returned
         const responseText = await response.text();
-        console.log(`📄 Response content (first 200 chars): ${responseText.substring(0, 200)}`);
+        console.log(`📄 Response content (first 500 chars): ${responseText.substring(0, 500)}`);
         continue;
       }
       
@@ -39,7 +42,7 @@ async function testAdvancedKeywordSearch() {
       if (!contentType || !contentType.includes('application/json')) {
         console.log(`❌ Unexpected content type: ${contentType}`);
         const responseText = await response.text();
-        console.log(`📄 Response content (first 200 chars): ${responseText.substring(0, 200)}`);
+        console.log(`📄 Response content (first 500 chars): ${responseText.substring(0, 500)}`);
         continue;
       }
       
@@ -77,42 +80,37 @@ async function testAdvancedKeywordSearch() {
     } catch (error) {
       console.log(`❌ Error testing "${query}":`, error.message);
       
-      // If it's a JSON parse error, try to fetch the raw response
-      if (error.message.includes('Unexpected token')) {
-        try {
-          const debugResponse = await fetch(`${baseUrl}/api/debug/test-advanced-keyword-search?query=${encodeURIComponent(query)}`);
-          const rawText = await debugResponse.text();
-          console.log(`📄 Raw response (first 300 chars): ${rawText.substring(0, 300)}`);
-        } catch (debugError) {
-          console.log(`❌ Could not fetch debug response:`, debugError.message);
-        }
+      // If it's a network error, try to diagnose
+      if (error.code === 'ECONNREFUSED') {
+        console.log('🔍 Connection refused - is the server running on port 5000?');
       }
     }
   }
 
-  // Test the advanced search service directly via debug endpoint
-  console.log('\n🔧 Testing direct API endpoints...');
+  // Test server health first
+  console.log('\n🔧 Testing server health...');
   console.log('='.repeat(60));
   
   try {
-    // Test if server is responding at all
-    const healthResponse = await fetch(`${baseUrl}/api/debug/test-advanced-keyword-search?query=test`);
-    console.log(`🏥 Health check status: ${healthResponse.status} ${healthResponse.statusText}`);
-    console.log(`🏥 Health check content-type: ${healthResponse.headers.get('content-type')}`);
+    // Test if server is responding at all - try a simple endpoint first
+    const healthResponse = await fetch(`${baseUrl}/api/auth/user`);
+    console.log(`🏥 Auth endpoint status: ${healthResponse.status} ${healthResponse.statusText}`);
+    console.log(`🏥 Auth endpoint content-type: ${healthResponse.headers.get('content-type')}`);
     
-    if (healthResponse.ok) {
-      const healthData = await healthResponse.text();
-      console.log(`🏥 Health check response (first 200 chars): ${healthData.substring(0, 200)}`);
+    // Now test the specific debug endpoint
+    const debugResponse = await fetch(`${baseUrl}/api/debug/test-advanced-keyword-search?query=test`);
+    console.log(`🔧 Debug endpoint status: ${debugResponse.status} ${debugResponse.statusText}`);
+    console.log(`🔧 Debug endpoint content-type: ${debugResponse.headers.get('content-type')}`);
+    
+    if (debugResponse.ok) {
+      const debugData = await debugResponse.text();
+      console.log(`🔧 Debug response (first 300 chars): ${debugData.substring(0, 300)}`);
     }
   } catch (error) {
-    console.log(`❌ Health check failed:`, error.message);
+    console.log(`❌ Server health check failed:`, error.message);
+    console.log('🔍 Make sure the server is running with: npm run dev');
   }
 
-  // Test chunk-level search
-  console.log('\n🧩 Testing chunk-level search behavior...');
-  console.log('='.repeat(60));
-  
-  console.log('⚠️  Note: Authenticated endpoints require login, skipping for now');
   console.log('✅ Advanced keyword search testing completed!');
 }
 
