@@ -1216,6 +1216,9 @@ ${imageAnalysisResult}
                   contentPreview: chunk.content.substring(0, 200) + '...'
                 })));
 
+                // Sort keyword chunks by similarity to ensure best match is first
+                keywordChunks.sort((a, b) => b.similarity - a.similarity);
+                
                 // Blend keyword and vector results - prioritize keyword results
                 const topVectorResults = searchResults.slice(0, 7); // Get fewer vector results to make room for keyword results
                 
@@ -1225,7 +1228,13 @@ ${imageAnalysisResult}
                 ];
 
                 console.log(`LINE OA: Blended ${keywordChunks.length} keyword + ${topVectorResults.length} vector results`);
-                console.log(`LINE OA: Top keyword result content sample:`, keywordChunks[0]?.content?.substring(0, 300) + '...');
+                console.log(`LINE OA: Top keyword result (highest similarity):`, {
+                  name: keywordChunks[0]?.name,
+                  similarity: keywordChunks[0]?.similarity,
+                  hasOPPO: keywordChunks[0]?.content?.toLowerCase().includes('oppo'),
+                  hasThapra: keywordChunks[0]?.content?.toLowerCase().includes('ท่าพระ'),
+                  contentPreview: keywordChunks[0]?.content?.substring(0, 300) + '...'
+                });
               } else {
                 console.log(`LINE OA: Keyword results don't meet quality threshold (AI confidence: ${topKeywordResult.aiKeywordExpansion?.confidence || 'N/A'}, similarity: ${topKeywordResult.similarity})`);
               }
@@ -1255,10 +1264,19 @@ ${imageAnalysisResult}
               });
 
               // Separate keyword and vector results for proper prioritization
-              const keywordChunks = allChunks.filter(chunk => chunk.similarity > 0.9); // High similarity indicates keyword result
-              const vectorChunks = allChunks.filter(chunk => chunk.similarity <= 0.9);
+              const keywordChunksForContext = allChunks.filter(chunk => chunk.similarity > 0.9); // High similarity indicates keyword result
+              const vectorChunksForContext = allChunks.filter(chunk => chunk.similarity <= 0.9);
 
-              console.log(`LINE OA: Separating chunks - ${keywordChunks.length} keyword, ${vectorChunks.length} vector`);
+              // Sort keyword chunks by similarity to ensure winner appears first
+              keywordChunksForContext.sort((a, b) => b.similarity - a.similarity);
+
+              console.log(`LINE OA: Separating chunks - ${keywordChunksForContext.length} keyword, ${vectorChunksForContext.length} vector`);
+              console.log(`LINE OA: Top keyword chunk (should be winner):`, {
+                name: keywordChunksForContext[0]?.docName,
+                similarity: keywordChunksForContext[0]?.similarity,
+                hasOPPO: keywordChunksForContext[0]?.content?.toLowerCase().includes('oppo'),
+                preview: keywordChunksForContext[0]?.content?.substring(0, 150) + '...'
+              });
 
               // Build context with character limit - ALWAYS start with keyword results
               let documentContext = "";
@@ -1267,7 +1285,7 @@ ${imageAnalysisResult}
               let chunkNumber = 1;
 
               // PRIORITY 1: Add ALL keyword results first (these are the best matches)
-              for (const chunk of keywordChunks) {
+              for (const chunk of keywordChunksForContext) {
                 const chunkText = `=== ข้อมูลที่ ${chunkNumber} (คีย์เวิร์ดแมตช์โดยตรง - ความเกี่ยวข้องสูง): ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
 
                 if (documentContext.length + chunkText.length <= maxContextLength) {
@@ -1289,10 +1307,10 @@ ${imageAnalysisResult}
                 }
               }
 
-              console.log(`LINE OA: Added ${keywordChunks.length} keyword chunks first (${documentContext.length} chars used)`);
+              console.log(`LINE OA: Added ${keywordChunksForContext.length} keyword chunks first (${documentContext.length} chars used)`);
 
               // PRIORITY 2: Add vector search results only if space remains
-              for (const chunk of vectorChunks) {
+              for (const chunk of vectorChunksForContext) {
                 const chunkText = `=== ข้อมูลที่ ${chunkNumber} (เวกเตอร์เสิร์ช): ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
 
                 if (documentContext.length + chunkText.length <= maxContextLength) {
