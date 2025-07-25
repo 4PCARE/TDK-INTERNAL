@@ -202,18 +202,26 @@ export class DocumentProcessor {
             progressBar,
             fileSizeMB,
           );
-          // Check if LlamaParse extracted meaningful content
+          // Check if LlamaParse extracted meaningful content with Thai text
           const hasContent = extractedText && extractedText.length > 100;
           const hasRealText = extractedText && extractedText.replace(/[\s\n\r-]/g, '').length > 50;
+          const hasThai = extractedText && /[\u0E00-\u0E7F]{5}/.test(extractedText); // 5+ Thai chars in a row
           
-          if (hasContent && hasRealText) {
+          // Debug what LlamaParse found
+          console.log(`🔍 LlamaParse analysis:`);
+          console.log(`   - Total length: ${extractedText?.length || 0}`);
+          console.log(`   - Non-whitespace: ${extractedText?.replace(/[\s\n\r-]/g, '').length || 0}`);
+          console.log(`   - Contains Thai: ${hasThai ? 'Yes' : 'No'}`);
+          console.log(`   - Sample text: "${extractedText?.substring(0, 200) || 'None'}..."`);
+          
+          if (hasContent && hasRealText && hasThai) {
             console.log(
-              `✅ PDF processed successfully with LlamaParse: ${extractedText.length} characters extracted`,
+              `✅ PDF processed successfully with LlamaParse: ${extractedText.length} characters with Thai content`,
             );
             return extractedText;
           } else {
             console.log(
-              `⚠️ LlamaParse returned minimal content: ${extractedText?.length || 0} characters (${extractedText?.replace(/[\s\n\r-]/g, '').length || 0} non-whitespace) - trying Tesseract OCR...`,
+              `⚠️ LlamaParse failed quality check - ${!hasContent ? 'too short' : !hasRealText ? 'mostly whitespace' : 'no Thai text'} - trying Tesseract OCR...`,
             );
             
             // Step 1.5: Native Tesseract OCR as a Fallback
@@ -230,17 +238,48 @@ export class DocumentProcessor {
                 const hasThaiText = thaiRegex.test(ocrText);
                 console.log(`🇹🇭 Contains Thai text: ${hasThaiText ? 'Yes' : 'No'}`);
                 
-                // If OCR found more meaningful content than LlamaParse, use OCR result
+                // Compare OCR vs LlamaParse results intelligently
                 const ocrNonWhitespace = ocrText.replace(/[\s\n\r-]/g, '').length;
                 const llamaNonWhitespace = extractedText?.replace(/[\s\n\r-]/g, '').length || 0;
+                const ocrHasThai = /[\u0E00-\u0E7F]{5}/.test(ocrText);
+                const llamaHasThai = extractedText && /[\u0E00-\u0E7F]{5}/.test(extractedText);
                 
-                if (ocrNonWhitespace > llamaNonWhitespace) {
-                  console.log(`🔄 OCR found more content (${ocrNonWhitespace} vs ${llamaNonWhitespace} chars) - using OCR result`);
+                console.log(`🔄 Comparing results:`);
+                console.log(`   - OCR: ${ocrNonWhitespace} chars, Thai: ${ocrHasThai ? 'Yes' : 'No'}`);
+                console.log(`   - LlamaParse: ${llamaNonWhitespace} chars, Thai: ${llamaHasThai ? 'Yes' : 'No'}`);
+                
+                // Prefer OCR if it has Thai content and LlamaParse doesn't
+                if (ocrHasThai && !llamaHasThai) {
+                  console.log(`🔄 OCR has Thai content, LlamaParse doesn't - using OCR result`);
+                  return ocrText;
+                }
+                
+                // Prefer OCR if it has significantly more content
+                if (ocrNonWhitespace > llamaNonWhitespace * 1.5) {
+                  console.log(`🔄 OCR found significantly more content (${ocrNonWhitespace} vs ${llamaNonWhitespace} chars) - using OCR result`);
+                  return ocrText;
+                }
+                
+                // If both have Thai content, prefer the longer one
+                if (ocrHasThai && llamaHasThai) {
+                  if (ocrNonWhitespace > llamaNonWhitespace) {
+                    console.log(`🔄 Both have Thai, OCR is longer - using OCR result`);
+                    return ocrText;
+                  } else {
+                    console.log(`🔄 Both have Thai, LlamaParse is longer - using LlamaParse result`);
+                    return extractedText;
+                  }
+                }
+                
+                // Default: use OCR if it has decent content, otherwise fallback to LlamaParse
+                if (ocrNonWhitespace > 50) {
+                  console.log(`🔄 Using OCR result as primary choice`);
                   return ocrText;
                 } else if (extractedText && extractedText.length > 10) {
-                  console.log(`🔄 LlamaParse content better than OCR - using LlamaParse result`);
+                  console.log(`🔄 OCR insufficient, using LlamaParse fallback`);
                   return extractedText;
                 } else {
+                  console.log(`🔄 Both methods failed, using OCR as last resort`);
                   return ocrText;
                 }
               } else {
