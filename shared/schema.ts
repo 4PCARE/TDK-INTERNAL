@@ -91,16 +91,6 @@ export const documentTranslations = pgTable("document_translations", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Document chunks for text processing
-export const documentChunks = pgTable("document_chunks", {
-  id: serial("id").primaryKey(),
-  documentId: integer("document_id").references(() => documents.id, { onDelete: "cascade" }).notNull(),
-  content: text("content").notNull(),
-  chunkIndex: integer("chunk_index").notNull(),
-  totalChunks: integer("total_chunks"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
 // Document vectors for semantic search
 export const documentVectors = pgTable("document_vectors", {
   id: serial("id").primaryKey(),
@@ -207,14 +197,6 @@ export const documentsRelations = relations(documents, ({ one, many }) => ({
   }),
   accessLogs: many(documentAccess),
   translations: many(documentTranslations),
-  chunks: many(documentChunks),
-}));
-
-export const documentChunksRelations = relations(documentChunks, ({ one }) => ({
-  document: one(documents, {
-    fields: [documentChunks.documentId],
-    references: [documents.id],
-  }),
 }));
 
 export const documentTranslationsRelations = relations(documentTranslations, ({ one }) => ({
@@ -451,8 +433,6 @@ export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export type DocumentAccess = typeof documentAccess.$inferSelect;
 export type DocumentTranslation = typeof documentTranslations.$inferSelect;
 export type InsertDocumentTranslation = typeof documentTranslations.$inferInsert;
-export type DocumentChunk = typeof documentChunks.$inferSelect;
-export type InsertDocumentChunk = typeof documentChunks.$inferInsert;
 export type DocumentVector = typeof documentVectors.$inferSelect;
 export type InsertDocumentVector = typeof documentVectors.$inferInsert;
 export type DataConnection = typeof dataConnections.$inferSelect;
