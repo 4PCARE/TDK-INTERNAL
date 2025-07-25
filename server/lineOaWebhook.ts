@@ -1181,41 +1181,46 @@ ${imageAnalysisResult}
 
               console.log(`LINE OA: Pooled ${allChunks.length} chunks from ${agentDocIds.length} agent documents`);
 
-              // Step 2: Sort ALL chunks globally by similarity and take top 5
+              // Step 2: Sort ALL chunks globally by similarity and use all of them
               allChunks.sort((a, b) => b.similarity - a.similarity);
-              const finalTop5Chunks = allChunks.slice(0, 5);
-
-              console.log(`LINE OA: Selected globally top 5 chunks from entire pool:`);
-              finalTop5Chunks.forEach((chunk, idx) => {
+              
+              console.log(`LINE OA: Using all ${allChunks.length} chunks from search results:`);
+              allChunks.forEach((chunk, idx) => {
                 console.log(`  ${idx + 1}. ${chunk.docName} - Similarity: ${chunk.similarity.toFixed(4)}`);
                 console.log(`      Content preview: ${chunk.content.substring(0, 100)}...`);
               });
 
-              // Build context with string length limit as final safeguard
+              // Build context with character limit for cost control
               let documentContext = "";
-              const maxContextLength = 8000; // String limit as final check
+              const maxContextLength = 12000; // Increased limit to accommodate more chunks
+              let chunksUsed = 0;
 
-              for (let i = 0; i < finalTop5Chunks.length; i++) {
-                const chunk = finalTop5Chunks[i];
+              for (let i = 0; i < allChunks.length; i++) {
+                const chunk = allChunks[i];
                 const chunkText = `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
 
                 // Check if adding this chunk would exceed the limit
                 if (documentContext.length + chunkText.length <= maxContextLength) {
                   documentContext += chunkText;
+                  chunksUsed++;
                 } else {
-                  // Truncate the chunk to fit within limit
+                  // Try to fit a truncated version if there's meaningful space
                   const remainingSpace = maxContextLength - documentContext.length;
-                  if (remainingSpace > 200) { // Only add if there's meaningful space
-                    const truncatedContent = chunk.content.substring(0, remainingSpace - 150) + "...";
+                  if (remainingSpace > 300) { // Only add if there's meaningful space
+                    const availableContentSpace = remainingSpace - 150; // Account for headers
+                    const truncatedContent = chunk.content.substring(0, availableContentSpace) + "...";
                     documentContext += `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
+                    chunksUsed++;
                   }
                   break;
                 }
               }
 
+              console.log(`LINE OA: Used ${chunksUsed}/${allChunks.length} chunks within character limit`);
+
               console.log(`LINE OA: Final context length: ${documentContext.length} characters (limit: ${maxContextLength})`);
 
-              // Generate AI response with focused document context
+              // Generate AI response with comprehensive document context
               // Use existing OpenAI instance from module scope
 
               const agent = await storage.getAgentChatbot(lineIntegration.agentId, lineIntegration.userId);
@@ -1239,7 +1244,7 @@ ${documentContext}
               });
 
               aiResponse = completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
-              console.log(`✅ LINE OA: Generated response using top 5 chunks (${aiResponse.length} chars)`);
+              console.log(`✅ LINE OA: Generated response using ${chunksUsed} chunks within token limits (${aiResponse.length} chars)`);
             } else {
               console.log(`⚠️ LINE OA: No relevant content found in agent's documents, using system prompt only`);
               // Fallback to system prompt conversation
