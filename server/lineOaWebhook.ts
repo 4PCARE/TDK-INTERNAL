@@ -644,6 +644,16 @@ ${imageContext}`;
     );
     console.log(`📊 Total prompt length: ${totalTokens} characters`);
 
+    // Log the complete conversation being sent to OpenAI
+    console.log(`\n=== 📝 COMPLETE CONVERSATION BEING SENT TO OpenAI (getAiResponseDirectly) ===`);
+    console.log(`🤖 Model: gpt-4o, Max Tokens: 1000, Temperature: 0.7`);
+    console.log(`💬 Total Messages: ${messages.length}`);
+    messages.forEach((msg, index) => {
+      console.log(`\n--- MESSAGE ${index + 1}: ${msg.role.toUpperCase()} (${msg.content.length} chars) ---`);
+      console.log(msg.content);
+    });
+    console.log(`=== END COMPLETE CONVERSATION ===\n`);
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
       messages: messages,
@@ -1297,6 +1307,16 @@ ${documentContext}
 กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น`;
 
               console.log(`LINE OA: System prompt length: ${systemPrompt.length} characters`);
+
+              // Log the complete prompt being sent to OpenAI
+              console.log(`\n=== 📝 COMPLETE PROMPT BEING SENT TO LINE CHATBOT ===`);
+              console.log(`🤖 Model: gpt-4o`);
+              console.log(`⚙️ Max Tokens: 1000, Temperature: 0.7`);
+              console.log(`\n--- SYSTEM PROMPT (${systemPrompt.length} chars) ---`);
+              console.log(systemPrompt);
+              console.log(`\n--- USER MESSAGE (${contextMessage.length} chars) ---`);
+              console.log(contextMessage);
+              console.log(`=== END COMPLETE PROMPT ===\n`);
 
               const completion = await openai.chat.completions.create({
                 model: "gpt-4o",
