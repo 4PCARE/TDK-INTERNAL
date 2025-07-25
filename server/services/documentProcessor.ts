@@ -9,6 +9,9 @@ import { processDocument as aiProcessDocument } from "./openai";
 import { vectorService } from "./vectorService";
 import { storage } from "../storage";
 
+// Added import for Tesseract
+const Tesseract = require('tesseract.js');
+
 export class DocumentProcessor {
   async processDocument(documentId: number): Promise<void> {
     const startTime = Date.now();
@@ -197,36 +200,57 @@ export class DocumentProcessor {
             fileSizeMB,
           );
           if (extractedText && extractedText.length > 50) {
-            progressBar.update(totalSteps, { eta: "Complete!" });
-            progressBar.stop();
             console.log(
               `✅ PDF processed successfully with LlamaParse: ${extractedText.length} characters extracted`,
             );
             return extractedText;
           } else {
             console.log(
-              `⚠️ LlamaParse returned minimal content: ${extractedText?.length || 0} characters`,
+              `⚠️ LlamaParse returned minimal content: ${extractedText?.length || 0} characters - trying Tesseract OCR...`,
             );
+            // Step 1.5: Tesseract OCR as a Fallback
+            try {
+              console.log(`🚀 Starting Tesseract OCR extraction for ${fileName}...`);
+
+              // Convert PDF page to image (you might need additional libraries for this)
+              // Example: convert -density 300 input.pdf[0] output.png
+              // For simplicity, let's assume the first page is converted to "output.png"
+              const imagePath = 'output.png';  // Replace with actual path
+              const lang = 'tha'; //Thai language support
+
+              const { data: { text } } = await Tesseract.recognize(
+                imagePath,
+                lang,
+                { logger: m => console.log(m) }
+              );
+
+              if (text && text.length > 10) {
+                console.log(`✅ Tesseract OCR extracted ${text.length} characters`);
+                return text;
+              } else {
+                console.log(`⚠️ Tesseract OCR returned minimal content.`);
+              }
+
+            } catch (tesseractError) {
+              console.error("❌ Tesseract OCR failed:", tesseractError);
+            }
+
           }
         } catch (llamaError) {
           const errorMessage =
             llamaError instanceof Error ? llamaError.message : "Unknown error";
           console.log(`❌ LlamaParse failed: ${errorMessage}`);
-          progressBar.update(2, {
-            eta: "LlamaParse failed, trying fallback...",
-          });
         }
       } else {
         console.log("❌ LLAMA_CLOUD_API_KEY not found, using fallback system");
-        progressBar.update(2, { eta: "Using fallback extraction..." });
       }
 
       // Step 2: Fallback to textract if LlamaParse fails
-      progressBar.update(totalSteps - 1, { eta: "Using textract fallback..." });
+      progressBar.update(2, { eta: "Using textract fallback..." });
 
       let fallbackResult = await this.extractWithTextract(filePath);
 
-      progressBar.update(totalSteps, { eta: "Complete!" });
+      progressBar.update(3, { eta: "Complete!" });
       progressBar.stop();
 
       if (fallbackResult && fallbackResult.length > 10) {
@@ -261,37 +285,37 @@ export class DocumentProcessor {
         fastMode: false,
         parsingInstruction: `
           COMPREHENSIVE TEXT EXTRACTION - Extract ALL visible text content including:
-          
+
           PRIMARY CONTENT:
           - All body text, paragraphs, and sentences
           - Headers, subheaders, and section titles
           - Footers, page numbers, and references
           - Captions, labels, and annotations
-          
+
           STRUCTURED DATA:
           - Tables: Extract all cell contents with structure
           - Lists: Extract all bullet points and numbered items
           - Forms: Extract field labels and values
           - Multiple columns: Process left-to-right, top-to-bottom
-          
+
           FORMATTING PRESERVATION:
           - Bold, italic, and emphasized text
           - Special characters and symbols
           - Line breaks and paragraph spacing
           - Indentation and hierarchical structure
-          
+
           LANGUAGE HANDLING:
           - Thai text: Extract all Thai characters and diacritics
           - English text: Extract all English content
           - Mixed content: Preserve original language order
           - Numbers, dates, and currency symbols
-          
+
           QUALITY REQUIREMENTS:
           - Extract even small text (footnotes, fine print)
           - Include watermarks and background text if visible
           - Process overlapping or complex layouts
           - Ensure no text is skipped or truncated
-          
+
           For ${Math.ceil(fileSizeMB)}MB document: Use maximum extraction depth and thoroughness.
         `,
       });
@@ -477,7 +501,7 @@ export class DocumentProcessor {
     return result;
   }
 
-  
+
 
   private async extractWithTextract(filePath: string): Promise<string> {
     const fileName = path.basename(filePath);
@@ -550,9 +574,9 @@ export class DocumentProcessor {
     return colors[category.toLowerCase() as keyof typeof colors] || "#6B7280";
   }
 
-  
 
-  
+
+
 
   private getCategoryIcon(category: string): string {
     const icons = {
