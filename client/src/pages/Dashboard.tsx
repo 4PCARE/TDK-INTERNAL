@@ -22,8 +22,7 @@ import {
   Star,
   Trash2
 } from "lucide-react";
-import Sidebar from "@/components/Layout/Sidebar";
-import TopBar from "@/components/TopBar";
+import DashboardLayout from "@/components/Layout/DashboardLayout";
 import StatsCards from "@/components/Stats/StatsCards";
 import CategoryStatsCards from "@/components/Stats/CategoryStatsCards";
 import UploadZone from "@/components/Upload/UploadZone";
@@ -43,8 +42,6 @@ export default function Dashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [selectedDocumentSummary, setSelectedDocumentSummary] = useState<string | null>(null);
 
@@ -174,20 +171,8 @@ export default function Dashboard() {
   const recentDocuments = Array.isArray(documents) ? documents.slice(0, 5) : [];
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar 
-        isMobileOpen={isMobileMenuOpen}
-        onMobileClose={() => setIsMobileMenuOpen(false)}
-        onOpenChat={() => setIsChatModalOpen(true)}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-      />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar isSidebarCollapsed={isSidebarCollapsed} />
-        
-        <main className="p-6">
-          <div className="max-w-7xl mx-auto space-y-6">
+    <DashboardLayout>
+      <div className="space-y-6">
             <StatsCards />
             
             {/* Upload and Category Stats Section */}
@@ -327,13 +312,11 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-        </main>
-      </div>
-
+      
       <ChatModal 
         isOpen={isChatModalOpen} 
         onClose={() => setIsChatModalOpen(false)} 
       />
-    </div>
+    </DashboardLayout>
   );
 }
