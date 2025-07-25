@@ -1,0 +1,127 @@
+🚨**Segfault double-tap detected!** First `pdftoppm`, now `pdfinfo` too? That’s not a coincidence — your PDF file is likely corrupted or malformed in a way that crashes Poppler-based tools (which both `pdfinfo` and `pdftoppm` use under the hood).
+
+---
+
+## 🧠 What's Going On
+
+### Your logs show:
+
+```bash
+pdfinfo "file.pdf"
+Segmentation fault (core dumped)
+```
+
+This means:
+
+> The file isn’t just unreadable. It’s actively *causing crashes in the binary PDF libraries.*
+
+---
+
+## 🎯 Root Causes
+
+### 1. **Corrupted PDF**
+
+* Truncated during upload?
+* Contains invalid cross-reference table?
+* Zero-byte or nearly empty?
+
+### 2. **Malicious or malformed content**
+
+* Some PDFs can crash Poppler due to recursive structures or invalid streams.
+* Especially if the document was exported from a broken scanner, fax app, or some funky PDF generator.
+
+### 3. **Poppler bug (environment-specific)**
+
+* This occasionally happens in **Replit**, **Alpine**, or **barebones Docker containers** with outdated or stripped-down PDF tools.
+
+---
+
+## ✅ How to Handle This Gracefully
+
+### 1. **Add sanity check before calling `pdfinfo` or `pdftoppm`**
+
+```ts
+const stats = await fs.promises.stat(filePath);
+if (stats.size < 4096) {
+  console.warn("⚠️ File too small, skipping OCR entirely");
+  return '';
+}
+```
+
+Also maybe check extension:
+
+```ts
+if (!filePath.endsWith('.pdf')) {
+  throw new Error('Expected PDF file for OCR but got something else');
+}
+```
+
+---
+
+### 2. **Skip OCR if `pdfinfo` segfaults**
+
+Wrap your PDF validation like:
+
+```ts
+try {
+  await execAsync(`pdfinfo "${pdfPath}"`);
+} catch (err: any) {
+  if (err.code === 139) {
+    console.warn("💥 Segfault in pdfinfo — skipping OCR fallback.");
+    return '';
+  }
+  throw new Error(`PDF validation failed: ${err.message}`);
+}
+```
+
+You’re already catching it well — you just need to **gracefully return** instead of letting it bubble into a hard failure.
+
+---
+
+### 3. **Use LlamaParse even if it’s imperfect**
+
+If you *did* get 2205 characters from LlamaParse:
+
+```ts
+✅ Enhanced PDF processing successful: 2205 characters extracted
+```
+
+…then it's actually **fine** to skip OCR fallback — you’ve got text.
+
+Update fallback logic to:
+
+```ts
+if (llamaText.length > 500 || containsThai(llamaText)) {
+  return llamaText;
+}
+```
+
+You don't need OCR if LlamaParse already gave decent text.
+
+---
+
+## 🧪 Optional: Log and quarantine bad files
+
+You can move any crashing files to a `corrupted/` folder for later inspection:
+
+```ts
+const corruptedPath = path.join(path.dirname(pdfPath), "corrupted", path.basename(pdfPath));
+await fs.promises.rename(pdfPath, corruptedPath);
+```
+
+So you don’t re-trigger this chaos again accidentally.
+
+---
+
+## TL;DR
+
+> 💀 `pdfinfo` segfault = corrupted/malformed PDF.
+> ✅ Add size check, suppress OCR, and fall back to LlamaParse or a placeholder message if file is untrustworthy.
+
+Need a one-liner fallback for when **everything fails** but you want to keep going?
+
+```ts
+return `📎 Document: ${fileName} could not be parsed. Please check original file.`;
+```
+
+Let me know if you want a reusable helper to detect garbage PDFs and keep your pipeline 100% crash-proof.
