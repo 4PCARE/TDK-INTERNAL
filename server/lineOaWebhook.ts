@@ -1230,7 +1230,7 @@ ${imageAnalysisResult}
             const deduplicatedChunks = [];
             for (const chunk of rankedChunks) {
               const isDuplicate = deduplicatedChunks.some(existing => {
-                const similarity = this.calculateContentSimilarity(chunk.content, existing.content);
+                const similarity = calculateContentSimilarity(chunk.content, existing.content);
                 return similarity > 0.8; // 80% content similarity threshold
               });
 
@@ -1523,14 +1523,14 @@ ${documentContext}
 }
 
   /**
-   * Utility function to calculate content similarity
-   */
-   private calculateContentSimilarity(str1: string, str2: string): number {
-    const set1 = new Set(str1.split(/\s+/));
-    const set2 = new Set(str2.split(/\s+/));
-  
-    const intersectionSize = [...set1].filter(item => set2.has(item)).length;
-    const unionSize = set1.size + set2.size - intersectionSize;
-  
-    return intersectionSize / unionSize;
-  }
+ * Utility function to calculate content similarity
+ */
+function calculateContentSimilarity(str1: string, str2: string): number {
+  const set1 = new Set(str1.split(/\s+/));
+  const set2 = new Set(str2.split(/\s+/));
+
+  const intersectionSize = [...set1].filter(item => set2.has(item)).length;
+  const unionSize = set1.size + set2.size - intersectionSize;
+
+  return intersectionSize / unionSize;
+}
