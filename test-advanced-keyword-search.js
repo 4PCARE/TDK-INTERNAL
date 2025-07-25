@@ -27,6 +27,19 @@ async function testAdvancedKeywordSearch() {
       
       if (!response.ok) {
         console.log(`❌ HTTP Error: ${response.status} ${response.statusText}`);
+        
+        // Try to get the response text to see what's actually being returned
+        const responseText = await response.text();
+        console.log(`📄 Response content (first 200 chars): ${responseText.substring(0, 200)}`);
+        continue;
+      }
+      
+      // Check if response is actually JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.log(`❌ Unexpected content type: ${contentType}`);
+        const responseText = await response.text();
+        console.log(`📄 Response content (first 200 chars): ${responseText.substring(0, 200)}`);
         continue;
       }
       
@@ -54,18 +67,26 @@ async function testAdvancedKeywordSearch() {
           console.log(`   ${index + 1}. Doc ID: ${result.id}`);
           console.log(`      Name: ${result.name}`);
           console.log(`      Similarity: ${result.similarity.toFixed(4)}`);
-          console.log(`      AI Keywords: ${result.aiKeywordExpansion?.expandedKeywords?.join(', ') || 'none'}`);
+          console.log(`      Matched terms: ${result.matchedTerms?.join(', ') || 'none'}`);
+          console.log(`      AI expansion: ${result.aiKeywordExpansion?.expandedKeywords?.join(', ') || 'none'}`);
           console.log(`      Content preview: ${result.contentPreview}`);
           console.log('');
         });
       }
       
-      if (data.regularSearch.results === 0 && data.aiEnhancedSearch.results === 0) {
-        console.log(`⚠️  No results found for "${query}"`);
-      }
-      
     } catch (error) {
       console.log(`❌ Error testing "${query}":`, error.message);
+      
+      // If it's a JSON parse error, try to fetch the raw response
+      if (error.message.includes('Unexpected token')) {
+        try {
+          const debugResponse = await fetch(`${baseUrl}/api/debug/test-advanced-keyword-search?query=${encodeURIComponent(query)}`);
+          const rawText = await debugResponse.text();
+          console.log(`📄 Raw response (first 300 chars): ${rawText.substring(0, 300)}`);
+        } catch (debugError) {
+          console.log(`❌ Could not fetch debug response:`, debugError.message);
+        }
+      }
     }
   }
 
@@ -74,50 +95,25 @@ async function testAdvancedKeywordSearch() {
   console.log('='.repeat(60));
   
   try {
-    // Test vector stats to see if we have documents
-    const statsResponse = await fetch(`${baseUrl}/api/vector/stats`);
-    if (statsResponse.ok) {
-      const stats = await statsResponse.json();
-      console.log(`📊 Vector database stats:`);
-      console.log(`   - User documents: ${stats.userDocuments}`);
-      console.log(`   - Unique documents: ${stats.uniqueDocuments}`);
-      console.log(`   - Total documents: ${stats.totalDocuments}`);
-      
-      if (stats.vectorized && stats.vectorized.length > 0) {
-        console.log(`   - Vectorized documents:`);
-        stats.vectorized.forEach(doc => {
-          console.log(`     * ${doc.name}: ${doc.chunks} chunks, ${doc.totalLength} chars`);
-        });
-      }
+    // Test if server is responding at all
+    const healthResponse = await fetch(`${baseUrl}/api/debug/test-advanced-keyword-search?query=test`);
+    console.log(`🏥 Health check status: ${healthResponse.status} ${healthResponse.statusText}`);
+    console.log(`🏥 Health check content-type: ${healthResponse.headers.get('content-type')}`);
+    
+    if (healthResponse.ok) {
+      const healthData = await healthResponse.text();
+      console.log(`🏥 Health check response (first 200 chars): ${healthData.substring(0, 200)}`);
     }
   } catch (error) {
-    console.log(`⚠️  Could not fetch vector stats:`, error.message);
+    console.log(`❌ Health check failed:`, error.message);
   }
 
   // Test chunk-level search
   console.log('\n🧩 Testing chunk-level search behavior...');
   console.log('='.repeat(60));
   
-  const testQuery = 'XOLO Japanese restaurant';
-  try {
-    const response = await fetch(`${baseUrl}/api/documents/search?query=${encodeURIComponent(testQuery)}&type=hybrid`);
-    
-    if (response.ok) {
-      const results = await response.json();
-      console.log(`🔀 Hybrid search results for "${testQuery}":`);
-      console.log(`   Found ${results.length} results`);
-      
-      results.forEach((result, index) => {
-        console.log(`   ${index + 1}. ${result.name} (Score: ${result.similarity.toFixed(4)})`);
-        console.log(`      Content length: ${result.content.length} chars`);
-        console.log(`      Is chunk content: ${result.content.length < 5000 ? 'YES' : 'NO (likely full document)'}`);
-      });
-    }
-  } catch (error) {
-    console.log(`❌ Hybrid search test failed:`, error.message);
-  }
-
-  console.log('\n✅ Advanced keyword search testing completed!');
+  console.log('⚠️  Note: Authenticated endpoints require login, skipping for now');
+  console.log('✅ Advanced keyword search testing completed!');
 }
 
 // Run the test
