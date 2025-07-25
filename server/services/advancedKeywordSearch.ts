@@ -306,15 +306,18 @@ export class AdvancedKeywordSearchService {
   }
 
   private termExistsInText(term: string, text: string, fuzzy?: boolean): boolean {
-    // Check exact match first
-    if (text.includes(term.toLowerCase())) {
+    const lowerTerm = term.toLowerCase();
+    const lowerText = text.toLowerCase();
+    
+    // Check exact match first (case insensitive)
+    if (lowerText.includes(lowerTerm)) {
       return true;
     }
 
     // Check fuzzy match if enabled
     if (fuzzy) {
-      const tokens = this.tokenizeText(text);
-      return tokens.some(token => this.isFuzzyMatch(term, token));
+      const tokens = this.tokenizeText(lowerText);
+      return tokens.some(token => this.isFuzzyMatch(lowerTerm, token));
     }
 
     return false;
@@ -572,7 +575,7 @@ export class AdvancedKeywordSearchService {
       const keyword = term.keyword.toLowerCase();
       totalPossibleScore += term.weight;
 
-      // Try exact match first
+      // Try exact match first (case insensitive)
       let matches = 0;
       const exactRegex = new RegExp(`\\b${this.escapeRegExp(keyword)}\\b`, 'gi');
       const exactMatches = (lowerContent.match(exactRegex) || []).length;
@@ -580,11 +583,19 @@ export class AdvancedKeywordSearchService {
       if (exactMatches > 0) {
         matches = exactMatches;
       } else {
-        // Try partial match for Thai text and compound words
+        // Try partial match for Thai text and compound words (case insensitive)
         const partialRegex = new RegExp(this.escapeRegExp(keyword), 'gi');
         const partialMatches = (lowerContent.match(partialRegex) || []).length;
         if (partialMatches > 0) {
           matches = partialMatches * 0.8; // Partial match gets 80% weight
+        }
+      }
+
+      // Also try simple substring match for better coverage (case insensitive)
+      if (matches === 0) {
+        const substringMatches = lowerContent.split(keyword).length - 1;
+        if (substringMatches > 0) {
+          matches = substringMatches * 0.6; // Substring match gets 60% weight
         }
       }
 
@@ -615,15 +626,16 @@ export class AdvancedKeywordSearchService {
     const lowerContent = content.toLowerCase();
 
     for (const term of searchTerms) {
+      const lowerTerm = term.toLowerCase();
       let index = 0;
-      while ((index = lowerContent.indexOf(term.toLowerCase(), index)) !== -1) {
+      while ((index = lowerContent.indexOf(lowerTerm, index)) !== -1) {
         const start = Math.max(0, index - 100);
-        const end = Math.min(content.length, index + term.length + 100);
+        const end = Math.min(content.length, index + lowerTerm.length + 100);
         const highlight = content.substring(start, end);
 
         highlights.push((start > 0 ? '...' : '') + highlight + (end < content.length ? '...' : ''));
 
-        index += term.length;
+        index += lowerTerm.length;
         if (highlights.length >= 3) break; // Limit highlights per term
       }
     }
