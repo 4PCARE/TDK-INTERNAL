@@ -1125,10 +1125,11 @@ ${imageAnalysisResult}
             }
 
             // Use hybrid search with proper document filtering - same as debug page
-            const searchResults = await semanticSearchServiceV2.hybridSearch(
+            const searchResults = await semanticSearchServiceV2.searchDocuments(
               contextMessage,
               lineIntegration.userId,
               {
+                searchType: 'hybrid',
                 keywordWeight: 0.4,
                 vectorWeight: 0.6,
                 limit: 12, // Get more results for ranking
