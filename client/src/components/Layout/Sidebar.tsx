@@ -271,13 +271,13 @@ export default function Sidebar({
                           key={item.name}
                           href={item.href}
                           className={cn(
-                            "flex items-start space-x-3 px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200",
+                            "flex items-start space-x-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
                             isActive
                               ? "bg-blue-100 text-blue-700 shadow-sm"
                               : "text-white hover:bg-navy-700/50 hover:text-white"
                           )}
                         >
-                          <item.icon className={cn("w-5 h-5 mt-0.5", isCollapsed && "w-6 h-6")} />
+                          <item.icon className={cn("w-4 h-4 mt-0.5", isCollapsed && "w-6 h-6")} />
                           {!isCollapsed && (
                             <span className="break-words whitespace-normal text-left drop-shadow-sm">
                               {item.name}
