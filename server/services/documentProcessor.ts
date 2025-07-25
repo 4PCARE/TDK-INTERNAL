@@ -217,12 +217,20 @@ export class DocumentProcessor {
           console.log(`   - Contains English: ${hasEnglish ? 'Yes' : 'No'}`);
           console.log(`   - Sample text: "${extractedText?.substring(0, 200) || 'None'}..."`);
           
-          if (hasContent && hasRealText && hasMeaningfulText) {
+          // Force OCR for files larger than 1MB to ensure we catch Thai content
+          const shouldForceOCR = fileSizeMB > 1.0;
+          
+          if (hasContent && hasRealText && hasMeaningfulText && !shouldForceOCR) {
             console.log(
               `✅ PDF processed successfully with LlamaParse: ${extractedText.length} characters with ${hasThai ? 'Thai' : 'English'} content`,
             );
             return extractedText;
           } else {
+            if (shouldForceOCR) {
+              console.log(
+                `🔄 File size ${fileSizeMB.toFixed(2)}MB > 1MB threshold - forcing OCR fallback to ensure Thai content detection`,
+              );
+            }
             console.log(
               `⚠️ LlamaParse failed quality check - ${!hasContent ? 'too short' : !hasRealText ? 'mostly whitespace' : 'no meaningful text detected'} - trying Tesseract OCR...`,
             );
@@ -253,9 +261,21 @@ export class DocumentProcessor {
                 console.log(`   - OCR: ${ocrNonWhitespace} chars, Thai: ${ocrHasThai ? 'Yes' : 'No'}, English: ${ocrHasEnglish ? 'Yes' : 'No'}`);
                 console.log(`   - LlamaParse: ${llamaNonWhitespace} chars, Thai: ${llamaHasThai ? 'Yes' : 'No'}, English: ${llamaHasEnglish ? 'Yes' : 'No'}`);
                 
+                // For large files, prioritize OCR if it has Thai content
+                if (shouldForceOCR && ocrHasThai) {
+                  console.log(`🔄 Large file with Thai content detected in OCR - using OCR result`);
+                  return ocrText;
+                }
+                
                 // Prefer OCR if it has meaningful content and LlamaParse doesn't
                 if ((ocrHasThai || ocrHasEnglish) && !llamaHasThai && !llamaHasEnglish) {
                   console.log(`🔄 OCR has meaningful content, LlamaParse doesn't - using OCR result`);
+                  return ocrText;
+                }
+                
+                // For large files, prefer OCR if it has more content
+                if (shouldForceOCR && ocrNonWhitespace > llamaNonWhitespace) {
+                  console.log(`🔄 Large file: OCR found more content (${ocrNonWhitespace} vs ${llamaNonWhitespace} chars) - using OCR result`);
                   return ocrText;
                 }
                 
