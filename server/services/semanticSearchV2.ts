@@ -153,54 +153,9 @@ export class SemanticSearchServiceV2 {
     options: Omit<SearchOptions, "searchType">
   ): Promise<SearchResult[]> {
     try {
-      // Use the new advanced keyword search service
-      const { advancedKeywordSearchService } = await import('./advancedKeywordSearch');
-      const results = await advancedKeywordSearchService.searchDocuments(
-        query,
-        userId,
-        options.limit || 20,
-        options.specificDocumentIds
-      );
-      
-      // Convert to the expected SearchResult format
-      const searchResults: SearchResult[] = results.map(result => ({
-        id: result.id,
-        name: result.name,
-        content: result.content,
-        summary: result.summary,
-        aiCategory: result.aiCategory,
-        aiCategoryColor: null, // Will be filled from original document if available
-        similarity: result.similarity,
-        createdAt: result.createdAt,
-        categoryId: null,
-        tags: null,
-        fileSize: null,
-        mimeType: null,
-        isFavorite: null,
-        updatedAt: null,
-        userId: userId
-      }));
-
-      // Get full document details to fill missing fields
-      const documents = await storage.getDocuments(userId, { limit: 1000 });
-      const docMap = new Map(documents.map(doc => [doc.id, doc]));
-
-      // Fill in missing fields from original documents
-      searchResults.forEach(result => {
-        const originalDoc = docMap.get(result.id);
-        if (originalDoc) {
-          result.aiCategoryColor = originalDoc.aiCategoryColor;
-          result.categoryId = originalDoc.categoryId;
-          result.tags = originalDoc.tags;
-          result.fileSize = originalDoc.fileSize;
-          result.mimeType = originalDoc.mimeType;
-          result.isFavorite = originalDoc.isFavorite;
-          result.updatedAt = originalDoc.updatedAt?.toISOString() || null;
-        }
-      });
-
-      console.log(`Advanced keyword search returned ${searchResults.length} results`);
-      return searchResults;
+      // Use simple, reliable keyword search instead of AI-enhanced version
+      console.log(`Performing simple keyword search for: "${query}"`);
+      return this.performBasicKeywordSearch(query, userId, options);
 
     } catch (error) {
       console.error("Error performing advanced keyword search:", error);
