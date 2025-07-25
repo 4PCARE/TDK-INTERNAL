@@ -217,22 +217,27 @@ export class DocumentProcessor {
           console.log(`   - Contains English: ${hasEnglish ? 'Yes' : 'No'}`);
           console.log(`   - Sample text: "${extractedText?.substring(0, 200) || 'None'}..."`);
           
-          // Force OCR for files larger than 1MB to ensure we catch Thai content
+          // Improved logic: Only force OCR if LlamaParse results are actually poor
           const shouldForceOCR = fileSizeMB > 1.0;
+          const llamaParseHasGoodContent = hasContent && hasRealText && (
+            extractedText.length > 500 || // Substantial content
+            hasThai || // Has Thai content
+            hasEnglish // Has English content
+          );
           
-          if (hasContent && hasRealText && hasMeaningfulText && !shouldForceOCR) {
+          if (llamaParseHasGoodContent && !shouldForceOCR) {
             console.log(
               `✅ PDF processed successfully with LlamaParse: ${extractedText.length} characters with ${hasThai ? 'Thai' : 'English'} content`,
             );
             return extractedText;
-          } else {
-            if (shouldForceOCR) {
-              console.log(
-                `🔄 File size ${fileSizeMB.toFixed(2)}MB > 1MB threshold - forcing OCR fallback to ensure Thai content detection`,
-              );
-            }
+          } else if (llamaParseHasGoodContent && shouldForceOCR) {
+            // For large files, still try OCR but be more lenient about using LlamaParse if OCR fails
             console.log(
-              `⚠️ LlamaParse failed quality check - ${!hasContent ? 'too short' : !hasRealText ? 'mostly whitespace' : 'no meaningful text detected'} - trying Tesseract OCR...`,
+              `🔄 File size ${fileSizeMB.toFixed(2)}MB > 1MB threshold - trying OCR but LlamaParse already has good content (${extractedText.length} chars)`,
+            );
+          } else {
+            console.log(
+              `⚠️ LlamaParse results insufficient - ${!hasContent ? 'too short' : !hasRealText ? 'mostly whitespace' : 'no meaningful text detected'} - trying Tesseract OCR...`,
             );
             
             // Step 1.5: Native Tesseract OCR as a Fallback
@@ -315,9 +320,26 @@ export class DocumentProcessor {
                 }
               }
 
-            } catch (tesseractError) {
-              console.error("❌ Native Tesseract OCR failed:", tesseractError);
-              // Return LlamaParse result as fallback
+            } catch (tesseractError: any) {
+              console.error("❌ Native Tesseract OCR failed:", tesseractError.message);
+              
+              // If we have decent LlamaParse content, use it instead of failing
+              if (extractedText && extractedText.length > 200) {
+                console.log(`🔄 OCR failed but LlamaParse has ${extractedText.length} characters - using LlamaParse result`);
+                return extractedText;
+              }
+              
+              // Handle corrupted PDF case
+              if (tesseractError.message.includes('segmentation fault') || tesseractError.message.includes('corrupted')) {
+                console.log(`💀 PDF appears corrupted - both tools failed. Using minimal LlamaParse result or placeholder.`);
+                if (extractedText && extractedText.length > 0) {
+                  return extractedText;
+                } else {
+                  return `📎 Document: ${fileName} could not be parsed due to file corruption. Please check the original file.`;
+                }
+              }
+              
+              // Return any LlamaParse result as fallback
               if (extractedText && extractedText.length > 0) {
                 return extractedText;
               }
@@ -689,16 +711,27 @@ export class DocumentProcessor {
     try {
       // Pre-flight PDF validation
       const fileStats = await fs.promises.stat(pdfPath);
-      if (fileStats.size < 1024) {
-        throw new Error('PDF file too small, likely corrupted');
+      if (fileStats.size < 4096) {
+        throw new Error('PDF file too small (< 4KB), likely corrupted or incomplete');
       }
 
-      // Test PDF validity with pdfinfo first
+      // Check if it's actually a PDF file
+      if (!pdfPath.toLowerCase().endsWith('.pdf')) {
+        throw new Error('Expected PDF file for OCR but got different file type');
+      }
+
+      // Test PDF validity with pdfinfo first - with segfault detection
       try {
         console.log(`🔍 Validating PDF structure...`);
         await execAsync(`pdfinfo "${pdfPath}"`, { timeout: 5000 });
         console.log(`✅ PDF validation passed`);
-      } catch (validationError) {
+      } catch (validationError: any) {
+        // Handle segmentation fault specifically (exit code 139)
+        if (validationError.code === 139) {
+          console.error(`💥 Segmentation fault in pdfinfo - PDF is corrupted or malformed`);
+          throw new Error('PDF validation failed due to segmentation fault - file is corrupted or incompatible with PDF tools');
+        }
+        
         console.log(`⚠️ PDF validation failed: ${validationError.message}`);
         throw new Error(`PDF validation failed: ${validationError.message}`);
       }
