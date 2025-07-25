@@ -170,7 +170,7 @@ export default function Sidebar({
         )}
       >
         <div className="flex flex-col h-full">
-          {/* Header with Toggle */}
+          {/* Header */}
           <div className="p-4 border-b border-navy-700/50">
             <div className="flex items-center justify-between">
               {!isCollapsed && (
@@ -188,22 +188,6 @@ export default function Sidebar({
               )}
 
               <div className="flex items-center space-x-2">
-                {/* Collapse Toggle for Desktop */}
-                {onToggleCollapse && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onToggleCollapse}
-                    className="hidden lg:flex text-navy-300 hover:text-white hover:bg-navy-700/50 transition-colors"
-                  >
-                    {isCollapsed ? (
-                      <ChevronRight className="w-4 h-4" />
-                    ) : (
-                      <ChevronLeft className="w-4 h-4" />
-                    )}
-                  </Button>
-                )}
-
                 {/* Mobile Close Button */}
                 <Button
                   variant="ghost"
@@ -217,7 +201,33 @@ export default function Sidebar({
             </div>
           </div>
 
-          <div className="flex-1 p-3 space-y-6 overflow-y-auto">
+          <div className="flex-1 p-3 space-y-6 overflow-y-auto relative">
+            {/* Middle Toggle Button for Desktop */}
+            {onToggleCollapse && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onToggleCollapse}
+                className="hidden lg:flex absolute right-[-12px] top-1/2 transform -translate-y-1/2 z-10 w-6 h-8 bg-navy-800 border border-navy-600 hover:bg-navy-700 text-navy-300 hover:text-white transition-all duration-200 rounded-r-md shadow-lg"
+                style={{ right: '-12px' }}
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="w-3 h-3" />
+                ) : (
+                  <ChevronLeft className="w-3 h-3" />
+                )}
+              </Button>
+            )}
+
+            {/* Clickable overlay when collapsed */}
+            {isCollapsed && onToggleCollapse && (
+              <div
+                className="absolute inset-0 z-5 cursor-pointer"
+                onClick={onToggleCollapse}
+                title="Click to expand sidebar"
+              />
+            )}
+
             {/* Navigation Menu */}
             <nav className="flex-1 px-4 py-4 space-y-6">
               {navigationGroups.map((group, groupIndex) => (
