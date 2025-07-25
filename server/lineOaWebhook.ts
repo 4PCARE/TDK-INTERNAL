@@ -1085,7 +1085,15 @@ ${imageAnalysisResult}
 
           try {
             // Get recent chat history for AI keyword expansion
-            const recentChatHistory = chatHistory.slice(-5).map(msg => ({
+            const fullChatHistory = await storage.getChatHistory(
+              lineIntegration.userId,
+              "lineoa",
+              event.source.userId,
+              lineIntegration.agentId!,
+              10
+            );
+
+            const recentChatHistory = fullChatHistory.slice(-5).map(msg => ({
               messageType: msg.messageType,
               content: msg.content,
               createdAt: new Date(msg.createdAt)
