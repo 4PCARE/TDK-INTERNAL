@@ -1254,29 +1254,60 @@ ${imageAnalysisResult}
                 console.log(`      Content preview: ${chunk.content.substring(0, 100)}...`);
               });
 
-              // Build context with character limit for cost control - prioritize keyword results
+              // Separate keyword and vector results for proper prioritization
+              const keywordChunks = allChunks.filter(chunk => chunk.similarity > 0.9); // High similarity indicates keyword result
+              const vectorChunks = allChunks.filter(chunk => chunk.similarity <= 0.9);
+
+              console.log(`LINE OA: Separating chunks - ${keywordChunks.length} keyword, ${vectorChunks.length} vector`);
+
+              // Build context with character limit - ALWAYS start with keyword results
               let documentContext = "";
-              const maxContextLength = 24000; // Doubled limit to accommodate more chunks
+              const maxContextLength = 24000;
               let chunksUsed = 0;
+              let chunkNumber = 1;
 
-              for (let i = 0; i < allChunks.length; i++) {
-                const chunk = allChunks[i];
-                const isKeywordResult = chunk.similarity > 0.9; // High similarity indicates keyword result
-                const resultType = isKeywordResult ? " (คีย์เวิร์ดแมตช์โดยตรง)" : " (เวกเตอร์เสิร์ช)";
-                const chunkText = `=== ข้อมูลที่ ${i + 1}: ${chunk.docName}${resultType} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
+              // PRIORITY 1: Add ALL keyword results first (these are the best matches)
+              for (const chunk of keywordChunks) {
+                const chunkText = `=== ข้อมูลที่ ${chunkNumber} (คีย์เวิร์ดแมตช์โดยตรง - ความเกี่ยวข้องสูง): ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
 
-                // Check if adding this chunk would exceed the limit
                 if (documentContext.length + chunkText.length <= maxContextLength) {
                   documentContext += chunkText;
                   chunksUsed++;
+                  chunkNumber++;
                 } else {
-                  // Try to fit a truncated version if there's meaningful space
+                  // For keyword results, always try to include them even if truncated
                   const remainingSpace = maxContextLength - documentContext.length;
-                  if (remainingSpace > 300) { // Only add if there's meaningful space
-                    const availableContentSpace = remainingSpace - 150; // Account for headers
-                    const truncatedContent = chunk.content.substring(0, availableContentSpace) + "...";
-                    documentContext += `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
+                  if (remainingSpace > 500) { // Ensure meaningful content space
+                    const availableContentSpace = remainingSpace - 200; // Account for headers
+                    const truncatedContent = chunk.content.substring(0, availableContentSpace) + "... [คีย์เวิร์ดแมตช์ที่สำคัญ - ถูกตัดทอน]";
+                    documentContext += `=== ข้อมูลที่ ${chunkNumber} (คีย์เวิร์ดแมตช์โดยตรง - ความเกี่ยวข้องสูง): ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
                     chunksUsed++;
+                    chunkNumber++;
+                  }
+                  // If we can't fit more, stop adding content
+                  break;
+                }
+              }
+
+              console.log(`LINE OA: Added ${keywordChunks.length} keyword chunks first (${documentContext.length} chars used)`);
+
+              // PRIORITY 2: Add vector search results only if space remains
+              for (const chunk of vectorChunks) {
+                const chunkText = `=== ข้อมูลที่ ${chunkNumber} (เวกเตอร์เสิร์ช): ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
+
+                if (documentContext.length + chunkText.length <= maxContextLength) {
+                  documentContext += chunkText;
+                  chunksUsed++;
+                  chunkNumber++;
+                } else {
+                  // For vector results, only add if there's meaningful space
+                  const remainingSpace = maxContextLength - documentContext.length;
+                  if (remainingSpace > 300) {
+                    const availableContentSpace = remainingSpace - 150;
+                    const truncatedContent = chunk.content.substring(0, availableContentSpace) + "...";
+                    documentContext += `=== ข้อมูลที่ ${chunkNumber} (เวกเตอร์เสิร์ช): ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
+                    chunksUsed++;
+                    chunkNumber++;
                   }
                   break;
                 }
@@ -1310,11 +1341,13 @@ ${imageAnalysisResult}
               const agent = await storage.getAgentChatbot(lineIntegration.agentId, lineIntegration.userId);
               const systemPrompt = `${agent?.systemPrompt || 'You are a helpful assistant.'}
 
-เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
+เอกสารอ้างอิงสำหรับการตอบคำถาม (จัดเรียงตามความสำคัญ - คีย์เวิร์ดแมตช์โดยตรงก่อน):
 ${documentContext}
 
-สำคัญ: หากพบข้อมูลเกี่ยวกับร้าน OPPO หรือ ออปโป้ ในเอกสาร ให้ตอบตามข้อมูลที่มี อย่าบอกว่า "ไม่มีข้อมูล"
-กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น`;
+สำคัญมาก: 
+1. ข้อมูลที่มีป้าย "คีย์เวิร์ดแมตช์โดยตรง" มีความเกี่ยวข้องสูงสุด ให้ใช้เป็นอันดับแรก
+2. หากพบข้อมูลเกี่ยวกับร้าน OPPO หรือ ออปโป้ ในเอกสาร ให้ตอบตามข้อมูลที่มี อย่าบอกว่า "ไม่มีข้อมูล"
+3. กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น`;
 
               console.log(`LINE OA: System prompt length: ${systemPrompt.length} characters`);
 
