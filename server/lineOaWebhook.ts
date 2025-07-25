@@ -1266,6 +1266,24 @@ ${imageAnalysisResult}
 
               console.log(`LINE OA: Final context length: ${documentContext.length} characters (limit: ${maxContextLength})`);
 
+              // Debug: Check if OPPO content made it to the final context
+              const hasOPPOInContext = documentContext.toLowerCase().includes('oppo');
+              const hasThapraInContext = documentContext.toLowerCase().includes('ท่าพระ') || documentContext.toLowerCase().includes('thapra');
+              console.log(`LINE OA: Final context contains OPPO: ${hasOPPOInContext}`);
+              console.log(`LINE OA: Final context contains Thapra: ${hasThapraInContext}`);
+              
+              if (hasOPPOInContext) {
+                // Extract OPPO-related lines from context for debugging
+                const oppoLines = documentContext.split('\n').filter(line => 
+                  line.toLowerCase().includes('oppo') || 
+                  line.toLowerCase().includes('ออปโป้')
+                );
+                console.log(`LINE OA: OPPO content in context (${oppoLines.length} lines):`);
+                oppoLines.slice(0, 5).forEach((line, idx) => {
+                  console.log(`  ${idx + 1}. ${line.substring(0, 200)}...`);
+                });
+              }
+
               // Generate AI response with comprehensive document context
               // Use existing OpenAI instance from module scope
 
@@ -1275,6 +1293,7 @@ ${imageAnalysisResult}
 เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
 ${documentContext}
 
+สำคัญ: หากพบข้อมูลเกี่ยวกับร้าน OPPO หรือ ออปโป้ ในเอกสาร ให้ตอบตามข้อมูลที่มี อย่าบอกว่า "ไม่มีข้อมูล"
 กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น`;
 
               console.log(`LINE OA: System prompt length: ${systemPrompt.length} characters`);
