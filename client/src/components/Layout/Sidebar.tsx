@@ -242,9 +242,9 @@ export default function Sidebar({
                   {/* Group items (collapsible) */}
                   <div className={cn(
                     "space-y-1 pl-1 transition-all duration-200 overflow-hidden",
-                    expandedGroups[group.label] ? "max-h-96" : "max-h-0"
+                    (expandedGroups[group.label] && !isCollapsed) ? "max-h-96" : "max-h-0"
                   )}>
-                    {expandedGroups[group.label] && group.items.map((item) => {
+                    {(expandedGroups[group.label] && !isCollapsed) && group.items.map((item) => {
                       const isActive = location === item.href ||
                         (item.href !== "/" && location.startsWith(item.href));
                       return (
