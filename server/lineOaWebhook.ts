@@ -1171,7 +1171,7 @@ ${imageAnalysisResult}
 
               for (const result of combinedResults) {
                 allChunks.push({
-                  docName: result.document.name,
+                  docName: result.name,
                   content: result.content,
                   similarity: result.similarity
                 });
