@@ -132,6 +132,8 @@ export default function Integrations() {
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
   const [lineOaDialogOpen, setLineOaDialogOpen] = useState(false);
   const [editingIntegration, setEditingIntegration] = useState<SocialIntegration | null>(null);
+  const [manageIntegrationsOpen, setManageIntegrationsOpen] = useState(false);
+  const [selectedPlatformType, setSelectedPlatformType] = useState<string>('');
   
   // Form states for Line OA
   const [lineOaForm, setLineOaForm] = useState({
@@ -289,6 +291,11 @@ export default function Integrations() {
 
   const handleVerifyIntegration = (integration: SocialIntegration) => {
     verifyIntegrationMutation.mutate(integration);
+  };
+
+  const handleManageIntegrations = (platformType: string) => {
+    setSelectedPlatformType(platformType);
+    setManageIntegrationsOpen(true);
   };
 
   const socialPlatforms = [
@@ -450,9 +457,12 @@ export default function Integrations() {
                                   </div>
                                 ))}
                                 {existingIntegrations.length > 2 && (
-                                  <div className="text-xs text-slate-500 text-center">
+                                  <button 
+                                    className="text-xs text-blue-600 hover:text-blue-800 text-center w-full py-1 hover:underline"
+                                    onClick={() => handleManageIntegrations(platform.id)}
+                                  >
                                     +{existingIntegrations.length - 2} more
-                                  </div>
+                                  </button>
                                 )}
                               </div>
                             )}
@@ -655,6 +665,160 @@ export default function Integrations() {
                   );
                 })}
               </div>
+
+              {/* Manage Integrations Modal */}
+              <Dialog open={manageIntegrationsOpen} onOpenChange={setManageIntegrationsOpen}>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      {selectedPlatformType === 'lineoa' && <MessageCircle className="w-5 h-5 text-green-600" />}
+                      {selectedPlatformType === 'facebook' && <MessageSquare className="w-5 h-5 text-blue-600" />}
+                      Manage {socialPlatforms.find(p => p.id === selectedPlatformType)?.name} Integrations
+                    </DialogTitle>
+                    <DialogDescription>
+                      View and manage all your {socialPlatforms.find(p => p.id === selectedPlatformType)?.name} integrations
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="flex-1 overflow-y-auto">
+                    <div className="space-y-4 pr-2">
+                      {integrations
+                        .filter(integration => integration.type === selectedPlatformType)
+                        .map((integration) => (
+                          <Card key={integration.id} className="border">
+                            <CardContent className="p-4">
+                              <div className="space-y-4">
+                                {/* Header with status and actions */}
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className={`w-3 h-3 rounded-full ${integration.isVerified ? 'bg-green-500' : 'bg-orange-500'}`} />
+                                    <div>
+                                      <h4 className="font-semibold text-lg">{integration.name}</h4>
+                                      <div className="flex items-center gap-4 text-sm text-slate-500">
+                                        <span>Created: {new Date(integration.createdAt).toLocaleDateString()}</span>
+                                        <span>Last Updated: {new Date(integration.updatedAt).toLocaleDateString()}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={integration.isVerified ? "default" : "secondary"}>
+                                      {integration.isVerified ? "Verified" : "Unverified"}
+                                    </Badge>
+                                    <Badge variant={integration.isActive ? "default" : "outline"}>
+                                      {integration.isActive ? "Active" : "Inactive"}
+                                    </Badge>
+                                  </div>
+                                </div>
+
+                                {/* Integration Details */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                  {selectedPlatformType === 'lineoa' && (
+                                    <>
+                                      <div>
+                                        <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Channel ID</Label>
+                                        <p className="text-sm font-mono">{integration.channelId}</p>
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Bot User ID</Label>
+                                        <p className="text-sm font-mono">{integration.botUserId || 'Not set'}</p>
+                                      </div>
+                                    </>
+                                  )}
+                                  <div>
+                                    <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Assigned Agent</Label>
+                                    <p className="text-sm">{integration.agentName || 'No agent assigned'}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs font-medium text-slate-600 dark:text-slate-400">Integration ID</Label>
+                                    <p className="text-sm font-mono">#{integration.id}</p>
+                                  </div>
+                                </div>
+
+                                {/* Webhook URLs */}
+                                <div>
+                                  <Label className="text-sm font-medium mb-2 block">Webhook Configuration</Label>
+                                  <WebhookUrlDisplay integrationId={integration.id} />
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex items-center justify-between pt-3 border-t">
+                                  <div className="flex items-center gap-2">
+                                    {!integration.isVerified && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleVerifyIntegration(integration)}
+                                        disabled={verifyIntegrationMutation.isPending}
+                                      >
+                                        <Check className="w-4 h-4 mr-2" />
+                                        Verify Connection
+                                      </Button>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setEditingIntegration(integration);
+                                        // You can add edit functionality here
+                                      }}
+                                    >
+                                      <Settings className="w-4 h-4 mr-2" />
+                                      Edit
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-red-600 hover:text-red-700"
+                                    >
+                                      <X className="w-4 h-4 mr-2" />
+                                      Delete
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      
+                      {integrations.filter(integration => integration.type === selectedPlatformType).length === 0 && (
+                        <div className="text-center py-8 text-slate-500">
+                          <MessageCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <p>No integrations found for this platform</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="flex justify-between items-center pt-4 border-t">
+                    <div className="text-sm text-slate-500">
+                      {integrations.filter(integration => integration.type === selectedPlatformType).length} integration(s) total
+                    </div>
+                    <div className="flex gap-2">
+                      {selectedPlatformType === 'lineoa' && (
+                        <Button
+                          onClick={() => {
+                            setManageIntegrationsOpen(false);
+                            setLineOaDialogOpen(true);
+                          }}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add New Line OA
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        onClick={() => setManageIntegrationsOpen(false)}
+                      >
+                        Close
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               {/* Existing Line OA Integrations */}
               {lineOaIntegrations.length > 0 && (
