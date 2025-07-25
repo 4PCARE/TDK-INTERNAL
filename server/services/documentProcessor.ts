@@ -497,16 +497,91 @@ export class DocumentProcessor {
     try {
       const fileExtension = path.extname(fileName).toLowerCase();
       
-      // For PDFs, we need to convert to images first
+      // For PDFs, convert to images first using pdf2pic
       if (fileExtension === '.pdf') {
-        console.log(`📄 PDF detected, attempting image-based OCR extraction for ${fileName}`);
+        console.log(`📄 PDF detected, attempting PDF-to-image OCR extraction for ${fileName}`);
         
-        // Try to use pdf2pic or similar library if available
-        // For now, we'll skip direct PDF OCR and return empty string
-        // This allows the fallback system to try other methods
-        console.log(`⚠️ PDF-to-image conversion not yet implemented for Tesseract OCR`);
-        console.log(`🔄 Skipping Tesseract OCR for PDF, allowing other fallback methods to proceed`);
-        return "";
+        try {
+          // Use dynamic import for pdf2pic
+          const pdf2pic = (await import('pdf2pic')).default;
+          
+          console.log(`🖼️ Converting PDF to images for Tesseract OCR: ${fileName}`);
+          
+          const tempDir = path.join(process.cwd(), 'temp-tesseract-images');
+          await fs.promises.mkdir(tempDir, { recursive: true });
+          
+          const converter = pdf2pic.fromPath(filePath, {
+            density: 300,           // High resolution for better OCR
+            saveFilename: path.basename(fileName, '.pdf'),
+            savePath: tempDir,
+            format: "png",
+            width: 2550,           // A4 width at 300dpi
+            height: 3300           // A4 height at 300dpi
+          });
+          
+          // Convert first 5 pages (to avoid overwhelming processing)
+          const maxPages = 5;
+          let combinedText = "";
+          
+          for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+            try {
+              console.log(`📄 Converting page ${pageNum} to image...`);
+              const result = await converter(pageNum);
+              
+              if (result && result.path) {
+                console.log(`🔍 Running Tesseract OCR on page ${pageNum}...`);
+                
+                const { data: { text } } = await Tesseract.recognize(
+                  result.path,
+                  'tha+eng',
+                  {
+                    tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+                    tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
+                    tessedit_char_whitelist: 'กขคฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮะาเแโใไ่้๊๋์ํฯ๐๑๒๓๔๕๖๗๘๙ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?():;-',
+                    preserve_interword_spaces: '1'
+                  }
+                );
+                
+                if (text && text.trim().length > 20) {
+                  combinedText += `--- Page ${pageNum} ---\n${text.trim()}\n\n`;
+                  console.log(`✅ Page ${pageNum}: ${text.trim().length} characters extracted`);
+                } else {
+                  console.log(`⚠️ Page ${pageNum}: Minimal content extracted`);
+                }
+                
+                // Clean up image file
+                try {
+                  await fs.promises.unlink(result.path);
+                } catch (unlinkError) {
+                  // Ignore cleanup errors
+                }
+              }
+            } catch (pageError) {
+              console.log(`⚠️ Failed to process page ${pageNum}: ${pageError instanceof Error ? pageError.message : pageError}`);
+              // Continue with next page
+            }
+          }
+          
+          // Clean up temp directory
+          try {
+            await fs.promises.rmdir(tempDir, { recursive: true });
+          } catch (rmdirError) {
+            // Ignore cleanup errors
+          }
+          
+          if (combinedText.length > 100) {
+            console.log(`✅ PDF-to-image Tesseract OCR extracted ${combinedText.length} characters from ${fileName}`);
+            return combinedText;
+          } else {
+            console.log(`⚠️ PDF-to-image OCR yielded minimal content: ${combinedText.length} characters`);
+            return combinedText;
+          }
+          
+        } catch (pdfConversionError) {
+          console.log(`⚠️ PDF-to-image conversion failed: ${pdfConversionError instanceof Error ? pdfConversionError.message : pdfConversionError}`);
+          console.log(`🔄 Skipping Tesseract OCR for PDF, allowing other fallback methods to proceed`);
+          return "";
+        }
       }
       
       // For image files, proceed with direct OCR
@@ -615,21 +690,33 @@ export class DocumentProcessor {
   private async tryMultipleFallbackMethods(filePath: string, fileName: string, fileSizeMB: number): Promise<string> {
     const fallbackMethods = [
       {
-        name: "Tesseract OCR",
+        name: "Tesseract OCR (PDF-to-Image)",
         method: () => this.extractWithTesseractOCR(filePath, fileName),
-        description: "OCR extraction for Thai/English text"
+        description: "PDF-to-image OCR extraction for Thai/English text",
+        priority: 1 // Highest priority for Thai content
+      },
+      {
+        name: "PDF-Parse Alternative (pdf-poppler)",
+        method: () => this.extractWithPdfParseAlternative(filePath, fileName),
+        description: "PDF-to-image conversion with Tesseract OCR",
+        priority: 2
+      },
+      {
+        name: "Basic PDF-Parse",
+        method: () => this.extractWithBasicPdfParse(filePath, fileName),
+        description: "Direct PDF text extraction",
+        priority: 3
       },
       {
         name: "Textract",
         method: () => this.extractWithTextract(filePath),
-        description: "General text extraction"
-      },
-      {
-        name: "PDF-Parse Alternative",
-        method: () => this.extractWithPdfParseAlternative(filePath, fileName),
-        description: "Alternative PDF parsing method"
+        description: "General text extraction fallback",
+        priority: 4 // Lowest priority due to limited results
       }
     ];
+
+    // Sort by priority
+    fallbackMethods.sort((a, b) => a.priority - b.priority);
 
     let bestResult = "";
     let bestLength = 0;
@@ -702,13 +789,37 @@ export class DocumentProcessor {
     return tesseractResult || bestResult || "";
   }
 
+  private async extractWithBasicPdfParse(filePath: string, fileName: string): Promise<string> {
+    console.log(`📚 Attempting basic PDF-parse extraction for ${fileName}`);
+    
+    try {
+      // Use dynamic import for pdf-parse
+      const pdfParse = (await import('pdf-parse')).default;
+      
+      const dataBuffer = await fs.promises.readFile(filePath);
+      const pdfData = await pdfParse(dataBuffer);
+      
+      if (pdfData.text && pdfData.text.length > 50) {
+        console.log(`✅ Basic PDF-parse extracted ${pdfData.text.length} characters from ${fileName}`);
+        return pdfData.text;
+      } else {
+        console.log(`⚠️ Basic PDF-parse yielded minimal content: ${pdfData.text?.length || 0} characters`);
+        return pdfData.text || "";
+      }
+    } catch (error) {
+      console.log(`⚠️ Basic PDF-parse failed: ${error instanceof Error ? error.message : error}`);
+      return "";
+    }
+  }
+
   private async extractWithPdfParseAlternative(filePath: string, fileName: string): Promise<string> {
     console.log(`📚 Attempting alternative PDF parsing for ${fileName}`);
     
     try {
       // Try using pdf-poppler if available for PDF to image conversion + OCR
       try {
-        const pdf = require('pdf-poppler');
+        // Use dynamic import for pdf-poppler
+        const pdfPoppler = (await import('pdf-poppler')).default;
         console.log(`🖼️ Converting PDF to images for OCR processing: ${fileName}`);
         
         const options = {
@@ -722,7 +833,7 @@ export class DocumentProcessor {
         await fs.promises.mkdir(options.out_dir, { recursive: true });
         
         // Convert PDF to images
-        const imageFiles = await pdf.convert(filePath, options);
+        const imageFiles = await pdfPoppler.convert(filePath, options);
         
         if (imageFiles && imageFiles.length > 0) {
           console.log(`📄 Converted PDF to ${imageFiles.length} image(s)`);
