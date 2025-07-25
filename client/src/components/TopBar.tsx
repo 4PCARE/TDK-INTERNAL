@@ -52,15 +52,15 @@ export default function TopBar({ isSidebarCollapsed = false }: TopBarProps) {
             alt="Kingpower" 
             className="h-12 w-auto object-contain"
           /> */}
-          <div>
-            <h2 className="text-xl font-semibold text-slate-800">ถามได้คับ</h2>
-            {!isSidebarCollapsed && (
+          {!isSidebarCollapsed && (
+            <div>
+              <h2 className="text-xl font-semibold text-slate-800">ถามได้คับ</h2>
               <p className="text-sm text-slate-500 hidden xl:block">
                 Unleash the power of intelligent knowledge discovery and seamless
                 collaboration.
               </p>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center space-x-4">

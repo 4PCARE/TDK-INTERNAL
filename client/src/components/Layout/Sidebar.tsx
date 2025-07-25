@@ -179,7 +179,7 @@ export default function Sidebar({
                     <Brain className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-lg font-bold text-white">AI-KMS</h1>
+                    <h1 className="text-lg font-bold text-white">TDK</h1>
                     <p className="text-xs text-navy-300">
                       Knowledge Management
                     </p>
