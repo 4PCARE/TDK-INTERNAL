@@ -398,6 +398,12 @@ export class AdvancedKeywordSearchService {
     };
   }>> {
     try {
+      interface EnhancedSearchTerm {
+        keyword: string;
+        weight: number;
+        type: 'original' | 'contextual';
+      }
+
       // Get AI keyword expansion
       console.log(`Getting AI keyword expansion for: "${query}"`);
       const expansionResult = await aiKeywordExpansionService.getExpandedSearchTerms(query, chatHistory);
@@ -409,124 +415,144 @@ export class AdvancedKeywordSearchService {
         confidence: expansionResult.confidence
       });
 
-      // Parse original query
-      const originalSearchTerms = this.parseQuery(query);
-
       // Create enhanced search terms combining original and AI-expanded
-      const enhancedSearchTerms: SearchTerm[] = [
-        // Original terms with high weight
-        ...originalSearchTerms.map(term => ({
-          ...term,
-          source: 'original' as const
-        })),
+      const originalTerms: EnhancedSearchTerm[] = this.parseQuery(query).map(term => ({
+        keyword: term.term,
+        weight: term.weight,
+        type: 'original' as const
+      }));
 
-        // AI-expanded terms with contextual weight
-        ...expansionResult.expanded
-          .filter(keyword => !originalSearchTerms.some(ot => ot.term.toLowerCase() === keyword.toLowerCase()))
-          .map(keyword => ({
-            term: keyword,
-            weight: expansionResult.isContextual ? 0.8 : 0.6, // Higher weight if contextual
-            fuzzy: keyword.length >= 4,
-            source: expansionResult.isContextual ? 'contextual' as const : 'ai_expanded' as const
-          }))
-      ];
+      const contextualTerms: EnhancedSearchTerm[] = expansionResult.expanded
+        .filter(keyword => !originalTerms.some(ot => ot.keyword.toLowerCase() === keyword.toLowerCase()))
+        .map(keyword => ({
+          keyword: keyword,
+          weight: expansionResult.isContextual ? 0.8 : 0.6, // Higher weight if contextual
+          type: 'contextual' as const
+        }));
 
-      console.log(`Enhanced search terms:`, enhancedSearchTerms.map(t => `${t.term}(${t.weight}, ${t.source})`));
+      const enhancedTerms: EnhancedSearchTerm[] = [...originalTerms, ...contextualTerms];
+
+      console.log(`Enhanced search terms: [${enhancedTerms.map(t => `${t.keyword}(${t.weight}, ${t.type})`).join(', ')}]`);
+    console.log(`Search terms breakdown:`, {
+      original: enhancedTerms.filter(t => t.type === 'original').map(t => t.keyword),
+      expanded: enhancedTerms.filter(t => t.type === 'contextual').map(t => t.keyword),
+      totalTerms: enhancedTerms.length
+    });
 
       // Get document chunks from document_vectors table
-      let whereCondition: any = eq(documentVectors.userId, userId);
-
+      let allChunks = await db.select()
+        .from(documentVectors)
+        .where(eq(documentVectors.userId, userId));
+    
       if (specificDocumentIds && specificDocumentIds.length > 0) {
-        whereCondition = and(
-          eq(documentVectors.userId, userId),
-          or(...specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
-        );
-        console.log(`AI-enhanced search: Filtering to ${specificDocumentIds.length} documents from specific IDs: [${specificDocumentIds.join(', ')}]`);
+          allChunks = allChunks.filter(chunk => specificDocumentIds.includes(chunk.documentId));
       }
 
-      const chunks = await db.select()
-        .from(documentVectors)
-        .where(whereCondition);
+      console.log(`AI-enhanced keyword search: Found ${allChunks.length} chunks for user ${userId}`);
 
-      console.log(`AI-enhanced keyword search: Found ${chunks.length} chunks for user ${userId}`);
-
-      if (chunks.length === 0) {
+      if (allChunks.length === 0) {
         return [];
       }
 
-      // Calculate chunk scores with enhanced terms
-      const chunkScores = this.calculateChunkScores(chunks, enhancedSearchTerms);
+    // Score each chunk
+    const scoredChunks = allChunks.map((chunk, index) => {
+      const { score, matchedTerms } = this.calculateKeywordScore(chunk.content, enhancedTerms);
 
-      // Sort by relevance and limit results
-      chunkScores.sort((a, b) => b.score - a.score);
-      const topChunks = chunkScores.slice(0, limit);
+      if (index < 5) { // Log first 5 chunks for debugging
+        console.log(`Chunk ${index + 1} from doc ${chunk.documentId}:`);
+        console.log(`  Score: ${score.toFixed(4)}, Matched: [${matchedTerms.join(', ')}]`);
+        console.log(`  Content preview: ${chunk.content.substring(0, 150)}...`);
+        console.log(`  Contains OPPO: ${chunk.content.toLowerCase().includes('oppo')}`);
+        console.log(`  Contains ท่าพระ: ${chunk.content.toLowerCase().includes('ท่าพระ')}`);
+      }
 
-      // Get document metadata for the top chunks
-      const documents = await storage.getDocuments(userId);
-      const docMap = new Map(documents.map(doc => [doc.id, doc]));
+      return {
+        id: chunk.documentId,
+        name: '', // Will be filled later
+        content: chunk.content,
+        similarity: score,
+        matchedTerms,
+        aiKeywordExpansion: expansionResult
+      };
+    });
 
-      // Format results - aggregate chunks by document and take the best chunk per document
-      const documentResults = new Map<number, any>();
+    // Filter and sort results with lower threshold
+    const filteredResults = scoredChunks
+      .filter(result => result.similarity > 0.05) // Lower minimum threshold
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, limit);
 
-      topChunks
-        .filter(chunk => chunk.score > 0.1) // Minimum relevance threshold
-        .forEach(chunkScore => {
-          const document = docMap.get(chunkScore.documentId);
-          // Since chunks are already filtered by document IDs in DB query, document should always exist
-          // But add fallback just in case
-          if (!document) {
-            console.warn(`Document ID ${chunkScore.documentId} not found in docMap - using chunk data directly`);
-            // Create result directly from chunk if document metadata is missing
-            const existingResult = documentResults.get(chunkScore.documentId);
-            if (!existingResult || chunkScore.score > existingResult.similarity) {
-              documentResults.set(chunkScore.documentId, {
-                id: chunkScore.documentId,
-                name: `Document ${chunkScore.documentId}`,
-                content: chunkScore.content,
-                summary: null,
-                aiCategory: null,
-                similarity: Math.min(chunkScore.score / 10, 1.0),
-                createdAt: new Date().toISOString(),
-                matchedTerms: chunkScore.matchedTerms,
-                matchDetails: chunkScore.matchDetails,
-                aiKeywordExpansion: {
-                  expandedKeywords: expansionResult.expanded,
-                  isContextual: expansionResult.isContextual,
-                  confidence: expansionResult.confidence
-                }
-              });
-            }
-            return;
-          }
+    console.log(`Advanced keyword search: Filtered ${filteredResults.length} results above threshold 0.05`);
+    console.log(`Top 5 scores:`, 
+      scoredChunks.slice(0, 5).map(r => ({ 
+        docId: r.id, 
+        score: r.similarity.toFixed(3),
+        matchedTerms: r.matchedTerms,
+        preview: r.content.substring(0, 100) + '...'
+      }))
+    );
 
-          const existingResult = documentResults.get(chunkScore.documentId);
+    if (filteredResults.length === 0) {
+      console.log(`❌ No results found above similarity threshold 0.05`);
+      console.log(`All keyword scores:`, 
+        scoredChunks.slice(0, 10).map(r => ({ 
+          docId: r.id, 
+          score: r.similarity.toFixed(4),
+          matchedTerms: r.matchedTerms?.length || 0,
+          hasOPPO: r.content.toLowerCase().includes('oppo'),
+          hasThapha: r.content.toLowerCase().includes('ท่าพระ'),
+          hasMall: r.content.toLowerCase().includes('เดอะมอลล์')
+        }))
+      );
+    }
 
-          // If this document already has a result, only replace if this chunk has a better score
-          if (!existingResult || chunkScore.score > existingResult.similarity) {
-            documentResults.set(chunkScore.documentId, {
-              id: document.id,
-              name: document.name,
-              content: chunkScore.content, // Use chunk content instead of full document
-              summary: document.summary,
-              aiCategory: document.aiCategory,
-              similarity: Math.min(chunkScore.score / 10, 1.0), // Normalize to 0-1
-              createdAt: document.createdAt.toISOString(),
-              matchedTerms: chunkScore.matchedTerms,
-              matchDetails: chunkScore.matchDetails,
-              aiKeywordExpansion: {
-                expandedKeywords: expansionResult.expanded,
-                isContextual: expansionResult.isContextual,
-                confidence: expansionResult.confidence
-              }
-            });
-          }
+    // Get document metadata for the top chunks
+    const documents = await storage.getDocuments(userId);
+    const docMap = new Map(documents.map(doc => [doc.id, doc]));
+
+    // Format results - aggregate chunks by document and take the best chunk per document
+    const documentResults = new Map<number, any>();
+
+    filteredResults.forEach(scoredChunk => {
+      const document = docMap.get(scoredChunk.id);
+
+      if (!document) {
+        console.warn(`Document ID ${scoredChunk.id} not found in docMap - using chunk data directly`);
+
+        documentResults.set(scoredChunk.id, {
+          id: scoredChunk.id,
+          name: `Document ${scoredChunk.id}`,
+          content: scoredChunk.content,
+          summary: null,
+          aiCategory: null,
+          similarity: scoredChunk.similarity,
+          createdAt: new Date().toISOString(),
+          matchedTerms: scoredChunk.matchedTerms,
+          matchDetails: [], // No match details available
+          aiKeywordExpansion: scoredChunk.aiKeywordExpansion
         });
+        return;
+      }
 
-      const results = Array.from(documentResults.values())
-        .sort((a, b) => b.similarity - a.similarity);
+      documentResults.set(scoredChunk.id, {
+        id: document.id,
+        name: document.name,
+        content: scoredChunk.content,
+        summary: document.summary,
+        aiCategory: document.aiCategory,
+        similarity: scoredChunk.similarity,
+        createdAt: document.createdAt.toISOString(),
+        matchedTerms: scoredChunk.matchedTerms,
+        matchDetails: [], // No match details available
+        aiKeywordExpansion: scoredChunk.aiKeywordExpansion
+      });
+    });
 
-      console.log(`AI-enhanced keyword search returned ${results.length} results with expansion confidence: ${expansionResult.confidence}`);
-      return results;
+    const results = Array.from(documentResults.values())
+      .sort((a, b) => b.similarity - a.similarity);
+
+    console.log(`AI-enhanced keyword search returned ${results.length} results with expansion confidence: ${expansionResult.confidence}`);
+    return results;
 
     } catch (error) {
       console.error('AI-enhanced keyword search error:', error);
@@ -534,6 +560,53 @@ export class AdvancedKeywordSearchService {
       console.log('Falling back to regular keyword search...');
       return this.searchDocuments(query, userId, limit, specificDocumentIds);
     }
+  }
+
+  private calculateKeywordScore(content: string, searchTerms: EnhancedSearchTerm[]): { score: number; matchedTerms: string[] } {
+    const lowerContent = content.toLowerCase();
+    let totalScore = 0;
+    const matchedTerms: string[] = [];
+    let totalPossibleScore = 0;
+
+    for (const term of searchTerms) {
+      const keyword = term.keyword.toLowerCase();
+      totalPossibleScore += term.weight;
+
+      // Try exact match first
+      let matches = 0;
+      const exactRegex = new RegExp(`\\b${this.escapeRegExp(keyword)}\\b`, 'gi');
+      const exactMatches = (lowerContent.match(exactRegex) || []).length;
+
+      if (exactMatches > 0) {
+        matches = exactMatches;
+      } else {
+        // Try partial match for Thai text and compound words
+        const partialRegex = new RegExp(this.escapeRegExp(keyword), 'gi');
+        const partialMatches = (lowerContent.match(partialRegex) || []).length;
+        if (partialMatches > 0) {
+          matches = partialMatches * 0.8; // Partial match gets 80% weight
+        }
+      }
+
+      if (matches > 0) {
+        // Apply term weight and frequency bonus
+        const termScore = term.weight * Math.min(1 + Math.log(matches + 1) * 0.3, 2.0);
+        totalScore += termScore;
+        matchedTerms.push(term.keyword);
+
+        console.log(`Keyword "${keyword}" found ${matches} times, term score: ${termScore.toFixed(3)}, weight: ${term.weight}`);
+      }
+    }
+
+    // Calculate score as percentage of maximum possible score
+    const normalizedScore = totalPossibleScore > 0 ? totalScore / totalPossibleScore : 0;
+
+    console.log(`Total score: ${totalScore.toFixed(3)}, Max possible: ${totalPossibleScore.toFixed(3)}, Normalized: ${normalizedScore.toFixed(3)}`);
+
+    return {
+      score: Math.min(normalizedScore, 1.0), // Cap at 1.0
+      matchedTerms
+    };
   }
 
   // Method to get keyword highlights for display
@@ -556,6 +629,10 @@ export class AdvancedKeywordSearchService {
     }
 
     return highlights.slice(0, 5); // Max 5 highlights total
+  }
+
+  private escapeRegExp(string: string): string {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
   }
 }
 
