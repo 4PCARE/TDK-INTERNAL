@@ -208,13 +208,13 @@ export default function Sidebar({
                 variant="ghost"
                 size="sm"
                 onClick={onToggleCollapse}
-                className="hidden lg:flex absolute right-[-12px] top-1/2 transform -translate-y-1/2 z-10 w-6 h-8 bg-navy-800 border border-navy-600 hover:bg-navy-700 text-navy-300 hover:text-white transition-all duration-200 rounded-r-md shadow-lg"
-                style={{ right: '-12px' }}
+                className="hidden lg:flex absolute right-[-16px] top-1/2 transform -translate-y-1/2 z-10 w-8 h-12 bg-navy-800 border border-navy-600 hover:bg-navy-700 text-navy-300 hover:text-white transition-all duration-200 rounded-r-md shadow-lg"
+                style={{ right: '-16px' }}
               >
                 {isCollapsed ? (
-                  <ChevronRight className="w-3 h-3" />
+                  <ChevronRight className="w-4 h-4" />
                 ) : (
-                  <ChevronLeft className="w-3 h-3" />
+                  <ChevronLeft className="w-4 h-4" />
                 )}
               </Button>
             )}
@@ -223,6 +223,15 @@ export default function Sidebar({
             {isCollapsed && onToggleCollapse && (
               <div
                 className="absolute inset-0 z-5 cursor-pointer"
+                onClick={onToggleCollapse}
+                title="Click to expand sidebar"
+              />
+            )}
+
+            {/* Right edge clickable area when collapsed */}
+            {isCollapsed && onToggleCollapse && (
+              <div
+                className="absolute right-0 top-0 bottom-0 w-4 z-6 cursor-pointer hover:bg-navy-700/20 transition-colors"
                 onClick={onToggleCollapse}
                 title="Click to expand sidebar"
               />
