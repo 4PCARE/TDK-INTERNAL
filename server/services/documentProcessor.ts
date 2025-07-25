@@ -202,15 +202,20 @@ export class DocumentProcessor {
             progressBar,
             fileSizeMB,
           );
-          if (extractedText && extractedText.length > 50) {
+          // Check if LlamaParse extracted meaningful content
+          const hasContent = extractedText && extractedText.length > 100;
+          const hasRealText = extractedText && extractedText.replace(/[\s\n\r-]/g, '').length > 50;
+          
+          if (hasContent && hasRealText) {
             console.log(
               `✅ PDF processed successfully with LlamaParse: ${extractedText.length} characters extracted`,
             );
             return extractedText;
           } else {
             console.log(
-              `⚠️ LlamaParse returned minimal content: ${extractedText?.length || 0} characters - trying Tesseract OCR...`,
+              `⚠️ LlamaParse returned minimal content: ${extractedText?.length || 0} characters (${extractedText?.replace(/[\s\n\r-]/g, '').length || 0} non-whitespace) - trying Tesseract OCR...`,
             );
+            
             // Step 1.5: Native Tesseract OCR as a Fallback
             try {
               console.log(`🚀 Starting native Tesseract OCR extraction for ${fileName}...`);
@@ -225,15 +230,34 @@ export class DocumentProcessor {
                 const hasThaiText = thaiRegex.test(ocrText);
                 console.log(`🇹🇭 Contains Thai text: ${hasThaiText ? 'Yes' : 'No'}`);
                 
-                return ocrText;
+                // If OCR found more meaningful content than LlamaParse, use OCR result
+                const ocrNonWhitespace = ocrText.replace(/[\s\n\r-]/g, '').length;
+                const llamaNonWhitespace = extractedText?.replace(/[\s\n\r-]/g, '').length || 0;
+                
+                if (ocrNonWhitespace > llamaNonWhitespace) {
+                  console.log(`🔄 OCR found more content (${ocrNonWhitespace} vs ${llamaNonWhitespace} chars) - using OCR result`);
+                  return ocrText;
+                } else if (extractedText && extractedText.length > 10) {
+                  console.log(`🔄 LlamaParse content better than OCR - using LlamaParse result`);
+                  return extractedText;
+                } else {
+                  return ocrText;
+                }
               } else {
                 console.log(`⚠️ Native Tesseract OCR returned minimal content.`);
+                // Still return LlamaParse result even if minimal
+                if (extractedText && extractedText.length > 0) {
+                  return extractedText;
+                }
               }
 
             } catch (tesseractError) {
               console.error("❌ Native Tesseract OCR failed:", tesseractError);
+              // Return LlamaParse result as fallback
+              if (extractedText && extractedText.length > 0) {
+                return extractedText;
+              }
             }
-
           }
         } catch (llamaError) {
           const errorMessage =
