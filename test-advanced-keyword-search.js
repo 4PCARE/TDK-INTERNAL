@@ -22,30 +22,45 @@ async function testAdvancedKeywordSearch() {
     console.log('-'.repeat(40));
     
     try {
-      // Test the search endpoint with keyword type
-      const response = await fetch(`${baseUrl}/api/documents/search?query=${encodeURIComponent(query)}&type=keyword`);
+      // Test the debug endpoint (no auth required)
+      const response = await fetch(`${baseUrl}/api/debug/test-advanced-keyword-search?query=${encodeURIComponent(query)}`);
       
       if (!response.ok) {
         console.log(`❌ HTTP Error: ${response.status} ${response.statusText}`);
         continue;
       }
       
-      const results = await response.json();
+      const data = await response.json();
       
       console.log(`✅ Search completed successfully`);
-      console.log(`📊 Results found: ${results.length}`);
+      console.log(`📊 Regular search results: ${data.regularSearch.results}`);
+      console.log(`🤖 AI-enhanced search results: ${data.aiEnhancedSearch.results}`);
       
-      if (results.length > 0) {
-        console.log(`📄 Top results:`);
-        results.slice(0, 3).forEach((result, index) => {
+      if (data.regularSearch.results > 0) {
+        console.log(`📄 Regular search top results:`);
+        data.regularSearch.documents.slice(0, 3).forEach((result, index) => {
           console.log(`   ${index + 1}. Doc ID: ${result.id}`);
           console.log(`      Name: ${result.name}`);
           console.log(`      Similarity: ${result.similarity.toFixed(4)}`);
           console.log(`      Matched terms: ${result.matchedTerms?.join(', ') || 'none'}`);
-          console.log(`      Content preview: ${result.content.substring(0, 100)}...`);
+          console.log(`      Content preview: ${result.contentPreview}`);
           console.log('');
         });
-      } else {
+      }
+      
+      if (data.aiEnhancedSearch.results > 0) {
+        console.log(`🤖 AI-enhanced search top results:`);
+        data.aiEnhancedSearch.documents.slice(0, 3).forEach((result, index) => {
+          console.log(`   ${index + 1}. Doc ID: ${result.id}`);
+          console.log(`      Name: ${result.name}`);
+          console.log(`      Similarity: ${result.similarity.toFixed(4)}`);
+          console.log(`      AI Keywords: ${result.aiKeywordExpansion?.expandedKeywords?.join(', ') || 'none'}`);
+          console.log(`      Content preview: ${result.contentPreview}`);
+          console.log('');
+        });
+      }
+      
+      if (data.regularSearch.results === 0 && data.aiEnhancedSearch.results === 0) {
         console.log(`⚠️  No results found for "${query}"`);
       }
       

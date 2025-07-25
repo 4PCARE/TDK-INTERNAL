@@ -779,9 +779,7 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
                     console.log(`DEBUG: Found ${matchingSegments.length} keyword matches`);
 
                     // Sort by score (exact phrases first) then by position
-                    matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);
-
-                    // Take best matches and remove overlaps
+                    matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);                    // Take best matches and remove overlaps
                     const uniqueSegments = [];
                     const usedRanges = [];
 
@@ -1143,4 +1141,53 @@ router.post("/debug/ai-keyword-expansion", async (req, res) => {
     }
 });
 
-export default router;
+// Test advanced keyword search without authentication
+router.get('/test-advanced-keyword-search', async (req, res) => {
+  try {
+    const query = req.query.query as string || 'XOLO restaurant';
+    const userId = req.query.userId as string || '43981095'; // Default test user
+
+    console.log(`Testing advanced keyword search: "${query}" for user ${userId}`);
+
+    const { advancedKeywordSearchService } = await import('./services/advancedKeywordSearch');
+
+    // Test both regular and AI-enhanced search
+    const [regularResults, aiResults] = await Promise.all([
+      advancedKeywordSearchService.searchDocuments(query, userId, 10),
+      advancedKeywordSearchService.searchDocumentsWithAI(query, userId, [], 10)
+    ]);
+
+    res.json({
+      query,
+      userId,
+      regularSearch: {
+        results: regularResults.length,
+        documents: regularResults.map(r => ({
+          id: r.id,
+          name: r.name,
+          similarity: r.similarity,
+          matchedTerms: r.matchedTerms,
+          contentPreview: r.content.substring(0, 200) + '...'
+        }))
+      },
+      aiEnhancedSearch: {
+        results: aiResults.length,
+        documents: aiResults.map(r => ({
+          id: r.id,
+          name: r.name,
+          similarity: r.similarity,
+          matchedTerms: r.matchedTerms,
+          aiKeywordExpansion: r.aiKeywordExpansion,
+          contentPreview: r.content.substring(0, 200) + '...'
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('Test advanced keyword search error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Test vector search for specific user and documents
+router.get('/test-vector-search', async (req, res) => {
