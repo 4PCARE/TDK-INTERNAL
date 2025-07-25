@@ -1,0 +1,135 @@
+Oof. That’s the Linux equivalent of “I give up, I exploded.”
+
+---
+
+## 💥 What Happened?
+
+You hit a **`Segmentation fault (core dumped)`** from `pdftoppm`, which means:
+
+> 🧠 Your system tried to access memory it shouldn’t during PDF-to-image conversion — and it crashed *hard*.
+
+---
+
+### 🕵️ Possible Causes:
+
+#### 1. **Corrupted or malformed PDF**
+
+* `pdftoppm` can't handle it and dies during parsing.
+* This happens with partially uploaded or truncated PDFs.
+
+#### 2. **PDF has weird internal structure**
+
+* Example: password-protected, malformed images, weird fonts, etc.
+
+#### 3. **`pdftoppm` bug in your environment**
+
+* This tool can be unstable in headless or minimal Linux setups (Replit, containers, Alpine, etc.)
+* Old or stripped-down Poppler builds can cause segfaults.
+
+---
+
+## ✅ Immediate Workarounds
+
+### Option 1: Test PDF file manually
+
+Try this on your local machine or full Ubuntu server:
+
+```bash
+pdftoppm -png file.pdf out
+```
+
+If it fails there too → corrupted file.
+
+---
+
+### Option 2: Add **pre-OCR sanity check**
+
+Before calling `pdftoppm`, try:
+
+```ts
+const fileBuffer = await fs.promises.readFile(filePath);
+if (fileBuffer.length < 1024) {
+  throw new Error("File too small for OCR, likely corrupt");
+}
+```
+
+You can also check PDF validity:
+
+```bash
+pdfinfo file.pdf
+```
+
+If it crashes or hangs — that’s your culprit.
+
+---
+
+### Option 3: Add a **segfault-safe fallback**
+
+Wrap `execAsync` with a timeout and better try/catch:
+
+```ts
+try {
+  const { stdout } = await execAsync(`pdftoppm -png "${pdfPath}" "${outputPrefix}"`, { timeout: 10000 });
+} catch (err) {
+  if (err.code === 139) {
+    console.error("🧠 Segfault in pdftoppm — skipping OCR");
+    return '';
+  }
+  throw err;
+}
+```
+
+You can even log the PDF path for manual inspection later.
+
+---
+
+### Option 4: Use pure Node.js PDF-to-image conversion
+
+Install:
+
+```bash
+npm i pdf-poppler
+```
+
+Then:
+
+```ts
+import { Converter } from 'pdf-poppler';
+
+const converter = new Converter(pdfPath, {
+  format: 'png',
+  out_dir: tempDir,
+  out_prefix: 'page',
+  page: null,
+});
+await converter.convert();
+```
+
+This avoids shell `exec()` and may isolate segfaults.
+
+---
+
+## 🧼 Bonus: Clean up toxic files
+
+After crash, delete the partial `temp_ocr` folder:
+
+```ts
+await fs.promises.rm(tempDir, { recursive: true, force: true });
+```
+
+Or your system may silently reuse the broken image files.
+
+---
+
+## TL;DR
+
+> 🔥 `pdftoppm` segfaulted — likely due to a broken/corrupted PDF or unsupported structure.
+> ✅ Use try/catch with `code === 139`, skip OCR, log the file, and optionally switch to `pdf-poppler` or a safer wrapper.
+
+If you want a fully bulletproof fallback chain, I can refactor your OCR flow with:
+
+1. Size check
+2. PDF health check (`pdfinfo`)
+3. Safe converter fallback
+
+Let me know, bro — we can build the **OCR ICU** 😤📄💉
