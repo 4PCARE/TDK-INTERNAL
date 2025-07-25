@@ -165,7 +165,7 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
         variant: "destructive",
       });
     },
-  }););
+  });
 
   // Toggle favorite mutation
   const toggleFavoriteMutation = useMutation({
