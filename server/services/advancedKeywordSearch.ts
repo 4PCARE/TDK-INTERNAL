@@ -1,5 +1,9 @@
+
 import { storage } from '../storage';
 import { aiKeywordExpansionService } from './aiKeywordExpansion';
+import { db } from '../db';
+import { documentVectors } from '@shared/schema';
+import { eq, and, or } from 'drizzle-orm';
 
 interface SearchTerm {
   term: string;
@@ -8,8 +12,10 @@ interface SearchTerm {
   source?: 'original' | 'ai_expanded' | 'contextual';
 }
 
-interface DocumentScore {
+interface ChunkScore {
   documentId: number;
+  chunkIndex: number;
+  content: string;
   score: number;
   matchedTerms: string[];
   matchDetails: Array<{
@@ -44,14 +50,25 @@ export class AdvancedKeywordSearchService {
     matchDetails: any;
   }>> {
     try {
-      // Get all documents for the user
-      let documents = await storage.getDocuments(userId);
-      console.log(`Advanced keyword search: Found ${documents.length} total documents for user ${userId}`);
+      // Get document chunks from document_vectors table
+      let whereCondition: any = eq(documentVectors.userId, userId);
 
-      // Filter by specific document IDs if provided
       if (specificDocumentIds && specificDocumentIds.length > 0) {
-        documents = documents.filter(doc => specificDocumentIds.includes(doc.id));
-        console.log(`Advanced keyword search: Filtered to ${documents.length} documents from specific IDs: [${specificDocumentIds.join(', ')}]`);
+        whereCondition = and(
+          eq(documentVectors.userId, userId),
+          or(...specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
+        );
+        console.log(`Advanced keyword search: Filtering to ${specificDocumentIds.length} specific documents: [${specificDocumentIds.join(', ')}]`);
+      }
+
+      const chunks = await db.select()
+        .from(documentVectors)
+        .where(whereCondition);
+
+      console.log(`Advanced keyword search: Found ${chunks.length} chunks for user ${userId}`);
+
+      if (chunks.length === 0) {
+        return [];
       }
 
       // Parse and analyze query
@@ -59,33 +76,48 @@ export class AdvancedKeywordSearchService {
       const searchTerms = this.parseQuery(query);
       console.log(`Parsed search terms:`, searchTerms.map(t => `${t.term}(${t.weight})`));
 
-      // Calculate document scores
-      const documentScores = this.calculateDocumentScores(documents, searchTerms);
+      // Calculate chunk scores
+      const chunkScores = this.calculateChunkScores(chunks, searchTerms);
 
       // Sort by relevance and limit results
-      documentScores.sort((a, b) => b.score - a.score);
-      const topDocuments = documentScores.slice(0, limit);
+      chunkScores.sort((a, b) => b.score - a.score);
+      const topChunks = chunkScores.slice(0, limit);
 
-      // Format results
-      const results = topDocuments
-        .filter(doc => doc.score > 0.1) // Minimum relevance threshold
-        .map(docScore => {
-          const document = documents.find(d => d.id === docScore.documentId)!;
+      // Get document metadata for the top chunks
+      const documents = await storage.getDocuments(userId);
+      const docMap = new Map(documents.map(doc => [doc.id, doc]));
 
-          return {
-            id: document.id,
-            name: document.name,
-            content: document.content || '',
-            summary: document.summary,
-            aiCategory: document.aiCategory,
-            similarity: Math.min(docScore.score / 10, 1.0), // Normalize to 0-1
-            createdAt: document.createdAt.toISOString(),
-            matchedTerms: docScore.matchedTerms,
-            matchDetails: docScore.matchDetails
-          };
+      // Format results - aggregate chunks by document and take the best chunk per document
+      const documentResults = new Map<number, any>();
+
+      topChunks
+        .filter(chunk => chunk.score > 0.1) // Minimum relevance threshold
+        .forEach(chunkScore => {
+          const document = docMap.get(chunkScore.documentId);
+          if (!document) return;
+
+          const existingResult = documentResults.get(chunkScore.documentId);
+          
+          // If this document already has a result, only replace if this chunk has a better score
+          if (!existingResult || chunkScore.score > existingResult.similarity) {
+            documentResults.set(chunkScore.documentId, {
+              id: document.id,
+              name: document.name,
+              content: chunkScore.content, // Use chunk content instead of full document
+              summary: document.summary,
+              aiCategory: document.aiCategory,
+              similarity: Math.min(chunkScore.score / 10, 1.0), // Normalize to 0-1
+              createdAt: document.createdAt.toISOString(),
+              matchedTerms: chunkScore.matchedTerms,
+              matchDetails: chunkScore.matchDetails
+            });
+          }
         });
 
-      console.log(`Advanced keyword search returned ${results.length} results`);
+      const results = Array.from(documentResults.values())
+        .sort((a, b) => b.similarity - a.similarity);
+
+      console.log(`Advanced keyword search returned ${results.length} results from ${chunkScores.length} scored chunks`);
       return results;
 
     } catch (error) {
@@ -129,18 +161,20 @@ export class AdvancedKeywordSearchService {
     return terms;
   }
 
-  private calculateDocumentScores(documents: any[], searchTerms: SearchTerm[]): DocumentScore[] {
-    const documentScores: DocumentScore[] = [];
+  private calculateChunkScores(chunks: any[], searchTerms: SearchTerm[]): ChunkScore[] {
+    const chunkScores: ChunkScore[] = [];
 
-    // Calculate IDF for each search term
-    const termIDF = this.calculateIDF(documents, searchTerms);
+    // Calculate IDF for each search term across all chunks
+    const termIDF = this.calculateIDF(chunks, searchTerms);
 
-    for (const document of documents) {
-      const docText = this.extractDocumentText(document);
-      const docTokens = this.tokenizeText(docText);
+    for (const chunk of chunks) {
+      const chunkText = chunk.content.toLowerCase();
+      const chunkTokens = this.tokenizeText(chunkText);
 
-      const docScore: DocumentScore = {
-        documentId: document.id,
+      const chunkScore: ChunkScore = {
+        documentId: chunk.documentId,
+        chunkIndex: chunk.chunkIndex,
+        content: chunk.content,
         score: 0,
         matchedTerms: [],
         matchDetails: []
@@ -150,15 +184,15 @@ export class AdvancedKeywordSearchService {
       for (const searchTerm of searchTerms) {
         const termScore = this.calculateTermScore(
           searchTerm,
-          docText,
-          docTokens,
+          chunkText,
+          chunkTokens,
           termIDF.get(searchTerm.term) || 1.0
         );
 
         if (termScore.score > 0) {
-          docScore.score += termScore.score * searchTerm.weight;
-          docScore.matchedTerms.push(searchTerm.term);
-          docScore.matchDetails.push({
+          chunkScore.score += termScore.score * searchTerm.weight;
+          chunkScore.matchedTerms.push(searchTerm.term);
+          chunkScore.matchDetails.push({
             term: searchTerm.term,
             score: termScore.score,
             positions: termScore.positions,
@@ -167,24 +201,15 @@ export class AdvancedKeywordSearchService {
         }
       }
 
-      // Apply document-level boosters
-      docScore.score = this.applyDocumentBoosters(document, docScore.score, searchTerms);
+      // Apply chunk-level boosters
+      chunkScore.score = this.applyChunkBoosters(chunk, chunkScore.score, searchTerms);
 
-      if (docScore.score > 0) {
-        documentScores.push(docScore);
+      if (chunkScore.score > 0) {
+        chunkScores.push(chunkScore);
       }
     }
 
-    return documentScores;
-  }
-
-  private extractDocumentText(document: any): string {
-    return [
-      document.name || '',
-      document.summary || '',
-      document.content || '',
-      ...(document.tags || [])
-    ].join(' ').toLowerCase();
+    return chunkScores;
   }
 
   private tokenizeText(text: string): string[] {
@@ -194,21 +219,21 @@ export class AdvancedKeywordSearchService {
       .filter(token => token.length > 0);
   }
 
-  private calculateIDF(documents: any[], searchTerms: SearchTerm[]): Map<string, number> {
+  private calculateIDF(chunks: any[], searchTerms: SearchTerm[]): Map<string, number> {
     const termIDF = new Map<string, number>();
-    const totalDocs = documents.length;
+    const totalChunks = chunks.length;
 
     for (const searchTerm of searchTerms) {
-      let docsWithTerm = 0;
+      let chunksWithTerm = 0;
 
-      for (const document of documents) {
-        const docText = this.extractDocumentText(document);
-        if (this.termExistsInDocument(searchTerm.term, docText, searchTerm.fuzzy)) {
-          docsWithTerm++;
+      for (const chunk of chunks) {
+        const chunkText = chunk.content.toLowerCase();
+        if (this.termExistsInText(searchTerm.term, chunkText, searchTerm.fuzzy)) {
+          chunksWithTerm++;
         }
       }
 
-      const idf = docsWithTerm > 0 ? Math.log(totalDocs / docsWithTerm) : 1.0;
+      const idf = chunksWithTerm > 0 ? Math.log(totalChunks / chunksWithTerm) : 1.0;
       termIDF.set(searchTerm.term, idf);
     }
 
@@ -217,8 +242,8 @@ export class AdvancedKeywordSearchService {
 
   private calculateTermScore(
     searchTerm: SearchTerm,
-    docText: string,
-    docTokens: string[],
+    chunkText: string,
+    chunkTokens: string[],
     idf: number
   ): { score: number; positions: number[]; fuzzyMatch?: boolean } {
     const term = searchTerm.term.toLowerCase();
@@ -228,7 +253,7 @@ export class AdvancedKeywordSearchService {
 
     // Check for exact matches
     let index = 0;
-    while ((index = docText.indexOf(term, index)) !== -1) {
+    while ((index = chunkText.indexOf(term, index)) !== -1) {
       positions.push(index);
       exactMatches++;
       index += term.length;
@@ -237,13 +262,13 @@ export class AdvancedKeywordSearchService {
     // Check for fuzzy matches if enabled and no exact matches
     let fuzzyMatch = false;
     if (searchTerm.fuzzy && exactMatches === 0) {
-      for (let i = 0; i < docTokens.length; i++) {
-        const token = docTokens[i];
+      for (let i = 0; i < chunkTokens.length; i++) {
+        const token = chunkTokens[i];
         if (this.isFuzzyMatch(term, token)) {
           fuzzyMatches++;
           fuzzyMatch = true;
           // Find position in original text
-          const tokenIndex = docText.indexOf(token, i > 0 ? positions[positions.length - 1] || 0 : 0);
+          const tokenIndex = chunkText.indexOf(token, i > 0 ? positions[positions.length - 1] || 0 : 0);
           if (tokenIndex !== -1) {
             positions.push(tokenIndex);
           }
@@ -253,7 +278,7 @@ export class AdvancedKeywordSearchService {
 
     // Calculate TF (term frequency)
     const totalMatches = exactMatches + (fuzzyMatches * 0.7); // Fuzzy matches get lower weight
-    const tf = totalMatches / Math.max(docTokens.length, 1);
+    const tf = totalMatches / Math.max(chunkTokens.length, 1);
 
     // Calculate TF-IDF score
     const score = tf * idf;
@@ -261,15 +286,15 @@ export class AdvancedKeywordSearchService {
     return { score, positions, fuzzyMatch };
   }
 
-  private termExistsInDocument(term: string, docText: string, fuzzy?: boolean): boolean {
+  private termExistsInText(term: string, text: string, fuzzy?: boolean): boolean {
     // Check exact match first
-    if (docText.includes(term.toLowerCase())) {
+    if (text.includes(term.toLowerCase())) {
       return true;
     }
 
     // Check fuzzy match if enabled
     if (fuzzy) {
-      const tokens = this.tokenizeText(docText);
+      const tokens = this.tokenizeText(text);
       return tokens.some(token => this.isFuzzyMatch(term, token));
     }
 
@@ -313,25 +338,18 @@ export class AdvancedKeywordSearchService {
     return matrix[str2.length][str1.length];
   }
 
-  private applyDocumentBoosters(document: any, baseScore: number, searchTerms: SearchTerm[]): number {
+  private applyChunkBoosters(chunk: any, baseScore: number, searchTerms: SearchTerm[]): number {
     let boostedScore = baseScore;
 
-    // Boost if terms appear in title
-    const titleText = (document.name || '').toLowerCase();
-    for (const searchTerm of searchTerms) {
-      if (titleText.includes(searchTerm.term.toLowerCase())) {
-        boostedScore *= 1.5; // 50% boost for title matches
-      }
+    // Boost if chunk has high relevance (more matches in smaller content)
+    const chunkLength = chunk.content.length;
+    if (chunkLength > 0 && chunkLength < 1000) { // Shorter chunks with matches get slight boost
+      boostedScore *= 1.1;
     }
 
-    // Boost recent documents slightly
-    const daysSinceCreated = (Date.now() - new Date(document.createdAt).getTime()) / (1000 * 60 * 60 * 24);
-    const recencyBoost = Math.max(0.1, 1.0 - (daysSinceCreated / 365)); // Decay over a year
-    boostedScore *= (1.0 + recencyBoost * 0.2); // Up to 20% boost for recent docs
-
-    // Boost documents with summary (likely better quality)
-    if (document.summary && document.summary.length > 50) {
-      boostedScore *= 1.1; // 10% boost for documents with good summaries
+    // Boost if chunk is from the beginning of document (likely more important)
+    if (chunk.chunkIndex === 0) {
+      boostedScore *= 1.2; // 20% boost for first chunk
     }
 
     return boostedScore;
@@ -361,16 +379,6 @@ export class AdvancedKeywordSearchService {
     };
   }>> {
     try {
-      // Get all documents for the user
-      let documents = await storage.getDocuments(userId);
-      console.log(`AI-enhanced keyword search: Found ${documents.length} total documents for user ${userId}`);
-
-      // Filter by specific document IDs if provided
-      if (specificDocumentIds && specificDocumentIds.length > 0) {
-        documents = documents.filter(doc => specificDocumentIds.includes(doc.id));
-        console.log(`AI-enhanced search: Filtered to ${documents.length} documents from specific IDs: [${specificDocumentIds.join(', ')}]`);
-      }
-
       // Get AI keyword expansion
       console.log(`Getting AI keyword expansion for: "${query}"`);
       const expansionResult = await aiKeywordExpansionService.getExpandedSearchTerms(query, chatHistory);
@@ -406,39 +414,72 @@ export class AdvancedKeywordSearchService {
 
       console.log(`Enhanced search terms:`, enhancedSearchTerms.map(t => `${t.term}(${t.weight}, ${t.source})`));
 
-      // Log clean terms that will actually be used for searching
-      console.log(`Clean search terms for processing:`, enhancedSearchTerms.map(t => `"${t.term}" (weight: ${t.weight})`));
+      // Get document chunks from document_vectors table
+      let whereCondition: any = eq(documentVectors.userId, userId);
 
-      // Calculate document scores with enhanced terms
-      const documentScores = this.calculateDocumentScores(documents, enhancedSearchTerms);
+      if (specificDocumentIds && specificDocumentIds.length > 0) {
+        whereCondition = and(
+          eq(documentVectors.userId, userId),
+          or(...specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
+        );
+        console.log(`AI-enhanced search: Filtering to ${specificDocumentIds.length} documents from specific IDs: [${specificDocumentIds.join(', ')}]`);
+      }
+
+      const chunks = await db.select()
+        .from(documentVectors)
+        .where(whereCondition);
+
+      console.log(`AI-enhanced keyword search: Found ${chunks.length} chunks for user ${userId}`);
+
+      if (chunks.length === 0) {
+        return [];
+      }
+
+      // Calculate chunk scores with enhanced terms
+      const chunkScores = this.calculateChunkScores(chunks, enhancedSearchTerms);
 
       // Sort by relevance and limit results
-      documentScores.sort((a, b) => b.score - a.score);
-      const topDocuments = documentScores.slice(0, limit);
+      chunkScores.sort((a, b) => b.score - a.score);
+      const topChunks = chunkScores.slice(0, limit);
 
-      // Format results with AI expansion info
-      const results = topDocuments
-        .filter(doc => doc.score > 0.1) // Minimum relevance threshold
-        .map(docScore => {
-          const document = documents.find(d => d.id === docScore.documentId)!;
+      // Get document metadata for the top chunks
+      const documents = await storage.getDocuments(userId);
+      const docMap = new Map(documents.map(doc => [doc.id, doc]));
 
-          return {
-            id: document.id,
-            name: document.name,
-            content: document.content || '',
-            summary: document.summary,
-            aiCategory: document.aiCategory,
-            similarity: Math.min(docScore.score / 10, 1.0), // Normalize to 0-1
-            createdAt: document.createdAt.toISOString(),
-            matchedTerms: docScore.matchedTerms,
-            matchDetails: docScore.matchDetails,
-            aiKeywordExpansion: {
-              expandedKeywords: expansionResult.expanded,
-              isContextual: expansionResult.isContextual,
-              confidence: expansionResult.confidence
-            }
-          };
+      // Format results - aggregate chunks by document and take the best chunk per document
+      const documentResults = new Map<number, any>();
+
+      topChunks
+        .filter(chunk => chunk.score > 0.1) // Minimum relevance threshold
+        .forEach(chunkScore => {
+          const document = docMap.get(chunkScore.documentId);
+          if (!document) return;
+
+          const existingResult = documentResults.get(chunkScore.documentId);
+          
+          // If this document already has a result, only replace if this chunk has a better score
+          if (!existingResult || chunkScore.score > existingResult.similarity) {
+            documentResults.set(chunkScore.documentId, {
+              id: document.id,
+              name: document.name,
+              content: chunkScore.content, // Use chunk content instead of full document
+              summary: document.summary,
+              aiCategory: document.aiCategory,
+              similarity: Math.min(chunkScore.score / 10, 1.0), // Normalize to 0-1
+              createdAt: document.createdAt.toISOString(),
+              matchedTerms: chunkScore.matchedTerms,
+              matchDetails: chunkScore.matchDetails,
+              aiKeywordExpansion: {
+                expandedKeywords: expansionResult.expanded,
+                isContextual: expansionResult.isContextual,
+                confidence: expansionResult.confidence
+              }
+            });
+          }
         });
+
+      const results = Array.from(documentResults.values())
+        .sort((a, b) => b.similarity - a.similarity);
 
       console.log(`AI-enhanced keyword search returned ${results.length} results with expansion confidence: ${expansionResult.confidence}`);
       return results;
