@@ -93,7 +93,10 @@ export class AdvancedKeywordSearchService {
         .filter(chunk => chunk.score > 0.1) // Minimum relevance threshold
         .forEach(chunkScore => {
           const document = docMap.get(chunkScore.documentId);
-          if (!document) return;
+          if (!document) {
+            console.log(`DEBUG: Document ID ${chunkScore.documentId} not found in docMap. Available IDs: [${Array.from(docMap.keys()).join(', ')}]`);
+            return;
+          }
 
           const existingResult = documentResults.get(chunkScore.documentId);
 
@@ -452,7 +455,10 @@ export class AdvancedKeywordSearchService {
         .filter(chunk => chunk.score > 0.1) // Minimum relevance threshold
         .forEach(chunkScore => {
           const document = docMap.get(chunkScore.documentId);
-          if (!document) return;
+          if (!document) {
+            console.log(`DEBUG: Document ID ${chunkScore.documentId} not found in docMap. Available IDs: [${Array.from(docMap.keys()).join(', ')}]`);
+            return;
+          }
 
           const existingResult = documentResults.get(chunkScore.documentId);
 
