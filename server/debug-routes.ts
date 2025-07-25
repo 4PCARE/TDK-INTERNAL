@@ -1191,3 +1191,33 @@ router.get('/test-advanced-keyword-search', async (req, res) => {
 
 // Test vector search for specific user and documents
 router.get('/test-vector-search', async (req, res) => {
+  try {
+    const query = req.query.query as string || 'test query';
+    const userId = req.query.userId as string || '43981095';
+    const limit = parseInt(req.query.limit as string) || 5;
+
+    console.log(`Testing vector search: "${query}" for user ${userId}`);
+
+    const { vectorService } = await import('./services/vectorService');
+    const results = await vectorService.searchDocuments(query, userId, limit);
+
+    res.json({
+      query,
+      userId,
+      limit,
+      results: results.length,
+      documents: results.map(r => ({
+        id: r.document.id,
+        similarity: r.similarity,
+        content: r.document.content.substring(0, 200) + '...',
+        metadata: r.document.metadata
+      }))
+    });
+
+  } catch (error) {
+    console.error('Test vector search error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+export default router;
