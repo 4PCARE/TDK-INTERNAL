@@ -79,7 +79,6 @@
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "pdf-parse": "^1.1.1",
-    "pdf-poppler": "^0.2.1",
     "pdf2pic": "^3.2.0",
     "pdfjs-dist": "^5.3.31",
     "pg": "^8.16.1",
