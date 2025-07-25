@@ -55,7 +55,7 @@ export default function TopBar({ isSidebarCollapsed = false }: TopBarProps) {
           <div>
             <h2 className="text-xl font-semibold text-slate-800">ถามได้คับ</h2>
             {!isSidebarCollapsed && (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-500 hidden xl:block">
                 Unleash the power of intelligent knowledge discovery and seamless
                 collaboration.
               </p>
