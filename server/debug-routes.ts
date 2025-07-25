@@ -6,6 +6,15 @@ import { aiKeywordExpansionService } from "./services/aiKeywordExpansion";
 
 const router = express.Router();
 
+// Simple health check endpoint
+router.get('/debug/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    message: 'Debug routes are working'
+  });
+});
+
 router.post("/debug/ai-input", async (req, res) => {
   try {
     res.setHeader('Content-Type', 'application/json');
@@ -1218,6 +1227,340 @@ router.get('/test-vector-search', async (req, res) => {
     console.error('Test vector search error:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// Serve the debug console HTML
+router.get('/debug-console', (req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Keyword Search Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .btn {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .output {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .output.success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .output.error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .loading {
+            color: #007bff;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Advanced Keyword Search Debug Console</h1>
+        <p>Test and debug the advanced keyword search functionality</p>
+
+        <div class="test-section">
+            <h3>Advanced Keyword Search Test</h3>
+            <div class="form-group">
+                <label>Search Query:</label>
+                <input type="text" id="searchQuery" value="XOLO restaurant" placeholder="Enter search query">
+            </div>
+            <div class="form-group">
+                <label>User ID:</label>
+                <input type="text" id="searchUserId" value="43981095" placeholder="Enter user ID">
+            </div>
+            <button class="btn btn-primary" onclick="testAdvancedSearch()">🚀 Test Advanced Search</button>
+            <button class="btn btn-secondary" onclick="testVectorSearch()">📊 Test Vector Search</button>
+            <button class="btn btn-secondary" onclick="findXolo()">🔎 Find XOLO</button>
+            <div id="searchOutput" class="output">Ready to test search functionality...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>Document Analysis</h3>
+            <div class="form-group">
+                <label>Document ID:</label>
+                <input type="number" id="docId" value="213" placeholder="Enter document ID">
+            </div>
+            <div class="form-group">
+                <label>Analysis Query:</label>
+                <input type="text" id="docQuery" value="XOLO เดอะมอลล์บางกะปิอยู่ชั้นไหน" placeholder="Enter analysis query">
+            </div>
+            <div class="form-group">
+                <label>Search Type:</label>
+                <select id="docSearchType">
+                    <option value="keyword">Keyword Search</option>
+                    <option value="vector">Vector Search</option>
+                    <option value="hybrid">Hybrid Search</option>
+                    <option value="weighted">Weighted Search</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="analyzeDocument()">📊 Analyze Document</button>
+            <div id="docOutput" class="output">Ready to analyze documents...</div>
+        </div>
+    </div>
+
+    <script>
+        async function makeRequest(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+
+                let data;
+                const contentType = response.headers.get('content-type');
+                
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    data = await response.text();
+                }
+
+                return { response, data, ok: response.ok };
+            } catch (error) {
+                return { response: null, data: null, ok: false, error: error.message };
+            }
+        }
+
+        function setOutput(id, content, type = '') {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = content;
+                element.className = 'output ' + type;
+            }
+        }
+
+        async function testAdvancedSearch() {
+            const query = document.getElementById('searchQuery').value;
+            const userId = document.getElementById('searchUserId').value;
+            
+            setOutput('searchOutput', '⏳ Testing advanced keyword search...', 'loading');
+
+            try {
+                const { response, data, ok, error } = await makeRequest(
+                    '/api/debug/test-advanced-keyword-search?query=' + encodeURIComponent(query) + '&userId=' + userId
+                );
+
+                if (error) {
+                    setOutput('searchOutput', 'Network Error: ' + error, 'error');
+                } else if (!ok) {
+                    setOutput('searchOutput', 'HTTP ' + response.status + ': ' + JSON.stringify(data, null, 2), 'error');
+                } else if (!data || !data.regularSearch || !data.aiEnhancedSearch) {
+                    setOutput('searchOutput', 'Invalid response format: ' + JSON.stringify(data, null, 2), 'error');
+                } else {
+                    const output = '✅ Advanced Keyword Search Results:\\n' +
+                        'Query: "' + query + '"\\n' +
+                        'User ID: ' + userId + '\\n\\n' +
+                        'Regular Search: ' + (data.regularSearch.results || 0) + ' results\\n' +
+                        'AI Enhanced Search: ' + (data.aiEnhancedSearch.results || 0) + ' results\\n\\n' +
+                        'Regular Results:\\n' +
+                        (data.regularSearch.documents || []).map((doc, i) => 
+                            (i+1) + '. ' + doc.name + ' (ID: ' + doc.id + ')\\n' +
+                            '   Similarity: ' + (doc.similarity ? doc.similarity.toFixed(4) : 'N/A') + '\\n' +
+                            '   Matched Terms: ' + (doc.matchedTerms ? doc.matchedTerms.join(', ') : 'None') + '\\n' +
+                            '   Preview: ' + (doc.contentPreview || 'No preview')
+                        ).join('\\n\\n') + '\\n\\n' +
+                        'AI Enhanced Results:\\n' +
+                        (data.aiEnhancedSearch.documents || []).map((doc, i) => 
+                            (i+1) + '. ' + doc.name + ' (ID: ' + doc.id + ')\\n' +
+                            '   Similarity: ' + (doc.similarity ? doc.similarity.toFixed(4) : 'N/A') + '\\n' +
+                            '   Matched Terms: ' + (doc.matchedTerms ? doc.matchedTerms.join(', ') : 'None') + '\\n' +
+                            '   AI Keywords: ' + (doc.aiKeywordExpansion?.expandedKeywords ? doc.aiKeywordExpansion.expandedKeywords.join(', ') : 'None') + '\\n' +
+                            '   Preview: ' + (doc.contentPreview || 'No preview')
+                        ).join('\\n\\n');
+                    
+                    setOutput('searchOutput', output, 'success');
+                }
+            } catch (err) {
+                setOutput('searchOutput', 'Error: ' + err.message, 'error');
+            }
+        }
+
+        async function testVectorSearch() {
+            const query = document.getElementById('searchQuery').value;
+            const userId = document.getElementById('searchUserId').value;
+            
+            setOutput('searchOutput', '⏳ Testing vector search...', 'loading');
+
+            try {
+                const { response, data, ok, error } = await makeRequest(
+                    '/api/debug/test-vector-search?query=' + encodeURIComponent(query) + '&userId=' + userId + '&limit=5'
+                );
+
+                if (error) {
+                    setOutput('searchOutput', 'Network Error: ' + error, 'error');
+                } else if (!ok) {
+                    setOutput('searchOutput', 'HTTP ' + response.status + ': ' + JSON.stringify(data, null, 2), 'error');
+                } else {
+                    const output = '✅ Vector Search Results:\\n' +
+                        'Query: "' + query + '"\\n' +
+                        'User ID: ' + userId + '\\n' +
+                        'Results: ' + data.results + '\\n\\n' +
+                        'Documents:\\n' +
+                        data.documents.map((doc, i) => 
+                            (i+1) + '. Document ID: ' + doc.id + '\\n' +
+                            '   Similarity: ' + doc.similarity.toFixed(4) + '\\n' +
+                            '   Content: ' + doc.content + '\\n' +
+                            '   Metadata: ' + JSON.stringify(doc.metadata, null, 2)
+                        ).join('\\n\\n');
+                    
+                    setOutput('searchOutput', output, 'success');
+                }
+            } catch (err) {
+                setOutput('searchOutput', 'Error: ' + err.message, 'error');
+            }
+        }
+
+        async function findXolo() {
+            const userId = document.getElementById('searchUserId').value;
+            
+            setOutput('searchOutput', '⏳ Searching for XOLO...', 'loading');
+
+            try {
+                const { response, data, ok, error } = await makeRequest('/api/debug/find-xolo/' + userId);
+
+                if (error) {
+                    setOutput('searchOutput', 'Network Error: ' + error, 'error');
+                } else if (!ok) {
+                    setOutput('searchOutput', 'HTTP ' + response.status + ': ' + JSON.stringify(data, null, 2), 'error');
+                } else {
+                    const output = '🔍 XOLO Search Results:\\n' +
+                        'Total Documents: ' + data.totalDocuments + '\\n' +
+                        'Documents with XOLO: ' + data.summary.foundInDocuments + '\\n' +
+                        'Vector Results with XOLO: ' + data.summary.foundInVector + '\\n\\n' +
+                        'Documents containing XOLO:\\n' +
+                        data.documentsWithXolo.map(doc => 
+                            '📄 ' + doc.documentName + ' (ID: ' + doc.documentId + ')\\n' +
+                            '   Found terms: ' + doc.foundTerms.join(', ') + '\\n' +
+                            '   Has vector data: ' + doc.hasVectorData + '\\n' +
+                            '   Sample lines: ' + doc.matchingLines.slice(0, 2).join(' | ')
+                        ).join('\\n\\n') + '\\n\\n' +
+                        'Vector Search Results:\\n' +
+                        data.vectorResults.map((result, i) => 
+                            (i+1) + '. Document ID: ' + result.documentId + '\\n' +
+                            '   Similarity: ' + result.similarity.toFixed(4) + '\\n' +
+                            '   Contains XOLO: ' + result.hasXolo + '\\n' +
+                            '   Content: ' + result.content.substring(0, 200) + '...'
+                        ).join('\\n\\n');
+                    
+                    setOutput('searchOutput', output, data.documentsWithXolo.length > 0 ? 'success' : 'error');
+                }
+            } catch (err) {
+                setOutput('searchOutput', 'Error: ' + err.message, 'error');
+            }
+        }
+
+        async function analyzeDocument() {
+            const docId = document.getElementById('docId').value;
+            const query = document.getElementById('docQuery').value;
+            const searchType = document.getElementById('docSearchType').value;
+            const userId = document.getElementById('searchUserId').value;
+            
+            setOutput('docOutput', '⏳ Analyzing document...', 'loading');
+
+            try {
+                const { response, data, ok, error } = await makeRequest('/api/debug/analyze-document/' + userId + '/' + docId, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        userMessage: query,
+                        searchType: searchType,
+                        keywordWeight: 0.3,
+                        vectorWeight: 0.7
+                    })
+                });
+
+                if (error) {
+                    setOutput('docOutput', 'Network Error: ' + error, 'error');
+                } else if (!ok) {
+                    if (response.headers.get('content-type')?.includes('text/html')) {
+                        // Open HTML response in new tab
+                        const newTab = window.open('', '_blank');
+                        newTab.document.write(data);
+                        setOutput('docOutput', '✅ Document analysis opened in new tab', 'success');
+                    } else {
+                        setOutput('docOutput', 'HTTP ' + response.status + ': ' + JSON.stringify(data, null, 2), 'error');
+                    }
+                } else {
+                    setOutput('docOutput', '✅ Document analysis completed successfully', 'success');
+                }
+            } catch (err) {
+                setOutput('docOutput', 'Error: ' + err.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>`);
 });
 
 export default router;
