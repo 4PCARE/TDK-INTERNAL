@@ -5,6 +5,8 @@ import textract from "textract";
 import cliProgress from "cli-progress";
 import { LlamaParseReader } from "@llamaindex/cloud";
 import Tesseract from "tesseract.js";
+import pdf from "pdf-poppler";
+import sharp from "sharp";
 import { processDocument as aiProcessDocument } from "./openai";
 import { vectorService } from "./vectorService";
 import { storage } from "../storage";
@@ -263,46 +265,57 @@ export class DocumentProcessor {
     const fileName = path.basename(filePath);
 
     try {
-      // Initialize LlamaParse with aggressive text extraction settings
+      // Initialize LlamaParse with enhanced Thai OCR settings
       const parser = new LlamaParseReader({
         apiKey: process.env.LLAMA_CLOUD_API_KEY!,
         resultType: "text",
         verboseMode: true,
         fastMode: false,
+        // Enhanced settings for image-scanned Thai documents
+        splitByPage: false,
+        skipDiagonalText: false,
+        takeScreenshot: true,
+        useTextractOcr: true,
+        premiumMode: true,
         parsingInstruction: `
-          COMPREHENSIVE TEXT EXTRACTION - Extract ALL visible text content including:
+          ADVANCED THAI OCR EXTRACTION - This is a scanned Thai document requiring intensive OCR processing:
           
-          PRIMARY CONTENT:
-          - All body text, paragraphs, and sentences
-          - Headers, subheaders, and section titles
-          - Footers, page numbers, and references
-          - Captions, labels, and annotations
+          OCR OPTIMIZATION:
+          - Apply maximum OCR strength for scanned images
+          - Use advanced character recognition for Thai script (ก-ฮ, ะ-ฺ, เ-ไ)
+          - Process all diacritics and tone marks accurately
+          - Handle mixed Thai-English content with proper language detection
+          - Extract numbers in both Thai (๐-๙) and Arabic (0-9) numerals
           
-          STRUCTURED DATA:
-          - Tables: Extract all cell contents with structure
-          - Lists: Extract all bullet points and numbered items
-          - Forms: Extract field labels and values
-          - Multiple columns: Process left-to-right, top-to-bottom
+          VISUAL PROCESSING:
+          - Analyze entire page as image first before text extraction
+          - Process low-contrast text and faded sections
+          - Handle rotated or skewed text orientation
+          - Extract text from complex backgrounds and overlays
+          - Process multi-column layouts carefully (left-to-right, top-to-bottom)
           
-          FORMATTING PRESERVATION:
-          - Bold, italic, and emphasized text
-          - Special characters and symbols
-          - Line breaks and paragraph spacing
-          - Indentation and hierarchical structure
+          CONTENT EXTRACTION:
+          - Extract ALL visible text including headers, body, footers
+          - Capture table contents with proper cell structure
+          - Include bullet points, numbered lists, and form fields
+          - Process promotional text, terms, conditions, and fine print
+          - Extract dates, percentages, currency amounts, and contact information
           
-          LANGUAGE HANDLING:
-          - Thai text: Extract all Thai characters and diacritics
-          - English text: Extract all English content
-          - Mixed content: Preserve original language order
-          - Numbers, dates, and currency symbols
+          THAI LANGUAGE SPECIFICS:
+          - Recognize Thai sentence structure without spaces
+          - Handle compound words and technical terms
+          - Process banking/financial terminology in Thai
+          - Extract proper nouns and brand names accurately
+          - Maintain original text flow and reading order
           
-          QUALITY REQUIREMENTS:
-          - Extract even small text (footnotes, fine print)
-          - Include watermarks and background text if visible
-          - Process overlapping or complex layouts
-          - Ensure no text is skipped or truncated
+          QUALITY ASSURANCE:
+          - Double-check OCR accuracy for critical information
+          - Verify numerical data and monetary amounts
+          - Ensure complete extraction from all page regions
+          - Process watermarks and background elements if readable
           
-          For ${Math.ceil(fileSizeMB)}MB document: Use maximum extraction depth and thoroughness.
+          Document size: ${Math.ceil(fileSizeMB)}MB - Apply maximum processing power and OCR precision.
+          Expected output: Comprehensive Thai text extraction with high fidelity.
         `,
       });
 
@@ -491,38 +504,156 @@ export class DocumentProcessor {
   }
 
   private async extractWithTesseractOCR(filePath: string, fileName: string): Promise<string> {
-    console.log(`🔍 Tesseract OCR processing for Thai content: ${fileName}`);
+    console.log(`🔍 Advanced Tesseract OCR processing for Thai content: ${fileName}`);
     
     try {
-      // Convert PDF to images first using a simple approach
-      // For now, we'll use Tesseract directly on PDF (it can handle some PDFs)
+      // Convert PDF to high-quality images first for better OCR
+      const imageFiles = await this.convertPdfToImages(filePath, fileName);
+      
+      if (imageFiles.length === 0) {
+        console.log(`⚠️ No images generated from PDF, trying direct OCR...`);
+        return await this.directTesseractOCR(filePath, fileName);
+      }
+
+      let combinedText = "";
+      let totalProgress = 0;
+
+      for (let i = 0; i < imageFiles.length; i++) {
+        const imageFile = imageFiles[i];
+        console.log(`📄 Processing page ${i + 1}/${imageFiles.length}: ${path.basename(imageFile)}`);
+
+        try {
+          // Enhanced image preprocessing
+          const processedImage = await this.preprocessImageForThai(imageFile);
+          
+          const { data: { text } } = await Tesseract.recognize(
+            processedImage,
+            'tha+eng', // Thai + English language support
+            {
+              logger: (m) => {
+                if (m.status === 'recognizing text') {
+                  const pageProgress = Math.round(m.progress * 100);
+                  const overallProgress = Math.round(((i + m.progress) / imageFiles.length) * 100);
+                  console.log(`📄 Page ${i + 1} OCR: ${pageProgress}% | Overall: ${overallProgress}%`);
+                }
+              },
+              tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+              tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
+              // Enhanced Thai-specific optimizations
+              tessedit_char_whitelist: 'กขคฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮะาเแโใไ่้๊๋์ํฯ๐๑๒๓๔๕๖๗๘๙ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?():;-%฿$€£¥₹',
+              preserve_interword_spaces: '1',
+              tessedit_write_images: '0',
+              user_defined_dpi: '300'
+            }
+          );
+
+          if (text && text.trim().length > 10) {
+            combinedText += `--- Page ${i + 1} ---\n${text.trim()}\n\n`;
+            console.log(`✅ Page ${i + 1}: ${text.length} characters extracted`);
+          }
+
+          // Clean up processed image
+          try {
+            await fs.promises.unlink(processedImage);
+          } catch (cleanupError) {
+            // Ignore cleanup errors
+          }
+
+        } catch (pageError) {
+          console.log(`⚠️ Page ${i + 1} OCR failed:`, pageError.message);
+        }
+
+        // Clean up original image
+        try {
+          await fs.promises.unlink(imageFile);
+        } catch (cleanupError) {
+          // Ignore cleanup errors
+        }
+      }
+
+      if (combinedText && combinedText.length > 50) {
+        console.log(`✅ Advanced Tesseract OCR extracted ${combinedText.length} characters from ${imageFiles.length} pages`);
+        console.log(`🔤 Thai content preview: ${combinedText.substring(0, 300)}...`);
+        return combinedText.trim();
+      } else {
+        console.log(`⚠️ Advanced OCR yielded minimal content, trying direct approach...`);
+        return await this.directTesseractOCR(filePath, fileName);
+      }
+
+    } catch (error) {
+      console.error(`❌ Advanced Tesseract OCR error for ${fileName}:`, error);
+      return await this.directTesseractOCR(filePath, fileName);
+    }
+  }
+
+  private async convertPdfToImages(filePath: string, fileName: string): Promise<string[]> {
+    try {
+      console.log(`🖼️ Converting PDF to high-resolution images: ${fileName}`);
+      
+      const options = {
+        format: 'png',
+        out_dir: path.dirname(filePath),
+        out_prefix: `pdf_page_${Date.now()}`,
+        page: null, // Convert all pages
+        scale: 2.0, // High resolution for better OCR
+      };
+
+      const imageFiles = await pdf.convert(filePath, options);
+      console.log(`📸 Generated ${imageFiles.length} image files from PDF`);
+      
+      return imageFiles;
+    } catch (error) {
+      console.log(`⚠️ PDF to image conversion failed:`, error.message);
+      return [];
+    }
+  }
+
+  private async preprocessImageForThai(imagePath: string): Promise<string> {
+    try {
+      const processedPath = imagePath.replace('.png', '_processed.png');
+      
+      // Enhanced image preprocessing for Thai text
+      await sharp(imagePath)
+        .resize(null, 2000, { 
+          withoutEnlargement: false,
+          kernel: sharp.kernel.lanczos3 
+        })
+        .sharpen()
+        .normalize()
+        .gamma(1.2)
+        .png({ quality: 100, compressionLevel: 0 })
+        .toFile(processedPath);
+
+      return processedPath;
+    } catch (error) {
+      console.log(`⚠️ Image preprocessing failed, using original:`, error.message);
+      return imagePath;
+    }
+  }
+
+  private async directTesseractOCR(filePath: string, fileName: string): Promise<string> {
+    try {
+      console.log(`🔄 Direct Tesseract OCR fallback for: ${fileName}`);
+      
       const { data: { text } } = await Tesseract.recognize(
         filePath,
-        'tha+eng', // Thai + English language support
+        'tha+eng',
         {
           logger: (m) => {
             if (m.status === 'recognizing text') {
-              console.log(`📄 Tesseract OCR progress: ${Math.round(m.progress * 100)}%`);
+              console.log(`📄 Direct OCR progress: ${Math.round(m.progress * 100)}%`);
             }
           },
           tessedit_pageseg_mode: Tesseract.PSM.AUTO,
           tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
-          // Thai-specific optimizations
-          tessedit_char_whitelist: 'กขคฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮะาเแโใไ่้๊๋์ํฯ๐๑๒๓๔๕๖๗๘๙ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?():;-',
+          tessedit_char_whitelist: 'กขคฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮะาเแโใไ่้๊๋์ํฯ๐๑๒๓๔๕๖๗๘๙ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?():;-%฿$€£¥₹',
           preserve_interword_spaces: '1'
         }
       );
 
-      if (text && text.trim().length > 50) {
-        console.log(`✅ Tesseract OCR extracted ${text.length} characters from ${fileName}`);
-        console.log(`🔤 Thai content preview: ${text.substring(0, 200)}...`);
-        return text.trim();
-      } else {
-        console.log(`⚠️ Tesseract OCR yielded minimal content: ${text?.length || 0} characters`);
-        return text || "";
-      }
+      return text?.trim() || "";
     } catch (error) {
-      console.error(`❌ Tesseract OCR error for ${fileName}:`, error);
+      console.error(`❌ Direct Tesseract OCR error:`, error);
       return "";
     }
   }
