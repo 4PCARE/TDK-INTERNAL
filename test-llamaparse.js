@@ -42,8 +42,8 @@ async function testLlamaParse() {
     
     const parser = new LlamaParseReader({
       apiKey: process.env.LLAMA_CLOUD_API_KEY,
-      resultType: "text",
-      parsingInstruction: "Extract all text content including tables, headers, and formatted text. Preserve structure and meaning."
+      resultType: "markdown",
+      parsingInstruction: "Extract all content in markdown format including tables, headers, and formatted text. Use proper markdown syntax for structure and formatting."
     });
     
     console.log('📤 Sending file to LlamaParse...');

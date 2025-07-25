@@ -253,14 +253,14 @@ export class DocumentProcessor {
     const fileName = path.basename(filePath);
 
     try {
-      // Initialize LlamaParse with aggressive text extraction settings
+      // Initialize LlamaParse with aggressive markdown extraction settings
       const parser = new LlamaParseReader({
         apiKey: process.env.LLAMA_CLOUD_API_KEY!,
-        resultType: "text",
+        resultType: "markdown",
         verboseMode: true,
         fastMode: false,
         parsingInstruction: `
-          COMPREHENSIVE TEXT EXTRACTION - Extract ALL visible text content including:
+          COMPREHENSIVE MARKDOWN EXTRACTION - Extract ALL visible content in markdown format including:
           
           PRIMARY CONTENT:
           - All body text, paragraphs, and sentences
@@ -274,11 +274,14 @@ export class DocumentProcessor {
           - Forms: Extract field labels and values
           - Multiple columns: Process left-to-right, top-to-bottom
           
-          FORMATTING PRESERVATION:
-          - Bold, italic, and emphasized text
-          - Special characters and symbols
-          - Line breaks and paragraph spacing
-          - Indentation and hierarchical structure
+          MARKDOWN FORMATTING:
+          - Headers: Use # ## ### for section hierarchy
+          - Bold text: **bold** or __bold__
+          - Italic text: *italic* or _italic_
+          - Tables: Use markdown table format with | separators
+          - Lists: Use - or * for bullets, 1. 2. for numbered
+          - Code blocks: Use ``` for code sections
+          - Line breaks and paragraph spacing preserved
           
           LANGUAGE HANDLING:
           - Thai text: Extract all Thai characters and diacritics
