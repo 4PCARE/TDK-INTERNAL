@@ -93,8 +93,25 @@ export class AdvancedKeywordSearchService {
         .filter(chunk => chunk.score > 0.1) // Minimum relevance threshold
         .forEach(chunkScore => {
           const document = docMap.get(chunkScore.documentId);
+          // Since chunks are already filtered by document IDs in DB query, document should always exist
+          // But add fallback just in case
           if (!document) {
-            console.log(`DEBUG: Document ID ${chunkScore.documentId} not found in docMap. Available IDs: [${Array.from(docMap.keys()).join(', ')}]`);
+            console.warn(`Document ID ${chunkScore.documentId} not found in docMap - using chunk data directly`);
+            // Create result directly from chunk if document metadata is missing
+            const existingResult = documentResults.get(chunkScore.documentId);
+            if (!existingResult || chunkScore.score > existingResult.similarity) {
+              documentResults.set(chunkScore.documentId, {
+                id: chunkScore.documentId,
+                name: `Document ${chunkScore.documentId}`,
+                content: chunkScore.content,
+                summary: null,
+                aiCategory: null,
+                similarity: Math.min(chunkScore.score / 10, 1.0),
+                createdAt: new Date().toISOString(),
+                matchedTerms: chunkScore.matchedTerms,
+                matchDetails: chunkScore.matchDetails
+              });
+            }
             return;
           }
 
@@ -455,8 +472,30 @@ export class AdvancedKeywordSearchService {
         .filter(chunk => chunk.score > 0.1) // Minimum relevance threshold
         .forEach(chunkScore => {
           const document = docMap.get(chunkScore.documentId);
+          // Since chunks are already filtered by document IDs in DB query, document should always exist
+          // But add fallback just in case
           if (!document) {
-            console.log(`DEBUG: Document ID ${chunkScore.documentId} not found in docMap. Available IDs: [${Array.from(docMap.keys()).join(', ')}]`);
+            console.warn(`Document ID ${chunkScore.documentId} not found in docMap - using chunk data directly`);
+            // Create result directly from chunk if document metadata is missing
+            const existingResult = documentResults.get(chunkScore.documentId);
+            if (!existingResult || chunkScore.score > existingResult.similarity) {
+              documentResults.set(chunkScore.documentId, {
+                id: chunkScore.documentId,
+                name: `Document ${chunkScore.documentId}`,
+                content: chunkScore.content,
+                summary: null,
+                aiCategory: null,
+                similarity: Math.min(chunkScore.score / 10, 1.0),
+                createdAt: new Date().toISOString(),
+                matchedTerms: chunkScore.matchedTerms,
+                matchDetails: chunkScore.matchDetails,
+                aiKeywordExpansion: {
+                  expandedKeywords: expansionResult.expanded,
+                  isContextual: expansionResult.isContextual,
+                  confidence: expansionResult.confidence
+                }
+              });
+            }
             return;
           }
 
