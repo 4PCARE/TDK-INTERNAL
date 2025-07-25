@@ -1167,7 +1167,7 @@ ${imageAnalysisResult}
 
                 // Convert keyword results to chunk format for consistency
                 const keywordChunks = keywordSearchResults.slice(0, 3).map(result => ({
-                  document: { name: result.name },
+                  name: result.name || 'Unknown Document',
                   content: result.content.substring(0, 2000), // Limit content size
                   similarity: result.similarity
                 }));
