@@ -1,4 +1,3 @@
-
 import OpenAI from "openai";
 
 interface KeywordExpansionResult {
@@ -65,16 +64,16 @@ Always respond in valid JSON format with the required fields.`
       }
 
       const result = JSON.parse(response) as KeywordExpansionResult;
-      
+
       // Ensure we have the original query
       result.originalQuery = currentQuery;
-      
+
       // Validate and sanitize the result
       return this.validateAndSanitizeResult(result, currentQuery);
 
     } catch (error) {
       console.error("Error in AI keyword expansion:", error);
-      
+
       // Fallback: return basic keyword extraction
       return this.getFallbackExpansion(currentQuery);
     }
@@ -123,7 +122,7 @@ Examples:
     if (!result.expandedKeywords) result.expandedKeywords = [];
     if (!result.confidence) result.confidence = 0.5;
     if (!result.reasoning) result.reasoning = "Analysis completed";
-    
+
     // Sanitize keywords
     result.expandedKeywords = result.expandedKeywords
       .filter(keyword => keyword && typeof keyword === 'string')
@@ -144,7 +143,7 @@ Examples:
 
   private getFallbackExpansion(query: string): KeywordExpansionResult {
     const basicKeywords = this.extractBasicKeywords(query);
-    
+
     return {
       isRelatedToHistory: false,
       expandedKeywords: basicKeywords,
@@ -161,6 +160,14 @@ Examples:
       'ที่', 'และ', 'หรือ', 'แต่', 'ใน', 'บน', 'เพื่อ', 'ของ', 'กับ', 'โดย', 'ได้', 
       'เป็น', 'มี', 'จาก', 'ไป', 'มา', 'ก็', 'จะ', 'ถึง', 'ให้', 'ยัง', 'คือ', 'ว่า'
     ]);
+
+    let expanded: string[] = [];
+    let lowerQuery = query.toLowerCase();
+
+    // Brand-specific expansions
+    if (lowerQuery.includes('oppo')) {
+      expanded.push('ออปโป้', 'OPPO', 'OPPO BRAND SHOP', 'OPPO SHOP', 'smartphone', 'โทรศัพท์', 'มือถือ', 'phone', 'mobile');
+    }
 
     return query
       .toLowerCase()

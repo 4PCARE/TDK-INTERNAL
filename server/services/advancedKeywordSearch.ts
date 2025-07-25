@@ -575,27 +575,48 @@ export class AdvancedKeywordSearchService {
       const keyword = term.keyword.toLowerCase();
       totalPossibleScore += term.weight;
 
-      // Try exact match first (case insensitive)
+      // Special handling for brand names like OPPO
       let matches = 0;
-      const exactRegex = new RegExp(`\\b${this.escapeRegExp(keyword)}\\b`, 'gi');
-      const exactMatches = (lowerContent.match(exactRegex) || []).length;
-
-      if (exactMatches > 0) {
-        matches = exactMatches;
-      } else {
-        // Try partial match for Thai text and compound words (case insensitive)
-        const partialRegex = new RegExp(this.escapeRegExp(keyword), 'gi');
-        const partialMatches = (lowerContent.match(partialRegex) || []).length;
-        if (partialMatches > 0) {
-          matches = partialMatches * 0.8; // Partial match gets 80% weight
+      
+      // For OPPO, also check for "oppo brand shop", "oppo shop", etc.
+      if (keyword === 'oppo' || keyword === 'ออปโป้') {
+        const brandVariations = [
+          'oppo brand shop',
+          'oppo shop', 
+          'oppo store',
+          'ออปโป้',
+          'oppo'
+        ];
+        
+        for (const variation of brandVariations) {
+          const variationMatches = lowerContent.split(variation).length - 1;
+          if (variationMatches > 0) {
+            matches += variationMatches;
+            console.log(`Found OPPO variation "${variation}": ${variationMatches} times`);
+          }
         }
-      }
+      } else {
+        // Try exact match first (case insensitive)
+        const exactRegex = new RegExp(`\\b${this.escapeRegExp(keyword)}\\b`, 'gi');
+        const exactMatches = (lowerContent.match(exactRegex) || []).length;
 
-      // Also try simple substring match for better coverage (case insensitive)
-      if (matches === 0) {
-        const substringMatches = lowerContent.split(keyword).length - 1;
-        if (substringMatches > 0) {
-          matches = substringMatches * 0.6; // Substring match gets 60% weight
+        if (exactMatches > 0) {
+          matches = exactMatches;
+        } else {
+          // Try partial match for Thai text and compound words (case insensitive)
+          const partialRegex = new RegExp(this.escapeRegExp(keyword), 'gi');
+          const partialMatches = (lowerContent.match(partialRegex) || []).length;
+          if (partialMatches > 0) {
+            matches = partialMatches * 0.8; // Partial match gets 80% weight
+          }
+        }
+
+        // Also try simple substring match for better coverage (case insensitive)
+        if (matches === 0) {
+          const substringMatches = lowerContent.split(keyword).length - 1;
+          if (substringMatches > 0) {
+            matches = substringMatches * 0.6; // Substring match gets 60% weight
+          }
         }
       }
 

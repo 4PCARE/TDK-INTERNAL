@@ -1126,13 +1126,17 @@ ${imageAnalysisResult}
 
             // Use enhanced search query for vector search if available from keyword expansion
             let vectorSearchQuery = contextMessage;
-            
+
             // Check if we have enhanced keywords from AI expansion
-            if (keywordSearchResults.length > 0 && keywordSearchResults[0].aiKeywordExpansion?.expandedKeywords) {
+            if (keywordSearchResults.length > 0 && 
+                keywordSearchResults[0].aiKeywordExpansion?.expandedKeywords && 
+                Array.isArray(keywordSearchResults[0].aiKeywordExpansion.expandedKeywords)) {
               const expandedKeywords = keywordSearchResults[0].aiKeywordExpansion.expandedKeywords;
-              // Combine original query with expanded keywords for better vector search
-              vectorSearchQuery = `${contextMessage} ${expandedKeywords.join(' ')}`;
-              console.log(`LINE OA: Enhanced vector search query: "${vectorSearchQuery}"`);
+
+              // Combine original query with top 3 expanded keywords for vector search
+              const enhancedQuery = `${contextMessage} ${expandedKeywords.slice(0, 3).join(' ')}`;
+              console.log(`LINE OA: Enhanced vector search query: "${enhancedQuery}"`);
+              vectorSearchQuery = enhancedQuery;
             } else {
               console.log(`LINE OA: Using original query for vector search: "${vectorSearchQuery}"`);
             }
@@ -1196,7 +1200,7 @@ ${imageAnalysisResult}
 
               // Step 2: Sort ALL chunks globally by similarity and use all of them
               allChunks.sort((a, b) => b.similarity - a.similarity);
-              
+
               console.log(`LINE OA: Using all ${allChunks.length} chunks from search results:`);
               allChunks.forEach((chunk, idx) => {
                 console.log(`  ${idx + 1}. ${chunk.docName} - Similarity: ${chunk.similarity.toFixed(4)}`);
