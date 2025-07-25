@@ -63,7 +63,8 @@ export default function Sidebar({
     queryKey: ["/api/stats"],
   }) as { data: { totalDocuments: number } | undefined };
 
-  const navigationGroups = [
+  // Define all navigation groups with role requirements
+  const allNavigationGroups = [
     {
       label: "Main",
       items: [
@@ -106,6 +107,7 @@ export default function Sidebar({
     },
     {
       label: "Administration",
+      adminOnly: true,
       items: [
         { name: "Users", href: "/user-management", icon: Users },
         { name: "Roles", href: "/role-management", icon: Shield },
@@ -120,6 +122,15 @@ export default function Sidebar({
       ]
     }
   ];
+
+  // Filter navigation groups based on user role
+  const navigationGroups = allNavigationGroups.filter(group => {
+    // If group requires admin access and user is not admin, exclude it
+    if (group.adminOnly && user?.role !== 'admin') {
+      return false;
+    }
+    return true;
+  });
 
   // ---- Collapsible groups state logic ----
   const initialExpanded = navigationGroups.reduce(
