@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Star, MoreHorizontal, FileText, File, Image } from "lucide-react";
+import { Star, MoreHorizontal, FileText, File, Image, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface DocumentCardProps {
   document: {
@@ -40,6 +41,27 @@ export default function DocumentCard({ document }: DocumentCardProps) {
       toast({
         title: "Error",
         description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteDocumentMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("DELETE", `/api/documents/${document.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
+      toast({
+        title: "Document deleted",
+        description: "Document has been successfully deleted.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete document.",
         variant: "destructive",
       });
     },
@@ -108,9 +130,26 @@ export default function DocumentCard({ document }: DocumentCardProps) {
                 }`} 
               />
             </Button>
-            <Button variant="ghost" size="sm" className="p-1.5 h-auto">
-              <MoreHorizontal className="w-4 h-4 text-gray-400" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="p-1.5 h-auto">
+                  <MoreHorizontal className="w-4 h-4 text-gray-400" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem 
+                  className="text-red-600"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteDocumentMutation.mutate();
+                  }}
+                  disabled={deleteDocumentMutation.isPending}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 

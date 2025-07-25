@@ -140,10 +140,11 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
   // Delete document mutation
   const deleteDocumentMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest(`/api/documents/${doc.id}`, "DELETE");
+      return await apiRequest("DELETE", `/api/documents/${doc.id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
       toast({
         title: "Document deleted",
         description: "Document has been successfully deleted.",
@@ -164,7 +165,7 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
         variant: "destructive",
       });
     },
-  });
+  }););
 
   // Toggle favorite mutation
   const toggleFavoriteMutation = useMutation({

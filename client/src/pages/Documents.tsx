@@ -72,7 +72,7 @@ export default function Documents() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  // Enhanced search with semantic capabilities
+  // Enhanced search with semantic capabilities  
   const { data: documents, isLoading: documentsLoading } = useQuery({
     queryKey: ["/api/documents/search", searchQuery, searchType],
     queryFn: async () => {
