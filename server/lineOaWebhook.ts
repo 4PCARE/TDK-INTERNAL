@@ -390,7 +390,17 @@ async function getAiResponseDirectly(
         const agentDocIds = agentDocs.map(d => d.documentId);
         console.log(`LINE OA: Using hybrid search with agent's ${agentDocIds.length} documents: [${agentDocIds.join(', ')}]`);
 
-        
+        const hybridResults = await semanticSearchServiceV2.searchDocuments(
+          userMessage,
+          userId,
+          {
+            searchType: 'hybrid',
+            limit: 2, // Only get top 2 chunks globally as requested
+            keywordWeight: 0.4,
+            vectorWeight: 0.6,
+            specificDocumentIds: agentDocIds
+          }
+        );
 
         console.log(`🔍 Line OA: Found ${hybridResults.length} relevant chunks using hybrid search`);
 
@@ -434,64 +444,64 @@ async function getAiResponseDirectly(
             }
           } catch (error) {
             console.error(`❌ Error fetching document ${agentDoc.documentId}:`, error);
-            }
           }
         }
+      }
 
-        if (documentContents.length > 0) {
-          contextPrompt = `\n\nเอกสารอ้างอิงสำหรับการตอบคำถาม:\n${documentContents.join("\n")}
+      if (documentContents.length > 0) {
+        contextPrompt = `\n\nเอกสารอ้างอิงสำหรับการตอบคำถาม:\n${documentContents.join("\n")}
 
 กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และระบุแหล่งที่มาของข้อมูลด้วย`;
-          console.log(
-            `✅ Built context with ${documentContents.length} documents`,
-          );
-          console.log(
-            `📄 Context prompt length: ${contextPrompt.length} characters`,
-          );
-        } else {
-          console.log(`⚠️ No documents found or no content available`);
-        }
-      }
-
-      // Always extract image analysis from recent chat history to maintain context
-      let imageContext = "";
-      if (chatHistory.length > 0) {
-        imageContext = extractImageAnalysis(chatHistory);
         console.log(
-          `📸 Image context extracted: ${imageContext.length} characters`,
+          `✅ Built context with ${documentContents.length} documents`,
         );
-        if (imageContext) {
-          console.log(
-            `✅ Image analysis found: ${imageContext.substring(0, 200)}...`,
-          );
-
-          // Debug: Show all system messages for analysis
-          const systemMessages = chatHistory.filter(
-            (msg) =>
-              msg.messageType === "system" &&
-              msg.metadata?.messageType === "image_analysis"
-          );
-          console.log(`🔍 Found ${systemMessages.length} image analysis messages in chat history`);
-          systemMessages.forEach((msg, index) => {
-            console.log(`📋 Analysis ${index + 1}: ${msg.content.substring(0, 150)}... (ID: ${msg.metadata?.relatedImageMessageId})`);
-          });
-        } else {
-          console.log(`ℹ️ No recent image analysis found in chat history`);
-
-          // Debug: Show what system messages we have
-          const allSystemMessages = chatHistory.filter((msg) => msg.messageType === "system");
-          console.log(`🔍 Total system messages in history: ${allSystemMessages.length}`);
-          allSystemMessages.forEach((msg, index) => {
-            console.log(`📝 System ${index + 1}: ${msg.content.substring(0, 100)}... (metadata: ${JSON.stringify(msg.metadata)})`);
-          });
-        }
+        console.log(
+          `📄 Context prompt length: ${contextPrompt.length} characters`,
+        );
+      } else {
+        console.log(`⚠️ No documents found or no content available`);
       }
+    }
 
-      // Build conversation messages including history
-      const messages: any[] = [
-        {
-          role: "system",
-          content: `${agent.systemPrompt}${contextPrompt}
+    // Always extract image analysis from recent chat history to maintain context
+    let imageContext = "";
+    if (chatHistory.length > 0) {
+      imageContext = extractImageAnalysis(chatHistory);
+      console.log(
+        `📸 Image context extracted: ${imageContext.length} characters`,
+      );
+      if (imageContext) {
+        console.log(
+          `✅ Image analysis found: ${imageContext.substring(0, 200)}...`,
+        );
+
+        // Debug: Show all system messages for analysis
+        const systemMessages = chatHistory.filter(
+          (msg) =>
+            msg.messageType === "system" &&
+            msg.metadata?.messageType === "image_analysis"
+        );
+        console.log(`🔍 Found ${systemMessages.length} image analysis messages in chat history`);
+        systemMessages.forEach((msg, index) => {
+          console.log(`📋 Analysis ${index + 1}: ${msg.content.substring(0, 150)}... (ID: ${msg.metadata?.relatedImageMessageId})`);
+        });
+      } else {
+        console.log(`ℹ️ No recent image analysis found in chat history`);
+
+        // Debug: Show what system messages we have
+        const allSystemMessages = chatHistory.filter((msg) => msg.messageType === "system");
+        console.log(`🔍 Total system messages in history: ${allSystemMessages.length}`);
+        allSystemMessages.forEach((msg, index) => {
+          console.log(`📝 System ${index + 1}: ${msg.content.substring(0, 100)}... (metadata: ${JSON.stringify(msg.metadata)})`);
+        });
+      }
+    }
+
+    // Build conversation messages including history
+    const messages: any[] = [
+      {
+        role: "system",
+        content: `${agent.systemPrompt}${contextPrompt}
 
 สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้อมูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว
 
@@ -499,484 +509,474 @@ async function getAiResponseDirectly(
 ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
 
 คุณสามารถอ้างอิงบทสนทนาก่อนหน้านี้เพื่อให้คำตอบที่ต่อเนื่องและเหมาะสม`,
-        },
-      ];
+      },
+    ];
 
-      // Add chat history (exclude system messages from conversation flow)
-      const userBotMessages = chatHistory.filter(
-        (msg) => msg.messageType === "user" || msg.messageType === "assistant",
-      );
+    // Add chat history (exclude system messages from conversation flow)
+    const userBotMessages = chatHistory.filter(
+      (msg) => msg.messageType === "user" || msg.messageType === "assistant",
+    );
 
-      userBotMessages.forEach((msg) => {
-        messages.push({
-          role: msg.messageType === "user" ? "user" : "assistant",
-          content: msg.content,
-        });
+    userBotMessages.forEach((msg) => {
+      messages.push({
+        role: msg.messageType === "user" ? "user" : "assistant",
+        content: msg.content,
       });
+    });
 
-      // Add current user message with image context attached if available
-      let enhancedUserMessage = userMessage;
-      if (imageContext) {
-        enhancedUserMessage = `${userMessage}
+    // Add current user message with image context attached if available
+    let enhancedUserMessage = userMessage;
+    if (imageContext) {
+      enhancedUserMessage = `${userMessage}
 
 ${imageContext}`;
-        console.log(
-          `🖼️ Enhanced user message with image context (${imageContext.length} chars)`,
-        );
-      }
-
-      messages.push({
-        role: "user",
-        content: enhancedUserMessage,
-      });
-
       console.log(
-        `🤖 Sending ${messages.length} messages to OpenAI (including ${chatHistory.length} history messages)`,
+        `🖼️ Enhanced user message with image context (${imageContext.length} chars)`,
       );
+    }
 
-      // Initialize guardrails service if configured
-      let guardrailsService: GuardrailsService | null = null;
-      if (agent.guardrailsConfig) {
-        guardrailsService = new GuardrailsService(agent.guardrailsConfig);
-        console.log(`🛡️ === GUARDRAILS SYSTEM ENABLED ===`);
-        console.log(`🛡️ Agent ID: ${agentId}, Agent Name: ${agent.name}`);
-        console.log(`🛡️ Guardrails Configuration:`, JSON.stringify(agent.guardrailsConfig, null, 2));
+    messages.push({
+      role: "user",
+      content: enhancedUserMessage,
+    });
 
-        // Show which guardrails features are enabled/disabled
-        const features = [];
-        if (agent.guardrailsConfig.contentFiltering?.enabled) {
-          const contentSettings = [];
-          if (agent.guardrailsConfig.contentFiltering.blockProfanity) contentSettings.push('Profanity');
-          if (agent.guardrailsConfig.contentFiltering.blockHateSpeech) contentSettings.push('Hate Speech');
-          if (agent.guardrailsConfig.contentFiltering.blockSexualContent) contentSettings.push('Sexual Content');
-          if (agent.guardrailsConfig.contentFiltering.blockViolence) contentSettings.push('Violence');
-          features.push(`Content Filtering: ${contentSettings.join(', ')}`);
-        }
-        if (agent.guardrailsConfig.privacyProtection?.enabled) {
-          const privacySettings = [];
-          if (agent.guardrailsConfig.privacyProtection.blockPersonalInfo) privacySettings.push('Personal Info');
-          if (agent.guardrailsConfig.privacyProtection.blockFinancialInfo) privacySettings.push('Financial Info');
-          if (agent.guardrailsConfig.privacyProtection.blockHealthInfo) privacySettings.push('Health Info');
-          if (agent.guardrailsConfig.privacyProtection.maskPhoneNumbers) privacySettings.push('Phone Masking');
-          if (agent.guardrailsConfig.privacyProtection.maskEmails) privacySettings.push('Email Masking');
-          features.push(`Privacy Protection: ${privacySettings.join(', ')}`);
-        }
-        if (agent.guardrailsConfig.toxicityPrevention?.enabled) {
-          features.push(`Toxicity Prevention: Threshold ${agent.guardrailsConfig.toxicityPrevention.toxicityThreshold}`);
-        }
-        if (agent.guardrailsConfig.responseQuality?.enabled) {
-          features.push(`Response Quality: ${agent.guardrailsConfig.responseQuality.minResponseLength}-${agent.guardrailsConfig.responseQuality.maxResponseLength} chars`);
-        }
-        if (agent.guardrailsConfig.topicControl?.enabled) {
-          features.push(`Topic Control: ${agent.guardrailsConfig.topicControl.strictMode ? 'Strict' : 'Lenient'} mode`);
-        }
-        if (agent.guardrailsConfig.businessContext?.enabled) {
-          features.push(`Business Context: Professional tone required`);
-        }
+    console.log(
+      `🤖 Sending ${messages.length} messages to OpenAI (including ${chatHistory.length} history messages)`,
+    );
 
-        console.log(`🛡️ Active Features: ${features.join(' | ')}`);
-        console.log(`🛡️ === END GUARDRAILS INITIALIZATION ===`);
-      } else {
-        console.log(`🛡️ Guardrails: DISABLED (no configuration found)`);
+    // Initialize guardrails service if configured
+    let guardrailsService: GuardrailsService | null = null;
+    if (agent.guardrailsConfig) {
+      guardrailsService = new GuardrailsService(agent.guardrailsConfig);
+      console.log(`🛡️ === GUARDRAILS SYSTEM ENABLED ===`);
+      console.log(`🛡️ Agent ID: ${agentId}, Agent Name: ${agent.name}`);
+      console.log(`🛡️ Guardrails Configuration:`, JSON.stringify(agent.guardrailsConfig, null, 2));
+
+      // Show which guardrails features are enabled/disabled
+      const features = [];
+      if (agent.guardrailsConfig.contentFiltering?.enabled) {
+        const contentSettings = [];
+        if (agent.guardrailsConfig.contentFiltering.blockProfanity) contentSettings.push('Profanity');
+        if (agent.guardrailsConfig.contentFiltering.blockHateSpeech) contentSettings.push('Hate Speech');
+        if (agent.guardrailsConfig.contentFiltering.blockSexualContent) contentSettings.push('Sexual Content');
+        if (agent.guardrailsConfig.contentFiltering.blockViolence) contentSettings.push('Violence');
+        features.push(`Content Filtering: ${contentSettings.join(', ')}`);
+      }
+      if (agent.guardrailsConfig.privacyProtection?.enabled) {
+        const privacySettings = [];
+        if (agent.guardrailsConfig.privacyProtection.blockPersonalInfo) privacySettings.push('Personal Info');
+        if (agent.guardrailsConfig.privacyProtection.blockFinancialInfo) privacySettings.push('Financial Info');
+        if (agent.guardrailsConfig.privacyProtection.blockHealthInfo) privacySettings.push('Health Info');
+        if (agent.guardrailsConfig.privacyProtection.maskPhoneNumbers) privacySettings.push('Phone Masking');
+        if (agent.guardrailsConfig.privacyProtection.maskEmails) privacySettings.push('Email Masking');
+        features.push(`Privacy Protection: ${privacySettings.join(', ')}`);
+      }
+      if (agent.guardrailsConfig.toxicityPrevention?.enabled) {
+        features.push(`Toxicity Prevention: Threshold ${agent.guardrailsConfig.toxicityPrevention.toxicityThreshold}`);
+      }
+      if (agent.guardrailsConfig.responseQuality?.enabled) {
+        features.push(`Response Quality: ${agent.guardrailsConfig.responseQuality.minResponseLength}-${agent.guardrailsConfig.responseQuality.maxResponseLength} chars`);
+      }
+      if (agent.guardrailsConfig.topicControl?.enabled) {
+        features.push(`Topic Control: ${agent.guardrailsConfig.topicControl.strictMode ? 'Strict' : 'Lenient'} mode`);
+      }
+      if (agent.guardrailsConfig.businessContext?.enabled) {
+        features.push(`Business Context: Professional tone required`);
       }
 
-      // Validate user input with guardrails
-      if (guardrailsService) {
-        console.log(`🔍 === STARTING INPUT VALIDATION ===`);
-        console.log(`📝 Original User Message: "${enhancedUserMessage}"`);
+      console.log(`🛡️ Active Features: ${features.join(' | ')}`);
+      console.log(`🛡️ === END GUARDRAILS INITIALIZATION ===`);
+    } else {
+      console.log(`🛡️ Guardrails: DISABLED (no configuration found)`);
+    }
 
-        const inputValidation = await guardrailsService.evaluateInput(enhancedUserMessage, {
-          documents: documentContents,
-          agent: agent
-        });
+    // Validate user input with guardrails
+    if (guardrailsService) {
+      console.log(`🔍 === STARTING INPUT VALIDATION ===`);
+      console.log(`📝 Original User Message: "${enhancedUserMessage}"`);
 
-        console.log(`📊 Input Validation Summary:`);
-        console.log(`   ✓ Allowed: ${inputValidation.allowed}`);
-        console.log(`   ✓ Confidence: ${inputValidation.confidence}`);
-        console.log(`   ✓ Triggered Rules: ${inputValidation.triggeredRules.join(', ') || 'None'}`);
-        console.log(`   ✓ Reason: ${inputValidation.reason || 'No issues found'}`);
-
-        if (!inputValidation.allowed) {
-          console.log(`🚫 === INPUT BLOCKED BY GUARDRAILS ===`);
-          console.log(`🚫 Blocking Reason: ${inputValidation.reason}`);
-          console.log(`🚫 Triggered Rules: ${inputValidation.triggeredRules.join(', ')}`);
-          const suggestions = inputValidation.suggestions?.join(' ') || '';
-          const blockedMessage = `ขออภัย ไม่สามารถประมวลผลคำถามนี้ได้ ${inputValidation.reason ? `(${inputValidation.reason})` : ''} ${suggestions}`;
-          console.log(`🚫 Returning blocked message: "${blockedMessage}"`);
-          return blockedMessage;
-        }
-
-        // Use modified content if privacy protection applied masking
-        if (inputValidation.modifiedContent) {
-          console.log(`🔒 User input modified for privacy protection`);
-          console.log(`🔒 Original: "${enhancedUserMessage}"`);
-          console.log(`🔒 Modified: "${inputValidation.modifiedContent}"`);
-          enhancedUserMessage = inputValidation.modifiedContent;
-        }
-
-        console.log(`✅ INPUT VALIDATION PASSED - Proceeding to OpenAI`);
-      } else {
-        console.log(`⏭️ Skipping input validation - Guardrails disabled`);
-      }
-
-      // Debug: Log the complete system prompt for verification
-      console.log("\n=== 🔍 DEBUG: Complete System Prompt ===");
-      console.log(messages[0].content);
-      console.log("=== End System Prompt ===\n");
-
-      // Debug: Log user message
-      console.log(`📝 User Message: "${userMessage}"`);
-
-      // Debug: Log total prompt length
-      const totalTokens = messages.reduce(
-        (sum, msg) => sum + msg.content.length,
-        0,
-      );
-      console.log(`📊 Total prompt length: ${totalTokens} characters`);
-
-      // Log the complete conversation being sent to OpenAI
-      console.log(`\n=== 📝 COMPLETE CONVERSATION BEING SENT TO OpenAI (getAiResponseDirectly) ===`);
-      console.log(`🤖 Model: gpt-4o, Max Tokens: 1000, Temperature: 0.7`);
-      console.log(`💬 Total Messages: ${messages.length}`);
-      messages.forEach((msg, index) => {
-        console.log(`\n--- MESSAGE ${index + 1}: ${msg.role.toUpperCase()} (${msg.content.length} chars) ---`);
-        console.log(msg.content);
-      });
-      console.log(`=== END COMPLETE CONVERSATION ===\n`);
-
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-        messages: messages,
-        max_tokens: 1000,
-        temperature: 0.7,
+      const inputValidation = await guardrailsService.evaluateInput(enhancedUserMessage, {
+        documents: documentContents,
+        agent: agent
       });
 
-      let aiResponse =
-        response.choices[0].message.content ||
-        "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+      console.log(`📊 Input Validation Summary:`);
+      console.log(`   ✓ Allowed: ${inputValidation.allowed}`);
+      console.log(`   ✓ Confidence: ${inputValidation.confidence}`);
+      console.log(`   ✓ Triggered Rules: ${inputValidation.triggeredRules.join(', ') || 'None'}`);
+      console.log(`   ✓ Reason: ${inputValidation.reason || 'No issues found'}`);
 
-      // Validate AI output with guardrails
-      if (guardrailsService) {
-        console.log(`🔍 === STARTING OUTPUT VALIDATION ===`);
-        console.log(`🤖 Original AI Response: "${aiResponse}"`);
-
-        const outputValidation = await guardrailsService.evaluateOutput(aiResponse, {
-          documents: documentContents,
-          agent: agent,
-          userQuery: userMessage
-        });
-
-        console.log(`📊 Output Validation Summary:`);
-        console.log(`   ✓ Allowed: ${outputValidation.allowed}`);
-        console.log(`   ✓ Confidence: ${outputValidation.confidence}`);
-        console.log(`   ✓ Triggered Rules: ${outputValidation.triggeredRules.join(', ') || 'None'}`);
-        console.log(`   ✓ Reason: ${outputValidation.reason || 'No issues found'}`);
-
-        if (!outputValidation.allowed) {
-          console.log(`🚫 === OUTPUT BLOCKED BY GUARDRAILS ===`);
-          console.log(`🚫 Blocking Reason: ${outputValidation.reason}`);
-          console.log(`🚫 Triggered Rules: ${outputValidation.triggeredRules.join(', ')}`);
-          const suggestions = outputValidation.suggestions?.join(' ') || '';
-          const blockedMessage = `ขออภัย ไม่สามารถให้คำตอบนี้ได้ ${outputValidation.reason ? `(${outputValidation.reason})` : ''} ${suggestions}`;
-          console.log(`🚫 Original blocked response: "${aiResponse}"`);
-          console.log(`🚫 Returning blocked message: "${blockedMessage}"`);
-          aiResponse = blockedMessage;
-        } else if (outputValidation.modifiedContent) {
-          console.log(`🔒 AI output modified for compliance`);
-          console.log(`🔒 Original: "${aiResponse}"`);
-          console.log(`🔒 Modified: "${outputValidation.modifiedContent}"`);
-          aiResponse = outputValidation.modifiedContent;
-        }
-
-        console.log(`✅ OUTPUT VALIDATION PASSED - Final response ready`);
-        console.log(`📝 Final AI Response: "${aiResponse}"`);
-      } else {
-        console.log(`⏭️ Skipping output validation - Guardrails disabled`);
+      if (!inputValidation.allowed) {
+        console.log(`🚫 === INPUT BLOCKED BY GUARDRAILS ===`);
+        console.log(`🚫 Blocking Reason: ${inputValidation.reason}`);
+        console.log(`🚫 Triggered Rules: ${inputValidation.triggeredRules.join(', ')}`);
+        const suggestions = inputValidation.suggestions?.join(' ') || '';
+        const blockedMessage = `ขออภัย ไม่สามารถประมวลผลคำถามนี้ได้ ${inputValidation.reason ? `(${inputValidation.reason})` : ''} ${suggestions}`;
+        console.log(`🚫 Returning blocked message: "${blockedMessage}"`);
+        return blockedMessage;
       }
 
-      // NOTE: Chat history saving is now handled by the calling function to prevent duplicates
-      console.log(
-        `🤖 Generated AI response for user ${userId} (${aiResponse.length} characters)`,
-      );
+      // Use modified content if privacy protection applied masking
+      if (inputValidation.modifiedContent) {
+        console.log(`🔒 User input modified for privacy protection`);
+        console.log(`🔒 Original: "${enhancedUserMessage}"`);
+        console.log(`🔒 Modified: "${inputValidation.modifiedContent}"`);
+        enhancedUserMessage = inputValidation.modifiedContent;
+      }
 
-      return aiResponse;
-    } catch (error) {
-      console.error("💥 Error getting AI response:", error);
-      return "ขออภัย เกิดข้อผิดพลาดในการประมวลผลคำถาม กรุณาลองใหม่อีกครั้ง";
+      console.log(`✅ INPUT VALIDATION PASSED - Proceeding to OpenAI`);
+    } else {
+      console.log(`⏭️ Skipping input validation - Guardrails disabled`);
+    }
+
+    // Debug: Log the complete system prompt for verification
+    console.log("\n=== 🔍 DEBUG: Complete System Prompt ===");
+    console.log(messages[0].content);
+    console.log("=== End System Prompt ===\n");
+
+    // Debug: Log user message
+    console.log(`📝 User Message: "${userMessage}"`);
+
+    // Debug: Log total prompt length
+    const totalTokens = messages.reduce(
+      (sum, msg) => sum + msg.content.length,
+      0,
+    );
+    console.log(`📊 Total prompt length: ${totalTokens} characters`);
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+      messages: messages,
+      max_tokens: 1000,
+      temperature: 0.7,
+    });
+
+    let aiResponse =
+      response.choices[0].message.content ||
+      "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+
+    // Validate AI output with guardrails
+    if (guardrailsService) {
+      console.log(`🔍 === STARTING OUTPUT VALIDATION ===`);
+      console.log(`🤖 Original AI Response: "${aiResponse}"`);
+
+      const outputValidation = await guardrailsService.evaluateOutput(aiResponse, {
+        documents: documentContents,
+        agent: agent,
+        userQuery: userMessage
+      });
+
+      console.log(`📊 Output Validation Summary:`);
+      console.log(`   ✓ Allowed: ${outputValidation.allowed}`);
+      console.log(`   ✓ Confidence: ${outputValidation.confidence}`);
+      console.log(`   ✓ Triggered Rules: ${outputValidation.triggeredRules.join(', ') || 'None'}`);
+      console.log(`   ✓ Reason: ${outputValidation.reason || 'No issues found'}`);
+
+      if (!outputValidation.allowed) {
+        console.log(`🚫 === OUTPUT BLOCKED BY GUARDRAILS ===`);
+        console.log(`🚫 Blocking Reason: ${outputValidation.reason}`);
+        console.log(`🚫 Triggered Rules: ${outputValidation.triggeredRules.join(', ')}`);
+        const suggestions = outputValidation.suggestions?.join(' ') || '';
+        const blockedMessage = `ขออภัย ไม่สามารถให้คำตอบนี้ได้ ${outputValidation.reason ? `(${outputValidation.reason})` : ''} ${suggestions}`;
+        console.log(`🚫 Original blocked response: "${aiResponse}"`);
+        console.log(`🚫 Returning blocked message: "${blockedMessage}"`);
+        aiResponse = blockedMessage;
+      } else if (outputValidation.modifiedContent) {
+        console.log(`🔒 AI output modified for compliance`);
+        console.log(`🔒 Original: "${aiResponse}"`);
+        console.log(`🔒 Modified: "${outputValidation.modifiedContent}"`);
+        aiResponse = outputValidation.modifiedContent;
+      }
+
+      console.log(`✅ OUTPUT VALIDATION PASSED - Final response ready`);
+      console.log(`📝 Final AI Response: "${aiResponse}"`);
+    } else {
+      console.log(`⏭️ Skipping output validation - Guardrails disabled`);
+    }
+
+    // NOTE: Chat history saving is now handled by the calling function to prevent duplicates
+    console.log(
+      `🤖 Generated AI response for user ${userId} (${aiResponse.length} characters)`,
+    );
+
+    return aiResponse;
+  } catch (error) {
+    console.error("💥 Error getting AI response:", error);
+    return "ขออภัย เกิดข้อผิดพลาดในการประมวลผลคำถาม กรุณาลองใหม่อีกครั้ง";
+  }
+}
+
+// Store processed message IDs to prevent duplicates with timestamp for cleanup
+const processedMessageIds = new Map<string, number>();
+
+// Clean up old processed message IDs (older than 1 hour)
+const cleanupProcessedMessages = () => {
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  for (const [messageId, timestamp] of processedMessageIds.entries()) {
+    if (timestamp < oneHourAgo) {
+      processedMessageIds.delete(messageId);
     }
   }
+};
 
-  // Store processed message IDs to prevent duplicates with timestamp for cleanup
-  const processedMessageIds = new Map<string, number>();
+// Schedule cleanup every 30 minutes
+setInterval(cleanupProcessedMessages, 30 * 60 * 1000);
 
-  // Clean up old processed message IDs (older than 1 hour)
-  const cleanupProcessedMessages = () => {
-    const oneHourAgo = Date.now() - 60 * 60 * 1000;
-    for (const [messageId, timestamp] of processedMessageIds.entries()) {
-      if (timestamp < oneHourAgo) {
-        processedMessageIds.delete(messageId);
+// Main webhook handler
+export async function handleLineWebhook(req: Request, res: Response) {
+  try {
+    const signature = req.headers["x-line-signature"] as string;
+    const webhookBody: LineWebhookBody = req.body;
+    const body = JSON.stringify(webhookBody);
+
+    console.log("🔔 Line webhook received");
+    console.log("📝 Body:", body);
+
+    let lineIntegration: any;
+
+    // Check if integration is provided by dynamic webhook endpoint
+    if ((req as any).lineIntegration) {
+      lineIntegration = (req as any).lineIntegration;
+      console.log(`✅ Using provided integration: ${lineIntegration.name} (ID: ${lineIntegration.id})`);
+    } else {
+      // Legacy webhook handling - find integration by destination
+      const destination = webhookBody.destination;
+      console.log(
+        "🔍 Debug: Looking for integration with destination:",
+        destination,
+      );
+
+      // Get all Line OA integrations to find the matching one
+      const allIntegrations = await storage.getAllSocialIntegrations();
+      console.log(
+        "✅ Found",
+        allIntegrations.length,
+        "total social integrations",
+      );
+
+      // In Line webhooks, the destination is the Bot's User ID, not Channel ID
+      // First try to match by Bot User ID, then fall back to any active integration
+      lineIntegration = allIntegrations.find(
+        (integration) =>
+          integration.type === "lineoa" &&
+          integration.isActive &&
+          integration.botUserId === destination,
+      );
+
+      // If no exact match found by Bot User ID, try fallback to any active Line OA integration
+      if (!lineIntegration) {
+        lineIntegration = allIntegrations.find(
+          (integration) => integration.type === "lineoa" && integration.isActive,
+        );
+        if (lineIntegration) {
+          console.log(
+            "🔧 Using fallback matching - found active Line OA integration",
+          );
+          // Update the Bot User ID for future webhook calls using raw SQL
+          try {
+            await db.execute(sql`
+              UPDATE social_integrations 
+              SET bot_user_id = ${destination}, updated_at = NOW() 
+              WHERE id = ${lineIntegration.id}
+            `);
+            console.log("✅ Updated Bot User ID for future webhook calls");
+          } catch (error) {
+            console.log("⚠️ Could not update Bot User ID:", error);
+          }
+        }
       }
-    }
-  };
 
-  // Schedule cleanup every 30 minutes
-  setInterval(cleanupProcessedMessages, 30 * 60 * 1000);
-
-  // Main webhook handler
-  export async function handleLineWebhook(req: Request, res: Response) {
-    try {
-      const signature = req.headers["x-line-signature"] as string;
-      const webhookBody: LineWebhookBody = req.body;
-      const body = JSON.stringify(webhookBody);
-
-      console.log("🔔 Line webhook received");
-      console.log("📝 Body:", body);
-
-      let lineIntegration: any;
-
-      // Check if integration is provided by dynamic webhook endpoint
-      if ((req as any).lineIntegration) {
-        lineIntegration = (req as any).lineIntegration;
-        console.log(`✅ Using provided integration: ${lineIntegration.name} (ID: ${lineIntegration.id})`);
-      } else {
-        // Legacy webhook handling - find integration by destination
-        const destination = webhookBody.destination;
+      if (!lineIntegration) {
         console.log(
-          "🔍 Debug: Looking for integration with destination:",
+          "❌ No active Line OA integration found for destination:",
           destination,
         );
+        return res
+          .status(404)
+          .json({ error: "No active Line OA integration found" });
+      }
+    }
 
-        // Get all Line OA integrations to find the matching one
-        const allIntegrations = await storage.getAllSocialIntegrations();
-        console.log(
-          "✅ Found",
-          allIntegrations.length,
-          "total social integrations",
-        );
+    console.log(
+      "✅ Found matching Line OA integration for user:",
+      lineIntegration.userId,
+    );
+    console.log(
+      "🔑 Debug: Channel Access Token available:",
+      !!lineIntegration.channelAccessToken,
+    );
+    console.log(
+      "🔍 Debug: Integration object keys:",
+      Object.keys(lineIntegration),
+    );
 
-        // In Line webhooks, the destination is the Bot's User ID, not Channel ID
-        // First try to match by Bot User ID, then fall back to any active integration
-        lineIntegration = allIntegrations.find(
-          (integration) =>
-            integration.type === "lineoa" &&
-            integration.isActive &&
-            integration.botUserId === destination,
-        );
+    // Verify signature with debug logging
+    console.log("🔐 Debug: Signature verification details:");
+    console.log("📝 Raw body length:", body.length);
+    console.log("🔑 Channel Secret available:", !!lineIntegration.channelSecret);
+    console.log("🔏 Channel Secret length:", lineIntegration.channelSecret?.length || 0);
+    console.log("📋 X-Line-Signature header:", signature);
+    console.log("🔗 Integration ID:", lineIntegration.id);
+    console.log("🏷️ Integration name:", lineIntegration.name);
 
-        // If no exact match found by Bot User ID, try fallback to any active Line OA integration
-        if (!lineIntegration) {
-          lineIntegration = allIntegrations.find(
-            (integration) => integration.type === "lineoa" && integration.isActive,
-          );
-          if (lineIntegration) {
-            console.log(
-              "🔧 Using fallback matching - found active Line OA integration",
-            );
-            // Update the Bot User ID for future webhook calls using raw SQL
-            try {
-              await db.execute(sql`
-                UPDATE social_integrations 
-                SET bot_user_id = ${destination}, updated_at = NOW() 
-                WHERE id = ${lineIntegration.id}
-              `);
-              console.log("✅ Updated Bot User ID for future webhook calls");
-            } catch (error) {
-              console.log("⚠️ Could not update Bot User ID:", error);
-            }
-          }
-        }
+    // Generate expected hash for comparison
+    const expectedHash = crypto
+      .createHmac("sha256", lineIntegration.channelSecret!)
+      .update(body)
+      .digest("base64");
+    console.log("🎯 Expected hash:", expectedHash);
+    console.log("📩 Received signature:", signature);
+    console.log("✅ Hash match:", expectedHash === signature);
 
-        if (!lineIntegration) {
+    if (!verifyLineSignature(body, signature, lineIntegration.channelSecret!)) {
+      console.log("❌ Invalid Line signature");
+      console.log("🔍 Debug: Possible issues:");
+      console.log("  - Channel Secret mismatch between Line Developer Console and database");
+      console.log("  - Webhook URL configured for wrong integration");
+      console.log("  - Request body modified by middleware");
+      return res.status(401).json({ error: "Invalid signature" });
+    }
+
+    // Process each event
+    for (const event of webhookBody.events) {
+      if (event.type === "message" && event.message) {
+        const message = event.message;
+        const replyToken = event.replyToken!;
+        let userMessage = "";
+        let messageMetadata: any = {};
+
+        console.log("📱 Message type:", message.type);
+        console.log("👤 User ID:", event.source.userId);
+
+        // Handle different message types
+        if (message.type === "text") {
+          userMessage = message.text!;
+          console.log("💬 Text message:", userMessage);
+        } else if (message.type === "image") {
+          userMessage = "[รูปภาพ]";
+
+          // For Line images, construct content URLs using messageId and Channel Access Token
+          const originalContentUrl = `https://api-data.line.me/v2/bot/message/${message.id}/content`;
+          const previewImageUrl = `https://api-data.line.me/v2/bot/message/${message.id}/content/preview`;
+
+          messageMetadata = {
+            messageType: "image",
+            messageId: message.id,
+            contentProvider: message.contentProvider,
+            originalContentUrl,
+            previewImageUrl,
+          };
+          console.log("🖼️ Image message received, ID:", message.id);
+          console.log("🔗 Image URLs:", {
+            originalContentUrl,
+            previewImageUrl,
+          });
+        } else if (message.type === "sticker") {
+          userMessage = "[สติ๊กเกอร์]";
+          messageMetadata = {
+            messageType: message.packageId,
+            packageId: message.packageId,
+            stickerId: message.stickerId,
+          };
           console.log(
-            "❌ No active Line OA integration found for destination:",
-            destination,
+            "😀 Sticker message received, Package:",
+            message.packageId,
+            "Sticker:",
+            message.stickerId,
           );
-          return res
-            .status(404)
-            .json({ error: "No active Line OA integration found" });
+        } else {
+          // Handle other message types (video, audio, location, etc.)
+          userMessage = `[${message.type}]`;
+          messageMetadata = {
+            messageType: message.type,
+            messageId: message.id,
+          };
+          console.log("📎 Other message type:", message.type);
         }
-      }
 
-      console.log(
-        "✅ Found matching Line OA integration for user:",
-        lineIntegration.userId,
-      );
-      console.log(
-        "🔑 Debug: Channel Access Token available:",
-        !!lineIntegration.channelAccessToken,
-      );
-      console.log(
-        "🔍 Debug: Integration object keys:",
-        Object.keys(lineIntegration),
-      );
-
-      // Verify signature with debug logging
-      console.log("🔐 Debug: Signature verification details:");
-      console.log("📝 Raw body length:", body.length);
-      console.log("🔑 Channel Secret available:", !!lineIntegration.channelSecret);
-      console.log("🔏 Channel Secret length:", lineIntegration.channelSecret?.length || 0);
-      console.log("📋 X-Line-Signature header:", signature);
-      console.log("🔗 Integration ID:", lineIntegration.id);
-      console.log("🏷️ Integration name:", lineIntegration.name);
-
-      // Generate expected hash for comparison
-      const expectedHash = crypto
-        .createHmac("sha256", lineIntegration.channelSecret!)
-        .update(body)
-        .digest("base64");
-      console.log("🎯 Expected hash:", expectedHash);
-      console.log("📩 Received signature:", signature);
-      console.log("✅ Hash match:", expectedHash === signature);
-
-      if (!verifyLineSignature(body, signature, lineIntegration.channelSecret!)) {
-        console.log("❌ Invalid Line signature");
-        console.log("🔍 Debug: Possible issues:");
-        console.log("  - Channel Secret mismatch between Line Developer Console and database");
-        console.log("  - Webhook URL configured for wrong integration");
-        console.log("  - Request body modified by middleware");
-        return res.status(401).json({ error: "Invalid signature" });
-      }
-
-      // Process each event
-      for (const event of webhookBody.events) {
-        if (event.type === "message" && event.message) {
-          const message = event.message;
-          const replyToken = event.replyToken!;
-          let userMessage = "";
-          let messageMetadata: any = {};
-
-          console.log("📱 Message type:", message.type);
-          console.log("👤 User ID:", event.source.userId);
-
-          // Handle different message types
-          if (message.type === "text") {
-            userMessage = message.text!;
-            console.log("💬 Text message:", userMessage);
-          } else if (message.type === "image") {
-            userMessage = "[รูปภาพ]";
-
-            // For Line images, construct content URLs using messageId and Channel Access Token
-            const originalContentUrl = `https://api-data.line.me/v2/bot/message/${message.id}/content`;
-            const previewImageUrl = `https://api-data.line.me/v2/bot/message/${message.id}/content/preview`;
-
-            messageMetadata = {
-              messageType: "image",
-              messageId: message.id,
-              contentProvider: message.contentProvider,
-              originalContentUrl,
-              previewImageUrl,
-            };
-            console.log("🖼️ Image message received, ID:", message.id);
-            console.log("🔗 Image URLs:", {
-              originalContentUrl,
-              previewImageUrl,
-            });
-          } else if (message.type === "sticker") {
-            userMessage = "[สติ๊กเกอร์]";
-            messageMetadata = {
-              messageType: message.packageId,
-              packageId: message.packageId,
-              stickerId: message.stickerId,
-            };
-            console.log(
-              "😀 Sticker message received, Package:",
-              message.packageId,
-              "Sticker:",
-              message.stickerId,
-            );
-          } else {
-            // Handle other message types (video, audio, location, etc.)
-            userMessage = `[${message.type}]`;
-            messageMetadata = {
-              messageType: message.type,
-              messageId: message.id,
-            };
-            console.log("📎 Other message type:", message.type);
-          }
-
-          // Check if this message has already been processed
-          const messageId = message.id;
+        // Check if this message has already been processed
+        const messageId = message.id;
 if (processedMessageIds.has(messageId)) {
-            console.log(`⚠️ Message ${messageId} already processed, skipping...`);
-            continue;
-          }
+          console.log(`⚠️ Message ${messageId} already processed, skipping...`);
+          continue;
+        }
 
-          // Mark message as processed with timestamp
-          processedMessageIds.set(messageId, Date.now());
-          console.log(`✅ Processing new message ${messageId}`);
+        // Mark message as processed with timestamp
+        processedMessageIds.set(messageId, Date.now());
+        console.log(`✅ Processing new message ${messageId}`);
 
-          // Save user message with metadata
-          let chatHistoryId: number | null = null;
-          try {
-            const savedChatHistory = await storage.createChatHistory({
-              userId: lineIntegration.userId,
-              channelType: "lineoa",
-              channelId: event.source.userId,
-              agentId: lineIntegration.agentId!,
-              messageType: "user",
-              content: userMessage,
-              metadata: messageMetadata,
-            });
-            chatHistoryId = savedChatHistory.id;
-            console.log(
-              "💾 Saved user message with metadata, ID:",
-              chatHistoryId,
-            );
-          } catch (error) {
-            console.error("⚠️ Error saving user message:", error);
-          }
+        // Save user message with metadata
+        let chatHistoryId: number | null = null;
+        try {
+          const savedChatHistory = await storage.createChatHistory({
+            userId: lineIntegration.userId,
+            channelType: "lineoa",
+            channelId: event.source.userId,
+            agentId: lineIntegration.agentId!,
+            messageType: "user",
+            content: userMessage,
+            metadata: messageMetadata,
+          });
+          chatHistoryId = savedChatHistory.id;
+          console.log(
+            "💾 Saved user message with metadata, ID:",
+            chatHistoryId,
+          );
+        } catch (error) {
+          console.error("⚠️ Error saving user message:", error);
+        }
 
-          // Handle image messages with immediate acknowledgment
-          if (message.type === "image" && lineIntegration.channelAccessToken) {
-            console.log("🖼️ Image message detected - sending immediate acknowledgment");
+        // Handle image messages with immediate acknowledgment
+        if (message.type === "image" && lineIntegration.channelAccessToken) {
+          console.log("🖼️ Image message detected - sending immediate acknowledgment");
 
-            // 1. Send immediate acknowledgment
-            await sendLineReply(
-              replyToken,
-              "ได้รับรูปภาพแล้ว ขอเวลาตรวจสอบสักครู่นะคะ",
-              lineIntegration.channelAccessToken
-            );
+          // 1. Send immediate acknowledgment
+          await sendLineReply(
+            replyToken,
+            "ได้รับรูปภาพแล้ว ขอเวลาตรวจสอบสักครู่นะคะ",
+            lineIntegration.channelAccessToken
+          );
 
-            // 2. Process image and get analysis
-            if (chatHistoryId && lineIntegration.agentId) {
-              console.log("🖼️ Starting image processing...");
-              const imageService = LineImageService.getInstance();
+          // 2. Process image and get analysis
+          if (chatHistoryId && lineIntegration.agentId) {
+            console.log("🖼️ Starting image processing...");
+            const imageService = LineImageService.getInstance();
 
-              try {
-                // Wait for image processing to complete
-                await imageService.processImageMessage(
-                  message.id,
-                  lineIntegration.channelAccessToken,
-                  lineIntegration.userId,
-                  "lineoa",
-                  event.source.userId,
-                  lineIntegration.agentId!,
-                  chatHistoryId,
-                );
-                console.log("✅ Image processing completed successfully");
+            try {
+              // Wait for image processing to complete
+              await imageService.processImageMessage(
+                message.id,
+                lineIntegration.channelAccessToken,
+                lineIntegration.userId,
+                "lineoa",
+                event.source.userId,
+                lineIntegration.agentId!,
+                chatHistoryId,
+              );
+              console.log("✅ Image processing completed successfully");
 
-                // Get the SPECIFIC image analysis for THIS message
-                const updatedChatHistory = await storage.getChatHistory(
-                  lineIntegration.userId,
-                  "lineoa",
-                  event.source.userId,
-                  lineIntegration.agentId!,
-                  10 // Get more messages to find the right analysis
-                );
+              // Get the SPECIFIC image analysis for THIS message
+              const updatedChatHistory = await storage.getChatHistory(
+                lineIntegration.userId,
+                "lineoa",
+                event.source.userId,
+                lineIntegration.agentId!,
+                10 // Get more messages to find the right analysis
+              );
 
-                // Find the image analysis that corresponds to THIS specific message
-                const imageAnalysisMessage = updatedChatHistory.find(msg => 
-                  msg.messageType === 'system' && 
-                  msg.metadata?.messageType === 'image_analysis' &&
-                  msg.metadata?.relatedImageMessageId === message.id
-                );
+              // Find the image analysis that corresponds to THIS specific message
+              const imageAnalysisMessage = updatedChatHistory.find(msg => 
+                msg.messageType === 'system' && 
+                msg.metadata?.messageType === 'image_analysis' &&
+                msg.metadata?.relatedImageMessageId === message.id
+              );
 
-                if (imageAnalysisMessage) {
-                  const imageAnalysisResult = imageAnalysisMessage.content.replace('[การวิเคราะห์รูปภาพ] ', '');
-                  console.log(`🔍 Found specific image analysis for message ${message.id}: ${imageAnalysisResult.substring(0, 100)}...`);
+              if (imageAnalysisMessage) {
+                const imageAnalysisResult = imageAnalysisMessage.content.replace('[การวิเคราะห์รูปภาพ] ', '');
+                console.log(`🔍 Found specific image analysis for message ${message.id}: ${imageAnalysisResult.substring(0, 100)}...`);
 
-                  // 3. Generate AI response with image analysis
-                  const contextMessage = `ผู้ใช้ส่งรูปภาพมา นี่คือผลการวิเคราะห์รูปภาพ:
+                // 3. Generate AI response with image analysis
+                const contextMessage = `ผู้ใช้ส่งรูปภาพมา นี่คือผลการวิเคราะห์รูปภาพ:
 
 ${imageAnalysisResult}
 
@@ -1118,141 +1118,54 @@ ${imageAnalysisResult}
 
               console.log(`LINE OA: AI-enhanced keyword search found ${keywordSearchResults.length} results`);
               if (keywordSearchResults.length > 0 && keywordSearchResults[0].aiKeywordExpansion) {
-                const expansion = keywordSearchResults[0].aiKeywordExpansion;
-                const keywords = expansion.expandedKeywords || [];
-                console.log(`LINE OA: AI expansion - Contextual: ${expansion.isContextual}, Confidence: ${expansion.confidence}, Keywords: [${keywords.join(', ')}]`);
+                console.log(`LINE OA: AI expansion - Contextual: ${keywordSearchResults[0].aiKeywordExpansion.isContextual}, Confidence: ${keywordSearchResults[0].aiKeywordExpansion.confidence}, Keywords: [${keywordSearchResults[0].aiKeywordExpansion.expandedKeywords.join(', ')}]`);
               }
             } catch (keywordError) {
               console.error(`LINE OA: AI-enhanced keyword search failed:`, keywordError);
-              keywordSearchResults = []; // Reset to empty array on error
             }
 
-            // Use enhanced search query for vector search if available from keyword expansion
-            let vectorSearchQuery = contextMessage;
-
-            // Check if we have enhanced keywords from AI expansion
-            if (keywordSearchResults.length > 0 && 
-                keywordSearchResults[0].aiKeywordExpansion?.expandedKeywords && 
-                Array.isArray(keywordSearchResults[0].aiKeywordExpansion.expandedKeywords) &&
-                keywordSearchResults[0].aiKeywordExpansion.expandedKeywords.length > 0) {
-              const expandedKeywords = keywordSearchResults[0].aiKeywordExpansion.expandedKeywords;
-
-              // Combine original query with top 3 expanded keywords for vector search
-              const enhancedQuery = `${contextMessage} ${expandedKeywords.slice(0, 3).join(' ')}`;
-              console.log(`LINE OA: Enhanced vector search query: "${enhancedQuery}"`);
-              vectorSearchQuery = enhancedQuery;
-            } else {
-              console.log(`LINE OA: Using original query for vector search: "${vectorSearchQuery}"`);
-            }
-
-            // Step 1: Get keyword search results
-            console.log(`LINE OA: Step 1 - Performing keyword search`);
-            let keywordChunks = [];
-            if (keywordSearchResults.length > 0) {
-              // Convert keyword results to chunk format - preserve full content
-              keywordChunks = keywordSearchResults.slice(0, 6).map((result, index) => {
-                // Extract the actual content - handle different possible data structures
-                let content = '';
-                if (result.content) {
-                  content = result.content;
-                } else if (result.textContent) {
-                  content = result.textContent;
-                } else if (typeof result === 'string') {
-                  content = result;
-                } else {
-                  // If content is in a different format, try to extract meaningful text
-                  content = JSON.stringify(result).substring(0, 2000);
-                }
-
-                console.log(`LINE OA: Keyword result ${index + 1} - Name: ${result.name || result.fileName || 'Unknown'}, Similarity: ${result.similarity}, Content length: ${content.length}, Has OPPO: ${content.toLowerCase().includes('oppo')}`);
-
-                return {
-                  name: result.name || result.fileName || `Keyword Match ${index + 1}`,
-                  content: content,
-                  similarity: result.similarity || 0,
-                  source: 'keyword',
-                  originalSimilarity: result.similarity || 0
-                };
-              });
-
-              // Sort keyword chunks by similarity
-              keywordChunks.sort((a, b) => b.similarity - a.similarity);
-              console.log(`LINE OA: Found ${keywordChunks.length} keyword results`);
-            } else {
-              console.log(`LINE OA: No keyword results found`);
-            }
-
-            // Step 2: Get vector search results
-            console.log(`LINE OA: Step 2 - Performing vector search`);
-            const vectorResults = await semanticSearchServiceV2.searchDocuments(
-              vectorSearchQuery,
+            // Use hybrid search with proper document filtering - same as debug page
+            const searchResults = await semanticSearchServiceV2.searchDocuments(
+              contextMessage,
               lineIntegration.userId,
               {
-                searchType: 'vector',
-                limit: 6, // Get top 6 vector results
+                searchType: 'hybrid',
+                keywordWeight: 0.4,
+                vectorWeight: 0.6,
+                limit: 12, // Get more results for ranking
                 specificDocumentIds: agentDocIds // Restrict to agent's documents only
               }
             );
 
-            console.log(`LINE OA: Found ${vectorResults.length} vector results from agent's documents`);
+            console.log(`LINE OA: Hybrid search found ${searchResults.length} relevant chunks from agent's documents`);
 
-            // Convert vector results to chunk format
-            const vectorChunks = vectorResults.map((result, index) => ({
-              name: result.name,
-              content: result.content,
-              similarity: result.similarity,
-              source: 'vector'
-            }));
+            // Combine keyword and vector search results intelligently
+            let combinedResults = searchResults;
 
-            // Step 3: Combine and rank all results together
-            console.log(`LINE OA: Step 3 - Combining and ranking results`);
-            const allChunks = [...keywordChunks, ...vectorChunks];
+            if (keywordSearchResults.length > 0) {
+              // If AI keyword search found contextual results with high confidence, blend them with vector results
+              const topKeywordResult = keywordSearchResults[0];
+              if (topKeywordResult.aiKeywordExpansion?.isContextual && topKeywordResult.aiKeywordExpansion.confidence > 0.7) {
+                console.log(`LINE OA: High-confidence contextual match found, blending keyword and vector results`);
 
-            // Create a ranking system that prioritizes keyword matches but considers vector similarity
-            const rankedChunks = allChunks.map(chunk => {
-              let finalScore = chunk.similarity;
+                // Convert keyword results to chunk format for consistency
+                const keywordChunks = keywordSearchResults.slice(0, 3).map(result => ({
+                  document: { name: result.name },
+                  content: result.content.substring(0, 2000), // Limit content size
+                  similarity: result.similarity
+                }));
 
-              // Give keyword results a boost to prioritize them
-              if (chunk.source === 'keyword') {
-                finalScore = chunk.similarity + 0.3; // Boost keyword results
-              }
+                // Blend keyword and vector results instead of discarding vector results
+                // Take top keyword results + top vector results, then sort by similarity
+                const topVectorResults = searchResults.slice(0, 9); // Get more vector results
+                combinedResults = [
+                  ...keywordChunks,
+                  ...topVectorResults
+                ];
 
-              return {
-                ...chunk,
-                finalScore
-              };
-            });
-
-            // Sort by final score and remove duplicates by content similarity
-            rankedChunks.sort((a, b) => b.finalScore - a.finalScore);
-
-            // Remove very similar content to avoid duplicates
-            const deduplicatedChunks = [];
-            for (const chunk of rankedChunks) {
-              const isDuplicate = deduplicatedChunks.some(existing => {
-                const similarity = calculateContentSimilarity(chunk.content, existing.content);
-                return similarity > 0.8; // 80% content similarity threshold
-              });
-
-              if (!isDuplicate) {
-                deduplicatedChunks.push(chunk);
+                console.log(`LINE OA: Blended ${keywordChunks.length} keyword + ${topVectorResults.length} vector results for intelligent ranking`);
               }
             }
-
-            const combinedResults = deduplicatedChunks.slice(0, 12); // Take top 12 after deduplication
-
-            console.log(`LINE OA: Final ranking - ${combinedResults.length} chunks after deduplication:`, 
-              combinedResults.map((chunk, idx) => ({
-                rank: idx + 1,
-                source: chunk.source,
-                name: chunk.name,
-                originalScore: chunk.similarity.toFixed(3),
-                finalScore: chunk.finalScore.toFixed(3),
-                hasOPPO: chunk.content.toLowerCase().includes('oppo'),
-                hasThapra: chunk.content.toLowerCase().includes('ท่าพระ'),
-                contentPreview: chunk.content.substring(0, 100) + '...'
-              }))
-            );
 
             if (combinedResults.length > 0) {
               // Step 1: Pool ALL chunks from ALL documents together
@@ -1270,102 +1183,34 @@ ${imageAnalysisResult}
 
               // Step 2: Sort ALL chunks globally by similarity and use all of them
               allChunks.sort((a, b) => b.similarity - a.similarity);
-
+              
               console.log(`LINE OA: Using all ${allChunks.length} chunks from search results:`);
               allChunks.forEach((chunk, idx) => {
                 console.log(`  ${idx + 1}. ${chunk.docName} - Similarity: ${chunk.similarity.toFixed(4)}`);
                 console.log(`      Content preview: ${chunk.content.substring(0, 100)}...`);
               });
 
-              // Identify keyword results by checking if they came from keyword search with high similarity OR contain important terms
-              const identifyKeywordChunks = (chunks) => {
-                return chunks.filter(chunk => {
-                  // Check if this chunk has boosted similarity (indicating it came from keyword search)
-                  const hasBoostSimilarity = chunk.similarity > 1.0;
-
-                  // Check if this chunk contains important search terms
-                  const content = chunk.content.toLowerCase();
-                  const query = contextMessage.toLowerCase();
-
-                  // Extract key terms from the query
-                  const queryTerms = query.split(/\s+/).filter(term => term.length > 2);
-                  const hasKeyTerms = queryTerms.some(term => content.includes(term));
-
-                  // High similarity threshold for keyword matches
-                  const hasHighSimilarity = chunk.similarity > 0.4;
-
-                  return hasBoostSimilarity || (hasKeyTerms && hasHighSimilarity);
-                });
-              };
-
-              const keywordChunksForContext = identifyKeywordChunks(allChunks);
-              const vectorChunksForContext = allChunks.filter(chunk => !keywordChunksForContext.includes(chunk));
-
-              // Sort keyword chunks by similarity to ensure winner appears first
-              keywordChunksForContext.sort((a, b) => b.similarity - a.similarity);
-
-              console.log(`LINE OA: Identified chunks - ${keywordChunksForContext.length} keyword, ${vectorChunksForContext.length} vector`);
-              console.log(`LINE OA: Top keyword chunk details:`, {
-                name: keywordChunksForContext[0]?.docName,
-                similarity: keywordChunksForContext[0]?.similarity,
-                hasOPPO: keywordChunksForContext[0]?.content?.toLowerCase().includes('oppo'),
-                hasThapra: keywordChunksForContext[0]?.content?.toLowerCase().includes('ท่าพระ') || keywordChunksForContext[0]?.content?.toLowerCase().includes('thapra'),
-                preview: keywordChunksForContext[0]?.content?.substring(0, 300) + '...'
-              });
-
-              // Build context with character limit - ALWAYS start with keyword results
+              // Build context with character limit for cost control
               let documentContext = "";
-              const maxContextLength = 24000;
+              const maxContextLength = 12000; // Increased limit to accommodate more chunks
               let chunksUsed = 0;
-              let chunkNumber = 1;
 
-              // PRIORITY 1: Add ALL keyword results first - these are the most important matches
-              console.log(`LINE OA: Processing ${keywordChunksForContext.length} keyword chunks first...`);
-              for (const chunk of keywordChunksForContext) {
-                // Use originalSimilarity for display to show the actual keyword match score
-                const displayScore = chunk.originalSimilarity ? chunk.originalSimilarity.toFixed(3) : chunk.similarity.toFixed(3);
-                const chunkText = `=== ข้อมูลที่ ${chunkNumber} (คีย์เวิร์ดแมตช์โดยตรง - ความเกี่ยวข้องสูงสุด): ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${displayScore}\nเนื้อหา: ${chunk.content}\n\n`;
+              for (let i = 0; i < allChunks.length; i++) {
+                const chunk = allChunks[i];
+                const chunkText = `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
 
+                // Check if adding this chunk would exceed the limit
                 if (documentContext.length + chunkText.length <= maxContextLength) {
                   documentContext += chunkText;
                   chunksUsed++;
-                  console.log(`LINE OA: Added keyword chunk ${chunkNumber}: ${chunk.docName} (original similarity: ${displayScore})`);
-                  chunkNumber++;
                 } else {
-                  // For keyword results, ALWAYS try to include them even if truncated
+                  // Try to fit a truncated version if there's meaningful space
                   const remainingSpace = maxContextLength - documentContext.length;
-                  if (remainingSpace > 500) {
-                    const availableContentSpace = remainingSpace - 300; // Account for headers
-                    const truncatedContent = chunk.content.substring(0, availableContentSpace) + "... [คีย์เวิร์ดแมตช์สำคัญ - ถูกตัดทอน]";
-                    documentContext += `=== ข้อมูลที่ ${chunkNumber} (คีย์เวิร์ดแมตช์โดยตรง - ความเกี่ยวข้องสูงสุด): ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${displayScore}\nเนื้อหา: ${truncatedContent}\n\n`;
-                    chunksUsed++;
-                    console.log(`LINE OA: Added truncated keyword chunk ${chunkNumber}: ${chunk.docName}`);
-                    chunkNumber++;
-                  }
-                  break;
-                }
-              }
-
-              console.log(`LINE OA: Finished processing keyword chunks. Added ${keywordChunksForContext.length} keyword chunks (${documentContext.length} chars used)`);
-
-              // PRIORITY 2: Add vector search results only if space remains
-              console.log(`LINE OA: Processing ${vectorChunksForContext.length} vector chunks...`);
-              for (const chunk of vectorChunksForContext) {
-                const chunkText = `=== ข้อมูลที่ ${chunkNumber} (เวกเตอร์เสิร์ช): ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
-
-                if (documentContext.length + chunkText.length <= maxContextLength) {
-                  documentContext += chunkText;
-                  chunksUsed++;
-                  chunkNumber++;
-                } else {
-                  // For vector results, only add if there's meaningful space
-                  const remainingSpace = maxContextLength - documentContext.length;
-                  if (remainingSpace > 300) {
-                    const availableContentSpace = remainingSpace - 150;
+                  if (remainingSpace > 300) { // Only add if there's meaningful space
+                    const availableContentSpace = remainingSpace - 150; // Account for headers
                     const truncatedContent = chunk.content.substring(0, availableContentSpace) + "...";
-                    documentContext += `=== ข้อมูลที่ ${chunkNumber} (เวกเตอร์เสิร์ช): ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
+                    documentContext += `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
                     chunksUsed++;
-                    chunkNumber++;
                   }
                   break;
                 }
@@ -1375,49 +1220,18 @@ ${imageAnalysisResult}
 
               console.log(`LINE OA: Final context length: ${documentContext.length} characters (limit: ${maxContextLength})`);
 
-              // Debug: Check if OPPO content made it to the final context
-              const hasOPPOInContext = documentContext.toLowerCase().includes('oppo');
-              const hasThapraInContext = documentContext.toLowerCase().includes('ท่าพระ') || documentContext.toLowerCase().includes('thapra');
-              console.log(`LINE OA: Final context contains OPPO: ${hasOPPOInContext}`);
-              console.log(`LINE OA: Final context contains Thapra: ${hasThapraInContext}`);
-
-              if (hasOPPOInContext) {
-                // Extract OPPO-related lines from context for debugging
-                const oppoLines = documentContext.split('\n').filter(line => 
-                  line.toLowerCase().includes('oppo') || 
-                  line.toLowerCase().includes('ออปโป้')
-                );
-                console.log(`LINE OA: OPPO content in context (${oppoLines.length} lines):`);
-                oppoLines.slice(0, 5).forEach((line, idx) => {
-                  console.log(`  ${idx + 1}. ${line.substring(0, 200)}...`);
-                });
-              }
-
               // Generate AI response with comprehensive document context
               // Use existing OpenAI instance from module scope
 
               const agent = await storage.getAgentChatbot(lineIntegration.agentId, lineIntegration.userId);
               const systemPrompt = `${agent?.systemPrompt || 'You are a helpful assistant.'}
 
-เอกสารอ้างอิงสำหรับการตอบคำถาม (จัดเรียงตามความสำคัญ - คีย์เวิร์ดแมตช์โดยตรงก่อน):
+เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
 ${documentContext}
 
-สำคัญมาก: 
-1. ข้อมูลที่มีป้าย "คีย์เวิร์ดแมตช์โดยตรง" มีความเกี่ยวข้องสูงสุด ให้ใช้เป็นอันดับแรก
-2. หากพบข้อมูลเกี่ยวกับร้าน OPPO หรือ ออปโป้ ในเอกสาร ให้ตอบตามข้อมูลที่มี อย่าบอกว่า "ไม่มีข้อมูล"
-3. กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น`;
+กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น`;
 
               console.log(`LINE OA: System prompt length: ${systemPrompt.length} characters`);
-
-              // Log the complete prompt being sent to OpenAI
-              console.log(`\n=== 📝 COMPLETE PROMPT BEING SENT TO LINE CHATBOT ===`);
-              console.log(`🤖 Model: gpt-4o`);
-              console.log(`⚙️ Max Tokens: 1000, Temperature: 0.7`);
-              console.log(`\n--- SYSTEM PROMPT (${systemPrompt.length} chars) ---`);
-              console.log(systemPrompt);
-              console.log(`\n--- USER MESSAGE (${contextMessage.length} chars) ---`);
-              console.log(contextMessage);
-              console.log(`=== END COMPLETE PROMPT ===\n`);
 
               const completion = await openai.chat.completions.create({
                 model: "gpt-4o",
@@ -1520,17 +1334,4 @@ ${documentContext}
     console.error("💥 Line webhook error:", error);
     res.status(500).json({ error: "Internal server error" });
   }
-}
-
-  /**
- * Utility function to calculate content similarity
- */
-function calculateContentSimilarity(str1: string, str2: string): number {
-  const set1 = new Set(str1.split(/\s+/));
-  const set2 = new Set(str2.split(/\s+/));
-
-  const intersectionSize = [...set1].filter(item => set2.has(item)).length;
-  const unionSize = set1.size + set2.size - intersectionSize;
-
-  return intersectionSize / unionSize;
 }
