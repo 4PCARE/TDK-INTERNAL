@@ -10,8 +10,10 @@ import { vectorService } from "./vectorService";
 import { storage } from "../storage";
 
 // Added imports for PDF processing and OCR
-import Tesseract from 'tesseract.js';
-import pdf2pic from 'pdf-poppler';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 export class DocumentProcessor {
   async processDocument(documentId: number): Promise<void> {
@@ -209,64 +211,27 @@ export class DocumentProcessor {
             console.log(
               `⚠️ LlamaParse returned minimal content: ${extractedText?.length || 0} characters - trying Tesseract OCR...`,
             );
-            // Step 1.5: Tesseract OCR as a Fallback
+            // Step 1.5: Native Tesseract OCR as a Fallback
             try {
-              console.log(`🚀 Starting Tesseract OCR extraction for ${fileName}...`);
-
-              // Convert PDF first page to image
-              const options = {
-                format: 'jpeg',
-                out_dir: path.dirname(filePath),
-                out_prefix: path.basename(filePath, '.pdf'),
-                page: 1 // First page only for quick test
-              };
-
-              const imagePaths = await pdf2pic.convert(filePath, options);
-              if (imagePaths && imagePaths.length > 0) {
-                const imagePath = imagePaths[0];
-                console.log(`📷 Converted PDF to image: ${imagePath}`);
-
-                const { data: { text } } = await Tesseract.recognize(
-                  imagePath,
-                  'tha+eng', // Thai + English support
-                  {
-                    logger: m => {
-                      if (m.status === 'recognizing text') {
-                        console.log(`📄 OCR Progress: ${Math.round(m.progress * 100)}%`);
-                      }
-                    },
-                    tessedit_pageseg_mode: Tesseract.PSM.AUTO,
-                    tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY,
-                    tessedit_char_whitelist: 'กขคฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮะาเแโใไ่้๊๋์ํฯ๐๑๒๓๔๕๖๗๘๙ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?():;-',
-                    preserve_interword_spaces: '1'
-                  }
-                );
-
-                // Clean up temporary image file
-                try {
-                  await fs.promises.unlink(imagePath);
-                } catch (cleanupError) {
-                  console.log(`⚠️ Could not clean up temporary image: ${imagePath}`);
-                }
-
-                if (text && text.length > 10) {
-                  console.log(`✅ Tesseract OCR extracted ${text.length} characters`);
-                  
-                  // Check for Thai content
-                  const thaiRegex = /[\u0E00-\u0E7F]/;
-                  const hasThaiText = thaiRegex.test(text);
-                  console.log(`🇹🇭 Contains Thai text: ${hasThaiText ? 'Yes' : 'No'}`);
-                  
-                  return text;
-                } else {
-                  console.log(`⚠️ Tesseract OCR returned minimal content.`);
-                }
+              console.log(`🚀 Starting native Tesseract OCR extraction for ${fileName}...`);
+              
+              const ocrText = await this.ocrThaiPDF(filePath);
+              
+              if (ocrText && ocrText.length > 10) {
+                console.log(`✅ Native Tesseract OCR extracted ${ocrText.length} characters`);
+                
+                // Check for Thai content
+                const thaiRegex = /[\u0E00-\u0E7F]/;
+                const hasThaiText = thaiRegex.test(ocrText);
+                console.log(`🇹🇭 Contains Thai text: ${hasThaiText ? 'Yes' : 'No'}`);
+                
+                return ocrText;
               } else {
-                console.log(`⚠️ Failed to convert PDF to image for OCR.`);
+                console.log(`⚠️ Native Tesseract OCR returned minimal content.`);
               }
 
             } catch (tesseractError) {
-              console.error("❌ Tesseract OCR failed:", tesseractError);
+              console.error("❌ Native Tesseract OCR failed:", tesseractError);
             }
 
           }
@@ -622,6 +587,103 @@ export class DocumentProcessor {
       presentation: "📊",
     };
     return icons[category.toLowerCase() as keyof typeof icons] || "📁";
+  }
+
+  /**
+   * OCR Thai PDF using native Tesseract CLI
+   * Converts PDF pages to images and runs OCR on each page
+   */
+  private async ocrThaiPDF(pdfPath: string): Promise<string> {
+    const fileName = path.basename(pdfPath);
+    const tempDir = path.join(path.dirname(pdfPath), 'temp_ocr');
+    const outputPrefix = path.join(tempDir, 'page');
+
+    try {
+      // Create temporary directory
+      await fs.promises.mkdir(tempDir, { recursive: true });
+
+      console.log(`📄 Converting PDF pages to images for OCR...`);
+      
+      // Convert PDF to PNG images (all pages)
+      await execAsync(`pdftoppm -png "${pdfPath}" "${outputPrefix}"`);
+
+      // Find all generated image files
+      const files = await fs.promises.readdir(tempDir);
+      const imageFiles = files
+        .filter(f => f.startsWith('page-') && f.endsWith('.png'))
+        .sort((a, b) => {
+          const numA = parseInt(a.match(/page-(\d+)\.png/)?.[1] || '0');
+          const numB = parseInt(b.match(/page-(\d+)\.png/)?.[1] || '0');
+          return numA - numB;
+        });
+
+      console.log(`📷 Generated ${imageFiles.length} image files for OCR`);
+
+      if (imageFiles.length === 0) {
+        throw new Error('No images generated from PDF');
+      }
+
+      let allText = '';
+      
+      // Process each page with OCR
+      for (let i = 0; i < imageFiles.length; i++) {
+        const imagePath = path.join(tempDir, imageFiles[i]);
+        const pageNum = i + 1;
+        
+        try {
+          console.log(`🔍 OCR processing page ${pageNum}/${imageFiles.length}...`);
+          
+          // Run Tesseract OCR with Thai + English support
+          const { stdout } = await execAsync(`tesseract "${imagePath}" stdout -l tha+eng --psm 3 --oem 3`);
+          
+          if (stdout && stdout.trim().length > 0) {
+            const cleanText = stdout.trim();
+            allText += `--- Page ${pageNum} ---\n${cleanText}\n\n`;
+            console.log(`📄 Page ${pageNum}: ${cleanText.length} characters extracted`);
+          } else {
+            console.log(`⚠️ Page ${pageNum}: No text extracted`);
+          }
+          
+        } catch (pageError) {
+          console.log(`⚠️ OCR failed for page ${pageNum}:`, pageError.message);
+        }
+      }
+
+      // Clean up temporary files
+      try {
+        await fs.promises.rm(tempDir, { recursive: true, force: true });
+      } catch (cleanupError) {
+        console.log(`⚠️ Could not clean up temp directory: ${cleanupError.message}`);
+      }
+
+      if (allText.length > 10) {
+        // Check for Thai content
+        const thaiRegex = /[\u0E00-\u0E7F]/;
+        const hasThaiText = thaiRegex.test(allText);
+        
+        console.log(`✅ OCR completed successfully:`);
+        console.log(`   - Total characters: ${allText.length}`);
+        console.log(`   - Pages processed: ${imageFiles.length}`);
+        console.log(`   - Contains Thai text: ${hasThaiText ? 'Yes' : 'No'}`);
+        
+        return allText.trim();
+      } else {
+        console.log(`⚠️ OCR completed but extracted minimal text: ${allText.length} characters`);
+        return '';
+      }
+
+    } catch (error) {
+      console.error(`❌ OCR processing failed for ${fileName}:`, error.message);
+      
+      // Clean up on error
+      try {
+        await fs.promises.rm(tempDir, { recursive: true, force: true });
+      } catch (cleanupError) {
+        // Ignore cleanup errors
+      }
+      
+      throw error;
+    }
   }
 }
 
