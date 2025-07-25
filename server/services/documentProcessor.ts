@@ -253,21 +253,46 @@ export class DocumentProcessor {
     const fileName = path.basename(filePath);
 
     try {
-      // Initialize LlamaParse with optimized settings for large files
+      // Initialize LlamaParse with aggressive text extraction settings
       const parser = new LlamaParseReader({
         apiKey: process.env.LLAMA_CLOUD_API_KEY!,
         resultType: "text",
+        verboseMode: true,
+        fastMode: false,
         parsingInstruction: `
-          Extract all text content including:
-          - Headers, footers, and page numbers
-          - Tables with proper structure
-          - Lists and bullet points
-          - Formatted text and annotations
-          - Multiple columns if present
+          COMPREHENSIVE TEXT EXTRACTION - Extract ALL visible text content including:
           
-          For documents (${Math.ceil(fileSizeMB)}MB), ensure comprehensive extraction.
-          Preserve document structure and meaning.
-          Handle Thai, English, and mixed-language content.
+          PRIMARY CONTENT:
+          - All body text, paragraphs, and sentences
+          - Headers, subheaders, and section titles
+          - Footers, page numbers, and references
+          - Captions, labels, and annotations
+          
+          STRUCTURED DATA:
+          - Tables: Extract all cell contents with structure
+          - Lists: Extract all bullet points and numbered items
+          - Forms: Extract field labels and values
+          - Multiple columns: Process left-to-right, top-to-bottom
+          
+          FORMATTING PRESERVATION:
+          - Bold, italic, and emphasized text
+          - Special characters and symbols
+          - Line breaks and paragraph spacing
+          - Indentation and hierarchical structure
+          
+          LANGUAGE HANDLING:
+          - Thai text: Extract all Thai characters and diacritics
+          - English text: Extract all English content
+          - Mixed content: Preserve original language order
+          - Numbers, dates, and currency symbols
+          
+          QUALITY REQUIREMENTS:
+          - Extract even small text (footnotes, fine print)
+          - Include watermarks and background text if visible
+          - Process overlapping or complex layouts
+          - Ensure no text is skipped or truncated
+          
+          For ${Math.ceil(fileSizeMB)}MB document: Use maximum extraction depth and thoroughness.
         `,
       });
 
@@ -296,7 +321,7 @@ export class DocumentProcessor {
         `⏱️ LlamaParse processing time: ${processingTime.toFixed(2)}s`,
       );
 
-      console.log(`-----Llama parsed into ${documents.length}`);
+      console.log(`-----Llama parsed into ${documents.length} documents`);
 
       if (documents && documents.length > 0) {
         progressBar.update(3, { eta: "Combining extracted text..." });
@@ -305,10 +330,20 @@ export class DocumentProcessor {
         const extractedText = documents
           .map((doc: any, index: number) => {
             const text = doc.getText();
+            console.log(`📄 Page ${index + 1}: ${text?.length || 0} characters`);
             return text ? `--- Page ${index + 1} ---\n${text}` : "";
           })
           .filter((text) => text.length > 0)
           .join("\n\n");
+
+        const expectedMinLength = Math.max(fileSizeMB * 500, 2000); // Expect at least 500 chars per MB
+        
+        console.log(`📊 Extraction results: ${extractedText.length} chars (expected min: ${expectedMinLength})`);
+        
+        if (extractedText.length < expectedMinLength && extractedText.length > 0) {
+          console.log(`⚠️ Low extraction rate: ${((extractedText.length / expectedMinLength) * 100).toFixed(1)}% of expected`);
+          console.log(`🔍 Sample extracted text (first 200 chars): ${extractedText.substring(0, 200)}...`);
+        }
 
         if (extractedText.length > 50) {
           console.log(
