@@ -1124,9 +1124,22 @@ ${imageAnalysisResult}
               console.error(`LINE OA: AI-enhanced keyword search failed:`, keywordError);
             }
 
-            // Use hybrid search with proper document filtering - same as debug page
+            // Use enhanced search query for vector search if available from keyword expansion
+            let vectorSearchQuery = contextMessage;
+            
+            // Check if we have enhanced keywords from AI expansion
+            if (keywordSearchResults.length > 0 && keywordSearchResults[0].aiKeywordExpansion?.expandedKeywords) {
+              const expandedKeywords = keywordSearchResults[0].aiKeywordExpansion.expandedKeywords;
+              // Combine original query with expanded keywords for better vector search
+              vectorSearchQuery = `${contextMessage} ${expandedKeywords.join(' ')}`;
+              console.log(`LINE OA: Enhanced vector search query: "${vectorSearchQuery}"`);
+            } else {
+              console.log(`LINE OA: Using original query for vector search: "${vectorSearchQuery}"`);
+            }
+
+            // Use hybrid search with enhanced query and proper document filtering
             const searchResults = await semanticSearchServiceV2.searchDocuments(
-              contextMessage,
+              vectorSearchQuery,
               lineIntegration.userId,
               {
                 searchType: 'hybrid',
