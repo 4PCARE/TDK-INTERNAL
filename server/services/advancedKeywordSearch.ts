@@ -1,9 +1,11 @@
 import { storage } from '../storage';
+import { aiKeywordExpansionService } from './aiKeywordExpansion';
 
 interface SearchTerm {
   term: string;
   weight: number;
   fuzzy?: boolean;
+  source?: 'original' | 'ai_expanded' | 'contextual';
 }
 
 interface DocumentScore {
@@ -333,6 +335,117 @@ export class AdvancedKeywordSearchService {
     }
 
     return boostedScore;
+  }
+
+  // AI-Enhanced search with chat history context
+  async searchDocumentsWithAI(
+    query: string,
+    userId: string,
+    chatHistory: Array<{messageType: string; content: string; createdAt: Date}> = [],
+    limit: number = 20,
+    specificDocumentIds?: number[]
+  ): Promise<Array<{
+    id: number;
+    name: string;
+    content: string;
+    summary?: string | null;
+    aiCategory?: string | null;
+    similarity: number;
+    createdAt: string;
+    matchedTerms: string[];
+    matchDetails: any;
+    aiKeywordExpansion?: {
+      expandedKeywords: string[];
+      isContextual: boolean;
+      confidence: number;
+    };
+  }>> {
+    try {
+      // Get all documents for the user
+      let documents = await storage.getDocuments(userId);
+      console.log(`AI-enhanced keyword search: Found ${documents.length} total documents for user ${userId}`);
+
+      // Filter by specific document IDs if provided
+      if (specificDocumentIds && specificDocumentIds.length > 0) {
+        documents = documents.filter(doc => specificDocumentIds.includes(doc.id));
+        console.log(`AI-enhanced search: Filtered to ${documents.length} documents from specific IDs: [${specificDocumentIds.join(', ')}]`);
+      }
+
+      // Get AI keyword expansion
+      console.log(`Getting AI keyword expansion for: "${query}"`);
+      const expansionResult = await aiKeywordExpansionService.getExpandedSearchTerms(query, chatHistory);
+      
+      console.log(`AI Expansion Result:`, {
+        original: expansionResult.original,
+        expanded: expansionResult.expanded,
+        isContextual: expansionResult.isContextual,
+        confidence: expansionResult.confidence
+      });
+
+      // Parse original query
+      const originalSearchTerms = this.parseQuery(query);
+      
+      // Create enhanced search terms combining original and AI-expanded
+      const enhancedSearchTerms: SearchTerm[] = [
+        // Original terms with high weight
+        ...originalSearchTerms.map(term => ({
+          ...term,
+          source: 'original' as const
+        })),
+        
+        // AI-expanded terms with contextual weight
+        ...expansionResult.expanded
+          .filter(keyword => !originalSearchTerms.some(ot => ot.term.toLowerCase() === keyword.toLowerCase()))
+          .map(keyword => ({
+            term: keyword,
+            weight: expansionResult.isContextual ? 0.8 : 0.6, // Higher weight if contextual
+            fuzzy: keyword.length >= 4,
+            source: expansionResult.isContextual ? 'contextual' as const : 'ai_expanded' as const
+          }))
+      ];
+
+      console.log(`Enhanced search terms:`, enhancedSearchTerms.map(t => `${t.term}(${t.weight}, ${t.source})`));
+
+      // Calculate document scores with enhanced terms
+      const documentScores = this.calculateDocumentScores(documents, enhancedSearchTerms);
+
+      // Sort by relevance and limit results
+      documentScores.sort((a, b) => b.score - a.score);
+      const topDocuments = documentScores.slice(0, limit);
+
+      // Format results with AI expansion info
+      const results = topDocuments
+        .filter(doc => doc.score > 0.1) // Minimum relevance threshold
+        .map(docScore => {
+          const document = documents.find(d => d.id === docScore.documentId)!;
+
+          return {
+            id: document.id,
+            name: document.name,
+            content: document.content || '',
+            summary: document.summary,
+            aiCategory: document.aiCategory,
+            similarity: Math.min(docScore.score / 10, 1.0), // Normalize to 0-1
+            createdAt: document.createdAt.toISOString(),
+            matchedTerms: docScore.matchedTerms,
+            matchDetails: docScore.matchDetails,
+            aiKeywordExpansion: {
+              expandedKeywords: expansionResult.expanded,
+              isContextual: expansionResult.isContextual,
+              confidence: expansionResult.confidence
+            }
+          };
+        });
+
+      console.log(`AI-enhanced keyword search returned ${results.length} results with expansion confidence: ${expansionResult.confidence}`);
+      return results;
+
+    } catch (error) {
+      console.error('AI-enhanced keyword search error:', error);
+      // Fallback to regular search
+      console.log('Falling back to regular keyword search...');
+      return this.searchDocuments(query, userId, limit, specificDocumentIds);
+    }
   }
 
   // Method to get keyword highlights for display

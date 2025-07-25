@@ -389,7 +389,7 @@ async function getAiResponseDirectly(
         // Search for relevant chunks ONLY from agent's documents using hybrid search
         const agentDocIds = agentDocs.map(d => d.documentId);
         console.log(`LINE OA: Using hybrid search with agent's ${agentDocIds.length} documents: [${agentDocIds.join(', ')}]`);
-        
+
         const hybridResults = await semanticSearchServiceV2.searchDocuments(
           userMessage,
           userId,
@@ -896,7 +896,7 @@ export async function handleLineWebhook(req: Request, res: Response) {
 
         // Check if this message has already been processed
         const messageId = message.id;
-        if (processedMessageIds.has(messageId)) {
+if (processedMessageIds.has(messageId)) {
           console.log(`⚠️ Message ${messageId} already processed, skipping...`);
           continue;
         }
@@ -1084,9 +1084,34 @@ ${imageAnalysisResult}
           let aiResponse = "";
 
           try {
-            // Ensure agentDocIds is defined before using it
-            const agentDocIds = agentDocs.map(d => d.documentId);
-            console.log(`LINE OA: Performing hybrid search with document restriction to ${agentDocIds.length} documents: [${agentDocIds.join(', ')}]`);
+            // Get recent chat history for AI keyword expansion
+            const recentChatHistory = chatHistory.slice(-5).map(msg => ({
+              messageType: msg.messageType,
+              content: msg.content,
+              createdAt: new Date(msg.createdAt)
+            }));
+
+            // Try AI-enhanced keyword search first
+            console.log(`LINE OA: Attempting AI-enhanced keyword search for contextual understanding`);
+            const { advancedKeywordSearchService } = await import('./services/advancedKeywordSearch');
+
+            let keywordSearchResults = [];
+            try {
+              keywordSearchResults = await advancedKeywordSearchService.searchDocumentsWithAI(
+                contextMessage,
+                lineIntegration.userId,
+                recentChatHistory,
+                5, // Limit to top 5 for keyword search
+                agentDocIds
+              );
+
+              console.log(`LINE OA: AI-enhanced keyword search found ${keywordSearchResults.length} results`);
+              if (keywordSearchResults.length > 0 && keywordSearchResults[0].aiKeywordExpansion) {
+                console.log(`LINE OA: AI expansion - Contextual: ${keywordSearchResults[0].aiKeywordExpansion.isContextual}, Confidence: ${keywordSearchResults[0].aiKeywordExpansion.confidence}, Keywords: [${keywordSearchResults[0].aiKeywordExpansion.expandedKeywords.join(', ')}]`);
+              }
+            } catch (keywordError) {
+              console.error(`LINE OA: AI-enhanced keyword search failed:`, keywordError);
+            }
 
             // Use hybrid search with proper document filtering - same as debug page
             const searchResults = await semanticSearchV2.hybridSearch(
@@ -1102,11 +1127,37 @@ ${imageAnalysisResult}
 
             console.log(`LINE OA: Hybrid search found ${searchResults.length} relevant chunks from agent's documents`);
 
-            if (searchResults.length > 0) {
+            // Combine keyword and vector search results intelligently
+            let combinedResults = searchResults;
+
+            if (keywordSearchResults.length > 0) {
+              // If AI keyword search found contextual results with high confidence, prioritize them
+              const topKeywordResult = keywordSearchResults[0];
+              if (topKeywordResult.aiKeywordExpansion?.isContextual && topKeywordResult.aiKeywordExpansion.confidence > 0.7) {
+                console.log(`LINE OA: High-confidence contextual match found, prioritizing keyword results`);
+
+                // Convert keyword results to chunk format for consistency
+                const keywordChunks = keywordSearchResults.slice(0, 2).map(result => ({
+                  document: { name: result.name },
+                  content: result.content.substring(0, 2000), // Limit content size
+                  similarity: result.similarity
+                }));
+
+                // Merge with vector results, giving priority to keyword results
+                combinedResults = [
+                  ...keywordChunks,
+                  ...searchResults.slice(0, 2 - keywordChunks.length)
+                ];
+
+                console.log(`LINE OA: Combined ${keywordChunks.length} keyword + ${searchResults.slice(0, 2 - keywordChunks.length).length} vector results`);
+              }
+            }
+
+            if (combinedResults.length > 0) {
               // Step 1: Pool ALL chunks from ALL documents together
               const allChunks = [];
-              
-              for (const result of searchResults) {
+
+              for (const result of combinedResults) {
                 allChunks.push({
                   docName: result.document.name,
                   content: result.content,
@@ -1119,7 +1170,7 @@ ${imageAnalysisResult}
               // Step 2: Sort ALL chunks globally by similarity and take top 2
               allChunks.sort((a, b) => b.similarity - a.similarity);
               const finalTop2Chunks = allChunks.slice(0, 2);
-              
+
               console.log(`LINE OA: Selected globally top 2 chunks from entire pool:`);
               finalTop2Chunks.forEach((chunk, idx) => {
                 console.log(`  ${idx + 1}. ${chunk.docName} - Similarity: ${chunk.similarity.toFixed(4)}`);
@@ -1129,11 +1180,11 @@ ${imageAnalysisResult}
               // Build context with string length limit as final safeguard
               let documentContext = "";
               const maxContextLength = 8000; // String limit as final check
-              
+
               for (let i = 0; i < finalTop2Chunks.length; i++) {
                 const chunk = finalTop2Chunks[i];
                 const chunkText = `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
-                
+
                 // Check if adding this chunk would exceed the limit
                 if (documentContext.length + chunkText.length <= maxContextLength) {
                   documentContext += chunkText;

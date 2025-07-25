@@ -1,17 +1,19 @@
 import express from "express";
-import { vectorService } from "./services/vectorService";
 import { storage } from "./storage";
+import { semanticSearchV2 } from "./services/semanticSearchV2";
+import { generateChatResponse } from "./services/openai";
+import { aiKeywordExpansionService } from "./services/aiKeywordExpansion";
 
 const router = express.Router();
 
 router.post("/debug/ai-input", async (req, res) => {
   try {
     res.setHeader('Content-Type', 'application/json');
-    
+
     if (!req.body) {
       return res.status(400).json({ error: "Request body is required" });
     }
-    
+
     const { userMessage, specificDocumentId, userId, searchType = 'vector', keywordWeight = 0.3, vectorWeight = 0.7 } = req.body;
 
     if (!userMessage || !userId) {
@@ -54,33 +56,33 @@ router.post("/debug/ai-input", async (req, res) => {
           // Use advanced keyword search for better results
           try {
             const { advancedKeywordSearchService } = await import('./services/advancedKeywordSearch');
-            
+
             // Create a mock document array with just this document
             const mockDocuments = [{
               ...doc,
               userId: userId
             }];
-            
+
             // Temporarily override storage.getDocuments for this search
             const originalGetDocuments = storage.getDocuments;
             storage.getDocuments = async () => mockDocuments as any;
-            
+
             const advancedResults = await advancedKeywordSearchService.searchDocuments(
               userMessage, userId, 5
             );
-            
+
             // Restore original method
             storage.getDocuments = originalGetDocuments;
-            
+
             if (advancedResults.length > 0 && advancedResults[0].similarity > 0.1) {
               const result = advancedResults[0];
               console.log(`DEBUG: Advanced keyword search found match with similarity ${result.similarity}`);
-              
+
               // Get highlights for better context
               const highlights = advancedKeywordSearchService.getHighlights(
                 doc.content || '', result.matchedTerms, 1500
               );
-              
+
               const keywordChunks = highlights.map((highlight, idx) => 
                 `=== RELEVANT CHUNK ${idx + 1} (Advanced Score: ${result.similarity.toFixed(3)}) ===\n${highlight}`
               ).join('\n\n---\n\n');
@@ -113,10 +115,10 @@ router.post("/debug/ai-input", async (req, res) => {
 
               searchMetrics.keywordResults = 0;
             }
-            
+
           } catch (advancedSearchError) {
             console.error("Advanced keyword search failed, falling back to basic:", advancedSearchError);
-            
+
             // Fallback to basic keyword search
             const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
             const docContent = doc.content || '';
@@ -1106,6 +1108,39 @@ router.get("/debug/find-xolo/:userId", async (req, res) => {
     console.error("XOLO search debug error:", error);
     res.status(500).json({ error: "XOLO search debug failed" });
   }
+});
+
+// Debug endpoint to test AI keyword expansion
+router.post("/debug/ai-keyword-expansion", async (req, res) => {
+    try {
+        const { userMessage, chatHistory, userId } = req.body;
+
+        if (!userMessage || !userId) {
+            return res.status(400).json({ error: "Missing required parameters: userMessage, userId" });
+        }
+
+        console.log(`=== AI KEYWORD EXPANSION DEBUG ===`);
+        console.log(`User Message: ${userMessage}`);
+        console.log(`User ID: ${userId}`);
+
+        // Call the AI keyword expansion service
+        const expandedKeywords = await aiKeywordExpansionService.generateRelatedKeywords(
+            userMessage,
+            chatHistory,
+            userId
+        );
+
+        console.log(`Expanded Keywords: ${JSON.stringify(expandedKeywords, null, 2)}`);
+
+        res.json({
+            originalMessage: userMessage,
+            expandedKeywords
+        });
+
+    } catch (error) {
+        console.error("AI keyword expansion debug error:", error);
+        res.status(500).json({ error: "AI keyword expansion debug failed", details: error.message });
+    }
 });
 
 export default router;
