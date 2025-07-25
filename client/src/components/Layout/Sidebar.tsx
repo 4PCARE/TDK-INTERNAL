@@ -201,7 +201,7 @@ export default function Sidebar({
             </div>
           </div>
 
-          <div className="flex-1 p-3 space-y-6 overflow-y-auto relative">
+          <div className="flex-1 p-3 space-y-6 overflow-y-auto relative scrollbar-hide">
             {/* Middle Toggle Button for Desktop */}
             {onToggleCollapse && (
               <Button
