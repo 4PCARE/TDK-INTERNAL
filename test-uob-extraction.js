@@ -67,51 +67,40 @@ async function testUOBExtraction() {
       resultType: "text",
       verboseMode: true,
       fastMode: false,
-      // Enhanced settings for image-scanned Thai documents
-      splitByPage: false,
-      skipDiagonalText: false,
-      takeScreenshot: true,
-      useTextractOcr: true,
-      premiumMode: true,
       parsingInstruction: `
-        ADVANCED THAI OCR EXTRACTION - This is a scanned Thai document requiring intensive OCR processing:
+        COMPREHENSIVE TEXT EXTRACTION - Extract ALL visible text content including:
         
-        OCR OPTIMIZATION:
-        - Apply maximum OCR strength for scanned images
-        - Use advanced character recognition for Thai script (ก-ฮ, ะ-ฺ, เ-ไ)
-        - Process all diacritics and tone marks accurately
-        - Handle mixed Thai-English content with proper language detection
-        - Extract numbers in both Thai (๐-๙) and Arabic (0-9) numerals
+        PRIMARY CONTENT:
+        - All body text, paragraphs, and sentences
+        - Headers, subheaders, and section titles
+        - Footers, page numbers, and references
+        - Captions, labels, and annotations
         
-        VISUAL PROCESSING:
-        - Analyze entire page as image first before text extraction
-        - Process low-contrast text and faded sections
-        - Handle rotated or skewed text orientation
-        - Extract text from complex backgrounds and overlays
-        - Process multi-column layouts carefully (left-to-right, top-to-bottom)
+        STRUCTURED DATA:
+        - Tables: Extract all cell contents with structure
+        - Lists: Extract all bullet points and numbered items
+        - Forms: Extract field labels and values
+        - Multiple columns: Process left-to-right, top-to-bottom
         
-        CONTENT EXTRACTION:
-        - Extract ALL visible text including headers, body, footers
-        - Capture table contents with proper cell structure
-        - Include bullet points, numbered lists, and form fields
-        - Process promotional text, terms, conditions, and fine print
-        - Extract dates, percentages, currency amounts, and contact information
+        FORMATTING PRESERVATION:
+        - Bold, italic, and emphasized text
+        - Special characters and symbols
+        - Line breaks and paragraph spacing
+        - Indentation and hierarchical structure
         
-        THAI LANGUAGE SPECIFICS:
-        - Recognize Thai sentence structure without spaces
-        - Handle compound words and technical terms
-        - Process banking/financial terminology in Thai
-        - Extract proper nouns and brand names accurately
-        - Maintain original text flow and reading order
+        LANGUAGE HANDLING:
+        - Thai text: Extract all Thai characters and diacritics
+        - English text: Extract all English content
+        - Mixed content: Preserve original language order
+        - Numbers, dates, and currency symbols
         
-        QUALITY ASSURANCE:
-        - Double-check OCR accuracy for critical information
-        - Verify numerical data and monetary amounts
-        - Ensure complete extraction from all page regions
-        - Process watermarks and background elements if readable
+        QUALITY REQUIREMENTS:
+        - Extract even small text (footnotes, fine print)
+        - Include watermarks and background text if visible
+        - Process overlapping or complex layouts
+        - Ensure no text is skipped or truncated
         
-        Document: UOB Credit Card Promotion in Thai - Apply maximum processing power and OCR precision.
-        Expected output: Comprehensive Thai text extraction with high fidelity.
+        Use maximum extraction depth and thoroughness for this credit card document.
       `
     });
     
