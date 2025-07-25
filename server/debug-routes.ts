@@ -1177,7 +1177,7 @@ router.get('/test-advanced-keyword-search', async (req, res) => {
           name: r.name,
           similarity: r.similarity,
           matchedTerms: r.matchedTerms,
-          aiKeywordExpansion: r.aiKeywordExpansion,
+          aiKeywordExpansion: r.aiKeywordExpansion || null,
           contentPreview: r.content.substring(0, 200) + '...'
         }))
       }

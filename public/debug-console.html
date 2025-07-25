@@ -646,30 +646,37 @@
                     setOutput('searchOutput', `Network Error: ${error}`, 'error');
                 } else if (!ok) {
                     setOutput('searchOutput', `HTTP ${response.status}: ${JSON.stringify(data, null, 2)}`, 'error');
+                } else if (!data || !data.regularSearch || !data.aiEnhancedSearch) {
+                    setOutput('searchOutput', `Invalid response format: ${JSON.stringify(data, null, 2)}`, 'error');
                 } else {
+                    const regularResults = data.regularSearch.results || 0;
+                    const aiResults = data.aiEnhancedSearch.results || 0;
+                    const regularDocs = data.regularSearch.documents || [];
+                    const aiDocs = data.aiEnhancedSearch.documents || [];
+                    
                     const output = `✅ Advanced Keyword Search Results:
 Query: "${query}"
 User ID: ${userId}
 
-Regular Search: ${data.regularSearch.results} results
-AI Enhanced Search: ${data.aiEnhancedSearch.results} results
+Regular Search: ${regularResults} results
+AI Enhanced Search: ${aiResults} results
 
 Regular Results:
-${data.regularSearch.documents.map((doc, i) => 
+${regularDocs.length > 0 ? regularDocs.map((doc, i) => 
     `${i+1}. ${doc.name} (ID: ${doc.id})
-   Similarity: ${doc.similarity.toFixed(4)}
-   Matched Terms: ${doc.matchedTerms.join(', ')}
-   Preview: ${doc.contentPreview}`
-).join('\n\n')}
+   Similarity: ${doc.similarity ? doc.similarity.toFixed(4) : 'N/A'}
+   Matched Terms: ${doc.matchedTerms ? doc.matchedTerms.join(', ') : 'None'}
+   Preview: ${doc.contentPreview || 'No preview'}`
+).join('\n\n') : 'No regular search results'}
 
 AI Enhanced Results:
-${data.aiEnhancedSearch.documents.map((doc, i) => 
+${aiDocs.length > 0 ? aiDocs.map((doc, i) => 
     `${i+1}. ${doc.name} (ID: ${doc.id})
-   Similarity: ${doc.similarity.toFixed(4)}
-   Matched Terms: ${doc.matchedTerms.join(', ')}
-   AI Keywords: ${doc.aiKeywordExpansion ? doc.aiKeywordExpansion.join(', ') : 'None'}
-   Preview: ${doc.contentPreview}`
-).join('\n\n')}`;
+   Similarity: ${doc.similarity ? doc.similarity.toFixed(4) : 'N/A'}
+   Matched Terms: ${doc.matchedTerms ? doc.matchedTerms.join(', ') : 'None'}
+   AI Keywords: ${doc.aiKeywordExpansion?.expandedKeywords ? doc.aiKeywordExpansion.expandedKeywords.join(', ') : 'None'}
+   Preview: ${doc.contentPreview || 'No preview'}`
+).join('\n\n') : 'No AI enhanced search results'}`;
                     
                     setOutput('searchOutput', output, 'success');
                 }
