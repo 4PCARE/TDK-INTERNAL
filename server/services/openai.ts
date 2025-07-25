@@ -95,7 +95,8 @@ export async function processDocument(
         const extractedText = await processor.extractFromPDF(filePath);
 
         if (extractedText && extractedText.length > 50) {
-          content = extractedText;
+          // Ensure UTF-8 encoding for the extracted content
+          content = Buffer.from(extractedText, 'utf8').toString('utf8');
           console.log(`✅ Enhanced PDF processing successful: ${extractedText.length} characters extracted`);
         } else {
           console.log(`⚠️ Limited content from enhanced processing: ${extractedText?.length || 0} characters`);

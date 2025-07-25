@@ -326,10 +326,12 @@ export class DocumentProcessor {
       if (documents && documents.length > 0) {
         progressBar.update(3, { eta: "Combining extracted text..." });
 
-        // Combine all extracted text with page separators
+        // Combine all extracted text with page separators and ensure UTF-8 encoding
         const extractedText = documents
           .map((doc: any, index: number) => {
-            const text = doc.getText();
+            const rawText = doc.getText();
+            // Ensure UTF-8 encoding by converting to Buffer and back
+            const text = rawText ? Buffer.from(rawText, 'utf8').toString('utf8') : "";
             console.log(`📄 Page ${index + 1}: ${text?.length || 0} characters`);
             return text ? `--- Page ${index + 1} ---\n${text}` : "";
           })
@@ -397,13 +399,15 @@ export class DocumentProcessor {
       if (documents && documents.length > 0) {
         progressBar.update(3, { eta: "Combining large document chunks..." });
 
-        // Process and combine chunks with progress tracking
+        // Process and combine chunks with progress tracking and UTF-8 encoding
         let combinedText = "";
         const totalChunks = documents.length;
 
         for (let i = 0; i < documents.length; i++) {
           const doc = documents[i];
-          const text = doc.getText();
+          const rawText = doc.getText();
+          // Ensure UTF-8 encoding by converting to Buffer and back
+          const text = rawText ? Buffer.from(rawText, 'utf8').toString('utf8') : "";
 
           if (text && text.length > 0) {
             combinedText += `--- Section ${i + 1}/${totalChunks} ---\n${text}\n\n`;

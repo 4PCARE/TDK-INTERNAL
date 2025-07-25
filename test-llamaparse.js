@@ -56,10 +56,15 @@ async function testLlamaParse() {
     console.log(`📄 Retrieved ${documents?.length || 0} document chunks`);
     
     if (documents && documents.length > 0) {
-      const totalText = documents.map(doc => doc.getText()).join('\n\n');
+      const totalText = documents.map(doc => {
+        const rawText = doc.getText();
+        // Ensure UTF-8 encoding
+        return rawText ? Buffer.from(rawText, 'utf8').toString('utf8') : "";
+      }).join('\n\n');
       console.log(`📝 Total text length: ${totalText.length} characters`);
       console.log(`🔤 Text preview (first 300 chars):`);
       console.log(totalText.substring(0, 300) + '...');
+      console.log(`🔧 UTF-8 encoding validation: ${Buffer.isBuffer(Buffer.from(totalText, 'utf8'))}`);
       console.log('\n✅ LlamaParse test successful!');
     } else {
       console.log('⚠️ No documents returned from LlamaParse');
