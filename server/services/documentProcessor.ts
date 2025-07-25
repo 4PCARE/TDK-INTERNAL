@@ -259,6 +259,7 @@ export class DocumentProcessor {
         resultType: "markdown",
         verboseMode: true,
         fastMode: false,
+        enhanced: true,
         parsingInstruction: `
           COMPREHENSIVE TEXT EXTRACTION WITH OCR - Extract ALL visible text content including:
           
