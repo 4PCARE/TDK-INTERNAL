@@ -374,7 +374,7 @@ export class AdvancedKeywordSearchService {
       // Get AI keyword expansion
       console.log(`Getting AI keyword expansion for: "${query}"`);
       const expansionResult = await aiKeywordExpansionService.getExpandedSearchTerms(query, chatHistory);
-      
+
       console.log(`AI Expansion Result:`, {
         original: expansionResult.original,
         expanded: expansionResult.expanded,
@@ -384,7 +384,7 @@ export class AdvancedKeywordSearchService {
 
       // Parse original query
       const originalSearchTerms = this.parseQuery(query);
-      
+
       // Create enhanced search terms combining original and AI-expanded
       const enhancedSearchTerms: SearchTerm[] = [
         // Original terms with high weight
@@ -392,7 +392,7 @@ export class AdvancedKeywordSearchService {
           ...term,
           source: 'original' as const
         })),
-        
+
         // AI-expanded terms with contextual weight
         ...expansionResult.expanded
           .filter(keyword => !originalSearchTerms.some(ot => ot.term.toLowerCase() === keyword.toLowerCase()))
@@ -472,9 +472,8 @@ export class AdvancedKeywordSearchService {
 
     return highlights.slice(0, 5); // Max 5 highlights total
   }
-}
 
-// Chunk-based search method
+  // Chunk-based search method
   async searchDocumentChunks(
     query: string,
     userId: string,
@@ -719,7 +718,7 @@ export class AdvancedKeywordSearchService {
       // Get AI keyword expansion
       console.log(`Getting AI keyword expansion for: "${query}"`);
       const expansionResult = await aiKeywordExpansionService.getExpandedSearchTerms(query, chatHistory);
-      
+
       console.log(`AI Expansion Result:`, {
         original: expansionResult.original,
         expanded: expansionResult.expanded,
@@ -729,7 +728,7 @@ export class AdvancedKeywordSearchService {
 
       // Parse original query
       const originalSearchTerms = this.parseQuery(query);
-      
+
       // Create enhanced search terms combining original and AI-expanded
       const enhancedSearchTerms: SearchTerm[] = [
         // Original terms with high weight
@@ -737,7 +736,7 @@ export class AdvancedKeywordSearchService {
           ...term,
           source: 'original' as const
         })),
-        
+
         // AI-expanded terms with contextual weight
         ...expansionResult.expanded
           .filter(keyword => !originalSearchTerms.some(ot => ot.term.toLowerCase() === keyword.toLowerCase()))
@@ -791,5 +790,6 @@ export class AdvancedKeywordSearchService {
       return this.searchDocumentChunks(query, userId, limit, specificDocumentIds);
     }
   }
+}
 
 export const advancedKeywordSearchService = new AdvancedKeywordSearchService();
