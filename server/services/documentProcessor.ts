@@ -416,6 +416,8 @@ export class DocumentProcessor {
       throw error;
     }
   }
+    }
+  }
 
   private async extractFromDOCX(filePath: string): Promise<string> {
     try {
