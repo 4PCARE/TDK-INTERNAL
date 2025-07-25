@@ -42,7 +42,7 @@ async function testLlamaParse() {
     
     const parser = new LlamaParseReader({
       apiKey: process.env.LLAMA_CLOUD_API_KEY,
-      resultType: "text",
+      resultType: "markdown",
       parsingInstruction: "Extract all text content including tables, headers, and formatted text. Preserve structure and meaning."
     });
     

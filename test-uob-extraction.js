@@ -64,7 +64,7 @@ async function testUOBExtraction() {
     
     const parser = new LlamaParseReader({
       apiKey: process.env.LLAMA_CLOUD_API_KEY,
-      resultType: "text",
+      resultType: "markdown",
       verboseMode: true,
       fastMode: false,
       parsingInstruction: `
