@@ -1080,10 +1080,13 @@ ${imageAnalysisResult}
           console.log(`LINE OA: Using ${agentDocuments.length} documents for hybrid search`);
 
           // Use hybrid search with document scope restriction like debug routes
-          const { semanticSearchV2 } = await import('./services/semanticSearchV2');
+          const { semanticSearchServiceV2 } = await import('./services/semanticSearchV2');
           let aiResponse = "";
 
           try {
+            // Extract agent document IDs for search filtering
+            const agentDocIds = agentDocuments.map(doc => doc.id);
+
             // Get recent chat history for AI keyword expansion
             const fullChatHistory = await storage.getChatHistory(
               lineIntegration.userId,
@@ -1122,7 +1125,7 @@ ${imageAnalysisResult}
             }
 
             // Use hybrid search with proper document filtering - same as debug page
-            const searchResults = await semanticSearchV2.hybridSearch(
+            const searchResults = await semanticSearchServiceV2.hybridSearch(
               contextMessage,
               lineIntegration.userId,
               {
