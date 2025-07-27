@@ -1,0 +1,741 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Prompt Inspector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #334155;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.2);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .form-card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            margin-bottom: 30px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #475569;
+            font-size: 0.95rem;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            background: #fafbfc;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-family: inherit;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .loading {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            color: #667eea;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+
+        .loading.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e2e8f0;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.active {
+            display: block;
+        }
+
+        .result-section {
+            background: white;
+            margin-bottom: 25px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            border: 1px solid #e2e8f0;
+        }
+
+        .result-header {
+            background: #f8fafc;
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .result-header h3 {
+            color: #1e293b;
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .result-content {
+            padding: 25px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .chunk-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        }
+
+        .chunk-item {
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+            transition: background-color 0.2s ease;
+        }
+
+        .chunk-item:hover {
+            background: #f8fafc;
+        }
+
+        .chunk-item:last-child {
+            border-bottom: none;
+        }
+
+        .chunk-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .chunk-id {
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 0.9rem;
+        }
+
+        .chunk-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-similarity {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-keyword {
+            background: #f0fdf4;
+            color: #166534;
+        }
+
+        .badge-vector {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-rank {
+            background: #fce7f3;
+            color: #be185d;
+        }
+
+        .chunk-content {
+            font-size: 0.85rem;
+            color: #475569;
+            background: #f8fafc;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 3px solid #e2e8f0;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .success {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .copy-btn {
+            background: #64748b;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            margin-left: 10px;
+        }
+
+        .copy-btn:hover {
+            background: #475569;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 AI Prompt Inspector</h1>
+            <p>Debug and inspect the exact prompts sent to the AI system</p>
+        </div>
+
+        <div class="form-card">
+            <form id="promptForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="userQuery">User Query:</label>
+                        <textarea 
+                            id="userQuery" 
+                            placeholder="Enter the user's question..."
+                            required
+                        >XOLO เดอะมอลล์บางกะปิอยู่ชั้นไหน</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="documentIds">Document IDs (comma-separated):</label>
+                        <textarea 
+                            id="documentIds" 
+                            placeholder="e.g. 213, 214, 215 (leave empty for all documents)"
+                        >213</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="userId">User ID:</label>
+                        <input 
+                            type="text" 
+                            id="userId" 
+                            placeholder="e.g. 43981095" 
+                            value="43981095"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="searchType">Search Type:</label>
+                        <select id="searchType">
+                            <option value="hybrid">Hybrid Search (Recommended)</option>
+                            <option value="vector">Vector Search</option>
+                            <option value="keyword">Keyword Search</option>
+                            <option value="weighted">Weighted Search</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="keywordWeight">Keyword Weight:</label>
+                        <input 
+                            type="range" 
+                            id="keywordWeight" 
+                            min="0" 
+                            max="1" 
+                            step="0.1" 
+                            value="0.4"
+                        >
+                        <span id="keywordWeightValue">0.4</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vectorWeight">Vector Weight:</label>
+                        <input 
+                            type="range" 
+                            id="vectorWeight" 
+                            min="0" 
+                            max="1" 
+                            step="0.1" 
+                            value="0.6"
+                        >
+                        <span id="vectorWeightValue">0.6</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn" id="inspectBtn">
+                    🔍 Inspect AI Prompt
+                </button>
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <span>Analyzing prompt generation...</span>
+                </div>
+            </form>
+        </div>
+
+        <div class="results" id="results">
+            <!-- Results will be populated here -->
+        </div>
+    </div>
+
+    <script>
+        // Update weight displays
+        document.getElementById('keywordWeight').addEventListener('input', function() {
+            const value = parseFloat(this.value);
+            document.getElementById('keywordWeightValue').textContent = value.toFixed(1);
+            // Auto-adjust vector weight to maintain sum = 1
+            const vectorWeight = 1.0 - value;
+            document.getElementById('vectorWeight').value = vectorWeight;
+            document.getElementById('vectorWeightValue').textContent = vectorWeight.toFixed(1);
+        });
+
+        document.getElementById('vectorWeight').addEventListener('input', function() {
+            const value = parseFloat(this.value);
+            document.getElementById('vectorWeightValue').textContent = value.toFixed(1);
+            // Auto-adjust keyword weight to maintain sum = 1
+            const keywordWeight = 1.0 - value;
+            document.getElementById('keywordWeight').value = keywordWeight;
+            document.getElementById('keywordWeightValue').textContent = keywordWeight.toFixed(1);
+        });
+
+        // Handle form submission
+        document.getElementById('promptForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await inspectPrompt();
+        });
+
+        async function inspectPrompt() {
+            const userQuery = document.getElementById('userQuery').value.trim();
+            const documentIdsText = document.getElementById('documentIds').value.trim();
+            const userId = document.getElementById('userId').value.trim();
+            const searchType = document.getElementById('searchType').value;
+            const keywordWeight = parseFloat(document.getElementById('keywordWeight').value);
+            const vectorWeight = parseFloat(document.getElementById('vectorWeight').value);
+
+            if (!userQuery || !userId) {
+                showError('Please fill in User Query and User ID');
+                return;
+            }
+
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            const btn = document.getElementById('inspectBtn');
+
+            // Show loading state
+            loading.classList.add('active');
+            results.classList.remove('active');
+            btn.disabled = true;
+
+            try {
+                // Parse document IDs
+                let specificDocumentIds = null;
+                if (documentIdsText) {
+                    specificDocumentIds = documentIdsText
+                        .split(',')
+                        .map(id => parseInt(id.trim()))
+                        .filter(id => !isNaN(id));
+                }
+
+                // Call the debug endpoint
+                const response = await fetch('/api/debug/ai-input', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userMessage: userQuery,
+                        specificDocumentId: specificDocumentIds && specificDocumentIds.length === 1 ? specificDocumentIds[0] : null,
+                        specificDocumentIds: specificDocumentIds,
+                        userId,
+                        searchType,
+                        keywordWeight,
+                        vectorWeight
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showError(data.error);
+                } else {
+                    displayResults(data);
+                }
+
+            } catch (error) {
+                showError(`Failed to inspect prompt: ${error.message}`);
+            } finally {
+                loading.classList.remove('active');
+                btn.disabled = false;
+            }
+        }
+
+        function displayResults(data) {
+            const results = document.getElementById('results');
+            
+            // Search metrics section
+            let metricsHtml = '';
+            if (data.searchMetrics) {
+                const metrics = data.searchMetrics;
+                metricsHtml = `
+                    <div class="result-section">
+                        <div class="result-header">
+                            <h3>📊 Search Metrics</h3>
+                        </div>
+                        <div class="result-content">
+                            <div class="metrics-grid">
+                                <div class="metric-card">
+                                    <div class="metric-value">${metrics.searchType}</div>
+                                    <div class="metric-label">Search Type</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-value">${metrics.keywordResults || 0}</div>
+                                    <div class="metric-label">Keyword Results</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-value">${metrics.vectorResults || 0}</div>
+                                    <div class="metric-label">Vector Results</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-value">${metrics.combinedResults || 0}</div>
+                                    <div class="metric-label">Combined Results</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-value">${data.documentContextLength.toLocaleString()}</div>
+                                    <div class="metric-label">Context Length (chars)</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-value">${data.chunkDetails ? data.chunkDetails.length : 0}</div>
+                                    <div class="metric-label">Total Chunks</div>
+                                </div>
+                            </div>
+                            ${metrics.weights ? `
+                                <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                                    <strong>Weight Distribution:</strong><br>
+                                    Keyword Weight: ${metrics.weights.keyword} | Vector Weight: ${metrics.weights.vector}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Chunk details section
+            let chunksHtml = '';
+            if (data.chunkDetails && data.chunkDetails.length > 0) {
+                const chunksListHtml = data.chunkDetails.map((chunk, index) => {
+                    let badges = [];
+                    
+                    if (chunk.similarity !== undefined) {
+                        const similarityColor = chunk.similarity > 0.8 ? '#16a34a' : chunk.similarity > 0.6 ? '#ea580c' : '#dc2626';
+                        badges.push(`<span class="badge badge-similarity" style="background-color: ${similarityColor}20; color: ${similarityColor};">Similarity: ${chunk.similarity.toFixed(4)}</span>`);
+                    }
+                    
+                    if (chunk.keywordScore !== undefined) {
+                        badges.push(`<span class="badge badge-keyword">KW: ${chunk.keywordScore.toFixed(3)}</span>`);
+                    }
+                    
+                    if (chunk.vectorScore !== undefined) {
+                        badges.push(`<span class="badge badge-vector">Vec: ${chunk.vectorScore.toFixed(3)}</span>`);
+                    }
+                    
+                    if (chunk.finalRank !== undefined) {
+                        badges.push(`<span class="badge badge-rank">Rank: #${chunk.finalRank}</span>`);
+                    }
+
+                    if (chunk.type) {
+                        badges.push(`<span class="badge" style="background: #f3f4f6; color: #374151;">${chunk.type}</span>`);
+                    }
+
+                    return `
+                        <div class="chunk-item">
+                            <div class="chunk-header">
+                                <div class="chunk-id">Chunk ${index + 1}: ${chunk.id || chunk.chunkId || 'Unknown ID'}</div>
+                                <div class="chunk-badges">${badges.join('')}</div>
+                            </div>
+                            <div class="chunk-content">${escapeHtml((chunk.content || '').substring(0, 300))}${(chunk.content || '').length > 300 ? '...' : ''}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                chunksHtml = `
+                    <div class="result-section">
+                        <div class="result-header">
+                            <h3>🧩 Chunk Analysis</h3>
+                        </div>
+                        <div class="result-content">
+                            <p style="margin-bottom: 15px; color: #64748b;">Individual chunks retrieved and their relevance scores:</p>
+                            <div class="chunk-list">${chunksListHtml}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Main prompt sections
+            results.innerHTML = `
+                ${metricsHtml}
+                ${chunksHtml}
+                
+                <div class="result-section">
+                    <div class="result-header">
+                        <h3>🤖 System Message (AI Instructions)</h3>
+                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.systemMessage)}')">Copy</button>
+                    </div>
+                    <div class="result-content">
+                        <div class="code-block">${escapeHtml(data.systemMessage)}</div>
+                    </div>
+                </div>
+
+                <div class="result-section">
+                    <div class="result-header">
+                        <h3>💬 User Message</h3>
+                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.userMessage)}')">Copy</button>
+                    </div>
+                    <div class="result-content">
+                        <div class="code-block">${escapeHtml(data.userMessage)}</div>
+                    </div>
+                </div>
+
+                <div class="result-section">
+                    <div class="result-header">
+                        <h3>📄 Document Context (What the AI sees)</h3>
+                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.documentContext)}')">Copy</button>
+                    </div>
+                    <div class="result-content">
+                        <p style="margin-bottom: 15px; color: #64748b;">This is the actual document content that gets sent to the AI:</p>
+                        <div class="code-block">${escapeHtml(data.documentContext)}</div>
+                    </div>
+                </div>
+            `;
+
+            results.classList.add('active');
+        }
+
+        function showError(message) {
+            const results = document.getElementById('results');
+            results.innerHTML = `
+                <div class="error">
+                    <h3>❌ Error</h3>
+                    <p>${escapeHtml(message)}</p>
+                </div>
+            `;
+            results.classList.add('active');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function escapeForJs(text) {
+            return text.replace(/'/g, "\\'").replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+        }
+
+        async function copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                // Show temporary success message
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.style.background = '#16a34a';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '#64748b';
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy to clipboard:', err);
+                alert('Failed to copy to clipboard. Please select and copy manually.');
+            }
+        }
+    </script>
+</body>
+</html>
