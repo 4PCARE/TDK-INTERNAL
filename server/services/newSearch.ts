@@ -471,37 +471,42 @@ export async function searchSmartHybridV1(
       if (options.specificDocumentIds && !options.specificDocumentIds.includes(doc.id)) continue;
 
       const chunks: string[] = doc.chunks || splitIntoChunks(doc.content || "", 3000, 300);
-      
+
       // Create chunk objects with proper structure for TF-IDF calculation
       const chunkObjects = chunks.map((chunk, i) => ({
         content: chunk,
         chunkIndex: i,
         documentId: doc.id
       }));
-      
+
       // Use TF-IDF instead of fuzzy matching
       const tfidfResults = calculateTFIDF(searchTerms, chunkObjects);
-      
+
       chunks.forEach((chunk, i) => {
         const chunkId = `${doc.id}-${i}`;
         const tfidfMatch = tfidfResults.get(chunkId);
-        
+
         if (tfidfMatch && tfidfMatch.score > 0) {
           keywordChunks[chunkId] = { content: chunk, score: tfidfMatch.score };
         }
       });
     }
 
-    // 2. Semantic Search
     const vectorResults = await vectorService.searchDocuments(query, userId, 100, options.specificDocumentIds);
     const vectorChunks: Record<string, { content: string; score: number }> = {};
     for (const result of vectorResults) {
-      const docId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
-      const chunkIndex = result.document.chunkIndex ?? 0;
+      if (!result.document) {
+        console.warn("[WARN] vector result missing document field", result);
+        continue;
+      }
+
+      const doc = result.document;
+      const docId = parseInt(doc.metadata?.originalDocumentId || doc.id);
+      const chunkIndex = doc.chunkIndex ?? 0;
       const chunkId = `${docId}-${chunkIndex}`;
       if (result.similarity >= threshold) {
         vectorChunks[chunkId] = {
-          content: result.document.content,
+          content: doc.content,
           score: result.similarity
         };
       }
