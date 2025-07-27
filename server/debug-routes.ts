@@ -16,6 +16,24 @@ router.get('/debug/health', (req, res) => {
 });
 
 router.post('/api/debug/ai-input', async (req, res) => {
+  // Capture logs for the debug response
+  const debugLogs: string[] = [];
+  const originalLog = console.log;
+  const originalError = console.error;
+  
+  // Override console methods to capture logs
+  console.log = (...args) => {
+    const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+    debugLogs.push(`[LOG] ${message}`);
+    originalLog(...args);
+  };
+  
+  console.error = (...args) => {
+    const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+    debugLogs.push(`[ERROR] ${message}`);
+    originalError(...args);
+  };
+
   try {
     // Ensure we always set the correct content type
     res.setHeader('Content-Type', 'application/json');
@@ -28,6 +46,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
 
     console.log(`=== DEBUG AI INPUT FOR QUERY: "${userMessage}" ===`);
     console.log(`Document ID: ${specificDocumentId}, User ID: ${userId}`);
+    console.log(`Search Type: ${searchType}, Keyword Weight: ${keywordWeight}, Vector Weight: ${vectorWeight}`);
 
     let documentContext = '';
     let searchMetrics = null;
@@ -209,19 +228,27 @@ Answer questions specifically about this document. Provide detailed analysis, ex
     console.log(documentContext);
     console.log('\n=== END DEBUG ===');
 
-    // Return the debug information as JSON
+    // Return the debug information as JSON including captured logs
     const responseData = {
       systemMessage,
       userMessage,
       documentContext,
       documentContextLength: documentContext.length,
       searchMetrics,
-      chunkDetails
+      chunkDetails,
+      debugLogs: debugLogs // Include the captured logs
     };
+
+    // Restore original console methods
+    console.log = originalLog;
+    console.error = originalError;
 
     res.json(responseData);
 
   } catch (error) {
+    // Restore console methods in case of error
+    console.log = originalLog;
+    console.error = originalError;
     console.error('Error in AI input debug:', error);
     console.error('Error stack:', error.stack);
 
@@ -231,7 +258,8 @@ Answer questions specifically about this document. Provide detailed analysis, ex
         error: error.message || 'Unknown error occurred',
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
         timestamp: new Date().toISOString(),
-        endpoint: '/api/debug/ai-input'
+        endpoint: '/api/debug/ai-input',
+        debugLogs: debugLogs // Include logs even in error case
       });
     } catch (jsonError) {
       // If even JSON response fails, send plain text

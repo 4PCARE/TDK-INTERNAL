@@ -317,6 +317,36 @@
             overflow-y: auto;
         }
 
+        .logs-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+
+        .log-entry {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-entry.info-log {
+            background: #f0f9ff;
+            color: #0c4a6e;
+        }
+
+        .log-entry.error-log {
+            background: #fef2f2;
+            color: #991b1b;
+        }
+
         .error {
             background: #fef2f2;
             border: 1px solid #fecaca;
@@ -678,10 +708,33 @@
                 `;
             }
 
+            // Debug logs section
+            let logsHtml = '';
+            if (data.debugLogs && data.debugLogs.length > 0) {
+                const logsListHtml = data.debugLogs.map(log => {
+                    const isError = log.startsWith('[ERROR]');
+                    const logClass = isError ? 'error-log' : 'info-log';
+                    return `<div class="log-entry ${logClass}">${escapeHtml(log)}</div>`;
+                }).join('');
+
+                logsHtml = `
+                    <div class="result-section">
+                        <div class="result-header">
+                            <h3>📋 Debug Logs</h3>
+                        </div>
+                        <div class="result-content">
+                            <p style="margin-bottom: 15px; color: #64748b;">Server-side logs captured during the debug process:</p>
+                            <div class="logs-container">${logsListHtml}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
             // Main prompt sections
             results.innerHTML = `
                 ${metricsHtml}
                 ${chunksHtml}
+                ${logsHtml}
                 
                 <div class="result-section">
                     <div class="result-header">
