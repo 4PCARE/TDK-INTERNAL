@@ -779,7 +779,7 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
     }
 });
 
-router.get("/debug/find-xolo/:userId", async (req, res){
+router.get("/debug/find-xolo/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     console.log(`=== SEARCHING FOR XOLO ACROSS ALL DOCUMENTS FOR USER ${userId} ===`);
