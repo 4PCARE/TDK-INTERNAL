@@ -78,9 +78,10 @@ router.post('/api/debug/ai-input', async (req, res) => {
 
       let searchResults;
 
-      // Use the new chunk split and rank search for hybrid type
+      // Use the new chunk split and rank search method
       if (searchType === 'hybrid') {
         try {
+          const { semanticSearchServiceV2 } = await import('./services/semanticSearchV2');
           searchResults = await semanticSearchServiceV2.performChunkSplitAndRankSearch(
             userMessage,
             userId,
