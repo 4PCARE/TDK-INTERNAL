@@ -57,19 +57,26 @@ export async function searchSmartHybridDebug(
 
   const searchTerms = query.toLowerCase().split(/\s+/).filter(Boolean);
 
-  // 1. Get all documents
-  const documents = await storage.getDocuments(userId, { limit: 1000 });
+  // 1. Get documents with memory optimization
+  const limit = options.specificDocumentIds?.length ? Math.min(options.specificDocumentIds.length, 100) : 100;
+  const documents = await storage.getDocuments(userId, { limit });
   const relevantDocs = options.specificDocumentIds?.length
     ? documents.filter(doc => options.specificDocumentIds!.includes(doc.id))
-    : documents;
+    : documents.slice(0, 50); // Limit to 50 docs to prevent memory issues
 
   const docMap = new Map(relevantDocs.map(doc => [doc.id, doc]));
 
-  // 2. Perform keyword search manually
+  // 2. Perform keyword search manually with memory optimization
   const keywordMatches: Record<string, number> = {};
   for (const doc of relevantDocs) {
-    const chunks = doc.chunks || splitIntoChunks(doc.content || "", 3000, 300);
-    chunks.forEach((chunk, index) => {
+    // Limit content processing to prevent memory issues
+    const content = doc.content ? doc.content.substring(0, 50000) : "";
+    const chunks = doc.chunks || splitIntoChunks(content, 3000, 300);
+    
+    // Process maximum 20 chunks per document
+    const limitedChunks = chunks.slice(0, 20);
+    
+    limitedChunks.forEach((chunk, index) => {
       const lowerChunk = chunk.toLowerCase();
       const matched = searchTerms.filter(term => lowerChunk.includes(term));
       if (matched.length > 0) {
@@ -77,6 +84,11 @@ export async function searchSmartHybridDebug(
         keywordMatches[`${doc.id}-${index}`] = score;
       }
     });
+    
+    // Clear processed chunks from memory
+    if (doc.chunks) {
+      doc.chunks = null;
+    }
   }
 
   // 3. Perform vector search
@@ -169,10 +181,22 @@ export async function searchSmartHybridDebug(
     };
   });
 
-  console.log("✅ searchSmartHybridDebug: returning", results.length, "results");
-  return results;
+  // Memory cleanup
+  keywordMatches = null;
+  vectorMatches = null;
+  allChunkIds = null;
+  scoredChunks = null;
+  selectedChunks = null;
+  
+  // Force garbage collection if available
+  if (global.gc) {
+    global.gc();
+  }
 
-  // You can add more logging here if needed!
+  console.log("✅ searchSmartHybridDebug: returning", results.length, "results");
+  console.log("Memory usage:", process.memoryUsage());
+  
+  return results;
 }
 
 export async function searchSmartHybridV1(

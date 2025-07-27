@@ -181,6 +181,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
       } else if (searchType === 'smart_hybrid') {
         // Use the new smart hybrid debug search
         console.log("=== USING SMART HYBRID DEBUG SEARCH ===");
+        console.log("Memory before search:", process.memoryUsage());
         const { searchSmartHybridDebug } = await import('./services/newSearch');
         
         searchResults = await searchSmartHybridDebug(userMessage, userId, {
@@ -189,6 +190,13 @@ router.post('/api/debug/ai-input', async (req, res) => {
           vectorWeight,
           threshold: 0.3
         });
+
+        console.log("Memory after search:", process.memoryUsage());
+        
+        // Force garbage collection if available
+        if (global.gc) {
+          global.gc();
+        }
 
         // Store workflow details for smart hybrid
         searchWorkflow.rankingProcess = {
