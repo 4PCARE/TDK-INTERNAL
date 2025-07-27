@@ -1145,7 +1145,7 @@ ${imageAnalysisResult}
               );
             } else {
               console.log(`🔍 LINE OA: Query needs search, performing smart hybrid search with enhanced query`);
-              
+
               // Step 2: Perform new search workflow with agent's bound documents (smart hybrid)
               const { searchSmartHybridDebug } = await import('./services/newSearch');
 
