@@ -442,7 +442,8 @@
                     <div class="form-group">
                         <label for="searchType">Search Type:</label>
                         <select id="searchType">
-                            <option value="hybrid">Hybrid Search - performChunkSplitAndRankSearch (New)</option>
+                            <option value="smart_hybrid">Smart Hybrid V1 (NEW IMPLEMENTATION)</option>
+                            <option value="hybrid">Hybrid Search - performChunkSplitAndRankSearch</option>
                             <option value="semantic">Semantic/Vector Search</option>
                             <option value="keyword">Keyword Search</option>
                         </select>
@@ -616,7 +617,7 @@
                         <div class="result-content">
                             <div class="metrics-grid">
                                 <div class="metric-card">
-                                    <div class="metric-value">${metrics.searchType === 'chunk_split_rank' ? 'performChunkSplitAndRankSearch' : metrics.searchType}</div>
+                                    <div class="metric-value">${metrics.searchType === 'chunk_split_rank' ? 'performChunkSplitAndRankSearch' : metrics.searchType === 'smart_hybrid' ? 'Smart Hybrid V1' : metrics.searchType}</div>
                                     <div class="metric-label">Search Type</div>
                                 </div>
                                 <div class="metric-card">
@@ -792,9 +793,21 @@
                     }
 
                     if (chunk.type) {
-                        const typeColor = chunk.type === 'chunk_split_rank' ? '#8b5cf6' : '#374151';
-                        const typeBg = chunk.type === 'chunk_split_rank' ? '#f3e8ff' : '#f3f4f6';
-                        badges.push(`<span class="badge" style="background: ${typeBg}; color: ${typeColor};">${chunk.type === 'chunk_split_rank' ? 'performChunkSplitAndRankSearch' : chunk.type}</span>`);
+                        let typeColor = '#374151';
+                        let typeBg = '#f3f4f6';
+                        let typeLabel = chunk.type;
+                        
+                        if (chunk.type === 'chunk_split_rank') {
+                            typeColor = '#8b5cf6';
+                            typeBg = '#f3e8ff';
+                            typeLabel = 'performChunkSplitAndRankSearch';
+                        } else if (chunk.type === 'smart_hybrid') {
+                            typeColor = '#059669';
+                            typeBg = '#d1fae5';
+                            typeLabel = 'Smart Hybrid V1';
+                        }
+                        
+                        badges.push(`<span class="badge" style="background: ${typeBg}; color: ${typeColor};">${typeLabel}</span>`);
                     }
                     
                     if (chunk.combinedScore !== undefined) {

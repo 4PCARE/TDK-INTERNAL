@@ -3,6 +3,9 @@ import { storage } from "./storage";
 import { semanticSearchServiceV2 } from "./services/semanticSearchV2";
 import { generateChatResponse } from "./services/openai";
 import { aiKeywordExpansionService } from "./services/aiKeywordExpansion";
+// Import search service at the top
+import { advancedKeywordSearchService } from './services/advancedKeywordSearch';
+import { searchSmartHybridV1 } from './services/newSearch';
 
 // Debug: Check service availability at startup
 console.log('DEBUG: Checking service availability...');
@@ -517,6 +520,39 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
           searchMetrics.keywordResults = 0;
         }
 
+      } else if (searchType === 'smart_hybrid') {
+        // Use the new smart hybrid search
+        const smartResults = await searchSmartHybridV1(userMessage, userId, {
+          specificDocumentIds: specificDocumentIds,
+          keywordWeight,
+          vectorWeight,
+          threshold: 0.3
+        });
+
+        searchResults = smartResults.map(result => ({
+          content: result.content,
+          name: result.name,
+          similarity: result.similarity
+        }));
+
+        chunkDetails = smartResults.map((result, index) => ({
+          chunkId: result.id,
+          type: 'smart_hybrid',
+          content: result.content,
+          similarity: result.similarity,
+          finalRank: index + 1
+        }));
+
+        searchMetrics = {
+          searchType: 'smart_hybrid',
+          keywordResults: 0,
+          vectorResults: 0,
+          combinedResults: searchResults.length,
+          weights: {
+            keyword: keywordWeight,
+            vector: vectorWeight
+          }
+        };
       } else if (searchType === 'vector') {
         // Vector search logic
         console.log(`DEBUG: Performing vector search for "${userMessage}"`);
@@ -761,7 +797,8 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
       documentContext = `Document: ${doc.name}\nSummary: ${doc.summary || 'No summary'}\nTags: ${doc.tags?.join(", ") || 'No tags'}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
       searchMetrics.error = searchError.message;
 
-      chunkDetails.push({
+      chunkDetails.push```text
+({
         chunkId: `error-${doc.id}`,
         content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
         type: 'error'
@@ -1194,6 +1231,7 @@ router.get('/debug-console', (req, res) => {
                     <option value="vector">Vector Search</option>
                     <option value="hybrid">Hybrid Search</option>
                     <option value="weighted">Weighted Search</option>
+                    <option value="smart_hybrid">Smart Hybrid Search</option>
                 </select>
             </div>
             <button class="btn btn-primary" onclick="analyzeDocument()">📊 Analyze Document</button>
