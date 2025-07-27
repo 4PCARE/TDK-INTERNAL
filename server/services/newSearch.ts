@@ -181,12 +181,12 @@ export async function searchSmartHybridDebug(
     };
   });
 
-  // Memory cleanup
-  keywordMatches = null;
-  vectorMatches = null;
-  allChunkIds = null;
-  scoredChunks = null;
-  selectedChunks = null;
+  // Memory cleanup - clear the objects instead of assigning null
+  Object.keys(keywordMatches).forEach(key => delete keywordMatches[key]);
+  Object.keys(vectorMatches).forEach(key => delete vectorMatches[key]);
+  allChunkIds.clear();
+  scoredChunks.length = 0;
+  selectedChunks.length = 0;
   
   // Force garbage collection if available
   if (global.gc) {
