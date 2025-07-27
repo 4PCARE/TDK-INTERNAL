@@ -278,17 +278,36 @@ export async function searchSmartHybridDebug(
     }
   }
 
-  // 5. Sort by finalScore and select top 66%
-  const totalScore = scoredChunks.reduce((sum, c) => sum + c.finalScore, 0);
-  const scoreTarget = totalScore * 0.66;
-
+  // 5. Sort by finalScore and apply smart selection
   scoredChunks.sort((a, b) => b.finalScore - a.finalScore);
-  const selectedChunks = [];
-  let accScore = 0;
-  for (const chunk of scoredChunks) {
-    selectedChunks.push(chunk);
-    accScore += chunk.finalScore;
-    if (accScore >= scoreTarget) break;
+  
+  // Smart selection: take top chunks but ensure we get results
+  const minResults = Math.min(5, scoredChunks.length); // At least 5 results if available
+  const maxResults = Math.min(15, scoredChunks.length); // Cap at 15 results
+  
+  let selectedChunks = [];
+  
+  if (scoredChunks.length > 0) {
+    // Method 1: Use score-based selection if scores are reasonable
+    const totalScore = scoredChunks.reduce((sum, c) => sum + c.finalScore, 0);
+    const avgScore = totalScore / scoredChunks.length;
+    
+    if (avgScore > 0.1) {
+      // Use 66% mass selection if average scores are decent
+      const scoreTarget = totalScore * 0.66;
+      let accScore = 0;
+      for (const chunk of scoredChunks) {
+        selectedChunks.push(chunk);
+        accScore += chunk.finalScore;
+        if (accScore >= scoreTarget && selectedChunks.length >= minResults) break;
+        if (selectedChunks.length >= maxResults) break;
+      }
+    } else {
+      // If scores are very low, just take top N results
+      selectedChunks = scoredChunks.slice(0, minResults);
+    }
+    
+    console.log(`🎯 SELECTION: From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} (avg score: ${avgScore.toFixed(4)})`);
   }
 
   const results: SearchResult[] = selectedChunks.map(chunk => {
