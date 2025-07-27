@@ -536,11 +536,26 @@
                     })
                 });
 
+                const responseText = await response.text();
+                
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    // If it's HTML, show a more helpful error
+                    if (responseText.includes('<!DOCTYPE')) {
+                        throw new Error(`Server returned HTML error page (HTTP ${response.status}). Check server logs for details.`);
+                    }
+                    throw new Error(`HTTP ${response.status}: ${response.statusText} - ${responseText}`);
                 }
 
-                const data = await response.json();
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (parseError) {
+                    // If response is HTML instead of JSON, show helpful error
+                    if (responseText.includes('<!DOCTYPE')) {
+                        throw new Error('Server returned HTML instead of JSON. This usually means there\'s an error in the debug endpoint. Check server logs.');
+                    }
+                    throw new Error(`Failed to parse JSON response: ${parseError.message}`);
+                }
 
                 if (data.error) {
                     showError(data.error);
