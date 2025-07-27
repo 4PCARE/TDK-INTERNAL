@@ -63,10 +63,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  // Mount debug routes BEFORE registerRoutes to ensure higher priority
+  app.use(debugRoutes);
   
-  // Mount debug routes
-  app.use("/api", debugRoutes);
+  const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

@@ -29,6 +29,10 @@ router.post('/api/debug/ai-input', async (req, res) => {
   console.log('Request headers:', JSON.stringify(req.headers, null, 2));
   console.log('Request body:', JSON.stringify(req.body, null, 2));
   console.log('=== END REQUEST INFO ===');
+  
+  // Force JSON response headers early
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-cache');
 
   // Capture logs for the debug response
   const debugLogs: string[] = [];
@@ -49,8 +53,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
   };
 
   try {
-    // Ensure we always set the correct content type
-    res.setHeader('Content-Type', 'application/json');
+    // Content type already set above
 
     const { userMessage, specificDocumentId, userId, searchType = 'hybrid', keywordWeight = 0.3, vectorWeight = 0.7, specificDocumentIds } = req.body;
 
