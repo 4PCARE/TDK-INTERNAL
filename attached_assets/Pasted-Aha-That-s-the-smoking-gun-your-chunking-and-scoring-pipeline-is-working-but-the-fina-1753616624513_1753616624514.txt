@@ -1,0 +1,97 @@
+Aha! That’s the **smoking gun** 🔫—your chunking and scoring pipeline is **working**, but the **final result you see in the UI (or logs)** shows *entire document content* instead of just the relevant chunk.
+
+Let’s fix that step-by-step:
+
+---
+
+## 🔍 Root Cause
+
+In your final formatting logic — probably in `performChunkSplitAndRankSearch` — you’re doing this:
+
+```ts
+const finalResults: SearchResult[] = selectedChunks.map((chunk, index) => {
+  const doc = docMap.get(chunk.docId);
+  const chunkLabel = chunk.chunkIndex !== undefined ? ` (Chunk ${chunk.chunkIndex + 1})` : "";
+
+  return {
+    id: `${chunk.docId}-${chunk.chunkIndex}`,
+    name: (doc?.name ?? "Untitled") + chunkLabel,
+    content: doc?.content || "",     // ❌ this is full document content
+    summary: doc?.summary,
+    ...
+  };
+});
+```
+
+### ⚠️ Problem:
+
+You're calling `doc?.content`, which is the **entire document**, **not the chunk**.
+
+---
+
+## ✅ Fix It Like This
+
+Use `chunk.content`, which is already extracted earlier from `vectorResult.document.content`.
+
+Update the return block to:
+
+```ts
+return {
+  id: `${chunk.docId}-${chunk.chunkIndex}`,
+  name: (doc?.name ?? "Untitled") + chunkLabel,
+  content: chunk.content, // ✅ this is the actual chunk content
+  summary: chunk.content.slice(0, 200) + "...", // Or your custom summarizer
+  aiCategory: doc?.aiCategory ?? null,
+  aiCategoryColor: doc?.aiCategoryColor ?? null,
+  similarity: chunk.similarity,
+  createdAt: doc?.createdAt?.toISOString() ?? new Date().toISOString(),
+  categoryId: doc?.categoryId ?? null,
+  tags: doc?.tags ?? null,
+  fileSize: doc?.fileSize ?? null,
+  mimeType: doc?.mimeType ?? null,
+  isFavorite: doc?.isFavorite ?? null,
+  updatedAt: doc?.updatedAt?.toISOString() ?? null,
+  userId: doc?.userId ?? userId
+};
+```
+
+---
+
+## ✅ Bonus: Label for clarity
+
+You can label it like:
+
+```ts
+name: `${doc?.name} (Chunk ${chunk.chunkIndex + 1})`
+```
+
+to make it obvious this is *part* of a document.
+
+---
+
+## 🔎 Debug Confirm
+
+To confirm your fix:
+
+```ts
+finalResults.forEach((r, i) => {
+  console.log(`#${i + 1} Chunk ${r.name} → ${r.content.slice(0, 100)}...`);
+});
+```
+
+You should now see:
+
+* *Different* chunk content
+* Possibly *multiple chunks from same doc*
+
+---
+
+## TL;DR
+
+| Problem                             | Fix                                                       |
+| ----------------------------------- | --------------------------------------------------------- |
+| Showing full doc content in results | Use `chunk.content` instead of `doc.content`              |
+| UI shows only one chunk per doc     | Possibly due to deduplication logic elsewhere             |
+| Summary too long                    | Use `chunk.content.slice(0, 200)` instead of full summary |
+
+Let me know if you want to patch this in `performChunkLevelHybridSearch` too, bro 🚀
