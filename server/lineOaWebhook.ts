@@ -1111,7 +1111,7 @@ ${imageAnalysisResult}
           let aiResponse = "";
 
           try {
-            // Step 1: AI Query Preprocessing
+            // Step 1: AI Query Preprocessing (mirroring debug-prompt-inspector)
             console.log(`🧠 LINE OA: Starting AI query preprocessing for: "${contextMessage}"`);
             const { queryPreprocessor } = await import('./services/queryPreprocessor');
 
@@ -1139,8 +1139,8 @@ ${imageAnalysisResult}
                 event.source.userId,
               );
             } else {
-              // Step 2: Perform new search workflow with agent's bound documents
-              console.log(`🔍 LINE OA: Performing new search workflow with enhanced query`);
+              // Step 2: Perform new search workflow with agent's bound documents (smart hybrid)
+              console.log(`🔍 LINE OA: Performing smart hybrid search with enhanced query`);
               const { searchSmartHybridDebug } = await import('./services/newSearch');
 
               const searchResults = await searchSmartHybridDebug(
@@ -1155,15 +1155,15 @@ ${imageAnalysisResult}
                 }
               );
 
-              console.log(`🔍 LINE OA: New search found ${searchResults.length} relevant chunks from agent's bound documents`);
+              console.log(`🔍 LINE OA: Smart hybrid search found ${searchResults.length} relevant chunks from agent's bound documents`);
 
               if (searchResults.length > 0) {
-                // Step 3: Build context from search results
+                // Step 3: Build document context from search results (mirroring debug-prompt-inspector)
                 let documentContext = "";
-                const maxContextLength = 12000;
+                const maxContextLength = 12000; // Leave room for system prompt and user message
                 let chunksUsed = 0;
 
-                console.log(`📄 LINE OA: Building context from search results:`);
+                console.log(`📄 LINE OA: Building document context from search results:`);
                 for (let i = 0; i < searchResults.length; i++) {
                   const result = searchResults[i];
                   const chunkText = `=== ข้อมูลที่ ${i + 1}: ${result.name} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${result.content}\n\n`;
@@ -1188,8 +1188,8 @@ ${imageAnalysisResult}
 
                 console.log(`📄 LINE OA: Used ${chunksUsed}/${searchResults.length} chunks (${documentContext.length} chars)`);
 
-                // Step 4: Generate AI response with agent's system prompt, document context, and chat history
-                const systemPrompt = `${agent.systemPrompt}
+                // Step 4: Build system prompt with document context (mirroring debug-prompt-inspector)
+                const baseSystemPrompt = `${agent.systemPrompt}
 
 เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
 ${documentContext}
@@ -1200,11 +1200,11 @@ ${documentContext}
 ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
 คุณสามารถอ้างอิงบทสนทนาก่อนหน้านี้เพื่อให้คำตอบที่ต่อเนื่องและเหมาะสม`;
 
-                // Build conversation messages including chat history
+                // Step 5: Build conversation messages including chat history
                 const messages: any[] = [
                   {
                     role: "system",
-                    content: systemPrompt
+                    content: baseSystemPrompt
                   }
                 ];
 
@@ -1226,9 +1226,57 @@ ${documentContext}
                   content: contextMessage,
                 });
 
-                console.log(`🤖 LINE OA: Sending ${messages.length} messages to OpenAI (${chatHistory.length} history messages)`);
-                console.log(`📊 LINE OA: System prompt length: ${systemPrompt.length} characters`);
+                // Step 6: Truncate to 15k characters (mirroring debug-prompt-inspector)
+                let totalLength = messages.reduce((sum, msg) => sum + msg.content.length, 0);
+                console.log(`📊 LINE OA: Total prompt length before truncation: ${totalLength} characters`);
 
+                if (totalLength > 15000) {
+                  console.log(`✂️ LINE OA: Truncating prompt from ${totalLength} to 15,000 characters`);
+                  
+                  // Keep system message intact, truncate from conversation history
+                  const systemMessageLength = messages[0].content.length;
+                  const currentUserMessageLength = messages[messages.length - 1].content.length;
+                  const availableForHistory = 15000 - systemMessageLength - currentUserMessageLength - 200; // 200 chars buffer
+
+                  if (availableForHistory > 0) {
+                    // Keep recent conversation history within available space
+                    let historyLength = 0;
+                    const truncatedMessages = [messages[0]]; // Keep system message
+
+                    // Add messages from most recent backward until we hit the limit
+                    for (let i = messages.length - 2; i >= 1; i--) {
+                      const msgLength = messages[i].content.length;
+                      if (historyLength + msgLength <= availableForHistory) {
+                        truncatedMessages.splice(1, 0, messages[i]); // Insert at beginning of history
+                        historyLength += msgLength;
+                      } else {
+                        break;
+                      }
+                    }
+
+                    // Add current user message
+                    truncatedMessages.push(messages[messages.length - 1]);
+                    messages.length = 0;
+                    messages.push(...truncatedMessages);
+
+                    const newTotalLength = messages.reduce((sum, msg) => sum + msg.content.length, 0);
+                    console.log(`✅ LINE OA: Truncated prompt to ${newTotalLength} characters (${messages.length - 2} history messages kept)`);
+                  } else {
+                    // If even system + user message exceeds 15k, truncate system message
+                    console.log(`⚠️ LINE OA: System + user message too long, truncating system message`);
+                    const maxSystemLength = 15000 - currentUserMessageLength - 100;
+                    if (maxSystemLength > 0) {
+                      messages[0].content = messages[0].content.substring(0, maxSystemLength) + "...[truncated]";
+                      // Keep only system and current user message
+                      messages.splice(1, messages.length - 2);
+                    }
+                  }
+                }
+
+                const finalLength = messages.reduce((sum, msg) => sum + msg.content.length, 0);
+                console.log(`🤖 LINE OA: Sending ${messages.length} messages to OpenAI (final length: ${finalLength} chars)`);
+
+                // Step 7: Generate AI response
                 const completion = await openai.chat.completions.create({
                   model: "gpt-4o",
                   messages: messages,
