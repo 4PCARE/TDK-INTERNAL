@@ -1,0 +1,94 @@
+async performChunkSplitAndRankSearch(
+  query: string,
+  userId: string,
+  options: Omit<SearchOptions, "searchType">
+): Promise<SearchResult[]> {
+  try {
+    const keywordWeight = options.keywordWeight ?? 0.5;
+    const vectorWeight = options.vectorWeight ?? 0.5;
+
+    // Step 1: Retrieve top vector chunks
+    const vectorResults = await vectorService.searchDocuments(query, userId, 50, options.specificDocumentIds);
+    const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+
+    // Step 2: Score chunks with both vector and keyword
+    const scoredChunks = vectorResults.map(result => {
+      const docId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
+      const chunkIndex = result.document.chunkIndex ?? 0;
+      const chunkId = `${docId}-${chunkIndex}`;
+      const chunkText = result.document.content.toLowerCase();
+      
+      const matchedTerms = searchTerms.filter(term => chunkText.includes(term));
+      let keywordScore = matchedTerms.length / searchTerms.length;
+
+      const storeKeywords = ['xolo', 'kamu', 'floor', 'ชั้น', 'บางกะปิ', 'bangkapi'];
+      const hasStoreKeyword = searchTerms.some(term =>
+        storeKeywords.some(sk => sk.includes(term) || term.includes(sk))
+      );
+      if (hasStoreKeyword && keywordScore > 0.5) {
+        keywordScore = Math.min(1.0, keywordScore + 0.3);
+      }
+
+      const combinedScore = Math.min(1.0, result.similarity * vectorWeight + keywordScore * keywordWeight);
+
+      return {
+        docId,
+        chunkIndex,
+        chunkId,
+        content: result.document.content,
+        similarity: combinedScore
+      };
+    });
+
+    // Step 3: Rank and select top 66% score mass
+    const totalScore = scoredChunks.reduce((sum, c) => sum + c.similarity, 0);
+    const scoreThreshold = totalScore * 0.66;
+
+    scoredChunks.sort((a, b) => b.similarity - a.similarity);
+
+    const selectedChunks = [];
+    let accumulatedScore = 0;
+    for (const chunk of scoredChunks) {
+      selectedChunks.push(chunk);
+      accumulatedScore += chunk.similarity;
+      if (accumulatedScore >= scoreThreshold) break;
+    }
+
+    // Step 4: Load document metadata
+    const uniqueDocIds = [...new Set(selectedChunks.map(c => c.docId))];
+    const docMap = new Map((await storage.getDocuments(userId, { limit: 1000 }))
+      .filter(doc => uniqueDocIds.includes(doc.id))
+      .map(doc => [doc.id, doc]));
+
+    // Step 5: Format final results
+    const finalResults: SearchResult[] = selectedChunks.map(chunk => {
+      const doc = docMap.get(chunk.docId);
+      const chunkLabel = chunk.chunkIndex !== undefined ? ` (Section ${chunk.chunkIndex})` : "";
+
+      return {
+        id: chunk.docId, // or chunk.chunkId if your UI supports it
+        name: (doc?.name ?? "Untitled") + chunkLabel,
+        content: chunk.content,
+        summary: chunk.content.slice(0, 200) + "...",
+        aiCategory: doc?.aiCategory ?? null,
+        aiCategoryColor: doc?.aiCategoryColor ?? null,
+        similarity: chunk.similarity,
+        createdAt: doc?.createdAt?.toISOString() ?? new Date().toISOString(),
+        categoryId: doc?.categoryId ?? null,
+        tags: doc?.tags ?? null,
+        fileSize: doc?.fileSize ?? null,
+        mimeType: doc?.mimeType ?? null,
+        isFavorite: doc?.isFavorite ?? null,
+        updatedAt: doc?.updatedAt?.toISOString() ?? null,
+        userId: doc?.userId ?? userId
+      };
+    });
+
+    console.log(`✅ performChunkSplitAndRankSearch: Returned ${finalResults.length} ranked chunks`);
+    return finalResults;
+
+  } catch (error) {
+    console.error("❌ Error in performChunkSplitAndRankSearch:", error);
+    throw new Error("Failed to perform chunk-based split-and-rank search");
+  }
+}
