@@ -299,7 +299,20 @@ router.post('/api/debug/ai-input', async (req, res) => {
       console.error = originalError;
     }
 
-    // Generate AI prompt
+    // Generate AI prompt - ensure document names are properly resolved
+    let contextDocuments = [];
+    if (specificDocumentId) {
+      const documents = await storage.getDocuments(userId);
+      const doc = documents.find(d => d.id === specificDocumentId);
+      if (doc) {
+        contextDocuments.push({
+          id: doc.id,
+          name: doc.name || `Document ${doc.id}`,
+          content: documentContext
+        });
+      }
+    }
+
     const systemMessage = `You are an AI assistant helping users analyze and understand specific documents. You are currently focusing on a specific document provided in the context below.
 
 Document context:
@@ -876,6 +889,12 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
     const documentName = doc.name || `Document ${doc.id}`;
     const systemMessage = `You are an AI assistant helping users analyze and understand the document: ${documentName}.\n\nDocument context:\n${documentContext}`;
     const aiInput = { systemMessage, userMessage, documentContext };
+    
+    console.log(`📋 Document Analysis Summary:`);
+    console.log(`📄 Document: ${documentName} (ID: ${doc.id})`);
+    console.log(`🔍 Search Type: ${searchType}`);
+    console.log(`📊 Chunks Found: ${chunkDetails.length}`);
+    console.log(`📏 Context Length: ${documentContext.length} characters`);
 
     // Generate HTML output for debug
     let html = `

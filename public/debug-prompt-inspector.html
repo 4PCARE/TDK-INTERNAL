@@ -887,6 +887,7 @@
                     <div class="result-header">
                         <h3>🤖 System Message (AI Instructions)</h3>
                         <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.systemMessage)}')">Copy</button>
+                        <button class="copy-btn" style="background: #16a34a; margin-left: 5px;" onclick="sendToGPT('${escapeForJs(data.systemMessage)}', '${escapeForJs(data.userMessage)}')">🚀 Send to GPT-4o-mini</button>
                     </div>
                     <div class="result-content">
                         <div class="code-block">${escapeHtml(data.systemMessage)}</div>
@@ -911,6 +912,18 @@
                     <div class="result-content">
                         <p style="margin-bottom: 15px; color: #64748b;">This is the actual document content that gets sent to the AI:</p>
                         <div class="code-block">${escapeHtml(data.documentContext)}</div>
+                    </div>
+                </div>
+
+                <div class="result-section" id="gptResponseSection" style="display: none;">
+                    <div class="result-header">
+                        <h3>🤖 GPT-4o-mini Response</h3>
+                        <button class="copy-btn" onclick="copyGPTResponse()">Copy Response</button>
+                    </div>
+                    <div class="result-content">
+                        <div id="gptResponseContent" class="code-block" style="background: #f0fdf4; color: #166534; border-left: 4px solid #16a34a;">
+                            Loading response...
+                        </div>
                     </div>
                 </div>
             `;
@@ -954,6 +967,81 @@
             } catch (err) {
                 console.error('Failed to copy to clipboard:', err);
                 alert('Failed to copy to clipboard. Please select and copy manually.');
+            }
+        }
+
+        async function sendToGPT(systemMessage, userMessage) {
+            const gptSection = document.getElementById('gptResponseSection');
+            const gptContent = document.getElementById('gptResponseContent');
+            
+            // Show the response section
+            gptSection.style.display = 'block';
+            gptContent.innerHTML = 'Loading response from GPT-4o-mini...';
+            gptContent.style.background = '#fef3c7';
+            gptContent.style.color = '#92400e';
+            
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: userMessage,
+                        systemMessage: systemMessage,
+                        model: 'gpt-4o-mini'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // Display the response
+                gptContent.innerHTML = escapeHtml(data.response || data.message || 'No response received');
+                gptContent.style.background = '#f0fdf4';
+                gptContent.style.color = '#166534';
+                
+                // Update the send button
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Sent!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 3000);
+
+            } catch (error) {
+                gptContent.innerHTML = `❌ Error: ${escapeHtml(error.message)}`;
+                gptContent.style.background = '#fef2f2';
+                gptContent.style.color = '#dc2626';
+                
+                console.error('Failed to send to GPT:', error);
+            }
+        }
+
+        async function copyGPTResponse() {
+            const gptContent = document.getElementById('gptResponseContent');
+            const text = gptContent.textContent;
+            
+            try {
+                await navigator.clipboard.writeText(text);
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.style.background = '#16a34a';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '#64748b';
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy GPT response:', err);
+                alert('Failed to copy response. Please select and copy manually.');
             }
         }
     </script>
