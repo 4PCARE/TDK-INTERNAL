@@ -66,30 +66,44 @@ export async function searchSmartHybridDebug(
 
   const docMap = new Map(relevantDocs.map(doc => [doc.id, doc]));
 
-  // 2. Perform keyword search manually with memory optimization
+  // 2. Perform keyword search on the same chunks from document_vectors table
+  console.log(`🔍 KEYWORD SEARCH: Starting with terms: [${searchTerms.join(', ')}]`);
+  
+  // Get chunks from database (same source as vector search)
+  const { db } = await import('../db');
+  const { documentVectors } = await import('@shared/schema');
+  const { eq, and, or } = await import('drizzle-orm');
+  
+  let whereCondition: any = eq(documentVectors.userId, userId);
+  if (options.specificDocumentIds?.length) {
+    whereCondition = and(
+      eq(documentVectors.userId, userId),
+      or(...options.specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
+    );
+  }
+  
+  const chunks = await db.select().from(documentVectors).where(whereCondition);
+  console.log(`🔍 KEYWORD SEARCH: Found ${chunks.length} chunks to search`);
+  
   const keywordMatches: Record<string, number> = {};
-  for (const doc of relevantDocs) {
-    // Limit content processing to prevent memory issues
-    const content = doc.content ? doc.content.substring(0, 50000) : "";
-    const chunks = doc.chunks || splitIntoChunks(content, 3000, 300);
+  let totalMatches = 0;
+  
+  for (const chunk of chunks) {
+    const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
+    const lowerChunk = chunk.content.toLowerCase();
     
-    // Process maximum 20 chunks per document
-    const limitedChunks = chunks.slice(0, 20);
-    
-    limitedChunks.forEach((chunk, index) => {
-      const lowerChunk = chunk.toLowerCase();
-      const matched = searchTerms.filter(term => lowerChunk.includes(term));
-      if (matched.length > 0) {
-        const score = matched.length / searchTerms.length;
-        keywordMatches[`${doc.id}-${index}`] = score;
-      }
-    });
-    
-    // Clear processed chunks from memory
-    if (doc.chunks) {
-      doc.chunks = null;
+    // Count matching terms
+    const matched = searchTerms.filter(term => lowerChunk.includes(term));
+    if (matched.length > 0) {
+      const score = matched.length / searchTerms.length;
+      keywordMatches[chunkId] = score;
+      totalMatches++;
+      
+      console.log(`🔍 KEYWORD MATCH: Doc ${chunk.documentId} chunk ${chunk.chunkIndex} - ${matched.length}/${searchTerms.length} terms matched (${matched.join(', ')})`);
     }
   }
+  
+  console.log(`🔍 KEYWORD SEARCH: Found ${totalMatches} chunks with keyword matches out of ${chunks.length} total chunks`)
 
   // 3. Perform vector search
   const vectorResults = await vectorService.searchDocuments(query, userId, 100, options.specificDocumentIds);
