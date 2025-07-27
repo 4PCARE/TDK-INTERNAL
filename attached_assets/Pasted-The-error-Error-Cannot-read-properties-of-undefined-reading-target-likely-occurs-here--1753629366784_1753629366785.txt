@@ -1,0 +1,97 @@
+The error `❌ Error: Cannot read properties of undefined (reading 'target')` likely occurs here:
+
+```js
+const btn = event.target;
+```
+
+This line assumes that `event` is available in the current scope and has a `.target` property (which is only true for event handler callbacks). However, in your `copyToClipboard(text)` and `sendToGPT(systemMessage, userMessage)` functions, you're calling them without passing an event argument:
+
+### ✅ Fix 1: Accept `event` as a parameter in the function signature
+
+For functions triggered by UI events (like button clicks), make sure to **explicitly accept the event** argument.
+
+Update:
+
+```js
+function copyToClipboard(text) {
+```
+
+to:
+
+```js
+function copyToClipboard(text, event) {
+```
+
+And then update the button's `onclick` in HTML like this:
+
+```html
+<button class="copy-btn" onclick="copyToClipboard('some text', event)">Copy</button>
+```
+
+---
+
+### ✅ Fix 2: Add a fallback when `event` is not passed
+
+To make the function more robust and reusable:
+
+```js
+async function copyToClipboard(text, event) {
+    try {
+        await navigator.clipboard.writeText(text);
+        const btn = event?.target || document.activeElement; // Safe fallback
+        const originalText = btn?.textContent || 'Copy';
+        if (btn) {
+            btn.textContent = 'Copied!';
+            btn.style.background = '#16a34a';
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.background = '#64748b';
+            }, 2000);
+        }
+    } catch (err) {
+        console.error('Failed to copy to clipboard:', err);
+        alert('Failed to copy to clipboard. Please select and copy manually.');
+    }
+}
+```
+
+---
+
+### ✅ Fix 3: Similar issue in `sendToGPT`
+
+Your `sendToGPT` function also uses `event.target` but is called like this:
+
+```js
+onclick="sendToGPT('message', 'prompt')"
+```
+
+This means `event` is **not** passed in, and `event.target` is undefined.
+
+Fix it by passing `event`:
+
+```html
+<button onclick="sendToGPT('system message', 'user message', event)">🚀 Send to GPT-4o-mini</button>
+```
+
+And update the function to accept `event`:
+
+```js
+async function sendToGPT(systemMessage, userMessage, event) {
+    ...
+    const btn = event?.target;
+    ...
+}
+```
+
+---
+
+### TL;DR
+
+Wherever you're using `event.target`, make sure:
+
+* You **accept `event`** in the function
+* You **pass `event`** from the inline `onclick`
+
+Otherwise, you'll get that classic `'Cannot read properties of undefined'` error.
+
+Let me know if you want help refactoring to **avoid inline `onclick` altogether** and use proper `addEventListener` instead (which is cleaner and safer)!
