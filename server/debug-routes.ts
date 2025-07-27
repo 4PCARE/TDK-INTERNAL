@@ -1,6 +1,6 @@
 import express from "express";
 import { storage } from "./storage";
-import { semanticSearchV2 } from "./services/semanticSearchV2";
+import { semanticSearchServiceV2 } from "./services/semanticSearchV2";
 import { generateChatResponse } from "./services/openai";
 import { aiKeywordExpansionService } from "./services/aiKeywordExpansion";
 
@@ -69,8 +69,8 @@ router.post('/api/debug/ai-input', async (req, res) => {
       // Use the new chunk split and rank search method
       if (searchType === 'hybrid') {
         try {
-          const { semanticSearchV2 } = await import('./services/semanticSearchV2');
-          searchResults = await semanticSearchV2.performChunkSplitAndRankSearch(
+          const { semanticSearchServiceV2 } = await import('./services/semanticSearchV2');
+          searchResults = await semanticSearchServiceV2.performChunkSplitAndRankSearch(
             userMessage,
             userId,
             {
@@ -110,7 +110,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
           try {
             // Fallback to regular hybrid search
             console.log('DEBUG: Falling back to regular hybrid search');
-            searchResults = await semanticSearchV2.searchDocuments(
+            searchResults = await semanticSearchServiceV2.searchDocuments(
               userMessage,
               userId,
               {
@@ -147,7 +147,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
           }
         }
       } else {
-        searchResults = await semanticSearchV2.searchDocuments(
+        searchResults = await semanticSearchServiceV2.searchDocuments(
           userMessage,
           userId,
           searchOptions
@@ -779,7 +779,7 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
     }
 });
 
-router.get("/debug/find-xolo/:userId", async (req, res) => {
+router.get("/debug/find-xolo/:userId", async (req, res){
   try {
     const { userId } = req.params;
     console.log(`=== SEARCHING FOR XOLO ACROSS ALL DOCUMENTS FOR USER ${userId} ===`);
