@@ -455,6 +455,235 @@
                 alert('XOLO search failed: ' + error.message);
             }
         }
+
+        async function performSearch() {
+            const queryElement = document.getElementById('searchQuery');
+            const searchTypeElement = document.getElementById('searchType');
+            const keywordWeightElement = document.getElementById('keywordWeight');
+            const vectorWeightElement = document.getElementById('vectorWeight');
+            const userIdElement = document.getElementById('userId');
+
+            // Check if elements exist
+            if (!queryElement || !searchTypeElement || !keywordWeightElement || !vectorWeightElement || !userIdElement) {
+                setOutput('searchOutput', 'Error: Search form elements not found', 'error');
+                return;
+            }
+
+            const query = queryElement.value;
+            const searchType = searchTypeElement.value;
+            const keywordWeight = parseFloat(keywordWeightElement.value) || 0.5;
+            const vectorWeight = parseFloat(vectorWeightElement.value) || 0.5;
+            const userId = userIdElement.value || '43981095';
+
+            if (!query || !query.trim()) {
+                setOutput('searchOutput', 'Please enter a search query', 'error');
+                return;
+            }
+
+            setLoading('searchLoading', true);
+
+            try {
+                const searchPayload = {
+                    q: query,
+                    type: searchType || 'hybrid',
+                    keywordWeight: keywordWeight,
+                    vectorWeight: vectorWeight,
+                    userId: userId
+                };
+
+                console.log('Search payload:', searchPayload);
+
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(searchPayload)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    setOutput('searchOutput', `HTTP ${response.status}: ${errorText}`, 'error');
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (data && data.results) {
+                    let output = `Search Results for "${query}" (${searchType} search):\n\n`;
+                    output += `Found ${data.results.length} results\n\n`;
+
+                    data.results.forEach((result, index) => {
+                        output += `${index + 1}. ${result.name}\n`;
+                        output += `   Similarity: ${(result.similarity || 0).toFixed(3)}\n`;
+                        output += `   Content: ${(result.content || '').substring(0, 200)}...\n\n`;
+                    });
+
+                    setOutput('searchOutput', output, 'success');
+                } else {
+                    setOutput('searchOutput', `Error: ${data.message || 'Invalid response format'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                setOutput('searchOutput', `Network Error: ${error.message}`, 'error');
+            } finally {
+                setLoading('searchLoading', false);
+            }
+        }
+
+        async function makeRequest(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+
+                let data;
+                try {
+                    const responseText = await response.text();
+                    if (responseText) {
+                        data = JSON.parse(responseText);
+                    } else {
+                        data = { error: 'Empty response' };
+                    }
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    data = { error: 'Invalid JSON response', rawResponse: responseText };
+                }
+
+                return {
+                    response,
+                    data: data || {},
+                    ok: response.ok,
+                    error: null
+                };
+            } catch (error) {
+                console.error('Request error:', error);
+                return {
+                    response: null,
+                    data: { error: error.message },
+                    ok: false,
+                    error: error.message
+                };
+            }
+        }
+
+        async function testSemanticSearch() {
+            setLoading('semanticLoading', true);
+
+            const queryElement = document.getElementById('semanticQuery');
+            const userIdElement = document.getElementById('semanticUserId');
+
+            if (!queryElement || !userIdElement) {
+                setOutput('semanticOutput', 'Error: Form elements not found', 'error');
+                setLoading('semanticLoading', false);
+                return;
+            }
+
+            const query = queryElement.value || 'XOLO บางกะปิ';
+            const userId = userIdElement.value || '43981095';
+
+            try {
+                const searchPayload = {
+                    q: query,
+                    type: 'semantic',
+                    userId: userId
+                };
+
+                console.log('Semantic search payload:', searchPayload);
+
+                const { response, data, ok, error } = await makeRequest('/api/search', {
+                    method: 'POST',
+                    body: JSON.stringify(searchPayload)
+                });
+
+                if (error) {
+                    setOutput('semanticOutput', `Network Error: ${error}`, 'error');
+                } else if (!ok) {
+                    setOutput('semanticOutput', `HTTP ${response ? response.status : 'Unknown'}: ${JSON.stringify(data || {}, null, 2)}`, 'error');
+                } else {
+                    let output = `Semantic Search Results:\n\n`;
+                    if (data && data.results && data.results.length > 0) {
+                        data.results.slice(0, 5).forEach((result, index) => {
+                            output += `${index + 1}. ${result.name || 'Untitled'}\n`;
+                            output += `   Similarity: ${(result.similarity || 0).toFixed(3)}\n`;
+                            output += `   Content: ${(result.content || '').substring(0, 150)}...\n\n`;
+                        });
+                    } else {
+                        output += 'No results found';
+                    }
+                    setOutput('semanticOutput', output, 'success');
+                }
+            } catch (err) {
+                console.error('Semantic search error:', err);
+                setOutput('semanticOutput', `Error: ${err.message}`, 'error');
+            } finally {
+                setLoading('semanticLoading', false);
+            }
+        }
+
+        async function testHybridSearch() {
+            setLoading('hybridLoading', true);
+
+            const queryElement = document.getElementById('hybridQuery');
+            const userIdElement = document.getElementById('hybridUserId');
+            const keywordWeightElement = document.getElementById('hybridKeywordWeight');
+            const vectorWeightElement = document.getElementById('hybridVectorWeight');
+
+            if (!queryElement || !userIdElement || !keywordWeightElement || !vectorWeightElement) {
+                setOutput('hybridOutput', 'Error: Form elements not found', 'error');
+                setLoading('hybridLoading', false);
+                return;
+            }
+
+            const query = queryElement.value || 'XOLO บางกะปิ';
+            const userId = userIdElement.value || '43981095';
+            const keywordWeight = parseFloat(keywordWeightElement.value) || 0.4;
+            const vectorWeight = parseFloat(vectorWeightElement.value) || 0.6;
+
+            try {
+                const searchPayload = {
+                    q: query,
+                    type: 'hybrid',
+                    userId: userId,
+                    keywordWeight: keywordWeight,
+                    vectorWeight: vectorWeight
+                };
+
+                console.log('Hybrid search payload:', searchPayload);
+
+                const { response, data, ok, error } = await makeRequest('/api/search', {
+                    method: 'POST',
+                    body: JSON.stringify(searchPayload)
+                });
+
+                if (error) {
+                    setOutput('hybridOutput', `Network Error: ${error}`, 'error');
+                } else if (!ok) {
+                    setOutput('hybridOutput', `HTTP ${response ? response.status : 'Unknown'}: ${JSON.stringify(data || {}, null, 2)}`, 'error');
+                } else {
+                    let output = `Hybrid Search Results (KW: ${keywordWeight}, VEC: ${vectorWeight}):\n\n`;
+                    if (data && data.results && data.results.length > 0) {
+                        data.results.slice(0, 5).forEach((result, index) => {
+                            output += `${index + 1}. ${result.name || 'Untitled'}\n`;
+                            output += `   Similarity: ${(result.similarity || 0).toFixed(3)}\n`;
+                            output += `   Content: ${(result.content || '').substring(0, 150)}...\n\n`;
+                        });
+                    } else {
+                        output += 'No results found';
+                    }
+                    setOutput('hybridOutput', output, 'success');
+                }
+            } catch (err) {
+                console.error('Hybrid search error:', err);
+                setOutput('hybridOutput', `Error: ${err.message}`, 'error');
+            } finally {
+                setLoading('hybridLoading', false);
+            }
+        }
     </script>
 </body>
 </html>
