@@ -1,0 +1,80 @@
+[INFO] 🔍 KEYWORD SEARCH: Found 109 chunks to search
+[LOG] 🔍 KEYWORD SEARCH: Found 109 chunks to search
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 1 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 1 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 9 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 9 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 10 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 10 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 11 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 11 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 0 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 0 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 2 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 2 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 3 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 3 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 4 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 4 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 5 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 5 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 6 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 6 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 7 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 7 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 8 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 8 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 12 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 12 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 13 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 13 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 14 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 14 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 15 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 15 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 16 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 16 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 17 - 2/6 terms matched (บ้าน, งามวงศ์วาน) score: 0.333
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 17 - 2/6 terms matched (บ้าน, งามวงศ์วาน) score: 0.333
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 24 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 24 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 18 - 2/6 terms matched (บ้าน, งามวงศ์วาน) score: 0.333
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 18 - 2/6 terms matched (บ้าน, งามวงศ์วาน) score: 0.333
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 19 - 2/6 terms matched (งามวงศ์วาน, ร้าน) score: 0.333
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 19 - 2/6 terms matched (งามวงศ์วาน, ร้าน) score: 0.333
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 20 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 20 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 21 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 21 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 22 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 22 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 23 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 23 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 25 - 2/6 terms matched (งามวงศ์วาน, ร้าน) score: 0.333
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 25 - 2/6 terms matched (งามวงศ์วาน, ร้าน) score: 0.333
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 26 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 26 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 27 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 27 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 28 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 28 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 29 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 29 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 30 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 30 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 31 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 31 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 32 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 32 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 33 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 33 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 34 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 34 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 35 - 2/6 terms matched (งามวงศ์วาน, ร้าน) score: 0.333
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 35 - 2/6 terms matched (งามวงศ์วาน, ร้าน) score: 0.333
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 36 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 36 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 37 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 37 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 38 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 38 - 1/6 terms matched (งามวงศ์วาน) score: 0.167
