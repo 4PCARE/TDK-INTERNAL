@@ -1,10 +1,3 @@
-` tags, while preserving indentation and formatting.
-
-```
-Fixed conditional logic to prevent unnecessary searches when needsSearch is false.
-```
-
-<replit_final_file>
 import { Request, Response } from "express";
 import OpenAI from "openai";
 import { storage } from "./storage";
@@ -896,7 +889,6 @@ export async function handleLineWebhook(req: Request, res: Response) {
           userMessage = `[${message.type}]`;
           messageMetadata = {
             messageType: message.type,
-            ```
             messageId: message.id,
           };
           console.log("📎 Other message type:", message.type);
