@@ -88,7 +88,7 @@ ${context ? `Additional Context: ${context}` : ''}
 2. If the user query is vague but history contains specific context, inject that context
 3. Pay special attention to image analysis results that mention specific stores or brands
 4. Examples of context injection:
-   - Query: "อยู่ชั้นไหน" + History mentions "OPPO" → Enhanced: "OPPO อยู่ชั้นไหน"
+   - Query: "อยู่ชั้นไหน" + History mentions "OPPO", "เดอะมอลล์ ท่าพระ" → Enhanced: "OPPO เดอะมอลล์ ท่าพระ อยู่ชั้นไหน"
    - Query: "ราคาเท่าไหร่" + History mentions "iPhone 15" → Enhanced: "iPhone 15 ราคาเท่าไหร่"
 
 Analyze this query and provide your response.`;
