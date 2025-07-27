@@ -1232,7 +1232,7 @@ ${documentContext}
 
                 if (totalLength > 15000) {
                   console.log(`✂️ LINE OA: Truncating prompt from ${totalLength} to 15,000 characters`);
-                  
+
                   // Keep system message intact, truncate from conversation history
                   const systemMessageLength = messages[0].content.length;
                   const currentUserMessageLength = messages[messages.length - 1].content.length;
