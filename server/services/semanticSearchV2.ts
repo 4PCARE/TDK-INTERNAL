@@ -297,29 +297,23 @@ export class SemanticSearchServiceV2 {
     options: Omit<SearchOptions, "searchType">
   ): Promise<SearchResult[]> {
     try {
-      console.log(`ChunkSplitAndRank: Starting search for query "${query}" with options:`, JSON.stringify(options, null, 2));
-      
-      // 1. Get vector-based chunks
-      console.log(`ChunkSplitAndRank: Getting vector results for ${options.specificDocumentIds?.length || 'all'} documents`);
-      const vectorResults = await vectorService.searchDocuments(query, userId, 50, options.specificDocumentIds);
-      console.log(`ChunkSplitAndRank: Got ${vectorResults.length} vector results`);
-      
-      if (vectorResults.length === 0) {
-        console.log(`ChunkSplitAndRank: No vector results found, returning empty array`);
-        return [];
-      }
-      
-      const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
-      console.log(`ChunkSplitAndRank: Processing search terms:`, searchTerms);
+      const keywordWeight = options.keywordWeight ?? 0.5;
+      const vectorWeight = options.vectorWeight ?? 0.5;
 
-      // 2. Prepare keyword score for each chunk
-      const keywordChunks = vectorResults.map(result => {
-        const chunkId = `${result.document.metadata.originalDocumentId || result.document.id}-${result.document.chunkIndex ?? 0}`;
+      // Step 1: Retrieve top vector chunks
+      const vectorResults = await vectorService.searchDocuments(query, userId, 50, options.specificDocumentIds);
+      const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+
+      // Step 2: Score chunks with both vector and keyword
+      const scoredChunks = vectorResults.map(result => {
+        const docId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
+        const chunkIndex = result.document.chunkIndex ?? 0;
+        const chunkId = `${docId}-${chunkIndex}`;
         const chunkText = result.document.content.toLowerCase();
+        
         const matchedTerms = searchTerms.filter(term => chunkText.includes(term));
         let keywordScore = matchedTerms.length / searchTerms.length;
 
-        // Optional boost for store-type queries
         const storeKeywords = ['xolo', 'kamu', 'floor', 'ชั้น', 'บางกะปิ', 'bangkapi'];
         const hasStoreKeyword = searchTerms.some(term =>
           storeKeywords.some(sk => sk.includes(term) || term.includes(sk))
@@ -328,75 +322,67 @@ export class SemanticSearchServiceV2 {
           keywordScore = Math.min(1.0, keywordScore + 0.3);
         }
 
+        const combinedScore = Math.min(1.0, result.similarity * vectorWeight + keywordScore * keywordWeight);
+
         return {
+          docId,
+          chunkIndex,
           chunkId,
           content: result.document.content,
-          docId: parseInt(result.document.metadata.originalDocumentId || result.document.id),
-          vectorScore: result.similarity,
-          keywordScore,
-          combinedScore: result.similarity * (options.vectorWeight ?? 0.5) +
-                         keywordScore * (options.keywordWeight ?? 0.5)
+          similarity: combinedScore
         };
       });
 
-      // 3. Sort and select top chunks covering 66% of total combined score
-      const totalCombined = keywordChunks.reduce((sum, c) => sum + c.combinedScore, 0);
-      const threshold = totalCombined * 0.66;
+      // Step 3: Rank and select top 66% score mass
+      const totalScore = scoredChunks.reduce((sum, c) => sum + c.similarity, 0);
+      const scoreThreshold = totalScore * 0.66;
 
-      keywordChunks.sort((a, b) => b.combinedScore - a.combinedScore);
+      scoredChunks.sort((a, b) => b.similarity - a.similarity);
 
       const selectedChunks = [];
-      let acc = 0;
-      for (const c of keywordChunks) {
-        selectedChunks.push(c);
-        acc += c.combinedScore;
-        if (acc >= threshold) break;
+      let accumulatedScore = 0;
+      for (const chunk of scoredChunks) {
+        selectedChunks.push(chunk);
+        accumulatedScore += chunk.similarity;
+        if (accumulatedScore >= scoreThreshold) break;
       }
 
-      // 4. Get original document metadata
-      const allDocIds = [...new Set(selectedChunks.map(c => c.docId))];
+      // Step 4: Load document metadata
+      const uniqueDocIds = [...new Set(selectedChunks.map(c => c.docId))];
       const docMap = new Map((await storage.getDocuments(userId, { limit: 1000 }))
-        .filter(doc => allDocIds.includes(doc.id))
+        .filter(doc => uniqueDocIds.includes(doc.id))
         .map(doc => [doc.id, doc]));
 
-      // 5. Wrap result as SearchResult[]
+      // Step 5: Format final results
       const finalResults: SearchResult[] = selectedChunks.map(chunk => {
-        const originalDoc = docMap.get(chunk.docId);
+        const doc = docMap.get(chunk.docId);
+        const chunkLabel = chunk.chunkIndex !== undefined ? ` (Section ${chunk.chunkIndex})` : "";
+
         return {
-          id: originalDoc?.id ?? chunk.docId,
-          name: originalDoc?.name ?? "[Unknown]",
+          id: chunk.docId, // or chunk.chunkId if your UI supports it
+          name: (doc?.name ?? "Untitled") + chunkLabel,
           content: chunk.content,
-          summary: originalDoc?.summary,
-          aiCategory: originalDoc?.aiCategory,
-          aiCategoryColor: originalDoc?.aiCategoryColor,
-          similarity: chunk.combinedScore,
-          createdAt: originalDoc?.createdAt?.toISOString() ?? new Date().toISOString(),
-          categoryId: originalDoc?.categoryId ?? null,
-          tags: originalDoc?.tags ?? null,
-          fileSize: originalDoc?.fileSize ?? null,
-          mimeType: originalDoc?.mimeType ?? null,
-          isFavorite: originalDoc?.isFavorite ?? null,
-          updatedAt: originalDoc?.updatedAt?.toISOString() ?? null,
-          userId: originalDoc?.userId ?? userId
+          summary: chunk.content.slice(0, 200) + "...",
+          aiCategory: doc?.aiCategory ?? null,
+          aiCategoryColor: doc?.aiCategoryColor ?? null,
+          similarity: chunk.similarity,
+          createdAt: doc?.createdAt?.toISOString() ?? new Date().toISOString(),
+          categoryId: doc?.categoryId ?? null,
+          tags: doc?.tags ?? null,
+          fileSize: doc?.fileSize ?? null,
+          mimeType: doc?.mimeType ?? null,
+          isFavorite: doc?.isFavorite ?? null,
+          updatedAt: doc?.updatedAt?.toISOString() ?? null,
+          userId: doc?.userId ?? userId
         };
       });
 
-      console.log(`ChunkSplitAndRank: Selected ${finalResults.length} chunks covering 66% of total score`);
+      console.log(`✅ performChunkSplitAndRankSearch: Returned ${finalResults.length} ranked chunks`);
       return finalResults;
 
     } catch (error) {
-      console.error("Error in performChunkSplitAndRankSearch:", error);
-      console.error("Error details:", {
-        message: error.message,
-        stack: error.stack,
-        query,
-        userId,
-        options
-      });
-      
-      // Return empty results instead of throwing to prevent HTML error pages
-      console.log("ChunkSplitAndRank: Returning empty results due to error");
-      return [];
+      console.error("❌ Error in performChunkSplitAndRankSearch:", error);
+      throw new Error("Failed to perform chunk-based split-and-rank search");
     }
   }
 
