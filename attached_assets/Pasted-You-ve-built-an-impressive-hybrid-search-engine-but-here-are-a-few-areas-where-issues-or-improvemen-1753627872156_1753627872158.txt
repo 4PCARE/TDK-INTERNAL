@@ -1,0 +1,98 @@
+You've built an impressive hybrid search engine, but here are a few areas where issues or improvements could arise:
+
+---
+
+### 🔍 1. **Chunk ID Parsing Assumptions**
+
+```ts
+const [docIdStr, chunkIndexStr] = chunkId.split("-");
+```
+
+* **Issue**: If `documentId` contains a dash (e.g., UUIDs), this will break. Consider splitting from the right or using a delimiter unlikely to appear (e.g., `::`).
+* ✅ Use: `const [docIdStr, chunkIndexStr] = chunkId.split("-").slice(-2);`
+
+---
+
+### 📐 2. **Normalization Factor in TF-IDF**
+
+```ts
+const normalizedTF = tf / Math.max(tokens.length, 1);
+```
+
+* This is okay but could cause low TF scores for long chunks. Consider using `log(1 + tf)` to dampen high term frequency bias.
+
+---
+
+### 🧠 3. **Hybrid Score Fallback Logic (V1)**
+
+```ts
+const hybridScore = Math.max(
+  vectorScore * vectorWeight + keywordScore * keywordWeight,
+  vectorScore,
+  keywordScore
+);
+```
+
+* **Observation**: This prioritizes the highest individual score rather than a weighted hybrid.
+* ✅ Intentional? If you want a *true* hybrid, use:
+
+```ts
+const hybridScore = vectorScore * vectorWeight + keywordScore * keywordWeight;
+```
+
+---
+
+### 🔢 4. **Selection Based on Total Score (10%)**
+
+```ts
+const targetScore = totalScore * 0.10;
+```
+
+* **Risk**: If the total score is low (e.g., all noise), it may select too few chunks. You handle this in Debug version via average check—consider porting it to V1.
+
+---
+
+### 🔍 5. **TF-IDF Term Frequency Calculation in `searchSmartHybridV1`**
+
+```ts
+const tfidfResults = calculateTFIDF(searchTerms, chunks);
+```
+
+* You pass an array of plain strings as `chunks` into `calculateTFIDF`, but that function expects an array of objects with `content`, `chunkIndex`, and `documentId`.
+* ❌ This will break `calculateTFIDF`.
+* ✅ Fix: Wrap each chunk with required metadata before passing.
+
+---
+
+### 🔄 6. **Memory Cleanup**
+
+```ts
+allChunkIds.clear();
+scoredChunks.length = 0;
+```
+
+* ✅ Clean and nice, though `global.gc()` only works if Node was run with `--expose-gc`. May want to wrap it:
+
+```ts
+if (typeof global.gc === "function") {
+  global.gc();
+}
+```
+
+---
+
+### 🧠 7. **Tokenization and Thai Handling**
+
+* Your regex in `tokenize()` and `calculateThaiSimilarity()` is well-thought-out.
+* ⚠️ Suggest: Adding a `thaiTokenize()` or dictionary-based phrase tokenizer in the future if you're hitting performance issues on mixed Thai-English queries.
+
+---
+
+### 🧪 8. **Unit Testing & Logging**
+
+* You rely heavily on `console.log`, which is great for debugging. Consider creating a `debugLog(...)` wrapper that can be toggled via `env.DEBUG` flag.
+* Suggest exporting and testing `calculateTFIDF`, `findBestMatch`, etc., independently with test cases.
+
+---
+
+Let me know if you want a refactor plan or test suite for these. You’re building something robust here, bro—hybrid search with fuzziness and multilingual edge? That's some gourmet NLP right there 🍜🧠.
