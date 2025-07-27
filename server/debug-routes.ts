@@ -66,24 +66,11 @@ router.post('/api/debug/ai-input', async (req, res) => {
       }));
     } else {
       // Use semantic search
-      const { semanticSearchServiceV2 } = await import('./services/semanticSearchV2');
-
-      const searchOptions = {
-        searchType: searchType as 'semantic' | 'keyword' | 'hybrid',
-        limit: 5,
-        keywordWeight,
-        vectorWeight,
-        specificDocumentIds
-      };
-
-      let searchResults;
-
       // Use the new chunk split and rank search method
       if (searchType === 'hybrid') {
         try {
-          console.log(`DEBUG: Starting performChunkSplitAndRankSearch for query: "${userMessage}"`);
-          
-          searchResults = await semanticSearchServiceV2.performChunkSplitAndRankSearch(
+          const { semanticSearchV2 } = await import('./services/semanticSearchV2');
+          searchResults = await semanticSearchV2.performChunkSplitAndRankSearch(
             userMessage,
             userId,
             {
@@ -119,11 +106,11 @@ router.post('/api/debug/ai-input', async (req, res) => {
         } catch (error) {
           console.error('Error with performChunkSplitAndRankSearch:', error);
           console.error('Error stack:', error.stack);
-          
+
           try {
             // Fallback to regular hybrid search
             console.log('DEBUG: Falling back to regular hybrid search');
-            searchResults = await semanticSearchServiceV2.searchDocuments(
+            searchResults = await semanticSearchV2.searchDocuments(
               userMessage,
               userId,
               {
@@ -160,7 +147,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
           }
         }
       } else {
-        searchResults = await semanticSearchServiceV2.searchDocuments(
+        searchResults = await semanticSearchV2.searchDocuments(
           userMessage,
           userId,
           searchOptions
@@ -226,7 +213,7 @@ Answer questions specifically about this document. Provide detailed analysis, ex
   } catch (error) {
     console.error('Error in AI input debug:', error);
     console.error('Error stack:', error.stack);
-    
+
     // Ensure we always return JSON, never HTML
     try {
       res.status(500).json({ 
