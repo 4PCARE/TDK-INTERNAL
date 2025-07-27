@@ -315,8 +315,8 @@ export async function searchSmartHybridDebug(
     const avgScore = totalScore / scoredChunks.length;
     
     if (avgScore > 0.1) {
-      // Use 66% mass selection if average scores are decent
-      const scoreTarget = totalScore * 0.66;
+      // Use 10% mass selection if average scores are decent
+      const scoreTarget = totalScore * 0.10;
       let accScore = 0;
       for (const chunk of scoredChunks) {
         selectedChunks.push(chunk);
@@ -469,7 +469,7 @@ export async function searchSmartHybridV1(
     // 4. Select top 66% score mass
     const sortedChunks = [...combinedChunkMap.values()].sort((a, b) => b.finalScore - a.finalScore);
     const totalScore = sortedChunks.reduce((sum, c) => sum + c.finalScore, 0);
-    const targetScore = totalScore * 0.66;
+    const targetScore = totalScore * 0.10;
     const selectedChunks = [];
     let acc = 0;
     for (const chunk of sortedChunks) {
