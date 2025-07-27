@@ -17,6 +17,9 @@ router.get('/debug/health', (req, res) => {
 
 router.post('/api/debug/ai-input', async (req, res) => {
   try {
+    // Ensure we always set the correct content type
+    res.setHeader('Content-Type', 'application/json');
+
     const { userMessage, specificDocumentId, userId, searchType = 'hybrid', keywordWeight = 0.3, vectorWeight = 0.7, specificDocumentIds } = req.body;
 
     if (!userMessage || !userId) {
@@ -165,19 +168,25 @@ Answer questions specifically about this document. Provide detailed analysis, ex
     console.log(documentContext);
     console.log('\n=== END DEBUG ===');
 
-    // Return the debug information
-    res.json({
+    // Return the debug information as JSON
+    const responseData = {
       systemMessage,
       userMessage,
       documentContext,
       documentContextLength: documentContext.length,
       searchMetrics,
       chunkDetails
-    });
+    };
+
+    res.json(responseData);
 
   } catch (error) {
     console.error('Error in AI input debug:', error);
-    res.status(500).json({ error: error.message });
+    // Ensure we return JSON even on error
+    res.status(500).json({ 
+      error: error.message || 'Unknown error occurred',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
