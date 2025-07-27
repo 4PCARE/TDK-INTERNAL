@@ -115,6 +115,11 @@ export class SemanticSearchServiceV2 {
           const chunkId = `${docId}-${chunkIndex ?? 0}`;
           const chunkLabel = chunkIndex !== undefined ? ` (Chunk ${(chunkIndex ?? 0) + 1})` : "";
 
+          // Debug: Verify we're getting chunk content, not full document
+          if (vectorResult.document.content.length > 3000) {
+            console.warn(`⚠️  SEMANTIC SEARCH: Doc ${docId} chunk ${chunkIndex} has ${vectorResult.document.content.length} chars - might be full document!`);
+          }
+
           results.push({
             id: chunkId, // Use string ID to avoid conflicts
             name: doc.name + chunkLabel,
@@ -283,8 +288,10 @@ export class SemanticSearchServiceV2 {
       console.log(`Hybrid search using weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
 
       // Use the new chunk split and rank search method
+      console.log("🔄 Hybrid search: Using performChunkSplitAndRankSearch method");
       const chunkResults = await this.performChunkSplitAndRankSearch(query, userId, options);
-
+      
+      console.log(`🔄 Hybrid search: Returning ${chunkResults.length} chunk-based results`);
       return chunkResults;
 
     } catch (error) {
@@ -321,6 +328,11 @@ export class SemanticSearchServiceV2 {
         const chunkIndex = result.document.chunkIndex ?? 0;
         const chunkId = `${docId}-${chunkIndex}`;
         const chunkText = result.document.content.toLowerCase();
+        
+        // Debug: Log chunk content length to catch any full documents sneaking in
+        if (result.document.content.length > 3000) {
+          console.warn(`⚠️  Vector result for doc ${docId} chunk ${chunkIndex} has ${result.document.content.length} chars - suspiciously large for a chunk!`);
+        }
 
         const matchedTerms = searchTerms.filter(term => chunkText.includes(term));
         let keywordScore = matchedTerms.length / searchTerms.length;
@@ -401,6 +413,11 @@ export class SemanticSearchServiceV2 {
       finalResults.slice(0, 3).forEach((result, index) => {
         console.log(`${index + 1}. ${result.name} - Score: ${result.similarity.toFixed(4)}`);
         console.log(`   Content (${result.content.length} chars): ${result.content.substring(0, 150)}...`);
+        
+        // Additional debugging to catch if we're accidentally getting full documents
+        if (result.content.length > 3000) {
+          console.warn(`⚠️  POTENTIAL ISSUE: Result ${index + 1} has ${result.content.length} characters - might be full document instead of chunk!`);
+        }
       });
 
       return finalResults;
