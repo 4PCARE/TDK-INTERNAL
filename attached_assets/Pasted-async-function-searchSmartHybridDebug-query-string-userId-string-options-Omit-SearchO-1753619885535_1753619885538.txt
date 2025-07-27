@@ -1,0 +1,128 @@
+async function searchSmartHybridDebug(
+  query: string,
+  userId: string,
+  options: Omit<SearchOptions, "searchType">
+): Promise<SearchResult[]> {
+  const keywordWeight = options.keywordWeight ?? 0.5;
+  const vectorWeight = options.vectorWeight ?? 0.5;
+  const threshold = options.threshold ?? 0.3;
+
+  const searchTerms = query.toLowerCase().split(/\s+/).filter(Boolean);
+
+  // 1. Get all documents
+  const documents = await storage.getDocuments(userId, { limit: 1000 });
+  const relevantDocs = options.specificDocumentIds?.length
+    ? documents.filter(doc => options.specificDocumentIds!.includes(doc.id))
+    : documents;
+
+  const docMap = new Map(relevantDocs.map(doc => [doc.id, doc]));
+
+  // 2. Perform keyword search manually
+  const keywordMatches: Record<string, number> = {};
+  for (const doc of relevantDocs) {
+    const chunks = doc.chunks || splitIntoChunks(doc.content || "", 3000, 300);
+    chunks.forEach((chunk, index) => {
+      const lowerChunk = chunk.toLowerCase();
+      const matched = searchTerms.filter(term => lowerChunk.includes(term));
+      if (matched.length > 0) {
+        const score = matched.length / searchTerms.length;
+        keywordMatches[`${doc.id}-${index}`] = score;
+      }
+    });
+  }
+
+  // 3. Perform vector search
+  const vectorResults = await vectorService.searchDocuments(query, userId, 100, options.specificDocumentIds);
+  const vectorMatches: Record<string, { score: number, content: string }> = {};
+  for (const result of vectorResults) {
+    const docId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
+    const chunkIndex = result.document.chunkIndex ?? 0;
+    const chunkId = `${docId}-${chunkIndex}`;
+    const score = result.similarity;
+
+    if (score >= threshold) {
+      vectorMatches[chunkId] = {
+        score,
+        content: result.document.content
+      };
+    }
+  }
+
+  // 4. Combine
+  const allChunkIds = new Set([
+    ...Object.keys(keywordMatches),
+    ...Object.keys(vectorMatches)
+  ]);
+
+  const scoredChunks: {
+    docId: number;
+    chunkIndex: number;
+    content: string;
+    finalScore: number;
+    keywordScore: number;
+    vectorScore: number;
+  }[] = [];
+
+  for (const chunkId of allChunkIds) {
+    const [docIdStr, chunkIndexStr] = chunkId.split("-");
+    const docId = parseInt(docIdStr);
+    const chunkIndex = parseInt(chunkIndexStr);
+    const keywordScore = keywordMatches[chunkId] ?? 0;
+    const vectorInfo = vectorMatches[chunkId];
+    const vectorScore = vectorInfo?.score ?? 0;
+    const content = vectorInfo?.content ?? ""; // fallback to nothing if not in vector search
+
+    const finalScore = keywordScore * keywordWeight + vectorScore * vectorWeight;
+
+    if (finalScore > 0 && content.length > 0) {
+      scoredChunks.push({
+        docId,
+        chunkIndex,
+        content,
+        keywordScore,
+        vectorScore,
+        finalScore
+      });
+    }
+  }
+
+  // 5. Sort by finalScore and select top 66%
+  const totalScore = scoredChunks.reduce((sum, c) => sum + c.finalScore, 0);
+  const scoreTarget = totalScore * 0.66;
+
+  scoredChunks.sort((a, b) => b.finalScore - a.finalScore);
+  const selectedChunks = [];
+  let accScore = 0;
+  for (const chunk of scoredChunks) {
+    selectedChunks.push(chunk);
+    accScore += chunk.finalScore;
+    if (accScore >= scoreTarget) break;
+  }
+
+  const results: SearchResult[] = selectedChunks.map(chunk => {
+    const doc = docMap.get(chunk.docId);
+    const label = `(Chunk ${chunk.chunkIndex + 1})`;
+    return {
+      id: `${chunk.docId}-${chunk.chunkIndex}`,
+      name: `${doc?.name ?? "Untitled"} ${label}`,
+      content: chunk.content,
+      summary: chunk.content.slice(0, 200) + "...",
+      aiCategory: doc?.aiCategory ?? null,
+      aiCategoryColor: doc?.aiCategoryColor ?? null,
+      similarity: chunk.finalScore,
+      createdAt: doc?.createdAt?.toISOString() ?? new Date().toISOString(),
+      categoryId: doc?.categoryId ?? null,
+      tags: doc?.tags ?? null,
+      fileSize: doc?.fileSize ?? null,
+      mimeType: doc?.mimeType ?? null,
+      isFavorite: doc?.isFavorite ?? null,
+      updatedAt: doc?.updatedAt?.toISOString() ?? null,
+      userId: doc?.userId ?? userId
+    };
+  });
+
+  console.log("✅ searchSmartHybridDebug: returning", results.length, "results");
+  return results;
+
+  // You can add more logging here if needed!
+}
