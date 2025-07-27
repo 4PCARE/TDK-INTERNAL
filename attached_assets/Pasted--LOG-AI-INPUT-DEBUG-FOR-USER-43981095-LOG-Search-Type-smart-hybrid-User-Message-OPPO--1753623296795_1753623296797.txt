@@ -1,0 +1,84 @@
+[LOG] === AI INPUT DEBUG FOR USER 43981095 ===
+[LOG] Search Type: smart_hybrid, User Message: OPPO งามวงศ์วานอยู่ชั้นไหน
+[LOG] Document IDs: 213
+[INFO] === USING SMART HYBRID DEBUG SEARCH ===
+[LOG] === USING SMART HYBRID DEBUG SEARCH ===
+[INFO] Memory before search: [object Object]
+[LOG] Memory before search: { "rss": 511569920, "heapTotal": 303464448, "heapUsed": 269631880, "external": 16939296, "arrayBuffers": 4899202 }
+[INFO] 🔍 KEYWORD SEARCH: Starting with terms: [oppo, งามวงศ์วานอยู่ชั้นไหน]
+[LOG] 🔍 KEYWORD SEARCH: Starting with terms: [oppo, งามวงศ์วานอยู่ชั้นไหน]
+[INFO] 🔍 KEYWORD SEARCH: Found 88 chunks to search
+[LOG] 🔍 KEYWORD SEARCH: Found 88 chunks to search
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 47 - 1/2 terms matched (oppo) score: 0.500
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 47 - 1/2 terms matched (oppo) score: 0.500
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 50 - 1/2 terms matched (oppo) score: 0.500
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 50 - 1/2 terms matched (oppo) score: 0.500
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 57 - 1/2 terms matched (oppa) score: 0.375
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 57 - 1/2 terms matched (oppa) score: 0.375
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 61 - 1/2 terms matched (oppo) score: 0.500
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 61 - 1/2 terms matched (oppo) score: 0.500
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 67 - 1/2 terms matched (oppo) score: 0.500
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 67 - 1/2 terms matched (oppo) score: 0.500
+[INFO] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 85 - 1/2 terms matched (oppo) score: 0.500
+[LOG] 🔍 KEYWORD MATCH (FUZZY): Doc 213 chunk 85 - 1/2 terms matched (oppo) score: 0.500
+[INFO] 🔍 KEYWORD SEARCH: Found 6 chunks with keyword matches out of 88 total chunks
+[LOG] 🔍 KEYWORD SEARCH: Found 6 chunks with keyword matches out of 88 total chunks
+[INFO] VectorService: Using pure vector similarity search for query: "OPPO งามวงศ์วานอยู่ชั้นไหน"
+[LOG] VectorService: Using pure vector similarity search for query: "OPPO งามวงศ์วานอยู่ชั้นไหน"
+[INFO] VectorService: Filtering search to 1 specific documents: [213]
+[LOG] VectorService: Filtering search to 1 specific documents: [213]
+[INFO] VectorService: Retrieved 88 vectors from database
+[LOG] VectorService: Retrieved 88 vectors from database
+[INFO] VectorService: After filtering, 88 valid chunks remain
+[LOG] VectorService: After filtering, 88 valid chunks remain
+[INFO] VectorService: Taking top 100 chunks globally from 88 total chunks
+[LOG] VectorService: Taking top 100 chunks globally from 88 total chunks
+[INFO] Vector search for "OPPO งามวงศ์วานอยู่ชั้นไหน": Found 88 relevant chunks globally
+[LOG] Vector search for "OPPO งามวงศ์วานอยู่ชั้นไหน": Found 88 relevant chunks globally
+[INFO] Debug: Top 5 vector search results for "OPPO งามวงศ์วานอยู่ชั้นไหน":
+[LOG] Debug: Top 5 vector search results for "OPPO งามวงศ์วานอยู่ชั้นไหน":
+[INFO] 1. Doc ID: 213, Similarity: 0.2995
+[LOG] 1. Doc ID: 213, Similarity: 0.2995
+[INFO] Content: ะมอลล์ไลฟ์สโตร์ งามวงศ์วาน The Mall Lifestore Ngamwongwan Dining Dining active 1325 ธนาคารไทยเครดิต เพื่อรายย่อย เดอะมอลล์ไลฟ์สโตร์ บางกะปิ The Thai Credit Retail Bank (TCR) The Mall Lifestore Bangkap...
+[LOG] Content: ะมอลล์ไลฟ์สโตร์ งามวงศ์วาน The Mall Lifestore Ngamwongwan Dining Dining active 1325 ธนาคารไทยเครดิต เพื่อรายย่อย เดอะมอลล์ไลฟ์สโตร์ บางกะปิ The Thai Credit Retail Bank (TCR) The Mall Lifestore Bangkap...
+[INFO] 2. Doc ID: 213, Similarity: 0.2971
+[LOG] 2. Doc ID: 213, Similarity: 0.2971
+[INFO] Content: วาน FITFLOP The Mall Lifestore Ngamwongwan 1 เดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน The Mall Lifestore Ngamwongwan Fashion Fashion active 1471 ซูชิ เซกิ เดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน SUSHI SEKI The Mall Lifest...
+[LOG] Content: วาน FITFLOP The Mall Lifestore Ngamwongwan 1 เดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน The Mall Lifestore Ngamwongwan Fashion Fashion active 1471 ซูชิ เซกิ เดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน SUSHI SEKI The Mall Lifest...
+[INFO] 3. Doc ID: 213, Similarity: 0.2744
+[LOG] 3. Doc ID: 213, Similarity: 0.2744
+[INFO] Content: เดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน The Mall Lifestore Ngamwongwan Bank & Insurance Bank & Insurance active 1666 เอส เอฟ ซีเนม่า เดอะมอลล์ไลฟ์สโตร์ ท่าพระ SF CINEMA The Mall Lifestore Thapra 4 เดอะมอลล์ไลฟ์...
+[LOG] Content: เดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน The Mall Lifestore Ngamwongwan Bank & Insurance Bank & Insurance active 1666 เอส เอฟ ซีเนม่า เดอะมอลล์ไลฟ์สโตร์ ท่าพระ SF CINEMA The Mall Lifestore Thapra 4 เดอะมอลล์ไลฟ์...
+[INFO] 4. Doc ID: 213, Similarity: 0.2659
+[LOG] 4. Doc ID: 213, Similarity: 0.2659
+[INFO] Content: gamwongwan 3 เดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน The Mall Lifestore Ngamwongwan Fashion Optical Fashion Optical active 1717 มัลตี้ เดอะมอลล์ไลฟ์สโตร์ บางแค MULTY The Mall Lifestore Bangkae M เดอะมอลล์ไลฟ์สโ...
+[LOG] Content: gamwongwan 3 เดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน The Mall Lifestore Ngamwongwan Fashion Optical Fashion Optical active 1717 มัลตี้ เดอะมอลล์ไลฟ์สโตร์ บางแค MULTY The Mall Lifestore Bangkae M เดอะมอลล์ไลฟ์สโ...
+[INFO] 5. Doc ID: 213, Similarity: 0.2553
+[LOG] 5. Doc ID: 213, Similarity: 0.2553
+[INFO] Content: Lifestore Ngamwongwan 5 เดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน The Mall Lifestore Ngamwongwan Dining Dining active 1166 คอนวี่ เดอะมอลล์ไลฟ์สโตร์ บางกะปิ KONVY The Mall Lifestore Bangkapi M เดอะมอลล์ไลฟ์สโตร์ ...
+[LOG] Content: Lifestore Ngamwongwan 5 เดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน The Mall Lifestore Ngamwongwan Dining Dining active 1166 คอนวี่ เดอะมอลล์ไลฟ์สโตร์ บางกะปิ KONVY The Mall Lifestore Bangkapi M เดอะมอลล์ไลฟ์สโตร์ ...
+[INFO] 🧮 SCORING CALCULATION: Combining 6 unique chunks
+[LOG] 🧮 SCORING CALCULATION: Combining 6 unique chunks
+[INFO] 📊 WEIGHTS: Keyword=0.4, Vector=0.6
+[LOG] 📊 WEIGHTS: Keyword=0.4, Vector=0.6
+[INFO] 📐 FORMULA: Final Score = (Keyword Score × 0.4) + (Vector Score × 0.6)
+[LOG] 📐 FORMULA: Final Score = (Keyword Score × 0.4) + (Vector Score × 0.6)
+[INFO] ✅ SCORED CHUNKS: 0 chunks with final scores > 0
+[LOG] ✅ SCORED CHUNKS: 0 chunks with final scores > 0
+[INFO] ✅ searchSmartHybridDebug: returning 0 results
+[LOG] ✅ searchSmartHybridDebug: returning 0 results
+[INFO] Memory usage: [object Object]
+[LOG] Memory usage: { "rss": 479277056, "heapTotal": 278585344, "heapUsed": 243140904, "external": 16393386, "arrayBuffers": 4353292 }
+[INFO] Memory after search: [object Object]
+[LOG] Memory after search: { "rss": 479277056, "heapTotal": 278585344, "heapUsed": 243270496, "external": 16393386, "arrayBuffers": 4353292 }
+[LOG] === SYSTEM MESSAGE ===
+[LOG] You are an AI assistant helping users analyze and understand specific documents. You are currently focusing on a specific document provided in the context below. Document context: No specific document selected for analysis. Answer questions specifically about this document. Provide detailed analysis, explanations, and insights based on the document's content. If the user's question cannot be answered from this specific document, clearly state that and explain what information is available in the document.
+[LOG] === USER MESSAGE ===
+[LOG] OPPO งามวงศ์วานอยู่ชั้นไหน
+[LOG] === DOCUMENT CONTEXT LENGTH ===
+[LOG] 0 characters
+[LOG] === CHUNK DETAILS ===
+[LOG] Found 0 chunks
+[LOG] === FULL DOCUMENT CONTEXT ===
+[LOG]
+[LOG] === END DEBUG ===
