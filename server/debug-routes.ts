@@ -797,9 +797,8 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
       documentContext = `Document: ${doc.name}\nSummary: ${doc.summary || 'No summary'}\nTags: ${doc.tags?.join(", ") || 'No tags'}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
       searchMetrics.error = searchError.message;
 
-      chunkDetails.push```text
-({
-        chunkId: `error-${doc.id}`,
+      chunkDetails.push({
+              chunkId: `error-${doc.id}`,
         content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
         type: 'error'
       });
