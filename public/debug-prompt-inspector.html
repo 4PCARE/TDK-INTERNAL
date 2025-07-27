@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -386,15 +385,15 @@
             .form-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .container {
                 padding: 15px;
             }
-            
+
             .header h1 {
                 font-size: 2rem;
             }
-            
+
             .metrics-grid {
                 grid-template-columns: 1fr;
             }
@@ -568,7 +567,7 @@
                 });
 
                 const responseText = await response.text();
-                
+
                 if (!response.ok) {
                     // If it's HTML, show a more helpful error
                     if (responseText.includes('<!DOCTYPE')) {
@@ -604,7 +603,7 @@
 
         function displayResults(data) {
             const results = document.getElementById('results');
-            
+
             // Search metrics section
             let metricsHtml = '';
             if (data.searchMetrics) {
@@ -656,17 +655,17 @@
             let workflowHtml = '';
             if (data.searchWorkflow) {
                 const workflow = data.searchWorkflow;
-                
+
                 // Keyword candidates section
                 let keywordCandidatesHtml = '';
                 if (workflow.keywordCandidates && workflow.keywordCandidates.length > 0) {
                     const keywordListHtml = workflow.keywordCandidates.map((candidate, index) => {
                         let badges = [];
-                        
+
                         if (candidate.score !== undefined) {
                             badges.push(`<span class="badge badge-keyword">Score: ${candidate.score.toFixed(3)}</span>`);
                         }
-                        
+
                         if (candidate.matchType) {
                             badges.push(`<span class="badge" style="background: #fef3c7; color: #92400e;">Match: ${candidate.matchType}</span>`);
                         }
@@ -700,7 +699,7 @@
                 if (workflow.vectorCandidates && workflow.vectorCandidates.length > 0) {
                     const vectorListHtml = workflow.vectorCandidates.map((candidate, index) => {
                         let badges = [];
-                        
+
                         if (candidate.similarity !== undefined) {
                             const similarityColor = candidate.similarity > 0.8 ? '#16a34a' : candidate.similarity > 0.6 ? '#ea580c' : '#dc2626';
                             badges.push(`<span class="badge badge-similarity" style="background-color: ${similarityColor}20; color: ${similarityColor};">Similarity: ${candidate.similarity.toFixed(4)}</span>`);
@@ -774,20 +773,20 @@
             if (data.chunkDetails && data.chunkDetails.length > 0) {
                 const chunksListHtml = data.chunkDetails.map((chunk, index) => {
                     let badges = [];
-                    
+
                     if (chunk.similarity !== undefined) {
                         const similarityColor = chunk.similarity > 0.8 ? '#16a34a' : chunk.similarity > 0.6 ? '#ea580c' : '#dc2626';
                         badges.push(`<span class="badge badge-similarity" style="background-color: ${similarityColor}20; color: ${similarityColor};">Similarity: ${chunk.similarity.toFixed(4)}</span>`);
                     }
-                    
+
                     if (chunk.keywordScore !== undefined) {
                         badges.push(`<span class="badge badge-keyword">KW: ${chunk.keywordScore.toFixed(3)}</span>`);
                     }
-                    
+
                     if (chunk.vectorScore !== undefined) {
                         badges.push(`<span class="badge badge-vector">Vec: ${chunk.vectorScore.toFixed(3)}</span>`);
                     }
-                    
+
                     if (chunk.finalRank !== undefined) {
                         badges.push(`<span class="badge badge-rank">Rank: #${chunk.finalRank}</span>`);
                     }
@@ -796,7 +795,7 @@
                         let typeColor = '#374151';
                         let typeBg = '#f3f4f6';
                         let typeLabel = chunk.type;
-                        
+
                         if (chunk.type === 'chunk_split_rank') {
                             typeColor = '#8b5cf6';
                             typeBg = '#f3e8ff';
@@ -806,10 +805,10 @@
                             typeBg = '#d1fae5';
                             typeLabel = 'Smart Hybrid V1';
                         }
-                        
+
                         badges.push(`<span class="badge" style="background: ${typeBg}; color: ${typeColor};">${typeLabel}</span>`);
                     }
-                    
+
                     if (chunk.combinedScore !== undefined) {
                         badges.push(`<span class="badge" style="background: #ddd6fe; color: #7c3aed;">Combined: ${chunk.combinedScore.toFixed(3)}</span>`);
                     }
@@ -882,12 +881,12 @@
                 ${workflowHtml}
                 ${chunksHtml}
                 ${logsHtml}
-                
+
                 <div class="result-section">
                     <div class="result-header">
                         <h3>🤖 System Message (AI Instructions)</h3>
-                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.systemMessage)}')">Copy</button>
-                        <button class="copy-btn" style="background: #16a34a; margin-left: 5px;" onclick="sendToGPT('${escapeForJs(data.systemMessage)}', '${escapeForJs(data.userMessage)}')">🚀 Send to GPT-4o-mini</button>
+                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.systemMessage)}', event)">Copy</button>
+                        <button class="copy-btn" style="background: #16a34a; margin-left: 5px;" onclick="sendToGPT('${escapeForJs(data.systemMessage)}', '${escapeForJs(data.userMessage)}', event)">🚀 Send to GPT-4o-mini</button>
                     </div>
                     <div class="result-content">
                         <div class="code-block">${escapeHtml(data.systemMessage)}</div>
@@ -897,7 +896,7 @@
                 <div class="result-section">
                     <div class="result-header">
                         <h3>💬 User Message</h3>
-                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.userMessage)}')">Copy</button>
+                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.userMessage)}', event)">Copy</button>
                     </div>
                     <div class="result-content">
                         <div class="code-block">${escapeHtml(data.userMessage)}</div>
@@ -907,11 +906,22 @@
                 <div class="result-section">
                     <div class="result-header">
                         <h3>📄 Document Context (What the AI sees)</h3>
-                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.documentContext)}')">Copy</button>
+                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.documentContext)}', event)">Copy</button>
                     </div>
                     <div class="result-content">
                         <p style="margin-bottom: 15px; color: #64748b;">This is the actual document content that gets sent to the AI:</p>
                         <div class="code-block">${escapeHtml(data.documentContext)}</div>
+                    </div>
+                </div>
+
+                <div class="result-section">
+                    <div class="result-header">
+                        <h3>✨ Finalized Prompt (System + Document Context + User)</h3>
+                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.finalizedPrompt)}', event)">Copy Finalized Prompt</button>
+                    </div>
+                    <div class="result-content">
+                        <p style="margin-bottom: 15px; color: #64748b;">This is the final prompt sent to the AI, combining the system message, relevant document context, and the user's query:</p>
+                        <div class="code-block">${escapeHtml(data.finalizedPrompt)}</div>
                     </div>
                 </div>
 
@@ -952,34 +962,36 @@
             return text.replace(/'/g, "\\'").replace(/\n/g, "\\n").replace(/\r/g, "\\r");
         }
 
-        async function copyToClipboard(text) {
+        async function copyToClipboard(text, event) {
             try {
                 await navigator.clipboard.writeText(text);
-                // Show temporary success message
-                const btn = event.target;
-                const originalText = btn.textContent;
-                btn.textContent = 'Copied!';
-                btn.style.background = '#16a34a';
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                    btn.style.background = '#64748b';
-                }, 2000);
+                const btn = event?.target || document.activeElement;
+                if (btn) {
+                    const originalText = btn.textContent || 'Copy';
+                    btn.textContent = 'Copied!';
+                    btn.style.background = '#16a34a';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.background = '#64748b';
+                    }, 2000);
+                }
             } catch (err) {
                 console.error('Failed to copy to clipboard:', err);
                 alert('Failed to copy to clipboard. Please select and copy manually.');
             }
         }
 
-        async function sendToGPT(systemMessage, userMessage) {
+        async function sendToGPT(systemMessage, userMessage, event) {
             const gptSection = document.getElementById('gptResponseSection');
             const gptContent = document.getElementById('gptResponseContent');
-            
+            const btn = event?.target;
+
             // Show the response section
             gptSection.style.display = 'block';
             gptContent.innerHTML = 'Loading response from GPT-4o-mini...';
             gptContent.style.background = '#fef3c7';
             gptContent.style.color = '#92400e';
-            
+
             try {
                 console.log('Sending to GPT with:', {
                     userMessage: userMessage.substring(0, 100) + '...',
@@ -1015,7 +1027,7 @@
 
                 const data = await response.json();
                 console.log('Response data:', data);
-                
+
                 if (data.error) {
                     throw new Error(data.error);
                 }
@@ -1039,9 +1051,8 @@
                 gptContent.innerHTML = escapeHtml(assistantResponse);
                 gptContent.style.background = '#f0fdf4';
                 gptContent.style.color = '#166534';
-                
+
                 // Update the send button
-                const btn = event.target;
                 const originalText = btn.textContent;
                 btn.textContent = '✅ Sent!';
                 setTimeout(() => {
@@ -1059,7 +1070,7 @@
         async function copyGPTResponse(event) {
             const gptContent = document.getElementById('gptResponseContent');
             const text = gptContent.textContent;
-            
+
             try {
                 await navigator.clipboard.writeText(text);
                 const btn = event ? event.target : document.querySelector('[onclick="copyGPTResponse()"]');
