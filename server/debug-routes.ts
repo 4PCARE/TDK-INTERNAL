@@ -66,6 +66,8 @@ router.post('/api/debug/ai-input', async (req, res) => {
       }));
     } else {
       // Use semantic search
+      let searchResults = [];
+      
       // Use the new chunk split and rank search method
       if (searchType === 'hybrid') {
         try {
@@ -74,7 +76,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
             userMessage,
             userId,
             {
-              limit: searchOptions.limit || 5,
+              limit: 5,
               keywordWeight,
               vectorWeight,
               specificDocumentIds
@@ -114,8 +116,11 @@ router.post('/api/debug/ai-input', async (req, res) => {
               userMessage,
               userId,
               {
-                ...searchOptions,
-                searchType: 'hybrid'
+                searchType: 'hybrid',
+                limit: 5,
+                keywordWeight,
+                vectorWeight,
+                specificDocumentIds
               }
             );
 
@@ -150,7 +155,13 @@ router.post('/api/debug/ai-input', async (req, res) => {
         searchResults = await semanticSearchServiceV2.searchDocuments(
           userMessage,
           userId,
-          searchOptions
+          {
+            searchType: searchType as 'semantic' | 'keyword' | 'hybrid',
+            limit: 5,
+            keywordWeight,
+            vectorWeight,
+            specificDocumentIds
+          }
         );
 
         // Create chunk details for debugging
