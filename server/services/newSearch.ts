@@ -342,7 +342,7 @@ export async function searchSmartHybridDebug(
     let content = vectorInfo?.content ?? "";
     if (!content && keywordScore > 0) {
       // Find the chunk content from the database chunks for keyword-only matches
-      const chunk = chunks.find(c => `${c.documentId}-${c.chunk.chunkIndex}` === chunkId);
+      const chunk = chunks.find(c => `${c.documentId}-${c.chunkIndex}` === chunkId);
       content = chunk?.content ?? "";
     }
 
