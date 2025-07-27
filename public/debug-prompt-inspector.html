@@ -651,7 +651,124 @@
                 `;
             }
 
-            // Chunk details section
+            // Search workflow sections
+            let workflowHtml = '';
+            if (data.searchWorkflow) {
+                const workflow = data.searchWorkflow;
+                
+                // Keyword candidates section
+                let keywordCandidatesHtml = '';
+                if (workflow.keywordCandidates && workflow.keywordCandidates.length > 0) {
+                    const keywordListHtml = workflow.keywordCandidates.map((candidate, index) => {
+                        let badges = [];
+                        
+                        if (candidate.score !== undefined) {
+                            badges.push(`<span class="badge badge-keyword">Score: ${candidate.score.toFixed(3)}</span>`);
+                        }
+                        
+                        if (candidate.matchType) {
+                            badges.push(`<span class="badge" style="background: #fef3c7; color: #92400e;">Match: ${candidate.matchType}</span>`);
+                        }
+
+                        return `
+                            <div class="chunk-item">
+                                <div class="chunk-header">
+                                    <div class="chunk-id">Keyword ${index + 1}: Doc ${candidate.documentId || candidate.id}</div>
+                                    <div class="chunk-badges">${badges.join('')}</div>
+                                </div>
+                                <div class="chunk-content">${escapeHtml((candidate.content || '').substring(0, 300))}${(candidate.content || '').length > 300 ? '...' : ''}</div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    keywordCandidatesHtml = `
+                        <div class="result-section">
+                            <div class="result-header">
+                                <h3>🔍 Keyword Search Candidates (${workflow.keywordCandidates.length})</h3>
+                            </div>
+                            <div class="result-content">
+                                <p style="margin-bottom: 15px; color: #64748b;">Documents found through keyword matching:</p>
+                                <div class="chunk-list">${keywordListHtml}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Vector candidates section
+                let vectorCandidatesHtml = '';
+                if (workflow.vectorCandidates && workflow.vectorCandidates.length > 0) {
+                    const vectorListHtml = workflow.vectorCandidates.map((candidate, index) => {
+                        let badges = [];
+                        
+                        if (candidate.similarity !== undefined) {
+                            const similarityColor = candidate.similarity > 0.8 ? '#16a34a' : candidate.similarity > 0.6 ? '#ea580c' : '#dc2626';
+                            badges.push(`<span class="badge badge-similarity" style="background-color: ${similarityColor}20; color: ${similarityColor};">Similarity: ${candidate.similarity.toFixed(4)}</span>`);
+                        }
+
+                        if (candidate.chunkIndex !== undefined) {
+                            badges.push(`<span class="badge" style="background: #f0f9ff; color: #0c4a6e;">Chunk ${candidate.chunkIndex}</span>`);
+                        }
+
+                        return `
+                            <div class="chunk-item">
+                                <div class="chunk-header">
+                                    <div class="chunk-id">Vector ${index + 1}: Doc ${candidate.documentId || candidate.metadata?.originalDocumentId}</div>
+                                    <div class="chunk-badges">${badges.join('')}</div>
+                                </div>
+                                <div class="chunk-content">${escapeHtml((candidate.content || '').substring(0, 300))}${(candidate.content || '').length > 300 ? '...' : ''}</div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    vectorCandidatesHtml = `
+                        <div class="result-section">
+                            <div class="result-header">
+                                <h3>🎯 Vector Search Candidates (${workflow.vectorCandidates.length})</h3>
+                            </div>
+                            <div class="result-content">
+                                <p style="margin-bottom: 15px; color: #64748b;">Document chunks found through semantic similarity:</p>
+                                <div class="chunk-list">${vectorListHtml}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Ranking process section
+                let rankingHtml = '';
+                if (workflow.rankingProcess) {
+                    const ranking = workflow.rankingProcess;
+                    rankingHtml = `
+                        <div class="result-section">
+                            <div class="result-header">
+                                <h3>⚖️ Ranking & Scoring Process</h3>
+                            </div>
+                            <div class="result-content">
+                                <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                                    <h4 style="margin: 0 0 10px 0; color: #1e293b;">Scoring Algorithm:</h4>
+                                    <ul style="margin: 0; padding-left: 20px; color: #475569;">
+                                        <li><strong>Keyword Weight:</strong> ${ranking.keywordWeight || 'N/A'}</li>
+                                        <li><strong>Vector Weight:</strong> ${ranking.vectorWeight || 'N/A'}</li>
+                                        <li><strong>Formula:</strong> ${ranking.formula || 'Combined Score = (Keyword Score × Keyword Weight) + (Vector Score × Vector Weight)'}</li>
+                                        ${ranking.boostFactors ? `<li><strong>Boost Factors:</strong> ${ranking.boostFactors}</li>` : ''}
+                                    </ul>
+                                </div>
+                                ${ranking.stepByStep ? `
+                                    <div style="background: #f1f5f9; padding: 15px; border-radius: 8px;">
+                                        <h4 style="margin: 0 0 10px 0; color: #1e293b;">Step-by-Step Process:</h4>
+                                        <ol style="margin: 0; padding-left: 20px; color: #475569;">
+                                            ${ranking.stepByStep.map(step => `<li>${step}</li>`).join('')}
+                                        </ol>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                workflowHtml = keywordCandidatesHtml + vectorCandidatesHtml + rankingHtml;
+            }
+
+            // Final results section (enhanced)
             let chunksHtml = '';
             if (data.chunkDetails && data.chunkDetails.length > 0) {
                 const chunksListHtml = data.chunkDetails.map((chunk, index) => {
@@ -684,13 +801,29 @@
                         badges.push(`<span class="badge" style="background: #ddd6fe; color: #7c3aed;">Combined: ${chunk.combinedScore.toFixed(3)}</span>`);
                     }
 
+                    // Show detailed scoring breakdown if available
+                    let scoringDetails = '';
+                    if (chunk.scoringBreakdown) {
+                        scoringDetails = `
+                            <div style="background: #f8fafc; padding: 10px; border-radius: 4px; margin-top: 8px; font-size: 0.75rem;">
+                                <strong>Scoring Breakdown:</strong><br>
+                                ${Object.entries(chunk.scoringBreakdown).map(([key, value]) => 
+                                    `${key}: ${typeof value === 'number' ? value.toFixed(4) : value}`
+                                ).join(' | ')}
+                            </div>
+                        `;
+                    }
+
                     return `
                         <div class="chunk-item">
                             <div class="chunk-header">
-                                <div class="chunk-id">Chunk ${index + 1}: ${chunk.id || chunk.chunkId || 'Unknown ID'}</div>
+                                <div class="chunk-id">Final ${index + 1}: ${chunk.id || chunk.chunkId || 'Unknown ID'}</div>
                                 <div class="chunk-badges">${badges.join('')}</div>
                             </div>
-                            <div class="chunk-content">${escapeHtml((chunk.content || '').substring(0, 300))}${(chunk.content || '').length > 300 ? '...' : ''}</div>
+                            <div class="chunk-content">
+                                ${escapeHtml((chunk.content || '').substring(0, 300))}${(chunk.content || '').length > 300 ? '...' : ''}
+                                ${scoringDetails}
+                            </div>
                         </div>
                     `;
                 }).join('');
@@ -698,10 +831,10 @@
                 chunksHtml = `
                     <div class="result-section">
                         <div class="result-header">
-                            <h3>🧩 Chunk Analysis</h3>
+                            <h3>🏆 Final Ranked Results</h3>
                         </div>
                         <div class="result-content">
-                            <p style="margin-bottom: 15px; color: #64748b;">Individual chunks retrieved and their relevance scores:</p>
+                            <p style="margin-bottom: 15px; color: #64748b;">Final ranked results after combining keyword and vector search:</p>
                             <div class="chunk-list">${chunksListHtml}</div>
                         </div>
                     </div>
@@ -733,6 +866,7 @@
             // Main prompt sections
             results.innerHTML = `
                 ${metricsHtml}
+                ${workflowHtml}
                 ${chunksHtml}
                 ${logsHtml}
                 

@@ -29,7 +29,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
   console.log('Request headers:', JSON.stringify(req.headers, null, 2));
   console.log('Request body:', JSON.stringify(req.body, null, 2));
   console.log('=== END REQUEST INFO ===');
-  
+
   // Force JSON response headers early
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-cache');
@@ -38,14 +38,14 @@ router.post('/api/debug/ai-input', async (req, res) => {
   const debugLogs: string[] = [];
   const originalLog = console.log;
   const originalError = console.error;
-  
+
   // Override console methods to capture logs
   console.log = (...args) => {
     const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
     debugLogs.push(`[LOG] ${message}`);
     originalLog(...args);
   };
-  
+
   console.error = (...args) => {
     const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
     debugLogs.push(`[ERROR] ${message}`);
@@ -55,190 +55,156 @@ router.post('/api/debug/ai-input', async (req, res) => {
   try {
     // Content type already set above
 
-    const { userMessage, specificDocumentId, userId, searchType = 'hybrid', keywordWeight = 0.3, vectorWeight = 0.7, specificDocumentIds } = req.body;
+    const { userMessage, specificDocumentId, specificDocumentIds, userId, searchType = 'hybrid', keywordWeight = 0.3, vectorWeight = 0.7 } = req.body;
 
-    if (!userMessage || !userId) {
-      return res.status(400).json({ error: 'Missing required fields: userMessage, userId' });
-    }
-
-    console.log(`=== DEBUG AI INPUT FOR QUERY: "${userMessage}" ===`);
-    console.log(`Document ID: ${specificDocumentId}, User ID: ${userId}`);
-    console.log(`Search Type: ${searchType}, Keyword Weight: ${keywordWeight}, Vector Weight: ${vectorWeight}`);
+    console.log(`=== AI INPUT DEBUG FOR USER ${userId} ===`);
+    console.log(`Search Type: ${searchType}, User Message: ${userMessage}`);
+    console.log(`Document IDs: ${specificDocumentIds ? specificDocumentIds.join(', ') : 'All documents'}`);
 
     let documentContext = '';
-    let searchMetrics = null;
-    let chunkDetails = [];
+    let searchMetrics: any = {};
+    let chunkDetails: any[] = [];
+    let searchWorkflow: any = {};
 
-    if (specificDocumentId) {
-      // Get specific document
-      const documents = await storage.getDocuments(userId, { limit: 1000 });
-      const document = documents.find(doc => doc.id === parseInt(specificDocumentId));
+    // Capture console output
+    const originalLog = console.log;
+    const originalWarn = console.warn;
+    const originalError = console.error;
 
-      if (document) {
-        documentContext = `Document: ${document.name}\n\nContent:\n${document.content || 'No content available'}`;
-        chunkDetails = [{
-          id: document.id,
-          content: document.content || '',
-          similarity: 1.0,
-          type: 'direct_document'
-        }];
-      } else {
-        documentContext = 'Document not found';
-      }
-    } else if (specificDocumentIds && specificDocumentIds.length > 0) {
-      // Multiple specific documents
-      const documents = await storage.getDocuments(userId, { limit: 1000 });
-      const filteredDocs = documents.filter(doc => specificDocumentIds.includes(doc.id));
+    console.log = (...args) => {
+      debugLogs.push(`[INFO] ${args.join(' ')}`);
+      originalLog(...args);
+    };
 
-      documentContext = filteredDocs.map(doc => 
-        `Document: ${doc.name}\n\nContent:\n${doc.content || 'No content available'}`
-      ).join('\n\n---\n\n');
+    console.warn = (...args) => {
+      debugLogs.push(`[WARN] ${args.join(' ')}`);
+      originalWarn(...args);
+    };
 
-      chunkDetails = filteredDocs.map(doc => ({
-        id: doc.id,
-        content: doc.content || '',
-        similarity: 1.0,
-        type: 'specific_documents'
-      }));
-    } else {
-      // Use semantic search
-      let searchResults = [];
-      
-      // Use the new chunk split and rank search method
-      if (searchType === 'hybrid') {
-        try {
-          console.log('DEBUG: Attempting hybrid search with performChunkSplitAndRankSearch');
-          console.log('DEBUG: Import semanticSearchServiceV2...');
-          
-          // Check if the service exists and has the method
-          if (!semanticSearchServiceV2) {
-            throw new Error('semanticSearchServiceV2 is not available');
-          }
-          
-          if (typeof semanticSearchServiceV2.performChunkSplitAndRankSearch !== 'function') {
-            throw new Error('performChunkSplitAndRankSearch method is not available on semanticSearchServiceV2');
-          }
-          
-          console.log('DEBUG: Calling performChunkSplitAndRankSearch with params:', {
-            userMessage: userMessage.substring(0, 50) + '...',
-            userId,
-            options: { limit: 5, keywordWeight, vectorWeight, specificDocumentIds }
-          });
-          
-          searchResults = await semanticSearchServiceV2.performChunkSplitAndRankSearch(
-            userMessage,
-            userId,
-            {
-              limit: 5,
-              keywordWeight,
-              vectorWeight,
-              specificDocumentIds
-            }
-          );
+    console.error = (...args) => {
+      debugLogs.push(`[ERROR] ${args.join(' ')}`);
+      originalError(...args);
+    };
 
-          console.log(`DEBUG: performChunkSplitAndRankSearch returned ${searchResults.length} results`);
+    try {
+      let searchResults: any[] = [];
 
-          // Create detailed chunk analysis from the results
-          chunkDetails = searchResults.map((result, index) => ({
-            chunkId: result.id || `chunk-${index}`,
-            content: result.content || '',
-            vectorScore: 0, // These aren't exposed in the current implementation
-            keywordScore: 0, // These aren't exposed in the current implementation
-            combinedScore: result.similarity,
-            similarity: result.similarity,
-            finalRank: index + 1,
-            type: 'chunk_split_rank',
-            name: result.name || 'Unknown'
-          }));
+      if (searchType === 'chunk_split_rank') {
+        // Use the enhanced chunk split and rank search
+        const searchService = new semanticSearchServiceV2.SemanticSearchService();
 
-          searchMetrics = {
-            searchType: 'chunk_split_rank',
-            vectorResults: searchResults.length,
-            combinedResults: searchResults.length,
-            weights: { keyword: keywordWeight, vector: vectorWeight }
-          };
+        // Get keyword candidates first
+        console.log("=== GETTING KEYWORD CANDIDATES ===");
+        const keywordResults = await searchService.performAdvancedKeywordSearch(userMessage, userId, {
+          maxResults: 20,
+          specificDocumentIds: specificDocumentIds
+        });
 
-        } catch (error) {
-          console.error('ERROR: performChunkSplitAndRankSearch failed:', error.message);
-          console.error('ERROR: Stack trace:', error.stack);
-          console.error('ERROR: Error type:', typeof error);
-          console.error('ERROR: Error constructor:', error.constructor.name);
+        // Get vector candidates 
+        console.log("=== GETTING VECTOR CANDIDATES ===");
+        const { vectorService } = await import('./services/vectorService');
+        const vectorResults = await vectorService.searchDocuments(userMessage, userId, 20, specificDocumentIds);
 
-          try {
-            // Fallback to regular hybrid search
-            console.log('DEBUG: Falling back to regular hybrid search');
-            
-            if (!semanticSearchServiceV2.searchDocuments) {
-              throw new Error('searchDocuments method is not available on semanticSearchServiceV2');
-            }
-            
-            searchResults = await semanticSearchServiceV2.searchDocuments(
-              userMessage,
-              userId,
-              {
-                searchType: 'hybrid',
-                limit: 5,
-                keywordWeight,
-                vectorWeight,
-                specificDocumentIds
-              }
-            );
-
-            console.log(`DEBUG: Fallback search returned ${searchResults.length} results`);
-
-            chunkDetails = searchResults.map((result, index) => ({
-              id: result.id,
-              content: result.content || '',
-              similarity: result.similarity,
-              finalRank: index + 1,
-              type: 'fallback_hybrid'
-            }));
-
-            searchMetrics = {
-              searchType: 'fallback_hybrid',
-              combinedResults: searchResults.length,
-              error: error.message,
-              weights: { keyword: keywordWeight, vector: vectorWeight }
-            };
-          } catch (fallbackError) {
-            console.error('ERROR: Fallback search also failed:', fallbackError.message);
-            console.error('ERROR: Fallback stack:', fallbackError.stack);
-            
-            // Ultimate fallback - return empty results
-            searchResults = [];
-            chunkDetails = [];
-            searchMetrics = {
-              searchType: 'error',
-              combinedResults: 0,
-              error: `Both primary and fallback searches failed: ${error.message}, ${fallbackError.message}`,
-              weights: { keyword: keywordWeight, vector: vectorWeight }
-            };
-          }
-        }
-      } else {
-        searchResults = await semanticSearchServiceV2.searchDocuments(
-          userMessage,
-          userId,
-          {
-            searchType: searchType as 'semantic' | 'keyword' | 'hybrid',
-            limit: 5,
-            keywordWeight,
-            vectorWeight,
-            specificDocumentIds
-          }
-        );
-
-        // Create chunk details for debugging
-        chunkDetails = searchResults.map((result, index) => ({
+        // Store workflow details
+        searchWorkflow.keywordCandidates = keywordResults.map((result, index) => ({
           id: result.id,
+          documentId: result.id,
+          content: result.content,
+          score: result.keywordScore || result.score || 0,
+          matchType: result.matchType || 'unknown'
+        }));
+
+        searchWorkflow.vectorCandidates = vectorResults.map((result, index) => ({
+          id: result.document.id,
+          documentId: result.document.metadata?.originalDocumentId,
+          chunkIndex: result.document.chunkIndex,
+          content: result.document.content,
+          similarity: result.similarity,
+          metadata: result.document.metadata
+        }));
+
+        // Perform the full search
+        searchResults = await searchService.performChunkSplitAndRankSearch(userMessage, userId, {
+          maxResults: 10,
+          specificDocumentIds: specificDocumentIds,
+          keywordWeight,
+          vectorWeight
+        });
+
+        // Add ranking process details
+        searchWorkflow.rankingProcess = {
+          keywordWeight,
+          vectorWeight,
+          formula: `Combined Score = (Keyword Score × ${keywordWeight}) + (Vector Score × ${vectorWeight})`,
+          stepByStep: [
+            `1. Performed keyword search - found ${keywordResults.length} candidates`,
+            `2. Performed vector search - found ${vectorResults.length} chunk candidates`,
+            `3. Applied weighted scoring with keyword weight: ${keywordWeight}, vector weight: ${vectorWeight}`,
+            `4. Ranked and selected top ${searchResults.length} results`,
+            `5. Created document context for AI prompt`
+          ]
+        };
+
+        // Extract chunk details for display
+        chunkDetails = searchResults.map((result, index) => ({
+          chunkId: result.chunkId || result.id,
+          id: result.chunkId || result.id,
+          type: 'chunk_split_rank',
           content: result.content,
           similarity: result.similarity,
+          keywordScore: result.keywordScore,
+          vectorScore: result.vectorScore,
+          combinedScore: result.combinedScore,
           finalRank: index + 1,
-          type: searchType
+          scoringBreakdown: {
+            'Keyword Score': result.keywordScore || 0,
+            'Vector Score': result.vectorScore || 0,
+            'Keyword Weighted': (result.keywordScore || 0) * keywordWeight,
+            'Vector Weighted': (result.vectorScore || 0) * vectorWeight,
+            'Combined Score': result.combinedScore || 0
+          }
         }));
 
         searchMetrics = {
+          searchType: 'chunk_split_rank',
+          keywordResults: keywordResults.length,
+          vectorResults: vectorResults.length,
+          combinedResults: searchResults.length,
+          weights: {
+            keyword: keywordWeight,
+            vector: vectorWeight
+          }
+        };
+      } else {
+        // Handle other search types with basic workflow tracking
+        if (searchType === 'vector') {
+          const { vectorService } = await import('./services/vectorService');
+          const vectorResults = await vectorService.searchDocuments(userMessage, userId, 10, specificDocumentIds);
+          searchResults = vectorResults.map(r => ({
+            content: r.document.content,
+            name: `Document ${r.document.metadata?.originalDocumentId}`,
+            similarity: r.similarity
+          }));
+
+          searchWorkflow.vectorCandidates = vectorResults.map(result => ({
+            id: result.document.id,
+            documentId: result.document.metadata?.originalDocumentId,
+            content: result.document.content,
+            similarity: result.similarity
+          }));
+
+          chunkDetails = searchResults.map((result, index) => ({
+            chunkId: `vector_${index}`,
+            type: 'vector',
+            content: result.content,
+            similarity: result.similarity,
+            finalRank: index + 1
+          }));
+        }
+
+        searchMetrics = {
           searchType: searchType,
+          vectorResults: searchResults.length,
           combinedResults: searchResults.length,
           weights: {
             keyword: keywordWeight,
@@ -248,9 +214,17 @@ router.post('/api/debug/ai-input', async (req, res) => {
       }
 
       // Create document context from search results
-      documentContext = searchResults.map((result, index) => 
-        `Document ${index + 1}: ${result.name}\n\nContent:\n${result.content}`
+      documentContext = searchResults.map((result, index) =>
+        `Document ${index + 1}: ${result.name || `Document ${index + 1}`}\n\nContent:\n${result.content}`
       ).join('\n\n---\n\n');
+    } catch (searchError) {
+      console.error("Search error:", searchError);
+      debugLogs.push(`[ERROR] Search failed: ${searchError.message}`);
+    } finally {
+      // Restore original console methods
+      console.log = originalLog;
+      console.warn = originalWarn;
+      console.error = originalError;
     }
 
     // Generate AI prompt
@@ -281,7 +255,8 @@ Answer questions specifically about this document. Provide detailed analysis, ex
       documentContextLength: documentContext.length,
       searchMetrics,
       chunkDetails,
-      debugLogs: debugLogs // Include the captured logs
+      searchWorkflow,
+      debugLogs // Include the captured logs
     };
 
     // Restore original console methods
@@ -294,7 +269,7 @@ Answer questions specifically about this document. Provide detailed analysis, ex
     // Restore console methods in case of error
     console.log = originalLog;
     console.error = originalError;
-    
+
     console.error('FATAL ERROR in AI input debug:', error.message);
     console.error('FATAL ERROR stack:', error.stack);
     console.error('FATAL ERROR type:', typeof error);
@@ -307,7 +282,7 @@ Answer questions specifically about this document. Provide detailed analysis, ex
 
     // Ensure we always return JSON, never HTML
     try {
-      const errorResponse = { 
+      const errorResponse = {
         error: error.message || 'Unknown error occurred',
         errorType: error.constructor.name,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
@@ -316,7 +291,7 @@ Answer questions specifically about this document. Provide detailed analysis, ex
         requestBody: req.body,
         debugLogs: debugLogs // Include logs even in error case
       };
-      
+
       console.error('SENDING ERROR RESPONSE:', JSON.stringify(errorResponse, null, 2));
       res.status(500).json(errorResponse);
     } catch (jsonError) {
@@ -339,26 +314,26 @@ function escapeHtml(unsafe) {
 }
 
 router.get("/debug/view-ai-input/:userId/:documentId", async (req, res) => {
-    try {
-        const { userId, documentId } = req.params;
+  try {
+    const { userId, documentId } = req.params;
 
-        // Fetch the document (you might need to adjust this to match your data fetching)
-        const documents = await storage.getDocuments(userId);
-        const doc = documents.find(d => d.id === parseInt(documentId));
+    // Fetch the document (you might need to adjust this to match your data fetching)
+    const documents = await storage.getDocuments(userId);
+    const doc = documents.find(d => d.id === parseInt(documentId));
 
-        if (!doc) {
-            return res.status(404).send("Document not found");
-        }
+    if (!doc) {
+      return res.status(404).send("Document not found");
+    }
 
-        // Dummy data for AI input (replace with actual data if needed)
-        const aiInput = {
-            systemMessage: `You are an AI assistant helping users analyze and understand the document: ${doc.name}.`,
-            userMessage: "Summarize the key points of this document.",
-            documentContext: doc.content?.substring(0, 5000) || "No content available."
-        };
+    // Dummy data for AI input (replace with actual data if needed)
+    const aiInput = {
+      systemMessage: `You are an AI assistant helping users analyze and understand the document: ${doc.name}.`,
+      userMessage: "Summarize the key points of this document.",
+      documentContext: doc.content?.substring(0, 5000) || "No content available."
+    };
 
-        // Create HTML to display the AI input
-        let html = `
+    // Create HTML to display the AI input
+    let html = `
             <!DOCTYPE html>
             <html>
             <head>
@@ -395,407 +370,409 @@ router.get("/debug/view-ai-input/:userId/:documentId", async (req, res) => {
             </html>
         `;
 
-        res.setHeader('Content-Type', 'text/html');
-        res.send(html);
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
 
-    } catch (error) {
-        console.error("View AI input error:", error);
-        res.status(500).send("Error displaying AI input");
-    }
+  } catch (error) {
+    console.error("View AI input error:", error);
+    res.status(500).send("Error displaying AI input");
+  }
 });
 
 router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
+  try {
+    const { userId, documentId } = req.params;
+    const { searchType = 'vector', userMessage = 'Please analyze this document.', keywordWeight = 0.3, vectorWeight = 0.7 } = req.body;
+
+    console.log(`=== ANALYZING DOCUMENT ${documentId} FOR USER ${userId} ===`);
+    console.log(`Search Type: ${searchType}, User Message: ${userMessage}`);
+
+    // Fetch the document
+    const documents = await storage.getDocuments(userId);
+    const doc = documents.find(d => d.id === parseInt(documentId));
+
+    if (!doc) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+
+    let documentContext = "";
+    let chunkDetails = [];
+    let searchMetrics = {
+      searchType,
+      keywordResults: 0,
+      vectorResults: 0,
+      combinedResults: 0,
+      weights: searchType === 'weighted' ? { keyword: keywordWeight, vector: vectorWeight } : null
+    };
+
     try {
-        const { userId, documentId } = req.params;
-        const { searchType = 'vector', userMessage = 'Please analyze this document.', keywordWeight = 0.3, vectorWeight = 0.7 } = req.body;
+      if (searchType === 'keyword') {
+        // Keyword search logic
+        console.log(`DEBUG: Performing keyword search for "${userMessage}"`);
 
-        console.log(`=== ANALYZING DOCUMENT ${documentId} FOR USER ${userId} ===`);
-        console.log(`Search Type: ${searchType}, User Message: ${userMessage}`);
+        // For Thai text, be more flexible with search terms
+        const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+        const docContent = doc.content || '';
+        const docContentLower = docContent.toLowerCase();
 
-        // Fetch the document
-        const documents = await storage.getDocuments(userId);
-        const doc = documents.find(d => d.id === parseInt(documentId));
+        console.log(`DEBUG: Searching for terms: ${searchTerms.join(', ')} in document ${doc.name}`);
 
-        if (!doc) {
-            return res.status(404).json({ error: "Document not found" });
+        let matchingSegments = [];
+        let hasMatches = false;
+
+        for (const term of searchTerms) {
+          let index = 0;
+          while ((index = docContentLower.indexOf(term, index)) !== -1) {
+            hasMatches = true;
+            const start = Math.max(0, index - 500);
+            const end = Math.min(docContent.length, index + term.length + 500);
+            const segment = docContent.substring(start, end);
+
+            matchingSegments.push({
+              term: term,
+              position: index,
+              segment: segment,
+              score: 1.0
+            });
+
+            index += term.length;
+            if (matchingSegments.filter(s => s.term === term).length >= 3) break;
+          }
         }
 
-        let documentContext = "";
-        let chunkDetails = [];
-        let searchMetrics = {
-            searchType,
-            keywordResults: 0,
-            vectorResults: 0,
-            combinedResults: 0,
-            weights: searchType === 'weighted' ? { keyword: keywordWeight, vector: vectorWeight } : null
-        };
+        let phraseIndex = 0;
+        while ((phraseIndex = docContentLower.indexOf(userMessage.toLowerCase(), phraseIndex)) !== -1) {
+          hasMatches = true;
+          const start = Math.max(0, phraseIndex - 500);
+          const end = Math.min(docContent.length, phraseIndex + userMessage.length + 500);
+          const segment = docContent.substring(start, end);
 
-        try {
-            if (searchType === 'keyword') {
-                // Keyword search logic
-                console.log(`DEBUG: Performing keyword search for "${userMessage}"`);
+          matchingSegments.push({
+            term: `EXACT_PHRASE: ${userMessage}`,
+            position: phraseIndex,
+            segment: segment,
+            score: 2.0
+          });
 
-                // For Thai text, be more flexible with search terms
-                const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
-                const docContent = doc.content || '';
-                const docContentLower = docContent.toLowerCase();
+          phraseIndex += userMessage.length;
+          if (matchingSegments.filter(s => s.term.startsWith('EXACT_PHRASE')).length >= 2) break;
+        }
 
-                console.log(`DEBUG: Searching for terms: ${searchTerms.join(', ')} in document ${doc.name}`);
+        if (hasMatches && matchingSegments.length > 0) {
+          console.log(`DEBUG: Found ${matchingSegments.length} keyword matches`);
+          matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);
 
-                let matchingSegments = [];
-                let hasMatches = false;
+          const uniqueSegments = [];
+          const usedRanges = [];
 
-                for (const term of searchTerms) {
-                    let index = 0;
-                    while ((index = docContentLower.indexOf(term, index)) !== -1) {
-                        hasMatches = true;
-                        const start = Math.max(0, index - 500);
-                        const end = Math.min(docContent.length, index + term.length + 500);
-                        const segment = docContent.substring(start, end);
+          for (const match of matchingSegments) {
+            const start = Math.max(0, match.position - 1000);
+            const end = Math.min(docContent.length, match.position + match.term.length + 2000);
 
-                        matchingSegments.push({
-                            term: term,
-                            position: index,
-                            segment: segment,
-                            score: 1.0
-                        });
+            const hasOverlap = usedRanges.some(range =>
+              Math.max(start, range.start) < Math.min(end, range.end) - 300
+            );
 
-                        index += term.length;
-                        if (matchingSegments.filter(s => s.term === term).length >= 3) break;
-                    }
-                }
-
-                let phraseIndex = 0;
-                while ((phraseIndex = docContentLower.indexOf(userMessage.toLowerCase(), phraseIndex)) !== -1) {
-                    hasMatches = true;
-                    const start = Math.max(0, phraseIndex - 500);
-                    const end = Math.min(docContent.length, phraseIndex + userMessage.length + 500);
-                    const segment = docContent.substring(start, end);
-
-                    matchingSegments.push({
-                        term: `EXACT_PHRASE: ${userMessage}`,
-                        position: phraseIndex,
-                        segment: segment,
-                        score: 2.0
-                    });
-
-                    phraseIndex += userMessage.length;
-                    if (matchingSegments.filter(s => s.term.startsWith('EXACT_PHRASE')).length >= 2) break;
-                }
-
-                if (hasMatches && matchingSegments.length > 0) {
-                    console.log(`DEBUG: Found ${matchingSegments.length} keyword matches`);
-                    matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);
-
-                    const uniqueSegments = [];
-                    const usedRanges = [];
-
-                    for (const match of matchingSegments) {
-                        const start = Math.max(0, match.position - 1000);
-                        const end = Math.min(docContent.length, match.position + match.term.length + 2000);
-
-                        const hasOverlap = usedRanges.some(range =>
-                            Math.max(start, range.start) < Math.min(end, range.end) - 300
-                        );
-
-                        if (!hasOverlap && uniqueSegments.length < 3) {
-                            const contextSegment = docContent.substring(start, end);
-                            uniqueSegments.push({
-                                ...match,
-                                segment: contextSegment,
-                                contextStart: start,
-                                contextEnd: end
-                            });
-                            usedRanges.push({ start, end });
-                        }
-                    }
-
-                    const keywordChunks = uniqueSegments.map((match, idx) =>
-                        `=== RELEVANT CHUNK ${idx + 1} (Score: ${match.score}) ===\n${match.segment}`
-                    ).join('\n\n---\n\n');
-
-                    documentContext = `Document: ${doc.name}\n\n${keywordChunks}`;
-
-                    uniqueSegments.forEach((match, idx) => {
-                        chunkDetails.push({
-                            chunkId: `kw-${doc.id}-match-${idx}`,
-                            content: match.segment || '',
-                            keywordScore: match.score,
-                            type: 'keyword',
-                            matchedTerm: match.term
-                        });
-                    });
-
-                    searchMetrics.keywordResults = uniqueSegments.length;
-                } else {
-                    console.log(`DEBUG: No keyword matches found for "${userMessage}" in document ${doc.name}`);
-                    const sampleContent = docContent.substring(0, 2000);
-                    documentContext = `Document: ${doc.name}\nNo direct keyword matches found for: "${userMessage}"\n\nDocument sample content:\n${sampleContent}${docContent.length > 2000 ? '...' : ''}`;
-
-                    chunkDetails.push({
-                        chunkId: `kw-${doc.id}-sample`,
-                        content: sampleContent,
-                        keywordScore: 0.0,
-                        type: 'keyword-fallback'
-                    });
-
-                    searchMetrics.keywordResults = 0;
-                }
-
-            } else if (searchType === 'vector') {
-                // Vector search logic
-                console.log(`DEBUG: Performing vector search for "${userMessage}"`);
-                const vectorResults = await vectorService.searchDocuments(userMessage, userId, 3, [parseInt(documentId)]);
-                searchMetrics.vectorResults = vectorResults.length;
-
-                console.log(`DEBUG: Found ${vectorResults.length} vector results`);
-                if (vectorResults.length > 0) {
-                    documentContext = vectorResults
-                        .slice(0, 3)
-                        .map(result =>
-                            `Document: ${doc.name}\nRelevant Content: ${result.document.content}`
-                        )
-                        .join("\n\n");
-
-                    vectorResults.slice(0, 3).forEach((result, idx) => {
-                        chunkDetails.push({
-                            chunkId: result.document.id || `vec-${doc.id}-${idx}`,
-                            content: result.document.content,
-                            similarity: result.similarity,
-                            vectorScore: result.similarity,
-                            type: 'vector'
-                        });
-                    });
-                } else {
-                    console.log(`DEBUG: No vector results, using fallback content`);
-                    documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
-
-                    chunkDetails.push({
-                        chunkId: `vec-${doc.id}-fallback`,
-                        content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
-                        vectorScore: 0.0,
-                        type: 'vector-fallback'
-                    });
-                }
-
-            } else if (searchType === 'hybrid' || searchType === 'weighted') {
-                // Hybrid search logic
-                console.log(`DEBUG: Performing ${searchType} search`);
-
-                let keywordMatches = [];
-                let vectorResults = [];
-                let combinedContent = [];
-
-                // First, get keyword matches using the same logic as pure keyword search
-                const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
-                const docContent = doc.content || '';
-                const docContentLower = docContent.toLowerCase();
-
-                console.log(`DEBUG: Searching for terms: ${searchTerms.join(', ')} in document ${doc.name}`);
-
-                // Find all matches and their positions (same as pure keyword search)
-                let matchingSegments = [];
-                let hasMatches = false;
-
-                // Search for individual terms
-                for (const term of searchTerms) {
-                    let index = 0;
-                    while ((index = docContentLower.indexOf(term, index)) !== -1) {
-                        hasMatches = true;
-                        // Extract context around the match (500 chars before and after)
-                        const start = Math.max(0, index - 500);
-                        const end = Math.min(docContent.length, index + term.length + 500);
-                        const segment = docContent.substring(start, end);
-
-                        matchingSegments.push({
-                            term: term,
-                            position: index,
-                            segment: segment,
-                            score: 1.0
-                        });
-
-                        index += term.length;
-
-                        // Limit to 3 matches per term to avoid too much content
-                        if (matchingSegments.filter(s => s.term === term).length >= 3) break;
-                    }
-                }
-
-                // Also search for the entire query as a phrase
-                let phraseIndex = 0;
-                while ((phraseIndex = docContentLower.indexOf(userMessage.toLowerCase(), phraseIndex)) !== -1) {
-                    hasMatches = true;
-                    const start = Math.max(0, phraseIndex - 500);
-                    const end = Math.min(docContent.length, phraseIndex + userMessage.length + 500);
-                    const segment = docContent.substring(start, end);
-
-                    matchingSegments.push({
-                        term: `EXACT_PHRASE: ${userMessage}`,
-                        position: phraseIndex,
-                        segment: segment,
-                        score: 2.0 // Higher score for exact phrase matches
-                    });
-
-                    phraseIndex += userMessage.length;
-                    if (matchingSegments.filter(s => s.term.startsWith('EXACT_PHRASE')).length >= 2) break;
-                }
-
-                if (hasMatches && matchingSegments.length > 0) {
-                    console.log(`DEBUG: Found ${matchingSegments.length} keyword matches`);
-
-                    // Sort by score (exact phrases first) then by position
-                    matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);                    // Take best matches and remove overlaps
-                    const uniqueSegments = [];
-                    const usedRanges = [];
-
-                    for (const match of matchingSegments) {
-                        const start = Math.max(0, match.position - 1000); // Expand context window
-                        const end = Math.min(docContent.length, match.position + match.term.length + 2000); // Larger context
-
-                        // Check if this range overlaps significantly with existing ones
-                        const hasOverlap = usedRanges.some(range => 
-                            Math.max(start, range.start) < Math.min(end, range.end) - 300
-                        );
-
-                        if (!hasOverlap && uniqueSegments.length < 3) { // Limit to 3 best matches
-                            // Extract larger context around the match
-                            const contextSegment = docContent.substring(start, end);
-                            uniqueSegments.push({
-                                ...match,
-                                segment: contextSegment,
-                                contextStart: start,
-                                contextEnd: end
-                            });
-                            usedRanges.push({ start, end });
-                        }
-                    }
-
-                    // Build keyword chunks the same way as pure keyword search
-                    uniqueSegments.forEach((match, idx) => {
-                        const similarity = match.score / 2.0; // Normalize score to 0-1 range
-                        keywordMatches.push({
-                            content: match.segment,
-                            matchingTerms: [match.term],
-                            totalTerms: searchTerms.length,
-                            score: match.score,
-                            similarity: similarity,
-                            chunkId: `kw-${doc.id}-match-${idx}`
-                        });
-                    });
-
-                    console.log(`DEBUG: Created ${keywordMatches.length} keyword chunks`);
-                } else {
-                    console.log(`DEBUG: No keyword matches found for "${userMessage}" in document ${doc.name}`);
-                    // Instead of no matches, provide a sample of the document content (same as pure keyword search)
-                    const sampleContent = docContent.substring(0, 2000);
-                    keywordMatches.push({
-                        content: sampleContent + (docContent.length > 2000 ? '...' : ''),
-                        matchingTerms: [],
-                        totalTerms: searchTerms.length,
-                        score: 0.0,
-                        similarity: 0.0,
-                        chunkId: `kw-${doc.id}-sample`
-                    });
-                }
-
-          // Get vector results using same logic as pure vector search
-          try {
-            vectorResults = await vectorService.searchDocuments(userMessage, userId, 3, [parseInt(documentId)]);
-            console.log(`DEBUG: Found ${vectorResults.length} vector results for hybrid search`);
-          } catch (vectorError) {
-            console.error("Vector search failed in hybrid mode:", vectorError);
-            vectorResults = [];
-          }
-
-          // Get vector content
-          if (vectorResults.length > 0) {
-            const vWeight = searchType === 'weighted' ? vectorWeight : 0.5;
-            vectorResults.forEach((result, idx) => {
-              const adjustedWeight = vWeight * (1 - idx * 0.1);
-              const weightedScore = result.similarity * adjustedWeight;
-              combinedContent.push({
-                type: 'vector',
-                content: result.document.content,
-                weight: adjustedWeight,
-                similarity: result.similarity,
-                weightedScore: weightedScore,
-                source: `Vector chunk ${idx + 1}`,
-                chunkId: result.document.id || `vec-${doc.id}-${idx}`,
-                vectorScore: result.similarity
+            if (!hasOverlap && uniqueSegments.length < 3) {
+              const contextSegment = docContent.substring(start, end);
+              uniqueSegments.push({
+                ...match,
+                segment: contextSegment,
+                contextStart: start,
+                contextEnd: end
               });
-            });
-          }
-
-          // Get keyword content
-          if (keywordMatches.length > 0) {
-            const kWeight = searchType === 'weighted' ? keywordWeight : 0.5;
-            keywordMatches.forEach((match, idx) => {
-              const similarity = match.similarity || 0.0;
-              const weightedScore = similarity * kWeight;
-              const matchTermsDesc = match.matchingTerms.length > 0 ? 
-                  `(${match.matchingTerms.filter(t => !t.startsWith('EXACT_PHRASE')).length}/${match.totalTerms} terms)` :
-                  '(sample content)';
-
-              combinedContent.push({
-                type: 'keyword',
-                content: match.content,
-                weight: kWeight,
-                similarity: similarity,
-                weightedScore: weightedScore,
-                source: `Keyword match ${matchTermsDesc}`,
-                chunkId: match.chunkId || `kw-${doc.id}-${idx}`,
-                keywordScore: similarity
-              });
-            });
-          }
-
-                combinedContent.sort((a, b) => b.weightedScore - a.weightedScore);
-                searchMetrics.combinedResults = combinedContent.length;
-
-                documentContext = `Document: ${doc.name}\n\n` +
-                    combinedContent.slice(0, 5).map((item, index) =>
-                        `=== RANK #${index + 1} - ${item.source.toUpperCase()} ===\nWeighted Score: ${item.weightedScore.toFixed(4)} (Similarity: ${item.similarity.toFixed(4)} × Weight: ${item.weight.toFixed(2)})\n\n${item.content.length > 3000 ? item.content.substring(0, 3000) + '...' : item.content}`
-                    ).join("\n\n---\n\n");
-
-                chunkDetails = combinedContent.map((item, index) => ({
-                    id: item.chunkId,
-                    content: item.content || '',
-                    type: item.type,
-                    similarity: item.type === 'vector' ? item.vectorScore : item.keywordScore,
-                    weight: item.weight,
-                    weightedScore: item.weightedScore,
-                    finalRank: index + 1,
-                    source: item.source
-                }));
-
-            } else {
-                console.log(`DEBUG: Unknown search type ${searchType}, using fallback`);
-                documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
-
-                chunkDetails.push({
-                    chunkId: `fallback-${doc.id}`,
-                    content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
-                    type: 'fallback'
-                });
+              usedRanges.push({ start, end });
             }
+          }
 
-        } catch (searchError) {
-            console.error("Search failed:", searchError);
-            documentContext = `Document: ${doc.name}\nSummary: ${doc.summary || 'No summary'}\nTags: ${doc.tags?.join(", ") || 'No tags'}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
-            searchMetrics.error = searchError.message;
+          const keywordChunks = uniqueSegments.map((match, idx) =>
+            `=== RELEVANT CHUNK ${idx + 1} (Score: ${match.score}) ===\n${match.segment}`
+          ).join('\n\n---\n\n');
 
+          documentContext = `Document: ${doc.name}\n\n${keywordChunks}`;
+
+          uniqueSegments.forEach((match, idx) => {
             chunkDetails.push({
-                chunkId: `error-${doc.id}`,
-                content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
-                type: 'error'
+              chunkId: `kw-${doc.id}-match-${idx}`,
+              content: match.segment || '',
+              keywordScore: match.score,
+              type: 'keyword',
+              matchedTerm: match.term
             });
+          });
+
+          searchMetrics.keywordResults = uniqueSegments.length;
+        } else {
+          console.log(`DEBUG: No keyword matches found for "${userMessage}" in document ${doc.name}`);
+          const sampleContent = docContent.substring(0, 2000);
+          documentContext = `Document: ${doc.name}\nNo direct keyword matches found for: "${userMessage}"\n\nDocument sample content:\n${sampleContent}${docContent.length > 2000 ? '...' : ''}`;
+
+          chunkDetails.push({
+            chunkId: `kw-${doc.id}-sample`,
+            content: sampleContent,
+            keywordScore: 0.0,
+            type: 'keyword-fallback'
+          });
+
+          searchMetrics.keywordResults = 0;
         }
 
-        const systemMessage = `You are an AI assistant helping users analyze and understand the document: ${doc.name}.\n\nDocument context:\n${documentContext}`;
-        const aiInput = { systemMessage, userMessage, documentContext };
+      } else if (searchType === 'vector') {
+        // Vector search logic
+        console.log(`DEBUG: Performing vector search for "${userMessage}"`);
+        const { vectorService } = await import('./services/vectorService');
+        const vectorResults = await vectorService.searchDocuments(userMessage, userId, 3, [parseInt(documentId)]);
+        searchMetrics.vectorResults = vectorResults.length;
 
-        // Generate HTML output for debug
-        let html = `
+        console.log(`DEBUG: Found ${vectorResults.length} vector results`);
+        if (vectorResults.length > 0) {
+          documentContext = vectorResults
+            .slice(0, 3)
+            .map(result =>
+              `Document: ${doc.name}\nRelevant Content: ${result.document.content}`
+            )
+            .join("\n\n");
+
+          vectorResults.slice(0, 3).forEach((result, idx) => {
+            chunkDetails.push({
+              chunkId: result.document.id || `vec-${doc.id}-${idx}`,
+              content: result.document.content,
+              similarity: result.similarity,
+              vectorScore: result.similarity,
+              type: 'vector'
+            });
+          });
+        } else {
+          console.log(`DEBUG: No vector results, using fallback content`);
+          documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
+
+          chunkDetails.push({
+            chunkId: `vec-${doc.id}-fallback`,
+            content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
+            vectorScore: 0.0,
+            type: 'vector-fallback'
+          });
+        }
+
+      } else if (searchType === 'hybrid' || searchType === 'weighted') {
+        // Hybrid search logic
+        console.log(`DEBUG: Performing ${searchType} search`);
+
+        let keywordMatches = [];
+        let vectorResults = [];
+        let combinedContent = [];
+
+        // First, get keyword matches using the same logic as pure keyword search
+        const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+        const docContent = doc.content || '';
+        const docContentLower = docContent.toLowerCase();
+
+        console.log(`DEBUG: Searching for terms: ${searchTerms.join(', ')} in document ${doc.name}`);
+
+        // Find all matches and their positions (same as pure keyword search)
+        let matchingSegments = [];
+        let hasMatches = false;
+
+        // Search for individual terms
+        for (const term of searchTerms) {
+          let index = 0;
+          while ((index = docContentLower.indexOf(term, index)) !== -1) {
+            hasMatches = true;
+            // Extract context around the match (500 chars before and after)
+            const start = Math.max(0, index - 500);
+            const end = Math.min(docContent.length, index + term.length + 500);
+            const segment = docContent.substring(start, end);
+
+            matchingSegments.push({
+              term: term,
+              position: index,
+              segment: segment,
+              score: 1.0
+            });
+
+            index += term.length;
+
+            // Limit to 3 matches per term to avoid too much content
+            if (matchingSegments.filter(s => s.term === term).length >= 3) break;
+          }
+        }
+
+        // Also search for the entire query as a phrase
+        let phraseIndex = 0;
+        while ((phraseIndex = docContentLower.indexOf(userMessage.toLowerCase(), phraseIndex)) !== -1) {
+          hasMatches = true;
+          const start = Math.max(0, phraseIndex - 500);
+          const end = Math.min(docContent.length, phraseIndex + userMessage.length + 500);
+          const segment = docContent.substring(start, end);
+
+          matchingSegments.push({
+            term: `EXACT_PHRASE: ${userMessage}`,
+            position: phraseIndex,
+            segment: segment,
+            score: 2.0 // Higher score for exact phrase matches
+          });
+
+          phraseIndex += userMessage.length;
+          if (matchingSegments.filter(s => s.term.startsWith('EXACT_PHRASE')).length >= 2) break;
+        }
+
+        if (hasMatches && matchingSegments.length > 0) {
+          console.log(`DEBUG: Found ${matchingSegments.length} keyword matches`);
+
+          // Sort by score (exact phrases first) then by position
+          matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);                    // Take best matches and remove overlaps
+          const uniqueSegments = [];
+          const usedRanges = [];
+
+          for (const match of matchingSegments) {
+            const start = Math.max(0, match.position - 1000); // Expand context window
+            const end = Math.min(docContent.length, match.position + match.term.length + 2000); // Larger context
+
+            // Check if this range overlaps significantly with existing ones
+            const hasOverlap = usedRanges.some(range =>
+              Math.max(start, range.start) < Math.min(end, range.end) - 300
+            );
+
+            if (!hasOverlap && uniqueSegments.length < 3) { // Limit to 3 best matches
+              // Extract larger context around the match
+              const contextSegment = docContent.substring(start, end);
+              uniqueSegments.push({
+                ...match,
+                segment: contextSegment,
+                contextStart: start,
+                contextEnd: end
+              });
+              usedRanges.push({ start, end });
+            }
+          }
+
+          // Build keyword chunks the same way as pure keyword search
+          uniqueSegments.forEach((match, idx) => {
+            const similarity = match.score / 2.0; // Normalize score to 0-1 range
+            keywordMatches.push({
+              content: match.segment,
+              matchingTerms: [match.term],
+              totalTerms: searchTerms.length,
+              score: match.score,
+              similarity: similarity,
+              chunkId: `kw-${doc.id}-match-${idx}`
+            });
+          });
+
+          console.log(`DEBUG: Created ${keywordMatches.length} keyword chunks`);
+        } else {
+          console.log(`DEBUG: No keyword matches found for "${userMessage}" in document ${doc.name}`);
+          // Instead of no matches, provide a sample of the document content (same as pure keyword search)
+          const sampleContent = docContent.substring(0, 2000);
+          keywordMatches.push({
+            content: sampleContent + (docContent.length > 2000 ? '...' : ''),
+            matchingTerms: [],
+            totalTerms: searchTerms.length,
+            score: 0.0,
+            similarity: 0.0,
+            chunkId: `kw-${doc.id}-sample`
+          });
+        }
+
+        // Get vector results using same logic as pure vector search
+        try {
+          const { vectorService } = await import('./services/vectorService');
+          vectorResults = await vectorService.searchDocuments(userMessage, userId, 3, [parseInt(documentId)]);
+          console.log(`DEBUG: Found ${vectorResults.length} vector results for hybrid search`);
+        } catch (vectorError) {
+          console.error("Vector search failed in hybrid mode:", vectorError);
+          vectorResults = [];
+        }
+
+        // Get vector content
+        if (vectorResults.length > 0) {
+          const vWeight = searchType === 'weighted' ? vectorWeight : 0.5;
+          vectorResults.forEach((result, idx) => {
+            const adjustedWeight = vWeight * (1 - idx * 0.1);
+            const weightedScore = result.similarity * adjustedWeight;
+            combinedContent.push({
+              type: 'vector',
+              content: result.document.content,
+              weight: adjustedWeight,
+              similarity: result.similarity,
+              weightedScore: weightedScore,
+              source: `Vector chunk ${idx + 1}`,
+              chunkId: result.document.id || `vec-${doc.id}-${idx}`,
+              vectorScore: result.similarity
+            });
+          });
+        }
+
+        // Get keyword content
+        if (keywordMatches.length > 0) {
+          const kWeight = searchType === 'weighted' ? keywordWeight : 0.5;
+          keywordMatches.forEach((match, idx) => {
+            const similarity = match.similarity || 0.0;
+            const weightedScore = similarity * kWeight;
+            const matchTermsDesc = match.matchingTerms.length > 0 ?
+              `(${match.matchingTerms.filter(t => !t.startsWith('EXACT_PHRASE')).length}/${match.totalTerms} terms)` :
+              '(sample content)';
+
+            combinedContent.push({
+              type: 'keyword',
+              content: match.content,
+              weight: kWeight,
+              similarity: similarity,
+              weightedScore: weightedScore,
+              source: `Keyword match ${matchTermsDesc}`,
+              chunkId: match.chunkId || `kw-${doc.id}-${idx}`,
+              keywordScore: similarity
+            });
+          });
+        }
+
+        combinedContent.sort((a, b) => b.weightedScore - a.weightedScore);
+        searchMetrics.combinedResults = combinedContent.length;
+
+        documentContext = `Document: ${doc.name}\n\n` +
+          combinedContent.slice(0, 5).map((item, index) =>
+            `=== RANK #${index + 1} - ${item.source.toUpperCase()} ===\nWeighted Score: ${item.weightedScore.toFixed(4)} (Similarity: ${item.similarity.toFixed(4)} × Weight: ${item.weight.toFixed(2)})\n\n${item.content.length > 3000 ? item.content.substring(0, 3000) + '...' : item.content}`
+          ).join("\n\n---\n\n");
+
+        chunkDetails = combinedContent.map((item, index) => ({
+          id: item.chunkId,
+          content: item.content || '',
+          type: item.type,
+          similarity: item.type === 'vector' ? item.vectorScore : item.keywordScore,
+          weight: item.weight,
+          weightedScore: item.weightedScore,
+          finalRank: index + 1,
+          source: item.source
+        }));
+
+      } else {
+        console.log(`DEBUG: Unknown search type ${searchType}, using fallback`);
+        documentContext = `Document: ${doc.name}\nSummary: ${doc.summary}\nTags: ${doc.tags?.join(", ")}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
+
+        chunkDetails.push({
+          chunkId: `fallback-${doc.id}`,
+          content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
+          type: 'fallback'
+        });
+      }
+
+    } catch (searchError) {
+      console.error("Search failed:", searchError);
+      documentContext = `Document: ${doc.name}\nSummary: ${doc.summary || 'No summary'}\nTags: ${doc.tags?.join(", ") || 'No tags'}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
+      searchMetrics.error = searchError.message;
+
+      chunkDetails.push({
+        chunkId: `error-${doc.id}`,
+        content: doc.content?.substring(0, 30000) || doc.summary || 'No content available',
+        type: 'error'
+      });
+    }
+
+    const systemMessage = `You are an AI assistant helping users analyze and understand the document: ${doc.name}.\n\nDocument context:\n${documentContext}`;
+    const aiInput = { systemMessage, userMessage, documentContext };
+
+    // Generate HTML output for debug
+    let html = `
             <!DOCTYPE html>
             <html>
             <head>
@@ -804,7 +781,8 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
                     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
                     .container { width: 90%; margin: 20px auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px; }
                     h2 { color: #444; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
-                    .section { margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 5px; background: #f9f9f9; }
+                    .```text
+section { margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 5px; background: #f9f9f9; }
                     .label { font-weight: bold; color: #555; display: block; margin-bottom: 5px; }
                     pre { white-space: pre-wrap; word-wrap: break-word; font-size: 14px; }
                     .chunk { border: 1px solid #ddd; margin: 10px 0; padding: 10px; border-radius: 5px; }
@@ -868,13 +846,13 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
             </html>
         `;
 
-        res.setHeader('Content-Type', 'text/html');
-        res.send(html);
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
 
-    } catch (error) {
-        console.error("Analyze document debug error:", error);
-        res.status(500).json({ error: "Analyze document debug failed" });
-    }
+  } catch (error) {
+    console.error("Analyze document debug error:", error);
+    res.status(500).json({ error: "Analyze document debug failed" });
+  }
 });
 
 router.get("/debug/find-xolo/:userId", async (req, res) => {
@@ -901,8 +879,8 @@ router.get("/debug/find-xolo/:userId", async (req, res) => {
 
       for (const term of searchTerms) {
         if (content.includes(term.toLowerCase()) ||
-            name.includes(term.toLowerCase()) ||
-            summary.includes(term.toLowerCase())) {
+          name.includes(term.toLowerCase()) ||
+          summary.includes(term.toLowerCase())) {
           found = true;
           foundTerms.push(term);
         }
@@ -933,6 +911,7 @@ router.get("/debug/find-xolo/:userId", async (req, res) => {
     // Also search in vector database if available
     console.log(`\n=== SEARCHING VECTOR DATABASE ===`);
     try {
+      const { vectorService } = await import('./services/vectorService');
       const vectorResults = await vectorService.searchDocuments('XOLO', userId, 10);
       console.log(`Vector search returned ${vectorResults.length} results`);
 
@@ -975,35 +954,35 @@ router.get("/debug/find-xolo/:userId", async (req, res) => {
 
 // Debug endpoint to test AI keyword expansion
 router.post("/debug/ai-keyword-expansion", async (req, res) => {
-    try {
-        const { userMessage, chatHistory, userId } = req.body;
+  try {
+    const { userMessage, chatHistory, userId } = req.body;
 
-        if (!userMessage || !userId) {
-            return res.status(400).json({ error: "Missing required parameters: userMessage, userId" });
-        }
-
-        console.log(`=== AI KEYWORD EXPANSION DEBUG ===`);
-        console.log(`User Message: ${userMessage}`);
-        console.log(`User ID: ${userId}`);
-
-        // Call the AI keyword expansion service
-        const expandedKeywords = await aiKeywordExpansionService.generateRelatedKeywords(
-            userMessage,
-            chatHistory,
-            userId
-        );
-
-        console.log(`Expanded Keywords: ${JSON.stringify(expandedKeywords, null, 2)}`);
-
-        res.json({
-            originalMessage: userMessage,
-            expandedKeywords
-        });
-
-    } catch (error) {
-        console.error("AI keyword expansion debug error:", error);
-        res.status(500).json({ error: "AI keyword expansion debug failed", details: error.message });
+    if (!userMessage || !userId) {
+      return res.status(400).json({ error: "Missing required parameters: userMessage, userId" });
     }
+
+    console.log(`=== AI KEYWORD EXPANSION DEBUG ===`);
+    console.log(`User Message: ${userMessage}`);
+    console.log(`User ID: ${userId}`);
+
+    // Call the AI keyword expansion service
+    const expandedKeywords = await aiKeywordExpansionService.generateRelatedKeywords(
+      userMessage,
+      chatHistory,
+      userId
+    );
+
+    console.log(`Expanded Keywords: ${JSON.stringify(expandedKeywords, null, 2)}`);
+
+    res.json({
+      originalMessage: userMessage,
+      expandedKeywords
+    });
+
+  } catch (error) {
+    console.error("AI keyword expansion debug error:", error);
+    res.status(500).json({ error: "AI keyword expansion debug failed", details: error.message });
+  }
 });
 
 // Test advanced keyword search without authentication
@@ -1281,14 +1260,14 @@ router.get('/debug-console', (req, res) => {
                         'Regular Search: ' + (data.regularSearch.results || 0) + ' results\\n' +
                         'AI Enhanced Search: ' + (data.aiEnhancedSearch.results || 0) + ' results\\n\\n' +
                         'Regular Results:\\n' +
-                        (data.regularSearch.documents || []).map((doc, i) => 
+                        (data.regularSearch.documents || []).map((doc, i) =>
                             (i+1) + '. ' + doc.name + ' (ID: ' + doc.id + ')\\n' +
                             '   Similarity: ' + (doc.similarity ? doc.similarity.toFixed(4) : 'N/A') + '\\n' +
                             '   Matched Terms: ' + (doc.matchedTerms ? doc.matchedTerms.join(', ') : 'None') + '\\n' +
                             '   Preview: ' + (doc.contentPreview || 'No preview')
                         ).join('\\n\\n') + '\\n\\n' +
                         'AI Enhanced Results:\\n' +
-                        (data.aiEnhancedSearch.documents || []).map((doc, i) => 
+                        (data.aiEnhancedSearch.documents || []).map((doc, i) =>
                             (i+1) + '. ' + doc.name + ' (ID: ' + doc.id + ')\\n' +
                             '   Similarity: ' + (doc.similarity ? doc.similarity.toFixed(4) : 'N/A') + '\\n' +
                             '   Matched Terms: ' + (doc.matchedTerms ? doc.matchedTerms.join(', ') : 'None') + '\\n' +
@@ -1324,7 +1303,7 @@ router.get('/debug-console', (req, res) => {
                         'User ID: ' + userId + '\\n' +
                         'Results: ' + data.results + '\\n\\n' +
                         'Documents:\\n' +
-                        data.documents.map((doc, i) => 
+                        data.documents.map((doc, i) =>
                             (i+1) + '. Document ID: ' + doc.id + '\\n' +
                             '   Similarity: ' + doc.similarity.toFixed(4) + '\\n' +
                             '   Content: ' + doc.content + '\\n' +
@@ -1356,14 +1335,14 @@ router.get('/debug-console', (req, res) => {
                         'Documents with XOLO: ' + data.summary.foundInDocuments + '\\n' +
                         'Vector Results with XOLO: ' + data.summary.foundInVector + '\\n\\n' +
                         'Documents containing XOLO:\\n' +
-                        data.documentsWithXolo.map(doc => 
+                        data.documentsWithXolo.map(doc =>
                             '📄 ' + doc.documentName + ' (ID: ' + doc.documentId + ')\\n' +
                             '   Found terms: ' + doc.foundTerms.join(', ') + '\\n' +
                             '   Has vector data: ' + doc.hasVectorData + '\\n' +
                             '   Sample lines: ' + doc.matchingLines.slice(0, 2).join(' | ')
                         ).join('\\n\\n') + '\\n\\n' +
                         'Vector Search Results:\\n' +
-                        data.vectorResults.map((result, i) => 
+                        data.vectorResults.map((result, i) =>
                             (i+1) + '. Document ID: ' + result.documentId + '\\n' +
                             '   Similarity: ' + result.similarity.toFixed(4) + '\\n' +
                             '   Contains XOLO: ' + result.hasXolo + '\\n' +
