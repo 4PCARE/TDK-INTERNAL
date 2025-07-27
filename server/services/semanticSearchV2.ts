@@ -98,7 +98,7 @@ export class SemanticSearchServiceV2 {
       for (const vectorResult of vectorResults) {
         const docId = parseInt(vectorResult.document.metadata.originalDocumentId || vectorResult.document.id);
         const doc = docMap.get(docId);
-        
+
         if (doc && vectorResult.similarity >= threshold && !processedDocs.has(docId)) {
           // Apply filters
           if (options.categoryFilter && options.categoryFilter !== "all" && 
@@ -131,7 +131,7 @@ export class SemanticSearchServiceV2 {
             updatedAt: doc.updatedAt?.toISOString() || null,
             userId: doc.userId
           });
-          
+
           processedDocs.add(docId);
         }
       }
@@ -161,7 +161,7 @@ export class SemanticSearchServiceV2 {
         options.limit || 20,
         options.specificDocumentIds
       );
-      
+
       // Convert to the expected SearchResult format
       const searchResults: SearchResult[] = results.map(result => ({
         id: result.id,
@@ -216,16 +216,16 @@ export class SemanticSearchServiceV2 {
   ): Promise<SearchResult[]> {
     try {
       let documents = await storage.searchDocuments(userId, query);
-      
+
       // Filter by specific document IDs if provided
       if (options.specificDocumentIds && options.specificDocumentIds.length > 0) {
         documents = documents.filter(doc => options.specificDocumentIds!.includes(doc.id));
         console.log(`Filtered to ${documents.length} documents from specific IDs: [${options.specificDocumentIds.join(', ')}]`);
       }
-      
+
       // Calculate keyword matching score for each document
       const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
-      
+
       return documents.map(doc => {
         // Calculate how many keywords match in this document
         const docText = [
@@ -235,16 +235,16 @@ export class SemanticSearchServiceV2 {
           doc.aiCategory || "",
           ...(doc.tags || [])
         ].join(" ").toLowerCase();
-        
+
         const matchingTerms = searchTerms.filter(term => 
           docText.includes(term.toLowerCase())
         );
-        
+
         // Calculate similarity score based on keyword match ratio
         const similarity = matchingTerms.length / searchTerms.length;
-        
+
         console.log(`Document ${doc.id}: ${matchingTerms.length}/${searchTerms.length} keywords matched, similarity: ${similarity.toFixed(2)}`);
-        
+
         return {
           id: doc.id,
           name: doc.name,
@@ -277,12 +277,12 @@ export class SemanticSearchServiceV2 {
     try {
       const keywordWeight = options.keywordWeight || 0.4;
       const vectorWeight = options.vectorWeight || 0.6;
-      
+
       console.log(`Hybrid search using weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
 
       // Use the new chunk split and rank search method
       const chunkResults = await this.performChunkSplitAndRankSearch(query, userId, options);
-      
+
       return chunkResults;
 
     } catch (error) {
@@ -300,9 +300,18 @@ export class SemanticSearchServiceV2 {
       const keywordWeight = options.keywordWeight ?? 0.5;
       const vectorWeight = options.vectorWeight ?? 0.5;
 
-      // Step 1: Retrieve top vector chunks
+      console.log(`🔍 Chunk split search: Starting with weights - keyword: ${keywordWeight}, vector: ${vectorWeight}`);
+
+      // Step 1: Retrieve top vector chunks from document_vectors table
       const vectorResults = await vectorService.searchDocuments(query, userId, 50, options.specificDocumentIds);
       const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+
+      console.log(`📊 Found ${vectorResults.length} vector chunks from document_vectors table`);
+
+      if (vectorResults.length === 0) {
+        console.log("❌ No vector chunks found");
+        return [];
+      }
 
       // Step 2: Score chunks with both vector and keyword
       const scoredChunks = vectorResults.map(result => {
@@ -310,10 +319,11 @@ export class SemanticSearchServiceV2 {
         const chunkIndex = result.document.chunkIndex ?? 0;
         const chunkId = `${docId}-${chunkIndex}`;
         const chunkText = result.document.content.toLowerCase();
-        
+
         const matchedTerms = searchTerms.filter(term => chunkText.includes(term));
         let keywordScore = matchedTerms.length / searchTerms.length;
 
+        // Boost keyword score for store-related queries
         const storeKeywords = ['xolo', 'kamu', 'floor', 'ชั้น', 'บางกะปิ', 'bangkapi'];
         const hasStoreKeyword = searchTerms.some(term =>
           storeKeywords.some(sk => sk.includes(term) || term.includes(sk))
@@ -322,6 +332,7 @@ export class SemanticSearchServiceV2 {
           keywordScore = Math.min(1.0, keywordScore + 0.3);
         }
 
+        // Calculate combined score
         const combinedScore = Math.min(1.0, result.similarity * vectorWeight + keywordScore * keywordWeight);
 
         return {
@@ -329,9 +340,13 @@ export class SemanticSearchServiceV2 {
           chunkIndex,
           chunkId,
           content: result.document.content,
-          similarity: combinedScore
+          similarity: combinedScore,
+          vectorScore: result.similarity,
+          keywordScore: keywordScore
         };
       });
+
+      console.log(`📈 Scored ${scoredChunks.length} chunks with combined vector+keyword scoring`);
 
       // Step 3: Rank and select top 66% score mass
       const totalScore = scoredChunks.reduce((sum, c) => sum + c.similarity, 0);
@@ -347,21 +362,22 @@ export class SemanticSearchServiceV2 {
         if (accumulatedScore >= scoreThreshold) break;
       }
 
-      // Step 4: Load document metadata
-      const uniqueDocIds = [...new Set(selectedChunks.map(c => c.docId))];
-      const docMap = new Map((await storage.getDocuments(userId, { limit: 1000 }))
-        .filter(doc => uniqueDocIds.includes(doc.id))
-        .map(doc => [doc.id, doc]));
+      console.log(`🎯 Selected ${selectedChunks.length} top chunks (66% score mass threshold)`);
 
-      // Step 5: Format final results
-      const finalResults: SearchResult[] = selectedChunks.map(chunk => {
+      // Step 4: Load document metadata for display purposes
+      const uniqueDocIds = [...new Set(selectedChunks.map(c => c.docId))];
+      const documents = await storage.getDocuments(userId, { limit: 1000 });
+      const docMap = new Map(documents.filter(doc => uniqueDocIds.includes(doc.id)).map(doc => [doc.id, doc]));
+
+      // Step 5: Format final results - return chunks, not documents
+      const finalResults: SearchResult[] = selectedChunks.map((chunk, index) => {
         const doc = docMap.get(chunk.docId);
-        const chunkLabel = chunk.chunkIndex !== undefined ? ` (Section ${chunk.chunkIndex})` : "";
+        const chunkLabel = chunk.chunkIndex !== undefined ? ` (Chunk ${chunk.chunkIndex + 1})` : "";
 
         return {
-          id: chunk.docId, // or chunk.chunkId if your UI supports it
+          id: parseInt(chunk.chunkId.replace('-', '')) || chunk.docId, // Use a unique ID for the chunk
           name: (doc?.name ?? "Untitled") + chunkLabel,
-          content: chunk.content,
+          content: chunk.content, // This is the chunk content, not full document
           summary: chunk.content.slice(0, 200) + "...",
           aiCategory: doc?.aiCategory ?? null,
           aiCategoryColor: doc?.aiCategoryColor ?? null,
@@ -377,7 +393,13 @@ export class SemanticSearchServiceV2 {
         };
       });
 
-      console.log(`✅ performChunkSplitAndRankSearch: Returned ${finalResults.length} ranked chunks`);
+      console.log(`✅ Chunk split search: Returned ${finalResults.length} ranked chunks from document_vectors table`);
+
+      // Debug: Log first few results
+      finalResults.slice(0, 3).forEach((result, index) => {
+        console.log(`${index + 1}. ${result.name} - Score: ${result.similarity.toFixed(4)} - Content: ${result.content.substring(0, 100)}...`);
+      });
+
       return finalResults;
 
     } catch (error) {
@@ -395,7 +417,7 @@ export class SemanticSearchServiceV2 {
   ): Promise<SearchResult[]> {
     try {
       const { vectorService } = await import('./vectorService');
-      
+
       // Get vector chunk results (already returns top chunks globally)
       const vectorResults = await vectorService.searchDocuments(
         query, 
@@ -408,15 +430,15 @@ export class SemanticSearchServiceV2 {
 
       // Extract search terms for keyword scoring
       const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
-      
+
       // Calculate hybrid scores for each chunk
       const hybridResults = vectorResults.map(result => {
         const chunkText = result.document.content.toLowerCase();
-        
+
         // Calculate keyword score (how many terms match in this chunk)
         const matchingTerms = searchTerms.filter(term => chunkText.includes(term));
         const keywordScore = matchingTerms.length / searchTerms.length;
-        
+
         // Boost keyword score if it's a store location query (like "XOLO Bangkapi")
         let boostedKeywordScore = keywordScore;
         const storeKeywords = ['xolo', 'kamu', 'floor', 'ชั้น', 'บางกะปิ', 'bangkapi'];
@@ -429,7 +451,7 @@ export class SemanticSearchServiceV2 {
 
         // Combine vector and keyword scores with weights
         const hybridScore = (result.similarity * vectorWeight) + (boostedKeywordScore * keywordWeight);
-        
+
         console.log(`Chunk from doc ${result.document.metadata.originalDocumentId}: vector=${result.similarity.toFixed(3)}, keyword=${keywordScore.toFixed(3)}, hybrid=${hybridScore.toFixed(3)}`);
 
         return {
@@ -445,14 +467,14 @@ export class SemanticSearchServiceV2 {
 
       // Convert back to SearchResult format
       const finalResults: SearchResult[] = [];
-      
+
       for (const hybridResult of hybridResults) {
         const originalDocId = parseInt(hybridResult.vectorResult.document.metadata.originalDocumentId);
-        
+
         // Get original document metadata
         const documents = await storage.getDocuments(userId, { limit: 1000 });
         const originalDoc = documents.find(doc => doc.id === originalDocId);
-        
+
         if (originalDoc) {
           finalResults.push({
             id: originalDocId,
