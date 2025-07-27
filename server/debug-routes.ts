@@ -81,12 +81,15 @@ router.post('/api/debug/ai-input', async (req, res) => {
       // Use the new chunk split and rank search method
       if (searchType === 'hybrid') {
         try {
-          const { semanticSearchServiceV2 } = await import('./services/semanticSearchV2');
+          console.log(`DEBUG: Starting performChunkSplitAndRankSearch for query: "${userMessage}"`);
+          
           searchResults = await semanticSearchServiceV2.performChunkSplitAndRankSearch(
             userMessage,
             userId,
             {
-              ...searchOptions,
+              limit: searchOptions.limit || 5,
+              keywordWeight,
+              vectorWeight,
               specificDocumentIds
             }
           );
@@ -96,14 +99,14 @@ router.post('/api/debug/ai-input', async (req, res) => {
           // Create detailed chunk analysis from the results
           chunkDetails = searchResults.map((result, index) => ({
             chunkId: result.id || `chunk-${index}`,
-            content: result.content,
-            vectorScore: result.vectorScore || 0,
-            keywordScore: result.keywordScore || 0,
+            content: result.content || '',
+            vectorScore: 0, // These aren't exposed in the current implementation
+            keywordScore: 0, // These aren't exposed in the current implementation
             combinedScore: result.similarity,
             similarity: result.similarity,
             finalRank: index + 1,
             type: 'chunk_split_rank',
-            name: result.name
+            name: result.name || 'Unknown'
           }));
 
           searchMetrics = {
@@ -115,27 +118,46 @@ router.post('/api/debug/ai-input', async (req, res) => {
 
         } catch (error) {
           console.error('Error with performChunkSplitAndRankSearch:', error);
-          // Fallback to regular search
-          searchResults = await semanticSearchServiceV2.searchDocuments(
-            userMessage,
-            userId,
-            searchOptions
-          );
+          console.error('Error stack:', error.stack);
+          
+          try {
+            // Fallback to regular hybrid search
+            console.log('DEBUG: Falling back to regular hybrid search');
+            searchResults = await semanticSearchServiceV2.searchDocuments(
+              userMessage,
+              userId,
+              {
+                ...searchOptions,
+                searchType: 'hybrid'
+              }
+            );
 
-          chunkDetails = searchResults.map((result, index) => ({
-            id: result.id,
-            content: result.content,
-            similarity: result.similarity,
-            finalRank: index + 1,
-            type: 'fallback_hybrid'
-          }));
+            chunkDetails = searchResults.map((result, index) => ({
+              id: result.id,
+              content: result.content || '',
+              similarity: result.similarity,
+              finalRank: index + 1,
+              type: 'fallback_hybrid'
+            }));
 
-          searchMetrics = {
-            searchType: 'fallback_hybrid',
-            combinedResults: searchResults.length,
-            error: error.message,
-            weights: { keyword: keywordWeight, vector: vectorWeight }
-          };
+            searchMetrics = {
+              searchType: 'fallback_hybrid',
+              combinedResults: searchResults.length,
+              error: error.message,
+              weights: { keyword: keywordWeight, vector: vectorWeight }
+            };
+          } catch (fallbackError) {
+            console.error('Fallback search also failed:', fallbackError);
+            // Ultimate fallback - return empty results
+            searchResults = [];
+            chunkDetails = [];
+            searchMetrics = {
+              searchType: 'error',
+              combinedResults: 0,
+              error: `Both primary and fallback searches failed: ${error.message}, ${fallbackError.message}`,
+              weights: { keyword: keywordWeight, vector: vectorWeight }
+            };
+          }
         }
       } else {
         searchResults = await semanticSearchServiceV2.searchDocuments(
@@ -203,11 +225,21 @@ Answer questions specifically about this document. Provide detailed analysis, ex
 
   } catch (error) {
     console.error('Error in AI input debug:', error);
-    // Ensure we return JSON even on error
-    res.status(500).json({ 
-      error: error.message || 'Unknown error occurred',
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    console.error('Error stack:', error.stack);
+    
+    // Ensure we always return JSON, never HTML
+    try {
+      res.status(500).json({ 
+        error: error.message || 'Unknown error occurred',
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        timestamp: new Date().toISOString(),
+        endpoint: '/api/debug/ai-input'
+      });
+    } catch (jsonError) {
+      // If even JSON response fails, send plain text
+      console.error('Failed to send JSON error response:', jsonError);
+      res.status(500).send('Internal server error - failed to generate proper error response');
+    }
   }
 });
 

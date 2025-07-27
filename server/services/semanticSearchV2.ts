@@ -297,9 +297,20 @@ export class SemanticSearchServiceV2 {
     options: Omit<SearchOptions, "searchType">
   ): Promise<SearchResult[]> {
     try {
+      console.log(`ChunkSplitAndRank: Starting search for query "${query}" with options:`, JSON.stringify(options, null, 2));
+      
       // 1. Get vector-based chunks
+      console.log(`ChunkSplitAndRank: Getting vector results for ${options.specificDocumentIds?.length || 'all'} documents`);
       const vectorResults = await vectorService.searchDocuments(query, userId, 50, options.specificDocumentIds);
+      console.log(`ChunkSplitAndRank: Got ${vectorResults.length} vector results`);
+      
+      if (vectorResults.length === 0) {
+        console.log(`ChunkSplitAndRank: No vector results found, returning empty array`);
+        return [];
+      }
+      
       const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+      console.log(`ChunkSplitAndRank: Processing search terms:`, searchTerms);
 
       // 2. Prepare keyword score for each chunk
       const keywordChunks = vectorResults.map(result => {
@@ -375,7 +386,17 @@ export class SemanticSearchServiceV2 {
 
     } catch (error) {
       console.error("Error in performChunkSplitAndRankSearch:", error);
-      throw new Error("Failed to perform chunk-based split-and-rank search");
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        query,
+        userId,
+        options
+      });
+      
+      // Return empty results instead of throwing to prevent HTML error pages
+      console.log("ChunkSplitAndRank: Returning empty results due to error");
+      return [];
     }
   }
 
