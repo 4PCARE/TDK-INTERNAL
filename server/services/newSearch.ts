@@ -290,7 +290,7 @@ export async function searchSmartHybridDebug(
   const keywordMatches: Record<string, number> = {};
   let totalMatches = 0;
 
-  for (const [chunkId, tfidfMatch] of tfidfResults.entries()) {
+  for (const [chunkId, tfidfMatch] of Array.from(tfidfResults.entries())) {
     if (tfidfMatch.score > 0) {
       keywordMatches[chunkId] = tfidfMatch.score;
       totalMatches++;
