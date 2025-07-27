@@ -168,8 +168,8 @@ function calculateTFIDF(searchTerms: string[], chunks: any[]): Map<string, { sco
 
   // Calculate TF-IDF score for each chunk
   for (const chunk of chunks) {
-    // Handle the chunk structure from database: chunk.chunk.chunkIndex
-    const chunkIndex = chunk.chunk?.chunkIndex ?? 0;
+    // Handle the chunk structure from database: directly access chunkIndex
+    const chunkIndex = chunk.chunkIndex ?? 0;
     const chunkId = `${chunk.documentId}-${chunkIndex}`;
     const content = chunk.content || '';
     const tokens = tokenize(content.toLowerCase());
