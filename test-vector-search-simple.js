@@ -1,5 +1,5 @@
 
-import { vectorService } from './server/services/vectorService.js';
+import { vectorService } from './server/services/vectorService.ts';
 
 async function testVectorSearch() {
   try {
