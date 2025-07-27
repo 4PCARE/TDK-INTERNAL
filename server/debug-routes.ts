@@ -4,6 +4,13 @@ import { semanticSearchServiceV2 } from "./services/semanticSearchV2";
 import { generateChatResponse } from "./services/openai";
 import { aiKeywordExpansionService } from "./services/aiKeywordExpansion";
 
+// Debug: Check service availability at startup
+console.log('DEBUG: Checking service availability...');
+console.log('DEBUG: semanticSearchServiceV2 type:', typeof semanticSearchServiceV2);
+console.log('DEBUG: semanticSearchServiceV2 methods:', Object.keys(semanticSearchServiceV2 || {}));
+console.log('DEBUG: performChunkSplitAndRankSearch available:', typeof semanticSearchServiceV2?.performChunkSplitAndRankSearch);
+console.log('DEBUG: searchDocuments available:', typeof semanticSearchServiceV2?.searchDocuments);
+
 const router = express.Router();
 
 // Simple health check endpoint
@@ -16,6 +23,13 @@ router.get('/debug/health', (req, res) => {
 });
 
 router.post('/api/debug/ai-input', async (req, res) => {
+  console.log('=== DEBUG ENDPOINT CALLED ===');
+  console.log('Request method:', req.method);
+  console.log('Request URL:', req.url);
+  console.log('Request headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Request body:', JSON.stringify(req.body, null, 2));
+  console.log('=== END REQUEST INFO ===');
+
   // Capture logs for the debug response
   const debugLogs: string[] = [];
   const originalLog = console.log;
@@ -90,7 +104,24 @@ router.post('/api/debug/ai-input', async (req, res) => {
       // Use the new chunk split and rank search method
       if (searchType === 'hybrid') {
         try {
-          const { semanticSearchServiceV2 } = await import('./services/semanticSearchV2');
+          console.log('DEBUG: Attempting hybrid search with performChunkSplitAndRankSearch');
+          console.log('DEBUG: Import semanticSearchServiceV2...');
+          
+          // Check if the service exists and has the method
+          if (!semanticSearchServiceV2) {
+            throw new Error('semanticSearchServiceV2 is not available');
+          }
+          
+          if (typeof semanticSearchServiceV2.performChunkSplitAndRankSearch !== 'function') {
+            throw new Error('performChunkSplitAndRankSearch method is not available on semanticSearchServiceV2');
+          }
+          
+          console.log('DEBUG: Calling performChunkSplitAndRankSearch with params:', {
+            userMessage: userMessage.substring(0, 50) + '...',
+            userId,
+            options: { limit: 5, keywordWeight, vectorWeight, specificDocumentIds }
+          });
+          
           searchResults = await semanticSearchServiceV2.performChunkSplitAndRankSearch(
             userMessage,
             userId,
@@ -125,12 +156,19 @@ router.post('/api/debug/ai-input', async (req, res) => {
           };
 
         } catch (error) {
-          console.error('Error with performChunkSplitAndRankSearch:', error);
-          console.error('Error stack:', error.stack);
+          console.error('ERROR: performChunkSplitAndRankSearch failed:', error.message);
+          console.error('ERROR: Stack trace:', error.stack);
+          console.error('ERROR: Error type:', typeof error);
+          console.error('ERROR: Error constructor:', error.constructor.name);
 
           try {
             // Fallback to regular hybrid search
             console.log('DEBUG: Falling back to regular hybrid search');
+            
+            if (!semanticSearchServiceV2.searchDocuments) {
+              throw new Error('searchDocuments method is not available on semanticSearchServiceV2');
+            }
+            
             searchResults = await semanticSearchServiceV2.searchDocuments(
               userMessage,
               userId,
@@ -142,6 +180,8 @@ router.post('/api/debug/ai-input', async (req, res) => {
                 specificDocumentIds
               }
             );
+
+            console.log(`DEBUG: Fallback search returned ${searchResults.length} results`);
 
             chunkDetails = searchResults.map((result, index) => ({
               id: result.id,
@@ -158,7 +198,9 @@ router.post('/api/debug/ai-input', async (req, res) => {
               weights: { keyword: keywordWeight, vector: vectorWeight }
             };
           } catch (fallbackError) {
-            console.error('Fallback search also failed:', fallbackError);
+            console.error('ERROR: Fallback search also failed:', fallbackError.message);
+            console.error('ERROR: Fallback stack:', fallbackError.stack);
+            
             // Ultimate fallback - return empty results
             searchResults = [];
             chunkDetails = [];
@@ -249,21 +291,35 @@ Answer questions specifically about this document. Provide detailed analysis, ex
     // Restore console methods in case of error
     console.log = originalLog;
     console.error = originalError;
-    console.error('Error in AI input debug:', error);
-    console.error('Error stack:', error.stack);
+    
+    console.error('FATAL ERROR in AI input debug:', error.message);
+    console.error('FATAL ERROR stack:', error.stack);
+    console.error('FATAL ERROR type:', typeof error);
+    console.error('FATAL ERROR constructor:', error.constructor.name);
+    console.error('FATAL ERROR occurred at:', new Date().toISOString());
+    console.error('FATAL ERROR request body:', JSON.stringify(req.body, null, 2));
+
+    // Log all captured debug information
+    console.error('CAPTURED DEBUG LOGS:', debugLogs);
 
     // Ensure we always return JSON, never HTML
     try {
-      res.status(500).json({ 
+      const errorResponse = { 
         error: error.message || 'Unknown error occurred',
+        errorType: error.constructor.name,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
         timestamp: new Date().toISOString(),
         endpoint: '/api/debug/ai-input',
+        requestBody: req.body,
         debugLogs: debugLogs // Include logs even in error case
-      });
+      };
+      
+      console.error('SENDING ERROR RESPONSE:', JSON.stringify(errorResponse, null, 2));
+      res.status(500).json(errorResponse);
     } catch (jsonError) {
       // If even JSON response fails, send plain text
-      console.error('Failed to send JSON error response:', jsonError);
+      console.error('CRITICAL: Failed to send JSON error response:', jsonError);
+      console.error('CRITICAL: jsonError stack:', jsonError.stack);
       res.status(500).send('Internal server error - failed to generate proper error response');
     }
   }
