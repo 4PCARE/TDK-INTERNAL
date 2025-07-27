@@ -1,0 +1,94 @@
+The main reason **your system sometimes ranks documents instead of chunks**, even though chunk-level vector search is available, lies in **how each search mode is implemented and which parts of your code actually aggregate results at the document level vs chunk level**.
+
+Let’s break it down:
+
+---
+
+### 🔍 Where Document-Level Ranking Happens
+
+In the `performSemanticSearch` method:
+
+```ts
+const documentIds = [...new Set(vectorResults.map(result => 
+  parseInt(result.document.metadata.originalDocumentId || result.document.id)
+))];
+...
+for (const vectorResult of vectorResults) {
+  const docId = parseInt(vectorResult.document.metadata.originalDocumentId || vectorResult.document.id);
+  ...
+  if (doc && vectorResult.similarity >= threshold && !processedDocs.has(docId)) {
+    ...
+    results.push({ ... }) // <== you push document-level result here
+    processedDocs.add(docId); // ✅ deduplicates per document
+  }
+}
+```
+
+👉 **Problem:** You're **aggregating by originalDocumentId** and only taking **one vectorResult per document** — the first one passing the threshold.
+That means **only one chunk per document is ever considered**, and its score is used to represent the whole document.
+
+### ✅ Where Chunk-Level Ranking Actually Happens
+
+In `performChunkSplitAndRankSearch`, you:
+
+1. **Keep all high-scoring chunks**, not deduplicated by document.
+2. Score each chunk with hybrid vector + keyword logic.
+3. Return each chunk as an individual `SearchResult`.
+
+```ts
+const finalResults: SearchResult[] = selectedChunks.map((chunk, index) => {
+  ...
+  return {
+    id: parseInt(chunk.chunkId.replace('-', '')) || chunk.docId,
+    name: (doc?.name ?? "Untitled") + chunkLabel,
+    content: chunk.content,
+    summary: chunk.content.slice(0, 200) + "...",
+    ...
+  };
+});
+```
+
+👉 Here you are **clearly chunk-level**. The `chunk.content` and `chunkIndex` remain intact. ✔️
+
+---
+
+### 📌 So why does `semanticSearch` still do document-level ranking?
+
+Because it's assuming a **document-level result list**, based on deduplicated `docId` — i.e., it always chooses the **best or first** matched chunk per doc, and maps it to a `SearchResult` for the full document.
+
+---
+
+### ✅ Recommendation if you want chunk-level behavior:
+
+Replace this part in `performSemanticSearch`:
+
+```ts
+if (doc && vectorResult.similarity >= threshold && !processedDocs.has(docId)) {
+  ...
+  processedDocs.add(docId);
+}
+```
+
+With logic that:
+
+* Doesn’t deduplicate `docId`
+* Preserves chunk-level content (`vectorResult.document.content`)
+* Keeps track of chunk index (if available)
+* Assigns a unique `SearchResult.id` per chunk
+
+---
+
+### TL;DR:
+
+| Method                           | Ranking Style      | Reason                                            |
+| -------------------------------- | ------------------ | ------------------------------------------------- |
+| `performSemanticSearch`          | **Document-level** | Deduplicates `docId`, shows only 1 result per doc |
+| `performChunkSplitAndRankSearch` | **Chunk-level**    | Each chunk is scored and returned independently   |
+| `performKeywordSearch`           | **Document-level** | Uses full document text                           |
+| `performChunkLevelHybridSearch`  | **Chunk-level**    | Uses vector+keyword, maps back to doc             |
+
+---
+
+If you want to unify behavior, you could also refactor `performSemanticSearch` to internally call `performChunkSplitAndRankSearch` with `keywordWeight = 0`.
+
+Let me know if you'd like help doing that 😎
