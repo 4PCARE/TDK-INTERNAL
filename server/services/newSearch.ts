@@ -189,7 +189,8 @@ function calculateTFIDF(searchTerms: string[], chunks: any[]): Map<string, { sco
 
       if (tf > 0) {
         matchedTerms.push(term);
-        const normalizedTF = tf / Math.max(tokens.length, 1); // Normalize by document length
+        // Use log(1 + tf) to dampen high term frequency bias
+        const normalizedTF = Math.log(1 + tf) / Math.max(tokens.length, 1);
         const df = termDF.get(lowerTerm) || 1;
         const idf = Math.log(totalChunks / df);
         tfidfScore += normalizedTF * idf;
@@ -199,7 +200,7 @@ function calculateTFIDF(searchTerms: string[], chunks: any[]): Map<string, { sco
         if (fuzzyMatch.score > 0.75) {
           matchedTerms.push(term);
           const tf = fuzzyMatch.count;
-          const normalizedTF = tf / Math.max(tokens.length, 1);
+          const normalizedTF = Math.log(1 + tf) / Math.max(tokens.length, 1);
           const df = termDF.get(lowerTerm) || 1;
           const idf = Math.log(totalChunks / df);
           tfidfScore += (normalizedTF * idf * fuzzyMatch.score * 0.8); // Reduce score for fuzzy matches
@@ -338,7 +339,10 @@ export async function searchSmartHybridDebug(
   console.log(`📐 FORMULA: Final Score = (Keyword Score × ${keywordWeight}) + (Vector Score × ${vectorWeight})`);
 
   for (const chunkId of allChunkIds) {
-    const [docIdStr, chunkIndexStr] = chunkId.split("-");
+    // Fix: Split from the right to handle document IDs with dashes
+    const parts = chunkId.split("-");
+    const chunkIndexStr = parts[parts.length - 1];
+    const docIdStr = parts.slice(0, -1).join("-");
     const docId = parseInt(docIdStr);
     const chunkIndex = parseInt(chunkIndexStr);
     const keywordScore = keywordMatches[chunkId] ?? 0;
@@ -398,8 +402,9 @@ export async function searchSmartHybridDebug(
         if (selectedChunks.length >= maxResults) break;
       }
     } else {
-      // If scores are very low, just take top N results
-      selectedChunks = scoredChunks.slice(0, minResults);
+      // If scores are very low, ensure we still get some results
+      const fallbackCount = Math.min(minResults, scoredChunks.length);
+      selectedChunks = scoredChunks.slice(0, fallbackCount);
     }
 
     console.log(`🎯 SELECTION: From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} (avg score: ${avgScore.toFixed(4)})`);
@@ -435,7 +440,7 @@ export async function searchSmartHybridDebug(
   selectedChunks.length = 0;
 
   // Force garbage collection if available
-  if (global.gc) {
+  if (typeof global.gc === "function") {
     global.gc();
   }
 
@@ -467,8 +472,15 @@ export async function searchSmartHybridV1(
 
       const chunks: string[] = doc.chunks || splitIntoChunks(doc.content || "", 3000, 300);
       
+      // Create chunk objects with proper structure for TF-IDF calculation
+      const chunkObjects = chunks.map((chunk, i) => ({
+        content: chunk,
+        chunkIndex: i,
+        documentId: doc.id
+      }));
+      
       // Use TF-IDF instead of fuzzy matching
-      const tfidfResults = calculateTFIDF(searchTerms, chunks);
+      const tfidfResults = calculateTFIDF(searchTerms, chunkObjects);
       
       chunks.forEach((chunk, i) => {
         const chunkId = `${doc.id}-${i}`;
