@@ -277,6 +277,13 @@ export async function searchSmartHybridDebug(
   const chunks = await db.select().from(documentVectors).where(whereCondition);
   console.log(`🔍 KEYWORD SEARCH: Found ${chunks.length} chunks to search`);
 
+  // Create a map for faster chunk lookup
+  const chunkMap = new Map();
+  for (const chunk of chunks) {
+    const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
+    chunkMap.set(chunkId, chunk);
+  }
+
   // Calculate TF-IDF scores for all chunks at once
   const tfidfResults = calculateTFIDF(searchTerms, chunks);
   const keywordMatches: Record<string, number> = {};
@@ -338,11 +345,11 @@ export async function searchSmartHybridDebug(
     const vectorInfo = vectorMatches[chunkId];
     const vectorScore = vectorInfo?.score ?? 0;
 
-    // Get content from vector search, or fallback to finding it in chunks array
+    // Get content from vector search, or fallback to chunk map
     let content = vectorInfo?.content ?? "";
     if (!content && keywordScore > 0) {
-      // Find the chunk content from the database chunks for keyword-only matches
-      const chunk = chunks.find(c => `${c.documentId}-${c.chunkIndex}` === chunkId);
+      // Get the chunk content from the chunk map for keyword-only matches
+      const chunk = chunkMap.get(chunkId);
       content = chunk?.content ?? "";
     }
 
