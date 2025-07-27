@@ -549,17 +549,19 @@ export async function searchSmartHybridV1(
       });
     }
 
-    // 4. Select top 10% score mass for strict filtering
-    const sortedChunks = [...combinedChunkMap.values()].sort((a, b) => b.finalScore - a.finalScore);
+    // Step 3: Rank and select top 5% score mass for much stricter filtering
     const totalScore = sortedChunks.reduce((sum, c) => sum + c.finalScore, 0);
-    const targetScore = totalScore * 0.10;
+    const scoreThreshold = totalScore * 0.05; // Changed from 0.10 to 0.05 for much stricter selection
+
+    sortedChunks.sort((a, b) => b.finalScore - a.finalScore);
+
     const selectedChunks = [];
-    let acc = 0;
-    const maxChunks = Math.min(8, sortedChunks.length); // Cap at 8 chunks for stricter selection
+    let accumulatedScore = 0;
+    const maxChunks = Math.min(3, sortedChunks.length); // Changed from 8 to 3 chunks maximum
     for (const chunk of sortedChunks) {
       selectedChunks.push(chunk);
-      acc += chunk.finalScore;
-      if (acc >= targetScore || selectedChunks.length >= maxChunks) break;
+      accumulatedScore += chunk.finalScore;
+      if (accumulatedScore >= scoreThreshold || selectedChunks.length >= maxChunks) break;
     }
 
     // 5. Build Final SearchResult[]
