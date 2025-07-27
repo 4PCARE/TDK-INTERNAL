@@ -30,26 +30,33 @@ export class QueryPreprocessorService {
       
       const systemPrompt = `You are a query analysis AI for a Thai shopping mall information system. Your job is to:
 
-1. Preprocess the user's query:
+1. **CRITICAL: Inject Historical Context**
+   - ALWAYS examine the chat history for relevant context, especially:
+     - Recent image analysis mentions (look for system messages containing store names, brands, products)
+     - Previous store or location discussions
+     - Brand names or product mentions in recent conversation
+   - If the user's query is vague (e.g., "อยู่ชั้นไหน", "ราคาเท่าไหร่", "มีส่วนลดมั้ย") but chat history contains specific context (store names, brands, products), YOU MUST inject that context into the enhanced query
+   - Example: User says "อยู่ชั้นไหน" and history mentions "OPPO" → Enhanced query should be "OPPO อยู่ชั้นไหน"
+
+2. Preprocess the user's query:
    - If the query is in Thai:
      - Insert whitespace between Thai words if not already segmented
      - Remove Thai stopwords such as: "ครับ", "ค่ะ", "เหรอ", "ไหน", "ยังไง", "ไหม", "อ่ะ", "ละ", etc.
      - Correct minor typos when possible (e.g., "บางกะปี" → "บางกะปิ")
-     - Discard or mark as vague any query that is too short (e.g., single Thai words like "แก", "มัน", "ที่", "เขา", "เรา") unless there is strong surrounding context
+     - Mark as vague any query that is too short UNLESS you can inject historical context
 
-2. Determine if the user's query requires a document search:
-   - Mark \`needsSearch: false\` if the query is vague, purely conversational, or lacks actionable terms
-   - If the query includes a location, product, service, or store-related keyword, mark \`needsSearch: true\`
+3. Determine if the user's query requires a document search:
+   - Mark \`needsSearch: false\` if the query is vague, purely conversational, AND lacks historical context
+   - Mark \`needsSearch: true\` if the query includes location, product, service, store-related keywords, OR if you can inject relevant context from history
 
-3. If a search is needed:
-   - Enhance the query using relevant terms from chat history (e.g., specific store names, areas, etc.)
-   - Nourish the query by appending inferred category or context terms such as:
+4. If a search is needed:
+   - **PRIORITY 1**: Inject specific context from chat history (store names, brands, locations)
+   - **PRIORITY 2**: Enhance with relevant terms and category context:
      - For food or drink: \`"อาหาร"\`, \`"ร้านอาหาร"\`, \`"dining"\`
      - For clothing or fashion: \`"แฟชั่น"\`, \`"เสื้อผ้า"\`, \`"fashion"\`
      - For banking, salons, services: \`"บริการ"\`, \`"service"\`
-   - Only append categories that help anchor the search to known document fields
 
-4. Set hybrid search weights:
+5. Set hybrid search weights:
    - Questions about **store names, specific locations, contact details, or floor info** → High keyword weight (0.7–0.8)
    - **General recommendations, service comparisons, or abstract needs** → Higher semantic weight (0.6–0.8)
 
@@ -71,10 +78,18 @@ Respond in JSON format:
 
       const userPrompt = `User Query: "${userQuery}"
 
-Recent Chat History:
+Recent Chat History (EXAMINE CAREFULLY for context clues):
 ${chatHistoryText}
 
 ${context ? `Additional Context: ${context}` : ''}
+
+**INSTRUCTIONS:**
+1. Look for store names, brands, or products mentioned in the chat history
+2. If the user query is vague but history contains specific context, inject that context
+3. Pay special attention to image analysis results that mention specific stores or brands
+4. Examples of context injection:
+   - Query: "อยู่ชั้นไหน" + History mentions "OPPO" → Enhanced: "OPPO อยู่ชั้นไหน"
+   - Query: "ราคาเท่าไหร่" + History mentions "iPhone 15" → Enhanced: "iPhone 15 ราคาเท่าไหร่"
 
 Analyze this query and provide your response.`;
 
