@@ -273,32 +273,19 @@ export async function searchSmartHybridDebug(
   const chunks = await db.select().from(documentVectors).where(whereCondition);
   console.log(`🔍 KEYWORD SEARCH: Found ${chunks.length} chunks to search`);
 
+  // Calculate TF-IDF scores for all chunks at once
+  const tfidfResults = calculateTFIDF(searchTerms, chunks);
   const keywordMatches: Record<string, number> = {};
   let totalMatches = 0;
 
-  for (const chunk of chunks) {
-    const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
-    const lowerChunk = chunk.content.toLowerCase();
-
-    // Enhanced fuzzy matching
-    // const { matchedTerms, totalScore } = performFuzzyMatching(searchTerms, lowerChunk);
-    const tfidfResults = calculateTFIDF(searchTerms, chunks);
-    const tfidfMatch = tfidfResults.get(chunkId);
-
-    if (tfidfMatch && tfidfMatch.score > 0) {
+  for (const [chunkId, tfidfMatch] of tfidfResults.entries()) {
+    if (tfidfMatch.score > 0) {
       keywordMatches[chunkId] = tfidfMatch.score;
       totalMatches++;
 
-      console.log(`🔍 KEYWORD MATCH (TF-IDF): Doc ${chunk.documentId} chunk ${chunk.chunkIndex} - ${tfidfMatch.matchedTerms.length}/${searchTerms.length} terms matched (${tfidfMatch.matchedTerms.join(', ')}) score: ${tfidfMatch.score.toFixed(3)}`);
+      const [docId, chunkIndex] = chunkId.split('-');
+      console.log(`🔍 KEYWORD MATCH (TF-IDF): Doc ${docId} chunk ${chunkIndex} - ${tfidfMatch.matchedTerms.length}/${searchTerms.length} terms matched (${tfidfMatch.matchedTerms.join(', ')}) score: ${tfidfMatch.score.toFixed(3)}`);
     }
-
-    // if (matchedTerms.length > 0) {
-    //   const score = totalScore / searchTerms.length;
-    //   keywordMatches[chunkId] = score;
-    //   totalMatches++;
-
-    //   console.log(`🔍 KEYWORD MATCH (FUZZY): Doc ${chunk.documentId} chunk ${chunk.chunkIndex} - ${matchedTerms.length}/${searchTerms.length} terms matched (${matchedTerms.join(', ')}) score: ${score.toFixed(3)}`);
-    // }
   }
 
   console.log(`🔍 KEYWORD SEARCH: Found ${totalMatches} chunks with keyword matches out of ${chunks.length} total chunks`)
