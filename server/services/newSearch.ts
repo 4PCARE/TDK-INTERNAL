@@ -266,7 +266,14 @@ export async function searchSmartHybridDebug(
     const keywordScore = keywordMatches[chunkId] ?? 0;
     const vectorInfo = vectorMatches[chunkId];
     const vectorScore = vectorInfo?.score ?? 0;
-    const content = vectorInfo?.content ?? ""; // fallback to nothing if not in vector search
+    
+    // Get content from vector search, or fallback to finding it in chunks array
+    let content = vectorInfo?.content ?? "";
+    if (!content && keywordScore > 0) {
+      // Find the chunk content from the database chunks for keyword-only matches
+      const chunk = chunks.find(c => `${c.documentId}-${c.chunkIndex}` === chunkId);
+      content = chunk?.content ?? "";
+    }
 
     const finalScore = keywordScore * keywordWeight + vectorScore * vectorWeight;
 
