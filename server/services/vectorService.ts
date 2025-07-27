@@ -91,12 +91,18 @@ export class VectorService {
             totalChunks: chunks.length
           };
 
+          // Debug: Verify chunk size before saving
+          console.log(`Storing chunk ${i} for doc ${id}: ${chunk.length} chars`);
+          if (chunk.length > 3500) {
+            console.warn(`⚠️  CHUNK TOO LARGE: Doc ${id} chunk ${i} has ${chunk.length} chars - might be storing full document instead of chunk!`);
+          }
+
           // Save vector to database
           await db.insert(documentVectors).values({
             documentId: parseInt(id),
             chunkIndex: i,
             totalChunks: chunks.length,
-            content: chunk,
+            content: chunk, // This should be the chunk content, not full document
             embedding,
             userId: metadata.userId
           });
@@ -181,9 +187,14 @@ export class VectorService {
       // Calculate similarities for all chunks
       const allResults = dbVectors
         .map(dbVector => {
+          // Debug: Verify we're getting chunk content, not full document
+          if (dbVector.content.length > 3500) {
+            console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has ${dbVector.content.length} chars - suspiciously large for a chunk!`);
+          }
+
           const vectorDoc: VectorDocument = {
             id: `${dbVector.documentId}_chunk_${dbVector.chunkIndex}`,
-            content: dbVector.content,
+            content: dbVector.content, // This should be chunk content from document_vectors table
             embedding: dbVector.embedding,
             metadata: {
               originalDocumentId: dbVector.documentId.toString(),

@@ -120,10 +120,14 @@ export class SemanticSearchServiceV2 {
             console.warn(`⚠️  SEMANTIC SEARCH: Doc ${docId} chunk ${chunkIndex} has ${vectorResult.document.content.length} chars - might be full document!`);
           }
 
+          // Debug: Log what we're actually getting from vectorResult
+          console.log(`DEBUG SEMANTIC: Doc ${docId} chunk ${chunkIndex} - vectorResult content length: ${vectorResult.document.content.length}`);
+          console.log(`DEBUG SEMANTIC: Content preview: "${vectorResult.document.content.substring(0, 100)}..."`);
+
           results.push({
             id: chunkId, // Use string ID to avoid conflicts
             name: doc.name + chunkLabel,
-            content: vectorResult.document.content, // Use chunk content, not full document
+            content: vectorResult.document.content, // ✅ This should be chunk content from vectorService
             summary: vectorResult.document.content.slice(0, 200) + "...",
             aiCategory: doc.aiCategory,
             aiCategoryColor: doc.aiCategoryColor,
