@@ -1,0 +1,70 @@
+📦 2. Retrieval Logic Doesn’t Filter by Chunk Metadata
+In vectorService.searchDocuments(...), make sure that:
+
+It searches in the document_vectors table.
+
+Each vector result corresponds to a chunk (with chunkIndex !== undefined).
+
+You're not returning full docs stored in document_vectors without a chunkIndex.
+
+✅ Fix
+Add a condition to skip documents with suspicious metadata:
+
+ts
+Copy
+Edit
+if (
+  !('chunkIndex' in result.document) || 
+  result.document.content.length > 3000
+) {
+  console.warn("⚠️ Skipping full document result - not a chunk");
+  continue;
+}
+🧪 3. Bug in Chunk Embedding Process (VectorService Layer)
+If the chunking looks correct but you still see full docs:
+
+Re-check the logic inside vectorService.splitTextIntoChunks() and insertDocumentVector().
+
+You might be calling:
+
+ts
+Copy
+Edit
+await this.embed([fullText]) // ❌ only 1 full doc, not multiple chunks
+instead of:
+
+ts
+Copy
+Edit
+const chunks = this.splitTextIntoChunks(fullText)
+await this.embed(chunks.map(...)) // ✅ each with content and metadata
+🧯 Bonus: Emergency Guard
+In performChunkSplitAndRankSearch() and others, you already log this:
+
+ts
+Copy
+Edit
+if (result.document.content.length > 3000) {
+  console.warn(`⚠️ Vector result ... suspiciously large for a chunk!`);
+}
+You can hard block such cases in production if you want:
+
+ts
+Copy
+Edit
+if (result.document.content.length > 5000) return []; // treat as anomaly
+🔄 TL;DR
+🔍 Symptom	✅ Fix
+Full doc returned as chunk	Ensure vectorService.insertDocumentVector() chunks properly
+chunkIndex is undefined	Skip or warn in semantic search result
+Old docs were stored pre-chunking	Reprocess legacy documents
+splitTextIntoChunks() is not used in vector insert	Double check upload logic
+searchDocuments() retrieves from full doc table	Ensure it's querying document_vectors with chunk-based metadata
+
+Wanna test? Try logging:
+
+ts
+Copy
+Edit
+console.log('Chunk metadata:', result.document.metadata);
+Let me know if you want help writing a migration script to re-chunk and re-embed existing documents 💪
