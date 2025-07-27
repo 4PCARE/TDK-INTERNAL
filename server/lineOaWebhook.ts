@@ -1057,210 +1057,190 @@ ${imageAnalysisResult}
             contextMessage = "ผู้ใช้ส่งสติ๊กเกอร์มา กรุณาตอบอย่างเป็นมิตรและถามว่ามีอะไรให้ช่วย";
           }
 
-          // Get agent's documents for proper scope restriction
-          const agentDocs = await storage.getAgentChatbotDocuments(lineIntegration.agentId, lineIntegration.userId);
-          console.log(`LINE OA: Found ${agentDocs.length} assigned documents for agent ${lineIntegration.agentId}`);
+          // Get agent configuration for system prompt and settings
+          const agent = await storage.getAgentChatbot(lineIntegration.agentId, lineIntegration.userId);
+          if (!agent) {
+            console.log(`❌ LINE OA: Agent ${lineIntegration.agentId} not found`);
+            await sendLineReply(
+              replyToken,
+              "ขออภัย ไม่สามารถเชื่อมต่อกับระบบได้ในขณะนี้",
+              lineIntegration.channelAccessToken!,
+            );
+            continue;
+          }
 
-          // Convert agent docs to format expected by generateChatResponse
-          const agentDocuments = [];
-          for (const agentDoc of agentDocs) {
+          console.log(`✅ LINE OA: Found agent: ${agent.name}`);
+
+          // Get agent's bound documents for search scope restriction
+          const agentDocs = await storage.getAgentChatbotDocuments(lineIntegration.agentId, lineIntegration.userId);
+          console.log(`LINE OA: Found ${agentDocs.length} bound documents for agent ${lineIntegration.agentId}`);
+
+          // Extract agent document IDs for search filtering
+          const agentDocIds = agentDocs.map(doc => doc.documentId);
+
+          // Get chat history for context (respecting agent's memory settings)
+          let chatHistory: any[] = [];
+          if (agent.memoryEnabled) {
+            const memoryLimit = agent.memoryLimit || 10;
+            console.log(`LINE OA: Fetching chat history (limit: ${memoryLimit})`);
+
             try {
-              const document = await storage.getDocument(agentDoc.documentId, lineIntegration.userId);
-              if (document) {
-                agentDocuments.push({
-                  ...document,
-                  userId: lineIntegration.userId
-                });
-              }
+              chatHistory = await storage.getChatHistoryWithMemoryStrategy(
+                lineIntegration.userId,
+                "lineoa",
+                event.source.userId,
+                lineIntegration.agentId!,
+                memoryLimit,
+              );
+              console.log(`LINE OA: Found ${chatHistory.length} previous messages for context`);
             } catch (error) {
-              console.error(`LINE OA: Error fetching document ${agentDoc.documentId}:`, error);
+              console.error("⚠️ LINE OA: Error fetching chat history:", error);
             }
           }
 
-          console.log(`LINE OA: Using ${agentDocuments.length} documents for hybrid search`);
-
-          // Use hybrid search with document scope restriction like debug routes
-          const { semanticSearchServiceV2 } = await import('./services/semanticSearchV2');
-          let aiResponse = "";
-
-          try {
-            // Extract agent document IDs for search filtering
-            const agentDocIds = agentDocuments.map(doc => doc.id);
-
-            // Get recent chat history for AI keyword expansion
-            const fullChatHistory = await storage.getChatHistory(
-              lineIntegration.userId,
-              "lineoa",
-              event.source.userId,
-              lineIntegration.agentId!,
-              10
-            );
-
-            const recentChatHistory = fullChatHistory.slice(-5).map(msg => ({
-              messageType: msg.messageType,
+          // Convert chat history to format expected by query preprocessor
+          const recentChatHistory = chatHistory
+            .filter(msg => msg.messageType === 'user' || msg.messageType === 'assistant')
+            .slice(-5)
+            .map(msg => ({
+              messageType: msg.messageType as 'user' | 'assistant',
               content: msg.content,
               createdAt: new Date(msg.createdAt)
             }));
 
+          let aiResponse = "";
+
+          try {
             // Step 1: AI Query Preprocessing
-            console.log(`LINE OA: Running AI query preprocessing`);
+            console.log(`🧠 LINE OA: Starting AI query preprocessing for: "${contextMessage}"`);
             const { queryPreprocessor } = await import('./services/queryPreprocessor');
 
             const queryAnalysis = await queryPreprocessor.analyzeQuery(
-              userMessage,
-              recentChatHistory.map(msg => ({
-                messageType: msg.messageType as 'user' | 'assistant',
-                content: msg.content,
-                createdAt: new Date(msg.createdAt)
-              })),
-              `Agent: ${lineIntegration.agentName}, Documents: ${agentDocIds.length} available`
+              contextMessage,
+              recentChatHistory,
+              `Agent: ${agent.name}, Bound Documents: ${agentDocIds.length} available`
             );
 
+            console.log(`🧠 LINE OA: Query analysis result:`, {
+              needsSearch: queryAnalysis.needsSearch,
+              enhancedQuery: queryAnalysis.enhancedQuery,
+              keywordWeight: queryAnalysis.keywordWeight.toFixed(2),
+              vectorWeight: queryAnalysis.vectorWeight.toFixed(2),
+              reasoning: queryAnalysis.reasoning
+            });
+
             if (!queryAnalysis.needsSearch) {
-              console.log(`LINE OA: Query doesn't need search, generating direct response`);
-              aiResponse = `ขออภัยครับ คำถามของคุณดูเหมือนไม่ต้องการการค้นหาข้อมูล หากต้องการความช่วยเหลือเกี่ยวกับข้อมูลร้านค้าหรือบริการ กรุณาถามคำถามที่เฉพาะเจาะจงมากขึ้นครับ`;
+              console.log(`⏭️ LINE OA: Query doesn't need search, using direct conversation`);
+              aiResponse = await getAiResponseDirectly(
+                contextMessage,
+                lineIntegration.agentId,
+                lineIntegration.userId,
+                "lineoa",
+                event.source.userId,
+              );
             } else {
-              console.log(`LINE OA: Using enhanced query: "${queryAnalysis.enhancedQuery}" with weights K:${queryAnalysis.keywordWeight.toFixed(2)} V:${queryAnalysis.vectorWeight.toFixed(2)}`);
+              // Step 2: Perform new search workflow with agent's bound documents
+              console.log(`🔍 LINE OA: Performing new search workflow with enhanced query`);
+              const { searchSmartHybridDebug } = await import('./services/newSearch');
 
-              // Try AI-enhanced keyword search first
-              console.log(`LINE OA: Attempting AI-enhanced keyword search for contextual understanding`);
-              const { advancedKeywordSearchService } = await import('./services/advancedKeywordSearch');
-
-              let keywordSearchResults = [];
-              try {
-                keywordSearchResults = await advancedKeywordSearchService.searchWithAIExpansion(
-                  queryAnalysis.enhancedQuery,
-                  lineIntegration.userId,
-                  recentChatHistory,
-                  agentDocIds
-                );
-                console.log(`LINE OA: AI-enhanced keyword search found ${keywordSearchResults.length} results`);
-              } catch (keywordError) {
-                console.warn(`LINE OA: AI-enhanced keyword search failed:`, keywordError);
-              }
-
-              // Combine keyword and vector search results intelligently
-              let combinedResults = [];
-
-              // Fallback to hybrid search with AI-determined weights and optimized chunk selection
-              console.log(`LINE OA: Using chunk-level hybrid search with AI weights as fallback`);
-              const { semanticSearchServiceV2: searchService } = await import('./services/semanticSearchV2');
-              const searchResults = await searchService.searchDocuments(queryAnalysis.enhancedQuery, lineIntegration.userId, {
-                searchType: 'hybrid',
-                limit: 12, // Get more results for ranking
-                specificDocumentIds: agentDocIds,
-                keywordWeight: queryAnalysis.keywordWeight,
-                vectorWeight: queryAnalysis.vectorWeight,
-              });
-
-              console.log(`LINE OA: Hybrid search found ${searchResults.length} relevant chunks from agent's documents`);
-
-              if (keywordSearchResults.length > 0) {
-                // If AI keyword search found contextual results with high confidence, blend them with vector results
-                const topKeywordResult = keywordSearchResults[0];
-                if (topKeywordResult.aiKeywordExpansion?.isContextual && topKeywordResult.aiKeywordExpansion.confidence > 0.7) {
-                  console.log(`LINE OA: High-confidence contextual match found, blending keyword and vector results`);
-
-                  // Convert keyword results to chunk format for consistency
-                  const keywordChunks = keywordSearchResults.slice(0, 3).map(result => ({
-                    document: { name: result.name },
-                    content: result.content.substring(0, 2000), // Limit content size
-                    similarity: result.similarity
-                  }));
-
-                  // Blend keyword and vector results instead of discarding vector results
-                  // Take top keyword results + top vector results, then sort by similarity
-                  const topVectorResults = searchResults.slice(0, 9); // Get more vector results
-                  combinedResults = [
-                    ...keywordChunks,
-                    ...topVectorResults
-                  ];
-
-                  console.log(`LINE OA: Blended ${keywordChunks.length} keyword + ${topVectorResults.length} vector results for intelligent ranking`);
+              const searchResults = await searchSmartHybridDebug(
+                queryAnalysis.enhancedQuery,
+                lineIntegration.userId,
+                {
+                  limit: 15,
+                  threshold: 0.3,
+                  keywordWeight: queryAnalysis.keywordWeight,
+                  vectorWeight: queryAnalysis.vectorWeight,
+                  specificDocumentIds: agentDocIds // Restrict search to agent's bound documents
                 }
-              }
+              );
 
-              if (combinedResults.length > 0) {
-                // Step 1: Pool ALL chunks from ALL documents together
-                const allChunks = [];
+              console.log(`🔍 LINE OA: New search found ${searchResults.length} relevant chunks from agent's bound documents`);
 
-                for (const result of combinedResults) {
-                  allChunks.push({
-                    docName: result.name,
-                    content: result.content,
-                    similarity: result.similarity
-                  });
-                }
-
-                console.log(`LINE OA: Pooled ${allChunks.length} chunks from ${agentDocIds.length} agent documents`);
-
-                // Step 2: Sort ALL chunks globally by similarity and use all of them
-                allChunks.sort((a, b) => b.similarity - a.similarity);
-
-                console.log(`LINE OA: Using all ${allChunks.length} chunks from search results:`);
-                allChunks.forEach((chunk, idx) => {
-                  console.log(`  ${idx + 1}. ${chunk.docName} - Similarity: ${chunk.similarity.toFixed(4)}`);
-                  console.log(`      Content preview: ${chunk.content.substring(0, 100)}...`);
-                });
-
-                // Build context with character limit for cost control
+              if (searchResults.length > 0) {
+                // Step 3: Build context from search results
                 let documentContext = "";
-                const maxContextLength = 12000; // Increased limit to accommodate more chunks
+                const maxContextLength = 12000;
                 let chunksUsed = 0;
 
-                for (let i = 0; i < allChunks.length; i++) {
-                  const chunk = allChunks[i];
-                  const chunkText = `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
+                console.log(`📄 LINE OA: Building context from search results:`);
+                for (let i = 0; i < searchResults.length; i++) {
+                  const result = searchResults[i];
+                  const chunkText = `=== ข้อมูลที่ ${i + 1}: ${result.name} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${result.content}\n\n`;
 
-                  // Check if adding this chunk would exceed the limit
+                  console.log(`  ${i + 1}. ${result.name} - Similarity: ${result.similarity.toFixed(4)}`);
+                  console.log(`      Content preview: ${result.content.substring(0, 100)}...`);
+
                   if (documentContext.length + chunkText.length <= maxContextLength) {
                     documentContext += chunkText;
                     chunksUsed++;
                   } else {
-                    // Try to fit a truncated version if there's meaningful space
                     const remainingSpace = maxContextLength - documentContext.length;
-                    if (remainingSpace > 300) { // Only add if there's meaningful space
-                      const availableContentSpace = remainingSpace - 150; // Account for headers
-                      const truncatedContent = chunk.content.substring(0, availableContentSpace) + "...";
-                      documentContext += `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
+                    if (remainingSpace > 300) {
+                      const availableContentSpace = remainingSpace - 150;
+                      const truncatedContent = result.content.substring(0, availableContentSpace) + "...";
+                      documentContext += `=== ข้อมูลที่ ${i + 1}: ${result.name} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
                       chunksUsed++;
                     }
                     break;
                   }
                 }
 
-                console.log(`LINE OA: Used ${chunksUsed}/${allChunks.length} chunks within character limit`);
+                console.log(`📄 LINE OA: Used ${chunksUsed}/${searchResults.length} chunks (${documentContext.length} chars)`);
 
-                console.log(`LINE OA: Final context length: ${documentContext.length} characters (limit: ${maxContextLength})`);
-
-                // Generate AI response with comprehensive document context
-                // Use existing OpenAI instance from module scope
-
-                const agent = await storage.getAgentChatbot(lineIntegration.agentId, lineIntegration.userId);
-                const systemPrompt = `${agent?.systemPrompt || 'You are a helpful assistant.'}
+                // Step 4: Generate AI response with agent's system prompt, document context, and chat history
+                const systemPrompt = `${agent.systemPrompt}
 
 เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
 ${documentContext}
 
-กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น`;
+สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้อมูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว
 
-                console.log(`LINE OA: System prompt length: ${systemPrompt.length} characters`);
+กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
+ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
+คุณสามารถอ้างอิงบทสนทนาก่อนหน้านี้เพื่อให้คำตอบที่ต่อเนื่องและเหมาะสม`;
+
+                // Build conversation messages including chat history
+                const messages: any[] = [
+                  {
+                    role: "system",
+                    content: systemPrompt
+                  }
+                ];
+
+                // Add chat history (exclude system messages from conversation flow)
+                const userBotMessages = chatHistory.filter(
+                  (msg) => msg.messageType === "user" || msg.messageType === "assistant",
+                );
+
+                userBotMessages.forEach((msg) => {
+                  messages.push({
+                    role: msg.messageType === "user" ? "user" : "assistant",
+                    content: msg.content,
+                  });
+                });
+
+                // Add current user message
+                messages.push({
+                  role: "user",
+                  content: contextMessage,
+                });
+
+                console.log(`🤖 LINE OA: Sending ${messages.length} messages to OpenAI (${chatHistory.length} history messages)`);
+                console.log(`📊 LINE OA: System prompt length: ${systemPrompt.length} characters`);
 
                 const completion = await openai.chat.completions.create({
                   model: "gpt-4o",
-                  messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: contextMessage }
-                  ],
+                  messages: messages,
                   max_tokens: 1000,
                   temperature: 0.7,
                 });
 
                 aiResponse = completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
-                console.log(`✅ LINE OA: Generated response using ${chunksUsed} chunks within token limits (${aiResponse.length} chars)`);
+                console.log(`✅ LINE OA: Generated response using new search workflow (${aiResponse.length} chars)`);
+
               } else {
-                console.log(`⚠️ LINE OA: No relevant content found in agent's documents, using system prompt only`);
-                // Fallback to system prompt conversation
+                console.log(`⚠️ LINE OA: No relevant content found in agent's bound documents, using fallback`);
                 aiResponse = await getAiResponseDirectly(
                   contextMessage,
                   lineIntegration.agentId,
@@ -1270,15 +1250,16 @@ ${documentContext}
                 );
               }
             }
+
           } catch (error) {
-            console.error("LINE OA: Hybrid search failed, using fallback:", error);
+            console.error("💥 LINE OA: New search workflow failed, using fallback:", error);
             // Fallback to agent conversation without documents
             aiResponse = await getAiResponseDirectly(
               contextMessage,
               lineIntegration.agentId,
               lineIntegration.userId,
               "lineoa",
-              event.source.userId, // Use Line user ID as channel identifier
+              event.source.userId,
             );
           }
           console.log("🤖 AI response:", aiResponse);
