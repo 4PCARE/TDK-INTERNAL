@@ -280,14 +280,102 @@ export class SemanticSearchServiceV2 {
       
       console.log(`Hybrid search using weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
 
-      // For chatbot integration, use chunk-level hybrid search
-      const chunkResults = await this.performChunkLevelHybridSearch(query, userId, options, keywordWeight, vectorWeight);
+      // Use the new chunk split and rank search method
+      const chunkResults = await this.performChunkSplitAndRankSearch(query, userId, options);
       
       return chunkResults;
 
     } catch (error) {
       console.error("Error performing hybrid search:", error);
       throw new Error("Failed to perform hybrid search");
+    }
+  }
+
+  async performChunkSplitAndRankSearch(
+    query: string,
+    userId: string,
+    options: Omit<SearchOptions, "searchType">
+  ): Promise<SearchResult[]> {
+    try {
+      // 1. Get vector-based chunks
+      const vectorResults = await vectorService.searchDocuments(query, userId, 50, options.specificDocumentIds);
+      const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+
+      // 2. Prepare keyword score for each chunk
+      const keywordChunks = vectorResults.map(result => {
+        const chunkId = `${result.document.metadata.originalDocumentId || result.document.id}-${result.document.chunkIndex ?? 0}`;
+        const chunkText = result.document.content.toLowerCase();
+        const matchedTerms = searchTerms.filter(term => chunkText.includes(term));
+        let keywordScore = matchedTerms.length / searchTerms.length;
+
+        // Optional boost for store-type queries
+        const storeKeywords = ['xolo', 'kamu', 'floor', 'ชั้น', 'บางกะปิ', 'bangkapi'];
+        const hasStoreKeyword = searchTerms.some(term =>
+          storeKeywords.some(sk => sk.includes(term) || term.includes(sk))
+        );
+        if (hasStoreKeyword && keywordScore > 0.5) {
+          keywordScore = Math.min(1.0, keywordScore + 0.3);
+        }
+
+        return {
+          chunkId,
+          content: result.document.content,
+          docId: parseInt(result.document.metadata.originalDocumentId || result.document.id),
+          vectorScore: result.similarity,
+          keywordScore,
+          combinedScore: result.similarity * (options.vectorWeight ?? 0.5) +
+                         keywordScore * (options.keywordWeight ?? 0.5)
+        };
+      });
+
+      // 3. Sort and select top chunks covering 66% of total combined score
+      const totalCombined = keywordChunks.reduce((sum, c) => sum + c.combinedScore, 0);
+      const threshold = totalCombined * 0.66;
+
+      keywordChunks.sort((a, b) => b.combinedScore - a.combinedScore);
+
+      const selectedChunks = [];
+      let acc = 0;
+      for (const c of keywordChunks) {
+        selectedChunks.push(c);
+        acc += c.combinedScore;
+        if (acc >= threshold) break;
+      }
+
+      // 4. Get original document metadata
+      const allDocIds = [...new Set(selectedChunks.map(c => c.docId))];
+      const docMap = new Map((await storage.getDocuments(userId, { limit: 1000 }))
+        .filter(doc => allDocIds.includes(doc.id))
+        .map(doc => [doc.id, doc]));
+
+      // 5. Wrap result as SearchResult[]
+      const finalResults: SearchResult[] = selectedChunks.map(chunk => {
+        const originalDoc = docMap.get(chunk.docId);
+        return {
+          id: originalDoc?.id ?? chunk.docId,
+          name: originalDoc?.name ?? "[Unknown]",
+          content: chunk.content,
+          summary: originalDoc?.summary,
+          aiCategory: originalDoc?.aiCategory,
+          aiCategoryColor: originalDoc?.aiCategoryColor,
+          similarity: chunk.combinedScore,
+          createdAt: originalDoc?.createdAt?.toISOString() ?? new Date().toISOString(),
+          categoryId: originalDoc?.categoryId ?? null,
+          tags: originalDoc?.tags ?? null,
+          fileSize: originalDoc?.fileSize ?? null,
+          mimeType: originalDoc?.mimeType ?? null,
+          isFavorite: originalDoc?.isFavorite ?? null,
+          updatedAt: originalDoc?.updatedAt?.toISOString() ?? null,
+          userId: originalDoc?.userId ?? userId
+        };
+      });
+
+      console.log(`ChunkSplitAndRank: Selected ${finalResults.length} chunks covering 66% of total score`);
+      return finalResults;
+
+    } catch (error) {
+      console.error("Error in performChunkSplitAndRankSearch:", error);
+      throw new Error("Failed to perform chunk-based split-and-rank search");
     }
   }
 
