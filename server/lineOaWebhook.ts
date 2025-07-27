@@ -263,6 +263,7 @@ async function getAiResponseDirectly(
   userId: string,
   channelType: string,
   channelId: string,
+  skipSearch: boolean = false,
 ): Promise<string> {
   try {
     console.log(`🔍 Debug: Getting agent ${agentId} for user ${userId}`);
@@ -372,50 +373,67 @@ async function getAiResponseDirectly(
       }
     }
 
-    // Get agent's documents for context using vector search
-    const agentDocs = await storage.getAgentChatbotDocuments(agentId, userId);
+    // Get agent's documents for context using vector search (only if search is not skipped)
     let contextPrompt = "";
-
-    // Initialize documentContents in the correct scope
     const documentContents: string[] = [];
 
-    if (agentDocs.length > 0) {
-      console.log(`📚 Found ${agentDocs.length} documents for agent`);
+    if (!skipSearch) {
+      const agentDocs = await storage.getAgentChatbotDocuments(agentId, userId);
 
-      // Use hybrid search (keyword + vector) with only top 2 chunks globally
-      try {
-        const { semanticSearchServiceV2 } = await import('./services/semanticSearchV2');
+      if (agentDocs.length > 0) {
+        console.log(`📚 Found ${agentDocs.length} documents for agent`);
 
-        // Search for relevant chunks ONLY from agent's documents using hybrid search
-        const agentDocIds = agentDocs.map(d => d.documentId);
-        console.log(`LINE OA: Using hybrid search with agent's ${agentDocIds.length} documents: [${agentDocIds.join(', ')}]`);
+        // Use hybrid search (keyword + vector) with only top 2 chunks globally
+        try {
+          const { semanticSearchServiceV2 } = await import('./services/semanticSearchV2');
 
-        const hybridResults = await semanticSearchServiceV2.searchDocuments(
-          userMessage,
-          userId,
-          {
-            searchType: 'hybrid',
-            limit: 2, // Only get top 2 chunks globally as requested
-            keywordWeight: 0.4,
-            vectorWeight: 0.6,
-            specificDocumentIds: agentDocIds
+          // Search for relevant chunks ONLY from agent's documents using hybrid search
+          const agentDocIds = agentDocs.map(d => d.documentId);
+          console.log(`LINE OA: Using hybrid search with agent's ${agentDocIds.length} documents: [${agentDocIds.join(', ')}]`);
+
+          const hybridResults = await semanticSearchServiceV2.searchDocuments(
+            userMessage,
+            userId,
+            {
+              searchType: 'hybrid',
+              limit: 2, // Only get top 2 chunks globally as requested
+              keywordWeight: 0.4,
+              vectorWeight: 0.6,
+              specificDocumentIds: agentDocIds
+            }
+          );
+
+          console.log(`🔍 Line OA: Found ${hybridResults.length} relevant chunks using hybrid search`);
+
+          if (hybridResults.length > 0) {
+            // Use only the content from the top 2 chunks
+            hybridResults.forEach((result, index) => {
+              documentContents.push(
+                `=== เอกสาร: ${result.name} (Chunk ${index + 1}) ===\n${result.content}\n`
+              );
+            });
+
+            console.log(`📄 Line OA: Using hybrid search with ${hybridResults.length} top chunks globally (Total chars: ${documentContents.join('').length})`);
+          } else {
+            console.log(`📄 Line OA: No relevant chunks found, using fallback approach`);
+            // Fallback to original approach with first few documents
+            for (const agentDoc of agentDocs.slice(0, 3)) {
+              try {
+                const document = await storage.getDocument(agentDoc.documentId, userId);
+                if (document && document.content) {
+                  const contentPreview = document.content.substring(0, 3000) + (document.content.length > 3000 ? '...' : '');
+                  documentContents.push(
+                    `=== เอกสาร: ${document.name} ===\n${contentPreview}\n`
+                  );
+                }
+              } catch (error) {
+                console.error(`❌ Error fetching document ${agentDoc.documentId}:`, error);
+              }
+            }
           }
-        );
-
-        console.log(`🔍 Line OA: Found ${hybridResults.length} relevant chunks using hybrid search`);
-
-        if (hybridResults.length > 0) {
-          // Use only the content from the top 2 chunks
-          hybridResults.forEach((result, index) => {
-            documentContents.push(
-              `=== เอกสาร: ${result.name} (Chunk ${index + 1}) ===\n${result.content}\n`
-            );
-          });
-
-          console.log(`📄 Line OA: Using hybrid search with ${hybridResults.length} top chunks globally (Total chars: ${documentContents.join('').length})`);
-        } else {
-          console.log(`📄 Line OA: No relevant chunks found, using fallback approach`);
-          // Fallback to original approach with first few documents
+        } catch (vectorError) {
+          console.error(`❌ Line OA: Vector search failed, using fallback:`, vectorError);
+          // Fallback to original approach with limited documents
           for (const agentDoc of agentDocs.slice(0, 3)) {
             try {
               const document = await storage.getDocument(agentDoc.documentId, userId);
@@ -430,37 +448,23 @@ async function getAiResponseDirectly(
             }
           }
         }
-      } catch (vectorError) {
-        console.error(`❌ Line OA: Vector search failed, using fallback:`, vectorError);
-        // Fallback to original approach with limited documents
-        for (const agentDoc of agentDocs.slice(0, 3)) {
-          try {
-            const document = await storage.getDocument(agentDoc.documentId, userId);
-            if (document && document.content) {
-              const contentPreview = document.content.substring(0, 3000) + (document.content.length > 3000 ? '...' : '');
-              documentContents.push(
-                `=== เอกสาร: ${document.name} ===\n${contentPreview}\n`
-              );
-            }
-          } catch (error) {
-            console.error(`❌ Error fetching document ${agentDoc.documentId}:`, error);
-          }
-        }
-      }
 
-      if (documentContents.length > 0) {
-        contextPrompt = `\n\nเอกสารอ้างอิงสำหรับการตอบคำถาม:\n${documentContents.join("\n")}
+        if (documentContents.length > 0) {
+          contextPrompt = `\n\nเอกสารอ้างอิงสำหรับการตอบคำถาม:\n${documentContents.join("\n")}
 
 กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และระบุแหล่งที่มาของข้อมูลด้วย`;
-        console.log(
-          `✅ Built context with ${documentContents.length} documents`,
-        );
-        console.log(
-          `📄 Context prompt length: ${contextPrompt.length} characters`,
-        );
-      } else {
-        console.log(`⚠️ No documents found or no content available`);
+          console.log(
+            `✅ Built context with ${documentContents.length} documents`,
+          );
+          console.log(
+            `📄 Context prompt length: ${contextPrompt.length} characters`,
+          );
+        } else {
+          console.log(`⚠️ No documents found or no content available`);
+        }
       }
+    } else {
+      console.log(`⏭️ LINE OA: Skipping document search as requested`);
     }
 
     // Always extract image analysis from recent chat history to maintain context
@@ -1137,6 +1141,7 @@ ${imageAnalysisResult}
                 lineIntegration.userId,
                 "lineoa",
                 event.source.userId,
+                true // skipSearch = true
               );
             } else {
               console.log(`🔍 LINE OA: Query needs search, performing smart hybrid search with enhanced query`);
@@ -1354,6 +1359,7 @@ ${documentContext}
                   lineIntegration.userId,
                   "lineoa",
                   event.source.userId,
+                  false // skipSearch = false for fallback
                 );
               }
             } // End of search workflow conditional
@@ -1367,6 +1373,7 @@ ${documentContext}
               lineIntegration.userId,
               "lineoa",
               event.source.userId,
+              false // skipSearch = false for fallback
             );
           }
           console.log("🤖 AI response:", aiResponse);
