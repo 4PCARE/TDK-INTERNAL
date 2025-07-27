@@ -1139,8 +1139,9 @@ ${imageAnalysisResult}
                 event.source.userId,
               );
             } else {
+              console.log(`🔍 LINE OA: Query needs search, performing smart hybrid search with enhanced query`);
+              
               // Step 2: Perform new search workflow with agent's bound documents (smart hybrid)
-              console.log(`🔍 LINE OA: Performing smart hybrid search with enhanced query`);
               const { searchSmartHybridDebug } = await import('./services/newSearch');
 
               const searchResults = await searchSmartHybridDebug(
@@ -1355,7 +1356,7 @@ ${documentContext}
                   event.source.userId,
                 );
               }
-            }
+            } // End of needsSearch conditional
 
           } catch (error) {
             console.error("💥 LINE OA: New search workflow failed, using fallback:", error);
