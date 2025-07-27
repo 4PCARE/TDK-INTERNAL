@@ -412,7 +412,7 @@
                     <div class="form-group">
                         <label for="searchType">Search Type:</label>
                         <select id="searchType">
-                            <option value="hybrid">Hybrid Search - Chunk Split & Rank (New)</option>
+                            <option value="hybrid">Hybrid Search - performChunkSplitAndRankSearch (New)</option>
                             <option value="semantic">Semantic/Vector Search</option>
                             <option value="keyword">Keyword Search</option>
                         </select>
@@ -571,7 +571,7 @@
                         <div class="result-content">
                             <div class="metrics-grid">
                                 <div class="metric-card">
-                                    <div class="metric-value">${metrics.searchType === 'chunk_split_rank' ? 'Chunk Split & Rank' : metrics.searchType}</div>
+                                    <div class="metric-value">${metrics.searchType === 'chunk_split_rank' ? 'performChunkSplitAndRankSearch' : metrics.searchType}</div>
                                     <div class="metric-label">Search Type</div>
                                 </div>
                                 <div class="metric-card">
@@ -632,7 +632,7 @@
                     if (chunk.type) {
                         const typeColor = chunk.type === 'chunk_split_rank' ? '#8b5cf6' : '#374151';
                         const typeBg = chunk.type === 'chunk_split_rank' ? '#f3e8ff' : '#f3f4f6';
-                        badges.push(`<span class="badge" style="background: ${typeBg}; color: ${typeColor};">${chunk.type === 'chunk_split_rank' ? 'Split & Rank' : chunk.type}</span>`);
+                        badges.push(`<span class="badge" style="background: ${typeBg}; color: ${typeColor};">${chunk.type === 'chunk_split_rank' ? 'performChunkSplitAndRankSearch' : chunk.type}</span>`);
                     }
                     
                     if (chunk.combinedScore !== undefined) {

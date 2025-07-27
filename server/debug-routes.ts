@@ -80,42 +80,62 @@ router.post('/api/debug/ai-input', async (req, res) => {
 
       // Use the new chunk split and rank search for hybrid type
       if (searchType === 'hybrid') {
-        searchResults = await semanticSearchServiceV2.performChunkSplitAndRankSearch(
-          userMessage,
-          userId,
-          searchOptions
-        );
+        try {
+          searchResults = await semanticSearchServiceV2.performChunkSplitAndRankSearch(
+            userMessage,
+            userId,
+            {
+              ...searchOptions,
+              specificDocumentIds
+            }
+          );
 
-        // Get additional debugging info for chunk-based search
-        const { vectorService } = await import('./services/vectorService');
-        const vectorResults = await vectorService.searchDocuments(userMessage, userId, 50, specificDocumentIds);
-        const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+          console.log(`DEBUG: performChunkSplitAndRankSearch returned ${searchResults.length} results`);
 
-        // Create detailed chunk analysis
-        chunkDetails = vectorResults.map((result, index) => {
-          const chunkText = result.document.content.toLowerCase();
-          const matchedTerms = searchTerms.filter(term => chunkText.includes(term));
-          const keywordScore = matchedTerms.length / searchTerms.length;
-          const combinedScore = result.similarity * vectorWeight + keywordScore * keywordWeight;
-
-          return {
-            chunkId: `${result.document.metadata.originalDocumentId || result.document.id}-${result.document.chunkIndex ?? 0}`,
-            content: result.document.content,
-            vectorScore: result.similarity,
-            keywordScore: keywordScore,
-            combinedScore: combinedScore,
-            similarity: combinedScore,
+          // Create detailed chunk analysis from the results
+          chunkDetails = searchResults.map((result, index) => ({
+            chunkId: result.id || `chunk-${index}`,
+            content: result.content,
+            vectorScore: result.vectorScore || 0,
+            keywordScore: result.keywordScore || 0,
+            combinedScore: result.similarity,
+            similarity: result.similarity,
             finalRank: index + 1,
-            type: 'chunk_split_rank'
-          };
-        }).sort((a, b) => b.combinedScore - a.combinedScore);
+            type: 'chunk_split_rank',
+            name: result.name
+          }));
 
-        searchMetrics = {
-          searchType: 'chunk_split_rank',
-          vectorResults: vectorResults.length,
-          combinedResults: searchResults.length,
-          weights: { keyword: keywordWeight, vector: vectorWeight }
-        };
+          searchMetrics = {
+            searchType: 'chunk_split_rank',
+            vectorResults: searchResults.length,
+            combinedResults: searchResults.length,
+            weights: { keyword: keywordWeight, vector: vectorWeight }
+          };
+
+        } catch (error) {
+          console.error('Error with performChunkSplitAndRankSearch:', error);
+          // Fallback to regular search
+          searchResults = await semanticSearchServiceV2.searchDocuments(
+            userMessage,
+            userId,
+            searchOptions
+          );
+
+          chunkDetails = searchResults.map((result, index) => ({
+            id: result.id,
+            content: result.content,
+            similarity: result.similarity,
+            finalRank: index + 1,
+            type: 'fallback_hybrid'
+          }));
+
+          searchMetrics = {
+            searchType: 'fallback_hybrid',
+            combinedResults: searchResults.length,
+            error: error.message,
+            weights: { keyword: keywordWeight, vector: vectorWeight }
+          };
+        }
       } else {
         searchResults = await semanticSearchServiceV2.searchDocuments(
           userMessage,
