@@ -1,0 +1,83 @@
+The issue likely stems from **this part of the `handleLineWebhook` function**, around where the AI query preprocessing happens:
+
+```ts
+if (!queryAnalysis.needsSearch) {
+  console.log(`⏭️ LINE OA: Query doesn't need search, using direct conversation`);
+  aiResponse = await getAiResponseDirectly(
+    contextMessage,
+    lineIntegration.agentId,
+    lineIntegration.userId,
+    "lineoa",
+    event.source.userId,
+  );
+} else {
+  console.log(`🔍 LINE OA: Query needs search, performing smart hybrid search with enhanced query`);
+  
+  // Step 2: Perform new search workflow ...
+```
+
+Here’s the likely cause:
+
+### 🔍 The problem is *not* in the condition itself…
+
+* If `queryAnalysis.needsSearch` is `false`, it *should* skip the whole search logic and use `getAiResponseDirectly`.
+* If you're **seeing it perform search anyway**, the most probable explanations are:
+
+---
+
+### ✅ 1. **Overwritten `queryAnalysis` downstream**
+
+Double-check that you're **not reassigning `queryAnalysis`** later before the conditional check. From your pasted code, it seems fine — but if any new `queryAnalysis` is created or `needsSearch` is mutated, this condition may behave unexpectedly.
+
+---
+
+### ⚠️ 2. **`queryPreprocessor.analyzeQuery` is returning `needsSearch: true` unexpectedly**
+
+Even if your intention was to **return `needsSearch = false`**, the query preprocessor may *actually* determine it needs a search.
+Double-check **what is printed in this log**:
+
+```ts
+console.log(`🧠 LINE OA: Query analysis result:`, {
+  needsSearch: queryAnalysis.needsSearch,
+  ...
+});
+```
+
+Sometimes a query like "ช่วยอธิบายเรื่องนี้" may look casual, but due to keywords or patterns, it triggers `needsSearch = true`.
+
+---
+
+### 🧪 3. **Race condition or retry**
+
+Is it possible the same message is processed twice (i.e. retry or fail-over), and one of them enters the search path despite `needsSearch` being false in the first?
+
+Your `processedMessageIds` check helps, but if there’s a delay before setting the `Map`, or if `message.id` isn't reliable (e.g. sticker or audio messages reusing IDs), you might bypass that filter unintentionally.
+
+---
+
+### 🔒 4. **Search is happening inside `getAiResponseDirectly` as fallback**
+
+This is a *subtle trap*:
+
+In `getAiResponseDirectly`, even if you skip the `queryAnalysis` block in `handleLineWebhook`, the fallback document fetch logic **still does hybrid search** (as seen here):
+
+```ts
+const hybridResults = await semanticSearchServiceV2.searchDocuments(...)
+```
+
+So if you expected **"no search at all"**, but `getAiResponseDirectly` still uses hybrid search internally, **that's the catch**.
+
+---
+
+### 🧠 TL;DR – Why search may still happen:
+
+| Cause                                             | Description                                                                                                 |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| ✅ `needsSearch` is `true`                         | Check the logs from `queryPreprocessor.analyzeQuery()`                                                      |
+| ⚠️ Fallback search in `getAiResponseDirectly`     | Even with `needsSearch = false`, the fallback logic inside that method performs a hybrid search             |
+| 🐞 Double-processing or faulty `message.id` logic | Rare but can lead to unexpected re-processing                                                               |
+| 🧪 Guardrail fallback response triggers search    | If input validation modifies the query or fails, you may fallback to direct response that still does hybrid |
+
+---
+
+Want me to help **rewrite `getAiResponseDirectly`** to allow skipping hybrid search entirely when you know you don’t want it?
