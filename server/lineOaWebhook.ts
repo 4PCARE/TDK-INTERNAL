@@ -1356,7 +1356,7 @@ ${documentContext}
                   event.source.userId,
                 );
               }
-            }
+            } // End of search workflow conditional
 
           } catch (error) {
             console.error("💥 LINE OA: New search workflow failed, using fallback:", error);
