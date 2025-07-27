@@ -148,25 +148,34 @@ router.post('/api/debug/ai-input', async (req, res) => {
           ]
         };
 
-        // Extract chunk details for display
         chunkDetails = searchResults.map((result, index) => ({
-          chunkId: result.chunkId || result.id,
-          id: result.chunkId || result.id,
-          type: 'chunk_split_rank',
-          content: result.content,
-          similarity: result.similarity,
-          keywordScore: result.keywordScore,
-          vectorScore: result.vectorScore,
-          combinedScore: result.combinedScore,
-          finalRank: index + 1,
-          scoringBreakdown: {
-            'Keyword Score': result.keywordScore || 0,
-            'Vector Score': result.vectorScore || 0,
-            'Keyword Weighted': (result.keywordScore || 0) * keywordWeight,
-            'Vector Weighted': (result.vectorScore || 0) * vectorWeight,
-            'Combined Score': result.combinedScore || 0
-          }
-        }));
+            chunkId: result.chunkId || result.id,
+            id: result.chunkId || result.id,
+            type: 'chunk_split_rank',
+            content: result.content,
+            similarity: result.similarity,
+            keywordScore: result.keywordScore,
+            vectorScore: result.vectorScore,
+            combinedScore: result.combinedScore,
+            finalRank: index + 1,
+            scoringBreakdown: {
+              'Keyword Score': result.keywordScore || 0,
+              'Vector Score': result.vectorScore || 0,
+              'Keyword Weighted': (result.keywordScore || 0) * keywordWeight,
+              'Vector Weighted': (result.vectorScore || 0) * vectorWeight,
+              'Combined Score': result.combinedScore || 0
+            }
+          }));
+
+          // Console log with concise chunk info
+          console.log(`📊 SEARCH RESULTS: Found ${searchResults.length} chunks from ${searchType} search`);
+          searchResults.forEach((result, index) => {
+            const source = (result.keywordScore > 0 && result.vectorScore > 0) ? 'HYBRID' : 
+                          (result.keywordScore > 0) ? 'KEYWORD' : 'SEMANTIC';
+            const score = result.combinedScore || result.similarity;
+            const preview = result.content.substring(0, 80).replace(/\n/g, ' ') + (result.content.length > 80 ? '...' : '');
+            console.log(`  ${index + 1}. [${source}] Score: ${score.toFixed(4)} | "${preview}"`);
+          })
 
         searchMetrics = {
           searchType: 'chunk_split_rank',
@@ -183,7 +192,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
         console.log("=== USING SMART HYBRID DEBUG SEARCH ===");
         console.log("Memory before search:", process.memoryUsage());
         const { searchSmartHybridDebug } = await import('./services/newSearch');
-        
+
         searchResults = await searchSmartHybridDebug(userMessage, userId, {
           specificDocumentIds: specificDocumentIds,
           keywordWeight,
@@ -192,7 +201,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
         });
 
         console.log("Memory after search:", process.memoryUsage());
-        
+
         // Force garbage collection if available
         if (global.gc) {
           global.gc();
