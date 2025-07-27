@@ -1276,6 +1276,45 @@ ${documentContext}
                 const finalLength = messages.reduce((sum, msg) => sum + msg.content.length, 0);
                 console.log(`🤖 LINE OA: Sending ${messages.length} messages to OpenAI (final length: ${finalLength} chars)`);
 
+                // Step 6: Apply guardrails if configured
+                let guardrailsService: GuardrailsService | null = null;
+                if (agent.guardrailsConfig) {
+                  guardrailsService = new GuardrailsService(agent.guardrailsConfig);
+                  console.log(`🛡️ LINE OA: Guardrails enabled for agent ${agent.name}`);
+
+                  // Validate input
+                  const inputValidation = await guardrailsService.evaluateInput(contextMessage, {
+                    documents: documentContext ? [documentContext] : [],
+                    agent: agent
+                  });
+
+                  if (!inputValidation.allowed) {
+                    console.log(`🚫 LINE OA: Input blocked by guardrails - ${inputValidation.reason}`);
+                    const suggestions = inputValidation.suggestions?.join(' ') || '';
+                    aiResponse = `ขออภัย ไม่สามารถประมวลผลคำถามนี้ได้ ${inputValidation.reason ? `(${inputValidation.reason})` : ''} ${suggestions}`;
+
+                    // Send blocked response and save to chat history
+                    await sendLineReply(replyToken, aiResponse, lineIntegration.channelAccessToken!);
+                    await storage.createChatHistory({
+                      userId: lineIntegration.userId,
+                      channelType: "lineoa",
+                      channelId: event.source.userId,
+                      agentId: lineIntegration.agentId,
+                      messageType: "assistant",
+                      content: aiResponse,
+                      metadata: { blockedByGuardrails: true },
+                    });
+                    continue;
+                  }
+
+                  // Use modified content if privacy protection applied
+                  if (inputValidation.modifiedContent) {
+                    contextMessage = inputValidation.modifiedContent;
+                    // Update the user message in the messages array
+                    messages[messages.length - 1].content = contextMessage;
+                  }
+                }
+
                 // Step 7: Generate AI response
                 const completion = await openai.chat.completions.create({
                   model: "gpt-4o",
@@ -1285,6 +1324,25 @@ ${documentContext}
                 });
 
                 aiResponse = completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+
+                // Step 8: Validate AI output with guardrails
+                if (guardrailsService) {
+                  const outputValidation = await guardrailsService.evaluateOutput(aiResponse, {
+                    documents: documentContext ? [documentContext] : [],
+                    agent: agent,
+                    userQuery: contextMessage
+                  });
+
+                  if (!outputValidation.allowed) {
+                    console.log(`🚫 LINE OA: Output blocked by guardrails - ${outputValidation.reason}`);
+                    const suggestions = outputValidation.suggestions?.join(' ') || '';
+                    aiResponse = `ขออภัย ไม่สามารถให้คำตอบนี้ได้ ${outputValidation.reason ? `(${outputValidation.reason})` : ''} ${suggestions}`;
+                  } else if (outputValidation.modifiedContent) {
+                    console.log(`🔒 LINE OA: AI output modified for compliance`);
+                    aiResponse = outputValidation.modifiedContent;
+                  }
+                }
+
                 console.log(`✅ LINE OA: Generated response using new search workflow (${aiResponse.length} chars)`);
 
               } else {
