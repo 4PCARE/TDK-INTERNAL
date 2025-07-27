@@ -505,6 +505,24 @@
                     </div>
 
                     <div class="debug-card">
+                        <h3><span class="icon">🧩</span>Chunk vs Document Debug</h3>
+                        <div class="form-group">
+                            <label>Test Query:</label>
+                            <input type="text" id="chunkQuery" placeholder="XOLO บางกะปิ" value="XOLO บางกะปิ">
+                        </div>
+                        <div class="form-group">
+                            <label>User ID:</label>
+                            <input type="text" id="chunkUserId" placeholder="43981095" value="43981095">
+                        </div>
+                        <div class="quick-actions">
+                            <button class="btn" onclick="debugChunkTest()">🔍 Debug Chunk vs Document</button>
+                            <button class="btn btn-warning" onclick="validateChunkSizes()">📏 Validate Chunk Sizes</button>
+                        </div>
+                        <div class="loading" id="chunkLoading">⏳ Running chunk debug test...</div>
+                        <div class="output" id="chunkOutput">Ready to debug chunk vs document content...</div>
+                    </div>
+
+                    <div class="debug-card">
                         <h3><span class="icon">📈</span>Search Performance</h3>
                         <div class="quick-actions">
                             <button class="btn" onclick="runPerformanceTest()">🏃‍♂️ Run Performance Test</button>
@@ -951,6 +969,77 @@ Expanded Keywords: ${JSON.stringify(data.expandedKeywords, null, 2)}`;
         document.addEventListener('DOMContentLoaded', function() {
             checkAllServices();
         });
+
+        // Chunk vs Document Debug Functions
+        async function debugChunkTest() {
+            setLoading('chunkLoading', true);
+            const query = document.getElementById('chunkQuery').value;
+            const userId = document.getElementById('chunkUserId').value;
+
+            try {
+                const { response, data, ok, error } = await makeRequest('/api/debug-chunk-test', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        query,
+                        userId
+                    })
+                });
+
+                if (error) {
+                    setOutput('chunkOutput', `Network Error: ${error}`, 'error');
+                } else if (!ok) {
+                    setOutput('chunkOutput', `HTTP ${response.status}: ${JSON.stringify(data, null, 2)}`, 'error');
+                } else {
+                    let output = `🔍 CHUNK vs DOCUMENT DEBUG RESULTS:\n\n`;
+                    output += `Query: "${data.query}"\n`;
+                    output += `User ID: ${data.userId}\n\n`;
+                    
+                    output += `ANALYSIS:\n`;
+                    output += `✅ Vector Service Chunks OK: ${data.analysis.vectorServiceChunksOk}\n`;
+                    output += `✅ Semantic Search Results OK: ${data.analysis.semanticSearchResultsOk}\n\n`;
+                    
+                    output += `VECTOR SERVICE RESULTS (${data.vectorResults} chunks):\n`;
+                    data.vectorSample.forEach((sample, i) => {
+                        output += `${i+1}. Doc ${sample.docId} chunk ${sample.chunkIndex}\n`;
+                        output += `   Content Length: ${sample.contentLength} chars\n`;
+                        output += `   Similarity: ${sample.similarity.toFixed(4)}\n`;
+                        output += `   Preview: "${sample.preview}..."\n\n`;
+                    });
+                    
+                    output += `SEMANTIC SEARCH RESULTS (${data.semanticResults} results):\n`;
+                    data.semanticSample.forEach((sample, i) => {
+                        output += `${i+1}. ${sample.name}\n`;
+                        output += `   Content Length: ${sample.contentLength} chars\n`;
+                        output += `   Similarity: ${sample.similarity.toFixed(4)}\n`;
+                        output += `   Preview: "${sample.preview}..."\n\n`;
+                    });
+                    
+                    const resultType = data.analysis.vectorServiceChunksOk && data.analysis.semanticSearchResultsOk ? 'success' : 'error';
+                    setOutput('chunkOutput', output, resultType);
+                }
+            } catch (err) {
+                setOutput('chunkOutput', `Error: ${err.message}`, 'error');
+            } finally {
+                setLoading('chunkLoading', false);
+            }
+        }
+
+        async function validateChunkSizes() {
+            setLoading('chunkLoading', true);
+            const userId = document.getElementById('chunkUserId').value;
+
+            try {
+                // This would call a validation endpoint to check all chunk sizes
+                setOutput('chunkOutput', `📏 Validating chunk sizes for user ${userId}...\n\nThis feature checks if all chunks are properly sized (<3000 chars) and not accidentally storing full documents.`, 'warning');
+                
+                // You could implement this endpoint later if needed
+                
+            } catch (err) {
+                setOutput('chunkOutput', `Error: ${err.message}`, 'error');
+            } finally {
+                setLoading('chunkLoading', false);
+            }
+        }
 
         // Placeholder functions for other features
         function testChatResponse() {

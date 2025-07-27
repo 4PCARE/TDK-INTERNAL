@@ -5,7 +5,7 @@ import { imageAnalysisRoute } from './lineImageService';
 import viteRoute from "./vite";
 import debugRoutes from "./debug-routes";
 import debugChunkTest from "./debug-chunk-test";
-import hrApi from "./hrApi";
+import { registerHrApiRoutes } from "./hrApi";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
@@ -72,7 +72,9 @@ app.use((req, res, next) => {
   app.use(debugRoutes);
   app.use("/api", debugRoutes);
   app.use("/api", debugChunkTest);
-  app.use("/api", hrApi);
+  
+  // Register HR API routes
+  registerHrApiRoutes(app);
 
   const server = await registerRoutes(app);
 
