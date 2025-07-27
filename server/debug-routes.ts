@@ -873,7 +873,8 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
       });
     }
 
-    const systemMessage = `You are an AI assistant helping users analyze and understand the document: ${doc.name}.\n\nDocument context:\n${documentContext}`;
+    const documentName = doc.name || `Document ${doc.id}`;
+    const systemMessage = `You are an AI assistant helping users analyze and understand the document: ${documentName}.\n\nDocument context:\n${documentContext}`;
     const aiInput = { systemMessage, userMessage, documentContext };
 
     // Generate HTML output for debug

@@ -413,9 +413,10 @@ export async function searchSmartHybridDebug(
   const results: SearchResult[] = selectedChunks.map(chunk => {
     const doc = docMap.get(chunk.docId);
     const label = `(Chunk ${chunk.chunkIndex + 1})`;
+    const documentName = doc?.name || `Document ${chunk.docId}`;
     return {
       id: `${chunk.docId}-${chunk.chunkIndex}`,
-      name: `${doc?.name ?? "Untitled"} ${label}`,
+      name: `${documentName} ${label}`,
       content: chunk.content,
       summary: chunk.content.slice(0, 200) + "...",
       aiCategory: doc?.aiCategory ?? null,
@@ -566,9 +567,10 @@ export async function searchSmartHybridV1(
     const results: SearchResult[] = selectedChunks.map(chunk => {
       const doc = docMap.get(chunk.docId);
       const chunkLabel = chunk.chunkIndex !== undefined ? ` (Chunk ${chunk.chunkIndex + 1})` : "";
+      const documentName = doc?.name || `Document ${chunk.docId}`;
       return {
         id: `${chunk.docId}-${chunk.chunkIndex}`,
-        name: (doc?.name || "Untitled") + chunkLabel,
+        name: documentName + chunkLabel,
         content: chunk.content,
         summary: chunk.content.slice(0, 200) + "...",
         aiCategory: doc?.aiCategory ?? null,
