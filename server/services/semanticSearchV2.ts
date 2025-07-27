@@ -82,24 +82,22 @@ export class SemanticSearchServiceV2 {
         return []; // Semantic search should return empty when no vector data
       }
 
-      // Get unique document IDs from vector results
-      const documentIds = [...new Set(vectorResults.map(result => 
+      // Get document details from storage for metadata
+      const uniqueDocIds = [...new Set(vectorResults.map(result => 
         parseInt(result.document.metadata.originalDocumentId || result.document.id)
       ))];
-
-      // Get document details from storage
       const documents = await storage.getDocuments(userId, { limit: 1000 });
       const docMap = new Map(documents.map(doc => [doc.id, doc]));
 
-      // Combine vector results with document data
+      // Process each chunk individually (no deduplication by document)
       const results: SearchResult[] = [];
-      const processedDocs = new Set<number>();
 
       for (const vectorResult of vectorResults) {
         const docId = parseInt(vectorResult.document.metadata.originalDocumentId || vectorResult.document.id);
+        const chunkIndex = vectorResult.document.chunkIndex ?? 0;
         const doc = docMap.get(docId);
 
-        if (doc && vectorResult.similarity >= threshold && !processedDocs.has(docId)) {
+        if (doc && vectorResult.similarity >= threshold) {
           // Apply filters
           if (options.categoryFilter && options.categoryFilter !== "all" && 
               doc.aiCategory !== options.categoryFilter) {
@@ -113,11 +111,15 @@ export class SemanticSearchServiceV2 {
             }
           }
 
+          // Create chunk-level result
+          const chunkId = `${docId}-${chunkIndex}`;
+          const chunkLabel = chunkIndex !== undefined ? ` (Chunk ${chunkIndex + 1})` : "";
+
           results.push({
-            id: doc.id,
-            name: doc.name,
-            content: doc.content || "",
-            summary: doc.summary,
+            id: parseInt(chunkId.replace('-', '')) || docId, // Unique ID for chunk
+            name: doc.name + chunkLabel,
+            content: vectorResult.document.content, // Use chunk content, not full document
+            summary: vectorResult.document.content.slice(0, 200) + "...",
             aiCategory: doc.aiCategory,
             aiCategoryColor: doc.aiCategoryColor,
             similarity: vectorResult.similarity,
@@ -125,16 +127,16 @@ export class SemanticSearchServiceV2 {
             // Include all fields needed for proper display (matching DocumentCard interface)
             categoryId: doc.categoryId,
             tags: doc.tags,
-            fileSize: doc.fileSize, // Use fileSize instead of size
-            mimeType: doc.mimeType, // Use mimeType instead of fileType
+            fileSize: doc.fileSize,
+            mimeType: doc.mimeType,
             isFavorite: doc.isFavorite,
             updatedAt: doc.updatedAt?.toISOString() || null,
             userId: doc.userId
           });
-
-          processedDocs.add(docId);
         }
       }
+
+      console.log(`SemanticSearchV2: Processed ${results.length} chunk-level results`);
 
       // Sort by similarity and limit results
       return results
