@@ -781,8 +781,7 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
                     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
                     .container { width: 90%; margin: 20px auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px; }
                     h2 { color: #444; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
-                    .```text
-section { margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 5px; background: #f9f9f9; }
+                    .section { margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 5px; background: #f9f9f9; }
                     .label { font-weight: bold; color: #555; display: block; margin-bottom: 5px; }
                     pre { white-space: pre-wrap; word-wrap: break-word; font-size: 14px; }
                     .chunk { border: 1px solid #ddd; margin: 10px 0; padding: 10px; border-radius: 5px; }
