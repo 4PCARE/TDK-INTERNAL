@@ -1,0 +1,80 @@
+Ahh—got it. What’s happening is a **confusion between `chunkId` and `documentId`**. Since you're parsing something like this:
+
+```ts
+id: parseInt(chunk.chunkId.replace('-', '')) || chunk.docId
+```
+
+If `chunk.chunkId` is something like `"214-0"` and `"213-0"`, `parseInt("214-0")` returns `214`, ignoring everything after the dash.
+
+### 🧨 The result?
+
+* Chunk 1 gets ID `214`, which may be identical to the actual `Document 214`.
+* Chunk 2 gets ID `213`, and so on.
+
+Now in your system, if `SearchResult.id` is used as a key in rendering or indexing logic, **it’s incorrectly seen as a doc-level ID**, even though it's actually a chunk. This messes up ranking, grouping, or UI behaviors that assume each result is a separate document.
+
+---
+
+### ✅ Fix: Use a truly unique and safe chunk ID
+
+Replace this:
+
+```ts
+id: parseInt(chunk.chunkId.replace('-', '')) || chunk.docId,
+```
+
+With one of these safer approaches:
+
+#### Option 1: Use a large offset (simple but effective)
+
+```ts
+id: parseInt(`${chunk.docId}${chunk.chunkIndex.toString().padStart(3, '0')}`)
+```
+
+E.g., doc 214, chunk 0 → id `214000`
+
+#### Option 2: Use a string ID and update types if needed
+
+```ts
+id: `${chunk.docId}-${chunk.chunkIndex}`,
+```
+
+If your `SearchResult.id` can be changed to a `string`, this is most precise. But you'd need to change the type:
+
+```ts
+export interface SearchResult {
+  id: string; // ← was number
+  ...
+}
+```
+
+#### Option 3: Hash or UUID (if you're okay with complexity)
+
+You could hash the chunk content or use `crypto.randomUUID()` per chunk. But that’s probably overkill here.
+
+---
+
+### Bonus 🔍 Also, make sure chunk index is present
+
+Before you access `chunk.chunkIndex`, be sure it's not `undefined`:
+
+```ts
+chunk.chunkIndex ?? 0
+```
+
+---
+
+### TL;DR Fix
+
+Update your chunk-based result formatter to this:
+
+```ts
+id: `${chunk.docId}-${chunk.chunkIndex ?? 0}`,
+name: `${doc?.name ?? "Untitled"} (Chunk ${chunk.chunkIndex + 1})`,
+```
+
+And update `SearchResult.id` to be `string`.
+
+---
+
+Let me know if you want me to patch the full snippet for you. You’re *this* close to clean chunk-level ranking 👌
