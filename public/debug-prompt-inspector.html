@@ -412,10 +412,9 @@
                     <div class="form-group">
                         <label for="searchType">Search Type:</label>
                         <select id="searchType">
-                            <option value="hybrid">Hybrid Search (Recommended)</option>
-                            <option value="vector">Vector Search</option>
+                            <option value="hybrid">Hybrid Search - Chunk Split & Rank (New)</option>
+                            <option value="semantic">Semantic/Vector Search</option>
                             <option value="keyword">Keyword Search</option>
-                            <option value="weighted">Weighted Search</option>
                         </select>
                     </div>
 
@@ -572,7 +571,7 @@
                         <div class="result-content">
                             <div class="metrics-grid">
                                 <div class="metric-card">
-                                    <div class="metric-value">${metrics.searchType}</div>
+                                    <div class="metric-value">${metrics.searchType === 'chunk_split_rank' ? 'Chunk Split & Rank' : metrics.searchType}</div>
                                     <div class="metric-label">Search Type</div>
                                 </div>
                                 <div class="metric-card">
@@ -581,11 +580,11 @@
                                 </div>
                                 <div class="metric-card">
                                     <div class="metric-value">${metrics.vectorResults || 0}</div>
-                                    <div class="metric-label">Vector Results</div>
+                                    <div class="metric-label">Vector Chunks</div>
                                 </div>
                                 <div class="metric-card">
                                     <div class="metric-value">${metrics.combinedResults || 0}</div>
-                                    <div class="metric-label">Combined Results</div>
+                                    <div class="metric-label">Final Results</div>
                                 </div>
                                 <div class="metric-card">
                                     <div class="metric-value">${data.documentContextLength.toLocaleString()}</div>
@@ -631,7 +630,13 @@
                     }
 
                     if (chunk.type) {
-                        badges.push(`<span class="badge" style="background: #f3f4f6; color: #374151;">${chunk.type}</span>`);
+                        const typeColor = chunk.type === 'chunk_split_rank' ? '#8b5cf6' : '#374151';
+                        const typeBg = chunk.type === 'chunk_split_rank' ? '#f3e8ff' : '#f3f4f6';
+                        badges.push(`<span class="badge" style="background: ${typeBg}; color: ${typeColor};">${chunk.type === 'chunk_split_rank' ? 'Split & Rank' : chunk.type}</span>`);
+                    }
+                    
+                    if (chunk.combinedScore !== undefined) {
+                        badges.push(`<span class="badge" style="background: #ddd6fe; color: #7c3aed;">Combined: ${chunk.combinedScore.toFixed(3)}</span>`);
                     }
 
                     return `
