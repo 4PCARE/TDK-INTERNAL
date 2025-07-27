@@ -918,7 +918,7 @@
                 <div class="result-section" id="gptResponseSection" style="display: none;">
                     <div class="result-header">
                         <h3>🤖 GPT-4o-mini Response</h3>
-                        <button class="copy-btn" onclick="copyGPTResponse()">Copy Response</button>
+                        <button class="copy-btn" onclick="copyGPTResponse(event)">Copy Response</button>
                     </div>
                     <div class="result-content">
                         <div id="gptResponseContent" class="code-block" style="background: #f0fdf4; color: #166534; border-left: 4px solid #16a34a;">
@@ -1056,20 +1056,22 @@
             }
         }
 
-        async function copyGPTResponse() {
+        async function copyGPTResponse(event) {
             const gptContent = document.getElementById('gptResponseContent');
             const text = gptContent.textContent;
             
             try {
                 await navigator.clipboard.writeText(text);
-                const btn = event.target;
-                const originalText = btn.textContent;
-                btn.textContent = 'Copied!';
-                btn.style.background = '#16a34a';
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                    btn.style.background = '#64748b';
-                }, 2000);
+                const btn = event ? event.target : document.querySelector('[onclick="copyGPTResponse()"]');
+                if (btn) {
+                    const originalText = btn.textContent;
+                    btn.textContent = 'Copied!';
+                    btn.style.background = '#16a34a';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.background = '#64748b';
+                    }, 2000);
+                }
             } catch (err) {
                 console.error('Failed to copy GPT response:', err);
                 alert('Failed to copy response. Please select and copy manually.');
