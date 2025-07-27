@@ -1147,7 +1147,7 @@ ${imageAnalysisResult}
                 queryAnalysis.enhancedQuery,
                 lineIntegration.userId,
                 {
-                  limit: 15,
+                  limit: 8, // Reduced from 15 to 8 for stricter selection
                   threshold: 0.3,
                   keywordWeight: queryAnalysis.keywordWeight,
                   vectorWeight: queryAnalysis.vectorWeight,
