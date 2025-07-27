@@ -168,11 +168,27 @@ export class VectorService {
         .from(documentVectors)
         .where(whereCondition);
 
-      console.log(`VectorService: Total documents in database: ${dbVectors.length}`);
-      console.log(`VectorService: Documents for user ${userId}: ${dbVectors.length}`);
+      console.log(`VectorService: Retrieved ${dbVectors.length} vectors from database`);
+      
+      // Additional filtering at database level to ensure we only get proper chunks
+      const validChunks = dbVectors.filter(dbVector => {
+        const isValidChunk = (
+          dbVector.chunkIndex !== null && 
+          dbVector.chunkIndex !== undefined &&
+          dbVector.content.length <= 4000 // Reasonable chunk size limit
+        );
+        
+        if (!isValidChunk) {
+          console.warn(`⚠️ VECTOR SERVICE: Filtering out invalid chunk - Doc ${dbVector.documentId}, chunkIndex: ${dbVector.chunkIndex}, length: ${dbVector.content.length}`);
+        }
+        
+        return isValidChunk;
+      });
 
-      if (dbVectors.length === 0) {
-        console.log("VectorService: No documents in vector database");
+      console.log(`VectorService: After filtering, ${validChunks.length} valid chunks remain`);
+
+      if (validChunks.length === 0) {
+        console.log("VectorService: No valid chunks in vector database");
         return [];
       }
 
@@ -185,7 +201,7 @@ export class VectorService {
       const queryEmbedding = response.data[0].embedding;
 
       // Calculate similarities for all chunks
-      const allResults = dbVectors
+      const allResults = validChunks
         .map(dbVector => {
           // Debug: Verify we're getting chunk content, not full document
           if (dbVector.content.length > 3500) {
@@ -210,6 +226,17 @@ export class VectorService {
             document: vectorDoc,
             similarity: this.cosineSimilarity(queryEmbedding, dbVector.embedding)
           };
+        })
+        .filter(result => {
+          // Guard against full documents masquerading as chunks
+          if (
+            result.document.chunkIndex === undefined || 
+            result.document.content.length > 5000
+          ) {
+            console.warn(`⚠️ VECTOR SERVICE: Skipping full document result - not a proper chunk. Doc ${result.document.metadata.originalDocumentId}, length: ${result.document.content.length}`);
+            return false;
+          }
+          return true;
         })
         .sort((a, b) => b.similarity - a.similarity);
 
