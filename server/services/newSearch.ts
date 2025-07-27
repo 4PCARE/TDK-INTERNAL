@@ -1,4 +1,3 @@
-
 import { Document } from "@shared/schema";
 import { vectorService } from './vectorService';
 import { storage } from '../storage';
@@ -74,10 +73,10 @@ function levenshteinDistance(str1: string, str2: string): number {
 
 function calculateSimilarity(str1: string, str2: string): number {
   if (str1 === str2) return 1.0;
-  
+
   const maxLength = Math.max(str1.length, str2.length);
   if (maxLength === 0) return 1.0;
-  
+
   const distance = levenshteinDistance(str1, str2);
   return (maxLength - distance) / maxLength;
 }
@@ -86,24 +85,24 @@ function findBestMatch(searchTerm: string, text: string): { score: number; match
   const words = text.split(/\s+/);
   let bestScore = 0;
   let bestMatch = '';
-  
+
   // Check exact matches first
   if (text.includes(searchTerm)) {
     return { score: 1.0, matchedText: searchTerm };
   }
-  
+
   // Check word-level fuzzy matches
   for (const word of words) {
     const cleanWord = word.replace(/[^\w\u0E00-\u0E7F]/g, ''); // Keep Thai and English chars
     if (cleanWord.length < 2) continue;
-    
+
     const similarity = calculateSimilarity(searchTerm, cleanWord);
     if (similarity > bestScore && similarity >= 0.7) { // 70% similarity threshold
       bestScore = similarity;
       bestMatch = cleanWord;
     }
   }
-  
+
   // Check partial matches for longer terms
   if (searchTerm.length >= 4 && bestScore < 0.8) {
     const regex = new RegExp(searchTerm.split('').join('.*'), 'i');
@@ -117,7 +116,7 @@ function findBestMatch(searchTerm: string, text: string): { score: number; match
       }
     }
   }
-  
+
   // Check character-level similarity for Thai text
   if (searchTerm.length >= 3 && /[\u0E00-\u0E7F]/.test(searchTerm)) {
     for (const word of words) {
@@ -130,7 +129,7 @@ function findBestMatch(searchTerm: string, text: string): { score: number; match
       }
     }
   }
-  
+
   return { score: bestScore, matchedText: bestMatch };
 }
 
@@ -140,27 +139,99 @@ function calculateThaiSimilarity(str1: string, str2: string): number {
     .replace(/[์็่้๊๋]/g, '') // Remove tone marks
     .replace(/[ะาิีึืุูเแโใไ]/g, '') // Simplify vowels
     .toLowerCase();
-  
+
   const norm1 = normalize(str1);
   const norm2 = normalize(str2);
-  
+
   return calculateSimilarity(norm1, norm2);
 }
 
-function performFuzzyMatching(searchTerms: string[], text: string): { matchedTerms: string[]; totalScore: number } {
-  const matchedTerms: string[] = [];
-  let totalScore = 0;
-  
+// TF-IDF scoring implementation
+function calculateTFIDF(searchTerms: string[], chunks: any[]): Map<string, { score: number; matchedTerms: string[] }> {
+  const chunkScores = new Map<string, { score: number; matchedTerms: string[] }>();
+
+  // Calculate document frequency for each term
+  const termDF = new Map<string, number>();
+  const totalChunks = chunks.length;
+
   for (const term of searchTerms) {
-    const { score, matchedText } = findBestMatch(term, text);
-    
-    if (score > 0.6) { // Minimum threshold for fuzzy match
-      matchedTerms.push(matchedText || term);
-      totalScore += score;
+    let docFreq = 0;
+    for (const chunk of chunks) {
+      const tokens = tokenize(chunk.content.toLowerCase());
+      if (tokens.includes(term.toLowerCase())) {
+        docFreq++;
+      }
+    }
+    termDF.set(term.toLowerCase(), docFreq);
+  }
+
+  // Calculate TF-IDF score for each chunk
+  for (const chunk of chunks) {
+    const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
+    const tokens = tokenize(chunk.content.toLowerCase());
+    const tokenCounts = new Map<string, number>();
+
+    // Count term frequencies
+    for (const token of tokens) {
+      tokenCounts.set(token, (tokenCounts.get(token) || 0) + 1);
+    }
+
+    let tfidfScore = 0;
+    const matchedTerms: string[] = [];
+
+    for (const term of searchTerms) {
+      const lowerTerm = term.toLowerCase();
+      const tf = tokenCounts.get(lowerTerm) || 0;
+
+      if (tf > 0) {
+        matchedTerms.push(term);
+        const normalizedTF = tf / tokens.length; // Normalize by document length
+        const df = termDF.get(lowerTerm) || 1;
+        const idf = Math.log(totalChunks / df);
+        tfidfScore += normalizedTF * idf;
+      } else {
+        // Try fuzzy matching for unmatched terms
+        const fuzzyMatch = findBestFuzzyMatch(lowerTerm, tokens);
+        if (fuzzyMatch.score > 0.75) {
+          matchedTerms.push(term);
+          const tf = fuzzyMatch.count;
+          const normalizedTF = tf / tokens.length;
+          const df = termDF.get(lowerTerm) || 1;
+          const idf = Math.log(totalChunks / df);
+          tfidfScore += (normalizedTF * idf * fuzzyMatch.score * 0.8); // Reduce score for fuzzy matches
+        }
+      }
+    }
+
+    if (tfidfScore > 0) {
+      chunkScores.set(chunkId, { score: tfidfScore, matchedTerms });
     }
   }
-  
-  return { matchedTerms, totalScore };
+
+  return chunkScores;
+}
+
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[\s\-_,\.!?\(\)\[\]]+/)
+    .filter(token => token.length > 1)
+    .map(token => token.trim());
+}
+
+function findBestFuzzyMatch(term: string, tokens: string[]): { score: number; count: number } {
+  let bestScore = 0;
+  let count = 0;
+
+  for (const token of tokens) {
+    const similarity = calculateSimilarity(term, token);
+    if (similarity > 0.75) {
+      bestScore = Math.max(bestScore, similarity);
+      count++;
+    }
+  }
+
+  return { score: bestScore, count };
 }
 
 export async function searchSmartHybridDebug(
@@ -185,12 +256,12 @@ export async function searchSmartHybridDebug(
 
   // 2. Perform keyword search on the same chunks from document_vectors table
   console.log(`🔍 KEYWORD SEARCH: Starting with terms: [${searchTerms.join(', ')}]`);
-  
+
   // Get chunks from database (same source as vector search)
   const { db } = await import('../db');
   const { documentVectors } = await import('@shared/schema');
   const { eq, and, or } = await import('drizzle-orm');
-  
+
   let whereCondition: any = eq(documentVectors.userId, userId);
   if (options.specificDocumentIds?.length) {
     whereCondition = and(
@@ -198,29 +269,38 @@ export async function searchSmartHybridDebug(
       or(...options.specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
     );
   }
-  
+
   const chunks = await db.select().from(documentVectors).where(whereCondition);
   console.log(`🔍 KEYWORD SEARCH: Found ${chunks.length} chunks to search`);
-  
+
   const keywordMatches: Record<string, number> = {};
   let totalMatches = 0;
-  
+
   for (const chunk of chunks) {
     const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
     const lowerChunk = chunk.content.toLowerCase();
-    
+
     // Enhanced fuzzy matching
-    const { matchedTerms, totalScore } = performFuzzyMatching(searchTerms, lowerChunk);
-    
-    if (matchedTerms.length > 0) {
-      const score = totalScore / searchTerms.length;
-      keywordMatches[chunkId] = score;
+    // const { matchedTerms, totalScore } = performFuzzyMatching(searchTerms, lowerChunk);
+    const tfidfResults = calculateTFIDF(searchTerms, chunks);
+    const tfidfMatch = tfidfResults.get(chunkId);
+
+    if (tfidfMatch && tfidfMatch.score > 0) {
+      keywordMatches[chunkId] = tfidfMatch.score;
       totalMatches++;
-      
-      console.log(`🔍 KEYWORD MATCH (FUZZY): Doc ${chunk.documentId} chunk ${chunk.chunkIndex} - ${matchedTerms.length}/${searchTerms.length} terms matched (${matchedTerms.join(', ')}) score: ${score.toFixed(3)}`);
+
+      console.log(`🔍 KEYWORD MATCH (TF-IDF): Doc ${chunk.documentId} chunk ${chunk.chunkIndex} - ${tfidfMatch.matchedTerms.length}/${searchTerms.length} terms matched (${tfidfMatch.matchedTerms.join(', ')}) score: ${tfidfMatch.score.toFixed(3)}`);
     }
+
+    // if (matchedTerms.length > 0) {
+    //   const score = totalScore / searchTerms.length;
+    //   keywordMatches[chunkId] = score;
+    //   totalMatches++;
+
+    //   console.log(`🔍 KEYWORD MATCH (FUZZY): Doc ${chunk.documentId} chunk ${chunk.chunkIndex} - ${matchedTerms.length}/${searchTerms.length} terms matched (${matchedTerms.join(', ')}) score: ${score.toFixed(3)}`);
+    // }
   }
-  
+
   console.log(`🔍 KEYWORD SEARCH: Found ${totalMatches} chunks with keyword matches out of ${chunks.length} total chunks`)
 
   // 3. Perform vector search
@@ -258,7 +338,7 @@ export async function searchSmartHybridDebug(
   console.log(`🧮 SCORING CALCULATION: Combining ${allChunkIds.size} unique chunks`);
   console.log(`📊 WEIGHTS: Keyword=${keywordWeight}, Vector=${vectorWeight}`);
   console.log(`📐 FORMULA: Final Score = (Keyword Score × ${keywordWeight}) + (Vector Score × ${vectorWeight})`);
-  
+
   for (const chunkId of allChunkIds) {
     const [docIdStr, chunkIndexStr] = chunkId.split("-");
     const docId = parseInt(docIdStr);
@@ -266,54 +346,49 @@ export async function searchSmartHybridDebug(
     const keywordScore = keywordMatches[chunkId] ?? 0;
     const vectorInfo = vectorMatches[chunkId];
     const vectorScore = vectorInfo?.score ?? 0;
-    
+
     // Get content from vector search, or fallback to finding it in chunks array
     let content = vectorInfo?.content ?? "";
     if (!content && keywordScore > 0) {
       // Find the chunk content from the database chunks for keyword-only matches
-      const chunk = chunks.find(c => `${c.documentId}-${c.chunkIndex}` === chunkId);
+      const chunk = chunks.find(c => `${c.documentId}-${c.chunk.chunkIndex}` === chunkId);
       content = chunk?.content ?? "";
     }
 
-    const finalScore = keywordScore * keywordWeight + vectorScore * vectorWeight;
+    // Normalize TF-IDF scores to 0-1 range for better hybrid combination
+    const normalizedKeywordScore = keywordScore > 0 ? Math.min(1.0, keywordScore / 2.0) : 0; // Divide by 2 as typical max TF-IDF
+    const finalScore = normalizedKeywordScore * keywordWeight + vectorScore * vectorWeight;
 
-    // Show detailed calculation for each chunk
+    console.log(`📊 CHUNK ${chunkId}: Keyword=${keywordScore.toFixed(4)}→${normalizedKeywordScore.toFixed(3)}, Vector=${vectorScore.toFixed(3)}, Final=${finalScore.toFixed(3)}`);
+
     if (finalScore > 0 && content.length > 0) {
-      const keywordWeighted = keywordScore * keywordWeight;
-      const vectorWeighted = vectorScore * vectorWeight;
-      
-      console.log(`  📋 Chunk ${docId}-${chunkIndex}:`);
-      console.log(`    Keyword: ${keywordScore.toFixed(4)} × ${keywordWeight} = ${keywordWeighted.toFixed(4)}`);
-      console.log(`    Vector:  ${vectorScore.toFixed(4)} × ${vectorWeight} = ${vectorWeighted.toFixed(4)}`);
-      console.log(`    Final:   ${keywordWeighted.toFixed(4)} + ${vectorWeighted.toFixed(4)} = ${finalScore.toFixed(4)}`);
-      
       scoredChunks.push({
         docId,
         chunkIndex,
         content,
-        keywordScore,
-        vectorScore,
-        finalScore
+        finalScore,
+        keywordScore: normalizedKeywordScore, // Store normalized score
+        vectorScore
       });
     }
   }
-  
+
   console.log(`✅ SCORED CHUNKS: ${scoredChunks.length} chunks with final scores > 0`);
 
   // 5. Sort by finalScore and apply smart selection
   scoredChunks.sort((a, b) => b.finalScore - a.finalScore);
-  
+
   // Smart selection: take top chunks but ensure we get results
   const minResults = Math.min(5, scoredChunks.length); // At least 5 results if available
   const maxResults = Math.min(15, scoredChunks.length); // Cap at 15 results
-  
+
   let selectedChunks = [];
-  
+
   if (scoredChunks.length > 0) {
     // Method 1: Use score-based selection if scores are reasonable
     const totalScore = scoredChunks.reduce((sum, c) => sum + c.finalScore, 0);
     const avgScore = totalScore / scoredChunks.length;
-    
+
     if (avgScore > 0.1) {
       // Use 10% mass selection if average scores are decent
       const scoreTarget = totalScore * 0.10;
@@ -328,7 +403,7 @@ export async function searchSmartHybridDebug(
       // If scores are very low, just take top N results
       selectedChunks = scoredChunks.slice(0, minResults);
     }
-    
+
     console.log(`🎯 SELECTION: From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} (avg score: ${avgScore.toFixed(4)})`);
   }
 
@@ -360,7 +435,7 @@ export async function searchSmartHybridDebug(
   allChunkIds.clear();
   scoredChunks.length = 0;
   selectedChunks.length = 0;
-  
+
   // Force garbage collection if available
   if (global.gc) {
     global.gc();
@@ -368,7 +443,7 @@ export async function searchSmartHybridDebug(
 
   console.log("✅ searchSmartHybridDebug: returning", results.length, "results");
   console.log("Memory usage:", process.memoryUsage());
-  
+
   return results;
 }
 
@@ -393,24 +468,16 @@ export async function searchSmartHybridV1(
       if (options.specificDocumentIds && !options.specificDocumentIds.includes(doc.id)) continue;
 
       const chunks: string[] = doc.chunks || splitIntoChunks(doc.content || "", 3000, 300);
+      
+      // Use TF-IDF instead of fuzzy matching
+      const tfidfResults = calculateTFIDF(searchTerms, chunks);
+      
       chunks.forEach((chunk, i) => {
-        const chunkText = chunk.toLowerCase();
+        const chunkId = `${doc.id}-${i}`;
+        const tfidfMatch = tfidfResults.get(chunkId);
         
-        // Use fuzzy matching instead of exact matching
-        const { matchedTerms, totalScore } = performFuzzyMatching(searchTerms, chunkText);
-        let score = totalScore / searchTerms.length;
-
-        // Apply store boost for specific terms
-        const storeBoostTerms = ['xolo', 'kamu', 'floor', 'ชั้น', 'บางกะปิ', 'bangkapi'];
-        const hasStoreBoost = matchedTerms.some(matched => 
-          storeBoostTerms.some(boost => calculateSimilarity(matched.toLowerCase(), boost) > 0.8)
-        );
-        if (hasStoreBoost && score > 0.5) {
-          score = Math.min(1.0, score + 0.3);
-        }
-
-        if (score > 0.3) { // Lower threshold for fuzzy matches
-          keywordChunks[`${doc.id}-${i}`] = { content: chunk, score };
+        if (tfidfMatch && tfidfMatch.score > 0) {
+          keywordChunks[chunkId] = { content: chunk, score: tfidfMatch.score };
         }
       });
     }
