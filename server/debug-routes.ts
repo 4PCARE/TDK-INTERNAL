@@ -178,6 +178,51 @@ router.post('/api/debug/ai-input', async (req, res) => {
             vector: vectorWeight
           }
         };
+      } else if (searchType === 'smart_hybrid') {
+        // Use the new smart hybrid debug search
+        console.log("=== USING SMART HYBRID DEBUG SEARCH ===");
+        const { searchSmartHybridDebug } = await import('./services/newSearch');
+        
+        searchResults = await searchSmartHybridDebug(userMessage, userId, {
+          specificDocumentIds: specificDocumentIds,
+          keywordWeight,
+          vectorWeight,
+          threshold: 0.3
+        });
+
+        // Store workflow details for smart hybrid
+        searchWorkflow.rankingProcess = {
+          keywordWeight,
+          vectorWeight,
+          formula: `Combined Score = (Keyword Score × ${keywordWeight}) + (Vector Score × ${vectorWeight})`,
+          stepByStep: [
+            `1. Performed keyword search on ${specificDocumentIds ? specificDocumentIds.length : 'all'} documents`,
+            `2. Performed vector search with similarity threshold 0.3`,
+            `3. Applied weighted scoring with keyword weight: ${keywordWeight}, vector weight: ${vectorWeight}`,
+            `4. Selected top 66% of scored chunks`,
+            `5. Returned ${searchResults.length} final results`
+          ]
+        };
+
+        // Extract chunk details for display
+        chunkDetails = searchResults.map((result, index) => ({
+          chunkId: result.id,
+          id: result.id,
+          type: 'smart_hybrid_debug',
+          content: result.content,
+          similarity: result.similarity,
+          finalRank: index + 1
+        }));
+
+        searchMetrics = {
+          searchType: 'smart_hybrid_debug',
+          combinedResults: searchResults.length,
+          weights: {
+            keyword: keywordWeight,
+            vector: vectorWeight
+          }
+        };
+
       } else {
         // Handle other search types with basic workflow tracking
         if (searchType === 'vector') {
