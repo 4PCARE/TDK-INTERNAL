@@ -3,7 +3,7 @@ import { vectorService } from './vectorService';
 import { storage } from '../storage';
 
 export interface SearchResult {
-  id: number;
+  id: string;
   name: string;
   content: string;
   summary?: string | null;
@@ -112,11 +112,11 @@ export class SemanticSearchServiceV2 {
           }
 
           // Create chunk-level result
-          const chunkId = `${docId}-${chunkIndex}`;
-          const chunkLabel = chunkIndex !== undefined ? ` (Chunk ${chunkIndex + 1})` : "";
+          const chunkId = `${docId}-${chunkIndex ?? 0}`;
+          const chunkLabel = chunkIndex !== undefined ? ` (Chunk ${(chunkIndex ?? 0) + 1})` : "";
 
           results.push({
-            id: parseInt(chunkId.replace('-', '')) || docId, // Unique ID for chunk
+            id: chunkId, // Use string ID to avoid conflicts
             name: doc.name + chunkLabel,
             content: vectorResult.document.content, // Use chunk content, not full document
             summary: vectorResult.document.content.slice(0, 200) + "...",
@@ -377,7 +377,7 @@ export class SemanticSearchServiceV2 {
         const chunkLabel = chunk.chunkIndex !== undefined ? ` (Chunk ${chunk.chunkIndex + 1})` : "";
 
         return {
-          id: parseInt(chunk.chunkId.replace('-', '')) || chunk.docId, // Use a unique ID for the chunk
+          id: `${chunk.docId}-${chunk.chunkIndex ?? 0}`, // Use string ID to avoid conflicts
           name: (doc?.name ?? "Untitled") + chunkLabel,
           content: chunk.content, // This is the chunk content, not full document
           summary: chunk.content.slice(0, 200) + "...",
@@ -479,7 +479,7 @@ export class SemanticSearchServiceV2 {
 
         if (originalDoc) {
           finalResults.push({
-            id: originalDocId,
+            id: originalDocId.toString(),
             name: originalDoc.name,
             content: hybridResult.vectorResult.document.content, // Use chunk content
             summary: originalDoc.summary,
