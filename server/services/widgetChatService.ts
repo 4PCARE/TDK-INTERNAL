@@ -54,12 +54,12 @@ export class WidgetChatService {
       // Use the same generateChatResponse logic as general chat with hybrid search
       const { generateChatResponse } = await import('./openai');
       let aiResponseFromDocs = "";
-      
+
       try {
         // Get agent document IDs to restrict search scope
         const agentDocumentIds = agentDocuments.map(doc => doc.id);
         console.log(`Widget Chat: Restricting search to agent's ${agentDocumentIds.length} documents: [${agentDocumentIds.join(', ')}]`);
-        
+
         aiResponseFromDocs = await generateChatResponse(
           userMessage,
           agentDocuments,
@@ -95,7 +95,7 @@ export class WidgetChatService {
       // If we got a response from hybrid search, use it directly
       if (aiResponseFromDocs && aiResponseFromDocs.trim()) {
         console.log(`✅ Widget Chat: Using hybrid search response directly`);
-        
+
         // Validate output with guardrails if configured
         let finalResponse = aiResponseFromDocs;
         if (guardrailsService) {

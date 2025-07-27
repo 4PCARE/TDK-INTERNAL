@@ -684,6 +684,35 @@
                 setLoading('hybridLoading', false);
             }
         }
+
+        function setOutput(elementId, output, type) {
+            const element = document.getElementById(elementId);
+            if (!element) {
+                console.error(`Element with ID "${elementId}" not found`);
+                return;
+            }
+
+            element.textContent = output;
+
+            // Clear existing classes
+            element.classList.remove('success', 'error', 'info');
+
+            // Add appropriate class
+            if (type) {
+                element.classList.add(type);
+            }
+        }
+
+        function setLoading(elementId, isLoading) {
+            const element = document.getElementById(elementId);
+            if (!element) {
+                console.error(`Element with ID "${elementId}" not found`);
+                return;
+            }
+
+            element.textContent = isLoading ? 'Loading...' : ''; // Set appropriate text
+            element.classList.toggle('loading', isLoading);
+        }
     </script>
 </body>
 </html>

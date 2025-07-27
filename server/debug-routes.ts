@@ -175,7 +175,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
             const score = result.combinedScore || result.similarity;
             const preview = result.content.substring(0, 80).replace(/\n/g, ' ') + (result.content.length > 80 ? '...' : '');
             console.log(`  ${index + 1}. [${source}] Score: ${score.toFixed(4)} | "${preview}"`);
-            
+
             // Show detailed info for keyword chunks
             if (result.keywordScore > 0) {
               console.log(`    🔍 KEYWORD DETAILS:`);
@@ -198,58 +198,55 @@ router.post('/api/debug/ai-input', async (req, res) => {
           }
         };
       } else if (searchType === 'smart_hybrid') {
-        // Use the new smart hybrid debug search
-        console.log("=== USING SMART HYBRID DEBUG SEARCH ===");
+        // Use the new smart hybrid search with AI preprocessing
+        console.log(`=== USING SMART HYBRID WITH AI PRE-FEED ===`);
         console.log("Memory before search:", process.memoryUsage());
-        const { searchSmartHybridDebug } = await import('./services/newSearch');
 
-        searchResults = await searchSmartHybridDebug(userMessage, userId, {
-          specificDocumentIds: specificDocumentIds,
-          keywordWeight,
-          vectorWeight,
-          threshold: 0.3
-        });
+        // Step 1: AI Query Preprocessing
+        const { queryPreprocessor } = await import('./services/queryPreprocessor');
 
-        console.log("Memory after search:", process.memoryUsage());
+        // Get recent chat history if available (mock for now)
+        const recentChatHistory = []; // TODO: Integrate with actual chat history
 
-        // Force garbage collection if available
-        if (global.gc) {
-          global.gc();
+        const queryAnalysis = await queryPreprocessor.analyzeQuery(
+          userMessage,
+          recentChatHistory,
+          `Document scope: ${specificDocumentIds ? specificDocumentIds.join(', ') : 'All documents'}`
+        );
+
+        if (!queryAnalysis.needsSearch) {
+          console.log(`🚫 PRE-FEED: Query doesn't need search, skipping pipeline`);
+          searchResults = [];
+          searchMetrics = {
+            searchType: 'smart_hybrid_skipped',
+            needsSearch: false,
+            preprocessedQuery: queryAnalysis.enhancedQuery,
+            reasoning: queryAnalysis.reasoning
+          };
+        } else {
+          console.log(`✅ PRE-FEED: Using enhanced query with AI-determined weights`);
+
+          const { searchSmartHybridDebug } = await import('./services/newSearch');
+          searchResults = await searchSmartHybridDebug(queryAnalysis.enhancedQuery, userId, {
+            specificDocumentIds: specificDocumentIds,
+            keywordWeight: queryAnalysis.keywordWeight,
+            vectorWeight: queryAnalysis.vectorWeight
+          });
+
+          searchMetrics = {
+            searchType: 'smart_hybrid_ai_enhanced',
+            originalQuery: userMessage,
+            enhancedQuery: queryAnalysis.enhancedQuery,
+            aiReasoning: queryAnalysis.reasoning,
+            keywordResults: 0,
+            vectorResults: 0,
+            combinedResults: searchResults.length,
+            weights: {
+              keyword: queryAnalysis.keywordWeight,
+              vector: queryAnalysis.vectorWeight
+            }
+          };
         }
-
-        // Store workflow details for smart hybrid
-        searchWorkflow.rankingProcess = {
-          keywordWeight,
-          vectorWeight,
-          formula: `Combined Score = (Keyword Score × ${keywordWeight}) + (Vector Score × ${vectorWeight})`,
-          stepByStep: [
-            `1. Performed keyword search on ${specificDocumentIds ? specificDocumentIds.length : 'all'} documents`,
-            `2. Performed vector search with similarity threshold 0.3`,
-            `3. Applied weighted scoring with keyword weight: ${keywordWeight}, vector weight: ${vectorWeight}`,
-            `4. Selected top 66% of scored chunks`,
-            `5. Returned ${searchResults.length} final results`
-          ]
-        };
-
-        // Extract chunk details for display
-        chunkDetails = searchResults.map((result, index) => ({
-          chunkId: result.id,
-          id: result.id,
-          type: 'smart_hybrid_debug',
-          content: result.content,
-          similarity: result.similarity,
-          finalRank: index + 1
-        }));
-
-        searchMetrics = {
-          searchType: 'smart_hybrid_debug',
-          combinedResults: searchResults.length,
-          weights: {
-            keyword: keywordWeight,
-            vector: vectorWeight
-          }
-        };
-
       } else {
         // Handle other search types with basic workflow tracking
         if (searchType === 'vector') {

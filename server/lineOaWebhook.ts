@@ -1102,159 +1102,173 @@ ${imageAnalysisResult}
               createdAt: new Date(msg.createdAt)
             }));
 
-            // Try AI-enhanced keyword search first
-            console.log(`LINE OA: Attempting AI-enhanced keyword search for contextual understanding`);
-            const { advancedKeywordSearchService } = await import('./services/advancedKeywordSearch');
+            // Step 1: AI Query Preprocessing
+            console.log(`LINE OA: Running AI query preprocessing`);
+            const { queryPreprocessor } = await import('./services/queryPreprocessor');
 
-            let keywordSearchResults = [];
-            try {
-              keywordSearchResults = await advancedKeywordSearchService.searchDocumentsWithAI(
-                contextMessage,
-                lineIntegration.userId,
-                recentChatHistory,
-                5, // Limit to top 5 for keyword search
-                agentDocIds
-              );
-
-              console.log(`LINE OA: AI-enhanced keyword search found ${keywordSearchResults.length} results`);
-              if (keywordSearchResults.length > 0 && keywordSearchResults[0].aiKeywordExpansion) {
-                console.log(`LINE OA: AI expansion - Contextual: ${keywordSearchResults[0].aiKeywordExpansion.isContextual}, Confidence: ${keywordSearchResults[0].aiKeywordExpansion.confidence}, Keywords: [${keywordSearchResults[0].aiKeywordExpansion.expandedKeywords.join(', ')}]`);
-              }
-            } catch (keywordError) {
-              console.error(`LINE OA: AI-enhanced keyword search failed:`, keywordError);
-            }
-
-            // Use hybrid search with proper document filtering - same as debug page
-            const searchResults = await semanticSearchServiceV2.searchDocuments(
-              contextMessage,
-              lineIntegration.userId,
-              {
-                searchType: 'hybrid',
-                keywordWeight: 0.4,
-                vectorWeight: 0.6,
-                limit: 12, // Get more results for ranking
-                specificDocumentIds: agentDocIds // Restrict to agent's documents only
-              }
+            const queryAnalysis = await queryPreprocessor.analyzeQuery(
+              userMessage,
+              recentChatHistory.map(msg => ({
+                messageType: msg.messageType as 'user' | 'assistant',
+                content: msg.content,
+                createdAt: new Date(msg.createdAt)
+              })),
+              `Agent: ${lineIntegration.agentName}, Documents: ${agentDocIds.length} available`
             );
 
-            console.log(`LINE OA: Hybrid search found ${searchResults.length} relevant chunks from agent's documents`);
+            if (!queryAnalysis.needsSearch) {
+              console.log(`LINE OA: Query doesn't need search, generating direct response`);
+              aiResponse = `ขออภัยครับ คำถามของคุณดูเหมือนไม่ต้องการการค้นหาข้อมูล หากต้องการความช่วยเหลือเกี่ยวกับข้อมูลร้านค้าหรือบริการ กรุณาถามคำถามที่เฉพาะเจาะจงมากขึ้นครับ`;
+            } else {
+              console.log(`LINE OA: Using enhanced query: "${queryAnalysis.enhancedQuery}" with weights K:${queryAnalysis.keywordWeight.toFixed(2)} V:${queryAnalysis.vectorWeight.toFixed(2)}`);
 
-            // Combine keyword and vector search results intelligently
-            let combinedResults = searchResults;
+              // Try AI-enhanced keyword search first
+              console.log(`LINE OA: Attempting AI-enhanced keyword search for contextual understanding`);
+              const { advancedKeywordSearchService } = await import('./services/advancedKeywordSearch');
 
-            if (keywordSearchResults.length > 0) {
-              // If AI keyword search found contextual results with high confidence, blend them with vector results
-              const topKeywordResult = keywordSearchResults[0];
-              if (topKeywordResult.aiKeywordExpansion?.isContextual && topKeywordResult.aiKeywordExpansion.confidence > 0.7) {
-                console.log(`LINE OA: High-confidence contextual match found, blending keyword and vector results`);
-
-                // Convert keyword results to chunk format for consistency
-                const keywordChunks = keywordSearchResults.slice(0, 3).map(result => ({
-                  document: { name: result.name },
-                  content: result.content.substring(0, 2000), // Limit content size
-                  similarity: result.similarity
-                }));
-
-                // Blend keyword and vector results instead of discarding vector results
-                // Take top keyword results + top vector results, then sort by similarity
-                const topVectorResults = searchResults.slice(0, 9); // Get more vector results
-                combinedResults = [
-                  ...keywordChunks,
-                  ...topVectorResults
-                ];
-
-                console.log(`LINE OA: Blended ${keywordChunks.length} keyword + ${topVectorResults.length} vector results for intelligent ranking`);
-              }
-            }
-
-            if (combinedResults.length > 0) {
-              // Step 1: Pool ALL chunks from ALL documents together
-              const allChunks = [];
-
-              for (const result of combinedResults) {
-                allChunks.push({
-                  docName: result.name,
-                  content: result.content,
-                  similarity: result.similarity
-                });
+              let keywordSearchResults = [];
+              try {
+                keywordSearchResults = await advancedKeywordSearchService.searchWithAIExpansion(
+                  queryAnalysis.enhancedQuery,
+                  lineIntegration.userId,
+                  recentChatHistory,
+                  agentDocIds
+                );
+                console.log(`LINE OA: AI-enhanced keyword search found ${keywordSearchResults.length} results`);
+              } catch (keywordError) {
+                console.warn(`LINE OA: AI-enhanced keyword search failed:`, keywordError);
               }
 
-              console.log(`LINE OA: Pooled ${allChunks.length} chunks from ${agentDocIds.length} agent documents`);
+              // Combine keyword and vector search results intelligently
+              let combinedResults = [];
 
-              // Step 2: Sort ALL chunks globally by similarity and use all of them
-              allChunks.sort((a, b) => b.similarity - a.similarity);
-              
-              console.log(`LINE OA: Using all ${allChunks.length} chunks from search results:`);
-              allChunks.forEach((chunk, idx) => {
-                console.log(`  ${idx + 1}. ${chunk.docName} - Similarity: ${chunk.similarity.toFixed(4)}`);
-                console.log(`      Content preview: ${chunk.content.substring(0, 100)}...`);
+              // Fallback to hybrid search with AI-determined weights and optimized chunk selection
+              console.log(`LINE OA: Using chunk-level hybrid search with AI weights as fallback`);
+              const { semanticSearchServiceV2: searchService } = await import('./services/semanticSearchV2');
+              const searchResults = await searchService.searchDocuments(queryAnalysis.enhancedQuery, lineIntegration.userId, {
+                searchType: 'hybrid',
+                limit: 12, // Get more results for ranking
+                specificDocumentIds: agentDocIds,
+                keywordWeight: queryAnalysis.keywordWeight,
+                vectorWeight: queryAnalysis.vectorWeight,
               });
 
-              // Build context with character limit for cost control
-              let documentContext = "";
-              const maxContextLength = 12000; // Increased limit to accommodate more chunks
-              let chunksUsed = 0;
+              console.log(`LINE OA: Hybrid search found ${searchResults.length} relevant chunks from agent's documents`);
 
-              for (let i = 0; i < allChunks.length; i++) {
-                const chunk = allChunks[i];
-                const chunkText = `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
+              if (keywordSearchResults.length > 0) {
+                // If AI keyword search found contextual results with high confidence, blend them with vector results
+                const topKeywordResult = keywordSearchResults[0];
+                if (topKeywordResult.aiKeywordExpansion?.isContextual && topKeywordResult.aiKeywordExpansion.confidence > 0.7) {
+                  console.log(`LINE OA: High-confidence contextual match found, blending keyword and vector results`);
 
-                // Check if adding this chunk would exceed the limit
-                if (documentContext.length + chunkText.length <= maxContextLength) {
-                  documentContext += chunkText;
-                  chunksUsed++;
-                } else {
-                  // Try to fit a truncated version if there's meaningful space
-                  const remainingSpace = maxContextLength - documentContext.length;
-                  if (remainingSpace > 300) { // Only add if there's meaningful space
-                    const availableContentSpace = remainingSpace - 150; // Account for headers
-                    const truncatedContent = chunk.content.substring(0, availableContentSpace) + "...";
-                    documentContext += `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
-                    chunksUsed++;
-                  }
-                  break;
+                  // Convert keyword results to chunk format for consistency
+                  const keywordChunks = keywordSearchResults.slice(0, 3).map(result => ({
+                    document: { name: result.name },
+                    content: result.content.substring(0, 2000), // Limit content size
+                    similarity: result.similarity
+                  }));
+
+                  // Blend keyword and vector results instead of discarding vector results
+                  // Take top keyword results + top vector results, then sort by similarity
+                  const topVectorResults = searchResults.slice(0, 9); // Get more vector results
+                  combinedResults = [
+                    ...keywordChunks,
+                    ...topVectorResults
+                  ];
+
+                  console.log(`LINE OA: Blended ${keywordChunks.length} keyword + ${topVectorResults.length} vector results for intelligent ranking`);
                 }
               }
 
-              console.log(`LINE OA: Used ${chunksUsed}/${allChunks.length} chunks within character limit`);
+              if (combinedResults.length > 0) {
+                // Step 1: Pool ALL chunks from ALL documents together
+                const allChunks = [];
 
-              console.log(`LINE OA: Final context length: ${documentContext.length} characters (limit: ${maxContextLength})`);
+                for (const result of combinedResults) {
+                  allChunks.push({
+                    docName: result.name,
+                    content: result.content,
+                    similarity: result.similarity
+                  });
+                }
 
-              // Generate AI response with comprehensive document context
-              // Use existing OpenAI instance from module scope
+                console.log(`LINE OA: Pooled ${allChunks.length} chunks from ${agentDocIds.length} agent documents`);
 
-              const agent = await storage.getAgentChatbot(lineIntegration.agentId, lineIntegration.userId);
-              const systemPrompt = `${agent?.systemPrompt || 'You are a helpful assistant.'}
+                // Step 2: Sort ALL chunks globally by similarity and use all of them
+                allChunks.sort((a, b) => b.similarity - a.similarity);
+
+                console.log(`LINE OA: Using all ${allChunks.length} chunks from search results:`);
+                allChunks.forEach((chunk, idx) => {
+                  console.log(`  ${idx + 1}. ${chunk.docName} - Similarity: ${chunk.similarity.toFixed(4)}`);
+                  console.log(`      Content preview: ${chunk.content.substring(0, 100)}...`);
+                });
+
+                // Build context with character limit for cost control
+                let documentContext = "";
+                const maxContextLength = 12000; // Increased limit to accommodate more chunks
+                let chunksUsed = 0;
+
+                for (let i = 0; i < allChunks.length; i++) {
+                  const chunk = allChunks[i];
+                  const chunkText = `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${chunk.content}\n\n`;
+
+                  // Check if adding this chunk would exceed the limit
+                  if (documentContext.length + chunkText.length <= maxContextLength) {
+                    documentContext += chunkText;
+                    chunksUsed++;
+                  } else {
+                    // Try to fit a truncated version if there's meaningful space
+                    const remainingSpace = maxContextLength - documentContext.length;
+                    if (remainingSpace > 300) { // Only add if there's meaningful space
+                      const availableContentSpace = remainingSpace - 150; // Account for headers
+                      const truncatedContent = chunk.content.substring(0, availableContentSpace) + "...";
+                      documentContext += `=== ข้อมูลที่ ${i + 1}: ${chunk.docName} ===\nคะแนนความเกี่ยวข้อง: ${chunk.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
+                      chunksUsed++;
+                    }
+                    break;
+                  }
+                }
+
+                console.log(`LINE OA: Used ${chunksUsed}/${allChunks.length} chunks within character limit`);
+
+                console.log(`LINE OA: Final context length: ${documentContext.length} characters (limit: ${maxContextLength})`);
+
+                // Generate AI response with comprehensive document context
+                // Use existing OpenAI instance from module scope
+
+                const agent = await storage.getAgentChatbot(lineIntegration.agentId, lineIntegration.userId);
+                const systemPrompt = `${agent?.systemPrompt || 'You are a helpful assistant.'}
 
 เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
 ${documentContext}
 
 กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น`;
 
-              console.log(`LINE OA: System prompt length: ${systemPrompt.length} characters`);
+                console.log(`LINE OA: System prompt length: ${systemPrompt.length} characters`);
 
-              const completion = await openai.chat.completions.create({
-                model: "gpt-4o",
-                messages: [
-                  { role: "system", content: systemPrompt },
-                  { role: "user", content: contextMessage }
-                ],
-                max_tokens: 1000,
-                temperature: 0.7,
-              });
+                const completion = await openai.chat.completions.create({
+                  model: "gpt-4o",
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: contextMessage }
+                  ],
+                  max_tokens: 1000,
+                  temperature: 0.7,
+                });
 
-              aiResponse = completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
-              console.log(`✅ LINE OA: Generated response using ${chunksUsed} chunks within token limits (${aiResponse.length} chars)`);
-            } else {
-              console.log(`⚠️ LINE OA: No relevant content found in agent's documents, using system prompt only`);
-              // Fallback to system prompt conversation
-              aiResponse = await getAiResponseDirectly(
-                contextMessage,
-                lineIntegration.agentId,
-                lineIntegration.userId,
-                "lineoa",
-                event.source.userId,
-              );
+                aiResponse = completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+                console.log(`✅ LINE OA: Generated response using ${chunksUsed} chunks within token limits (${aiResponse.length} chars)`);
+              } else {
+                console.log(`⚠️ LINE OA: No relevant content found in agent's documents, using system prompt only`);
+                // Fallback to system prompt conversation
+                aiResponse = await getAiResponseDirectly(
+                  contextMessage,
+                  lineIntegration.agentId,
+                  lineIntegration.userId,
+                  "lineoa",
+                  event.source.userId,
+                );
+              }
             }
           } catch (error) {
             console.error("LINE OA: Hybrid search failed, using fallback:", error);
