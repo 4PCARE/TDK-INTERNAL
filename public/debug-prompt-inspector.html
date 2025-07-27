@@ -885,43 +885,43 @@
                 <div class="result-section">
                     <div class="result-header">
                         <h3>🤖 System Message (AI Instructions)</h3>
-                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.systemMessage)}', event)">Copy</button>
-                        <button class="copy-btn" style="background: #16a34a; margin-left: 5px;" onclick="sendToGPT('${escapeForJs(data.systemMessage)}', '${escapeForJs(data.userMessage)}', event)">🚀 Send to GPT-4o-mini</button>
+                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.systemMessage || '')}', event)">Copy</button>
+                        <button class="copy-btn" style="background: #16a34a; margin-left: 5px;" onclick="sendToGPT('${escapeForJs(data.systemMessage || '')}', '${escapeForJs(data.userMessage || '')}', event)">🚀 Send to GPT-4o-mini</button>
                     </div>
                     <div class="result-content">
-                        <div class="code-block">${escapeHtml(data.systemMessage)}</div>
+                        <div class="code-block">${escapeHtml(data.systemMessage || '')}</div>
                     </div>
                 </div>
 
                 <div class="result-section">
                     <div class="result-header">
                         <h3>💬 User Message</h3>
-                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.userMessage)}', event)">Copy</button>
+                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.userMessage || '')}', event)">Copy</button>
                     </div>
                     <div class="result-content">
-                        <div class="code-block">${escapeHtml(data.userMessage)}</div>
+                        <div class="code-block">${escapeHtml(data.userMessage || '')}</div>
                     </div>
                 </div>
 
                 <div class="result-section">
                     <div class="result-header">
                         <h3>📄 Document Context (What the AI sees)</h3>
-                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.documentContext)}', event)">Copy</button>
+                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.documentContext || '')}', event)">Copy</button>
                     </div>
                     <div class="result-content">
                         <p style="margin-bottom: 15px; color: #64748b;">This is the actual document content that gets sent to the AI:</p>
-                        <div class="code-block">${escapeHtml(data.documentContext)}</div>
+                        <div class="code-block">${escapeHtml(data.documentContext || '')}</div>
                     </div>
                 </div>
 
                 <div class="result-section">
                     <div class="result-header">
                         <h3>✨ Finalized Prompt (System + Document Context + User)</h3>
-                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.finalizedPrompt)}', event)">Copy Finalized Prompt</button>
+                        <button class="copy-btn" onclick="copyToClipboard('${escapeForJs(data.finalizedPrompt || '')}', event)">Copy Finalized Prompt</button>
                     </div>
                     <div class="result-content">
                         <p style="margin-bottom: 15px; color: #64748b;">This is the final prompt sent to the AI, combining the system message, relevant document context, and the user's query:</p>
-                        <div class="code-block">${escapeHtml(data.finalizedPrompt)}</div>
+                        <div class="code-block">${escapeHtml(data.finalizedPrompt || '')}</div>
                     </div>
                 </div>
 
@@ -953,12 +953,14 @@
         }
 
         function escapeHtml(text) {
+            if (!text) return '';
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
 
         function escapeForJs(text) {
+            if (!text) return '';
             return text.replace(/'/g, "\\'").replace(/\n/g, "\\n").replace(/\r/g, "\\r");
         }
 
