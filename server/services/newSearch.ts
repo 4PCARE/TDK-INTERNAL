@@ -255,6 +255,10 @@ export async function searchSmartHybridDebug(
     vectorScore: number;
   }[] = [];
 
+  console.log(`🧮 SCORING CALCULATION: Combining ${allChunkIds.size} unique chunks`);
+  console.log(`📊 WEIGHTS: Keyword=${keywordWeight}, Vector=${vectorWeight}`);
+  console.log(`📐 FORMULA: Final Score = (Keyword Score × ${keywordWeight}) + (Vector Score × ${vectorWeight})`);
+  
   for (const chunkId of allChunkIds) {
     const [docIdStr, chunkIndexStr] = chunkId.split("-");
     const docId = parseInt(docIdStr);
@@ -266,7 +270,16 @@ export async function searchSmartHybridDebug(
 
     const finalScore = keywordScore * keywordWeight + vectorScore * vectorWeight;
 
+    // Show detailed calculation for each chunk
     if (finalScore > 0 && content.length > 0) {
+      const keywordWeighted = keywordScore * keywordWeight;
+      const vectorWeighted = vectorScore * vectorWeight;
+      
+      console.log(`  📋 Chunk ${docId}-${chunkIndex}:`);
+      console.log(`    Keyword: ${keywordScore.toFixed(4)} × ${keywordWeight} = ${keywordWeighted.toFixed(4)}`);
+      console.log(`    Vector:  ${vectorScore.toFixed(4)} × ${vectorWeight} = ${vectorWeighted.toFixed(4)}`);
+      console.log(`    Final:   ${keywordWeighted.toFixed(4)} + ${vectorWeighted.toFixed(4)} = ${finalScore.toFixed(4)}`);
+      
       scoredChunks.push({
         docId,
         chunkIndex,
@@ -277,6 +290,8 @@ export async function searchSmartHybridDebug(
       });
     }
   }
+  
+  console.log(`✅ SCORED CHUNKS: ${scoredChunks.length} chunks with final scores > 0`);
 
   // 5. Sort by finalScore and apply smart selection
   scoredChunks.sort((a, b) => b.finalScore - a.finalScore);
