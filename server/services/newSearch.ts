@@ -157,7 +157,8 @@ function calculateTFIDF(searchTerms: string[], chunks: any[]): Map<string, { sco
   for (const term of searchTerms) {
     let docFreq = 0;
     for (const chunk of chunks) {
-      const tokens = tokenize(chunk.content.toLowerCase());
+      const content = chunk.content || '';
+      const tokens = tokenize(content.toLowerCase());
       if (tokens.includes(term.toLowerCase())) {
         docFreq++;
       }
@@ -167,8 +168,10 @@ function calculateTFIDF(searchTerms: string[], chunks: any[]): Map<string, { sco
 
   // Calculate TF-IDF score for each chunk
   for (const chunk of chunks) {
-    const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
-    const tokens = tokenize(chunk.content.toLowerCase());
+    const chunkIndex = chunk.chunkIndex || (chunk.chunk ? chunk.chunk.chunkIndex : 0);
+    const chunkId = `${chunk.documentId}-${chunkIndex}`;
+    const content = chunk.content || '';
+    const tokens = tokenize(content.toLowerCase());
     const tokenCounts = new Map<string, number>();
 
     // Count term frequencies
@@ -185,7 +188,7 @@ function calculateTFIDF(searchTerms: string[], chunks: any[]): Map<string, { sco
 
       if (tf > 0) {
         matchedTerms.push(term);
-        const normalizedTF = tf / tokens.length; // Normalize by document length
+        const normalizedTF = tf / Math.max(tokens.length, 1); // Normalize by document length
         const df = termDF.get(lowerTerm) || 1;
         const idf = Math.log(totalChunks / df);
         tfidfScore += normalizedTF * idf;
@@ -195,7 +198,7 @@ function calculateTFIDF(searchTerms: string[], chunks: any[]): Map<string, { sco
         if (fuzzyMatch.score > 0.75) {
           matchedTerms.push(term);
           const tf = fuzzyMatch.count;
-          const normalizedTF = tf / tokens.length;
+          const normalizedTF = tf / Math.max(tokens.length, 1);
           const df = termDF.get(lowerTerm) || 1;
           const idf = Math.log(totalChunks / df);
           tfidfScore += (normalizedTF * idf * fuzzyMatch.score * 0.8); // Reduce score for fuzzy matches
