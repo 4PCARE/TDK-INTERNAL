@@ -1,6 +1,11 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { createReplitAuthRouter } from "./replitAuth";
+import { imageAnalysisRoute } from './lineImageService';
+import viteRoute from "./vite";
 import debugRoutes from "./debug-routes";
+import debugChunkTest from "./debug-chunk-test";
+import hrApi from "./hrApi";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
@@ -65,7 +70,10 @@ app.use((req, res, next) => {
 (async () => {
   // Mount debug routes BEFORE registerRoutes to ensure higher priority
   app.use(debugRoutes);
-  
+  app.use("/api", debugRoutes);
+  app.use("/api", debugChunkTest);
+  app.use("/api", hrApi);
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
