@@ -250,8 +250,9 @@ export class AdvancedKeywordSearchService {
     const positions: number[] = [];
     let exactMatches = 0;
     let fuzzyMatches = 0;
+    let partialMatches = 0;
 
-    // Check for exact matches
+    // Check for exact matches first
     let index = 0;
     while ((index = chunkText.indexOf(term, index)) !== -1) {
       positions.push(index);
@@ -259,29 +260,45 @@ export class AdvancedKeywordSearchService {
       index += term.length;
     }
 
-    // Check for fuzzy matches if enabled and no exact matches
     let fuzzyMatch = false;
-    if (searchTerm.fuzzy && exactMatches === 0) {
-      for (let i = 0; i < chunkTokens.length; i++) {
-        const token = chunkTokens[i];
-        if (this.isFuzzyMatch(term, token)) {
-          fuzzyMatches++;
-          fuzzyMatch = true;
-          // Find position in original text
-          const tokenIndex = chunkText.indexOf(token, i > 0 ? positions[positions.length - 1] || 0 : 0);
-          if (tokenIndex !== -1) {
-            positions.push(tokenIndex);
+    
+    // If no exact matches, try fuzzy matching
+    if (exactMatches === 0) {
+      // Token-level fuzzy matching
+      if (searchTerm.fuzzy) {
+        for (let i = 0; i < chunkTokens.length; i++) {
+          const token = chunkTokens[i];
+          if (this.isFuzzyMatch(term, token)) {
+            fuzzyMatches++;
+            fuzzyMatch = true;
+            const tokenIndex = chunkText.indexOf(token, i > 0 ? positions[positions.length - 1] || 0 : 0);
+            if (tokenIndex !== -1) {
+              positions.push(tokenIndex);
+            }
           }
+        }
+      }
+      
+      // Partial matching for longer terms
+      if (fuzzyMatches === 0 && term.length >= 4) {
+        const partialPositions = this.findPartialMatches(term, chunkText);
+        positions.push(...partialPositions);
+        partialMatches = partialPositions.length;
+        if (partialMatches > 0) {
+          fuzzyMatch = true;
         }
       }
     }
 
-    // Calculate TF (term frequency)
-    const totalMatches = exactMatches + (fuzzyMatches * 0.7); // Fuzzy matches get lower weight
+    // Calculate weighted matches
+    const totalMatches = exactMatches + (fuzzyMatches * 0.8) + (partialMatches * 0.5);
     const tf = totalMatches / Math.max(chunkTokens.length, 1);
 
-    // Calculate TF-IDF score
-    const score = tf * idf;
+    // Boost score for exact matches
+    let score = tf * idf;
+    if (exactMatches > 0) {
+      score *= 1.2; // 20% boost for exact matches
+    }
 
     return { score, positions, fuzzyMatch };
   }
@@ -302,15 +319,66 @@ export class AdvancedKeywordSearchService {
   }
 
   private isFuzzyMatch(term1: string, term2: string): boolean {
-    if (Math.abs(term1.length - term2.length) > 2) {
+    if (Math.abs(term1.length - term2.length) > 3) {
       return false;
+    }
+
+    // Special handling for Thai text
+    if (/[\u0E00-\u0E7F]/.test(term1) || /[\u0E00-\u0E7F]/.test(term2)) {
+      return this.isThaiApproximateMatch(term1, term2);
     }
 
     const distance = this.levenshteinDistance(term1, term2);
     const maxLength = Math.max(term1.length, term2.length);
     const similarity = (maxLength - distance) / maxLength;
 
-    return similarity >= 0.8; // 80% similarity threshold
+    // Adjust threshold based on word length
+    const threshold = term1.length <= 3 ? 0.8 : 0.75;
+    return similarity >= threshold;
+  }
+
+  private isThaiApproximateMatch(term1: string, term2: string): boolean {
+    // Remove Thai tone marks and normalize vowels for better matching
+    const normalize = (str: string) => str
+      .replace(/[์็่้๊๋]/g, '') // Remove tone marks
+      .replace(/[ะาิีึืุูเแโใไ]/g, 'a') // Normalize vowels
+      .toLowerCase();
+    
+    const norm1 = normalize(term1);
+    const norm2 = normalize(term2);
+    
+    const distance = this.levenshteinDistance(norm1, norm2);
+    const maxLength = Math.max(norm1.length, norm2.length);
+    const similarity = (maxLength - distance) / maxLength;
+    
+    return similarity >= 0.75; // Slightly lower threshold for Thai
+  }
+
+  private findPartialMatches(term: string, text: string): number[] {
+    const positions: number[] = [];
+    
+    // Find partial matches for longer terms
+    if (term.length >= 4) {
+      const words = text.split(/\s+/);
+      let currentPos = 0;
+      
+      for (const word of words) {
+        const wordPos = text.indexOf(word, currentPos);
+        
+        // Check if word contains most characters from the term
+        const termChars = term.toLowerCase().split('');
+        const wordChars = word.toLowerCase().split('');
+        const matchingChars = termChars.filter(char => wordChars.includes(char));
+        
+        if (matchingChars.length >= Math.ceil(term.length * 0.7)) {
+          positions.push(wordPos);
+        }
+        
+        currentPos = wordPos + word.length;
+      }
+    }
+    
+    return positions;
   }
 
   private levenshteinDistance(str1: string, str2: string): number {

@@ -46,6 +46,123 @@ function splitIntoChunks(text: string, maxChunkSize = 3000, overlap = 300): stri
   return chunks;
 }
 
+// Fuzzy matching helper functions
+function levenshteinDistance(str1: string, str2: string): number {
+  const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
+
+  for (let i = 0; i <= str1.length; i++) {
+    matrix[0][i] = i;
+  }
+
+  for (let j = 0; j <= str2.length; j++) {
+    matrix[j][0] = j;
+  }
+
+  for (let j = 1; j <= str2.length; j++) {
+    for (let i = 1; i <= str1.length; i++) {
+      const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1,     // deletion
+        matrix[j - 1][i] + 1,     // insertion
+        matrix[j - 1][i - 1] + indicator // substitution
+      );
+    }
+  }
+
+  return matrix[str2.length][str1.length];
+}
+
+function calculateSimilarity(str1: string, str2: string): number {
+  if (str1 === str2) return 1.0;
+  
+  const maxLength = Math.max(str1.length, str2.length);
+  if (maxLength === 0) return 1.0;
+  
+  const distance = levenshteinDistance(str1, str2);
+  return (maxLength - distance) / maxLength;
+}
+
+function findBestMatch(searchTerm: string, text: string): { score: number; matchedText: string } {
+  const words = text.split(/\s+/);
+  let bestScore = 0;
+  let bestMatch = '';
+  
+  // Check exact matches first
+  if (text.includes(searchTerm)) {
+    return { score: 1.0, matchedText: searchTerm };
+  }
+  
+  // Check word-level fuzzy matches
+  for (const word of words) {
+    const cleanWord = word.replace(/[^\w\u0E00-\u0E7F]/g, ''); // Keep Thai and English chars
+    if (cleanWord.length < 2) continue;
+    
+    const similarity = calculateSimilarity(searchTerm, cleanWord);
+    if (similarity > bestScore && similarity >= 0.7) { // 70% similarity threshold
+      bestScore = similarity;
+      bestMatch = cleanWord;
+    }
+  }
+  
+  // Check partial matches for longer terms
+  if (searchTerm.length >= 4 && bestScore < 0.8) {
+    const regex = new RegExp(searchTerm.split('').join('.*'), 'i');
+    for (const word of words) {
+      if (regex.test(word) && word.length >= searchTerm.length - 2) {
+        const partialScore = 0.6; // Lower score for partial matches
+        if (partialScore > bestScore) {
+          bestScore = partialScore;
+          bestMatch = word;
+        }
+      }
+    }
+  }
+  
+  // Check character-level similarity for Thai text
+  if (searchTerm.length >= 3 && /[\u0E00-\u0E7F]/.test(searchTerm)) {
+    for (const word of words) {
+      if (word.length >= searchTerm.length - 1 && word.length <= searchTerm.length + 2) {
+        const thaiSimilarity = calculateThaiSimilarity(searchTerm, word);
+        if (thaiSimilarity > bestScore && thaiSimilarity >= 0.75) {
+          bestScore = thaiSimilarity;
+          bestMatch = word;
+        }
+      }
+    }
+  }
+  
+  return { score: bestScore, matchedText: bestMatch };
+}
+
+function calculateThaiSimilarity(str1: string, str2: string): number {
+  // Special handling for Thai text with tone marks and vowels
+  const normalize = (str: string) => str
+    .replace(/[์็่้๊๋]/g, '') // Remove tone marks
+    .replace(/[ะาิีึืุูเแโใไ]/g, '') // Simplify vowels
+    .toLowerCase();
+  
+  const norm1 = normalize(str1);
+  const norm2 = normalize(str2);
+  
+  return calculateSimilarity(norm1, norm2);
+}
+
+function performFuzzyMatching(searchTerms: string[], text: string): { matchedTerms: string[]; totalScore: number } {
+  const matchedTerms: string[] = [];
+  let totalScore = 0;
+  
+  for (const term of searchTerms) {
+    const { score, matchedText } = findBestMatch(term, text);
+    
+    if (score > 0.6) { // Minimum threshold for fuzzy match
+      matchedTerms.push(matchedText || term);
+      totalScore += score;
+    }
+  }
+  
+  return { matchedTerms, totalScore };
+}
+
 export async function searchSmartHybridDebug(
   query: string,
   userId: string,
@@ -92,14 +209,15 @@ export async function searchSmartHybridDebug(
     const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
     const lowerChunk = chunk.content.toLowerCase();
     
-    // Count matching terms
-    const matched = searchTerms.filter(term => lowerChunk.includes(term));
-    if (matched.length > 0) {
-      const score = matched.length / searchTerms.length;
+    // Enhanced fuzzy matching
+    const { matchedTerms, totalScore } = performFuzzyMatching(searchTerms, lowerChunk);
+    
+    if (matchedTerms.length > 0) {
+      const score = totalScore / searchTerms.length;
       keywordMatches[chunkId] = score;
       totalMatches++;
       
-      console.log(`🔍 KEYWORD MATCH: Doc ${chunk.documentId} chunk ${chunk.chunkIndex} - ${matched.length}/${searchTerms.length} terms matched (${matched.join(', ')})`);
+      console.log(`🔍 KEYWORD MATCH (FUZZY): Doc ${chunk.documentId} chunk ${chunk.chunkIndex} - ${matchedTerms.length}/${searchTerms.length} terms matched (${matchedTerms.join(', ')}) score: ${score.toFixed(3)}`);
     }
   }
   
@@ -236,14 +354,21 @@ export async function searchSmartHybridV1(
       const chunks: string[] = doc.chunks || splitIntoChunks(doc.content || "", 3000, 300);
       chunks.forEach((chunk, i) => {
         const chunkText = chunk.toLowerCase();
-        const matched = searchTerms.filter(term => chunkText.includes(term));
-        let score = matched.length / searchTerms.length;
+        
+        // Use fuzzy matching instead of exact matching
+        const { matchedTerms, totalScore } = performFuzzyMatching(searchTerms, chunkText);
+        let score = totalScore / searchTerms.length;
 
+        // Apply store boost for specific terms
         const storeBoostTerms = ['xolo', 'kamu', 'floor', 'ชั้น', 'บางกะปิ', 'bangkapi'];
-        const storeBoost = searchTerms.some(term => storeBoostTerms.some(sk => sk.includes(term)));
-        if (storeBoost && score > 0.5) score = Math.min(1.0, score + 0.3);
+        const hasStoreBoost = matchedTerms.some(matched => 
+          storeBoostTerms.some(boost => calculateSimilarity(matched.toLowerCase(), boost) > 0.8)
+        );
+        if (hasStoreBoost && score > 0.5) {
+          score = Math.min(1.0, score + 0.3);
+        }
 
-        if (score > 0) {
+        if (score > 0.3) { // Lower threshold for fuzzy matches
           keywordChunks[`${doc.id}-${i}`] = { content: chunk, score };
         }
       });
