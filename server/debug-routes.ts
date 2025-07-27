@@ -175,6 +175,16 @@ router.post('/api/debug/ai-input', async (req, res) => {
             const score = result.combinedScore || result.similarity;
             const preview = result.content.substring(0, 80).replace(/\n/g, ' ') + (result.content.length > 80 ? '...' : '');
             console.log(`  ${index + 1}. [${source}] Score: ${score.toFixed(4)} | "${preview}"`);
+            
+            // Show detailed info for keyword chunks
+            if (result.keywordScore > 0) {
+              console.log(`    🔍 KEYWORD DETAILS:`);
+              console.log(`      Chunk ID: ${result.chunkId || result.id}`);
+              console.log(`      Keyword Score: ${result.keywordScore.toFixed(4)}`);
+              console.log(`      Vector Score: ${result.vectorScore ? result.vectorScore.toFixed(4) : 'N/A'}`);
+              console.log(`      Content Length: ${result.content.length} chars`);
+              console.log(`      Content Preview (200 chars): "${result.content.substring(0, 200).replace(/\n/g, ' ')}${result.content.length > 200 ? '...' : ''}"`);
+            }
           })
 
         searchMetrics = {
