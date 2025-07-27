@@ -366,21 +366,22 @@ export class SemanticSearchServiceV2 {
 
       console.log(`📈 Scored ${scoredChunks.length} chunks with combined vector+keyword scoring`);
 
-      // Step 3: Rank and select top 66% score mass
+      // Step 3: Rank and select top 10% score mass for strict filtering
       const totalScore = scoredChunks.reduce((sum, c) => sum + c.similarity, 0);
-      const scoreThreshold = totalScore * 0.66;
+      const scoreThreshold = totalScore * 0.10;
 
       scoredChunks.sort((a, b) => b.similarity - a.similarity);
 
       const selectedChunks = [];
       let accumulatedScore = 0;
+      const maxChunks = Math.min(8, scoredChunks.length); // Cap at 8 chunks
       for (const chunk of scoredChunks) {
         selectedChunks.push(chunk);
         accumulatedScore += chunk.similarity;
-        if (accumulatedScore >= scoreThreshold) break;
+        if (accumulatedScore >= scoreThreshold || selectedChunks.length >= maxChunks) break;
       }
 
-      console.log(`🎯 Selected ${selectedChunks.length} top chunks (66% score mass threshold)`);
+      console.log(`🎯 STRICT SELECTION: Selected ${selectedChunks.length} top chunks (10% score mass threshold, max 8 chunks)`);
 
       // Step 4: Load document metadata for display purposes
       const uniqueDocIds = [...new Set(selectedChunks.map(c => c.docId))];

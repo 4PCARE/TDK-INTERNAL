@@ -381,8 +381,8 @@ export async function searchSmartHybridDebug(
   scoredChunks.sort((a, b) => b.finalScore - a.finalScore);
 
   // Smart selection: take top chunks but ensure we get results
-  const minResults = Math.min(5, scoredChunks.length); // At least 5 results if available
-  const maxResults = Math.min(15, scoredChunks.length); // Cap at 15 results
+  const minResults = Math.min(3, scoredChunks.length); // At least 3 results if available
+  const maxResults = Math.min(8, scoredChunks.length); // Cap at 8 results for stricter selection
 
   let selectedChunks = [];
 
@@ -391,8 +391,8 @@ export async function searchSmartHybridDebug(
     const totalScore = scoredChunks.reduce((sum, c) => sum + c.finalScore, 0);
     const avgScore = totalScore / scoredChunks.length;
 
-    if (avgScore > 0.1) {
-      // Use 10% mass selection if average scores are decent
+    if (avgScore > 0.05) {
+      // Use 10% mass selection for stricter filtering
       const scoreTarget = totalScore * 0.10;
       let accScore = 0;
       for (const chunk of scoredChunks) {
@@ -402,12 +402,12 @@ export async function searchSmartHybridDebug(
         if (selectedChunks.length >= maxResults) break;
       }
     } else {
-      // If scores are very low, ensure we still get some results
+      // If scores are very low, ensure we still get some results but fewer
       const fallbackCount = Math.min(minResults, scoredChunks.length);
       selectedChunks = scoredChunks.slice(0, fallbackCount);
     }
 
-    console.log(`🎯 SELECTION: From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} (avg score: ${avgScore.toFixed(4)})`);
+    console.log(`🎯 STRICT SELECTION (10% mass): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} (avg score: ${avgScore.toFixed(4)})`);
   }
 
   const results: SearchResult[] = selectedChunks.map(chunk => {
@@ -549,16 +549,17 @@ export async function searchSmartHybridV1(
       });
     }
 
-    // 4. Select top 66% score mass
+    // 4. Select top 10% score mass for strict filtering
     const sortedChunks = [...combinedChunkMap.values()].sort((a, b) => b.finalScore - a.finalScore);
     const totalScore = sortedChunks.reduce((sum, c) => sum + c.finalScore, 0);
     const targetScore = totalScore * 0.10;
     const selectedChunks = [];
     let acc = 0;
+    const maxChunks = Math.min(8, sortedChunks.length); // Cap at 8 chunks for stricter selection
     for (const chunk of sortedChunks) {
       selectedChunks.push(chunk);
       acc += chunk.finalScore;
-      if (acc >= targetScore) break;
+      if (acc >= targetScore || selectedChunks.length >= maxChunks) break;
     }
 
     // 5. Build Final SearchResult[]
