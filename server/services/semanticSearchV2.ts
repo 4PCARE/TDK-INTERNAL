@@ -379,8 +379,8 @@ export class SemanticSearchServiceV2 {
         return {
           id: `${chunk.docId}-${chunk.chunkIndex ?? 0}`, // Use string ID to avoid conflicts
           name: (doc?.name ?? "Untitled") + chunkLabel,
-          content: chunk.content, // This is the chunk content, not full document
-          summary: chunk.content.slice(0, 200) + "...",
+          content: chunk.content, // ✅ Use chunk content, not full document
+          summary: chunk.content.slice(0, 200) + "...", // ✅ Generate summary from chunk
           aiCategory: doc?.aiCategory ?? null,
           aiCategoryColor: doc?.aiCategoryColor ?? null,
           similarity: chunk.similarity,
@@ -397,9 +397,10 @@ export class SemanticSearchServiceV2 {
 
       console.log(`✅ Chunk split search: Returned ${finalResults.length} ranked chunks from document_vectors table`);
 
-      // Debug: Log first few results
+      // Debug: Log first few results to confirm chunk content (not full doc)
       finalResults.slice(0, 3).forEach((result, index) => {
-        console.log(`${index + 1}. ${result.name} - Score: ${result.similarity.toFixed(4)} - Content: ${result.content.substring(0, 100)}...`);
+        console.log(`${index + 1}. ${result.name} - Score: ${result.similarity.toFixed(4)}`);
+        console.log(`   Content (${result.content.length} chars): ${result.content.substring(0, 150)}...`);
       });
 
       return finalResults;
