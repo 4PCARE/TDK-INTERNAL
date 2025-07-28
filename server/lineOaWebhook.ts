@@ -1134,15 +1134,16 @@ ${imageAnalysisResult}
             });
 
             if (!queryAnalysis.needsSearch) {
-              console.log(`⏭️ LINE OA: Query doesn't need search, using direct conversation`);
-              aiResponse = await getAiResponseDirectly(
-                contextMessage,
-                lineIntegration.agentId,
-                lineIntegration.userId,
-                "lineoa",
-                event.source.userId,
-                true // skipSearch = true
-              );
+              console.log(`⏭️ LINE OA: Query doesn't need search, using test message`);
+              // aiResponse = await getAiResponseDirectly(
+              //   contextMessage,
+              //   lineIntegration.agentId,
+              //   lineIntegration.userId,
+              //   "lineoa",
+              //   event.source.userId,
+              //   true // skipSearch = true
+              // );
+              aiResponse = "This is a test message";
             } else {
               console.log(`🔍 LINE OA: Query needs search, performing smart hybrid search with enhanced query`);
 
@@ -1321,15 +1322,18 @@ ${documentContext}
                   }
                 }
 
-                // Step 7: Generate AI response
-                const completion = await openai.chat.completions.create({
-                  model: "gpt-4o",
-                  messages: messages,
-                  max_tokens: 1000,
-                  temperature: 0.7,
-                });
+                // Step 7: Generate AI response - COMMENTED OUT FOR TESTING
+                // const completion = await openai.chat.completions.create({
+                //   model: "gpt-4o",
+                //   messages: messages,
+                //   max_tokens: 1000,
+                //   temperature: 0.7,
+                // });
 
-                aiResponse = completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+                // aiResponse = completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+                
+                // TEST MESSAGE INSTEAD OF OPENAI
+                aiResponse = "This is a test message";
 
                 // Step 8: Validate AI output with guardrails
                 if (guardrailsService) {
@@ -1352,29 +1356,31 @@ ${documentContext}
                 console.log(`✅ LINE OA: Generated response using new search workflow (${aiResponse.length} chars)`);
 
               } else {
-                console.log(`⚠️ LINE OA: No relevant content found in agent's bound documents, using fallback`);
-                aiResponse = await getAiResponseDirectly(
-                  contextMessage,
-                  lineIntegration.agentId,
-                  lineIntegration.userId,
-                  "lineoa",
-                  event.source.userId,
-                  false // skipSearch = false for fallback
-                );
+                console.log(`⚠️ LINE OA: No relevant content found in agent's bound documents, using test message`);
+                // aiResponse = await getAiResponseDirectly(
+                //   contextMessage,
+                //   lineIntegration.agentId,
+                //   lineIntegration.userId,
+                //   "lineoa",
+                //   event.source.userId,
+                //   false // skipSearch = false for fallback
+                // );
+                aiResponse = "This is a test message";
               }
             } // End of search workflow conditional
 
           } catch (error) {
-            console.error("💥 LINE OA: New search workflow failed, using fallback:", error);
-            // Fallback to agent conversation without documents
-            aiResponse = await getAiResponseDirectly(
-              contextMessage,
-              lineIntegration.agentId,
-              lineIntegration.userId,
-              "lineoa",
-              event.source.userId,
-              false // skipSearch = false for fallback
-            );
+            console.error("💥 LINE OA: New search workflow failed, using test message:", error);
+            // Fallback to agent conversation without documents - COMMENTED OUT FOR TESTING
+            // aiResponse = await getAiResponseDirectly(
+            //   contextMessage,
+            //   lineIntegration.agentId,
+            //   lineIntegration.userId,
+            //   "lineoa",
+            //   event.source.userId,
+            //   false // skipSearch = false for fallback
+            // );
+            aiResponse = "This is a test message";
           }
           console.log("🤖 AI response:", aiResponse);
 
