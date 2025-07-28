@@ -162,7 +162,14 @@ async function calculateBM25(searchTerms: string[], chunks: any[]): Promise<Map<
   // Use pythaiNLP for better search term expansion
   let normalizedSearchTerms: string[];
   try {
-    normalizedSearchTerms = await thaiNlpService.expandSearchTerms(searchTerms);
+    console.log(`🔍 BM25: Attempting Thai NLP expansion for terms: [${searchTerms.join(', ')}]`);
+    normalizedSearchTerms = await Promise.race([
+      thaiNlpService.expandSearchTerms(searchTerms),
+      new Promise<string[]>((_, reject) => 
+        setTimeout(() => reject(new Error('Thai NLP timeout')), 5000)
+      )
+    ]);
+    console.log(`🔍 BM25: Thai NLP expansion successful`);
   } catch (error) {
     console.warn('Thai NLP expansion failed, using fallback:', error);
     // Fallback to original method with better error handling
@@ -329,8 +336,13 @@ async function normalizeThaiText(text: string): Promise<string> {
 
 async function tokenizeWithThaiNormalization(text: string): Promise<string[]> {
   try {
-    // Use pythaiNLP for better tokenization
-    return await thaiNlpService.tokenizeText(text);
+    // Use pythaiNLP for better tokenization with timeout
+    return await Promise.race([
+      thaiNlpService.tokenizeText(text),
+      new Promise<string[]>((_, reject) => 
+        setTimeout(() => reject(new Error('Thai tokenization timeout')), 3000)
+      )
+    ]);
   } catch (error) {
     console.warn('Thai tokenization failed, using fallback:', error);
     // Fallback to original method with error handling

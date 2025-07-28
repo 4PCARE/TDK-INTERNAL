@@ -23,18 +23,28 @@ class ThaiNlpService {
   async processQuery(queryText: string): Promise<ThaiNlpResult> {
     try {
       const command = `python3 "${this.pythonScriptPath}" "${queryText.replace(/"/g, '\\"')}"`;
-      const { stdout, stderr } = await execAsync(command);
+      console.log(`🐍 Thai NLP: Executing command: ${command}`);
+      
+      // Add timeout to prevent hanging
+      const { stdout, stderr } = await Promise.race([
+        execAsync(command),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Python script timeout')), 5000)
+        )
+      ]);
 
       if (stderr) {
         console.warn('Thai NLP warning:', stderr);
       }
 
+      console.log(`🐍 Thai NLP: Raw stdout: ${stdout}`);
       const result = JSON.parse(stdout);
       
       if (result.error) {
         throw new Error(result.error);
       }
 
+      console.log(`🐍 Thai NLP: Successfully processed query`);
       return result;
     } catch (error) {
       console.error('Thai NLP processing failed:', error);
