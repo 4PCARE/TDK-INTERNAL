@@ -374,12 +374,13 @@ Format your response in a clear, conversational way that helps the user understa
 }
 
 export async function generateChatResponse(
-  query: string,
+  userMessage: string,
   documents: any[],
   specificDocumentId?: number,
-  searchType: 'semantic' | 'keyword' | 'hybrid' = 'hybrid',
+  searchType: 'hybrid' | 'semantic' | 'keyword' = 'hybrid',
   keywordWeight: number = 0.4,
-  vectorWeight: number = 0.6
+  vectorWeight: number = 0.6,
+  massSelectionPercentage?: number
 ): Promise<string> {
   try {
     let relevantContent = "";
@@ -387,7 +388,7 @@ export async function generateChatResponse(
     // Use hybrid search for better context
     try {
       console.log(`Chat: Performing ${searchType} search for query: "${query}" with weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
-      
+
       // Get document IDs to filter search scope to only agent's documents
       const documentIds = documents.map(doc => doc.id).filter(id => id !== undefined);
       console.log(`Chat: Restricting search to ${documentIds.length} agent documents: [${documentIds.join(', ')}]`);
@@ -403,7 +404,8 @@ export async function generateChatResponse(
             limit: 2, // Only get top 2 chunks globally as requested
             keywordWeight,
             vectorWeight,
-            specificDocumentIds: documentIds // Filter to only agent's documents
+            specificDocumentIds: documentIds, // Filter to only agent's documents
+            massSelectionPercentage: massSelectionPercentage || 0.3 // Default to 30% if not specified
           }
         );
 

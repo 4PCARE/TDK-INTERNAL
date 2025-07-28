@@ -1259,7 +1259,8 @@ ${imageAnalysisResult}
                   threshold: 0.3,
                   keywordWeight: queryAnalysis.keywordWeight,
                   vectorWeight: queryAnalysis.vectorWeight,
-                  specificDocumentIds: agentDocIds // Restrict search to agent's bound documents
+                  specificDocumentIds: agentDocIds, // Restrict search to agent's bound documents
+                  massSelectionPercentage: 0.3 // Use 30% mass selection for Line OA
                 }
               );
 
