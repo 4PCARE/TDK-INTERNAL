@@ -343,7 +343,8 @@ export async function searchSmartHybridDebug(
 
   let normalizeKeywordScore = (score: number) => score;
 
-  if (allTfidfScores.length > 0) {
+  if (allTfidfScores.length > 1) {
+    // Only normalize if we have more than one keyword match
     // Calculate statistics for normalization
     const minScore = Math.min(...allTfidfScores);
     const maxScore = Math.max(...allTfidfScores);
@@ -373,6 +374,8 @@ export async function searchSmartHybridDebug(
         return (score - minScore) / (scoreRange + 1e-8);
       };
     }
+  } else if (allTfidfScores.length === 1) {
+    console.log(`📊 SKIPPING normalization: Only one keyword chunk detected, using raw TF-IDF score`);
   }
 
   for (const chunkId of allChunkIds) {
