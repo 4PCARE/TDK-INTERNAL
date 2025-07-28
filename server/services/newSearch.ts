@@ -428,8 +428,8 @@ export async function searchSmartHybridDebug(
     const avgScore = totalScore / scoredChunks.length;
 
     if (avgScore > 0.05) {
-      // Use 90% mass selection - keep adding chunks until we reach 90% of total score mass
-      const scoreTarget = totalScore * 0.90;
+      // Use 30% mass selection - keep adding chunks until we reach 90% of total score mass
+      const scoreTarget = totalScore * 0.30;
       let accScore = 0;
       
       console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, 90% target: ${scoreTarget.toFixed(4)}`);
@@ -442,7 +442,7 @@ export async function searchSmartHybridDebug(
         
         // Stop when we've accumulated 90% of the total score mass
         if (accScore >= scoreTarget) {
-          console.log(`📊 STOPPING: Reached 90% mass target (${(accScore/totalScore*100).toFixed(1)}%) with ${selectedChunks.length} chunks`);
+          console.log(`📊 STOPPING: Reached 30% mass target (${(accScore/totalScore*100).toFixed(1)}%) with ${selectedChunks.length} chunks`);
           break;
         }
         
@@ -460,7 +460,7 @@ export async function searchSmartHybridDebug(
     // Calculate selected chunks total score
     const selectedTotalScore = selectedChunks.reduce((sum, c) => sum + c.finalScore, 0);
     console.log(`📊 SCORE BREAKDOWN: ${selectedTotalScore.toFixed(4)} out of ${totalScore.toFixed(4)} (${(selectedTotalScore/totalScore*100).toFixed(1)}%)`);
-    console.log(`🎯 TRUE MASS SELECTION (90%): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} chunks capturing ${(selectedTotalScore/totalScore*100).toFixed(1)}% of total score mass`);
+    console.log(`🎯 TRUE MASS SELECTION (30%): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} chunks capturing ${(selectedTotalScore/totalScore*100).toFixed(1)}% of total score mass`);
   }
 
   const results: SearchResult[] = selectedChunks.map(chunk => {
