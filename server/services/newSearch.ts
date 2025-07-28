@@ -580,7 +580,6 @@ export async function searchSmartHybridDebug(
         console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, mass=${(accScore/totalScore*100).toFixed(1)}% (need ${(massPercentage * 100).toFixed(1)}%)`);
 
         // Check if we've reached the target mass AND minimum chunks
-        const minChunks = massPercentage >= 0.6 ? 5 : 2;
         if (accScore >= scoreTarget && selectedChunks.length >= minChunks) {
           console.log(`📊 STOPPING: Reached ${(massPercentage * 100).toFixed(1)}% mass target (${(accScore/totalScore*100).toFixed(1)}%) with ${selectedChunks.length} chunks`);
           break;
