@@ -380,8 +380,8 @@ export default function Integrations() {
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
       <main className="flex-1 transition-all duration-300 ease-in-out">
-        <div className="p-8"></div>
-            <div className="max-w-6xl mx-auto">
+        <div className="p-8">
+          <div className="max-w-6xl mx-auto">
               {/* Header */}
               <div className="flex items-center justify-between mb-8">
                 <div>
@@ -866,8 +866,8 @@ export default function Integrations() {
               )}
             </div>
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
