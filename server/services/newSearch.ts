@@ -188,7 +188,7 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
     const content = chunk.content || '';
     const tokens = tokenizeWithThaiNormalization(content);
     const chunkIndex = chunk.chunkIndex ?? 0;
-    const chunkId = `${chunk.documentId}-${chunkIndex}`;
+    const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
 
     chunkLengths.set(chunkId, tokens.length);
     totalDocLength += tokens.length;
@@ -217,14 +217,14 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
     }
   }
 
-  console.log(`🔍 BM25: Document frequencies calculated:`, Array.from(termDF.entries()).map(([term, df]) => `${term}:${df}`));
+  console.log(`🔍 BM25: Document frequencies calculated:`, Array.from(termDF.entries())).map(([term, df]) => `${term}:${df}`);
 
   const avgDocLength = totalDocLength / totalChunks;
 
   // Second pass: calculate BM25 scores
   for (const chunk of chunks) {
     const chunkIndex = chunk.chunkIndex ?? 0;
-    const chunkId = `${chunk.documentId}-${chunkIndex}`;
+    const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
     const content = chunk.content || '';
     const tokens = tokenizeWithThaiNormalization(content);
     const docLength = chunkLengths.get(chunkId) || 1;
@@ -560,7 +560,7 @@ export async function searchSmartHybridDebug(
       const scoreTarget = totalScore * massSelectionPercentage;
       let accScore = 0;
 
-      console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, ${(massPercentage * 100).toFixed(1)}% target: ${scoreTarget.toFixed(4)}`);
+      console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, ${(massSelectionPercentage * 100).toFixed(1)}% target: ${scoreTarget.toFixed(4)}`);
 
       for (const chunk of scoredChunks) {
         const potentialScore = accScore + chunk.finalScore;
@@ -577,7 +577,7 @@ export async function searchSmartHybridDebug(
         selectedChunks.push(chunk);
         accScore += chunk.finalScore;
 
-        console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, mass=${(accScore/totalScore*100).toFixed(1)}% (need ${(massPercentage * 100).toFixed(1)}%)`);
+        console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, mass=${(accScore/totalScore*100).toFixed(1)}% (need ${(massSelectionPercentage * 100).toFixed(1)}%)`);
 
         // Check if we've reached the target mass AND minimum chunks
         if (accScore >= scoreTarget && selectedChunks.length >= minChunks) {
@@ -750,7 +750,7 @@ export async function searchSmartHybridV1(
     const bm25Stats = {
       min: keywordScores.length > 0 ? Math.min(...keywordScores) : 0,
       max: keywordScores.length > 0 ? Math.max(...keywordScores) : 0,
-      mean: keywordScores.length > 0 ? keywordScores.reduce((a, b) => a + b, 0) / keywordScores.length : 0,
+      mean: keywordScores.length > 0 ? keywordScores.reduce((a, b) => a + b, 0) / keywordScores.length,
       std: 0,
     };
 
