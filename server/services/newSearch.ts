@@ -380,9 +380,9 @@ export async function searchSmartHybridDebug(
   // 5. Sort by finalScore and apply smart selection
   scoredChunks.sort((a, b) => b.finalScore - a.finalScore);
 
-  // Smart selection: use 20% mass selection with reasonable limits
-  const minResults = Math.min(2, scoredChunks.length); // At least 2 results if available
-  const maxResults = Math.min(12, scoredChunks.length); // Cap at 12 results for more comprehensive selection
+  // Smart selection: use 60% mass selection with reasonable limits
+  const minResults = Math.min(6, scoredChunks.length); // At least 6 results if available
+  const maxResults = Math.min(15, scoredChunks.length); // Cap at 15 results for more comprehensive selection
 
   let selectedChunks = [];
 
@@ -392,14 +392,20 @@ export async function searchSmartHybridDebug(
     const avgScore = totalScore / scoredChunks.length;
 
     if (avgScore > 0.05) {
-      // Use 60% mass selection for better coverage
+      // Use 60% mass selection for better coverage, but ensure we get at least minResults
       const scoreTarget = totalScore * 0.60;
       let accScore = 0;
       for (const chunk of scoredChunks) {
         selectedChunks.push(chunk);
         accScore += chunk.finalScore;
+        // Only break on score target if we have enough results
         if (accScore >= scoreTarget && selectedChunks.length >= minResults) break;
         if (selectedChunks.length >= maxResults) break;
+      }
+      
+      // Ensure we have at least minResults even if score target is reached early
+      if (selectedChunks.length < minResults) {
+        selectedChunks = scoredChunks.slice(0, Math.min(minResults, scoredChunks.length));
       }
     } else {
       // If scores are very low, ensure we still get some results but fewer
@@ -407,7 +413,7 @@ export async function searchSmartHybridDebug(
       selectedChunks = scoredChunks.slice(0, fallbackCount);
     }
 
-    console.log(`🎯 SMART SELECTION (60% mass): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} (avg score: ${avgScore.toFixed(4)})`);
+    console.log(`🎯 SMART SELECTION (60% mass): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} (avg score: ${avgScore.toFixed(4)}, min: ${minResults}, max: ${maxResults})`);
   }
 
   const results: SearchResult[] = selectedChunks.map(chunk => {
