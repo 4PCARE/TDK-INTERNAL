@@ -340,22 +340,22 @@ export async function searchSmartHybridDebug(
 
   // Step 1: Collect all TF-IDF scores for statistical normalization
   const allTfidfScores = Object.values(keywordMatches).filter(score => score > 0);
-  
+
   let normalizeKeywordScore = (score: number) => score;
-  
+
   if (allTfidfScores.length > 0) {
     // Calculate statistics for normalization
     const minScore = Math.min(...allTfidfScores);
     const maxScore = Math.max(...allTfidfScores);
     const mean = allTfidfScores.reduce((a, b) => a + b, 0) / allTfidfScores.length;
     const std = Math.sqrt(allTfidfScores.reduce((sum, s) => sum + (s - mean) ** 2, 0) / allTfidfScores.length);
-    
+
     console.log(`📊 TF-IDF STATS: min=${minScore.toFixed(4)}, max=${maxScore.toFixed(4)}, mean=${mean.toFixed(4)}, std=${std.toFixed(4)}`);
-    
+
     // Choose normalization method based on score distribution
     const scoreRange = maxScore - minScore;
     const coefficientOfVariation = std / (mean + 1e-8);
-    
+
     if (coefficientOfVariation > 1.0 || scoreRange > mean * 3) {
       // High variability: Use z-score with sigmoid for robust handling of outliers
       console.log(`📊 Using Z-SCORE normalization (high variability detected: CV=${coefficientOfVariation.toFixed(2)})`);
@@ -431,29 +431,29 @@ export async function searchSmartHybridDebug(
       // Use 10% mass selection - keep adding chunks until we reach 30% of total score mass
       const scoreTarget = totalScore * 0.10;
       let accScore = 0;
-      
+
       console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, 10% target: ${scoreTarget.toFixed(4)}`);
-      
+
       for (const chunk of scoredChunks) {
         // Check if adding this chunk would exceed the 30% mass target
         const potentialScore = accScore + chunk.finalScore;
-        
+
         if (potentialScore > scoreTarget && selectedChunks.length > 0) {
           console.log(`📊 STOPPING: Adding chunk ${selectedChunks.length + 1} would exceed 10% mass target (${(potentialScore/totalScore*100).toFixed(1)}% > 10.0%) - stopping at ${selectedChunks.length} chunks`);
           break;
         }
-        
+
         selectedChunks.push(chunk);
         accScore += chunk.finalScore;
-        
+
         console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, mass=${(accScore/totalScore*100).toFixed(1)}% (need 30.0%)`);
-        
+
         // Check if we've reached the target mass
         if (accScore >= scoreTarget) {
           console.log(`📊 STOPPING: Reached 10% mass target (${(accScore/totalScore*100).toFixed(1)}%) with ${selectedChunks.length} chunks`);
           break;
         }
-        
+
         // Safety cap to prevent excessive results
         if (selectedChunks.length >= maxResults) {
           console.log(`📊 STOPPING: Hit safety cap at ${maxResults} chunks`);
@@ -613,7 +613,71 @@ export async function searchSmartHybridV1(
     // Step 3: Rank and select using 60% mass selection for better coverage
     const sortedChunks = Array.from(combinedChunkMap.values());
     sortedChunks.sort((a, b) => b.finalScore - a.finalScore);
-    
+
+    // Collect TF-IDF statistics for normalization
+    const keywordScores = sortedChunks.map(chunk => chunk.keywordScore).filter(score => score > 0);
+    const tfIdfStats = {
+      min: keywordScores.length > 0 ? Math.min(...keywordScores) : 0,
+      max: keywordScores.length > 0 ? Math.max(...keywordScores) : 0,
+      mean: keywordScores.length > 0 ? keywordScores.reduce((a, b) => a + b, 0) / keywordScores.length : 0,
+      std: keywordScores.length > 0 ? Math.sqrt(keywordScores.reduce((sum, s) => sum + (s - tfIdfStats.mean) ** 2, 0) / keywordScores.length) : 0,
+    };
+
+    // Normalize keyword scores
+    sortedChunks.forEach(chunk => {
+      chunk.normalizedKeywordScore = 0; // Initialize
+    });
+
+    // Apply TF-IDF normalization (prevent division by zero)
+    if (tfIdfStats.max > tfIdfStats.min) {
+      // Use MIN-MAX normalization for better score distribution
+      if (tfIdfStats.std / tfIdfStats.mean < 0.1) {
+        console.log(`📊 Using MIN-MAX normalization (low variability detected: CV=${(tfIdfStats.std / tfIdfStats.mean).toFixed(2)})`);
+        sortedChunks.forEach(chunk => {
+          if (chunk.keywordScore > 0) {
+            chunk.normalizedKeywordScore = (chunk.keywordScore - tfIdfStats.min) / (tfIdfStats.max - tfIdfStats.min);
+          }
+        });
+      } else {
+        console.log(`📊 Using Z-SCORE normalization (high variability detected: CV=${(tfIdfStats.std / tfIdfStats.mean).toFixed(2)})`);
+        sortedChunks.forEach(chunk => {
+          if (chunk.keywordScore > 0) {
+            chunk.normalizedKeywordScore = Math.max(0, (chunk.keywordScore - tfIdfStats.mean) / tfIdfStats.std);
+          }
+        });
+      }
+    } else {
+      console.log(`📊 All keyword scores identical (${tfIdfStats.max}), using raw scores`);
+      sortedChunks.forEach(chunk => {
+        if (chunk.keywordScore > 0) {
+          // When keyword weight is high but scores are low, boost them slightly
+          if (keywordWeight > 0.7 && tfIdfStats.max < 0.1) {
+            chunk.normalizedKeywordScore = Math.min(1.0, chunk.keywordScore * 10); // Boost weak keyword matches
+            console.log(`📊 BOOSTING weak keyword match: ${chunk.keywordScore.toFixed(4)} -> ${chunk.normalizedKeywordScore.toFixed(4)}`);
+          } else {
+            chunk.normalizedKeywordScore = chunk.keywordScore;
+          }
+        }
+      });
+    }
+
+    // Calculate final combined scores
+    console.log(`📐 FORMULA: Final Score = (Keyword Score × ${keywordWeight}) + (Vector Score × ${vectorWeight})`);
+
+    sortedChunks.forEach(chunk => {
+      const keywordComponent = (chunk.normalizedKeywordScore || 0) * keywordWeight;
+      const vectorComponent = (chunk.vectorScore || 0) * vectorWeight;
+      chunk.finalScore = keywordComponent + vectorComponent;
+
+      // If keyword weight is high but no good keyword matches, fall back to vector scores
+      if (keywordWeight > 0.7 && chunk.finalScore === 0 && chunk.vectorScore > 0.25) {
+        chunk.finalScore = chunk.vectorScore * 0.3; // Give it a fighting chance
+        console.log(`📊 FALLBACK: Chunk ${chunk.documentId}-${chunk.chunkIndex} boosted from vector score: ${chunk.finalScore.toFixed(3)}`);
+      }
+
+      console.log(`📊 CHUNK ${chunk.documentId}-${chunk.chunkIndex}: Keyword=${(chunk.keywordScore || 0).toFixed(4)}→${(chunk.normalizedKeywordScore || 0).toFixed(3)}, Vector=${(chunk.vectorScore || 0).toFixed(3)}, Final=${chunk.finalScore.toFixed(3)}`);
+    });
+
     const totalScore = sortedChunks.reduce((sum, c) => sum + c.finalScore, 0);
     const scoreThreshold = totalScore * 0.60; // Use 60% mass selection for consistency
 
@@ -621,7 +685,7 @@ export async function searchSmartHybridV1(
     let accumulatedScore = 0;
     const minResults = Math.min(2, sortedChunks.length);
     const maxChunks = Math.min(12, sortedChunks.length); // Increased from 3 to 12 for better coverage
-    
+
     for (const chunk of sortedChunks) {
       selectedChunks.push(chunk);
       accumulatedScore += chunk.finalScore;
