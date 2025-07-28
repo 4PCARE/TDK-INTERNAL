@@ -895,7 +895,7 @@ export async function handleLineWebhook(req: Request, res: Response) {
             messageType: message.type,
             messageId: message.id,
           };
-          console.log("📎 Other message type:, message.type);
+          console.log("📎 Other message type:", message.type);
         }
 
         // Check if this message has already been processed
