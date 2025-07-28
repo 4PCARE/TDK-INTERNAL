@@ -56,7 +56,6 @@ export default function Sidebar({
   const sidebarRef = useRef<HTMLElement>(null);
 
   // Mobile detection with proper initialization
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
