@@ -185,9 +185,9 @@ export default function Sidebar({
   return (
     <>
       {/* Mobile Overlay */}
-      {isMobileOpen && (
+      {isMobile && isMobileOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black bg-opacity-50 z-40"
           onClick={onMobileClose}
         />
       )}
@@ -196,11 +196,13 @@ export default function Sidebar({
       <aside
         ref={sidebarRef}
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 bg-gradient-to-b from-navy-900 to-navy-800 shadow-xl border-r border-navy-700 transition-all duration-300 ease-in-out lg:translate-x-0",
-          isMobileOpen ? "translate-x-0" : "-translate-x-full",
-          // Mobile: always full width on small screens, desktop: respect collapsed state
-          "w-80 sm:w-72 lg:w-64",
-          isCollapsed && "lg:w-16",
+          "fixed inset-y-0 left-0 z-50 bg-gradient-to-b from-navy-900 to-navy-800 shadow-xl border-r border-navy-700 transition-all duration-300 ease-in-out",
+          // Mobile behavior (screens < 1024px)
+          isMobile && (isMobileOpen ? "translate-x-0" : "-translate-x-full"),
+          // Desktop behavior (screens >= 1024px)
+          !isMobile && "static translate-x-0",
+          // Width handling
+          isMobile ? "w-80" : isCollapsed ? "w-16" : "w-64",
         )}
       >
         <div className="flex flex-col h-full">
@@ -223,23 +225,25 @@ export default function Sidebar({
 
               <div className="flex items-center space-x-2">
                 {/* Mobile Close Button */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onMobileClose}
-                  className="lg:hidden text-navy-300 hover:text-white hover:bg-navy-700/50"
-                  aria-label="Close sidebar"
-                >
-                  <X className="h-5 w-5" />
-                </Button>
+                {isMobile && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onMobileClose}
+                    className="text-navy-300 hover:text-white hover:bg-navy-700/50"
+                    aria-label="Close sidebar"
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                )}
                 
-                {/* Desktop Collapse Toggle - hide on mobile */}
-                {onToggleCollapse && (
+                {/* Desktop Collapse Toggle */}
+                {!isMobile && onToggleCollapse && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={onToggleCollapse}
-                    className="hidden lg:flex text-navy-300 hover:text-white hover:bg-navy-700/50"
+                    className="text-navy-300 hover:text-white hover:bg-navy-700/50"
                     aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                   >
                     {isCollapsed ? (
@@ -255,13 +259,13 @@ export default function Sidebar({
 
           <div className="flex-1 p-3 space-y-6 overflow-y-auto relative scrollbar-hide">
             {/* Middle Toggle Button for Desktop */}
-            {onToggleCollapse && (
+            {!isMobile && onToggleCollapse && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onToggleCollapse}
                 data-sidebar-toggle
-                className="hidden lg:flex fixed right-[-16px] top-1/2 transform -translate-y-1/2 z-50 w-8 h-12 bg-navy-800 border border-navy-600 hover:bg-navy-700 text-navy-300 hover:text-white transition-all duration-200 rounded-r-md shadow-lg"
+                className="fixed right-[-16px] top-1/2 transform -translate-y-1/2 z-50 w-8 h-12 bg-navy-800 border border-navy-600 hover:bg-navy-700 text-navy-300 hover:text-white transition-all duration-200 rounded-r-md shadow-lg"
                 style={{ 
                   right: isCollapsed ? '0px' : '248px',
                   top: '50vh',
@@ -276,8 +280,8 @@ export default function Sidebar({
               </Button>
             )}
 
-            {/* Clickable overlay when collapsed */}
-            {isCollapsed && onToggleCollapse && (
+            {/* Clickable overlay when collapsed (desktop only) */}
+            {!isMobile && isCollapsed && onToggleCollapse && (
               <div
                 className="absolute inset-0 z-5 cursor-pointer"
                 onClick={onToggleCollapse}
@@ -285,8 +289,8 @@ export default function Sidebar({
               />
             )}
 
-            {/* Right edge clickable area when collapsed */}
-            {isCollapsed && onToggleCollapse && (
+            {/* Right edge clickable area when collapsed (desktop only) */}
+            {!isMobile && isCollapsed && onToggleCollapse && (
               <div
                 className="absolute right-0 top-0 bottom-0 w-4 z-6 cursor-pointer hover:bg-navy-700/20 transition-colors"
                 onClick={onToggleCollapse}
