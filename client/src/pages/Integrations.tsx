@@ -34,7 +34,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import Sidebar from "@/components/Layout/Sidebar";
-import { useState } from "react";
 
 // WebhookUrlDisplay component for showing webhook URLs  
 function WebhookUrlDisplay({ integrationId }: { integrationId: number }) {
