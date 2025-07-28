@@ -750,7 +750,7 @@ export async function searchSmartHybridV1(
     const bm25Stats = {
       min: keywordScores.length > 0 ? Math.min(...keywordScores) : 0,
       max: keywordScores.length > 0 ? Math.max(...keywordScores) : 0,
-      mean: keywordScores.length > 0 ? keywordScores.reduce((a, b) => a + b, 0) / keywordScores.length,
+      mean: keywordScores.length > 0 ? keywordScores.reduce((a, b) => a + b, 0) / keywordScores.length : 0,
       std: 0,
     };
 
