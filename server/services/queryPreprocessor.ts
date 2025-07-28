@@ -52,8 +52,11 @@ export class QueryPreprocessorService {
   - Increase the formality of the query because bound documents are written in formal Thai. For example, "ร้านหมอฟัน" should be "คลินิก ทันตกรรม"
 
 3. Determine if the user's query requires a document search:
-   - Mark \`needsSearch: false\` if the query is vague, purely conversational, AND lacks historical context. For example, "แก", "นาย", "เธอ", "วันนี้อากาศดีไหม", "คุณช่วยได้ไหม", "คุณชื่ออะไร", "คุณทำอะไรได้บ้าง" or random query like "แกไม่มีสิทธิ์มาเรียกฉันว่าพ่อ"
-   - Mark \`needsSearch: true\` if the query includes location, product, service, store-related keywords, OR if you can inject relevant context from history
+   - Mark \`needsSearch: false\` if the query is vague, purely conversational, AND lacks historical context. For example, common short words like "แก", "นาย", "เธอ", "ครับ", "ค่ะ", or openers like "สวัสดี", "ว่าไง", "คุณชื่ออะไร", "คุณทำอะไรได้บ้าง", or rhetorical/sarcastic lines like "แกไม่มีสิทธิ์มาเรียกฉันว่าพ่อ"
+   - Mark \`needsSearch: true\` if:
+     • The query contains specific nouns or named entities (e.g., product names, service names, brands, locations, floors, HR terms like "ลาหยุด", "สวัสดิการ", "เบิกเงิน")
+     • The query follows an information-seeking pattern (e.g., "มีไหม", "เปิดกี่โมง", "ต้องใช้เอกสารอะไรบ้าง", "ได้กี่วัน", "ทำยังไง", "ขั้นตอนคืออะไร")
+     • The query can be made meaningful using recent chat history (e.g., pronouns like “ที่นั่น”, “ตรงนั้น”, “อันนั้น” after a previous store or topic)
 
 4. If a search is needed:
    - **PRIORITY 1**: Inject specific context from chat history (store names, brands, locations)
