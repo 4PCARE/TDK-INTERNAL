@@ -1,0 +1,66 @@
+🔍 LINE OA: Query needs search, performing smart hybrid search with enhanced query
+🔍 KEYWORD SEARCH: Starting with terms: [กองทุนสำรองเลี้ยงชีพ, มีอะไรบ้าง]
+🔍 KEYWORD SEARCH: Found 4 chunks to search
+🔍 BM25: Processing 4 search terms (with Thai variants): [กองทุนสำรองเลี้ยงชีพ, กองทนสำรองลยงชพ, มีอะไรบ้าง, มอรบง]
+🔍 BM25: Document frequencies calculated: []
+🔍 KEYWORD SEARCH: Found 0 chunks with keyword matches out of 4 total chunks
+⚠️ KEYWORD SEARCH DEBUG: No positive BM25 scores found. This might indicate:
+   - Search terms: [กองทุนสำรองเลี้ยงชีพ, มีอะไรบ้าง]
+   - Total chunks processed: 4
+   - No document frequencies found for any search terms
+VectorService: Using pure vector similarity search for query: "กองทุนสำรองเลี้ยงชีพ มีอะไรบ้าง"
+VectorService: Filtering search to 4 specific documents: [249, 106, 94, 227]
+VectorService: Retrieved 4 vectors from database
+VectorService: After filtering, 4 valid chunks remain
+VectorService: Taking top 100 chunks globally from 4 total chunks
+Vector search for "กองทุนสำรองเลี้ยงชีพ มีอะไรบ้าง": Found 4 relevant chunks globally
+Debug: Top 5 vector search results for "กองทุนสำรองเลี้ยงชีพ มีอะไรบ้าง":
+1. Doc ID: 106, Similarity: 0.2408
+   Content: นโยบายการลงทุนที่สามารถเลือกได้
+
+ทางเลือกการลงทุน
+
+สัดส่วนเงินนำส่งในแต่ละนโยบาย
+
+  F100
+
+เงินทั้งหมด 100% ของสมาชิกจะอยู่ในนโยบายตราสารหนี้
+
+ F80 : E20
+
+
+
+เงินสะสม-เงินสมทบที่นำส่งเข้ากองทุนในแต่ละ...
+2. Doc ID: 94, Similarity: 0.2245
+   Content: Sheet: Sheet1
+ลำดับ    หัวข้อกฎระเบียบ    รายละเอียด   ประเภทกฎระเบียบ  บังคับใช้ตั้งแต่วันที่   โทษหากฝ่าฝืน
+1   เวลาทำงานปกติ    ทำงานวันจันทร์ - ศุกร์ เวลา 08:30 - 17:30    เวลาทำงาน   1 ม.ค. 2565 ตักเตือนในครั้งแรก หา...
+3. Doc ID: 249, Similarity: 0.2233
+   Content: --- Page 1 ---
+**ระเบียบการลา**
+
+**ลาพักผ่อนประจาปี**
+พนักงานที่ประสงค์จะลาหยุดพักผ่อนประจาปีจะต้องแจ้งล่วงหน้าอย่างน้อย 14 วัน และจะต้องได้รับการอนุมัติจากผู้บังคับบัญชาและฝ่ายบุคคล บริษัทฯ อาจกาหนดห...
+4. Doc ID: 227, Similarity: 0.1997
+   Content: --- Page 1 ---
+APlus
+      Consulting              ประกาศวันหยุดตามประเพณี ประจาปี 2568
+
+1     วันพุธ 1 มกราคม            วันขึ้นปีใหม่
+2     วันพุธ 12 กุมภาพันธ์       วันมาฆบูชา
+3     วันจันทร์ 14 เ...
+🧮 SCORING CALCULATION: Combining 0 unique chunks
+📊 WEIGHTS: Keyword=0.85, Vector=0.15
+📐 FORMULA: Final Score = (Keyword Score × 0.85) + (Vector Score × 0.15)
+✅ SCORED CHUNKS: 0 chunks with final scores > 0
+✅ searchSmartHybridDebug: returning 0 results
+Memory usage: {
+  rss: 463667200,
+  heapTotal: 228376576,
+  heapUsed: 212773920,
+  external: 22977134,
+  arrayBuffers: 10937040
+}
+🔍 LINE OA: Smart hybrid search found 0 relevant chunks from agent's bound documents
+⚠️ LINE OA: No relevant content found in agent's bound documents, falling back to agent conversation without documents
+✅ LINE OA: Fallback response generated successfully (915 chars)
