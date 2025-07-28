@@ -364,6 +364,7 @@ export async function searchSmartHybridDebug(
   const keywordWeight = options.keywordWeight ?? 0.5;
   const vectorWeight = options.vectorWeight ?? 0.5;
   const threshold = options.threshold ?? 0.3;
+  const massSelectionPercentage = options.massSelectionPercentage || MASS_SELECTION_PERCENTAGE;
 
   const searchTerms = query.toLowerCase().split(/\s+/).filter(Boolean);
 
@@ -556,8 +557,7 @@ export async function searchSmartHybridDebug(
 
     if (avgScore > 0.05) {
       // Use configurable mass selection - keep adding chunks until we reach the target percentage of total score mass
-      const massPercentage = options.massSelectionPercentage || MASS_SELECTION_PERCENTAGE;
-      const scoreTarget = totalScore * massPercentage;
+      const scoreTarget = totalScore * massSelectionPercentage;
       let accScore = 0;
 
       console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, ${(massPercentage * 100).toFixed(1)}% target: ${scoreTarget.toFixed(4)}`);
