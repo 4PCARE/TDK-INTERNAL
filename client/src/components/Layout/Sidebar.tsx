@@ -56,13 +56,8 @@ export default function Sidebar({
   const sidebarRef = useRef<HTMLElement>(null);
 
   // Mobile detection with proper initialization
-  const [isMobile, setIsMobile] = useState(() => {
-    // Only check window if we're in the browser
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < 1024;
-    }
-    return false;
-  });
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
