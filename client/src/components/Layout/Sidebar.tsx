@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { 
   Home, 
   FileText, 
@@ -55,7 +54,6 @@ export default function Sidebar({
   const [isDashboardExpanded, setIsDashboardExpanded] = useState(false);
   const { user } = useAuth();
   const sidebarRef = useRef<HTMLElement>(null);
-  const isMobile = useIsMobile();
 
   const { data: categories = [] } = useQuery({
     queryKey: ["/api/categories"],
@@ -198,17 +196,11 @@ export default function Sidebar({
       <aside
         ref={sidebarRef}
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 bg-gradient-to-b from-navy-900 to-navy-800 shadow-xl border-r border-navy-700 transition-all duration-300 ease-in-out",
-          // Mobile behavior
-          isMobile 
-            ? (isMobileOpen ? "translate-x-0" : "-translate-x-full")
-            : "translate-x-0", // Always visible on desktop
-          // Width behavior
-          isMobile 
-            ? "w-64" // Full width on mobile when open
-            : (isCollapsed ? "w-16" : "w-64"), // Collapsible on desktop
+          "fixed lg:static inset-y-0 left-0 z-50 bg-gradient-to-b from-navy-900 to-navy-800 shadow-xl border-r border-navy-700 transition-all duration-300 ease-in-out lg:translate-x-0",
+          isMobileOpen ? "translate-x-0" : "-translate-x-full",
+          isCollapsed ? "w-16" : "w-64",
         )}
-      ></aside>
+      >
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="p-4 border-b border-navy-700/50">
