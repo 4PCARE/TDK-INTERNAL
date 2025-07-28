@@ -895,7 +895,7 @@ export async function handleLineWebhook(req: Request, res: Response) {
             messageType: message.type,
             messageId: message.id,
           };
-          console.log("📎 Other message type:", message.type);
+          console.log("📎 Other message type:, message.type);
         }
 
         // Check if this message has already been processed
@@ -1143,7 +1143,7 @@ ${imageAnalysisResult}
               //   event.source.userId,
               //   true // skipSearch = true
               // );
-              aiResponse = "This is a test message";
+              // aiResponse = "This is a test message";
             } else {
               console.log(`🔍 LINE OA: Query needs search, performing smart hybrid search with enhanced query`);
 
@@ -1323,17 +1323,17 @@ ${documentContext}
                 }
 
                 // Step 7: Generate AI response - COMMENTED OUT FOR TESTING
-                // const completion = await openai.chat.completions.create({
-                //   model: "gpt-4o",
-                //   messages: messages,
-                //   max_tokens: 1000,
-                //   temperature: 0.7,
-                // });
+                const completion = await openai.chat.completions.create({
+                  model: "gpt-4o",
+                  messages: messages,
+                  max_tokens: 1000,
+                  temperature: 0.7,
+                });
 
-                // aiResponse = completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
-                
+                aiResponse = completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+
                 // TEST MESSAGE INSTEAD OF OPENAI
-                aiResponse = "This is a test message";
+                // aiResponse = "This is a test message";
 
                 // Step 8: Validate AI output with guardrails
                 if (guardrailsService) {
