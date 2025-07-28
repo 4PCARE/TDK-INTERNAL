@@ -241,6 +241,7 @@ export default function Sidebar({
                 variant="ghost"
                 size="sm"
                 onClick={onToggleCollapse}
+                data-sidebar-toggle
                 className="hidden lg:flex fixed right-[-16px] top-1/2 transform -translate-y-1/2 z-50 w-8 h-12 bg-navy-800 border border-navy-600 hover:bg-navy-700 text-navy-300 hover:text-white transition-all duration-200 rounded-r-md shadow-lg"
                 style={{ 
                   right: isCollapsed ? '0px' : '248px',
