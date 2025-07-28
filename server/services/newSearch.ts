@@ -296,7 +296,7 @@ export async function searchSmartHybridDebug(
       totalMatches++;
 
       const [docId, chunkIndex] = chunkId.split('-');
-      console.log(`🔍 KEYWORD MATCH (TF-IDF): Doc ${docId} chunk ${chunkIndex} - ${tfidfMatch.matchedTerms.length}/${searchTerms.length} terms matched (${tfidfMatch.matchedTerms.join(', ')}) score: ${tfidfMatch.score.toFixed(3)}`);
+      console.log(`🔍 KEYWORD MATCH (TF-IDF): Doc ${docId} chunk ${chunkIndex} - ${tfidfMatch.matchedTerms.length}/${searchTerms.length} terms matched (${tfidfMatch.matchedTerms.join(', ')}) score: ${tfidfMatch.score.toFixed(5)}`);
     }
   }
 
