@@ -346,7 +346,7 @@ export async function searchSmartHybridDebug(
     console.log(`⚠️ KEYWORD SEARCH DEBUG: No positive BM25 scores found. This might indicate:`)
     console.log(`   - Search terms: [${searchTerms.join(', ')}]`)
     console.log(`   - Total chunks processed: ${chunks.length}`)
-    console.log(`   - Document frequencies:`, Array.from(termDF.entries()))
+    console.log(`   - No document frequencies found for any search terms`)
   }
 
   // 3. Perform vector search
