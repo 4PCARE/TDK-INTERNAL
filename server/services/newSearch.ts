@@ -392,8 +392,8 @@ export async function searchSmartHybridDebug(
     const avgScore = totalScore / scoredChunks.length;
 
     if (avgScore > 0.05) {
-      // Use 70% mass selection for better coverage with more results
-      const scoreTarget = totalScore * 0.70;
+      // Use 5% mass selection for very broad coverage with many more results
+      const scoreTarget = totalScore * 0.05;
       let accScore = 0;
       for (const chunk of scoredChunks) {
         selectedChunks.push(chunk);
@@ -413,7 +413,7 @@ export async function searchSmartHybridDebug(
       selectedChunks = scoredChunks.slice(0, fallbackCount);
     }
 
-    console.log(`🎯 SMART SELECTION (70% mass): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} (avg score: ${avgScore.toFixed(4)}, min: ${minResults}, max: ${maxResults})`);
+    console.log(`🎯 SMART SELECTION (5% mass): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} (avg score: ${avgScore.toFixed(4)}, min: ${minResults}, max: ${maxResults})`);
   }
 
   const results: SearchResult[] = selectedChunks.map(chunk => {
