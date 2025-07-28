@@ -757,7 +757,8 @@ export async function searchSmartHybridV1(
 
       const hybridScore = Math.max(
         vectorScore * vectorWeight + keywordScore * keywordWeight,
-        vectorScore,
+        ```text
+vectorScore,
         keywordScore
       );
 
