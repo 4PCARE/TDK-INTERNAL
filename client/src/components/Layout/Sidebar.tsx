@@ -199,7 +199,7 @@ export default function Sidebar({
       {/* Mobile Overlay */}
       {isMobile && isMobileOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40"
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={onMobileClose}
         />
       )}
@@ -209,12 +209,14 @@ export default function Sidebar({
         ref={sidebarRef}
         className={cn(
           "fixed inset-y-0 left-0 z-50 bg-gradient-to-b from-navy-900 to-navy-800 shadow-xl border-r border-navy-700 transition-all duration-300 ease-in-out",
-          // Mobile behavior (screens < 1024px)
-          isMobile && (isMobileOpen ? "translate-x-0" : "-translate-x-full"),
-          // Desktop behavior (screens >= 1024px)
-          !isMobile && "static translate-x-0",
-          // Width handling
-          isMobile ? "w-80" : isCollapsed ? "w-16" : "w-64",
+          // Mobile behavior (screens < 1024px) - always fixed and slide in/out
+          "lg:static lg:translate-x-0",
+          // Mobile slide behavior
+          isMobile ? (isMobileOpen ? "translate-x-0" : "-translate-x-full") : "translate-x-0",
+          // Width handling - responsive
+          "w-80 lg:w-64",
+          // Desktop collapsed state
+          !isMobile && isCollapsed && "lg:w-16",
         )}
       >
         <div className="flex flex-col h-full">
@@ -314,7 +316,7 @@ export default function Sidebar({
             <nav className="flex-1 px-4 py-4 space-y-6">
               {navigationGroups.map((group, groupIndex) => (
                 <div key={group.label} className="space-y-2">
-                  {/* Group header (button) - show on mobile even when collapsed */}
+                  {/* Group header (button) - show when not collapsed on desktop, always show on mobile */}
                   {(!isCollapsed || isMobile) && (
                   <button
                     type="button"
@@ -331,7 +333,7 @@ export default function Sidebar({
                     </span>
                   </button>
                   )}
-                  {/* Group items (collapsible) - show on mobile even when collapsed */}
+                  {/* Group items (collapsible) - show when expanded and either not collapsed or on mobile */}
                   <div className={cn(
                     "space-y-1 pl-1 transition-all duration-200 overflow-hidden",
                     (expandedGroups[group.label] && (!isCollapsed || isMobile)) ? "max-h-96" : "max-h-0"
@@ -343,7 +345,7 @@ export default function Sidebar({
                         <Link
                           key={item.name}
                           href={item.href}
-                          onClick={onMobileClose}
+                          onClick={isMobile ? onMobileClose : undefined}
                           className={cn(
                             "flex items-start space-x-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
                             isActive
@@ -351,9 +353,12 @@ export default function Sidebar({
                               : "text-white hover:bg-navy-700/50 hover:text-white"
                           )}
                         >
-                          <item.icon className={cn("w-4 h-4 mt-0.5", isCollapsed && !isMobile && "lg:w-6 lg:h-6")} />
+                          <item.icon className={cn(
+                            "w-4 h-4 mt-0.5 flex-shrink-0", 
+                            isCollapsed && !isMobile && "lg:w-6 lg:h-6"
+                          )} />
                           {(!isCollapsed || isMobile) && (
-                            <span className="break-words whitespace-normal text-left drop-shadow-sm">
+                            <span className="break-words whitespace-normal text-left drop-shadow-sm min-w-0">
                               {item.name}
                             </span>
                           )}
