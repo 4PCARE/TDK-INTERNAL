@@ -217,7 +217,8 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
         
         // BM25 formula components
         const df = termDF.get(term) || 1;
-        const idf = Math.log((totalChunks - df + 0.5) / (df + 0.5));
+        // Fix IDF calculation to ensure positive scores
+        const idf = Math.log(totalChunks / df) + 1; // Add 1 to ensure positive scores
         
         // Term frequency component with saturation
         const tfComponent = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (docLength / avgDocLength)));
@@ -234,7 +235,8 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
           
           // Apply BM25 formula to fuzzy matches with penalty
           const df = termDF.get(term) || 1;
-          const idf = Math.log((totalChunks - df + 0.5) / (df + 0.5));
+          // Fix IDF calculation to ensure positive scores
+          const idf = Math.log(totalChunks / df) + 1; // Add 1 to ensure positive scores
           const tfComponent = (fuzzyTf * (k1 + 1)) / (fuzzyTf + k1 * (1 - b + b * (docLength / avgDocLength)));
           
           const fuzzyScore = idf * tfComponent * fuzzyMatch.score * 0.8;
@@ -339,6 +341,13 @@ export async function searchSmartHybridDebug(
   }
 
   console.log(`🔍 KEYWORD SEARCH: Found ${totalMatches} chunks with keyword matches out of ${chunks.length} total chunks`)
+  
+  if (totalMatches === 0) {
+    console.log(`⚠️ KEYWORD SEARCH DEBUG: No positive BM25 scores found. This might indicate:`)
+    console.log(`   - Search terms: [${searchTerms.join(', ')}]`)
+    console.log(`   - Total chunks processed: ${chunks.length}`)
+    console.log(`   - Document frequencies:`, Array.from(termDF.entries()))
+  }
 
   // 3. Perform vector search
   const vectorResults = await vectorService.searchDocuments(query, userId, 100, options.specificDocumentIds);
