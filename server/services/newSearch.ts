@@ -239,11 +239,20 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
     let bm25Score = 0;
     const matchedTerms: string[] = [];
 
+    const processedTerms = new Set<string>(); // Track which terms we've already processed for this chunk
+
     for (const term of normalizedSearchTerms) {
+      // Skip if we've already processed this term for this chunk
+      if (processedTerms.has(term)) {
+        continue;
+      }
+
       let tf = tokenCounts.get(term) || 0;
 
       if (tf > 0) {
+        // Exact match found
         matchedTerms.push(term);
+        processedTerms.add(term);
 
         // BM25 formula components
         const df = termDF.get(term) || 1;
@@ -257,7 +266,7 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
 
         console.log(`🔍 BM25 MATCH: Chunk ${chunkId}, term "${term}", tf=${tf}, df=${df}, idf=${idf.toFixed(3)}, tfComp=${tfComponent.toFixed(3)}, score+=${(idf * tfComponent).toFixed(3)}`);
       } else {
-        // Try fuzzy matching for unmatched terms
+        // Try fuzzy matching for unmatched terms only
         let fuzzyMatch = { score: 0, count: 0 };
         if (isThaiText(term)) {
           fuzzyMatch = findBestFuzzyMatchThai(term, tokens);
@@ -267,6 +276,7 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
 
         if (fuzzyMatch.score > 0.75) {
           matchedTerms.push(term);
+          processedTerms.add(term);
           const fuzzyTf = fuzzyMatch.count;
 
           // Apply BM25 formula to fuzzy matches with penalty
