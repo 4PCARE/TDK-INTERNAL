@@ -424,6 +424,9 @@ export async function searchSmartHybridDebug(
       selectedChunks = scoredChunks.slice(0, fallbackCount);
     }
 
+    // Calculate selected chunks total score
+    const selectedTotalScore = selectedChunks.reduce((sum, c) => sum + c.finalScore, 0);
+    console.log(`📊 SCORE BREAKDOWN: ${selectedTotalScore.toFixed(4)} out of ${totalScore.toFixed(4)} (${(selectedTotalScore/totalScore*100).toFixed(1)}%)`);
     console.log(`🎯 SMART SELECTION (90% mass): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} (avg score: ${avgScore.toFixed(4)}, min: ${minResults}, max: ${maxResults})`);
   }
 
