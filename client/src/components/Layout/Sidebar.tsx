@@ -202,7 +202,7 @@ export default function Sidebar({
           "w-80 sm:w-72 lg:w-64",
           isCollapsed && "lg:w-16",
         )}
-      ></aside>
+      >
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="p-4 border-b border-navy-700/50">
