@@ -191,8 +191,6 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
 
   const avgDocLength = totalDocLength / totalChunks;
 
-  const avgDocLength = totalDocLength / totalChunks;
-
   // Second pass: calculate BM25 scores
   for (const chunk of chunks) {
     const chunkIndex = chunk.chunkIndex ?? 0;
