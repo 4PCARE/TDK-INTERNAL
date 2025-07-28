@@ -22,7 +22,7 @@ export default function CustomerSurvey() {
   const averageSatisfaction = surveyData.length > 0 
     ? (surveyData.reduce((sum: number, response: any) => sum + parseInt(response.satisfaction), 0) / surveyData.length).toFixed(1)
     : 0;
-  
+
   const averageEaseOfUse = surveyData.length > 0
     ? (surveyData.reduce((sum: number, response: any) => sum + parseInt(response.easeOfUse), 0) / surveyData.length).toFixed(1)
     : 0;

@@ -60,7 +60,7 @@ export default function Dashboard() {
     mutationFn: async (files: File[]) => {
       const formData = new FormData();
       files.forEach(file => formData.append('files', file));
-      
+
       // Initialize upload tracking
       const fileTracking = files.map(file => ({
         file,
@@ -95,10 +95,10 @@ export default function Dashboard() {
 
       // Mark as completed
       setUploadFiles(prev => prev.map(f => ({ ...f, status: 'completed', progress: 100 })));
-      
+
       // Clear after 3 seconds
       setTimeout(() => setUploadFiles([]), 3000);
-      
+
       return response;
     },
     onSuccess: () => {
@@ -174,7 +174,7 @@ export default function Dashboard() {
     <DashboardLayout>
       <div className="space-y-6">
             <StatsCards />
-            
+
             {/* Upload and Category Stats Section */}
             <div className="grid lg:grid-cols-2 gap-6">
               <Card className="h-[400px] flex flex-col">
@@ -186,7 +186,7 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto">
                   <UploadZone onUploadComplete={() => {}} />
-                  
+
                   {/* Upload Progress */}
                   {uploadFiles.length > 0 && (
                     <div className="mt-4 space-y-3">
@@ -312,7 +312,7 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-      
+
       <ChatModal 
         isOpen={isChatModalOpen} 
         onClose={() => setIsChatModalOpen(false)} 

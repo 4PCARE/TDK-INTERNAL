@@ -160,7 +160,7 @@ export default function Documents() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopBar isSidebarCollapsed={isSidebarCollapsed} />
         
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto p-6 bg-gray-50">
           {/* Header */}
           <div className="mb-6">
             <h1 className="text-2xl font-semibold text-slate-800 mb-2">My Documents</h1>
