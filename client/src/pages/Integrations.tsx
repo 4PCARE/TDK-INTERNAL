@@ -864,7 +864,6 @@ export default function Integrations() {
                   </CardContent>
                 </Card>
               )}
-            </div>
           </div>
         </div>
       </main>
