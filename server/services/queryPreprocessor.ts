@@ -48,9 +48,10 @@ export class QueryPreprocessorService {
      - Original: "ซื้อของ 6,000 ใช้บัตรเครดิตใบไหนดี"
      - Preferred: "ซื้อของ 6,000 บัตรเครดิต"
      - Not preferred: "บัตรเครดิตใบไหนดี สำหรับซื้อของ 6,000"
+  - Increase the formality of the query because bound documents are written in formal Thai. For example, "ร้านหมอฟัน" should be "คลินิกทันตกรรม"
 
 3. Determine if the user's query requires a document search:
-   - Mark \`needsSearch: false\` if the query is vague, purely conversational, AND lacks historical context
+   - Mark \`needsSearch: false\` if the query is vague, purely conversational, AND lacks historical context. For example, "แก", "นาย", "เธอ", "วันนี้อากาศดีไหม", "คุณช่วยได้ไหม", "คุณชื่ออะไร", "คุณทำอะไรได้บ้าง" or random query like "แกไม่มีสิทธิ์มาเรียกฉันว่าพ่อ"
    - Mark \`needsSearch: true\` if the query includes location, product, service, store-related keywords, OR if you can inject relevant context from history
 
 4. If a search is needed:
