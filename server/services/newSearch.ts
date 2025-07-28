@@ -183,9 +183,22 @@ async function calculateBM25(searchTerms: string[], chunks: any[]): Promise<Map<
       ...segmentedTokens // Segmented tokens: ["แมคโดนัลด์", "เดอะ", "มอลล์", "กะปิ"]
     ];
     
-    // Add spacing variations for Thai terms
+    // Add spacing variations for Thai terms and brand name variations
     const spacingVariations = [];
     for (const term of combinedTerms) {
+      // Handle English brand names
+      if (/^[A-Za-z0-9\s]+$/.test(term)) {
+        const upperTerm = term.toUpperCase();
+        const lowerTerm = term.toLowerCase();
+        if (upperTerm !== term) spacingVariations.push(upperTerm);
+        if (lowerTerm !== term) spacingVariations.push(lowerTerm);
+        
+        // Add common brand name variations
+        if (term.toLowerCase() === 'xolo') {
+          spacingVariations.push('XOLO', 'Xolo', 'โซโล่', 'โซโล');
+        }
+      }
+      
       if (/[\u0E00-\u0E7F]/.test(term) && term.length > 3) { // Thai text check
         // Add version with spaces removed
         const noSpaces = term.replace(/\s+/g, '');
@@ -441,6 +454,18 @@ function findBestFuzzyMatchThai(term: string, tokens: string[]): { score: number
 
 function isThaiTokenSimilar(term1: string, term2: string): boolean {
   try {
+    // Handle brand names and English terms first
+    if (/^[A-Za-z0-9\s]+$/.test(term1) || /^[A-Za-z0-9\s]+$/.test(term2)) {
+      const clean1 = term1.toLowerCase().replace(/\s+/g, '');
+      const clean2 = term2.toLowerCase().replace(/\s+/g, '');
+      
+      // Check for partial matches for brand names
+      if (clean1.length >= 3 && clean2.length >= 3) {
+        return clean1.includes(clean2) || clean2.includes(clean1) || clean1 === clean2;
+      }
+      return clean1 === clean2;
+    }
+
     const normalizedTerm1 = term1
       .replace(/\s+/g, '')
       .replace(/[์็่้๊๋]/g, '')
