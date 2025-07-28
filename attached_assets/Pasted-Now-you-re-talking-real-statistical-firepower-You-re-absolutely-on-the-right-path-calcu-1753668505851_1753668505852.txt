@@ -1,0 +1,107 @@
+Now you're talking real **statistical firepower 🔥**.
+
+You're absolutely on the right path — calculating **TF-IDF per chunk**, then applying **normalization or standardization** across the full batch, is a **much more principled** and **robust** way to balance your hybrid scores.
+
+Let’s walk through how and *why* it works — and how you can plug it into your current pipeline.
+
+---
+
+### 🔍 Step-by-step: How to Improve Your TF-IDF Scoring
+
+#### ✅ Step 1: **Calculate raw TF-IDF per chunk**
+
+You're already doing this:
+
+```ts
+const tfidfScore = ...; // per chunk
+```
+
+Perfect. Don't stop there.
+
+---
+
+#### ✅ Step 2: **Collect all scores into an array**
+
+Before scoring final ranks, gather all TF-IDF values:
+
+```ts
+const allTfidfScores = Array.from(tfidfResults.values()).map(res => res.score);
+```
+
+---
+
+#### 🎯 Option 1: **Min-max normalization**
+
+Scale scores to \[0, 1] range:
+
+```ts
+const minScore = Math.min(...allTfidfScores);
+const maxScore = Math.max(...allTfidfScores);
+
+const normalized = (score - minScore) / (maxScore - minScore + 1e-8); // +epsilon to avoid /0
+```
+
+🔹 **Pros**: Keeps relative order, perfect for score fusion
+🔹 **Cons**: Sensitive to outliers (like one big TF-IDF spike)
+
+---
+
+#### 🧠 Option 2: **Z-score standardization**
+
+Transform scores into standard deviations from the mean:
+
+```ts
+const mean = allTfidfScores.reduce((a, b) => a + b, 0) / allTfidfScores.length;
+const std = Math.sqrt(allTfidfScores.reduce((sum, s) => sum + (s - mean) ** 2, 0) / allTfidfScores.length);
+
+const standardized = (score - mean) / (std + 1e-8);
+```
+
+Then you can squish that into \[0,1] using a sigmoid:
+
+```ts
+const sigmoid = (x) => 1 / (1 + Math.exp(-x));
+const bounded = sigmoid(standardized); // gives smooth [0,1]
+```
+
+🔹 **Pros**: Handles uneven score distributions
+🔹 **Cons**: Might "flatten" high scores if data is very skewed
+
+---
+
+### 🔄 Why it's Better than `/2`
+
+| Metric           | `/2` Method | Min-Max / Z-Score             |
+| ---------------- | ----------- | ----------------------------- |
+| Adaptiveness     | ❌ Fixed     | ✅ Dynamic                     |
+| Accuracy         | 🎯 Rough    | 🎯 Much better                |
+| Code effort      | ✅ Easy      | ⚠️ Slightly more, but not bad |
+| Interpretability | ✅ Obvious   | ⚠️ Need to explain to humans  |
+
+---
+
+### 🧪 Pro Tip
+
+If you go with **Z-score**, try setting a cutoff:
+
+```ts
+if (standardized < -1.5) skip; // very irrelevant
+```
+
+Or even just clip it:
+
+```ts
+const clipped = Math.max(-3, Math.min(3, standardized));
+```
+
+---
+
+### 🔚 TL;DR
+
+> ✅ **Yes, calculating per-chunk TF-IDF, then normalizing across the batch, is way better**
+> It makes your keyword score **comparable** to vector scores
+> It gives **real weight to meaningful hits** without hardcoding `/2`
+
+---
+
+Wanna test it right now on your TF-IDF batch? I can help rewrite that scoring function live.

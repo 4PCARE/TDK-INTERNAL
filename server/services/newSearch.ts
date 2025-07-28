@@ -381,7 +381,7 @@ export async function searchSmartHybridDebug(
   scoredChunks.sort((a, b) => b.finalScore - a.finalScore);
 
   // Smart selection: TRUE 90% mass selection (not percentile!)
-  const maxResults = Math.min(50, scoredChunks.length); // Cap at 50 results to prevent overwhelming responses
+  const maxResults = Math.min(8, scoredChunks.length); // Cap at 50 results to prevent overwhelming responses
 
   let selectedChunks = [];
 
