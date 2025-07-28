@@ -562,10 +562,10 @@ export async function searchSmartHybridDebug(
       console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, ${(MASS_SELECTION_PERCENTAGE * 100).toFixed(1)}% target: ${scoreTarget.toFixed(4)}`);
 
       for (const chunk of scoredChunks) {
-        // Check if adding this chunk would exceed the 30% mass target
         const potentialScore = accScore + chunk.finalScore;
 
-        if (potentialScore > scoreTarget && selectedChunks.length > 0) {
+        // Don't stop until we have at least 5 chunks, regardless of mass target
+        if (potentialScore > scoreTarget && selectedChunks.length >= 5) {
           console.log(`📊 STOPPING: Adding chunk ${selectedChunks.length + 1} would exceed ${(MASS_SELECTION_PERCENTAGE * 100).toFixed(1)}% mass target (${(potentialScore/totalScore*100).toFixed(1)}% > ${(MASS_SELECTION_PERCENTAGE * 100).toFixed(1)}%) - stopping at ${selectedChunks.length} chunks`);
           break;
         }
@@ -575,8 +575,8 @@ export async function searchSmartHybridDebug(
 
         console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, mass=${(accScore/totalScore*100).toFixed(1)}% (need ${(MASS_SELECTION_PERCENTAGE * 100).toFixed(1)}%)`);
 
-        // Check if we've reached the target mass
-        if (accScore >= scoreTarget) {
+        // Check if we've reached the target mass AND minimum chunks
+        if (accScore >= scoreTarget && selectedChunks.length >= minResults) {
           console.log(`📊 STOPPING: Reached ${(MASS_SELECTION_PERCENTAGE * 100).toFixed(1)}% mass target (${(accScore/totalScore*100).toFixed(1)}%) with ${selectedChunks.length} chunks`);
           break;
         }
@@ -690,7 +690,7 @@ export async function searchSmartHybridV1(
       }
 
       const doc = result.document;
-      const docId = parseInt(doc.metadata?.originalDocumentId || doc.id);
+      const docId = parseInt(result.metadata?.originalDocumentId || result.id);
       const chunkIndex = doc.chunkIndex ?? 0;
       const chunkId = `${docId}-${chunkIndex}`;
       if (result.similarity >= threshold) {
@@ -814,12 +814,13 @@ export async function searchSmartHybridV1(
 
     const selectedChunks = [];
     let accumulatedScore = 0;
-    const minResults = Math.min(2, sortedChunks.length);
-    const maxChunks = Math.min(12, sortedChunks.length); // Increased from 3 to 12 for better coverage
+    const minResults = Math.min(5, sortedChunks.length); // Ensure at least 5 chunks
+    const maxChunks = Math.min(15, sortedChunks.length); // Increased for better coverage
 
     for (const chunk of sortedChunks) {
       selectedChunks.push(chunk);
       accumulatedScore += chunk.finalScore;
+      // Don't stop until we have at least 5 chunks, regardless of mass target
       if (accumulatedScore >= scoreThreshold && selectedChunks.length >= minResults) break;
       if (selectedChunks.length >= maxChunks) break;
     }
