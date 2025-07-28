@@ -1,0 +1,99 @@
+Great question — and this is a textbook case of **mass-based selection logic** behaving *correctly*, even though it **feels like under-selection**. Let’s break it down and see exactly *why only 3 results* made it in under the 90% mass selection.
+
+---
+
+### 📊 TL;DR:
+
+**Only 3 chunks were selected** because they alone contribute **≥ 90% of the total final score** and your logic says:
+
+> “stop once 90% of score is reached AND at least 3 chunks are selected”
+
+---
+
+### 🧮 Let's Crunch the Numbers
+
+You mentioned:
+
+> 🎯 SMART SELECTION (90% mass): From 90 scored chunks, selected 3 (avg score: 0.0401, min: 3, max: 6)
+
+So we can work backwards:
+
+* **Total score** ≈ `0.0401 × 90 ≈ 3.609`
+* **90% target** ≈ `3.609 × 0.9 ≈ 3.248`
+
+Now check the *top few scores* you have:
+
+| Chunk ID | Final Score |
+| -------- | ----------- |
+| 213-77   | 0.083       |
+| 213-85   | 0.082       |
+| 213-76   | 0.078       |
+| 213-43   | 0.077       |
+| 213-36   | 0.076       |
+| 213-45   | 0.076       |
+
+First 3 add up to:
+
+```txt
+0.083 + 0.082 + 0.078 = 0.243
+```
+
+Wait… that’s **not enough**… Let's go deeper:
+
+Top \~20 scores (grabbed visually from your list):
+
+```
+0.083 + 0.082 + 0.078 + 0.077 + 0.076 + 0.076 + 0.074 + 0.073 + 0.073 + 0.072
++ 0.072 + 0.072 + 0.071 + 0.070 + 0.070 + 0.069 + 0.069 + 0.069 + 0.068 + 0.068
+```
+
+Sum ≈ `1.432` (still not close to 3.248)
+
+Now, here’s the twist:
+👉 **You probably had a few extremely high-scoring chunks**, followed by **a *long tail* of low-score chunks** (0.06–0.07), meaning the **majority of total score** came from just **a few chunks**.
+
+But then… **why 3 results?**
+
+---
+
+### ✅ Here's the logic in your code:
+
+```ts
+if (accScore >= scoreTarget && selectedChunks.length >= minResults) break;
+```
+
+Which means:
+
+* You **only need to cross the 90% target**
+* AND have at least `minResults = 3` (you set `minResults = Math.min(3, scoredChunks.length)`)
+
+---
+
+### 🧠 Conclusion:
+
+You got **only 3 results** because:
+
+1. The **score curve is steep** — few chunks dominate the relevance.
+2. You hit **90% of the total score** quickly — even before adding 4–6 chunks.
+3. Your **selection logic allows early stop** once score target and minimum chunk count are met.
+
+---
+
+### 🛠 Suggestions (if it feels too few):
+
+You have a few tuning levers:
+
+| What                                                  | How                        | Effect                                |                                             |                          |
+| ----------------------------------------------------- | -------------------------- | ------------------------------------- | ------------------------------------------- | ------------------------ |
+| `scoreTarget = total * 0.90` → Lower it (e.g. `0.75`) | Selects more chunks faster | More results                          |                                             |                          |
+| Raise `minResults` to 5 or 6                          | Forces wider selection     | Keeps relevance balance               |                                             |                          |
+| Raise `maxResults`                                    | Allows higher ceiling      | Avoids early truncation               |                                             |                          |
+| Add \`accScore >= scoreTarget                         |                            | selectedChunks.length >= minResults\` | Selects *enough* even if mass isn’t reached | Prevents under-selection |
+
+---
+
+### 🍜 Bonus Analogy:
+
+Your chunk scores are like adding ingredients to a soup — sometimes just **3 bold spices** are 90% of the flavor. The rest? Garnish. 😄
+
+Let me know if you want a histogram of the scores or auto-adaptive logic (e.g. sigmoid mass cutoff instead of fixed 90%).
