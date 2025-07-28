@@ -304,8 +304,9 @@ function normalizeThaiText(text: string): string {
 }
 
 function tokenizeWithThaiNormalization(text: string): string[] {
-  const normalizedText = normalizeThaiText(text); // Normalize first
+  const normalizedText = normalizeThaiText(text); // Normalize Thai text first
   return normalizedText
+    .toLowerCase() // Convert to lowercase for case-insensitive matching
     .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
     .filter(token => token.length > 0)
     .map(token => token.trim())
