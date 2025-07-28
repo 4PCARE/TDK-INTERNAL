@@ -371,21 +371,16 @@ export default function Integrations() {
   const lineOaIntegrations = integrations.filter(int => int.type === 'lineoa');
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      <div className="flex">
-        <Sidebar 
-          isMobileOpen={isMobileSidebarOpen}
-          onMobileClose={() => setIsMobileSidebarOpen(false)}
-          onOpenChat={() => {}}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        />
-        <main 
-          className={`flex-1 transition-all duration-300 ease-in-out ${
-            isSidebarCollapsed ? 'ml-16' : 'ml-56'
-          }`}
-        >
-          <div className="p-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex">
+      <Sidebar 
+        isMobileOpen={isMobileSidebarOpen}
+        onMobileClose={() => setIsMobileSidebarOpen(false)}
+        onOpenChat={() => {}}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
+      <main className="flex-1 transition-all duration-300 ease-in-out">
+        <div className="p-8"></div>
             <div className="max-w-6xl mx-auto">
               {/* Header */}
               <div className="flex items-center justify-between mb-8">
