@@ -2121,20 +2121,25 @@ User Query: "${content}"
 Assistant Response: "${aiResponse}"
 
 Classification criteria:
-- "positive": The response contains specific information, facts, procedures, or actionable guidance that directly addresses the user's question. Even if the response says "according to the document" or references sources, it's positive if it provides useful information.
-- "fallback": The response explicitly states inability to help, gives only generic advice without specifics, or clearly indicates no relevant information was found.
+- "positive": The response contains ANY specific information, facts, procedures, or guidance that addresses the user's question, even partially. If the response provides concrete details, numbers, policies, or actionable information, it's positive.
+- "fallback": ONLY classify as fallback if the response explicitly states complete inability to help OR provides no specific information whatsoever.
 
-Key indicators of POSITIVE responses:
-- Contains specific numbers, dates, procedures, or facts
-- References document content or policies
-- Provides step-by-step instructions
-- Answers the specific question asked
-- Uses phrases like "according to the document", "the policy states", "you need to", etc.
+STRONG indicators of POSITIVE responses (classify as positive if ANY are present):
+- Contains specific numbers, dates, procedures, policies, or facts
+- References document content, regulations, or company policies  
+- Provides step-by-step instructions or processes
+- Mentions specific requirements, conditions, or criteria
+- Gives concrete examples or scenarios
+- Uses phrases like "according to the document", "the policy states", "you need to", "the requirement is", etc.
+- Provides partial answers with some specific details
 
-Key indicators of FALLBACK responses:
-- "I don't know", "I cannot help", "No information available"
-- Very generic advice without specifics
-- Deflecting to "contact someone else" without any useful information
+ONLY classify as FALLBACK if response has ALL of these:
+- Explicitly states "I don't know", "I cannot help", "No information available"
+- Contains NO specific facts, numbers, dates, or procedures
+- Provides only completely generic advice with zero specifics
+- Does not reference any document content or policies
+
+IMPORTANT: If the response contains ANY useful specific information that could help answer the user's question, classify it as "positive" even if it's not a complete answer.
 
 Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "reason": "explanation"}
 `;
