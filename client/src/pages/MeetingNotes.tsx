@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import Sidebar from "@/components/Layout/Sidebar";
+import TopBar from "@/components/TopBar";
 import { MeetingItem } from "@/components/MeetingItem";
 import { 
   Calendar,
@@ -410,11 +411,19 @@ Date Exported: ${new Date().toLocaleString()}`;
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="flex">
-        <Sidebar />
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar 
+        isMobileOpen={false}
+        onMobileClose={() => {}}
+        onOpenChat={() => {}}
+        isCollapsed={false}
+        onToggleCollapse={() => {}}
+      />
+      
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <TopBar />
         
-        <div className="flex-1 p-8">
+        <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-6xl mx-auto">
             {/* Header */}
             <div className="mb-8">
@@ -552,7 +561,7 @@ Date Exported: ${new Date().toLocaleString()}`;
               </>
             )}
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );

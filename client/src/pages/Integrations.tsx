@@ -34,6 +34,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import Sidebar from "@/components/Layout/Sidebar";
+import TopBar from "@/components/TopBar";
 
 // WebhookUrlDisplay component for showing webhook URLs  
 function WebhookUrlDisplay({ integrationId }: { integrationId: number }) {
@@ -371,7 +372,7 @@ export default function Integrations() {
   const lineOaIntegrations = integrations.filter(int => int.type === 'lineoa');
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar 
         isMobileOpen={isMobileSidebarOpen}
         onMobileClose={() => setIsMobileSidebarOpen(false)}
@@ -379,8 +380,12 @@ export default function Integrations() {
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
-      <main className="flex-1 transition-all duration-300 ease-in-out">
-        <div className="p-8">
+      
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <TopBar />
+        
+        <main className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-6xl mx-auto"></div>
           <div className="max-w-6xl mx-auto">
               {/* Header */}
               <div className="flex items-center justify-between mb-8">
@@ -865,8 +870,8 @@ export default function Integrations() {
                 </Card>
               )}
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

@@ -205,18 +205,6 @@ export default function AuditMonitoring() {
         <main className="flex-1 overflow-auto p-6">
           {/* Header */}
           <div className="mb-6">
-            <div className="flex items-center mb-4">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => window.location.href = "/settings"}
-                className="mr-4"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Settings
-              </Button>
-            </div>
-            
             <h1 className="text-2xl font-semibold text-slate-800 mb-2 flex items-center">
               <Shield className="w-6 h-6 mr-3" />
               Audit & Monitoring
