@@ -84,7 +84,7 @@ ${chatHistoryText}
 ${context ? `Additional Context: ${context}` : ''}
 
 **INSTRUCTIONS:**
-1. Look for store names, brands, or products mentioned in the chat history
+1. Look for store names, brands, or products mentioned in the chat history. Make sure you use correct terminology. For example "เดอะมอ" should be "เดอะมอลล์"
 2. If the user query is vague but history contains specific context, inject that context
 3. Pay special attention to image analysis results that mention specific stores or brands
 4. Examples of context injection:
