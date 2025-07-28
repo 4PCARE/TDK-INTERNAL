@@ -149,33 +149,50 @@ function calculateThaiSimilarity(str1: string, str2: string): number {
   return calculateSimilarity(norm1, norm2);
 }
 
-// TF-IDF scoring implementation
-function calculateTFIDF(searchTerms: string[], chunks: any[]): Map<string, { score: number; matchedTerms: string[] }> {
+// BM25 scoring implementation
+function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { score: number; matchedTerms: string[] }> {
   const chunkScores = new Map<string, { score: number; matchedTerms: string[] }>();
 
-  // Calculate document frequency for each term
+  // BM25 parameters
+  const k1 = 1.2; // Controls term frequency saturation
+  const b = 0.75; // Controls document length normalization
+
+  // Calculate document frequency for each term and average document length
   const termDF = new Map<string, number>();
   const totalChunks = chunks.length;
+  let totalDocLength = 0;
 
-  for (const term of searchTerms) {
-    let docFreq = 0;
-    for (const chunk of chunks) {
-      const content = chunk.content || '';
-      const tokens = tokenize(content.toLowerCase());
-      if (tokens.includes(term.toLowerCase())) {
-        docFreq++;
+  // First pass: calculate document frequencies and total length
+  const chunkLengths = new Map<string, number>();
+  for (const chunk of chunks) {
+    const content = chunk.content || '';
+    const tokens = tokenize(content.toLowerCase());
+    const chunkIndex = chunk.chunkIndex ?? 0;
+    const chunkId = `${chunk.documentId}-${chunkIndex}`;
+    
+    chunkLengths.set(chunkId, tokens.length);
+    totalDocLength += tokens.length;
+
+    // Count document frequency for each search term
+    const uniqueTerms = new Set(tokens);
+    for (const term of searchTerms) {
+      const lowerTerm = term.toLowerCase();
+      if (uniqueTerms.has(lowerTerm)) {
+        termDF.set(lowerTerm, (termDF.get(lowerTerm) || 0) + 1);
       }
     }
-    termDF.set(term.toLowerCase(), docFreq);
   }
 
-  // Calculate TF-IDF score for each chunk
+  const avgDocLength = totalDocLength / totalChunks;
+
+  // Second pass: calculate BM25 scores
   for (const chunk of chunks) {
-    // Handle the chunk structure from database: directly access chunkIndex
     const chunkIndex = chunk.chunkIndex ?? 0;
     const chunkId = `${chunk.documentId}-${chunkIndex}`;
     const content = chunk.content || '';
     const tokens = tokenize(content.toLowerCase());
+    const docLength = chunkLengths.get(chunkId) || 1;
+    
     const tokenCounts = new Map<string, number>();
 
     // Count term frequencies
@@ -183,7 +200,7 @@ function calculateTFIDF(searchTerms: string[], chunks: any[]): Map<string, { sco
       tokenCounts.set(token, (tokenCounts.get(token) || 0) + 1);
     }
 
-    let tfidfScore = 0;
+    let bm25Score = 0;
     const matchedTerms: string[] = [];
 
     for (const term of searchTerms) {
@@ -192,27 +209,34 @@ function calculateTFIDF(searchTerms: string[], chunks: any[]): Map<string, { sco
 
       if (tf > 0) {
         matchedTerms.push(term);
-        // Use log(1 + tf) to dampen high term frequency bias
-        const normalizedTF = Math.log(1 + tf) / Math.max(tokens.length, 1);
+        
+        // BM25 formula components
         const df = termDF.get(lowerTerm) || 1;
-        const idf = Math.log(totalChunks / df);
-        tfidfScore += normalizedTF * idf;
+        const idf = Math.log((totalChunks - df + 0.5) / (df + 0.5));
+        
+        // Term frequency component with saturation
+        const tfComponent = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (docLength / avgDocLength)));
+        
+        bm25Score += idf * tfComponent;
       } else {
         // Try fuzzy matching for unmatched terms
         const fuzzyMatch = findBestFuzzyMatch(lowerTerm, tokens);
         if (fuzzyMatch.score > 0.75) {
           matchedTerms.push(term);
           const tf = fuzzyMatch.count;
-          const normalizedTF = Math.log(1 + tf) / Math.max(tokens.length, 1);
+          
+          // Apply BM25 formula to fuzzy matches with penalty
           const df = termDF.get(lowerTerm) || 1;
-          const idf = Math.log(totalChunks / df);
-          tfidfScore += (normalizedTF * idf * fuzzyMatch.score * 0.8); // Reduce score for fuzzy matches
+          const idf = Math.log((totalChunks - df + 0.5) / (df + 0.5));
+          const tfComponent = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (docLength / avgDocLength)));
+          
+          bm25Score += (idf * tfComponent * fuzzyMatch.score * 0.8); // Reduce score for fuzzy matches
         }
       }
     }
 
-    if (tfidfScore > 0) {
-      chunkScores.set(chunkId, { score: tfidfScore, matchedTerms });
+    if (bm25Score > 0) {
+      chunkScores.set(chunkId, { score: bm25Score, matchedTerms });
     }
   }
 
@@ -288,18 +312,18 @@ export async function searchSmartHybridDebug(
     chunkMap.set(chunkId, chunk);
   }
 
-  // Calculate TF-IDF scores for all chunks at once
-  const tfidfResults = calculateTFIDF(searchTerms, chunks);
+  // Calculate BM25 scores for all chunks at once
+  const bm25Results = calculateBM25(searchTerms, chunks);
   const keywordMatches: Record<string, number> = {};
   let totalMatches = 0;
 
-  for (const [chunkId, tfidfMatch] of Array.from(tfidfResults.entries())) {
-    if (tfidfMatch.score > 0) {
-      keywordMatches[chunkId] = tfidfMatch.score;
+  for (const [chunkId, bm25Match] of Array.from(bm25Results.entries())) {
+    if (bm25Match.score > 0) {
+      keywordMatches[chunkId] = bm25Match.score;
       totalMatches++;
 
       const [docId, chunkIndex] = chunkId.split('-');
-      console.log(`🔍 KEYWORD MATCH (TF-IDF): Doc ${docId} chunk ${chunkIndex} - ${tfidfMatch.matchedTerms.length}/${searchTerms.length} terms matched (${tfidfMatch.matchedTerms.join(', ')}) score: ${tfidfMatch.score.toFixed(5)}`);
+      console.log(`🔍 KEYWORD MATCH (BM25): Doc ${docId} chunk ${chunkIndex} - ${bm25Match.matchedTerms.length}/${searchTerms.length} terms matched (${bm25Match.matchedTerms.join(', ')}) score: ${bm25Match.score.toFixed(5)}`);
     }
   }
 
@@ -341,20 +365,20 @@ export async function searchSmartHybridDebug(
   console.log(`📊 WEIGHTS: Keyword=${keywordWeight}, Vector=${vectorWeight}`);
   console.log(`📐 FORMULA: Final Score = (Keyword Score × ${keywordWeight}) + (Vector Score × ${vectorWeight})`);
 
-  // Step 1: Collect all TF-IDF scores for statistical normalization
-  const allTfidfScores = Object.values(keywordMatches).filter(score => score > 0);
+  // Step 1: Collect all BM25 scores for statistical normalization
+  const allBM25Scores = Object.values(keywordMatches).filter(score => score > 0);
 
   let normalizeKeywordScore = (score: number) => score;
 
-  if (allTfidfScores.length > 1) {
+  if (allBM25Scores.length > 1) {
     // Only normalize if we have more than one keyword match
     // Calculate statistics for normalization
-    const minScore = Math.min(...allTfidfScores);
-    const maxScore = Math.max(...allTfidfScores);
-    const mean = allTfidfScores.reduce((a, b) => a + b, 0) / allTfidfScores.length;
-    const std = Math.sqrt(allTfidfScores.reduce((sum, s) => sum + (s - mean) ** 2, 0) / allTfidfScores.length);
+    const minScore = Math.min(...allBM25Scores);
+    const maxScore = Math.max(...allBM25Scores);
+    const mean = allBM25Scores.reduce((a, b) => a + b, 0) / allBM25Scores.length;
+    const std = Math.sqrt(allBM25Scores.reduce((sum, s) => sum + (s - mean) ** 2, 0) / allBM25Scores.length);
 
-    console.log(`📊 TF-IDF STATS: min=${minScore.toFixed(4)}, max=${maxScore.toFixed(4)}, mean=${mean.toFixed(4)}, std=${std.toFixed(4)}`);
+    console.log(`📊 BM25 STATS: min=${minScore.toFixed(4)}, max=${maxScore.toFixed(4)}, mean=${mean.toFixed(4)}, std=${std.toFixed(4)}`);
 
     // Choose normalization method based on score distribution
     const scoreRange = maxScore - minScore;
@@ -377,8 +401,8 @@ export async function searchSmartHybridDebug(
         return (score - minScore) / (scoreRange + 1e-8);
       };
     }
-  } else if (allTfidfScores.length === 1) {
-    console.log(`📊 SKIPPING normalization: Only one keyword chunk detected, using raw TF-IDF score`);
+  } else if (allBM25Scores.length === 1) {
+    console.log(`📊 SKIPPING normalization: Only one keyword chunk detected, using raw BM25 score`);
   }
 
   for (const chunkId of allChunkIds) {
@@ -547,15 +571,15 @@ export async function searchSmartHybridV1(
         documentId: doc.id
       }));
 
-      // Use TF-IDF instead of fuzzy matching
-      const tfidfResults = calculateTFIDF(searchTerms, chunkObjects);
+      // Use BM25 instead of fuzzy matching
+      const bm25Results = calculateBM25(searchTerms, chunkObjects);
 
       chunks.forEach((chunk, i) => {
         const chunkId = `${doc.id}-${i}`;
-        const tfidfMatch = tfidfResults.get(chunkId);
+        const bm25Match = bm25Results.get(chunkId);
 
-        if (tfidfMatch && tfidfMatch.score > 0) {
-          keywordChunks[chunkId] = { content: chunk, score: tfidfMatch.score };
+        if (bm25Match && bm25Match.score > 0) {
+          keywordChunks[chunkId] = { content: chunk, score: bm25Match.score };
         }
       });
     }
@@ -620,9 +644,9 @@ export async function searchSmartHybridV1(
     const sortedChunks = Array.from(combinedChunkMap.values());
     sortedChunks.sort((a, b) => b.finalScore - a.finalScore);
 
-    // Collect TF-IDF statistics for normalization
+    // Collect BM25 statistics for normalization
     const keywordScores = sortedChunks.map(chunk => chunk.keywordScore).filter(score => score > 0);
-    const tfIdfStats = {
+    const bm25Stats = {
       min: keywordScores.length > 0 ? Math.min(...keywordScores) : 0,
       max: keywordScores.length > 0 ? Math.max(...keywordScores) : 0,
       mean: keywordScores.length > 0 ? keywordScores.reduce((a, b) => a + b, 0) / keywordScores.length : 0,
@@ -630,7 +654,7 @@ export async function searchSmartHybridV1(
     };
     
     if (keywordScores.length > 0) {
-      tfIdfStats.std = Math.sqrt(keywordScores.reduce((sum, s) => sum + (s - tfIdfStats.mean) ** 2, 0) / keywordScores.length);
+      bm25Stats.std = Math.sqrt(keywordScores.reduce((sum, s) => sum + (s - bm25Stats.mean) ** 2, 0) / keywordScores.length);
     }
 
     // Normalize keyword scores
@@ -638,30 +662,30 @@ export async function searchSmartHybridV1(
       chunk.normalizedKeywordScore = 0; // Initialize
     });
 
-    // Apply TF-IDF normalization (prevent division by zero)
-    if (tfIdfStats.max > tfIdfStats.min) {
+    // Apply BM25 normalization (prevent division by zero)
+    if (bm25Stats.max > bm25Stats.min) {
       // Use MIN-MAX normalization for better score distribution
-      if (tfIdfStats.std / tfIdfStats.mean < 0.1) {
-        console.log(`📊 Using MIN-MAX normalization (low variability detected: CV=${(tfIdfStats.std / tfIdfStats.mean).toFixed(2)})`);
+      if (bm25Stats.std / bm25Stats.mean < 0.1) {
+        console.log(`📊 Using MIN-MAX normalization (low variability detected: CV=${(bm25Stats.std / bm25Stats.mean).toFixed(2)})`);
         sortedChunks.forEach(chunk => {
           if (chunk.keywordScore > 0) {
-            chunk.normalizedKeywordScore = (chunk.keywordScore - tfIdfStats.min) / (tfIdfStats.max - tfIdfStats.min);
+            chunk.normalizedKeywordScore = (chunk.keywordScore - bm25Stats.min) / (bm25Stats.max - bm25Stats.min);
           }
         });
       } else {
-        console.log(`📊 Using Z-SCORE normalization (high variability detected: CV=${(tfIdfStats.std / tfIdfStats.mean).toFixed(2)})`);
+        console.log(`📊 Using Z-SCORE normalization (high variability detected: CV=${(bm25Stats.std / bm25Stats.mean).toFixed(2)})`);
         sortedChunks.forEach(chunk => {
           if (chunk.keywordScore > 0) {
-            chunk.normalizedKeywordScore = Math.max(0, (chunk.keywordScore - tfIdfStats.mean) / tfIdfStats.std);
+            chunk.normalizedKeywordScore = Math.max(0, (chunk.keywordScore - bm25Stats.mean) / bm25Stats.std);
           }
         });
       }
     } else {
-      console.log(`📊 All keyword scores identical (${tfIdfStats.max}), using raw scores`);
+      console.log(`📊 All keyword scores identical (${bm25Stats.max}), using raw scores`);
       sortedChunks.forEach(chunk => {
         if (chunk.keywordScore > 0) {
           // When keyword weight is high but scores are low, boost them slightly
-          if (keywordWeight > 0.7 && tfIdfStats.max < 0.1) {
+          if (keywordWeight > 0.7 && bm25Stats.max < 0.1) {
             chunk.normalizedKeywordScore = Math.min(1.0, chunk.keywordScore * 10); // Boost weak keyword matches
             console.log(`📊 BOOSTING weak keyword match: ${chunk.keywordScore.toFixed(4)} -> ${chunk.normalizedKeywordScore.toFixed(4)}`);
           } else {
