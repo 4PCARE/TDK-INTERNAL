@@ -280,7 +280,7 @@ async function calculateBM25(searchTerms: string[], chunks: any[]): Promise<Map<
         let fuzzyMatch = { score: 0, count: 0 };
         try {
           if (isThaiText(term)) {
-            fuzzyMatch = await findBestFuzzyMatchThai(term, tokens);
+            fuzzyMatch = findBestFuzzyMatchThai(term, tokens);
           } else {
             fuzzyMatch = findBestFuzzyMatch(term, tokens);
           }
@@ -320,49 +320,33 @@ function isThaiText(text: string): boolean {
 }
 
 async function normalizeThaiText(text: string): Promise<string> {
-  try {
-    // Use pythaiNLP for better normalization
-    const tokens = await thaiNlpService.tokenizeText(text);
-    return tokens.join('');
-  } catch (error) {
-    // Fallback to original method
-    return text
-      .replace(/\s+/g, '') // Remove whitespaces
-      .replace(/[์็่้๊๋]/g, '') // Remove tone marks
-      .replace(/[ะาิีึืุูเแโใไ]/g, '') // Simplify vowels
-      .toLowerCase();
-  }
+  // Simple Thai normalization without pythaiNLP for document processing
+  return text
+    .replace(/\s+/g, '') // Remove whitespaces
+    .replace(/[์็่้๊๋]/g, '') // Remove tone marks
+    .replace(/[ะาิีึืุูเแโใไ]/g, '') // Simplify vowels
+    .toLowerCase();
 }
 
 async function tokenizeWithThaiNormalization(text: string): Promise<string[]> {
+  // For documents, use simple tokenization to avoid Thai NLP timeouts
+  // Thai NLP should only be used for query segmentation, not document processing
   try {
-    // Use pythaiNLP for better tokenization with timeout
-    return await Promise.race([
-      thaiNlpService.tokenizeText(text),
-      new Promise<string[]>((_, reject) => 
-        setTimeout(() => reject(new Error('Thai tokenization timeout')), 3000)
-      )
-    ]);
-  } catch (error) {
-    console.warn('Thai tokenization failed, using fallback:', error);
-    // Fallback to original method with error handling
-    try {
-      const normalizedText = await normalizeThaiText(text);
-      return normalizedText
-        .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
-        .filter(token => token.length > 0)
-        .map(token => token.trim())
-        .filter(token => token.length > 0);
-    } catch (fallbackError) {
-      console.warn('Fallback tokenization also failed:', fallbackError);
-      // Ultimate fallback - simple split
-      return text
-        .toLowerCase()
-        .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
-        .filter(token => token.length > 0)
-        .map(token => token.trim())
-        .filter(token => token.length > 0);
-    }
+    const normalizedText = await normalizeThaiText(text);
+    return normalizedText
+      .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
+      .filter(token => token.length > 0)
+      .map(token => token.trim())
+      .filter(token => token.length > 0);
+  } catch (fallbackError) {
+    console.warn('Fallback tokenization failed:', fallbackError);
+    // Ultimate fallback - simple split
+    return text
+      .toLowerCase()
+      .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
+      .filter(token => token.length > 0)
+      .map(token => token.trim())
+      .filter(token => token.length > 0);
   }
 }
 
@@ -390,13 +374,13 @@ function findBestFuzzyMatch(term: string, tokens: string[]): { score: number; co
   return { score: bestScore, count };
 }
 
-async function findBestFuzzyMatchThai(term: string, tokens: string[]): Promise<{ score: number; count: number }> {
+function findBestFuzzyMatchThai(term: string, tokens: string[]): { score: number; count: number } {
   let bestScore = 0;
   let count = 0;
 
   for (const token of tokens) {
     try {
-      if (await isThaiTokenSimilar(term, token)) {
+      if (isThaiTokenSimilar(term, token)) {
         bestScore = 0.8; // Assign a fixed score for Thai similarity
         count++;
       }
@@ -409,10 +393,18 @@ async function findBestFuzzyMatchThai(term: string, tokens: string[]): Promise<{
   return { score: bestScore, count };
 }
 
-async function isThaiTokenSimilar(term1: string, term2: string): Promise<boolean> {
+function isThaiTokenSimilar(term1: string, term2: string): boolean {
   try {
-    const normalizedTerm1 = await normalizeThaiText(term1);
-    const normalizedTerm2 = await normalizeThaiText(term2);
+    const normalizedTerm1 = term1
+      .replace(/\s+/g, '')
+      .replace(/[์็่้๊๋]/g, '')
+      .replace(/[ะาิีึืุูเแโใไ]/g, '')
+      .toLowerCase();
+    const normalizedTerm2 = term2
+      .replace(/\s+/g, '')
+      .replace(/[์็่้๊๋]/g, '')
+      .replace(/[ะาิีึืุูเแโใไ]/g, '')
+      .toLowerCase();
     return normalizedTerm1 === normalizedTerm2 && normalizedTerm1.length > 0;
   } catch (error) {
     console.warn('Thai similarity check failed:', error);

@@ -22,8 +22,14 @@ class ThaiNlpService {
 
   async processQuery(queryText: string): Promise<ThaiNlpResult> {
     try {
+      // Safety check: Only process query-sized text (max 500 characters)
+      if (queryText.length > 500) {
+        console.warn(`🐍 Thai NLP: Text too long (${queryText.length} chars), using fallback`);
+        throw new Error('Text too long for Thai NLP processing');
+      }
+
       const command = `python3 "${this.pythonScriptPath}" "${queryText.replace(/"/g, '\\"')}"`;
-      console.log(`🐍 Thai NLP: Executing command: ${command}`);
+      console.log(`🐍 Thai NLP: Executing command for query (${queryText.length} chars)`);
       
       // Add timeout to prevent hanging
       const { stdout, stderr } = await Promise.race([
