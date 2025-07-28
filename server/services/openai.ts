@@ -387,7 +387,7 @@ export async function generateChatResponse(
 
     // Use hybrid search for better context
     try {
-      console.log(`Chat: Performing ${searchType} search for query: "${query}" with weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
+      console.log(`Chat: Performing ${searchType} search for query: "${userMessage}" with weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
 
       // Get document IDs to filter search scope to only agent's documents
       const documentIds = documents.map(doc => doc.id).filter(id => id !== undefined);
@@ -397,7 +397,7 @@ export async function generateChatResponse(
         // Use semantic search V2 service for hybrid search with document filtering
         const { semanticSearchServiceV2 } = await import('./semanticSearchV2');
         const searchResults = await semanticSearchServiceV2.searchDocuments(
-          query,
+          userMessage,
           documents[0]?.userId,
           {
             searchType: 'hybrid',
@@ -429,7 +429,7 @@ export async function generateChatResponse(
         // Fallback to vector search for non-hybrid modes
         const { vectorService } = await import('./vectorService');
         const vectorResults = await vectorService.searchDocuments(
-          query, 
+          userMessage, 
           documents[0]?.userId, 
           2, // Only get top 2 chunks as requested
           specificDocumentId ? [specificDocumentId] : documentIds
@@ -482,7 +482,7 @@ ${relevantContent}
         },
         {
           role: "user",
-          content: query,
+          content: userMessage,
         },
       ],
       max_tokens: 700,
