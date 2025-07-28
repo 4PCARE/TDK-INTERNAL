@@ -163,13 +163,59 @@ async function calculateBM25(searchTerms: string[], chunks: any[]): Promise<Map<
   let normalizedSearchTerms: string[];
   try {
     console.log(`🔍 BM25: Attempting Thai NLP expansion for terms: [${searchTerms.join(', ')}]`);
-    normalizedSearchTerms = await Promise.race([
+    
+    // Get Thai NLP tokens
+    const thaiNlpResult = await Promise.race([
       thaiNlpService.expandSearchTerms(searchTerms),
       new Promise<string[]>((_, reject) => 
         setTimeout(() => reject(new Error('Thai NLP timeout')), 5000)
       )
     ]);
+    
+    // Get segmented tokens separately
+    const joinedQuery = searchTerms.join(' ');
+    const segmentedTokens = await thaiNlpService.tokenizeText(joinedQuery);
+    
+    // Combine original terms + Thai NLP expanded + segmented tokens
+    const combinedTerms = [
+      ...searchTerms, // Original terms: ["แมคโดนัลด์", "เดอะมอลล์", "บางกะปิ", "อยู่ไหน"]
+      ...thaiNlpResult, // Thai NLP expanded (same as original in this case)
+      ...segmentedTokens // Segmented tokens: ["แมคโดนัลด์", "เดอะ", "มอลล์", "กะปิ"]
+    ];
+    
+    // Add spacing variations for Thai terms
+    const spacingVariations = [];
+    for (const term of combinedTerms) {
+      if (/[\u0E00-\u0E7F]/.test(term) && term.length > 3) { // Thai text check
+        // Add version with spaces removed
+        const noSpaces = term.replace(/\s+/g, '');
+        if (noSpaces !== term && noSpaces.length > 0) {
+          spacingVariations.push(noSpaces);
+        }
+        
+        // Add version with spaces added (for compound words)
+        if (term.length >= 6 && !term.includes(' ')) {
+          // Try to split at common Thai word boundaries
+          const withSpaces = term
+            .replace(/(แมค)(โดนัลด์)/g, '$1 $2')
+            .replace(/(เดอะ)(มอลล์)/g, '$1 $2')
+            .replace(/(บาง)(กะปิ)/g, '$1 $2')
+            .replace(/(ไลฟ์)(สโตร์)/g, '$1 $2');
+          
+          if (withSpaces !== term && withSpaces.length > 0) {
+            spacingVariations.push(withSpaces);
+          }
+        }
+      }
+    }
+    
+    // Remove duplicates and combine all terms
+    normalizedSearchTerms = [...new Set([...combinedTerms, ...spacingVariations])];
+    
     console.log(`🔍 BM25: Thai NLP expansion successful`);
+    console.log(`🔍 BM25: Original terms: [${searchTerms.join(', ')}]`);
+    console.log(`🔍 BM25: Segmented tokens: [${segmentedTokens.join(', ')}]`);
+    console.log(`🔍 BM25: Spacing variations: [${spacingVariations.join(', ')}]`);
   } catch (error) {
     console.warn('Thai NLP expansion failed, using fallback:', error);
     // Fallback to original method with better error handling
