@@ -1455,16 +1455,121 @@ ${documentContext}
                 console.log(`✅ LINE OA: Generated response using new search workflow (${aiResponse.length} chars)`);
 
               } else {
-                console.log(`⚠️ LINE OA: No relevant content found in agent's bound documents, using test message`);
-                // aiResponse = await getAiResponseDirectly(
-                //   contextMessage,
-                //   lineIntegration.agentId,
-                //   lineIntegration.userId,
-                //   "lineoa",
-                //   event.source.userId,
-                //   false // skipSearch = false for fallback
-                // );
-                aiResponse = "This is a test message";
+                console.log(`⚠️ LINE OA: No relevant content found in agent's bound documents, falling back to agent conversation without documents`);
+                
+                // Build system prompt without document context (similar to needsSearch = false case)
+                const fallbackSystemPrompt = `${agent.systemPrompt}
+
+สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้อมูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว
+
+ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
+ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
+คุณสามารถอ้างอิงบทสนทนาก่อนหน้านี้เพื่อให้คำตอบที่ต่อเนื่องและเหมาะสม
+
+หมายเหตุ: ไม่พบเอกสารที่เกี่ยวข้องในฐานข้อมูลสำหรับคำถามนี้`;
+
+                const fallbackMessages: any[] = [
+                  {
+                    role: "system",
+                    content: fallbackSystemPrompt
+                  }
+                ];
+
+                // Add recent chat history for context
+                const userBotMessages = chatHistory.filter(
+                  (msg) => msg.messageType === "user" || msg.messageType === "assistant",
+                ).slice(-5); // Only last 5 messages for fallback
+
+                userBotMessages.forEach((msg) => {
+                  fallbackMessages.push({
+                    role: msg.messageType === "user" ? "user" : "assistant",
+                    content: msg.content,
+                  });
+                });
+
+                // Add current user message
+                fallbackMessages.push({
+                  role: "user",
+                  content: contextMessage,
+                });
+
+                // Apply guardrails if configured
+                if (guardrailsService) {
+                  const inputValidation = await guardrailsService.evaluateInput(contextMessage, {
+                    documents: [],
+                    agent: agent
+                  });
+
+                  if (!inputValidation.allowed) {
+                    console.log(`🚫 LINE OA: Input blocked by guardrails (fallback) - ${inputValidation.reason}`);
+                    const suggestions = inputValidation.suggestions?.join(' ') || '';
+                    aiResponse = `ขออภัย ไม่สามารถประมวลผลคำถามนี้ได้ ${inputValidation.reason ? `(${inputValidation.reason})` : ''} ${suggestions}`;
+
+                    // Save blocked response and continue to reply
+                    await storage.createChatHistory({
+                      userId: lineIntegration.userId,
+                      channelType: "lineoa",
+                      channelId: event.source.userId,
+                      agentId: lineIntegration.agentId,
+                      messageType: "assistant",
+                      content: aiResponse,
+                      metadata: { blockedByGuardrails: true, fallbackMode: true },
+                    });
+                  } else {
+                    // Use modified content if privacy protection applied
+                    if (inputValidation.modifiedContent) {
+                      fallbackMessages[fallbackMessages.length - 1].content = inputValidation.modifiedContent;
+                    }
+
+                    try {
+                      const fallbackCompletion = await openai.chat.completions.create({
+                        model: "gpt-4o",
+                        messages: fallbackMessages,
+                        max_tokens: 1000,
+                        temperature: 0.7,
+                      });
+
+                      aiResponse = fallbackCompletion.choices[0].message.content || "ขออภัย เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง";
+
+                      // Validate AI output with guardrails
+                      const outputValidation = await guardrailsService.evaluateOutput(aiResponse, {
+                        documents: [],
+                        agent: agent,
+                        userQuery: contextMessage
+                      });
+
+                      if (!outputValidation.allowed) {
+                        console.log(`🚫 LINE OA: Output blocked by guardrails (fallback) - ${outputValidation.reason}`);
+                        const suggestions = outputValidation.suggestions?.join(' ') || '';
+                        aiResponse = `ขออภัย ไม่สามารถให้คำตอบนี้ได้ ${outputValidation.reason ? `(${outputValidation.reason})` : ''} ${suggestions}`;
+                      } else if (outputValidation.modifiedContent) {
+                        console.log(`🔒 LINE OA: AI output modified for compliance (fallback)`);
+                        aiResponse = outputValidation.modifiedContent;
+                      }
+
+                      console.log(`✅ LINE OA: Fallback response generated with guardrails (${aiResponse.length} chars)`);
+                    } catch (fallbackError) {
+                      console.error("💥 LINE OA: Fallback generation failed:", fallbackError);
+                      aiResponse = "ขออภัย เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง";
+                    }
+                  }
+                } else {
+                  // No guardrails - generate response directly
+                  try {
+                    const fallbackCompletion = await openai.chat.completions.create({
+                      model: "gpt-4o",
+                      messages: fallbackMessages,
+                      max_tokens: 1000,
+                      temperature: 0.7,
+                    });
+
+                    aiResponse = fallbackCompletion.choices[0].message.content || "ขออภัย เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง";
+                    console.log(`✅ LINE OA: Fallback response generated successfully (${aiResponse.length} chars)`);
+                  } catch (fallbackError) {
+                    console.error("💥 LINE OA: Fallback generation failed:", fallbackError);
+                    aiResponse = "ขออภัย เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง";
+                  }
+                }
               }
             } // End of search workflow conditional
 
