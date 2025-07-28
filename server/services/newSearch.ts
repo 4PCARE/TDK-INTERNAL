@@ -316,14 +316,14 @@ function normalizeThaiText(text: string): string {
 function tokenizeWithThaiNormalization(text: string): string[] {
   // First convert to lowercase for case-insensitive matching
   const lowercaseText = text.toLowerCase();
-  
+
   // Apply Thai normalization only to Thai characters, preserve English words
   const tokens = lowercaseText
     .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
     .filter(token => token.length > 0)
     .map(token => token.trim())
     .filter(token => token.length > 0);
-  
+
   // Process each token - apply Thai normalization only if it contains Thai characters
   const processedTokens = [];
   for (const token of tokens) {
@@ -338,7 +338,7 @@ function tokenizeWithThaiNormalization(text: string): string[] {
       processedTokens.push(token);
     }
   }
-  
+
   return processedTokens;
 }
 
@@ -771,6 +771,29 @@ export async function searchSmartHybridV1(
       });
     }
 
+    // 4. Adaptive weighting based on search results
+    const hasKeywordResults = Object.keys(keywordChunks).length > 0;
+    const hasVectorResults = Object.keys(vectorChunks).length > 0;
+
+    let adaptedKeywordWeight = keywordWeight;
+    let adaptedVectorWeight = vectorWeight;
+
+    if (!hasKeywordResults && hasVectorResults) {
+      // No keyword matches found - use vector-only search
+      adaptedKeywordWeight = 0.0;
+      adaptedVectorWeight = 1.0;
+      console.log(`🔄 ADAPTIVE WEIGHTING: No keyword matches found, switching to vector-only search`);
+    } else if (hasKeywordResults && !hasVectorResults) {
+      // No vector matches found - use keyword-only search
+      adaptedKeywordWeight = 1.0;
+      adaptedVectorWeight = 0.0;
+      console.log(`🔄 ADAPTIVE WEIGHTING: No vector matches found, switching to keyword-only search`);
+    } else if (!hasKeywordResults && !hasVectorResults) {
+      console.log(`🔄 ADAPTIVE WEIGHTING: No results from either search method`);
+    } else {
+      console.log(`🔄 ADAPTIVE WEIGHTING: Both search methods found results, using original weights`);
+    }
+
     // Step 3: Rank and select using 60% mass selection for better coverage
     const sortedChunks = Array.from(combinedChunkMap.values());
     sortedChunks.sort((a, b) => b.finalScore - a.finalScore);
@@ -827,11 +850,11 @@ export async function searchSmartHybridV1(
     }
 
     // Calculate final combined scores
-    console.log(`📐 FORMULA: Final Score = (Keyword Score × ${keywordWeight}) + (Vector Score × ${vectorWeight})`);
+    console.log(`📐 FORMULA: Final Score = (Keyword Score × ${adaptedKeywordWeight}) + (Vector Score × ${adaptedVectorWeight})`);
 
     sortedChunks.forEach(chunk => {
-      const keywordComponent = (chunk.normalizedKeywordScore || 0) * keywordWeight;
-      const vectorComponent = (chunk.vectorScore || 0) * vectorWeight;
+      const keywordComponent = (chunk.normalizedKeywordScore || 0) * adaptedKeywordWeight;
+      const vectorComponent = (chunk.vectorScore || 0) * adaptedVectorWeight;
       chunk.finalScore = keywordComponent + vectorComponent;
 
       // If keyword weight is high but no good keyword matches, fall back to vector scores
