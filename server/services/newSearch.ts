@@ -794,6 +794,16 @@ export async function searchSmartHybridV1(
       console.log(`🔄 ADAPTIVE WEIGHTING: Both search methods found results, using original weights`);
     }
 
+    // Recalculate final scores with adaptive weights
+    for (const [chunkId, chunkData] of combinedChunkMap.entries()) {
+      const hybridScore = Math.max(
+        chunkData.vectorScore * adaptedVectorWeight + chunkData.keywordScore * adaptedKeywordWeight,
+        chunkData.vectorScore,
+        chunkData.keywordScore
+      );
+      chunkData.finalScore = hybridScore;
+    }
+
     // Step 3: Rank and select using 60% mass selection for better coverage
     const sortedChunks = Array.from(combinedChunkMap.values());
     sortedChunks.sort((a, b) => b.finalScore - a.finalScore);
