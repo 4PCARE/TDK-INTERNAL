@@ -567,10 +567,10 @@ export async function searchSmartHybridDebug(
 
         // For document chat, don't stop until we have at least 5 chunks, regardless of mass target
         // For other origins, use default minimum of 2 chunks
-        const minChunks = massPercentage >= 0.6 ? 5 : 2; // 60% mass = document chat, needs 5 chunks minimum
+        const minChunks = massSelectionPercentage >= 0.6 ? 5 : 2; // 60% mass = document chat, needs 5 chunks minimum
 
         if (potentialScore > scoreTarget && selectedChunks.length >= minChunks) {
-          console.log(`📊 STOPPING: Adding chunk ${selectedChunks.length + 1} would exceed ${(massPercentage * 100).toFixed(1)}% mass target (${(potentialScore/totalScore*100).toFixed(1)}% > ${(massPercentage * 100).toFixed(1)}%) - stopping at ${selectedChunks.length} chunks`);
+          console.log(`📊 STOPPING: Adding chunk ${selectedChunks.length + 1} would exceed ${(massSelectionPercentage * 100).toFixed(1)}% mass target (${(potentialScore/totalScore*100).toFixed(1)}% > ${(massSelectionPercentage * 100).toFixed(1)}%) - stopping at ${selectedChunks.length} chunks`);
           break;
         }
 
@@ -581,7 +581,7 @@ export async function searchSmartHybridDebug(
 
         // Check if we've reached the target mass AND minimum chunks
         if (accScore >= scoreTarget && selectedChunks.length >= minChunks) {
-          console.log(`📊 STOPPING: Reached ${(massPercentage * 100).toFixed(1)}% mass target (${(accScore/totalScore*100).toFixed(1)}%) with ${selectedChunks.length} chunks`);
+          console.log(`📊 STOPPING: Reached ${(massSelectionPercentage * 100).toFixed(1)}% mass target (${(accScore/totalScore*100).toFixed(1)}%) with ${selectedChunks.length} chunks`);
           break;
         }
 
@@ -599,7 +599,7 @@ export async function searchSmartHybridDebug(
     // Calculate selected chunks total score
     const selectedTotalScore = selectedChunks.reduce((sum, c) => sum + c.finalScore, 0);
     console.log(`📊 SCORE BREAKDOWN: ${selectedTotalScore.toFixed(4)} out of ${totalScore.toFixed(4)} (${(selectedTotalScore/totalScore*100).toFixed(1)}%)`);
-    console.log(`🎯 TRUE MASS SELECTION (${(massPercentage * 100).toFixed(1)}%): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} chunks capturing ${(selectedTotalScore/totalScore*100).toFixed(1)}% of total score mass`);
+    console.log(`🎯 TRUE MASS SELECTION (${(massSelectionPercentage * 100).toFixed(1)}%): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} chunks capturing ${(selectedTotalScore/totalScore*100).toFixed(1)}% of total score mass`);
   }
 
   const results: SearchResult[] = selectedChunks.map(chunk => {
