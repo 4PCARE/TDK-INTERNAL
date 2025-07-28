@@ -34,8 +34,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import Sidebar from "@/components/Layout/Sidebar";
+import { useState } from "react";
 
-// WebhookUrlDisplay component for showing webhook URLs
+// WebhookUrlDisplay component for showing webhook URLs  
 function WebhookUrlDisplay({ integrationId }: { integrationId: number }) {
   const { toast } = useToast();
   
@@ -128,6 +129,10 @@ export default function Integrations() {
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
+  
+  // Sidebar state management
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
   const [lineOaDialogOpen, setLineOaDialogOpen] = useState(false);
@@ -370,13 +375,17 @@ export default function Integrations() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="flex">
         <Sidebar 
-          isMobileOpen={false}
-          onMobileClose={() => {}}
+          isMobileOpen={isMobileSidebarOpen}
+          onMobileClose={() => setIsMobileSidebarOpen(false)}
           onOpenChat={() => {}}
-          isCollapsed={false}
-          onToggleCollapse={() => {}}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         />
-        <main className="flex-1 ml-64">
+        <main 
+          className={`flex-1 transition-all duration-300 ease-in-out ${
+            isSidebarCollapsed ? 'ml-16' : 'ml-64'
+          }`}
+        >
           <div className="p-8">
             <div className="max-w-6xl mx-auto">
               {/* Header */}
