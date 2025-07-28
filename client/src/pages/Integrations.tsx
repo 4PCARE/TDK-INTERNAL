@@ -382,7 +382,7 @@ export default function Integrations() {
         />
         <main 
           className={`flex-1 transition-all duration-300 ease-in-out ${
-            isSidebarCollapsed ? 'ml-16' : 'ml-64'
+            isSidebarCollapsed ? 'ml-16' : 'ml-56'
           }`}
         >
           <div className="p-8">
