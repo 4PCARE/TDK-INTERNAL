@@ -60,6 +60,7 @@ export class QueryPreprocessorService {
      - For clothing or fashion: \`"แฟชั่น"\`, \`"เสื้อผ้า"\`, \`"fashion"\`
      - For banking, salons, services: \`"บริการ"\`, \`"service"\`
    - Search anyway even tho agent have answered in the history. The user might want to confirm the result.
+     - For example, don't return false with this reason "Since the assistant has already provided a response indicating that there is no OPPO store in that location, the query does not require a new search", instead, return true because there might be an update in the data.
 
 5. Set hybrid search weights:
    - Questions about **store names, specific locations, contact details, or floor info** → High keyword weight (0.85–0.95)
