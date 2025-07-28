@@ -338,6 +338,43 @@ export async function searchSmartHybridDebug(
   console.log(`📊 WEIGHTS: Keyword=${keywordWeight}, Vector=${vectorWeight}`);
   console.log(`📐 FORMULA: Final Score = (Keyword Score × ${keywordWeight}) + (Vector Score × ${vectorWeight})`);
 
+  // Step 1: Collect all TF-IDF scores for statistical normalization
+  const allTfidfScores = Object.values(keywordMatches).filter(score => score > 0);
+  
+  let normalizeKeywordScore = (score: number) => score;
+  
+  if (allTfidfScores.length > 0) {
+    // Calculate statistics for normalization
+    const minScore = Math.min(...allTfidfScores);
+    const maxScore = Math.max(...allTfidfScores);
+    const mean = allTfidfScores.reduce((a, b) => a + b, 0) / allTfidfScores.length;
+    const std = Math.sqrt(allTfidfScores.reduce((sum, s) => sum + (s - mean) ** 2, 0) / allTfidfScores.length);
+    
+    console.log(`📊 TF-IDF STATS: min=${minScore.toFixed(4)}, max=${maxScore.toFixed(4)}, mean=${mean.toFixed(4)}, std=${std.toFixed(4)}`);
+    
+    // Choose normalization method based on score distribution
+    const scoreRange = maxScore - minScore;
+    const coefficientOfVariation = std / (mean + 1e-8);
+    
+    if (coefficientOfVariation > 1.0 || scoreRange > mean * 3) {
+      // High variability: Use z-score with sigmoid for robust handling of outliers
+      console.log(`📊 Using Z-SCORE normalization (high variability detected: CV=${coefficientOfVariation.toFixed(2)})`);
+      normalizeKeywordScore = (score: number) => {
+        if (score === 0) return 0;
+        const zScore = (score - mean) / (std + 1e-8);
+        const clippedZ = Math.max(-3, Math.min(3, zScore)); // Clip extreme outliers
+        return 1 / (1 + Math.exp(-clippedZ)); // Sigmoid to [0,1]
+      };
+    } else {
+      // Low variability: Use min-max normalization
+      console.log(`📊 Using MIN-MAX normalization (low variability detected: CV=${coefficientOfVariation.toFixed(2)})`);
+      normalizeKeywordScore = (score: number) => {
+        if (score === 0) return 0;
+        return (score - minScore) / (scoreRange + 1e-8);
+      };
+    }
+  }
+
   for (const chunkId of allChunkIds) {
     // Fix: Split from the right to handle document IDs with dashes
     const parts = chunkId.split("-");
@@ -357,8 +394,8 @@ export async function searchSmartHybridDebug(
       content = chunk?.content ?? "";
     }
 
-    // Normalize TF-IDF scores to 0-1 range for better hybrid combination
-    const normalizedKeywordScore = keywordScore > 0 ? Math.min(1.0, keywordScore / 2.0) : 0; // Divide by 2 as typical max TF-IDF
+    // Apply statistical normalization to TF-IDF scores
+    const normalizedKeywordScore = normalizeKeywordScore(keywordScore);
     const finalScore = normalizedKeywordScore * keywordWeight + vectorScore * vectorWeight;
 
     console.log(`📊 CHUNK ${chunkId}: Keyword=${keywordScore.toFixed(4)}→${normalizedKeywordScore.toFixed(3)}, Vector=${vectorScore.toFixed(3)}, Final=${finalScore.toFixed(3)}`);
