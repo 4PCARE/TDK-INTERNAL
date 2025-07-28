@@ -68,13 +68,13 @@ export default function Sidebar({
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 1024);
     };
-    
+
     // Initial check
     checkMobile();
-    
+
     // Add event listener
     window.addEventListener('resize', checkMobile);
-    
+
     // Cleanup
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
@@ -266,7 +266,7 @@ export default function Sidebar({
                     <X className="h-5 w-5" />
                   </Button>
                 )}
-                
+
                 {/* Desktop Collapse Toggle */}
                 {!isMobile && onToggleCollapse && (
                   <Button

@@ -39,5 +39,8 @@ export default defineConfig({
       host: "0.0.0.0",
       overlay: false,
     },
+    watch: {
+      usePolling: true,
+    },
   },
 });
