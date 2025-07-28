@@ -1493,9 +1493,16 @@ ${documentContext}
                   content: contextMessage,
                 });
 
+                // Initialize guardrails service if configured
+                let fallbackGuardrailsService: GuardrailsService | null = null;
+                if (agent.guardrailsConfig) {
+                  fallbackGuardrailsService = new GuardrailsService(agent.guardrailsConfig);
+                  console.log(`🛡️ LINE OA: Guardrails enabled for fallback mode`);
+                }
+
                 // Apply guardrails if configured
-                if (guardrailsService) {
-                  const inputValidation = await guardrailsService.evaluateInput(contextMessage, {
+                if (fallbackGuardrailsService) {
+                  const inputValidation = await fallbackGuardrailsService.evaluateInput(contextMessage, {
                     documents: [],
                     agent: agent
                   });
@@ -1532,7 +1539,7 @@ ${documentContext}
                       aiResponse = fallbackCompletion.choices[0].message.content || "ขออภัย เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง";
 
                       // Validate AI output with guardrails
-                      const outputValidation = await guardrailsService.evaluateOutput(aiResponse, {
+                      const outputValidation = await fallbackGuardrailsService.evaluateOutput(aiResponse, {
                         documents: [],
                         agent: agent,
                         userQuery: contextMessage
