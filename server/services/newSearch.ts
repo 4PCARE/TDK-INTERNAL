@@ -395,17 +395,28 @@ export async function searchSmartHybridDebug(
       // Use 5% mass selection for very broad coverage with many more results
       const scoreTarget = totalScore * 0.05;
       let accScore = 0;
+      
+      console.log(`📊 MASS SELECTION DEBUG: Total score: ${totalScore.toFixed(4)}, 5% target: ${scoreTarget.toFixed(4)}`);
+      
       for (const chunk of scoredChunks) {
         selectedChunks.push(chunk);
         accScore += chunk.finalScore;
-        // Only break on score target if we have enough results, but always get minimum
-        if (selectedChunks.length >= minResults && accScore >= scoreTarget) break;
-        if (selectedChunks.length >= maxResults) break;
-      }
-      
-      // Ensure we have at least minResults even if score target is reached early
-      if (selectedChunks.length < minResults) {
-        selectedChunks = scoredChunks.slice(0, Math.min(minResults, scoredChunks.length));
+        
+        console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}`);
+        
+        // Always get at least minResults, then check if we should continue based on mass target
+        if (selectedChunks.length >= minResults) {
+          // If we've reached the mass target AND we have minimum results, we can stop
+          if (accScore >= scoreTarget) {
+            console.log(`📊 STOPPING: Reached 5% mass target with ${selectedChunks.length} chunks`);
+            break;
+          }
+        }
+        // Hard cap at maxResults regardless of mass target
+        if (selectedChunks.length >= maxResults) {
+          console.log(`📊 STOPPING: Reached max results limit (${maxResults})`);
+          break;
+        }
       }
     } else {
       // If scores are very low, ensure we still get some results but fewer
