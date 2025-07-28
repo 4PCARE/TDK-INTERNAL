@@ -756,9 +756,8 @@ export async function searchSmartHybridV1(
       const content = keywordChunks[chunkId]?.content || vectorChunks[chunkId]?.content || "";
 
       const hybridScore = Math.max(
-        vectorScore * vectorWeight + keywordScore * keywordWeight,
-        ```text
-vectorScore,
+        vectorScore * adaptedVectorWeight + keywordScore * adaptedKeywordWeight,
+        vectorScore,
         keywordScore
       );
 
