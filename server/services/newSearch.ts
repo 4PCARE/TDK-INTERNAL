@@ -428,25 +428,31 @@ export async function searchSmartHybridDebug(
     const avgScore = totalScore / scoredChunks.length;
 
     if (avgScore > 0.05) {
-      // Use 30% mass selection - keep adding chunks until we reach 90% of total score mass
+      // Use 30% mass selection - keep adding chunks until we reach 30% of total score mass
       const scoreTarget = totalScore * 0.30;
       let accScore = 0;
       
       console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, 30% target: ${scoreTarget.toFixed(4)}`);
       
       for (const chunk of scoredChunks) {
-        // Check if adding this chunk would exceed the target
+        // Check if adding this chunk would exceed the 30% mass target
         const potentialScore = accScore + chunk.finalScore;
         
         if (potentialScore > scoreTarget && selectedChunks.length > 0) {
-          console.log(`📊 STOPPING: Adding chunk ${selectedChunks.length + 1} would exceed 30% target (${(potentialScore/totalScore*100).toFixed(1)}% > 30.0%) - stopping at ${selectedChunks.length} chunks`);
+          console.log(`📊 STOPPING: Adding chunk ${selectedChunks.length + 1} would exceed 30% mass target (${(potentialScore/totalScore*100).toFixed(1)}% > 30.0%) - stopping at ${selectedChunks.length} chunks`);
           break;
         }
         
         selectedChunks.push(chunk);
         accScore += chunk.finalScore;
         
-        console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, progress=${(accScore/scoreTarget*100).toFixed(1)}%`);
+        console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, mass=${(accScore/totalScore*100).toFixed(1)}% (need 30.0%)`);
+        
+        // Check if we've reached the target mass
+        if (accScore >= scoreTarget) {
+          console.log(`📊 STOPPING: Reached 30% mass target (${(accScore/totalScore*100).toFixed(1)}%) with ${selectedChunks.length} chunks`);
+          break;
+        }
         
         // Safety cap to prevent excessive results
         if (selectedChunks.length >= maxResults) {
