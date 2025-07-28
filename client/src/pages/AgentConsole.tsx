@@ -693,9 +693,9 @@ export default function AgentConsole() {
                             No active conversations
                           </div>
                         ) : (
-                          chatUsers.map((chatUser: ChatUser) => (
+                          chatUsers.map((chatUser: ChatUser, index) => (
                             <div
-                              key={`${chatUser.userId}-${chatUser.channelType}-${chatUser.channelId}`}
+                              key={`${chatUser.userId}-${chatUser.channelType}-${chatUser.channelId}-${index}`}
                               className={`p-3 rounded-lg cursor-pointer transition-colors hover:bg-gray-50 ${
                                 selectedUser?.userId === chatUser.userId &&
                                 selectedUser?.channelType ===

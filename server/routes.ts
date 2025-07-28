@@ -4337,10 +4337,10 @@ Memory management: Keep track of conversation context within the last ${agentCon
       }
       
       // Get all unique users from chat history grouped by user, channel, and agent
-      // Fixed query to properly sort by last message time
+      // Fixed query to properly sort by last message time and prevent duplicates
       const query = `
         WITH latest_messages AS (
-          SELECT DISTINCT ON (ch.channel_id, ch.channel_type, ch.agent_id)
+          SELECT DISTINCT ON (ch.user_id, ch.channel_id, ch.channel_type, ch.agent_id)
             ch.user_id,
             ch.channel_type,
             ch.channel_id,
@@ -4348,11 +4348,11 @@ Memory management: Keep track of conversation context within the last ${agentCon
             ac.name as agent_name,
             ch.content as last_message,
             ch.created_at as last_message_at,
-            COUNT(*) OVER (PARTITION BY ch.channel_id, ch.channel_type, ch.agent_id) as message_count
+            COUNT(*) OVER (PARTITION BY ch.user_id, ch.channel_id, ch.channel_type, ch.agent_id) as message_count
           FROM chat_history ch
           JOIN agent_chatbots ac ON ch.agent_id = ac.id
           WHERE ${whereConditions}
-          ORDER BY ch.channel_id, ch.channel_type, ch.agent_id, ch.created_at DESC
+          ORDER BY ch.user_id, ch.channel_id, ch.channel_type, ch.agent_id, ch.created_at DESC
         )
         SELECT * FROM latest_messages
         ORDER BY last_message_at DESC
