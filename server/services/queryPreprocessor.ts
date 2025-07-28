@@ -50,6 +50,7 @@ export class QueryPreprocessorService {
      - Preferred: "ซื้อของ 6,000 บัตรเครดิต"
      - Not preferred: "บัตรเครดิตใบไหนดี สำหรับซื้อของ 6,000"
   - Increase the formality of the query because bound documents are written in formal Thai. For example, "ร้านหมอฟัน" should be "คลินิก ทันตกรรม"
+  - If the query is in English, keep it as is. For example, don't translate "Provident fund" to "กองทุนสำรองเลี้ยงชีพ"
 
 3. Determine if the user's query requires a document search:
    - Mark \`needsSearch: false\` if the query is vague, purely conversational, AND lacks historical context. For example, common short words like "แก", "นาย", "เธอ", "ครับ", "ค่ะ", or openers like "สวัสดี", "ว่าไง", "คุณชื่ออะไร", "คุณทำอะไรได้บ้าง", or rhetorical/sarcastic lines like "แกไม่มีสิทธิ์มาเรียกฉันว่าพ่อ"
