@@ -1,6 +1,7 @@
 import { Document } from "@shared/schema";
 import { vectorService } from './vectorService';
 import { storage } from '../storage';
+import { thaiNlpService } from './thaiNlpService';
 
 // Configuration: Mass selection percentage for smart selection algorithm
 const MASS_SELECTION_PERCENTAGE = 0.3; // 20% - adjust this value to change selection criteria
@@ -151,29 +152,35 @@ function calculateThaiSimilarity(str1: string, str2: string): number {
 
 // BM25 scoring implementation
 // Calculate BM25 scores for all chunks at once
-function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { score: number; matchedTerms: string[] }> {
+async function calculateBM25(searchTerms: string[], chunks: any[]): Promise<Map<string, { score: number; matchedTerms: string[] }>> {
   const chunkScores = new Map<string, { score: number; matchedTerms: string[] }>();
 
   // BM25 parameters
   const k1 = 1.2; // Controls term frequency saturation
   const b = 0.75; // Controls document length normalization
 
-  // Normalize search terms and add Thai normalization variants
-  const expandedSearchTerms = [];
-  for (const term of searchTerms) {
-    const normalizedTerm = term.toLowerCase().trim();
-    if (normalizedTerm.length > 0) {
-      expandedSearchTerms.push(normalizedTerm);
+  // Use pythaiNLP for better search term expansion
+  let normalizedSearchTerms: string[];
+  try {
+    normalizedSearchTerms = await thaiNlpService.expandSearchTerms(searchTerms);
+  } catch (error) {
+    console.warn('Thai NLP expansion failed, using fallback:', error);
+    // Fallback to original method
+    const expandedSearchTerms = [];
+    for (const term of searchTerms) {
+      const normalizedTerm = term.toLowerCase().trim();
+      if (normalizedTerm.length > 0) {
+        expandedSearchTerms.push(normalizedTerm);
 
-      // Add Thai normalized variant if different
-      const thaiNormalized = normalizeThaiText(normalizedTerm);
-      if (thaiNormalized !== normalizedTerm && thaiNormalized.length > 0) {
-        expandedSearchTerms.push(thaiNormalized);
+        // Add Thai normalized variant if different
+        const thaiNormalized = await normalizeThaiText(normalizedTerm);
+        if (thaiNormalized !== normalizedTerm && thaiNormalized.length > 0) {
+          expandedSearchTerms.push(thaiNormalized);
+        }
       }
     }
+    normalizedSearchTerms = [...new Set(expandedSearchTerms)];
   }
-
-  const normalizedSearchTerms = [...new Set(expandedSearchTerms)];
 
   console.log(`🔍 BM25: Processing ${normalizedSearchTerms.length} search terms (with Thai variants): [${normalizedSearchTerms.join(', ')}]`);
 
@@ -186,7 +193,7 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
   const chunkLengths = new Map<string, number>();
   for (const chunk of chunks) {
     const content = chunk.content || '';
-    const tokens = tokenizeWithThaiNormalization(content);
+    const tokens = await tokenizeWithThaiNormalization(content);
     const chunkIndex = chunk.chunkIndex ?? 0;
     const chunkId = `${chunk.documentId}-${chunkIndex}`;
 
@@ -226,7 +233,7 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
     const chunkIndex = chunk.chunkIndex ?? 0;
     const chunkId = `${chunk.documentId}-${chunkIndex}`;
     const content = chunk.content || '';
-    const tokens = tokenizeWithThaiNormalization(content);
+    const tokens = await tokenizeWithThaiNormalization(content);
     const docLength = chunkLengths.get(chunkId) || 1;
 
     const tokenCounts = new Map<string, number>();
@@ -295,21 +302,34 @@ function isThaiText(text: string): boolean {
   return /[\u0E00-\u0E7F]/.test(text);
 }
 
-function normalizeThaiText(text: string): string {
-  return text
-    .replace(/\s+/g, '') // Remove whitespaces
-    .replace(/[์็่้๊๋]/g, '') // Remove tone marks
-    .replace(/[ะาิีึืุูเแโใไ]/g, '') // Simplify vowels
-    .toLowerCase();
+async function normalizeThaiText(text: string): Promise<string> {
+  try {
+    // Use pythaiNLP for better normalization
+    const tokens = await thaiNlpService.tokenizeText(text);
+    return tokens.join('');
+  } catch (error) {
+    // Fallback to original method
+    return text
+      .replace(/\s+/g, '') // Remove whitespaces
+      .replace(/[์็่้๊๋]/g, '') // Remove tone marks
+      .replace(/[ะาิีึืุูเแโใไ]/g, '') // Simplify vowels
+      .toLowerCase();
+  }
 }
 
-function tokenizeWithThaiNormalization(text: string): string[] {
-  const normalizedText = normalizeThaiText(text); // Normalize first
-  return normalizedText
-    .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
-    .filter(token => token.length > 0)
-    .map(token => token.trim())
-    .filter(token => token.length > 0);
+async function tokenizeWithThaiNormalization(text: string): Promise<string[]> {
+  try {
+    // Use pythaiNLP for better tokenization
+    return await thaiNlpService.tokenizeText(text);
+  } catch (error) {
+    // Fallback to original method
+    const normalizedText = await normalizeThaiText(text);
+    return normalizedText
+      .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
+      .filter(token => token.length > 0)
+      .map(token => token.trim())
+      .filter(token => token.length > 0);
+  }
 }
 
 function tokenize(text: string): string[] {
@@ -404,7 +424,7 @@ export async function searchSmartHybridDebug(
   }
 
   // Calculate BM25 scores for all chunks at once
-  const bm25Results = calculateBM25(searchTerms, chunks);
+  const bm25Results = await calculateBM25(searchTerms, chunks);
   const keywordMatches: Record<string, number> = {};
   let totalMatches = 0;
 
@@ -673,7 +693,7 @@ export async function searchSmartHybridV1(
       }));
 
       // Use BM25 instead of fuzzy matching
-      const bm25Results = calculateBM25(searchTerms, chunkObjects);
+      const bm25Results = await calculateBM25(searchTerms, chunkObjects);
 
       chunks.forEach((chunk, i) => {
         const chunkId = `${doc.id}-${i}`;
