@@ -568,7 +568,7 @@ export async function searchSmartHybridDebug(
         // For document chat, don't stop until we have at least 5 chunks, regardless of mass target
         // For other origins, use default minimum of 2 chunks
         const minChunks = massPercentage >= 0.6 ? 5 : 2; // 60% mass = document chat, needs 5 chunks minimum
-        
+
         if (potentialScore > scoreTarget && selectedChunks.length >= minChunks) {
           console.log(`📊 STOPPING: Adding chunk ${selectedChunks.length + 1} would exceed ${(massPercentage * 100).toFixed(1)}% mass target (${(potentialScore/totalScore*100).toFixed(1)}% > ${(massPercentage * 100).toFixed(1)}%) - stopping at ${selectedChunks.length} chunks`);
           break;
@@ -646,7 +646,7 @@ export async function searchSmartHybridDebug(
 export async function searchSmartHybridV1(
   query: string,
   userId: string,
-  options: Omit<SearchOptions, "searchType">
+  options: Omit<SearchOptions, "searchType"> & { massSelectionPercentage?: number }
 ): Promise<SearchResult[]> {
   try {
     const keywordWeight = options.keywordWeight ?? 0.5;
@@ -754,7 +754,7 @@ export async function searchSmartHybridV1(
       std: 0,
     };
 
-    if (keywordScores.length > 0) {
+    if(keywordScores.length > 0) {
       bm25Stats.std = Math.sqrt(keywordScores.reduce((sum, s) => sum + (s - bm25Stats.mean) ** 2, 0) / keywordScores.length);
     }
 
@@ -814,7 +814,8 @@ export async function searchSmartHybridV1(
     });
 
     const totalScore = sortedChunks.reduce((sum, c) => sum + c.finalScore, 0);
-    const scoreThreshold = totalScore * MASS_SELECTION_PERCENTAGE; // Use configurable mass selection
+    const massSelectionPercentage = options.massSelectionPercentage || MASS_SELECTION_PERCENTAGE;
+    const scoreThreshold = totalScore * massSelectionPercentage; // Use configurable mass selection
 
     const selectedChunks = [];
     let accumulatedScore = 0;
