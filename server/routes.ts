@@ -2059,15 +2059,211 @@ ${document.summary}`;
         documents = await storage.getDocuments(userId, { limit: 100 });
       }
 
-      // Generate AI response with specific document context using hybrid search
-      const aiResponse = await generateChatResponse(
-        content,
-        documents,
-        documentId ? documentId : undefined,
-        'hybrid',
-        0.4, // keywordWeight
-        0.6  // vectorWeight
-      );
+      // Generate AI response using same search workflow as Line OA
+      let aiResponse = "";
+
+      try {
+        // Step 1: AI Query Preprocessing (same as Line OA)
+        console.log(`📝 Document Chat: Starting AI query preprocessing for: "${content}"`);
+        const { queryPreprocessor } = await import('./services/queryPreprocessor');
+
+        // Convert chat history to format expected by query preprocessor
+        const recentChatHistory = messages
+          .filter(msg => msg.role === 'user' || msg.role === 'assistant')
+          .slice(-5)
+          .map(msg => ({
+            messageType: msg.role as 'user' | 'assistant',
+            content: msg.content,
+            createdAt: new Date()
+          }));
+
+        const queryAnalysis = await queryPreprocessor.analyzeQuery(
+          content,
+          recentChatHistory,
+          documentId ? `Document: ${documents[0]?.name || 'Unknown'}` : `${documents.length} documents available`
+        );
+
+        console.log(`🧠 Document Chat: Query analysis result:`, {
+          needsSearch: queryAnalysis.needsSearch,
+          enhancedQuery: queryAnalysis.enhancedQuery,
+          keywordWeight: queryAnalysis.keywordWeight.toFixed(2),
+          vectorWeight: queryAnalysis.vectorWeight.toFixed(2),
+          reasoning: queryAnalysis.reasoning
+        });
+
+        if (!queryAnalysis.needsSearch) {
+          console.log(`⏭️ Document Chat: Query doesn't need search, using conversation without documents`);
+          
+          // Generate response without document search (same as Line OA fallback)
+          const { generateChatResponse } = await import('./services/openai');
+          aiResponse = await generateChatResponse(
+            content,
+            [],
+            undefined,
+            'semantic' // Use semantic for no-search queries
+          );
+        } else {
+          console.log(`🔍 Document Chat: Query needs search, performing smart hybrid search`);
+
+          // Step 2: Perform new search workflow with document filtering (same as Line OA)
+          const { searchSmartHybridDebug } = await import('./services/newSearch');
+
+          const documentIds = documentId ? [documentId] : documents.map(doc => doc.id).filter(id => id !== undefined);
+          console.log(`📄 Document Chat: Restricting search to ${documentIds.length} documents: [${documentIds.join(', ')}]`);
+
+          const searchResults = await searchSmartHybridDebug(
+            queryAnalysis.enhancedQuery,
+            userId,
+            {
+              limit: 3, // Similar to Line OA but slightly more for document chat
+              threshold: 0.3,
+              keywordWeight: queryAnalysis.keywordWeight,
+              vectorWeight: queryAnalysis.vectorWeight,
+              specificDocumentIds: documentIds
+            }
+          );
+
+          console.log(`🔍 Document Chat: Smart hybrid search found ${searchResults.length} relevant chunks`);
+
+          if (searchResults.length > 0) {
+            // Step 3: Build document context from search results (same as Line OA)
+            let documentContext = "";
+            const maxContextLength = 12000;
+            let chunksUsed = 0;
+
+            console.log(`📄 Document Chat: Building document context from search results:`);
+            for (let i = 0; i < searchResults.length; i++) {
+              const result = searchResults[i];
+              const chunkText = `=== ข้อมูลที่ ${i + 1}: ${result.name} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${result.content}\n\n`;
+
+              console.log(`  ${i + 1}. ${result.name} - Similarity: ${result.similarity.toFixed(4)}`);
+              console.log(`      Content preview: ${result.content.substring(0, 100)}...`);
+
+              if (documentContext.length + chunkText.length <= maxContextLength) {
+                documentContext += chunkText;
+                chunksUsed++;
+              } else {
+                const remainingSpace = maxContextLength - documentContext.length;
+                if (remainingSpace > 300) {
+                  const availableContentSpace = remainingSpace - 150;
+                  const truncatedContent = result.content.substring(0, availableContentSpace) + "...";
+                  documentContext += `=== ข้อมูลที่ ${i + 1}: ${result.name} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
+                  chunksUsed++;
+                }
+                break;
+              }
+            }
+
+            console.log(`📄 Document Chat: Used ${chunksUsed}/${searchResults.length} chunks (${documentContext.length} chars)`);
+
+            // Generate AI response with document context using OpenAI directly (same as Line OA)
+            const openai = new (await import("openai")).default({
+              apiKey: process.env.OPENAI_API_KEY,
+            });
+
+            const systemPrompt = `คุณเป็นผู้ช่วย AI ที่ฉลาดและเป็นมิตร ตอบคำถามโดยใช้ข้อมูลจากเอกสารที่ให้มาเป็นหลัก
+
+เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
+${documentContext}
+
+กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
+ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
+คุณสามารถอ้างอิงบทสนทนาก่อนหน้านี้เพื่อให้คำตอบที่ต่อเนื่องและเหมาะสม`;
+
+            const messages: any[] = [
+              {
+                role: "system",
+                content: systemPrompt
+              }
+            ];
+
+            // Add recent chat history for context
+            messages.slice(-5).forEach((msg) => {
+              messages.push({
+                role: msg.role === "user" ? "user" : "assistant",
+                content: msg.content,
+              });
+            });
+
+            // Add current user message
+            messages.push({
+              role: "user",
+              content: content,
+            });
+
+            // Truncate to 15k characters (same as Line OA)
+            let totalLength = messages.reduce((sum, msg) => sum + msg.content.length, 0);
+            console.log(`📊 Document Chat: Total prompt length before truncation: ${totalLength} characters`);
+
+            if (totalLength > 15000) {
+              console.log(`✂️ Document Chat: Truncating prompt from ${totalLength} to 15,000 characters`);
+
+              const systemMessageLength = messages[0].content.length;
+              const currentUserMessageLength = messages[messages.length - 1].content.length;
+              const availableForHistory = 15000 - systemMessageLength - currentUserMessageLength - 200;
+
+              if (availableForHistory > 0) {
+                let historyLength = 0;
+                const truncatedMessages = [messages[0]];
+
+                for (let i = messages.length - 2; i >= 1; i--) {
+                  const msgLength = messages[i].content.length;
+                  if (historyLength + msgLength <= availableForHistory) {
+                    truncatedMessages.splice(1, 0, messages[i]);
+                    historyLength += msgLength;
+                  } else {
+                    break;
+                  }
+                }
+
+                truncatedMessages.push(messages[messages.length - 1]);
+                messages.length = 0;
+                messages.push(...truncatedMessages);
+
+                const newTotalLength = messages.reduce((sum, msg) => sum + msg.content.length, 0);
+                console.log(`✅ Document Chat: Truncated prompt to ${newTotalLength} characters (${messages.length - 2} history messages kept)`);
+              }
+            }
+
+            const completion = await openai.chat.completions.create({
+              model: "gpt-4o",
+              messages: messages,
+              max_tokens: 1000,
+              temperature: 0.7,
+            });
+
+            aiResponse = completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+
+            console.log(`✅ Document Chat: Generated response using new search workflow (${aiResponse.length} chars)`);
+
+          } else {
+            console.log(`⚠️ Document Chat: No relevant content found, using fallback`);
+            
+            // Fallback to basic response
+            const { generateChatResponse } = await import('./services/openai');
+            aiResponse = await generateChatResponse(
+              content,
+              documents.slice(0, 3), // Limit to first 3 documents for fallback
+              documentId,
+              'semantic'
+            );
+          }
+        }
+
+      } catch (error) {
+        console.error("💥 Document Chat: New search workflow failed, falling back to original method:", error);
+        
+        // Fallback to original generateChatResponse
+        const { generateChatResponse } = await import('./services/openai');
+        aiResponse = await generateChatResponse(
+          content,
+          documents,
+          documentId ? documentId : undefined,
+          'hybrid',
+          0.4,
+          0.6
+        );
+      }
 
       // Create assistant message
       const assistantMessage = await storage.createChatMessage({
