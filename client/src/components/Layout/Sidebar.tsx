@@ -52,8 +52,20 @@ export default function Sidebar({
 }: SidebarProps) {
   const [location] = useLocation();
   const [isDashboardExpanded, setIsDashboardExpanded] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { user } = useAuth();
   const sidebarRef = useRef<HTMLElement>(null);
+
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["/api/categories"],
@@ -303,7 +315,7 @@ export default function Sidebar({
               {navigationGroups.map((group, groupIndex) => (
                 <div key={group.label} className="space-y-2">
                   {/* Group header (button) - show on mobile even when collapsed */}
-                  {(!isCollapsed || window.innerWidth < 1024) && (
+                  {(!isCollapsed || isMobile) && (
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.label)}
@@ -322,9 +334,9 @@ export default function Sidebar({
                   {/* Group items (collapsible) - show on mobile even when collapsed */}
                   <div className={cn(
                     "space-y-1 pl-1 transition-all duration-200 overflow-hidden",
-                    (expandedGroups[group.label] && (!isCollapsed || window.innerWidth < 1024)) ? "max-h-96" : "max-h-0"
+                    (expandedGroups[group.label] && (!isCollapsed || isMobile)) ? "max-h-96" : "max-h-0"
                   )}>
-                    {(expandedGroups[group.label] && (!isCollapsed || window.innerWidth < 1024)) && group.items.map((item) => {
+                    {(expandedGroups[group.label] && (!isCollapsed || isMobile)) && group.items.map((item) => {
                       const isActive = location === item.href ||
                         (item.href !== "/" && location.startsWith(item.href));
                       return (
@@ -339,8 +351,8 @@ export default function Sidebar({
                               : "text-white hover:bg-navy-700/50 hover:text-white"
                           )}
                         >
-                          <item.icon className={cn("w-4 h-4 mt-0.5", isCollapsed && "lg:w-6 lg:h-6")} />
-                          {(!isCollapsed || window.innerWidth < 1024) && (
+                          <item.icon className={cn("w-4 h-4 mt-0.5", isCollapsed && !isMobile && "lg:w-6 lg:h-6")} />
+                          {(!isCollapsed || isMobile) && (
                             <span className="break-words whitespace-normal text-left drop-shadow-sm">
                               {item.name}
                             </span>
@@ -349,7 +361,7 @@ export default function Sidebar({
                       );
                     })}
                   </div>
-                  {groupIndex < navigationGroups.length - 1 && (!isCollapsed || window.innerWidth < 1024) && (
+                  {groupIndex < navigationGroups.length - 1 && (!isCollapsed || isMobile) && (
                     <div className="border-t border-slate-200 mt-4"></div>
                   )}
                 </div>
