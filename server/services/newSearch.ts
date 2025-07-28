@@ -380,54 +380,50 @@ export async function searchSmartHybridDebug(
   // 5. Sort by finalScore and apply smart selection
   scoredChunks.sort((a, b) => b.finalScore - a.finalScore);
 
-  // Smart selection: use 90% mass selection with [5, 8] constraint
-  const minResults = Math.min(5, scoredChunks.length); // At least 5 results if available
-  const maxResults = Math.min(8, scoredChunks.length); // Cap at 8 results for better coverage
+  // Smart selection: TRUE 90% mass selection (not percentile!)
+  const maxResults = Math.min(50, scoredChunks.length); // Cap at 50 results to prevent overwhelming responses
 
   let selectedChunks = [];
 
   if (scoredChunks.length > 0) {
-    // Method 1: Use score-based selection if scores are reasonable
+    // Use TRUE mass-based selection - accumulate until we get 90% of total score
     const totalScore = scoredChunks.reduce((sum, c) => sum + c.finalScore, 0);
     const avgScore = totalScore / scoredChunks.length;
 
     if (avgScore > 0.05) {
-      // Use 90% mass selection for more comprehensive results
+      // Use 90% mass selection - keep adding chunks until we reach 90% of total score mass
       const scoreTarget = totalScore * 0.90;
       let accScore = 0;
       
-      console.log(`📊 MASS SELECTION DEBUG: Total score: ${totalScore.toFixed(4)}, 90% target: ${scoreTarget.toFixed(4)}`);
+      console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, 90% target: ${scoreTarget.toFixed(4)}`);
       
       for (const chunk of scoredChunks) {
         selectedChunks.push(chunk);
         accScore += chunk.finalScore;
         
-        console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}`);
+        console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, progress=${(accScore/scoreTarget*100).toFixed(1)}%`);
         
-        // Always get at least minResults, then check if we should continue based on mass target
-        if (selectedChunks.length >= minResults) {
-          // If we've reached the mass target AND we have minimum results, we can stop
-          if (accScore >= scoreTarget) {
-            console.log(`📊 STOPPING: Reached 90% mass target with ${selectedChunks.length} chunks`);
-            break;
-          }
+        // Stop when we've accumulated 90% of the total score mass
+        if (accScore >= scoreTarget) {
+          console.log(`📊 STOPPING: Reached 90% mass target (${(accScore/totalScore*100).toFixed(1)}%) with ${selectedChunks.length} chunks`);
+          break;
         }
-        // Hard cap at maxResults regardless of mass target
+        
+        // Safety cap to prevent excessive results
         if (selectedChunks.length >= maxResults) {
-          console.log(`📊 STOPPING: Reached max results limit (${maxResults})`);
+          console.log(`📊 STOPPING: Hit safety cap at ${maxResults} chunks`);
           break;
         }
       }
     } else {
-      // If scores are very low, ensure we still get some results but fewer
-      const fallbackCount = Math.min(minResults, scoredChunks.length);
-      selectedChunks = scoredChunks.slice(0, fallbackCount);
+      // If scores are very low, take top 5 as fallback
+      selectedChunks = scoredChunks.slice(0, Math.min(5, scoredChunks.length));
     }
 
     // Calculate selected chunks total score
     const selectedTotalScore = selectedChunks.reduce((sum, c) => sum + c.finalScore, 0);
     console.log(`📊 SCORE BREAKDOWN: ${selectedTotalScore.toFixed(4)} out of ${totalScore.toFixed(4)} (${(selectedTotalScore/totalScore*100).toFixed(1)}%)`);
-    console.log(`🎯 SMART SELECTION (90% mass): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} (avg score: ${avgScore.toFixed(4)}, min: ${minResults}, max: ${maxResults})`);
+    console.log(`🎯 TRUE MASS SELECTION (90%): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} chunks capturing ${(selectedTotalScore/totalScore*100).toFixed(1)}% of total score mass`);
   }
 
   const results: SearchResult[] = selectedChunks.map(chunk => {
