@@ -1134,16 +1134,115 @@ ${imageAnalysisResult}
             });
 
             if (!queryAnalysis.needsSearch) {
-              console.log(`⏭️ LINE OA: Query doesn't need search, using test message`);
-              // aiResponse = await getAiResponseDirectly(
-              //   contextMessage,
-              //   lineIntegration.agentId,
-              //   lineIntegration.userId,
-              //   "lineoa",
-              //   event.source.userId,
-              //   true // skipSearch = true
-              // );
-              // aiResponse = "This is a test message";
+              console.log(`⏭️ LINE OA: Query doesn't need search, using agent conversation without documents`);
+              
+              // Build system prompt without document context
+              const systemPrompt = `${agent.systemPrompt}
+
+สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้อมูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว
+
+ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
+ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
+คุณสามารถอ้างอิงบทสนทนาก่อนหน้านี้เพื่อให้คำตอบที่ต่อเนื่องและเหมาะสม
+
+หมายเหตุ: ไม่มีเอกสารอ้างอิงสำหรับคำถามนี้`;
+
+              const messages: any[] = [
+                {
+                  role: "system",
+                  content: systemPrompt
+                }
+              ];
+
+              // Add chat history (exclude system messages from conversation flow)
+              const userBotMessages = chatHistory.filter(
+                (msg) => msg.messageType === "user" || msg.messageType === "assistant",
+              );
+
+              userBotMessages.forEach((msg) => {
+                messages.push({
+                  role: msg.messageType === "user" ? "user" : "assistant",
+                  content: msg.content,
+                });
+              });
+
+              // Add current user message
+              messages.push({
+                role: "user",
+                content: contextMessage,
+              });
+
+              console.log(`🤖 LINE OA: Sending ${messages.length} messages to OpenAI (no document search)`);
+
+              // Apply guardrails if configured
+              let guardrailsService: GuardrailsService | null = null;
+              if (agent.guardrailsConfig) {
+                guardrailsService = new GuardrailsService(agent.guardrailsConfig);
+                console.log(`🛡️ LINE OA: Guardrails enabled for conversation without documents`);
+
+                // Validate input
+                const inputValidation = await guardrailsService.evaluateInput(contextMessage, {
+                  documents: [],
+                  agent: agent
+                });
+
+                if (!inputValidation.allowed) {
+                  console.log(`🚫 LINE OA: Input blocked by guardrails - ${inputValidation.reason}`);
+                  const suggestions = inputValidation.suggestions?.join(' ') || '';
+                  aiResponse = `ขออภัย ไม่สามารถประมวลผลคำถามนี้ได้ ${inputValidation.reason ? `(${inputValidation.reason})` : ''} ${suggestions}`;
+
+                  // Send blocked response and save to chat history
+                  await sendLineReply(replyToken, aiResponse, lineIntegration.channelAccessToken!);
+                  await storage.createChatHistory({
+                    userId: lineIntegration.userId,
+                    channelType: "lineoa",
+                    channelId: event.source.userId,
+                    agentId: lineIntegration.agentId,
+                    messageType: "assistant",
+                    content: aiResponse,
+                    metadata: { blockedByGuardrails: true },
+                  });
+                  continue;
+                }
+
+                // Use modified content if privacy protection applied
+                if (inputValidation.modifiedContent) {
+                  contextMessage = inputValidation.modifiedContent;
+                  // Update the user message in the messages array
+                  messages[messages.length - 1].content = contextMessage;
+                }
+              }
+
+              // Generate AI response
+              const completion = await openai.chat.completions.create({
+                model: "gpt-4o",
+                messages: messages,
+                max_tokens: 1000,
+                temperature: 0.7,
+              });
+
+              aiResponse = completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+
+              // Validate AI output with guardrails
+              if (guardrailsService) {
+                const outputValidation = await guardrailsService.evaluateOutput(aiResponse, {
+                  documents: [],
+                  agent: agent,
+                  userQuery: contextMessage
+                });
+
+                if (!outputValidation.allowed) {
+                  console.log(`🚫 LINE OA: Output blocked by guardrails - ${outputValidation.reason}`);
+                  const suggestions = outputValidation.suggestions?.join(' ') || '';
+                  aiResponse = `ขออภัย ไม่สามารถให้คำตอบนี้ได้ ${outputValidation.reason ? `(${outputValidation.reason})` : ''} ${suggestions}`;
+                } else if (outputValidation.modifiedContent) {
+                  console.log(`🔒 LINE OA: AI output modified for compliance`);
+                  aiResponse = outputValidation.modifiedContent;
+                }
+              }
+
+              console.log(`✅ LINE OA: Generated response without document search (${aiResponse.length} chars)`);
+              
             } else {
               console.log(`🔍 LINE OA: Query needs search, performing smart hybrid search with enhanced query`);
 
@@ -1370,17 +1469,58 @@ ${documentContext}
             } // End of search workflow conditional
 
           } catch (error) {
-            console.error("💥 LINE OA: New search workflow failed, using test message:", error);
-            // Fallback to agent conversation without documents - COMMENTED OUT FOR TESTING
-            // aiResponse = await getAiResponseDirectly(
-            //   contextMessage,
-            //   lineIntegration.agentId,
-            //   lineIntegration.userId,
-            //   "lineoa",
-            //   event.source.userId,
-            //   false // skipSearch = false for fallback
-            // );
-            aiResponse = "This is a test message";
+            console.error("💥 LINE OA: New search workflow failed, falling back to agent conversation without documents:", error);
+            
+            // Fallback to agent conversation without documents
+            const systemPrompt = `${agent.systemPrompt}
+
+สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้อมูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว
+
+ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
+ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
+คุณสามารถอ้างอิงบทสนทนาก่อนหน้านี้เพื่อให้คำตอบที่ต่อเนื่องและเหมาะสม
+
+หมายเหตุ: ไม่มีเอกสารอ้างอิงสำหรับคำถามนี้ (เกิดข้อผิดพลาดในการค้นหาเอกสาร)`;
+
+            const fallbackMessages: any[] = [
+              {
+                role: "system",
+                content: systemPrompt
+              }
+            ];
+
+            // Add recent chat history for context
+            const userBotMessages = chatHistory.filter(
+              (msg) => msg.messageType === "user" || msg.messageType === "assistant",
+            ).slice(-5); // Only last 5 messages for fallback
+
+            userBotMessages.forEach((msg) => {
+              fallbackMessages.push({
+                role: msg.messageType === "user" ? "user" : "assistant",
+                content: msg.content,
+              });
+            });
+
+            // Add current user message
+            fallbackMessages.push({
+              role: "user",
+              content: contextMessage,
+            });
+
+            try {
+              const fallbackCompletion = await openai.chat.completions.create({
+                model: "gpt-4o",
+                messages: fallbackMessages,
+                max_tokens: 1000,
+                temperature: 0.7,
+              });
+
+              aiResponse = fallbackCompletion.choices[0].message.content || "ขออภัย เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง";
+              console.log(`✅ LINE OA: Fallback response generated successfully (${aiResponse.length} chars)`);
+            } catch (fallbackError) {
+              console.error("💥 LINE OA: Fallback also failed:", fallbackError);
+              aiResponse = "ขออภัย เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง";
+            }
           }
           console.log("🤖 AI response:", aiResponse);
 
