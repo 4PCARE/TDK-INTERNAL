@@ -198,9 +198,11 @@ export default function Sidebar({
         className={cn(
           "fixed lg:static inset-y-0 left-0 z-50 bg-gradient-to-b from-navy-900 to-navy-800 shadow-xl border-r border-navy-700 transition-all duration-300 ease-in-out lg:translate-x-0",
           isMobileOpen ? "translate-x-0" : "-translate-x-full",
-          isCollapsed ? "w-16" : "w-64",
+          // Mobile: always full width on small screens, desktop: respect collapsed state
+          "w-80 sm:w-72 lg:w-64",
+          isCollapsed && "lg:w-16",
         )}
-      >
+      ></aside>
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="p-4 border-b border-navy-700/50">
@@ -226,9 +228,27 @@ export default function Sidebar({
                   size="sm"
                   onClick={onMobileClose}
                   className="lg:hidden text-navy-300 hover:text-white hover:bg-navy-700/50"
+                  aria-label="Close sidebar"
                 >
                   <X className="h-5 w-5" />
                 </Button>
+                
+                {/* Desktop Collapse Toggle - hide on mobile */}
+                {onToggleCollapse && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onToggleCollapse}
+                    className="hidden lg:flex text-navy-300 hover:text-white hover:bg-navy-700/50"
+                    aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                  >
+                    {isCollapsed ? (
+                      <ChevronRight className="h-4 w-4" />
+                    ) : (
+                      <ChevronLeft className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -278,8 +298,8 @@ export default function Sidebar({
             <nav className="flex-1 px-4 py-4 space-y-6">
               {navigationGroups.map((group, groupIndex) => (
                 <div key={group.label} className="space-y-2">
-                  {/* Group header (button) */}
-                  {!isCollapsed && (
+                  {/* Group header (button) - show on mobile even when collapsed */}
+                  {(!isCollapsed || window.innerWidth < 1024) && (
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.label)}
@@ -295,18 +315,19 @@ export default function Sidebar({
                     </span>
                   </button>
                   )}
-                  {/* Group items (collapsible) */}
+                  {/* Group items (collapsible) - show on mobile even when collapsed */}
                   <div className={cn(
                     "space-y-1 pl-1 transition-all duration-200 overflow-hidden",
-                    (expandedGroups[group.label] && !isCollapsed) ? "max-h-96" : "max-h-0"
+                    (expandedGroups[group.label] && (!isCollapsed || window.innerWidth < 1024)) ? "max-h-96" : "max-h-0"
                   )}>
-                    {(expandedGroups[group.label] && !isCollapsed) && group.items.map((item) => {
+                    {(expandedGroups[group.label] && (!isCollapsed || window.innerWidth < 1024)) && group.items.map((item) => {
                       const isActive = location === item.href ||
                         (item.href !== "/" && location.startsWith(item.href));
                       return (
                         <Link
                           key={item.name}
                           href={item.href}
+                          onClick={onMobileClose}
                           className={cn(
                             "flex items-start space-x-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
                             isActive
@@ -314,8 +335,8 @@ export default function Sidebar({
                               : "text-white hover:bg-navy-700/50 hover:text-white"
                           )}
                         >
-                          <item.icon className={cn("w-4 h-4 mt-0.5", isCollapsed && "w-6 h-6")} />
-                          {!isCollapsed && (
+                          <item.icon className={cn("w-4 h-4 mt-0.5", isCollapsed && "lg:w-6 lg:h-6")} />
+                          {(!isCollapsed || window.innerWidth < 1024) && (
                             <span className="break-words whitespace-normal text-left drop-shadow-sm">
                               {item.name}
                             </span>
@@ -324,7 +345,7 @@ export default function Sidebar({
                       );
                     })}
                   </div>
-                  {groupIndex < navigationGroups.length - 1 && !isCollapsed && (
+                  {groupIndex < navigationGroups.length - 1 && (!isCollapsed || window.innerWidth < 1024) && (
                     <div className="border-t border-slate-200 mt-4"></div>
                   )}
                 </div>
