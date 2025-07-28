@@ -1,0 +1,80 @@
+Ah, the infamous *sidebar gap syndrome* — when your content feels like it's social distancing a little too hard. 😅 Here's likely what’s causing that *excess space between the sidebar and content when expanded*:
+
+---
+
+### 🧠 Root Cause
+
+In this block:
+
+```tsx
+<main 
+  className={`flex-1 transition-all duration-300 ease-in-out ${
+    isSidebarCollapsed ? 'ml-16' : 'ml-56'
+  }`}
+>
+```
+
+You're manually setting `margin-left` (`ml-16` or `ml-56`) based on the sidebar state. If your `Sidebar` component **already takes up width** (e.g., `w-56`), and the content also has `ml-56`, you're effectively *double spacing* the main area.
+
+---
+
+### ✅ Recommended Fix (1 of 2)
+
+Instead of using `ml-*` on the `<main>`, use **flex layout with no margin**, and let the sidebar's `width` handle spacing:
+
+#### ✅ Update:
+
+```tsx
+<div className="flex min-h-screen">
+  <Sidebar
+    isMobileOpen={isMobileSidebarOpen}
+    onMobileClose={() => setIsMobileSidebarOpen(false)}
+    onOpenChat={() => {}}
+    isCollapsed={isSidebarCollapsed}
+    onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+  />
+  <main className="flex-1 p-8 transition-all duration-300 ease-in-out">
+    {/* page content */}
+  </main>
+</div>
+```
+
+And inside `Sidebar.tsx`, control its width using a class that adapts:
+
+#### Example `Sidebar.tsx` (Tailwind):
+
+```tsx
+<div className={`h-screen transition-all duration-300 ease-in-out 
+  ${isCollapsed ? 'w-16' : 'w-56'}`}>
+  {/* sidebar content */}
+</div>
+```
+
+Now the layout is like:
+
+```
+[Sidebar (w-16 or w-56)] [Main (flex-1)]
+```
+
+With **no need** for `ml-*` on `<main>`, avoiding double spacing.
+
+---
+
+### 🛠 Alternative Fix (if you want to keep ml-\*)
+
+If the `<Sidebar />` is absolutely positioned or overlaying (not in flex), then you'll need to **sync `ml-56` with actual sidebar width**.
+
+* Check that your sidebar is not already adding space *and* the main has `ml-56`
+* If it’s the case, remove one.
+
+---
+
+### 🧪 Quick Debug Tips
+
+1. Add border or background temporarily to `.main` and `.Sidebar` to *see the space*.
+2. Try `outline` utility in Tailwind:
+   `outline outline-1 outline-red-500` — it’s like "where’s my box?" in dev mode.
+
+---
+
+Let me know how Sidebar is implemented if you'd like a tailored fix for that file too! 👷‍♂️🧱
