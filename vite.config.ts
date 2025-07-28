@@ -33,5 +33,9 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    hmr: {
+      port: 443,
+      clientPort: 443,
+    },
   },
 });
