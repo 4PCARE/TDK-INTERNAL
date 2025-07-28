@@ -217,7 +217,7 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
     }
   }
 
-  console.log(`🔍 BM25: Document frequencies calculated:`, Array.from(termDF.entries())).map(([term, df]) => `${term}:${df}`);
+  console.log(`🔍 BM25: Document frequencies calculated:`, Array.from(termDF.entries()).map(([term, df]) => `${term}:${df}`));
 
   const avgDocLength = totalDocLength / totalChunks;
 
