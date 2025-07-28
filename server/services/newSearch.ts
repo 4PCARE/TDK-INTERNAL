@@ -3,7 +3,7 @@ import { vectorService } from './vectorService';
 import { storage } from '../storage';
 
 // Configuration: Mass selection percentage for smart selection algorithm
-const MASS_SELECTION_PERCENTAGE = 0.10; // 10% - adjust this value to change selection criteria
+const MASS_SELECTION_PERCENTAGE = 0.3; // 20% - adjust this value to change selection criteria
 
 export interface SearchResult {
   id: string;

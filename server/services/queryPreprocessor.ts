@@ -36,14 +36,18 @@ export class QueryPreprocessorService {
      - Previous store or location discussions
      - Brand names or product mentions in recent conversation
    - If the user's query is vague (e.g., "อยู่ชั้นไหน", "ราคาเท่าไหร่", "มีส่วนลดมั้ย") but chat history contains specific context (store names, brands, products), YOU MUST inject that context into the enhanced query
-   - Example: User says "อยู่ชั้นไหน" and history mentions "OPPO" → Enhanced query should be "OPPO อยู่ชั้นไหน"
+   - Example: User says "อยู่ชั้นไหน" and history mentions "OPPO" → Enhanced query should be "OPPO อยู่ ชั้น"
 
 2. Preprocess the user's query:
    - If the query is in Thai:
-     - Insert whitespace between Thai words if not already segmented
+     - ALWAYS Insert whitespace between Thai words if not already segmented
      - Remove Thai stopwords such as: "ครับ", "ค่ะ", "เหรอ", "ไหน", "ยังไง", "ไหม", "อ่ะ", "ละ", etc.
      - Correct minor typos when possible (e.g., "บางกะปี" → "บางกะปิ")
      - Mark as vague any query that is too short UNLESS you can inject historical context
+   - The returned query should be optimized for both keyword and semantic search. To optimize keyword search, ensure stopwords are removed and the query is segmented properly. For example, 
+     - Original: "ซื้อของ 6,000 ใช้บัตรเครดิตใบไหนดี"
+     - Preferred: "ซื้อของ 6,000 บัตรเครดิต"
+     - Not preferred: "บัตรเครดิตใบไหนดี สำหรับซื้อของ 6,000"
 
 3. Determine if the user's query requires a document search:
    - Mark \`needsSearch: false\` if the query is vague, purely conversational, AND lacks historical context
@@ -55,10 +59,14 @@ export class QueryPreprocessorService {
      - For food or drink: \`"อาหาร"\`, \`"ร้านอาหาร"\`, \`"dining"\`
      - For clothing or fashion: \`"แฟชั่น"\`, \`"เสื้อผ้า"\`, \`"fashion"\`
      - For banking, salons, services: \`"บริการ"\`, \`"service"\`
+   - Search anyway even tho agent have answered in the history. The user might want to confirm the result.
 
 5. Set hybrid search weights:
-   - Questions about **store names, specific locations, contact details, or floor info** → High keyword weight (0.7–0.8)
-   - **General recommendations, service comparisons, or abstract needs** → Higher semantic weight (0.6–0.8)
+   - Questions about **store names, specific locations, contact details, or floor info** → High keyword weight (0.85–0.95)
+   - **General recommendations, service comparisons, or abstract needs** → Higher semantic weight (0.8–0.9)
+   - For example
+     - "OPPO เดอะมอลล์ ท่าพระ" → Keyword: 0.95, Semantic: 0.05"
+     - "ร้าน ส้มตำ อร่อย ที่สุด" → Keyword: 0.1, Semantic: 0.9"
 
 ---
 
@@ -88,8 +96,8 @@ ${context ? `Additional Context: ${context}` : ''}
 2. If the user query is vague but history contains specific context, inject that context
 3. Pay special attention to image analysis results that mention specific stores or brands
 4. Examples of context injection:
-   - Query: "อยู่ชั้นไหน" + History mentions "OPPO", "เดอะมอลล์ ท่าพระ" → Enhanced: "OPPO เดอะมอลล์ ท่าพระ อยู่ชั้นไหน"
-   - Query: "ราคาเท่าไหร่" + History mentions "iPhone 15" → Enhanced: "iPhone 15 ราคาเท่าไหร่"
+   - Query: "อยู่ชั้นไหน" + History mentions "OPPO", "เดอะมอลล์ ท่าพระ" → Enhanced: "OPPO เดอะมอลล์ ท่าพระ"
+   - Query: "ราคาเท่าไหร่" + History mentions "iPhone 15" → Enhanced: "iPhone 15 ราคา"
 
 Analyze this query and provide your response.`;
 
