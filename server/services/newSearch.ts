@@ -2,6 +2,9 @@ import { Document } from "@shared/schema";
 import { vectorService } from './vectorService';
 import { storage } from '../storage';
 
+// Configuration: Mass selection percentage for smart selection algorithm
+const MASS_SELECTION_PERCENTAGE = 0.10; // 10% - adjust this value to change selection criteria
+
 export interface SearchResult {
   id: string;
   name: string;
@@ -431,29 +434,29 @@ export async function searchSmartHybridDebug(
     const avgScore = totalScore / scoredChunks.length;
 
     if (avgScore > 0.05) {
-      // Use 10% mass selection - keep adding chunks until we reach 30% of total score mass
-      const scoreTarget = totalScore * 0.10;
+      // Use configurable mass selection - keep adding chunks until we reach the target percentage of total score mass
+      const scoreTarget = totalScore * MASS_SELECTION_PERCENTAGE;
       let accScore = 0;
 
-      console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, 10% target: ${scoreTarget.toFixed(4)}`);
+      console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, ${(MASS_SELECTION_PERCENTAGE * 100).toFixed(1)}% target: ${scoreTarget.toFixed(4)}`);
 
       for (const chunk of scoredChunks) {
         // Check if adding this chunk would exceed the 30% mass target
         const potentialScore = accScore + chunk.finalScore;
 
         if (potentialScore > scoreTarget && selectedChunks.length > 0) {
-          console.log(`📊 STOPPING: Adding chunk ${selectedChunks.length + 1} would exceed 10% mass target (${(potentialScore/totalScore*100).toFixed(1)}% > 10.0%) - stopping at ${selectedChunks.length} chunks`);
+          console.log(`📊 STOPPING: Adding chunk ${selectedChunks.length + 1} would exceed ${(MASS_SELECTION_PERCENTAGE * 100).toFixed(1)}% mass target (${(potentialScore/totalScore*100).toFixed(1)}% > ${(MASS_SELECTION_PERCENTAGE * 100).toFixed(1)}%) - stopping at ${selectedChunks.length} chunks`);
           break;
         }
 
         selectedChunks.push(chunk);
         accScore += chunk.finalScore;
 
-        console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, mass=${(accScore/totalScore*100).toFixed(1)}% (need 10.0%)`);
+        console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, mass=${(accScore/totalScore*100).toFixed(1)}% (need ${(MASS_SELECTION_PERCENTAGE * 100).toFixed(1)}%)`);
 
         // Check if we've reached the target mass
         if (accScore >= scoreTarget) {
-          console.log(`📊 STOPPING: Reached 10% mass target (${(accScore/totalScore*100).toFixed(1)}%) with ${selectedChunks.length} chunks`);
+          console.log(`📊 STOPPING: Reached ${(MASS_SELECTION_PERCENTAGE * 100).toFixed(1)}% mass target (${(accScore/totalScore*100).toFixed(1)}%) with ${selectedChunks.length} chunks`);
           break;
         }
 
@@ -471,7 +474,7 @@ export async function searchSmartHybridDebug(
     // Calculate selected chunks total score
     const selectedTotalScore = selectedChunks.reduce((sum, c) => sum + c.finalScore, 0);
     console.log(`📊 SCORE BREAKDOWN: ${selectedTotalScore.toFixed(4)} out of ${totalScore.toFixed(4)} (${(selectedTotalScore/totalScore*100).toFixed(1)}%)`);
-    console.log(`🎯 TRUE MASS SELECTION (30%): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} chunks capturing ${(selectedTotalScore/totalScore*100).toFixed(1)}% of total score mass`);
+    console.log(`🎯 TRUE MASS SELECTION (${(MASS_SELECTION_PERCENTAGE * 100).toFixed(1)}%): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} chunks capturing ${(selectedTotalScore/totalScore*100).toFixed(1)}% of total score mass`);
   }
 
   const results: SearchResult[] = selectedChunks.map(chunk => {
@@ -623,8 +626,12 @@ export async function searchSmartHybridV1(
       min: keywordScores.length > 0 ? Math.min(...keywordScores) : 0,
       max: keywordScores.length > 0 ? Math.max(...keywordScores) : 0,
       mean: keywordScores.length > 0 ? keywordScores.reduce((a, b) => a + b, 0) / keywordScores.length : 0,
-      std: keywordScores.length > 0 ? Math.sqrt(keywordScores.reduce((sum, s) => sum + (s - tfIdfStats.mean) ** 2, 0) / keywordScores.length) : 0,
+      std: 0,
     };
+    
+    if (keywordScores.length > 0) {
+      tfIdfStats.std = Math.sqrt(keywordScores.reduce((sum, s) => sum + (s - tfIdfStats.mean) ** 2, 0) / keywordScores.length);
+    }
 
     // Normalize keyword scores
     sortedChunks.forEach(chunk => {
@@ -682,7 +689,7 @@ export async function searchSmartHybridV1(
     });
 
     const totalScore = sortedChunks.reduce((sum, c) => sum + c.finalScore, 0);
-    const scoreThreshold = totalScore * 0.60; // Use 60% mass selection for consistency
+    const scoreThreshold = totalScore * MASS_SELECTION_PERCENTAGE; // Use configurable mass selection
 
     const selectedChunks = [];
     let accumulatedScore = 0;
