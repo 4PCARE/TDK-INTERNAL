@@ -1,0 +1,69 @@
+=== เอกสาร: The Mall Directory_shop_list.xlsx (Chunk 58) (Chunk 3) ===
+MORNING CARE CLINIC The Mall Lifestore Bangkae  6   เดอะมอลล์ไลฟ์สโตร์ บางแค   The Mall Lifestore Bangkae  Beauty Clinic   Beauty Clinic   active
+1563    โคโค่ อิฉิบันยะ เดอะมอลล์ไลฟ์สโตร์ ท่าพระ   COCO ICHIBANYA The Mall Lifestore Thapra    3   เดอะมอลล์ไลฟ์สโตร์ ท่าพระ   The Mall Lifestore Thapra    Dining  Dining  active
+1564    โรมิโอ แอนด์ จูเลียตา เดอะมอลล์ไลฟ์สโตร์ บางกะปิ    ROMEO AND JULIETA'S The Mall Lifestore Bangkapi M   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi  Fashion Fashion active
+1567    เดอะ พิซซ่า คอมปะนี เดอะมอลล์ โคราช THE PIZZA COMPANY The Mall Korat    1   เดอะมอลล์ โคราช  The Mall Korat  Dining  Dining  active
+1568    วิว กราฟฟิก เดอะมอลล์ไลฟ์สโตร์ บางแค VIEW GRAPHIC The Mall Lifestore Bangkae 10  เดอะมอลล์ไลฟ์สโตร์ บางแค   The Mall Lifestore Bangkae  Service  Service active
+1569    ยู อาร์ เดอะ เดอะมอลล์ไลฟ์สโตร์ บางกะปิ   URTHE The Mall Lifestore Bangkapi   G   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi Fashion  Fashion active
+1570    แม็ค โดนัลด์ เดอะมอลล์ โคราช    MCDONALD'S The Mall Korat   1   เดอะมอลล์ โคราช  The Mall Korat  Dining  Dining  active
+1571    มินิโซ เดอะมอลล์ไลฟ์สโตร์ ท่าพระ  MINISO The Mall Lifestore Thapra    1   เดอะมอลล์ไลฟ์สโตร์ ท่าพระ   The Mall Lifestore Thapra   Lifestyle & Specialty    Lifestyle & Specialty   active
+1573    ธนาคารกรุงเทพ จำกัด เดอะมอลล์ไลฟ์สโตร์ บางกะปิ    Bangkok Bank (BBL) The Mall Lifestore Bangkapi  2   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi  Bank & Insurance    Bank & Insurance    active
+1575    ทีจี เดอะมอลล์ไลฟ์สโตร์ บางแค    TG The Mall Lifestore Bangkae   1   เดอะมอลล์ไลฟ์สโตร์ บางแค   The Mall Lifestore Bangkae  IT & Electronics IT & Electronics    active
+1577    เบอร์ลูติ พารากอน  Berluti Paragon M   พารากอน Paragon Luxe Hall   Luxe Hall   active
+1578    ซีดีบี เวลเนส คลินิก เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  CDB WELLNESS CLINIC The Mall Lifestore Bangkapi     เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi  Beauty Clinic   Beauty Clinic   active
+1579    โอปป้า แด๊ก เดอะมอลล์ไลฟ์สโตร์ ท่าพระ OPPA DAEK The Mall Lifestore Thapra 3   เดอะมอลล์ไลฟ์สโตร์ ท่าพระ   The Mall Lifestore Thapra   Dining   Dining  active
+1581    โนบิชา เดอะมอลล์ไลฟ์สโตร์ บางแค NOBI CHA The Mall Lifestore Bangkae 3   เดอะมอลล์ไลฟ์สโตร์ บางแค   The Mall Lifestore Bangkae  Dining  Dining   active
+1584    ซีเอ็ด บุ๊ค เซ็นเตอร์ เดอะมอลล์ โคราช  SE-ED BOOK CENTER The Mall Korat    1   เดอะมอลล์ โคราช  The Mall Korat  Lifestyle & Specialty   Lifestyle & Specialty    active
+1588    ดิ แอลลี่ เดอะมอลล์ไลฟ์สโตร์ บางกะปิ   THE ALLEY The Mall Lifestore Bangkapi   2   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi Dining   Dining  active
+1590    วิสดอม อินเตอร์เนชันแนล บุฟเฟ่ต์ เดอะมอลล์ไลฟ์สโตร์ บางแค WISDOM INTERNATIONAL BUFFET The Mall Lifestore Bangkae  3   เดอะมอลล์ไลฟ์สโตร์ บางแคThe Mall Lifestore Bangkae  Dining  Dining  active
+1591    ธนาคารกรุงไทย เดอะมอลล์ไลฟ์สโตร์ บางกะปิ Krung Thai Bank (KTB) The Mall Lifestore Bangkapi   2   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi  Bank & Insurance    Bank & Insurance    active
+
+=== เอกสาร: The Mall Directory_shop_list.xlsx (Chunk 36) (Chunk 4) ===
+เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  SWENSEN'S The Mall Lifestore Bangkapi   G   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi Dining  Dining  active
+1010    ยูนิโคล่ เดอะมอลล์ไลฟ์สโตร์ บางกะปิ    UNIQLO The Mall Lifestore Bangkapi  M   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi Fashion  Fashion active
+1011    เบเบ้ โฟน บาย คอมเซเว่น เดอะมอลล์ไลฟ์สโตร์ บางกะปิ    BEBE PHONE BY COM7 The Mall Lifestore Bangkapi  2   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi  IT & Electronics    IT & Electronics    active
+1014    อาดิดาส เดอะมอลล์ไลฟ์สโตร์ บางกะปิ   ADIDAS The Mall Lifestore Bangkapi  1   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi Fashion Sport    Fashion Sport   active
+1015    พาคามาร่า คอฟฟี่ โรสเตอร์ เดอะมอลล์ไลฟ์สโตร์ บางกะปิ    PACAMARA COFFEE ROASTERS The Mall Lifestore Bangkapi    G   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ   The Mall Lifestore Bangkapi Dining  Dining  active
+1016    เจลลี่บันนี่ เดอะมอลล์ โคราช  JELLY BUNNY The Mall Korat  2   เดอะมอลล์ โคราช  The Mall Korat  Fashion Fashion active
+1019    เก้าวิชั่น เดอะมอลล์ รามคำแหง    9 VISION The Mall Ramkamhang    15  เดอะมอลล์ รามคำแหง   The Mall Ramkamhang Fashion Optical Fashion Optical  active
+1020    เอี่ยวไถ่ เดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน    EARW THAI The Mall Lifestore Ngamwongwan    5   เดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน   The Mall Lifestore Ngamwongwan   Dining  Dining  active
+1021    ลักซ์ ออพติค เดอะมอลล์ โคราช    LUX OPTIC The Mall Korat    2   เดอะมอลล์ โคราช  The Mall Korat  Fashion Optical Fashion Optical active
+1024    สไมล์ ไอที เซอร์วิส เดอะมอลล์ไลฟ์สโตร์ บางแค   Smile IT Service The Mall Lifestore Bangkae 10  เดอะมอลล์ไลฟ์สโตร์ บางแค   The Mall Lifestore Bangkae   Service Service active
+1025    โอเรียนทอล พริ้นเซส เดอะมอลล์ไลฟ์สโตร์ ท่าพระ  ORIENTAL PRINCESS The Mall Lifestore Thapra G   เดอะมอลล์ไลฟ์สโตร์ ท่าพระ   The Mall Lifestore Thapra    Beauty Skincare & Costmetic Beauty Skincare & Costmetic active
+1027    คร็อคส์ เดอะมอลล์ไลฟ์สโตร์ บางแค CROCS The Mall Lifestore Bangkae    M   เดอะมอลล์ไลฟ์สโตร์ บางแค   The Mall Lifestore Bangkae  Fashion Sport    Fashion Sport   active
+1028    Kidsventure Summer เดอะมอลล์ไลฟ์สโตร์ บางแค    Kidsventure Summer The Mall Lifestore Bangkae   1   เดอะมอลล์ไลฟ์สโตร์ บางแค   The Mall Lifestore Bangkae   อีเว้นท์   Event   active
+1031    ก๋วยเตี๋ยวเรือวิศวะ เดอะมอลล์ไลฟ์สโตร์ บางแค    VITSAVA NOODLE The Mall Lifestore Bangkae   3   เดอะมอลล์ไลฟ์สโตร์ บางแค   The Mall Lifestore Bangkae   Dining  Dining  active
+1032    วี สแควร์ คลินิก เดอะมอลล์ไลฟ์สโตร์ บางแค  V SQUARE CLINIC The Mall Lifestore Bangkae  1   เดอะมอลล์ไลฟ์สโตร์ บางแค   The Mall Lifestore Bangkae   Beauty Clinic   Beauty Clinic   active
+1033    ร้านอาหารญี่ปุ่นเซ็น เดอะมอลล์ไลฟ์สโตร์ บางกะปิ   ZEN RESTAURANT The Mall Lifestore Bangkapi  3   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi  Dining  Dining  active
+1034    ยืดเปล่า เดอะมอลล์ไลฟ์สโตร์ บางกะปิ   YUEDPAO The Mall Lifestore Bangkapi G   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi Fashion  Fashion active
+
+=== เอกสาร: The Mall Directory_shop_list.xlsx (Chunk 22) (Chunk 5) ===
+ปิ   SOS - SENSE OF STYLE The Mall Lifestore Bangkapi    G   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi Fashion Fashion active
+659 ซูชิ ทามะ เดอะมอลล์ไลฟ์สโตร์ บางแค   SUSHI TAMA The Mall Lifestore Bangkae   G   เดอะมอลล์ไลฟ์สโตร์ บางแค   The Mall Lifestore Bangkae  FH (Food Hall)   FH (Food Hall)  active
+660 ธนาคารแลนด์ แอนด์ เฮ้าส์ เดอะมอลล์ไลฟ์สโตร์ บางกะปิ LAND AND HOUSES BANK (LH) The Mall Lifestore Bangkapi   2   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi  Bank & Insurance    Bank & Insurance    active
+661 มูจิ เดอะมอลล์ไลฟ์สโตร์ บางกะปิ   MUJI The Mall Lifestore Bangkapi    G   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi Lifestyle & Specialty    Lifestyle & Specialty   active
+662 โรงเรียนดนตรี ยามาฮ่า เดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน    YAMAHA MUSIC SCHOOL The Mall Lifestore Ngamwongwan  6   เดอะมอลล์ไลฟ์สโตร์ งามวงศ์วาน   The Mall Lifestore Ngamwongwan   Education   Education   active
+663 คริสปี้ เครป เดอะมอลล์ โคราช    CRISPY CREPES The Mall Korat    3   เดอะมอลล์ โคราช  The Mall Korat  Dining  Dining  active
+668 ภัตตาคารอาหารญี่ปุ่นฟูจิ เดอะมอลล์ไลฟ์สโตร์ บางแค FUJI RESTAURANT The Mall Lifestore Bangkae  2   เดอะมอลล์ไลฟ์สโตร์ บางแค   The Mall Lifestore Bangkae   Dining  Dining  active
+670 โคอิเตะ เดอะมอลล์ไลฟ์สโตร์ บางกะปิ   KOI THE The Mall Lifestore Bangkapi G   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi Dining  Dining   active
+672 ซิตี้ เชน เดอะมอลล์ไลฟ์สโตร์ บางกะปิ   CITY CHAIN The Mall Lifestore Bangkapi  G   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi Fashion  Fashion active
+673 อินฟินิตี้ เมดิคอล คลินิก เดอะมอลล์ไลฟ์สโตร์ บางกะปิ    INFINITY MEDICAL CLINIC The Mall Lifestore Bangkapi     เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi  Beauty Clinic   Beauty Clinic   active
+674 บานาน่า เดอะมอลล์ไลฟ์สโตร์ บางกะปิ   BANANA The Mall Lifestore Bangkapi  2   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi IT & Electronics IT & Electronics    active
+676 เดอะ นอท เฟซ เดอะมอลล์ไลฟ์สโตร์ บางกะปิ THE NORTH FACE The Mall Lifestore Bangkapi  1   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi  Fashion Sport   Fashion Sport   active
+678 มัทสึคิโยะ เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  MATSUKIYO The Mall Lifestore Bangkapi   G   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi Lifestyle & Specialty    Lifestyle & Specialty   active
+681 ดาร์ก เอ็มควอเทียร์ D'ARK Emquartier    G   เอ็มควอเทียร์  Emquartier  Dining  Dining  active
+682 ไอแคร์ เดอะมอลล์ไลฟ์สโตร์ บางแค I CARE The Mall Lifestore Bangkae   2   เดอะมอลล์ไลฟ์สโตร์ บางแค   The Mall Lifestore Bangkae  IT & Electronics IT & Electronics    active
+683 พิซซ่า ฮัท เดอะมอลล์ โคราช  PIZZA HUT The Mall Korat    1   เดอะมอลล์ โคราช  The Mall Korat  Dining  Dining  active
+685 Jungle Walk เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  Jungle Walk The Mall Lifestore Bangkapi G   เดอะมอลล์ไลฟ์สโตร์ บางกะปิ  The Mall Lifestore Bangkapi อีเว้นท์    Event   active
+686 เอชแอนด์เอ็ม เดอะมอลล์ โคราช   H&M The Mall Korat  1   เดอะมอลล์ โคราช  The Mall Korat  Fashion Fashion active
+
+
+กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และระบุแหล่งที่มาของข้อมูลด้วย
+
+สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้อมูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว
+
+ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
+ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
+
+คุณสามารถอ้างอิงบทสนทนาก่อนหน้านี้เพื่อให้คำตอบที่ต่อเนื่องและเหมาะสม
+=== End System Prompt ===

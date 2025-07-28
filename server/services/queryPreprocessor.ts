@@ -40,15 +40,16 @@ export class QueryPreprocessorService {
 
 2. Preprocess the user's query:
    - If the query is in Thai:
-     - ALWAYS Insert whitespace between Thai words if not already segmented
+     - **PRIORITY** ALWAYS Insert whitespace between Thai words if not already segmented
      - Remove Thai stopwords such as: "ครับ", "ค่ะ", "เหรอ", "ไหน", "ยังไง", "ไหม", "อ่ะ", "ละ", etc.
      - Correct minor typos when possible (e.g., "บางกะปี" → "บางกะปิ")
      - Mark as vague any query that is too short UNLESS you can inject historical context
+     - For specific names, add English name to it. For example "แมค โดนัลด์" add "McDonald's" to the prompt.
    - The returned query should be optimized for both keyword and semantic search. To optimize keyword search, ensure stopwords are removed and the query is segmented properly. For example, 
      - Original: "ซื้อของ 6,000 ใช้บัตรเครดิตใบไหนดี"
      - Preferred: "ซื้อของ 6,000 บัตรเครดิต"
      - Not preferred: "บัตรเครดิตใบไหนดี สำหรับซื้อของ 6,000"
-  - Increase the formality of the query because bound documents are written in formal Thai. For example, "ร้านหมอฟัน" should be "คลินิกทันตกรรม"
+  - Increase the formality of the query because bound documents are written in formal Thai. For example, "ร้านหมอฟัน" should be "คลินิก ทันตกรรม"
 
 3. Determine if the user's query requires a document search:
    - Mark \`needsSearch: false\` if the query is vague, purely conversational, AND lacks historical context. For example, "แก", "นาย", "เธอ", "วันนี้อากาศดีไหม", "คุณช่วยได้ไหม", "คุณชื่ออะไร", "คุณทำอะไรได้บ้าง" or random query like "แกไม่มีสิทธิ์มาเรียกฉันว่าพ่อ"
@@ -109,7 +110,7 @@ Analyze this query and provide your response.`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.3,
+        temperature: 0.1,
         max_tokens: 300
       });
 
