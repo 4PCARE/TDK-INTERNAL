@@ -432,7 +432,7 @@ export async function searchSmartHybridDebug(
       const scoreTarget = totalScore * 0.30;
       let accScore = 0;
       
-      console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, 90% target: ${scoreTarget.toFixed(4)}`);
+      console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, 30% target: ${scoreTarget.toFixed(4)}`);
       
       for (const chunk of scoredChunks) {
         selectedChunks.push(chunk);
@@ -440,7 +440,7 @@ export async function searchSmartHybridDebug(
         
         console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, progress=${(accScore/scoreTarget*100).toFixed(1)}%`);
         
-        // Stop when we've accumulated 90% of the total score mass
+        // Stop when we've accumulated 30% of the total score mass
         if (accScore >= scoreTarget) {
           console.log(`📊 STOPPING: Reached 30% mass target (${(accScore/totalScore*100).toFixed(1)}%) with ${selectedChunks.length} chunks`);
           break;
