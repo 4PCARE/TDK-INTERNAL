@@ -157,6 +157,11 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
   const k1 = 1.2; // Controls term frequency saturation
   const b = 0.75; // Controls document length normalization
 
+  // Normalize search terms
+  const normalizedSearchTerms = searchTerms.map(term => term.toLowerCase().trim()).filter(term => term.length > 0);
+  
+  console.log(`🔍 BM25: Processing ${normalizedSearchTerms.length} search terms: [${normalizedSearchTerms.join(', ')}]`);
+
   // Calculate document frequency for each term and average document length
   const termDF = new Map<string, number>();
   const totalChunks = chunks.length;
@@ -166,7 +171,7 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
   const chunkLengths = new Map<string, number>();
   for (const chunk of chunks) {
     const content = chunk.content || '';
-    const tokens = tokenize(content.toLowerCase());
+    const tokens = tokenize(content);
     const chunkIndex = chunk.chunkIndex ?? 0;
     const chunkId = `${chunk.documentId}-${chunkIndex}`;
     
@@ -174,14 +179,17 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
     totalDocLength += tokens.length;
 
     // Count document frequency for each search term
-    const uniqueTerms = new Set(tokens);
-    for (const term of searchTerms) {
-      const lowerTerm = term.toLowerCase();
-      if (uniqueTerms.has(lowerTerm)) {
-        termDF.set(lowerTerm, (termDF.get(lowerTerm) || 0) + 1);
+    const uniqueTokens = new Set(tokens);
+    for (const term of normalizedSearchTerms) {
+      if (uniqueTokens.has(term)) {
+        termDF.set(term, (termDF.get(term) || 0) + 1);
       }
     }
   }
+
+  console.log(`🔍 BM25: Document frequencies calculated:`, Array.from(termDF.entries()).map(([term, df]) => `${term}:${df}`));
+
+  const avgDocLength = totalDocLength / totalChunks;
 
   const avgDocLength = totalDocLength / totalChunks;
 
@@ -190,7 +198,7 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
     const chunkIndex = chunk.chunkIndex ?? 0;
     const chunkId = `${chunk.documentId}-${chunkIndex}`;
     const content = chunk.content || '';
-    const tokens = tokenize(content.toLowerCase());
+    const tokens = tokenize(content);
     const docLength = chunkLengths.get(chunkId) || 1;
     
     const tokenCounts = new Map<string, number>();
@@ -203,34 +211,38 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
     let bm25Score = 0;
     const matchedTerms: string[] = [];
 
-    for (const term of searchTerms) {
-      const lowerTerm = term.toLowerCase();
-      const tf = tokenCounts.get(lowerTerm) || 0;
+    for (const term of normalizedSearchTerms) {
+      const tf = tokenCounts.get(term) || 0;
 
       if (tf > 0) {
         matchedTerms.push(term);
         
         // BM25 formula components
-        const df = termDF.get(lowerTerm) || 1;
+        const df = termDF.get(term) || 1;
         const idf = Math.log((totalChunks - df + 0.5) / (df + 0.5));
         
         // Term frequency component with saturation
         const tfComponent = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (docLength / avgDocLength)));
         
         bm25Score += idf * tfComponent;
+        
+        console.log(`🔍 BM25 MATCH: Chunk ${chunkId}, term "${term}", tf=${tf}, df=${df}, idf=${idf.toFixed(3)}, tfComp=${tfComponent.toFixed(3)}, score+=${(idf * tfComponent).toFixed(3)}`);
       } else {
         // Try fuzzy matching for unmatched terms
-        const fuzzyMatch = findBestFuzzyMatch(lowerTerm, tokens);
+        const fuzzyMatch = findBestFuzzyMatch(term, tokens);
         if (fuzzyMatch.score > 0.75) {
           matchedTerms.push(term);
-          const tf = fuzzyMatch.count;
+          const fuzzyTf = fuzzyMatch.count;
           
           // Apply BM25 formula to fuzzy matches with penalty
-          const df = termDF.get(lowerTerm) || 1;
+          const df = termDF.get(term) || 1;
           const idf = Math.log((totalChunks - df + 0.5) / (df + 0.5));
-          const tfComponent = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (docLength / avgDocLength)));
+          const tfComponent = (fuzzyTf * (k1 + 1)) / (fuzzyTf + k1 * (1 - b + b * (docLength / avgDocLength)));
           
-          bm25Score += (idf * tfComponent * fuzzyMatch.score * 0.8); // Reduce score for fuzzy matches
+          const fuzzyScore = idf * tfComponent * fuzzyMatch.score * 0.8;
+          bm25Score += fuzzyScore;
+          
+          console.log(`🔍 BM25 FUZZY: Chunk ${chunkId}, term "${term}", fuzzyTf=${fuzzyTf}, fuzzyScore=${fuzzyMatch.score.toFixed(3)}, score+=${fuzzyScore.toFixed(3)}`);
         }
       }
     }
@@ -246,9 +258,10 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
 function tokenize(text: string): string[] {
   return text
     .toLowerCase()
-    .split(/[\s\-_,\.!?\(\)\[\]]+/)
-    .filter(token => token.length > 1)
-    .map(token => token.trim());
+    .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
+    .filter(token => token.length > 0)
+    .map(token => token.trim())
+    .filter(token => token.length > 0);
 }
 
 function findBestFuzzyMatch(term: string, tokens: string[]): { score: number; count: number } {
