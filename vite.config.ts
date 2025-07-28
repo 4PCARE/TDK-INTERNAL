@@ -33,14 +33,5 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
-    hmr: {
-      port: 443,
-      clientPort: 443,
-      host: "0.0.0.0",
-      overlay: false,
-    },
-    watch: {
-      usePolling: true,
-    },
   },
 });
