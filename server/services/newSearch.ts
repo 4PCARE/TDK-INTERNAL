@@ -304,13 +304,32 @@ function normalizeThaiText(text: string): string {
 }
 
 function tokenizeWithThaiNormalization(text: string): string[] {
-  const normalizedText = normalizeThaiText(text); // Normalize Thai text first
-  return normalizedText
-    .toLowerCase() // Convert to lowercase for case-insensitive matching
+  // First convert to lowercase for case-insensitive matching
+  const lowercaseText = text.toLowerCase();
+  
+  // Apply Thai normalization only to Thai characters, preserve English words
+  const tokens = lowercaseText
     .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
     .filter(token => token.length > 0)
     .map(token => token.trim())
     .filter(token => token.length > 0);
+  
+  // Process each token - apply Thai normalization only if it contains Thai characters
+  const processedTokens = [];
+  for (const token of tokens) {
+    if (/[\u0E00-\u0E7F]/.test(token)) {
+      // Thai token - apply normalization
+      const normalized = normalizeThaiText(token);
+      if (normalized.length > 0) {
+        processedTokens.push(normalized);
+      }
+    } else {
+      // Non-Thai token (English/numbers) - keep as is (already lowercase)
+      processedTokens.push(token);
+    }
+  }
+  
+  return processedTokens;
 }
 
 function tokenize(text: string): string[] {
