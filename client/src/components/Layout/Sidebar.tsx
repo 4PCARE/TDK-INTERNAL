@@ -52,18 +52,30 @@ export default function Sidebar({
 }: SidebarProps) {
   const [location] = useLocation();
   const [isDashboardExpanded, setIsDashboardExpanded] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const { user } = useAuth();
   const sidebarRef = useRef<HTMLElement>(null);
 
-  // Mobile detection
+  // Mobile detection with proper initialization
+  const [isMobile, setIsMobile] = useState(() => {
+    // Only check window if we're in the browser
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 1024;
+    }
+    return false;
+  });
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 1024);
     };
     
+    // Initial check
     checkMobile();
+    
+    // Add event listener
     window.addEventListener('resize', checkMobile);
+    
+    // Cleanup
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
@@ -209,14 +221,18 @@ export default function Sidebar({
         ref={sidebarRef}
         className={cn(
           "fixed inset-y-0 left-0 z-50 bg-gradient-to-b from-navy-900 to-navy-800 shadow-xl border-r border-navy-700 transition-all duration-300 ease-in-out",
-          // Mobile behavior (screens < 1024px) - always fixed and slide in/out
-          "lg:static lg:translate-x-0",
+          // Mobile behavior - always fixed and slide in/out on mobile
+          "lg:static",
           // Mobile slide behavior
-          isMobile ? (isMobileOpen ? "translate-x-0" : "-translate-x-full") : "translate-x-0",
-          // Width handling - responsive
-          "w-80 lg:w-64",
-          // Desktop collapsed state
-          !isMobile && isCollapsed && "lg:w-16",
+          isMobile 
+            ? (isMobileOpen ? "translate-x-0" : "-translate-x-full")
+            : "translate-x-0",
+          // Width handling
+          isMobile 
+            ? "w-80" 
+            : isCollapsed 
+              ? "w-16" 
+              : "w-64",
         )}
       >
         <div className="flex flex-col h-full">
