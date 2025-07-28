@@ -150,6 +150,7 @@ function calculateThaiSimilarity(str1: string, str2: string): number {
 }
 
 // BM25 scoring implementation
+// Calculate BM25 scores for all chunks at once
 function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { score: number; matchedTerms: string[] }> {
   const chunkScores = new Map<string, { score: number; matchedTerms: string[] }>();
 
@@ -157,10 +158,24 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
   const k1 = 1.2; // Controls term frequency saturation
   const b = 0.75; // Controls document length normalization
 
-  // Normalize search terms
-  const normalizedSearchTerms = searchTerms.map(term => term.toLowerCase().trim()).filter(term => term.length > 0);
-  
-  console.log(`🔍 BM25: Processing ${normalizedSearchTerms.length} search terms: [${normalizedSearchTerms.join(', ')}]`);
+  // Normalize search terms and add Thai normalization variants
+  const expandedSearchTerms = [];
+  for (const term of searchTerms) {
+    const normalizedTerm = term.toLowerCase().trim();
+    if (normalizedTerm.length > 0) {
+      expandedSearchTerms.push(normalizedTerm);
+
+      // Add Thai normalized variant if different
+      const thaiNormalized = normalizeThaiText(normalizedTerm);
+      if (thaiNormalized !== normalizedTerm && thaiNormalized.length > 0) {
+        expandedSearchTerms.push(thaiNormalized);
+      }
+    }
+  }
+
+  const normalizedSearchTerms = [...new Set(expandedSearchTerms)];
+
+  console.log(`🔍 BM25: Processing ${normalizedSearchTerms.length} search terms (with Thai variants): [${normalizedSearchTerms.join(', ')}]`);
 
   // Calculate document frequency for each term and average document length
   const termDF = new Map<string, number>();
@@ -171,17 +186,32 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
   const chunkLengths = new Map<string, number>();
   for (const chunk of chunks) {
     const content = chunk.content || '';
-    const tokens = tokenize(content);
+    const tokens = tokenizeWithThaiNormalization(content);
     const chunkIndex = chunk.chunkIndex ?? 0;
     const chunkId = `${chunk.documentId}-${chunkIndex}`;
-    
+
     chunkLengths.set(chunkId, tokens.length);
     totalDocLength += tokens.length;
 
-    // Count document frequency for each search term
+    // Count document frequency for each search term with fuzzy matching
     const uniqueTokens = new Set(tokens);
     for (const term of normalizedSearchTerms) {
+      let hasMatch = false;
+
+      // Exact match first
       if (uniqueTokens.has(term)) {
+        hasMatch = true;
+      } else {
+        // Fuzzy match for Thai text
+        for (const token of uniqueTokens) {
+          if (isThaiTokenSimilar(term, token)) {
+            hasMatch = true;
+            break;
+          }
+        }
+      }
+
+      if (hasMatch) {
         termDF.set(term, (termDF.get(term) || 0) + 1);
       }
     }
@@ -196,9 +226,9 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
     const chunkIndex = chunk.chunkIndex ?? 0;
     const chunkId = `${chunk.documentId}-${chunkIndex}`;
     const content = chunk.content || '';
-    const tokens = tokenize(content);
+    const tokens = tokenizeWithThaiNormalization(content);
     const docLength = chunkLengths.get(chunkId) || 1;
-    
+
     const tokenCounts = new Map<string, number>();
 
     // Count term frequencies
@@ -210,38 +240,44 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
     const matchedTerms: string[] = [];
 
     for (const term of normalizedSearchTerms) {
-      const tf = tokenCounts.get(term) || 0;
+      let tf = tokenCounts.get(term) || 0;
 
       if (tf > 0) {
         matchedTerms.push(term);
-        
+
         // BM25 formula components
         const df = termDF.get(term) || 1;
         // Fix IDF calculation to ensure positive scores
         const idf = Math.log(totalChunks / df) + 1; // Add 1 to ensure positive scores
-        
+
         // Term frequency component with saturation
         const tfComponent = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (docLength / avgDocLength)));
-        
+
         bm25Score += idf * tfComponent;
-        
+
         console.log(`🔍 BM25 MATCH: Chunk ${chunkId}, term "${term}", tf=${tf}, df=${df}, idf=${idf.toFixed(3)}, tfComp=${tfComponent.toFixed(3)}, score+=${(idf * tfComponent).toFixed(3)}`);
       } else {
         // Try fuzzy matching for unmatched terms
-        const fuzzyMatch = findBestFuzzyMatch(term, tokens);
+        let fuzzyMatch = { score: 0, count: 0 };
+        if (isThaiText(term)) {
+          fuzzyMatch = findBestFuzzyMatchThai(term, tokens);
+        } else {
+          fuzzyMatch = findBestFuzzyMatch(term, tokens);
+        }
+
         if (fuzzyMatch.score > 0.75) {
           matchedTerms.push(term);
           const fuzzyTf = fuzzyMatch.count;
-          
+
           // Apply BM25 formula to fuzzy matches with penalty
           const df = termDF.get(term) || 1;
           // Fix IDF calculation to ensure positive scores
           const idf = Math.log(totalChunks / df) + 1; // Add 1 to ensure positive scores
           const tfComponent = (fuzzyTf * (k1 + 1)) / (fuzzyTf + k1 * (1 - b + b * (docLength / avgDocLength)));
-          
+
           const fuzzyScore = idf * tfComponent * fuzzyMatch.score * 0.8;
           bm25Score += fuzzyScore;
-          
+
           console.log(`🔍 BM25 FUZZY: Chunk ${chunkId}, term "${term}", fuzzyTf=${fuzzyTf}, fuzzyScore=${fuzzyMatch.score.toFixed(3)}, score+=${fuzzyScore.toFixed(3)}`);
         }
       }
@@ -253,6 +289,27 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
   }
 
   return chunkScores;
+}
+
+function isThaiText(text: string): boolean {
+  return /[\u0E00-\u0E7F]/.test(text);
+}
+
+function normalizeThaiText(text: string): string {
+  return text
+    .replace(/\s+/g, '') // Remove whitespaces
+    .replace(/[์็่้๊๋]/g, '') // Remove tone marks
+    .replace(/[ะาิีึืุูเแโใไ]/g, '') // Simplify vowels
+    .toLowerCase();
+}
+
+function tokenizeWithThaiNormalization(text: string): string[] {
+  const normalizedText = normalizeThaiText(text); // Normalize first
+  return normalizedText
+    .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
+    .filter(token => token.length > 0)
+    .map(token => token.trim())
+    .filter(token => token.length > 0);
 }
 
 function tokenize(text: string): string[] {
@@ -277,6 +334,26 @@ function findBestFuzzyMatch(term: string, tokens: string[]): { score: number; co
   }
 
   return { score: bestScore, count };
+}
+
+function findBestFuzzyMatchThai(term: string, tokens: string[]): { score: number; count: number } {
+  let bestScore = 0;
+  let count = 0;
+
+  for (const token of tokens) {
+    if (isThaiTokenSimilar(term, token)) {
+      bestScore = 0.8; // Assign a fixed score for Thai similarity
+      count++;
+    }
+  }
+
+  return { score: bestScore, count };
+}
+
+function isThaiTokenSimilar(term1: string, term2: string): boolean {
+  const normalizedTerm1 = normalizeThaiText(term1);
+  const normalizedTerm2 = normalizeThaiText(term2);
+  return normalizedTerm1 === normalizedTerm2 && normalizedTerm1.length > 0;
 }
 
 export async function searchSmartHybridDebug(
@@ -341,7 +418,7 @@ export async function searchSmartHybridDebug(
   }
 
   console.log(`🔍 KEYWORD SEARCH: Found ${totalMatches} chunks with keyword matches out of ${chunks.length} total chunks`)
-  
+
   if (totalMatches === 0) {
     console.log(`⚠️ KEYWORD SEARCH DEBUG: No positive BM25 scores found. This might indicate:`)
     console.log(`   - Search terms: [${searchTerms.join(', ')}]`)
@@ -672,7 +749,7 @@ export async function searchSmartHybridV1(
       mean: keywordScores.length > 0 ? keywordScores.reduce((a, b) => a + b, 0) / keywordScores.length : 0,
       std: 0,
     };
-    
+
     if (keywordScores.length > 0) {
       bm25Stats.std = Math.sqrt(keywordScores.reduce((sum, s) => sum + (s - bm25Stats.mean) ** 2, 0) / keywordScores.length);
     }
