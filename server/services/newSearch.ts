@@ -165,17 +165,22 @@ async function calculateBM25(searchTerms: string[], chunks: any[]): Promise<Map<
     normalizedSearchTerms = await thaiNlpService.expandSearchTerms(searchTerms);
   } catch (error) {
     console.warn('Thai NLP expansion failed, using fallback:', error);
-    // Fallback to original method
+    // Fallback to original method with better error handling
     const expandedSearchTerms = [];
     for (const term of searchTerms) {
       const normalizedTerm = term.toLowerCase().trim();
       if (normalizedTerm.length > 0) {
         expandedSearchTerms.push(normalizedTerm);
 
-        // Add Thai normalized variant if different
-        const thaiNormalized = await normalizeThaiText(normalizedTerm);
-        if (thaiNormalized !== normalizedTerm && thaiNormalized.length > 0) {
-          expandedSearchTerms.push(thaiNormalized);
+        // Add Thai normalized variant if different - wrap in try/catch
+        try {
+          const thaiNormalized = await normalizeThaiText(normalizedTerm);
+          if (thaiNormalized !== normalizedTerm && thaiNormalized.length > 0) {
+            expandedSearchTerms.push(thaiNormalized);
+          }
+        } catch (thaiError) {
+          console.warn(`Failed to normalize Thai text for term "${normalizedTerm}":`, thaiError);
+          // Continue without Thai normalization for this term
         }
       }
     }
@@ -266,10 +271,15 @@ async function calculateBM25(searchTerms: string[], chunks: any[]): Promise<Map<
       } else {
         // Try fuzzy matching for unmatched terms
         let fuzzyMatch = { score: 0, count: 0 };
-        if (isThaiText(term)) {
-          fuzzyMatch = findBestFuzzyMatchThai(term, tokens);
-        } else {
-          fuzzyMatch = findBestFuzzyMatch(term, tokens);
+        try {
+          if (isThaiText(term)) {
+            fuzzyMatch = await findBestFuzzyMatchThai(term, tokens);
+          } else {
+            fuzzyMatch = findBestFuzzyMatch(term, tokens);
+          }
+        } catch (fuzzyError) {
+          console.warn(`Fuzzy matching failed for term "${term}":`, fuzzyError);
+          fuzzyMatch = { score: 0, count: 0 };
         }
 
         if (fuzzyMatch.score > 0.75) {
@@ -322,13 +332,25 @@ async function tokenizeWithThaiNormalization(text: string): Promise<string[]> {
     // Use pythaiNLP for better tokenization
     return await thaiNlpService.tokenizeText(text);
   } catch (error) {
-    // Fallback to original method
-    const normalizedText = await normalizeThaiText(text);
-    return normalizedText
-      .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
-      .filter(token => token.length > 0)
-      .map(token => token.trim())
-      .filter(token => token.length > 0);
+    console.warn('Thai tokenization failed, using fallback:', error);
+    // Fallback to original method with error handling
+    try {
+      const normalizedText = await normalizeThaiText(text);
+      return normalizedText
+        .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
+        .filter(token => token.length > 0)
+        .map(token => token.trim())
+        .filter(token => token.length > 0);
+    } catch (fallbackError) {
+      console.warn('Fallback tokenization also failed:', fallbackError);
+      // Ultimate fallback - simple split
+      return text
+        .toLowerCase()
+        .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
+        .filter(token => token.length > 0)
+        .map(token => token.trim())
+        .filter(token => token.length > 0);
+    }
   }
 }
 
@@ -356,24 +378,35 @@ function findBestFuzzyMatch(term: string, tokens: string[]): { score: number; co
   return { score: bestScore, count };
 }
 
-function findBestFuzzyMatchThai(term: string, tokens: string[]): { score: number; count: number } {
+async function findBestFuzzyMatchThai(term: string, tokens: string[]): Promise<{ score: number; count: number }> {
   let bestScore = 0;
   let count = 0;
 
   for (const token of tokens) {
-    if (isThaiTokenSimilar(term, token)) {
-      bestScore = 0.8; // Assign a fixed score for Thai similarity
-      count++;
+    try {
+      if (await isThaiTokenSimilar(term, token)) {
+        bestScore = 0.8; // Assign a fixed score for Thai similarity
+        count++;
+      }
+    } catch (error) {
+      console.warn(`Thai fuzzy match failed for term "${term}" and token "${token}":`, error);
+      // Continue with next token
     }
   }
 
   return { score: bestScore, count };
 }
 
-function isThaiTokenSimilar(term1: string, term2: string): boolean {
-  const normalizedTerm1 = normalizeThaiText(term1);
-  const normalizedTerm2 = normalizeThaiText(term2);
-  return normalizedTerm1 === normalizedTerm2 && normalizedTerm1.length > 0;
+async function isThaiTokenSimilar(term1: string, term2: string): Promise<boolean> {
+  try {
+    const normalizedTerm1 = await normalizeThaiText(term1);
+    const normalizedTerm2 = await normalizeThaiText(term2);
+    return normalizedTerm1 === normalizedTerm2 && normalizedTerm1.length > 0;
+  } catch (error) {
+    console.warn('Thai similarity check failed:', error);
+    // Fallback to simple comparison
+    return term1.toLowerCase() === term2.toLowerCase();
+  }
 }
 
 export async function searchSmartHybridDebug(
@@ -580,7 +613,7 @@ export async function searchSmartHybridDebug(
       const scoreTarget = totalScore * massSelectionPercentage;
       let accScore = 0;
 
-      console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, ${(massPercentage * 100).toFixed(1)}% target: ${scoreTarget.toFixed(4)}`);
+      console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, ${(massSelectionPercentage * 100).toFixed(1)}% target: ${scoreTarget.toFixed(4)}`);
 
       for (const chunk of scoredChunks) {
         const potentialScore = accScore + chunk.finalScore;
@@ -597,7 +630,7 @@ export async function searchSmartHybridDebug(
         selectedChunks.push(chunk);
         accScore += chunk.finalScore;
 
-        console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, mass=${(accScore/totalScore*100).toFixed(1)}% (need ${(massPercentage * 100).toFixed(1)}%)`);
+        console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, mass=${(accScore/totalScore*100).toFixed(1)}% (need ${(massSelectionPercentage * 100).toFixed(1)}%)`);
 
         // Check if we've reached the target mass AND minimum chunks
         if (accScore >= scoreTarget && selectedChunks.length >= minChunks) {
