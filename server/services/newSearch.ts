@@ -307,6 +307,18 @@ async function calculateBM25(searchTerms: string[], chunks: any[]): Promise<Map<
     const tokens = await tokenizeWithThaiNormalization(content);
     const docLength = chunkLengths.get(chunkId) || 1;
 
+    // Debug document 213 specifically to see what tokens it contains
+    if (chunk.documentId === 213 && (chunkIndex === 76 || chunkIndex === 77)) {
+      console.log(`🔍 DOC 213 DEBUG: Chunk ${chunkIndex} tokens containing 'xolo' or similar:`, 
+        tokens.filter(token => 
+          token.toLowerCase().includes('xolo') || 
+          token.toLowerCase().includes('โซโล') ||
+          token.toLowerCase().includes('XOLO')
+        )
+      );
+      console.log(`🔍 DOC 213 DEBUG: First 200 chars: ${content.substring(0, 200)}`);
+    }
+
     const tokenCounts = new Map<string, number>();
 
     // Count term frequencies
@@ -458,6 +470,11 @@ function isThaiTokenSimilar(term1: string, term2: string): boolean {
     if (/^[A-Za-z0-9\s]+$/.test(term1) || /^[A-Za-z0-9\s]+$/.test(term2)) {
       const clean1 = term1.toLowerCase().replace(/\s+/g, '');
       const clean2 = term2.toLowerCase().replace(/\s+/g, '');
+      
+      // Debug XOLO matching specifically
+      if (clean1.includes('xolo') || clean2.includes('xolo')) {
+        console.log(`🔍 XOLO DEBUG: Comparing "${clean1}" vs "${clean2}" - Match: ${clean1.includes(clean2) || clean2.includes(clean1) || clean1 === clean2}`);
+      }
       
       // Check for partial matches for brand names
       if (clean1.length >= 3 && clean2.length >= 3) {
