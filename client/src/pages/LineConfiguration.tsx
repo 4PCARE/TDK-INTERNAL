@@ -426,14 +426,14 @@ export default function LineConfiguration() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Line OA Integration (Optional)</FormLabel>
-                      <Select value={field.value?.toString()} onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}>
+                      <Select value={field.value?.toString() || "undefined"} onValueChange={(value) => field.onChange(value === "undefined" ? undefined : parseInt(value))}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select integration" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">No specific integration</SelectItem>
+                          <SelectItem value="undefined">No specific integration</SelectItem>
                           {lineOaIntegrations.map((integration: any) => (
                             <SelectItem key={integration.id} value={integration.id.toString()}>
                               {integration.name}
