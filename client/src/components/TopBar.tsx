@@ -29,10 +29,9 @@ import { useIsMobile } from "@/hooks/use-mobile";
 interface TopBarProps {
   isSidebarCollapsed?: boolean;
   onMobileMenuToggle?: () => void;
-  isMobile?: boolean;
 }
 
-export default function TopBar({ isSidebarCollapsed = false, onMobileMenuToggle, isMobile = false }: TopBarProps) {
+export default function TopBar({ isSidebarCollapsed = false, onMobileMenuToggle }: TopBarProps) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const isMobile = useIsMobile();
