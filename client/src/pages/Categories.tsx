@@ -3,9 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import Sidebar from "@/components/Layout/Sidebar";
-import TopBar from "@/components/TopBar";
-import ChatModal from "@/components/Chat/ChatModal";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,9 +38,7 @@ export default function Categories() {
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryDescription, setNewCategoryDescription] = useState("");
-  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -216,26 +212,14 @@ export default function Categories() {
 
   return (
     <DashboardLayout>
-      <div className="flex h-screen overflow-hidden">
-        <Sidebar 
-          isMobileOpen={isMobileMenuOpen}
-          onMobileClose={() => setIsMobileMenuOpen(false)}
-          onOpenChat={() => setIsChatModalOpen(true)}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        />
-
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <TopBar />
-
-          <main className="flex-1 overflow-auto p-6 bg-gray-50">
+      <div className="space-y-6">
             {/* Header */}
-            <div className="mb-6">
-              <h1 className="text-2xl font-semibold text-slate-800 mb-2">Categories & Tags</h1>
-              <p className="text-sm text-slate-500">
-                Manage document categories and view all tags in your collection
-              </p>
-            </div>
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold text-slate-800 mb-2">Categories & Tags</h1>
+          <p className="text-sm text-slate-500">
+            Manage document categories and view all tags in your collection
+          </p>
+        </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Categories Section */}
@@ -389,10 +373,7 @@ export default function Categories() {
                 </CardContent>
               </Card>
             </div>
-          </main>
-        </div>
-
-        {/* Edit Category Dialog */}
+          {/* Edit Category Dialog */}
         {editingCategory && (
           <Dialog open={!!editingCategory} onOpenChange={() => setEditingCategory(null)}>
             <DialogContent>
@@ -442,11 +423,7 @@ export default function Categories() {
           </Dialog>
         )}
 
-        <ChatModal 
-          isOpen={isChatModalOpen} 
-          onClose={() => setIsChatModalOpen(false)} 
-        />
-      </div>
+        </div>
     </DashboardLayout>
   );
 }
