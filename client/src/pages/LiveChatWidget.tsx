@@ -424,7 +424,6 @@ export default function LiveChatWidget() {
                     </div>
                   </CardContent>
                 </Card>
-              </Card>
             ) : (
               <Card>
                 <CardHeader>
