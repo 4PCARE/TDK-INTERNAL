@@ -1,0 +1,295 @@
+WebSocket connection to 'wss://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/?token=P-838tlFNsx_' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531Understand this error
+client:536 Uncaught (in promise) SyntaxError: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=P-838tlFNsx_' is invalid.
+    at setupWebSocket (client:536:19)
+    at fallback (client:509:16)
+    at WebSocket.<anonymous> (client:555:7)
+setupWebSocket @ client:536
+fallback @ client:509
+(anonymous) @ client:555Understand this error
+chunk-RPCDYKBN.js?v=e7d7d64f:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+LineConfiguration.tsx:104 LineConfiguration render - integrationId: null isCreating: false selectedTemplate: null
+LineConfiguration.tsx:107 useEffect - isCreating changed to: false
+LineConfiguration.tsx:111 useEffect - selectedTemplate changed to: null
+LineConfiguration.tsx:104 LineConfiguration render - integrationId: null isCreating: false selectedTemplate: null
+LineConfiguration.tsx:104 LineConfiguration render - integrationId: null isCreating: false selectedTemplate: null
+LineConfiguration.tsx:104 LineConfiguration render - integrationId: null isCreating: false selectedTemplate: null
+LineConfiguration.tsx:371 Uncaught TypeError: Cannot read properties of undefined (reading 'name')
+    at LineConfiguration.tsx:371:78
+    at Array.map (<anonymous>)
+    at LineConfiguration (LineConfiguration.tsx:363:60)
+    at renderWithHooks (chunk-RPCDYKBN.js?v=e7d7d64f:11548:26)
+    at updateFunctionComponent (chunk-RPCDYKBN.js?v=e7d7d64f:14582:28)
+    at beginWork (chunk-RPCDYKBN.js?v=e7d7d64f:15924:22)
+    at HTMLUnknownElement.callCallback2 (chunk-RPCDYKBN.js?v=e7d7d64f:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-RPCDYKBN.js?v=e7d7d64f:3699:24)
+    at invokeGuardedCallback (chunk-RPCDYKBN.js?v=e7d7d64f:3733:39)
+    at beginWork$1 (chunk-RPCDYKBN.js?v=e7d7d64f:19765:15)
+(anonymous) @ LineConfiguration.tsx:371
+LineConfiguration @ LineConfiguration.tsx:363
+renderWithHooks @ chunk-RPCDYKBN.js?v=e7d7d64f:11548
+updateFunctionComponent @ chunk-RPCDYKBN.js?v=e7d7d64f:14582
+beginWork @ chunk-RPCDYKBN.js?v=e7d7d64f:15924
+callCallback2 @ chunk-RPCDYKBN.js?v=e7d7d64f:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=e7d7d64f:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=e7d7d64f:3733
+beginWork$1 @ chunk-RPCDYKBN.js?v=e7d7d64f:19765
+performUnitOfWork @ chunk-RPCDYKBN.js?v=e7d7d64f:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=e7d7d64f:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=e7d7d64f:19116
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:18874
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=e7d7d64f:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=e7d7d64f:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=e7d7d64f:555
+flush @ @tanstack_react-query.js?v=e7d7d64f:569
+batch @ @tanstack_react-query.js?v=e7d7d64f:587
+dispatch_fn @ @tanstack_react-query.js?v=e7d7d64f:996
+setData @ @tanstack_react-query.js?v=e7d7d64f:696
+onSuccess @ @tanstack_react-query.js?v=e7d7d64f:897
+resolve @ @tanstack_react-query.js?v=e7d7d64f:456
+Promise.then
+run @ @tanstack_react-query.js?v=e7d7d64f:498
+start @ @tanstack_react-query.js?v=e7d7d64f:536
+fetch @ @tanstack_react-query.js?v=e7d7d64f:926
+executeFetch_fn @ @tanstack_react-query.js?v=e7d7d64f:2211
+onSubscribe @ @tanstack_react-query.js?v=e7d7d64f:1898
+subscribe @ @tanstack_react-query.js?v=e7d7d64f:24
+(anonymous) @ @tanstack_react-query.js?v=e7d7d64f:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=e7d7d64f:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=e7d7d64f:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=e7d7d64f:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=e7d7d64f:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=e7d7d64f:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19416
+commitRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=e7d7d64f:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=e7d7d64f:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=e7d7d64f:555
+flush @ @tanstack_react-query.js?v=e7d7d64f:569
+batch @ @tanstack_react-query.js?v=e7d7d64f:587
+dispatch_fn @ @tanstack_react-query.js?v=e7d7d64f:996
+setData @ @tanstack_react-query.js?v=e7d7d64f:696
+onSuccess @ @tanstack_react-query.js?v=e7d7d64f:897
+resolve @ @tanstack_react-query.js?v=e7d7d64f:456
+Promise.then
+run @ @tanstack_react-query.js?v=e7d7d64f:498
+start @ @tanstack_react-query.js?v=e7d7d64f:536
+fetch @ @tanstack_react-query.js?v=e7d7d64f:926
+executeFetch_fn @ @tanstack_react-query.js?v=e7d7d64f:2211
+onSubscribe @ @tanstack_react-query.js?v=e7d7d64f:1898
+subscribe @ @tanstack_react-query.js?v=e7d7d64f:24
+(anonymous) @ @tanstack_react-query.js?v=e7d7d64f:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=e7d7d64f:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=e7d7d64f:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=e7d7d64f:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=e7d7d64f:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=e7d7d64f:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=e7d7d64f:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19432
+commitRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=e7d7d64f:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:18718
+workLoop @ chunk-RPCDYKBN.js?v=e7d7d64f:197
+flushWork @ chunk-RPCDYKBN.js?v=e7d7d64f:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=e7d7d64f:384Understand this error
+LineConfiguration.tsx:104 LineConfiguration render - integrationId: null isCreating: false selectedTemplate: null
+LineConfiguration.tsx:104 LineConfiguration render - integrationId: null isCreating: false selectedTemplate: null
+LineConfiguration.tsx:371 Uncaught TypeError: Cannot read properties of undefined (reading 'name')
+    at LineConfiguration.tsx:371:78
+    at Array.map (<anonymous>)
+    at LineConfiguration (LineConfiguration.tsx:363:60)
+    at renderWithHooks (chunk-RPCDYKBN.js?v=e7d7d64f:11548:26)
+    at updateFunctionComponent (chunk-RPCDYKBN.js?v=e7d7d64f:14582:28)
+    at beginWork (chunk-RPCDYKBN.js?v=e7d7d64f:15924:22)
+    at HTMLUnknownElement.callCallback2 (chunk-RPCDYKBN.js?v=e7d7d64f:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-RPCDYKBN.js?v=e7d7d64f:3699:24)
+    at invokeGuardedCallback (chunk-RPCDYKBN.js?v=e7d7d64f:3733:39)
+    at beginWork$1 (chunk-RPCDYKBN.js?v=e7d7d64f:19765:15)
+(anonymous) @ LineConfiguration.tsx:371
+LineConfiguration @ LineConfiguration.tsx:363
+renderWithHooks @ chunk-RPCDYKBN.js?v=e7d7d64f:11548
+updateFunctionComponent @ chunk-RPCDYKBN.js?v=e7d7d64f:14582
+beginWork @ chunk-RPCDYKBN.js?v=e7d7d64f:15924
+callCallback2 @ chunk-RPCDYKBN.js?v=e7d7d64f:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=e7d7d64f:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=e7d7d64f:3733
+beginWork$1 @ chunk-RPCDYKBN.js?v=e7d7d64f:19765
+performUnitOfWork @ chunk-RPCDYKBN.js?v=e7d7d64f:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=e7d7d64f:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=e7d7d64f:19116
+recoverFromConcurrentError @ chunk-RPCDYKBN.js?v=e7d7d64f:18736
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:18879
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=e7d7d64f:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=e7d7d64f:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=e7d7d64f:555
+flush @ @tanstack_react-query.js?v=e7d7d64f:569
+batch @ @tanstack_react-query.js?v=e7d7d64f:587
+dispatch_fn @ @tanstack_react-query.js?v=e7d7d64f:996
+setData @ @tanstack_react-query.js?v=e7d7d64f:696
+onSuccess @ @tanstack_react-query.js?v=e7d7d64f:897
+resolve @ @tanstack_react-query.js?v=e7d7d64f:456
+Promise.then
+run @ @tanstack_react-query.js?v=e7d7d64f:498
+start @ @tanstack_react-query.js?v=e7d7d64f:536
+fetch @ @tanstack_react-query.js?v=e7d7d64f:926
+executeFetch_fn @ @tanstack_react-query.js?v=e7d7d64f:2211
+onSubscribe @ @tanstack_react-query.js?v=e7d7d64f:1898
+subscribe @ @tanstack_react-query.js?v=e7d7d64f:24
+(anonymous) @ @tanstack_react-query.js?v=e7d7d64f:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=e7d7d64f:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=e7d7d64f:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=e7d7d64f:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=e7d7d64f:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=e7d7d64f:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19416
+commitRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=e7d7d64f:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=e7d7d64f:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=e7d7d64f:555
+flush @ @tanstack_react-query.js?v=e7d7d64f:569
+batch @ @tanstack_react-query.js?v=e7d7d64f:587
+dispatch_fn @ @tanstack_react-query.js?v=e7d7d64f:996
+setData @ @tanstack_react-query.js?v=e7d7d64f:696
+onSuccess @ @tanstack_react-query.js?v=e7d7d64f:897
+resolve @ @tanstack_react-query.js?v=e7d7d64f:456
+Promise.then
+run @ @tanstack_react-query.js?v=e7d7d64f:498
+start @ @tanstack_react-query.js?v=e7d7d64f:536
+fetch @ @tanstack_react-query.js?v=e7d7d64f:926
+executeFetch_fn @ @tanstack_react-query.js?v=e7d7d64f:2211
+onSubscribe @ @tanstack_react-query.js?v=e7d7d64f:1898
+subscribe @ @tanstack_react-query.js?v=e7d7d64f:24
+(anonymous) @ @tanstack_react-query.js?v=e7d7d64f:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=e7d7d64f:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=e7d7d64f:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=e7d7d64f:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=e7d7d64f:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=e7d7d64f:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=e7d7d64f:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19432
+commitRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=e7d7d64f:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:18718
+workLoop @ chunk-RPCDYKBN.js?v=e7d7d64f:197
+flushWork @ chunk-RPCDYKBN.js?v=e7d7d64f:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=e7d7d64f:384Understand this error
+chunk-RPCDYKBN.js?v=e7d7d64f:14032 The above error occurred in the <LineConfiguration> component:
+
+    at LineConfiguration (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/pages/LineConfiguration.tsx:70:27)
+    at Route (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=e7d7d64f:323:16)
+    at Switch (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=e7d7d64f:379:17)
+    at Router (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/App.tsx?v=TqleT3-baHcWyBFnW61HY:55:42)
+    at Provider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=e7d7d64f:38:15)
+    at TooltipProvider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=e7d7d64f:66:5)
+    at QueryClientProvider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=e7d7d64f:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+logCapturedError @ chunk-RPCDYKBN.js?v=e7d7d64f:14032
+update.callback @ chunk-RPCDYKBN.js?v=e7d7d64f:14052
+callCallback @ chunk-RPCDYKBN.js?v=e7d7d64f:11248
+commitUpdateQueue @ chunk-RPCDYKBN.js?v=e7d7d64f:11265
+commitLayoutEffectOnFiber @ chunk-RPCDYKBN.js?v=e7d7d64f:17093
+commitLayoutMountEffects_complete @ chunk-RPCDYKBN.js?v=e7d7d64f:17980
+commitLayoutEffects_begin @ chunk-RPCDYKBN.js?v=e7d7d64f:17969
+commitLayoutEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:17920
+commitRootImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19353
+commitRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=e7d7d64f:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=e7d7d64f:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=e7d7d64f:555
+flush @ @tanstack_react-query.js?v=e7d7d64f:569
+batch @ @tanstack_react-query.js?v=e7d7d64f:587
+dispatch_fn @ @tanstack_react-query.js?v=e7d7d64f:996
+setData @ @tanstack_react-query.js?v=e7d7d64f:696
+onSuccess @ @tanstack_react-query.js?v=e7d7d64f:897
+resolve @ @tanstack_react-query.js?v=e7d7d64f:456
+Promise.then
+run @ @tanstack_react-query.js?v=e7d7d64f:498
+start @ @tanstack_react-query.js?v=e7d7d64f:536
+fetch @ @tanstack_react-query.js?v=e7d7d64f:926
+executeFetch_fn @ @tanstack_react-query.js?v=e7d7d64f:2211
+onSubscribe @ @tanstack_react-query.js?v=e7d7d64f:1898
+subscribe @ @tanstack_react-query.js?v=e7d7d64f:24
+(anonymous) @ @tanstack_react-query.js?v=e7d7d64f:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=e7d7d64f:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=e7d7d64f:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=e7d7d64f:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=e7d7d64f:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=e7d7d64f:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19416
+commitRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=e7d7d64f:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=e7d7d64f:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=e7d7d64f:555
+flush @ @tanstack_react-query.js?v=e7d7d64f:569
+batch @ @tanstack_react-query.js?v=e7d7d64f:587
+dispatch_fn @ @tanstack_react-query.js?v=e7d7d64f:996
+setData @ @tanstack_react-query.js?v=e7d7d64f:696
+onSuccess @ @tanstack_react-query.js?v=e7d7d64f:897
+resolve @ @tanstack_react-query.js?v=e7d7d64f:456
+Promise.then
+run @ @tanstack_react-query.js?v=e7d7d64f:498
+start @ @tanstack_react-query.js?v=e7d7d64f:536
+fetch @ @tanstack_react-query.js?v=e7d7d64f:926
+executeFetch_fn @ @tanstack_react-query.js?v=e7d7d64f:2211
+onSubscribe @ @tanstack_react-query.js?v=e7d7d64f:1898
+subscribe @ @tanstack_react-query.js?v=e7d7d64f:24
+(anonymous) @ @tanstack_react-query.js?v=e7d7d64f:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=e7d7d64f:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=e7d7d64f:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=e7d7d64f:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=e7d7d64f:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=e7d7d64f:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=e7d7d64f:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19432
+commitRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=e7d7d64f:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:18718
+workLoop @ chunk-RPCDYKBN.js?v=e7d7d64f:197
+flushWork @ chunk-RPCDYKBN.js?v=e7d7d64f:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=e7d7d64f:384Understand this error
+chunk-RPCDYKBN.js?v=e7d7d64f:9129 Uncaught TypeError: Cannot read properties of undefined (reading 'name')
+    at LineConfiguration.tsx:371:78
+    at Array.map (<anonymous>)
+    at LineConfiguration (LineConfiguration.tsx:363:60)
+    at renderWithHooks (chunk-RPCDYKBN.js?v=e7d7d64f:11548:26)
+    at updateFunctionComponent (chunk-RPCDYKBN.js?v=e7d7d64f:14582:28)
+    at beginWork (chunk-RPCDYKBN.js?v=e7d7d64f:15924:22)
+    at beginWork$1 (chunk-RPCDYKBN.js?v=e7d7d64f:19753:22)
+    at performUnitOfWork (chunk-RPCDYKBN.js?v=e7d7d64f:19198:20)
+    at workLoopSync (chunk-RPCDYKBN.js?v=e7d7d64f:19137:13)
+    at renderRootSync (chunk-RPCDYKBN.js?v=e7d7d64f:19116:15)
