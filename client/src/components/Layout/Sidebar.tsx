@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { 
   Home, 
   FileText, 
@@ -54,6 +55,7 @@ export default function Sidebar({
   const [isDashboardExpanded, setIsDashboardExpanded] = useState(false);
   const { user } = useAuth();
   const sidebarRef = useRef<HTMLElement>(null);
+  const isMobile = useIsMobile();
 
   const { data: categories = [] } = useQuery({
     queryKey: ["/api/categories"],
@@ -185,9 +187,9 @@ export default function Sidebar({
   return (
     <>
       {/* Mobile Overlay */}
-      {isMobileOpen && (
+      {isMobile && isMobileOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black bg-opacity-50 z-40"
           onClick={onMobileClose}
         />
       )}
@@ -196,9 +198,15 @@ export default function Sidebar({
       <aside
         ref={sidebarRef}
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 bg-gradient-to-b from-navy-900 to-navy-800 shadow-xl border-r border-navy-700 transition-all duration-300 ease-in-out lg:translate-x-0",
-          isMobileOpen ? "translate-x-0" : "-translate-x-full",
-          isCollapsed ? "w-16" : "w-64",
+          "fixed lg:static inset-y-0 left-0 z-50 bg-gradient-to-b from-navy-900 to-navy-800 shadow-xl border-r border-navy-700 transition-all duration-300 ease-in-out",
+          // Mobile behavior
+          isMobile && (isMobileOpen ? "translate-x-0" : "-translate-x-full"),
+          // Desktop behavior  
+          !isMobile && "translate-x-0",
+          // Width based on collapsed state (only on desktop)
+          !isMobile && isCollapsed ? "w-16" : "w-64",
+          // Mobile always full width when open
+          isMobile && "w-64",
         )}
       >
         <div className="flex flex-col h-full">
@@ -221,27 +229,29 @@ export default function Sidebar({
 
               <div className="flex items-center space-x-2">
                 {/* Mobile Close Button */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onMobileClose}
-                  className="lg:hidden text-navy-300 hover:text-white hover:bg-navy-700/50"
-                >
-                  <X className="h-5 w-5" />
-                </Button>
+                {isMobile && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onMobileClose}
+                    className="text-navy-300 hover:text-white hover:bg-navy-700/50"
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                )}
               </div>
             </div>
           </div>
 
           <div className="flex-1 p-3 space-y-6 overflow-y-auto relative scrollbar-hide">
             {/* Middle Toggle Button for Desktop */}
-            {onToggleCollapse && (
+            {onToggleCollapse && !isMobile && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onToggleCollapse}
                 data-sidebar-toggle
-                className="hidden lg:flex fixed right-[-16px] top-1/2 transform -translate-y-1/2 z-50 w-8 h-12 bg-navy-800 border border-navy-600 hover:bg-navy-700 text-navy-300 hover:text-white transition-all duration-200 rounded-r-md shadow-lg"
+                className="fixed right-[-16px] top-1/2 transform -translate-y-1/2 z-50 w-8 h-12 bg-navy-800 border border-navy-600 hover:bg-navy-700 text-navy-300 hover:text-white transition-all duration-200 rounded-r-md shadow-lg"
                 style={{ 
                   right: isCollapsed ? '0px' : '248px',
                   top: '50vh',
@@ -256,8 +266,8 @@ export default function Sidebar({
               </Button>
             )}
 
-            {/* Clickable overlay when collapsed */}
-            {isCollapsed && onToggleCollapse && (
+            {/* Clickable overlay when collapsed - Desktop only */}
+            {isCollapsed && onToggleCollapse && !isMobile && (
               <div
                 className="absolute inset-0 z-5 cursor-pointer"
                 onClick={onToggleCollapse}
@@ -265,8 +275,8 @@ export default function Sidebar({
               />
             )}
 
-            {/* Right edge clickable area when collapsed */}
-            {isCollapsed && onToggleCollapse && (
+            {/* Right edge clickable area when collapsed - Desktop only */}
+            {isCollapsed && onToggleCollapse && !isMobile && (
               <div
                 className="absolute right-0 top-0 bottom-0 w-4 z-6 cursor-pointer hover:bg-navy-700/20 transition-colors"
                 onClick={onToggleCollapse}
@@ -279,7 +289,7 @@ export default function Sidebar({
               {navigationGroups.map((group, groupIndex) => (
                 <div key={group.label} className="space-y-2">
                   {/* Group header (button) */}
-                  {!isCollapsed && (
+                  {(!isCollapsed || isMobile) && (
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.label)}
@@ -298,9 +308,9 @@ export default function Sidebar({
                   {/* Group items (collapsible) */}
                   <div className={cn(
                     "space-y-1 pl-1 transition-all duration-200 overflow-hidden",
-                    (expandedGroups[group.label] && !isCollapsed) ? "max-h-96" : "max-h-0"
+                    (expandedGroups[group.label] && (!isCollapsed || isMobile)) ? "max-h-96" : "max-h-0"
                   )}>
-                    {(expandedGroups[group.label] && !isCollapsed) && group.items.map((item) => {
+                    {(expandedGroups[group.label] && (!isCollapsed || isMobile)) && group.items.map((item) => {
                       const isActive = location === item.href ||
                         (item.href !== "/" && location.startsWith(item.href));
                       return (
@@ -314,8 +324,8 @@ export default function Sidebar({
                               : "text-white hover:bg-navy-700/50 hover:text-white"
                           )}
                         >
-                          <item.icon className={cn("w-4 h-4 mt-0.5", isCollapsed && "w-6 h-6")} />
-                          {!isCollapsed && (
+                          <item.icon className={cn("w-4 h-4 mt-0.5", isCollapsed && !isMobile && "w-6 h-6")} />
+                          {(!isCollapsed || isMobile) && (
                             <span className="break-words whitespace-normal text-left drop-shadow-sm">
                               {item.name}
                             </span>
@@ -324,7 +334,7 @@ export default function Sidebar({
                       );
                     })}
                   </div>
-                  {groupIndex < navigationGroups.length - 1 && !isCollapsed && (
+                  {groupIndex < navigationGroups.length - 1 && (!isCollapsed || isMobile) && (
                     <div className="border-t border-slate-200 mt-4"></div>
                   )}
                 </div>

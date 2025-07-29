@@ -19,18 +19,22 @@ import {
   Settings,
   LogOut,
   User,
+  Menu,
 } from "lucide-react";
 import kingpowerLogo from "@assets/kingpower_1750867302870.webp";
 import { useState } from "react";
 import NotificationSystem from "./NotificationSystem";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface TopBarProps {
   isSidebarCollapsed?: boolean;
+  onMenuButtonClick?: () => void;
 }
 
-export default function TopBar({ isSidebarCollapsed = false }: TopBarProps) {
+export default function TopBar({ isSidebarCollapsed = false, onMenuButtonClick }: TopBarProps) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const isMobile = useIsMobile();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +51,11 @@ export default function TopBar({ isSidebarCollapsed = false }: TopBarProps) {
     <header className="bg-white border-b border-slate-200 px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
+          {isMobile && (
+            <Button variant="ghost" size="icon" onClick={onMenuButtonClick}>
+              <Menu className="h-5 w-5" />
+            </Button>
+          )}
           {/* <img 
             src={kingpowerLogo} 
             alt="Kingpower" 
