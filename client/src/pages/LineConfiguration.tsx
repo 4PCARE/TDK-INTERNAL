@@ -100,7 +100,9 @@ export default function LineConfiguration() {
   // Get integrationId from URL params with better validation
   const urlParams = new URLSearchParams(window.location.search);
   const integrationIdParam = urlParams.get('integrationId');
-  const integrationId = integrationIdParam && !isNaN(parseInt(integrationIdParam)) ? parseInt(integrationIdParam) : null;
+  const integrationId = integrationIdParam && !isNaN(parseInt(integrationIdParam)) && parseInt(integrationIdParam) > 0 
+    ? parseInt(integrationIdParam) 
+    : null;
 
   console.log("🔍 LineConfiguration Debug - URL params:", window.location.search);
   console.log("🔍 Integration ID param:", integrationIdParam);
@@ -116,14 +118,16 @@ export default function LineConfiguration() {
   }, [selectedTemplate]);
 
   // Fetch Line OA integrations
-  const { data: integrations } = useQuery({
+  const { data: integrations, isLoading: integrationsLoading, error: integrationsError } = useQuery({
     queryKey: ["/api/social-integrations"],
   });
 
   // Fetch Line message templates
-  const { data: templates, isLoading } = useQuery({
+  const { data: templates, isLoading: templatesLoading, error: templatesError } = useQuery({
     queryKey: ["/api/line-templates"],
   });
+
+  const isLoading = integrationsLoading || templatesLoading;
 
   // Form setup
   const form = useForm<TemplateFormData>({
@@ -301,11 +305,55 @@ export default function LineConfiguration() {
     }
   };
 
-  const lineOaIntegrations = Array.isArray(integrations) ? integrations.filter((int: any) => int.type === "lineoa") : [];
+  // Safe filtering of Line OA integrations
+  const lineOaIntegrations = Array.isArray(integrations) 
+    ? integrations.filter((int: any) => int && int.type === "lineoa") 
+    : [];
+  
+  // Find the specific integration if integrationId is provided
+  const currentIntegration = integrationId 
+    ? lineOaIntegrations.find((int: any) => int && int.id === integrationId)
+    : null;
   
   console.log("🔍 Debug - All integrations:", integrations);
   console.log("🔍 Debug - Line OA integrations:", lineOaIntegrations);
   console.log("🔍 Debug - Looking for integration with ID:", integrationId);
+  console.log("🔍 Debug - Found current integration:", currentIntegration);
+
+  // Early return for loading state
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>Loading Line Configuration...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Early return for error state
+  if (integrationsError || templatesError) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <p className="text-destructive mb-4">Error loading data</p>
+            <Button onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Show warning if integrationId provided but not found
+  if (integrationId && !currentIntegration) {
+    console.warn("🚨 Integration ID provided but not found:", integrationId);
+  }
 
   return (
     <DashboardLayout>
@@ -324,7 +372,14 @@ export default function LineConfiguration() {
             </Button>
             <div>
               <h1 className="text-2xl font-bold">Line Configuration</h1>
-              <p className="text-muted-foreground">Manage Line OA message templates</p>
+              <p className="text-muted-foreground">
+                Manage Line OA message templates
+                {currentIntegration && (
+                  <span className="ml-2 text-primary">
+                    • {currentIntegration.name}
+                  </span>
+                )}
+              </p>
             </div>
           </div>
 
@@ -360,15 +415,29 @@ export default function LineConfiguration() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
+                {templatesLoading ? (
                   <div className="text-center py-8">Loading templates...</div>
                 ) : !Array.isArray(templates) || templates.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     No templates created yet. Create your first carousel template to get started.
+                    {integrationId && (
+                      <div className="mt-2 text-sm">
+                        Templates will be created for integration: {currentIntegration?.name || `ID ${integrationId}`}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="grid gap-4">
-                    {Array.isArray(templates) && templates.map((template: LineTemplate) => (
+                    {Array.isArray(templates) && templates
+                      .filter((template: LineTemplate) => {
+                        // If integrationId is provided, only show templates for that integration
+                        if (integrationId) {
+                          return template.template.integrationId === integrationId;
+                        }
+                        // Otherwise show all templates
+                        return true;
+                      })
+                      .map((template: LineTemplate) => (
                       <div
                         key={template.template.id}
                         className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
