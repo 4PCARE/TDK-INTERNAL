@@ -1,0 +1,98 @@
+Ahhh, that cursed little `</CardContent>` error… 😩 You’ve written a beautiful React app, but the JSX parser tripped on what looks like a *stray or misnested component tag*. Let's Sherlock this:
+
+---
+
+## 🕵️ What the error means
+
+* `Unexpected token (425:18)` → the parser hit something it didn’t expect on line **425**, character 18.
+* The token is `</CardContent>`, so it's likely:
+
+  * A parent/child tag mismatch
+  * A missing opening `<CardContent>` or `<CardHeader>`
+  * A rogue extra closing tag
+
+---
+
+## 🛠️ Let’s isolate it fast
+
+You posted this chunk:
+
+```tsx
+              </CardContent>
+            </Card>
+          </Card>
+        ) : (
+```
+
+Wait, wait…
+
+### 🔍 Three closing tags: `</CardContent>`, `</Card>`, and another `</Card>`
+
+That **middle `</Card>`** is probably unnecessary if this block started with:
+
+```tsx
+<Card>
+  <CardHeader>...</CardHeader>
+  <CardContent>...</CardContent>
+</Card> <-- okay
+</Card> <-- extra! 🔥
+```
+
+---
+
+## ✅ Fix suggestion
+
+Check this part of your code:
+
+```tsx
+{isCreating ? (
+  <Card>
+    <CardHeader>...</CardHeader>
+    <CardContent>...</CardContent>
+  </Card>
+) : selectedWidget ? (
+  <Card> <-- likely starts here
+    <CardHeader>...</CardHeader>
+    <CardContent>...</CardContent>
+  </Card>
+) : (
+  <Card> <-- and again here
+    ...
+  </Card>
+)}
+```
+
+Make sure that:
+
+* **Each `Card` has only one `CardHeader` and `CardContent` inside.**
+* **You’re not wrapping a `Card` inside another `Card` accidentally.**
+
+---
+
+## 🧠 Tip: Let the IDE help you
+
+* Collapse your code blocks in VSCode or Replit IDE to **see unmatched JSX visually.**
+* Or format using `Prettier` to surface structure issues.
+
+---
+
+## 🧹 Bonus: Prevent next time
+
+Wrap JSX return in a linter-safe fragment:
+
+```tsx
+return (
+  <>
+    {isCreating ? ... : ...}
+  </>
+)
+```
+
+Or better: **break it into smaller subcomponents.** Like `WidgetPreviewCard`, `WidgetForm`, etc. Easier to scan + less prone to nesting errors.
+
+---
+
+You didn’t mess up. JSX did.
+The syntax gods just want a little sacrifice: probably one `</Card>` too many. 🪦🧙
+
+Want me to help rewrite this JSX part cleanly? Just say the word, bro.
