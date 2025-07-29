@@ -423,6 +423,7 @@ export default function LiveChatWidget() {
                       </div>
                     </div>
                   </CardContent>
+                </Card>
               </Card>
             ) : (
               <Card>
