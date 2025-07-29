@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import Sidebar from "@/components/Layout/Sidebar";
-import TopBar from "@/components/TopBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +14,7 @@ import {
   Edit,
   Trash2,
   MessageSquare,
+  MessageCircle,
   Settings,
   Calendar,
   Users,
@@ -65,7 +64,6 @@ export default function AgentChatbots() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
   const queryClient = useQueryClient();
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -343,32 +341,74 @@ export default function AgentChatbots() {
                   <p className="text-sm text-gray-500">{agent.description}</p>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="flex flex-col space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <FileText className="w-4 h-4 text-gray-400" />
-                    <span>{agent.documentCount} Documents</span>
+              <CardContent className="space-y-4">
+                {/* Channels */}
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-2">Channels:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {getChannelBadges(agent.channels)}
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Users className="w-4 h-4 text-gray-400" />
-                    <span>0 Users</span>
+                </div>
+
+                {/* Documents */}
+                <div className="pt-3 border-t border-gray-100">
+                  <AgentDocumentList agentId={agent.id} />
+                </div>
+
+                {/* Stats */}
+                <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
+                  <div className="flex items-center space-x-1">
+                    <Calendar className="w-3 h-3" />
+                    <span>Created {new Date(agent.createdAt).toLocaleDateString()}</span>
                   </div>
+                  <div className="flex items-center space-x-1">
+                    <MessageSquare className="w-3 h-3" />
+                    <span>0 chats</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex justify-between items-center pt-3 border-t border-gray-100">
                   <div className="flex items-center space-x-2">
-                    <MessageCircle className="w-4 h-4 text-gray-400" />
-                    <span>0 Chats</span>
+                    <Badge 
+                      variant={agent.isActive ? "default" : "secondary"}
+                      className={agent.isActive ? "bg-green-100 text-green-800" : ""}
+                    >
+                      {agent.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                  <div className="flex space-x-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleToggleAgent(agent.id, agent.isActive)}
+                      className="p-1 h-7 w-7"
+                    >
+                      {agent.isActive ? (
+                        <PowerOff className="w-3 h-3" />
+                      ) : (
+                        <Power className="w-3 h-3" />
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleEditAgent(agent.id)}
+                      className="p-1 h-7 w-7"
+                    >
+                      <Edit className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDeleteAgent(agent.id)}
+                      className="p-1 h-7 w-7 text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
                   </div>
                 </div>
               </CardContent>
-              <div className="bg-gray-50 px-4 py-3 flex justify-end space-x-2">
-                <Button variant="outline" size="sm">
-                  <Eye className="w-4 h-4 mr-2" />
-                  View
-                </Button>
-                <Button variant="secondary" size="sm">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Manage
-                </Button>
-              </div>
             </Card>
           ))}
         </div>
