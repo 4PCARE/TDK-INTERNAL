@@ -422,8 +422,9 @@ export default function LiveChatWidget() {
                         <div>Status: {selectedWidget.isActive ? "Active" : "Inactive"}</div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </CardContent>
+              </Card>
             ) : (
               <Card>
                 <CardHeader>
