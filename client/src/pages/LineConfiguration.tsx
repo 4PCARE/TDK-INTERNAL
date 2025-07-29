@@ -59,16 +59,17 @@ const templateSchema = z.object({
 type TemplateFormData = z.infer<typeof templateSchema>;
 
 interface LineTemplate {
-  template: {
+  template?: {
     id: number;
     name: string;
+    description?: string;
     type: string;
     integrationId: number | null;
     userId: string;
     createdAt: string;
     updatedAt: string;
   };
-  columns: Array<{
+  columns?: Array<{
     column: {
       id: number;
       templateId: number;
@@ -118,12 +119,12 @@ export default function LineConfiguration() {
   }, [selectedTemplate]);
 
   // Fetch Line OA integrations
-  const { data: integrations, isLoading: integrationsLoading, error: integrationsError } = useQuery({
+  const { data: integrations = [], isLoading: integrationsLoading, error: integrationsError } = useQuery({
     queryKey: ["/api/social-integrations"],
   });
 
   // Fetch Line message templates
-  const { data: templates, isLoading: templatesLoading, error: templatesError } = useQuery({
+  const { data: templates = [], isLoading: templatesLoading, error: templatesError } = useQuery({
     queryKey: ["/api/line-templates"],
   });
 
@@ -255,7 +256,7 @@ export default function LineConfiguration() {
 
   // Handle form submission
   const handleSubmit = (data: TemplateFormData) => {
-    if (selectedTemplate) {
+    if (selectedTemplate?.template) {
       updateTemplateMutation.mutate({
         id: selectedTemplate.template.id,
         data,
@@ -271,8 +272,11 @@ export default function LineConfiguration() {
     setIsCreating(false);
 
     // Transform template data for form
+    if (!template.template || !template.columns) return;
+    
     const formData = {
       name: template.template.name,
+      description: template.template.description || "",
       type: template.template.type as "carousel",
       integrationId: template.template.integrationId || undefined,
       columns: template.columns.map(col => ({
@@ -431,13 +435,15 @@ export default function LineConfiguration() {
                     {Array.isArray(templates) && templates
                       .filter((template: LineTemplate) => {
                         // If integrationId is provided, only show templates for that integration
-                        if (integrationId) {
+                        if (integrationId && template.template) {
                           return template.template.integrationId === integrationId;
                         }
                         // Otherwise show all templates
-                        return true;
+                        return template.template != null;
                       })
-                      .map((template: LineTemplate) => (
+                      .map((template: LineTemplate) => {
+                        if (!template.template) return null;
+                        return (
                       <div
                         key={template.template.id}
                         className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
@@ -458,20 +464,20 @@ export default function LineConfiguration() {
                                         return `Integration ID: ${template.template.integrationId} (No integrations loaded)`;
                                       }
                                       
-                                      const integration = lineOaIntegrations.find((int: any) => int && int.id === template.template.integrationId);
+                                      const integration = lineOaIntegrations.find((int: any) => int && int.id === template.template?.integrationId);
                                       console.log("🔍 Found integration:", integration);
                                       
-                                      return integration && integration.name ? integration.name : `Integration ID: ${template.template.integrationId} (Not found)`;
+                                      return integration && integration.name ? integration.name : `Integration ID: ${template.template?.integrationId} (Not found)`;
                                     } catch (error) {
                                       console.error('❌ Error finding integration:', error);
-                                      return `Integration ID: ${template.template.integrationId} (Error)`;
+                                      return `Integration ID: ${template.template?.integrationId} (Error)`;
                                     }
                                   })()}
                                 </Badge>
                               )}
                             </div>
                             <p className="text-sm text-muted-foreground">
-                              {template.columns.length} columns • Created {new Date(template.template.createdAt).toLocaleDateString()}
+                              {template.columns?.length || 0} columns • Created {new Date(template.template.createdAt).toLocaleDateString()}
                             </p>
                           </div>
                           <div className="flex items-center space-x-2">
@@ -485,14 +491,15 @@ export default function LineConfiguration() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => deleteTemplateMutation.mutate(template.template.id)}
+                              onClick={() => template.template && deleteTemplateMutation.mutate(template.template.id)}
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         </div>
                       </div>
-                    ))}
+                        );
+                      })}
                   </div>
                 )}
               </CardContent>
