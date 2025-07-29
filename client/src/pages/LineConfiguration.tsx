@@ -50,6 +50,7 @@ const carouselColumnSchema = z.object({
 
 const templateSchema = z.object({
   name: z.string().min(1, "Template name is required"),
+  description: z.string().min(1, "Template description is required for intent matching"),
   type: z.enum(["carousel"]),
   integrationId: z.number().optional(),
   columns: z.array(carouselColumnSchema).min(1, "At least one column is required").max(10, "Maximum 10 columns allowed"),
@@ -96,7 +97,11 @@ export default function LineConfiguration() {
   const [selectedTemplate, setSelectedTemplate] = useState<LineTemplate | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  console.log("LineConfiguration render - isCreating:", isCreating, "selectedTemplate:", selectedTemplate);
+  // Get integrationId from URL params
+  const urlParams = new URLSearchParams(window.location.search);
+  const integrationId = urlParams.get('integrationId') ? parseInt(urlParams.get('integrationId')!) : null;
+
+  console.log("LineConfiguration render - integrationId:", integrationId, "isCreating:", isCreating, "selectedTemplate:", selectedTemplate);
 
   useEffect(() => {
     console.log("useEffect - isCreating changed to:", isCreating);
@@ -121,7 +126,9 @@ export default function LineConfiguration() {
     resolver: zodResolver(templateSchema),
     defaultValues: {
       name: "",
+      description: "",
       type: "carousel",
+      integrationId: integrationId || undefined,
       columns: [
         {
           title: "",
@@ -147,7 +154,14 @@ export default function LineConfiguration() {
   // Mutations
   const createTemplateMutation = useMutation({
     mutationFn: async (data: TemplateFormData) => {
-      const response = await apiRequest("POST", "/api/line-templates", data);
+      console.log("New Template button clicked!", data);
+      // Ensure integrationId is included
+      const templateData = {
+        ...data,
+        integrationId: integrationId || data.integrationId
+      };
+      console.log("Template data with integrationId:", templateData);
+      const response = await apiRequest("POST", "/api/line-templates", templateData);
       return response.json();
     },
     onSuccess: () => {
@@ -157,7 +171,26 @@ export default function LineConfiguration() {
         description: "Template created successfully",
       });
       setIsCreating(false);
-      form.reset();
+      form.reset({
+        name: "",
+        description: "",
+        type: "carousel",
+        integrationId: integrationId || undefined,
+        columns: [
+          {
+            title: "",
+            text: "",
+            thumbnailImageUrl: "",
+            actions: [
+              {
+                type: "uri",
+                label: "",
+                uri: "",
+              },
+            ],
+          },
+        ],
+      });
     },
     onError: (error: any) => {
       toast({
@@ -419,28 +452,20 @@ export default function LineConfiguration() {
                   )}
                 />
 
-                {/* Integration Selection */}
+                {/* Template Description */}
                 <FormField
                   control={form.control}
-                  name="integrationId"
+                  name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Line OA Integration (Optional)</FormLabel>
-                      <Select value={field.value?.toString() || "undefined"} onValueChange={(value) => field.onChange(value === "undefined" ? undefined : parseInt(value))}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select integration" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="undefined">No specific integration</SelectItem>
-                          {lineOaIntegrations.map((integration: any) => (
-                            <SelectItem key={integration.id} value={integration.id.toString()}>
-                              {integration.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>Template Description</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Describe when this template should be used (for AI intent matching)"
+                          rows={3}
+                          {...field} 
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

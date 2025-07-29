@@ -5080,22 +5080,46 @@ Memory management: Keep track of conversation context within the last ${agentCon
     }
   });
 
-  // Create a new Line message template
+  // Create a new Line message template with OpenAI embedding
   app.post("/api/line-templates", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, type, integrationId, columns } = req.body;
+      const { name, description, type, integrationId, columns } = req.body;
 
       // Validate required fields
       if (!name || !type) {
         return res.status(400).json({ message: "Name and type are required" });
       }
 
+      console.log("Creating Line message template:", { userId, name, description, type, integrationId, columnsCount: columns?.length });
+
+      // Generate embedding for description using OpenAI
+      let descriptionEmbedding = null;
+      if (description) {
+        try {
+          const openai = new (await import("openai")).default({
+            apiKey: process.env.OPENAI_API_KEY,
+          });
+          
+          const response = await openai.embeddings.create({
+            model: "text-embedding-3-small",
+            input: description,
+          });
+          descriptionEmbedding = JSON.stringify(response.data[0].embedding);
+          console.log("Generated embedding for template description");
+        } catch (error) {
+          console.error("Failed to generate embedding:", error);
+          // Continue without embedding if OpenAI fails
+        }
+      }
+
       // Create the template
       const template = await storage.createLineMessageTemplate({
         userId,
         name,
-        type,
+        description,
+        descriptionEmbedding,
+        templateType: type,
         integrationId: integrationId || null,
       });
 

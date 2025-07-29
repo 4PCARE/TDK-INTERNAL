@@ -441,6 +441,16 @@ export default function Integrations() {
                                               Verify
                                             </Button>
                                           )}
+                                          <Link href={`/line-configuration?integrationId=${integration.id}`}>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="text-xs h-6"
+                                            >
+                                              <MessageSquare className="w-3 h-3 mr-1" />
+                                              Templates
+                                            </Button>
+                                          </Link>
                                           <Badge variant="outline" className="text-xs">
                                             {integration.agentName || 'No Agent'}
                                           </Badge>

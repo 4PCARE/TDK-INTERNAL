@@ -800,6 +800,7 @@ export const lineMessageTemplates = pgTable("line_message_templates", {
   integrationId: integer("integration_id").references(() => socialIntegrations.id, { onDelete: "cascade" }),
   name: varchar("name").notNull(),
   description: text("description"),
+  descriptionEmbedding: text("description_embedding"), // Vector embedding for intent matching
   templateType: varchar("template_type").notNull().default("carousel"), // 'carousel', 'flex', 'bubble', etc.
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
