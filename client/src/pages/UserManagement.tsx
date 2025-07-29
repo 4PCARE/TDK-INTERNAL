@@ -7,6 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
@@ -24,10 +27,10 @@ import {
   Building,
   UserCheck,
   UserX,
-  MoreHorizontal
+  MoreHorizontal,
+  MoreVertical,
+  User
 } from "lucide-react";
-import Sidebar from "@/components/Layout/Sidebar";
-import TopBar from "@/components/TopBar";
 import { apiRequest } from "@/lib/queryClient";
 
 interface UserData {
@@ -66,9 +69,7 @@ export default function UserManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   // State for dialogs
   const [isCreateDepartmentOpen, setIsCreateDepartmentOpen] = useState(false);
@@ -547,6 +548,61 @@ export default function UserManagement() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Edit User Dialog */}
+            <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit User</DialogTitle>
+                </DialogHeader>
+                {editingUser && (
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="edit-firstName">First Name</Label>
+                      <Input
+                        id="edit-firstName"
+                        value={editingUser.firstName}
+                        onChange={(e) => setEditingUser({ ...editingUser, firstName: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-lastName">Last Name</Label>
+                      <Input
+                        id="edit-lastName"
+                        value={editingUser.lastName}
+                        onChange={(e) => setEditingUser({ ...editingUser, lastName: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Department</Label>
+                      <Select 
+                        value={editingUser.departmentId?.toString() || ""} 
+                        onValueChange={(value) => setEditingUser({ ...editingUser, departmentId: value ? parseInt(value) : undefined })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(departments as Department[]).map((dept) => (
+                            <SelectItem key={dept.id} value={dept.id.toString()}>
+                              {dept.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setIsEditUserOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleUpdateUser} disabled={editUserMutation.isPending}>
+                        {editUserMutation.isPending ? "Updating..." : "Update"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
 
             {/* Permissions Section */}
             <Card>
