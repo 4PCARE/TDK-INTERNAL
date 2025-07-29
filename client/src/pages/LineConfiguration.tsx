@@ -529,11 +529,14 @@ export default function LineConfiguration() {
             form.reset();
           }
         }}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="template-form-description">
             <DialogHeader>
               <DialogTitle>
                 {selectedTemplate ? "Edit Template" : "Create New Template"}
               </DialogTitle>
+              <div id="template-form-description" className="sr-only">
+                Form to create or edit Line OA message templates
+              </div>
             </DialogHeader>
 
             <Form {...form}>

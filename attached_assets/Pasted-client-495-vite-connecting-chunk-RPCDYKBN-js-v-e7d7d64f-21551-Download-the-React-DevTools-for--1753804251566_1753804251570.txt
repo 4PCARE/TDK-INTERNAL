@@ -1,0 +1,135 @@
+client:495 [vite] connecting...
+chunk-RPCDYKBN.js?v=e7d7d64f:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+LineConfiguration.tsx:108 🔍 LineConfiguration Debug - URL params: 
+LineConfiguration.tsx:109 🔍 Integration ID param: null
+LineConfiguration.tsx:110 🔍 Parsed integrationId: null
+LineConfiguration.tsx:111 LineConfiguration render - integrationId: null isCreating: false selectedTemplate: null
+LineConfiguration.tsx:322 🔍 Debug - All integrations: (19) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+LineConfiguration.tsx:323 🔍 Debug - Line OA integrations: (19) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+LineConfiguration.tsx:324 🔍 Debug - Looking for integration with ID: null
+LineConfiguration.tsx:325 🔍 Debug - Found current integration: null
+LineConfiguration.tsx:114 useEffect - isCreating changed to: false
+LineConfiguration.tsx:118 useEffect - selectedTemplate changed to: null
+LineConfiguration.tsx:108 🔍 LineConfiguration Debug - URL params: 
+LineConfiguration.tsx:109 🔍 Integration ID param: null
+LineConfiguration.tsx:110 🔍 Parsed integrationId: null
+LineConfiguration.tsx:111 LineConfiguration render - integrationId: null isCreating: false selectedTemplate: null
+LineConfiguration.tsx:322 🔍 Debug - All integrations: (19) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+LineConfiguration.tsx:323 🔍 Debug - Line OA integrations: (19) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+LineConfiguration.tsx:324 🔍 Debug - Looking for integration with ID: null
+LineConfiguration.tsx:325 🔍 Debug - Found current integration: null
+LineConfiguration.tsx:460 🔍 Template integration ID: 16
+LineConfiguration.tsx:461 🔍 Available integrations for matching: (19) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+LineConfiguration.tsx:468 🔍 Found integration: {id: 16, userId: '43981095', name: '4Plus TMG Customer V3', description: null, type: 'lineoa', …}
+LineConfiguration.tsx:108 🔍 LineConfiguration Debug - URL params: 
+LineConfiguration.tsx:109 🔍 Integration ID param: null
+LineConfiguration.tsx:110 🔍 Parsed integrationId: null
+LineConfiguration.tsx:111 LineConfiguration render - integrationId: null isCreating: false selectedTemplate: {template: {…}, columns: Array(1)}
+LineConfiguration.tsx:322 🔍 Debug - All integrations: (19) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+LineConfiguration.tsx:323 🔍 Debug - Line OA integrations: (19) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+LineConfiguration.tsx:324 🔍 Debug - Looking for integration with ID: null
+LineConfiguration.tsx:325 🔍 Debug - Found current integration: null
+LineConfiguration.tsx:460 🔍 Template integration ID: 16
+LineConfiguration.tsx:461 🔍 Available integrations for matching: (19) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+LineConfiguration.tsx:468 🔍 Found integration: {id: 16, userId: '43981095', name: '4Plus TMG Customer V3', description: null, type: 'lineoa', …}
+LineConfiguration.tsx:118 useEffect - selectedTemplate changed to: {template: {…}, columns: Array(1)}
+chunk-73V4I2TM.js?v=e7d7d64f:341 Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+(anonymous) @ chunk-73V4I2TM.js?v=e7d7d64f:341
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=e7d7d64f:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=e7d7d64f:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=e7d7d64f:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=e7d7d64f:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19416
+commitRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=e7d7d64f:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=e7d7d64f:18627
+chunk-RPCDYKBN.js?v=e7d7d64f:14032 The above error occurred in the <SelectItem> component:
+
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-select.js?v=e7d7d64f:849:7
+    at _c11 (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/components/ui/select.tsx:208:13)
+    at div
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-IWFJIMEQ.js?v=e7d7d64f:42:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=e7d7d64f:43:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=e7d7d64f:20:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-5KSDU44R.js?v=e7d7d64f:41:15
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-select.js?v=e7d7d64f:760:13
+    at div
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=e7d7d64f:43:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=e7d7d64f:20:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-5KSDU44R.js?v=e7d7d64f:41:15
+    at Provider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=e7d7d64f:38:15)
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-select.js?v=e7d7d64f:303:58
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=e7d7d64f:43:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=e7d7d64f:20:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-IWFJIMEQ.js?v=e7d7d64f:42:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-R33W635Q.js?v=e7d7d64f:260:22
+    at SelectPortal
+    at _c7 (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/components/ui/select.tsx:123:12)
+    at Provider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=e7d7d64f:38:15)
+    at Provider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=e7d7d64f:38:15)
+    at CollectionProvider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-5KSDU44R.js?v=e7d7d64f:31:13)
+    at Provider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=e7d7d64f:38:15)
+    at Provider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=e7d7d64f:38:15)
+    at Popper (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-D2XDA5CK.js?v=e7d7d64f:1921:11)
+    at Select (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-select.js?v=e7d7d64f:91:5)
+    at div
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/components/ui/form.tsx:72:6
+    at Controller (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-4BFJKWC4.js?v=e7d7d64f:298:35)
+    at FormField (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/components/ui/form.tsx:33:6)
+    at form
+    at FormProvider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-4BFJKWC4.js?v=e7d7d64f:102:11)
+    at div
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-IWFJIMEQ.js?v=e7d7d64f:42:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-R33W635Q.js?v=e7d7d64f:61:7
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=e7d7d64f:43:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=e7d7d64f:20:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-IWFJIMEQ.js?v=e7d7d64f:42:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-7JM64MWD.js?v=e7d7d64f:34:5
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-73V4I2TM.js?v=e7d7d64f:237:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-73V4I2TM.js?v=e7d7d64f:160:58
+    at Presence (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-FDH7FQDE.js?v=e7d7d64f:24:11)
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-73V4I2TM.js?v=e7d7d64f:151:64
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=e7d7d64f:43:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LHPXHTGV.js?v=e7d7d64f:20:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-IWFJIMEQ.js?v=e7d7d64f:42:13
+    at https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-R33W635Q.js?v=e7d7d64f:260:22
+    at Presence (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-FDH7FQDE.js?v=e7d7d64f:24:11)
+    at Provider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=e7d7d64f:38:15)
+    at DialogPortal (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-73V4I2TM.js?v=e7d7d64f:113:11)
+    at _c3 (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/components/ui/dialog.tsx:52:12)
+    at Provider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=e7d7d64f:38:15)
+    at Dialog (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-73V4I2TM.js?v=e7d7d64f:54:5)
+    at div
+    at div
+    at main
+    at div
+    at div
+    at DashboardLayout (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/components/Layout/DashboardLayout.tsx:22:43)
+    at LineConfiguration (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/pages/LineConfiguration.tsx:70:27)
+    at Route (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=e7d7d64f:323:16)
+    at Switch (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=e7d7d64f:379:17)
+    at Router (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/App.tsx?v=PFtvA10_xgxQzTTe0u78V:55:42)
+    at Provider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=e7d7d64f:38:15)
+    at TooltipProvider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=e7d7d64f:66:5)
+    at QueryClientProvider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=e7d7d64f:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+logCapturedError @ chunk-RPCDYKBN.js?v=e7d7d64f:14032
+update.callback @ chunk-RPCDYKBN.js?v=e7d7d64f:14052
+callCallback @ chunk-RPCDYKBN.js?v=e7d7d64f:11248
+commitUpdateQueue @ chunk-RPCDYKBN.js?v=e7d7d64f:11265
+commitLayoutEffectOnFiber @ chunk-RPCDYKBN.js?v=e7d7d64f:17093
+commitLayoutMountEffects_complete @ chunk-RPCDYKBN.js?v=e7d7d64f:17980
+commitLayoutEffects_begin @ chunk-RPCDYKBN.js?v=e7d7d64f:17969
+commitLayoutEffects @ chunk-RPCDYKBN.js?v=e7d7d64f:17920
+commitRootImpl @ chunk-RPCDYKBN.js?v=e7d7d64f:19353
+commitRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=e7d7d64f:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=e7d7d64f:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=e7d7d64f:18627
