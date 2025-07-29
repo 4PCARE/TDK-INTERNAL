@@ -7,8 +7,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import Sidebar from "@/components/Layout/Sidebar";
-import TopBar from "@/components/TopBar";
+import DashboardLayout from "@/components/Layout/DashboardLayout";
 import {
   Card,
   CardContent,
@@ -804,14 +803,9 @@ export default function CreateAgentChatbot() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      <Sidebar />
-
-      <div className="flex-1 flex flex-col">
-        <TopBar />
-
-        <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-7xl ml-4">
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div className="max-w-7xl mx-auto">
             {/* Header */}
             <div className="flex items-center gap-4 mb-6">
               <Link href="/agent-chatbots">
@@ -2313,8 +2307,7 @@ export default function CreateAgentChatbot() {
               </div>
             </div>
           </div>
-        </main>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
