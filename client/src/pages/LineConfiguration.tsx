@@ -787,7 +787,7 @@ function ActionEditor({
   onRemove: () => void;
   canRemove: boolean;
 }) {
-  const actionType = form.watch(`columns.${columnIndex}.actions.${actionIndex}.type`);
+  const actionType = form.watch(`columns.${columnIndex}.actions.${actionIndex}.type`) || "uri";
 
   return (
     <div className="border rounded-lg p-3 space-y-3">
@@ -807,7 +807,7 @@ function ActionEditor({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Type</FormLabel>
-              <Select value={field.value} onValueChange={field.onChange}>
+              <Select value={field.value || "uri"} onValueChange={field.onChange}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue />
