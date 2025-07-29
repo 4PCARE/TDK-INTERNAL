@@ -37,13 +37,37 @@ import DashboardLayout from "@/components/Layout/DashboardLayout";
 const templateActionSchema = z.object({
   type: z.enum(["uri", "postback", "message"]),
   label: z.string().min(1, "Label is required").max(20, "Label must be 20 characters or less"),
-  uri: z.string().url().optional().or(z.literal("")),
-  data: z.string().optional(),
-  text: z.string().optional(),
+  uri: z.string().optional().default(""),
+  data: z.string().optional().default(""),
+  text: z.string().optional().default(""),
+}).refine((data) => {
+  // URI validation only when type is 'uri' and uri is not empty
+  if (data.type === "uri" && data.uri && data.uri.trim() !== "") {
+    try {
+      new URL(data.uri);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}, {
+  message: "URI must be a valid URL when type is 'uri'",
+  path: ["uri"]
 });
 
 const carouselColumnSchema = z.object({
-  thumbnailImageUrl: z.string().url().optional().or(z.literal("")),
+  thumbnailImageUrl: z.string().optional().default("").refine((url) => {
+    if (!url || url.trim() === "") return true;
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  }, {
+    message: "Thumbnail image URL must be a valid URL"
+  }),
   title: z.string().min(1, "Title is required").max(40, "Title must be 40 characters or less"),
   text: z.string().min(1, "Text is required").max(120, "Text must be 120 characters or less"),
   actions: z.array(templateActionSchema).min(1, "At least one action is required").max(3, "Maximum 3 actions allowed"),
@@ -52,7 +76,7 @@ const carouselColumnSchema = z.object({
 const templateSchema = z.object({
   name: z.string().min(1, "Template name is required"),
   description: z.string().min(1, "Template description is required for intent matching"),
-  type: z.enum(["carousel"]),
+  type: z.literal("carousel"),
   integrationId: z.number().optional(),
   columns: z.array(carouselColumnSchema).min(1, "At least one column is required").max(10, "Maximum 10 columns allowed"),
 });
@@ -197,6 +221,8 @@ export default function LineConfiguration() {
                 type: "uri",
                 label: "",
                 uri: "",
+                data: "",
+                text: "",
               },
             ],
           },
@@ -294,7 +320,7 @@ export default function LineConfiguration() {
     const formData = {
       name: template.template.name,
       description: template.template.description || "",
-      type: template.template.type as "carousel",
+      type: "carousel" as const,
       integrationId: template.template.integrationId || undefined,
       columns: template.columns.map((col, colIndex) => {
         console.log(`🔍 Processing column ${colIndex}:`, col);
@@ -703,7 +729,7 @@ export default function LineConfiguration() {
                         title: "",
                         text: "",
                         thumbnailImageUrl: "",
-                        actions: [{ type: "uri", label: "", uri: "" }],
+                        actions: [{ type: "uri", label: "", uri: "", data: "", text: "" }],
                       })}
                     >
                       <Plus className="w-4 h-4 mr-2" />
@@ -844,6 +870,8 @@ function ColumnEditor({
                 type: "uri",
                 label: "",
                 uri: "",
+                data: "",
+                text: "",
               })}
               disabled={actionFields.length >= 3}
             >
