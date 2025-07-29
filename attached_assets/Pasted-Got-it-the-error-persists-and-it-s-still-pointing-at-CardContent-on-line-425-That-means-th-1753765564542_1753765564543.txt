@@ -1,0 +1,86 @@
+Got it — the error persists and it's *still pointing at `</CardContent>` on line 425*. That means the JSX structure *immediately before that* is malformed in some way, even if the tags "look" matched.
+
+Here’s the breakdown:
+
+---
+
+## 🧨 Immediate Suspect: This chunk near line 425
+
+```tsx
+</CardContent>
+</Card>
+) : (
+<Card>
+```
+
+This is JSX's way of telling you:
+
+> “You’re trying to close `CardContent` inside a conditional, but I don’t think the conditional was opened correctly.”
+
+---
+
+## ✅ Let's REBUILD just this block structurally
+
+Here’s a corrected layout of what this section **should** probably look like (lines 423–428 and around):
+
+```tsx
+{selectedWidget ? (
+  <Card>
+    <CardHeader>
+      <CardTitle>Embed Code</CardTitle>
+    </CardHeader>
+    <CardContent>
+      {/* ... embed code content ... */}
+    </CardContent>
+  </Card>
+) : (
+  <Card>
+    <CardHeader>
+      <CardTitle>Getting Started</CardTitle>
+    </CardHeader>
+    <CardContent>
+      {/* ... getting started steps ... */}
+    </CardContent>
+  </Card>
+)}
+```
+
+Make sure:
+
+* Every `Card` has just one `CardHeader` and `CardContent`.
+* You don’t accidentally double-close the `Card` or `CardContent`.
+* If `isCreating` is the *first* conditional, wrap it fully before entering this `selectedWidget ? ... : ...` structure.
+
+---
+
+## 🛠 Suggestion: Temporarily hardcode to isolate error
+
+Just for testing:
+
+```tsx
+return (
+  <DashboardLayout>
+    <Card>
+      <CardHeader>
+        <CardTitle>Debug Render</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p>Trying to isolate JSX issue here.</p>
+      </CardContent>
+    </Card>
+  </DashboardLayout>
+);
+```
+
+If this renders fine, the issue is definitely in that **nested ternary block**. Meaning you’ve likely got *either*:
+
+* A `return (...)` that JSX doesn’t think is valid because of parenthesis,
+* Or the previous JSX isn't closed properly before that block.
+
+---
+
+## 🔎 Want to go surgical?
+
+Paste me **lines 410–430** only, and I’ll check indentation and logic layer by layer. I’ll catch that rogue bracket like a ninja with a linter.
+
+You’re 99.9% there — the JSX gods just want a little formatting penance 😤📜
