@@ -5049,8 +5049,21 @@ Memory management: Keep track of conversation context within the last ${agentCon
       const userId = req.user.claims.sub;
       const integrationId = req.query.integrationId ? parseInt(req.query.integrationId) : undefined;
       
+      console.log("🔍 Fetching Line templates for user:", userId, "integration:", integrationId);
+      
       const templates = await storage.getLineMessageTemplates(userId, integrationId);
-      res.json(templates);
+      console.log("📋 Found templates:", templates.length);
+      
+      // Get complete template data (with columns and actions) for each template
+      const completeTemplates = await Promise.all(
+        templates.map(async (template) => {
+          const completeTemplate = await storage.getCompleteLineTemplate(template.id, userId);
+          return completeTemplate;
+        })
+      );
+      
+      console.log("✅ Complete templates ready:", completeTemplates.length);
+      res.json(completeTemplates.filter(t => t !== undefined));
     } catch (error) {
       console.error("Error fetching Line message templates:", error);
       res.status(500).json({ message: "Failed to fetch Line message templates" });
