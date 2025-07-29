@@ -653,7 +653,9 @@ export default function Integrations() {
                                           )}
                                         </Button>
                                       </div>
-                                  </Dialog>
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
                                 )}
 
                               {platform.id !== 'lineoa' && (
