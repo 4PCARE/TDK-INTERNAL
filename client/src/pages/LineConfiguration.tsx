@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useParams, useLocation } from "wouter";
+import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -30,6 +30,7 @@ import {
   Link as LinkIcon
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import DashboardLayout from "@/components/Layout/DashboardLayout";
 
 // Validation schemas
 const templateActionSchema = z.object({
@@ -201,13 +202,25 @@ export default function LineConfiguration() {
     },
   });
 
-  // Edit template
+  // Handle form submission
+  const handleSubmit = (data: TemplateFormData) => {
+    if (selectedTemplate) {
+      updateTemplateMutation.mutate({
+        id: selectedTemplate.template.id,
+        data,
+      });
+    } else {
+      createTemplateMutation.mutate(data);
+    }
+  };
+
+  // Handle edit template
   const handleEditTemplate = (template: LineTemplate) => {
     setSelectedTemplate(template);
-    setIsCreating(true);
+    setIsCreating(false);
     
-    // Populate form with template data
-    form.reset({
+    // Transform template data for form
+    const formData = {
       name: template.template.name,
       type: template.template.type as "carousel",
       integrationId: template.template.integrationId || undefined,
@@ -221,29 +234,21 @@ export default function LineConfiguration() {
           uri: action.uri || "",
           data: action.data || "",
           text: action.text || "",
-        })),
-      })),
-    });
+        }))
+      }))
+    };
+    
+    form.reset(formData);
   };
 
-  // Submit form
-  const onSubmit = (data: TemplateFormData) => {
-    if (selectedTemplate) {
-      updateTemplateMutation.mutate({ id: selectedTemplate.template.id, data });
-    } else {
-      createTemplateMutation.mutate(data);
-    }
-  };
-
-  // Get action icon
   const getActionIcon = (type: string) => {
     switch (type) {
       case "uri":
         return <ExternalLink className="w-4 h-4" />;
-      case "postback":
-        return <MousePointerClick className="w-4 h-4" />;
       case "message":
         return <MessageSquare className="w-4 h-4" />;
+      case "postback":
+        return <MousePointerClick className="w-4 h-4" />;
       default:
         return <MousePointerClick className="w-4 h-4" />;
     }
@@ -252,166 +257,141 @@ export default function LineConfiguration() {
   const lineOaIntegrations = Array.isArray(integrations) ? integrations.filter((int: any) => int.type === "lineoa") : [];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLocation("/integrations")}
+              className="flex items-center space-x-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Integrations</span>
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Line Configuration</h1>
+              <p className="text-muted-foreground">Manage Line OA message templates</p>
+            </div>
+          </div>
+
           <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setLocation("/integrations")}
+            onClick={() => {
+              setIsCreating(true);
+              setSelectedTemplate(null);
+              form.reset();
+            }}
             className="flex items-center space-x-2"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Integrations</span>
+            <Plus className="w-4 h-4" />
+            <span>New Template</span>
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Line Configuration</h1>
-            <p className="text-muted-foreground">Manage Line OA message templates</p>
-          </div>
         </div>
 
-        <Button
-          onClick={() => {
-            setIsCreating(true);
-            setSelectedTemplate(null);
-            form.reset();
-          }}
-          className="flex items-center space-x-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Template</span>
-        </Button>
-      </div>
+        <Tabs defaultValue="templates" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
+            <TabsTrigger value="preview">Preview</TabsTrigger>
+          </TabsList>
 
-      <Tabs defaultValue="templates" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="preview">Preview</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="templates" className="space-y-6">
-          {/* Templates List */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Settings className="w-5 h-5" />
-                <span>Message Templates</span>
-                <Badge variant="secondary">{Array.isArray(templates) ? templates.length : 0}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="text-center py-8">Loading templates...</div>
-              ) : !Array.isArray(templates) || templates.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No templates created yet. Create your first carousel template to get started.
-                </div>
-              ) : (
-                <div className="grid gap-4">
-                  {Array.isArray(templates) && templates.map((template: LineTemplate) => (
-                    <div
-                      key={template.template.id}
-                      className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center space-x-2">
-                            <h3 className="font-medium">{template.template.name}</h3>
-                            <Badge variant="outline">{template.template.type}</Badge>
-                            {template.template.integrationId && (
-                              <Badge variant="secondary">
-                                {lineOaIntegrations.find((int: any) => int.id === template.template.integrationId)?.name || "Unknown Integration"}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {template.columns.length} columns • Created {new Date(template.template.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditTemplate(template)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => deleteTemplateMutation.mutate(template.template.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Template Preview */}
-                      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {template.columns.slice(0, 3).map((col, index) => (
-                          <div key={index} className="border rounded p-3 bg-white">
-                            {col.column.thumbnailImageUrl && (
-                              <div className="w-full h-20 bg-muted rounded mb-2 flex items-center justify-center">
-                                <Image className="w-6 h-6 text-muted-foreground" />
-                              </div>
-                            )}
-                            <h4 className="font-medium text-sm mb-1">{col.column.title}</h4>
-                            <p className="text-xs text-muted-foreground mb-2">{col.column.text}</p>
-                            <div className="space-y-1">
-                              {col.actions.slice(0, 2).map((action, actionIndex) => (
-                                <div key={actionIndex} className="flex items-center space-x-1">
-                                  {getActionIcon(action.type)}
-                                  <span className="text-xs">{action.label}</span>
-                                </div>
-                              ))}
-                              {col.actions.length > 2 && (
-                                <div className="text-xs text-muted-foreground">+{col.actions.length - 2} more</div>
+          <TabsContent value="templates" className="space-y-6">
+            {/* Templates List */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Settings className="w-5 h-5" />
+                  <span>Message Templates</span>
+                  <Badge variant="secondary">{Array.isArray(templates) ? templates.length : 0}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="text-center py-8">Loading templates...</div>
+                ) : !Array.isArray(templates) || templates.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No templates created yet. Create your first carousel template to get started.
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    {Array.isArray(templates) && templates.map((template: LineTemplate) => (
+                      <div
+                        key={template.template.id}
+                        className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <h3 className="font-medium">{template.template.name}</h3>
+                              <Badge variant="outline">{template.template.type}</Badge>
+                              {template.template.integrationId && (
+                                <Badge variant="secondary">
+                                  {lineOaIntegrations.find((int: any) => int.id === template.template.integrationId)?.name || "Unknown Integration"}
+                                </Badge>
                               )}
                             </div>
+                            <p className="text-sm text-muted-foreground">
+                              {template.columns.length} columns • Created {new Date(template.template.createdAt).toLocaleDateString()}
+                            </p>
                           </div>
-                        ))}
-                        {template.columns.length > 3 && (
-                          <div className="border rounded p-3 bg-muted flex items-center justify-center">
-                            <span className="text-sm text-muted-foreground">+{template.columns.length - 3} more</span>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditTemplate(template)}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => deleteTemplateMutation.mutate(template.template.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="preview" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Template Preview</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  Select a template to preview its carousel layout
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
-        <TabsContent value="preview" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Template Preview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                Template preview feature coming soon
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Create/Edit Template Dialog */}
-      <Dialog open={isCreating} onOpenChange={setIsCreating}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedTemplate ? "Edit Template" : "Create New Template"}
-            </DialogTitle>
-          </DialogHeader>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Basic Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Template Creation/Edit Modal */}
+        <Dialog open={isCreating || selectedTemplate !== null} onOpenChange={(open) => {
+          if (!open) {
+            setIsCreating(false);
+            setSelectedTemplate(null);
+            form.reset();
+          }
+        }}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedTemplate ? "Edit Template" : "Create New Template"}
+              </DialogTitle>
+            </DialogHeader>
+            
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+                {/* Template Name */}
                 <FormField
                   control={form.control}
                   name="name"
@@ -426,23 +406,21 @@ export default function LineConfiguration() {
                   )}
                 />
 
+                {/* Integration Selection */}
                 <FormField
                   control={form.control}
                   name="integrationId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Line OA Integration (Optional)</FormLabel>
-                      <Select
-                        value={field.value?.toString() || ""}
-                        onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
-                      >
+                      <Select value={field.value?.toString()} onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select integration" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="">No specific integration</SelectItem>
                           {lineOaIntegrations.map((integration: any) => (
                             <SelectItem key={integration.id} value={integration.id.toString()}>
                               {integration.name}
@@ -454,64 +432,61 @@ export default function LineConfiguration() {
                     </FormItem>
                   )}
                 />
-              </div>
 
-              {/* Carousel Columns */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium">Carousel Columns</h3>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      appendColumn({
+                {/* Columns */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-lg">Carousel Columns</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => appendColumn({
                         title: "",
                         text: "",
                         thumbnailImageUrl: "",
                         actions: [{ type: "uri", label: "", uri: "" }],
-                      })
-                    }
-                    disabled={columnFields.length >= 10}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Column
-                  </Button>
+                      })}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Column
+                    </Button>
+                  </div>
+
+                  {columnFields.map((column, columnIndex) => (
+                    <ColumnEditor
+                      key={column.id}
+                      columnIndex={columnIndex}
+                      form={form}
+                      onRemove={() => removeColumn(columnIndex)}
+                      canRemove={columnFields.length > 1}
+                    />
+                  ))}
                 </div>
 
-                {columnFields.map((field, columnIndex) => (
-                  <ColumnEditor
-                    key={field.id}
-                    columnIndex={columnIndex}
-                    form={form}
-                    onRemove={() => removeColumn(columnIndex)}
-                    canRemove={columnFields.length > 1}
-                  />
-                ))}
-              </div>
-
-              {/* Submit */}
-              <div className="flex justify-end space-x-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsCreating(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  {selectedTemplate ? "Update" : "Create"} Template
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-    </div>
+                {/* Submit Buttons */}
+                <div className="flex justify-end space-x-4 pt-4 border-t">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsCreating(false);
+                      setSelectedTemplate(null);
+                      form.reset();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}>
+                    <Save className="w-4 h-4 mr-2" />
+                    {selectedTemplate ? "Update Template" : "Create Template"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </DashboardLayout>
   );
 }
 
@@ -536,7 +511,7 @@ function ColumnEditor({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Column {columnIndex + 1}</CardTitle>
+          <CardTitle className="text-lg">Column {columnIndex + 1}</CardTitle>
           {canRemove && (
             <Button type="button" variant="outline" size="sm" onClick={onRemove}>
               <Trash2 className="w-4 h-4" />
@@ -545,7 +520,7 @@ function ColumnEditor({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Column Fields */}
+        {/* Thumbnail Image URL */}
         <FormField
           control={form.control}
           name={`columns.${columnIndex}.thumbnailImageUrl`}
@@ -560,55 +535,59 @@ function ColumnEditor({
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name={`columns.${columnIndex}.title`}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Title (Max 40 chars)</FormLabel>
-                <FormControl>
-                  <Input placeholder="Column title" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        {/* Title */}
+        <FormField
+          control={form.control}
+          name={`columns.${columnIndex}.title`}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Title (Max 40 chars)</FormLabel>
+              <FormControl>
+                <Input placeholder="Column title" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-          <FormField
-            control={form.control}
-            name={`columns.${columnIndex}.text`}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Text (Max 120 chars)</FormLabel>
-                <FormControl>
-                  <Textarea placeholder="Column description" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        {/* Text */}
+        <FormField
+          control={form.control}
+          name={`columns.${columnIndex}.text`}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Text (Max 120 chars)</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Column description" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         {/* Actions */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label>Actions (1-3 required)</Label>
+            <Label className="text-base">Actions</Label>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => appendAction({ type: "uri", label: "", uri: "" })}
+              onClick={() => appendAction({
+                type: "uri",
+                label: "",
+                uri: "",
+              })}
               disabled={actionFields.length >= 3}
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4 mr-2" />
               Add Action
             </Button>
           </div>
 
-          {actionFields.map((actionField, actionIndex) => (
+          {actionFields.map((action, actionIndex) => (
             <ActionEditor
-              key={actionField.id}
+              key={action.id}
               columnIndex={columnIndex}
               actionIndex={actionIndex}
               form={form}
