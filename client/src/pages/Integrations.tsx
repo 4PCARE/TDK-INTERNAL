@@ -33,8 +33,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import Sidebar from "@/components/Layout/Sidebar";
-import TopBar from "@/components/TopBar";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
 
 // WebhookUrlDisplay component for showing webhook URLs  
@@ -131,9 +129,7 @@ export default function Integrations() {
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
 
-  // Sidebar state management
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  
 
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
   const [lineOaDialogOpen, setLineOaDialogOpen] = useState(false);
@@ -374,20 +370,7 @@ export default function Integrations() {
 
   return (
     <DashboardLayout>
-      <div className="flex h-screen overflow-hidden">
-        <Sidebar 
-          isMobileOpen={isMobileSidebarOpen}
-          onMobileClose={() => setIsMobileSidebarOpen(false)}
-          onOpenChat={() => {}}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        />
-
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <TopBar />
-
-          <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
-            <div className="max-w-6xl mx-auto">
+      <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                   <div>
@@ -871,9 +854,6 @@ export default function Integrations() {
                   </Card>
                 )}
             </div>
-          </main>
-        </div>
-      </div>
     </DashboardLayout>
   );
 }
