@@ -27,7 +27,8 @@ import {
   MousePointerClick,
   Image,
   Type,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Eye
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
@@ -97,6 +98,7 @@ export default function LineConfiguration() {
   const queryClient = useQueryClient();
   const [selectedTemplate, setSelectedTemplate] = useState<LineTemplate | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState<LineTemplate | null>(null);
 
   // Get integrationId from URL params with better validation
   const urlParams = new URLSearchParams(window.location.search);
@@ -417,13 +419,7 @@ export default function LineConfiguration() {
           </Button>
         </div>
 
-        <Tabs defaultValue="templates" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="templates">Templates</TabsTrigger>
-            <TabsTrigger value="preview">Preview</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="templates" className="space-y-6">
+        <div className="space-y-6">
             {/* Templates List */}
             <Card>
               <CardHeader>
@@ -499,6 +495,13 @@ export default function LineConfiguration() {
                             <Button
                               variant="outline"
                               size="sm"
+                              onClick={() => setPreviewTemplate(template)}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => handleEditTemplate(template)}
                             >
                               <Edit className="w-4 h-4" />
@@ -519,21 +522,78 @@ export default function LineConfiguration() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+        </div>
 
-          <TabsContent value="preview" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Template Preview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  Select a template to preview its carousel layout
+        {/* Line Carousel Preview Modal */}
+        <Dialog open={previewTemplate !== null} onOpenChange={(open) => !open && setPreviewTemplate(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Line Carousel Preview: {previewTemplate?.template?.name}</DialogTitle>
+            </DialogHeader>
+            
+            {previewTemplate && previewTemplate.columns && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  This is how your carousel template will appear in Line OA
+                </p>
+                
+                {/* Carousel Container */}
+                <div className="bg-gray-100 p-4 rounded-lg">
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {previewTemplate.columns.map((column, index) => (
+                      <div key={column.column.id} className="flex-shrink-0 w-64 bg-white rounded-lg shadow-sm border">
+                        {/* Thumbnail Image */}
+                        {column.column.thumbnailImageUrl && (
+                          <div className="aspect-square bg-gray-200 rounded-t-lg overflow-hidden">
+                            <img 
+                              src={column.column.thumbnailImageUrl} 
+                              alt={column.column.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Content */}
+                        <div className="p-3 space-y-2">
+                          <h3 className="font-medium text-sm line-clamp-2">{column.column.title}</h3>
+                          <p className="text-xs text-gray-600 line-clamp-3">{column.column.text}</p>
+                          
+                          {/* Actions */}
+                          <div className="space-y-1">
+                            {column.actions.map((action, actionIndex) => (
+                              <div 
+                                key={action.id}
+                                className="flex items-center justify-center py-2 px-3 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 cursor-pointer transition-colors"
+                              >
+                                <span className="flex items-center gap-1">
+                                  {action.type === 'uri' && <ExternalLink className="w-3 h-3" />}
+                                  {action.type === 'message' && <MessageSquare className="w-3 h-3" />}
+                                  {action.type === 'postback' && <MousePointerClick className="w-3 h-3" />}
+                                  {action.label}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                
+                {/* Template Info */}
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p><strong>Description:</strong> {previewTemplate.template?.description || 'No description'}</p>
+                  <p><strong>Columns:</strong> {previewTemplate.columns.length}</p>
+                  <p><strong>Created:</strong> {previewTemplate.template?.createdAt ? new Date(previewTemplate.template.createdAt).toLocaleString() : 'Unknown'}</p>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Template Creation/Edit Modal */}
         <Dialog open={isCreating || selectedTemplate !== null} onOpenChange={(open) => {
