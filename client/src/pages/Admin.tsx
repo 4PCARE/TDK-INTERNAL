@@ -1,699 +1,337 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import { apiRequest } from "@/lib/queryClient";
-import Sidebar from "@/components/Layout/Sidebar";
-import TopBar from "@/components/TopBar";
-import ChatModal from "@/components/Chat/ChatModal";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import DashboardLayout from "@/components/Layout/DashboardLayout";
 import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { 
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { 
-  Settings as SettingsIcon,
-  Users,
-  Shield,
+  Settings, 
+  Users, 
+  FileText, 
+  Shield, 
+  Activity, 
   Database,
-  Key,
-  Plus,
-  Edit,
-  Trash2,
-  UserPlus,
-  FileText,
-  Lock,
-  Unlock
+  Server,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  TrendingUp,
+  HardDrive,
+  Cpu,
+  Memory
 } from "lucide-react";
 
-interface User {
-  id: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  role: 'admin' | 'user';
-  isActive: boolean;
-  createdAt: string;
-  lastLogin?: string;
+interface SystemStats {
+  totalUsers: number;
+  totalDocuments: number;
+  totalStorage: string;
+  systemHealth: 'healthy' | 'warning' | 'critical';
+  uptime: string;
+  lastBackup: string;
+  activeUsers: number;
+  processingQueue: number;
 }
 
-interface DocumentAccess {
-  id: number;
-  documentId: number;
-  userId: string;
-  permission: 'read' | 'write' | 'admin';
-  grantedBy: string;
-  grantedAt: string;
-  documentName: string;
-  userName: string;
+interface QuickAction {
+  id: string;
+  title: string;
+  description: string;
+  icon: any;
+  href: string;
+  badge?: string;
+  variant?: 'default' | 'destructive' | 'warning';
 }
 
 export default function Admin() {
-  const { user, isAuthenticated, isLoading } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
-  const [isAccessDialogOpen, setIsAccessDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [newUserEmail, setNewUserEmail] = useState("");
-  const [newUserRole, setNewUserRole] = useState<'admin' | 'user'>('user');
-  const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(null);
-  const [selectedUserId, setSelectedUserId] = useState("");
-  const [selectedPermission, setSelectedPermission] = useState<'read' | 'write' | 'admin'>('read');
+  const { user } = useAuth();
 
-  // Mock users for demo (will be replaced with real API)
-  const mockUsers: User[] = [
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["/api/admin/stats"],
+    queryFn: async () => {
+      const response = await fetch("/api/admin/stats");
+      if (!response.ok) throw new Error("Failed to fetch admin stats");
+      return response.json();
+    },
+    enabled: user?.role === 'admin',
+  }) as { data: SystemStats | undefined; isLoading: boolean };
+
+  const quickActions: QuickAction[] = [
     {
-      id: "43981095",
-      email: "admin@4plus.co.th",
-      firstName: "Admin",
-      lastName: "User",
-      role: 'admin',
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      lastLogin: new Date().toISOString()
+      id: 'users',
+      title: 'User Management',
+      description: 'Manage user accounts and permissions',
+      icon: Users,
+      href: '/user-management',
     },
     {
-      id: "demo-user-1",
-      email: "john.doe@example.com",
-      firstName: "John",
-      lastName: "Doe",
-      role: 'user',
-      isActive: true,
-      createdAt: new Date(Date.now() - 86400000).toISOString(),
-      lastLogin: new Date(Date.now() - 3600000).toISOString()
+      id: 'roles',
+      title: 'Role Management',
+      description: 'Configure roles and access controls',
+      icon: Shield,
+      href: '/role-management',
     },
     {
-      id: "demo-user-2",
-      email: "jane.smith@example.com",
-      firstName: "Jane",
-      lastName: "Smith",
-      role: 'user',
-      isActive: true,
-      createdAt: new Date(Date.now() - 172800000).toISOString(),
-      lastLogin: new Date(Date.now() - 7200000).toISOString()
-    }
+      id: 'audit',
+      title: 'Audit Logs',
+      description: 'View system activity and security logs',
+      icon: Activity,
+      href: '/audit-monitoring',
+    },
+    {
+      id: 'settings',
+      title: 'System Settings',
+      description: 'Configure system-wide settings',
+      icon: Settings,
+      href: '/settings',
+    },
+    {
+      id: 'backup',
+      title: 'Backup & Recovery',
+      description: 'Manage data backups and recovery',
+      icon: Database,
+      href: '#',
+      badge: 'Coming Soon',
+    },
+    {
+      id: 'monitoring',
+      title: 'System Monitoring',
+      description: 'Monitor system performance and health',
+      icon: Server,
+      href: '/system-health',
+    },
   ];
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
+  const getHealthIcon = (health: string) => {
+    switch (health) {
+      case 'healthy':
+        return <CheckCircle className="w-5 h-5 text-green-500" />;
+      case 'warning':
+        return <AlertTriangle className="w-5 h-5 text-yellow-500" />;
+      case 'critical':
+        return <AlertTriangle className="w-5 h-5 text-red-500" />;
+      default:
+        return <Clock className="w-5 h-5 text-gray-500" />;
     }
-  }, [isAuthenticated, isLoading, toast]);
+  };
 
-  const { data: documents = [] } = useQuery({
-    queryKey: ["/api/documents"],
-    enabled: isAuthenticated,
-    retry: false,
-  });
-
-  const { data: stats } = useQuery({
-    queryKey: ["/api/stats"],
-    enabled: isAuthenticated,
-    retry: false,
-  });
-
-  // Mock document access for demo
-  const mockDocumentAccess: DocumentAccess[] = [
-    {
-      id: 1,
-      documentId: 6,
-      userId: "demo-user-1",
-      permission: 'read',
-      grantedBy: "admin@4plus.co.th",
-      grantedAt: new Date().toISOString(),
-      documentName: "JOHN SMITH.txt",
-      userName: "john.doe@example.com"
-    },
-    {
-      id: 2,
-      documentId: 7,
-      userId: "demo-user-2",
-      permission: 'write',
-      grantedBy: "admin@4plus.co.th",
-      grantedAt: new Date().toISOString(),
-      documentName: "King Power RangName.png",
-      userName: "jane.smith@example.com"
+  const getHealthColor = (health: string) => {
+    switch (health) {
+      case 'healthy':
+        return 'text-green-600 bg-green-50 border-green-200';
+      case 'warning':
+        return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'critical':
+        return 'text-red-600 bg-red-50 border-red-200';
+      default:
+        return 'text-gray-600 bg-gray-50 border-gray-200';
     }
-  ];
-
-  const handleCreateUser = () => {
-    if (!newUserEmail.trim()) return;
-    
-    toast({
-      title: "User Created",
-      description: `Demo user ${newUserEmail} would be created with role: ${newUserRole}`,
-    });
-    
-    setIsUserDialogOpen(false);
-    setNewUserEmail("");
-    setNewUserRole('user');
   };
 
-  const handleUpdateUser = () => {
-    if (!editingUser) return;
-    
-    toast({
-      title: "User Updated",
-      description: `User ${editingUser.email} role updated to: ${editingUser.role}`,
-    });
-    
-    setEditingUser(null);
-  };
-
-  const handleGrantAccess = () => {
-    if (!selectedDocumentId || !selectedUserId) return;
-    
-    const doc = documents.find((d: any) => d.id === selectedDocumentId);
-    const user = mockUsers.find(u => u.id === selectedUserId);
-    
-    toast({
-      title: "Access Granted",
-      description: `${selectedPermission} access granted to ${user?.email} for ${doc?.name || doc?.originalName}`,
-    });
-    
-    setIsAccessDialogOpen(false);
-    setSelectedDocumentId(null);
-    setSelectedUserId("");
-    setSelectedPermission('read');
-  };
-
-  const handleRevokeAccess = (access: DocumentAccess) => {
-    toast({
-      title: "Access Revoked",
-      description: `Access revoked for ${access.userName} on ${access.documentName}`,
-    });
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  if (isLoading || !isAuthenticated) {
-    return null;
+  if (user?.role !== 'admin') {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
+            <p className="text-gray-600">You need administrator privileges to access this page.</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar 
-        isMobileOpen={isMobileMenuOpen} 
-        onMobileClose={() => setIsMobileMenuOpen(false)}
-        onOpenChat={() => setIsChatModalOpen(true)}
-      />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar />
-        
-        <main className="flex-1 overflow-auto p-6 bg-gray-50">
-          <div className="max-w-7xl mx-auto space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
-                  <SettingsIcon className="w-6 h-6 text-white" />
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center">
+            <Settings className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+            <p className="text-gray-600">System overview and administration tools</p>
+          </div>
+        </div>
+
+        {/* System Health Overview */}
+        {isLoading ? (
+          <Card>
+            <CardContent className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            </CardContent>
+          </Card>
+        ) : stats && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <Users className="w-8 h-8 text-blue-500" />
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
+                    <p className="text-sm text-gray-600">Total Users</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <FileText className="w-8 h-8 text-green-500" />
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{stats.totalDocuments}</p>
+                    <p className="text-sm text-gray-600">Documents</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <HardDrive className="w-8 h-8 text-purple-500" />
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{stats.totalStorage}</p>
+                    <p className="text-sm text-gray-600">Storage Used</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    {getHealthIcon(stats.systemHealth)}
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">System Health</p>
+                      <Badge className={getHealthColor(stats.systemHealth)}>
+                        {stats.systemHealth.charAt(0).toUpperCase() + stats.systemHealth.slice(1)}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* System Metrics */}
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+                <Activity className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.activeUsers}</div>
+                <p className="text-xs text-muted-foreground">Currently online</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Processing Queue</CardTitle>
+                <Cpu className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.processingQueue}</div>
+                <p className="text-xs text-muted-foreground">Documents in queue</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">System Uptime</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.uptime}</div>
+                <p className="text-xs text-muted-foreground">Last restart</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Quick Actions */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <TrendingUp className="w-5 h-5" />
+              <span>Quick Actions</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {quickActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <Button
+                    key={action.id}
+                    variant="outline"
+                    className="h-auto p-4 flex flex-col items-start space-y-2"
+                    asChild={!action.badge}
+                    disabled={!!action.badge}
+                  >
+                    {action.badge ? (
+                      <div className="w-full">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Icon className="w-5 h-5 text-gray-500" />
+                          <Badge variant="secondary" className="text-xs">
+                            {action.badge}
+                          </Badge>
+                        </div>
+                        <div className="text-left">
+                          <div className="font-medium text-gray-700">{action.title}</div>
+                          <div className="text-sm text-gray-500">{action.description}</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <a href={action.href} className="w-full">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Icon className="w-5 h-5 text-blue-500" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-medium">{action.title}</div>
+                          <div className="text-sm text-gray-500">{action.description}</div>
+                        </div>
+                      </a>
+                    )}
+                  </Button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* System Information */}
+        {stats && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Database className="w-5 h-5" />
+                <span>System Information</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-2">Last Backup</h4>
+                  <p className="text-sm text-gray-600">{stats.lastBackup}</p>
                 </div>
                 <div>
-                  <h1 className="text-2xl font-semibold text-gray-900">Admin Dashboard</h1>
-                  <p className="text-gray-600">Manage users, permissions, and system settings</p>
+                  <h4 className="font-medium text-gray-900 mb-2">System Version</h4>
+                  <p className="text-sm text-gray-600">v2.1.0</p>
                 </div>
               </div>
-            </div>
-
-            <Tabs defaultValue="users" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="users" className="flex items-center space-x-2">
-                  <Users className="w-4 h-4" />
-                  <span>User Management</span>
-                </TabsTrigger>
-                <TabsTrigger value="permissions" className="flex items-center space-x-2">
-                  <Shield className="w-4 h-4" />
-                  <span>Document Access</span>
-                </TabsTrigger>
-                <TabsTrigger value="system" className="flex items-center space-x-2">
-                  <Database className="w-4 h-4" />
-                  <span>System Info</span>
-                </TabsTrigger>
-                <TabsTrigger value="security" className="flex items-center space-x-2">
-                  <Key className="w-4 h-4" />
-                  <span>Security</span>
-                </TabsTrigger>
-              </TabsList>
-
-              {/* User Management Tab */}
-              <TabsContent value="users" className="space-y-6">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="flex items-center space-x-2">
-                      <Users className="w-5 h-5" />
-                      <span>Users</span>
-                    </CardTitle>
-                    <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button>
-                          <UserPlus className="w-4 h-4 mr-2" />
-                          Add User
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Create New User</DialogTitle>
-                          <DialogDescription>
-                            Add a new user to the system. Demo mode - user will be created with password: demo123
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="email">Email</Label>
-                            <Input
-                              id="email"
-                              type="email"
-                              value={newUserEmail}
-                              onChange={(e) => setNewUserEmail(e.target.value)}
-                              placeholder="user@example.com"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="role">Role</Label>
-                            <Select value={newUserRole} onValueChange={(value: 'admin' | 'user') => setNewUserRole(value)}>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="user">User</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="p-4 bg-blue-50 rounded-lg">
-                            <p className="text-sm text-blue-800">
-                              <strong>Demo Credentials:</strong><br />
-                              Password: demo123<br />
-                              Users can login with these credentials for testing.
-                            </p>
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button variant="outline" onClick={() => setIsUserDialogOpen(false)}>
-                            Cancel
-                          </Button>
-                          <Button 
-                            onClick={handleCreateUser}
-                            disabled={!newUserEmail.trim()}
-                          >
-                            Create User
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>User</TableHead>
-                          <TableHead>Role</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Created</TableHead>
-                          <TableHead>Last Login</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {mockUsers.map((user: User) => (
-                          <TableRow key={user.id}>
-                            <TableCell>
-                              <div>
-                                <div className="font-medium">{user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email}</div>
-                                <div className="text-sm text-gray-500">{user.email}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                                {user.role}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={user.isActive ? 'default' : 'destructive'}>
-                                {user.isActive ? 'Active' : 'Inactive'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{formatDate(user.createdAt)}</TableCell>
-                            <TableCell>{user.lastLogin ? formatDate(user.lastLogin) : 'Never'}</TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setEditingUser(user)}
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Document Access Tab */}
-              <TabsContent value="permissions" className="space-y-6">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="flex items-center space-x-2">
-                      <Shield className="w-5 h-5" />
-                      <span>Document Access Control</span>
-                    </CardTitle>
-                    <Dialog open={isAccessDialogOpen} onOpenChange={setIsAccessDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button>
-                          <Plus className="w-4 h-4 mr-2" />
-                          Grant Access
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Grant Document Access</DialogTitle>
-                          <DialogDescription>
-                            Grant a user access to a specific document.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <Label>Document</Label>
-                            <Select value={selectedDocumentId?.toString()} onValueChange={(value) => setSelectedDocumentId(parseInt(value))}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select document" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Array.isArray(documents) && documents.map((doc: any) => (
-                                  <SelectItem key={doc.id} value={doc.id.toString()}>
-                                    {doc.name || doc.originalName}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label>User</Label>
-                            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select user" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {mockUsers.map((user: User) => (
-                                  <SelectItem key={user.id} value={user.id}>
-                                    {user.email}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label>Permission</Label>
-                            <Select value={selectedPermission} onValueChange={(value: 'read' | 'write' | 'admin') => setSelectedPermission(value)}>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="read">Read Only</SelectItem>
-                                <SelectItem value="write">Read & Write</SelectItem>
-                                <SelectItem value="admin">Full Access</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button variant="outline" onClick={() => setIsAccessDialogOpen(false)}>
-                            Cancel
-                          </Button>
-                          <Button 
-                            onClick={handleGrantAccess}
-                            disabled={!selectedDocumentId || !selectedUserId}
-                          >
-                            Grant Access
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Document</TableHead>
-                          <TableHead>User</TableHead>
-                          <TableHead>Permission</TableHead>
-                          <TableHead>Granted By</TableHead>
-                          <TableHead>Granted At</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {mockDocumentAccess.map((access: DocumentAccess) => (
-                          <TableRow key={access.id}>
-                            <TableCell>
-                              <div className="flex items-center space-x-2">
-                                <FileText className="w-4 h-4 text-gray-400" />
-                                <span>{access.documentName}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>{access.userName}</TableCell>
-                            <TableCell>
-                              <Badge variant={
-                                access.permission === 'admin' ? 'default' : 
-                                access.permission === 'write' ? 'secondary' : 'outline'
-                              }>
-                                {access.permission === 'read' && <Lock className="w-3 h-3 mr-1" />}
-                                {access.permission === 'write' && <Edit className="w-3 h-3 mr-1" />}
-                                {access.permission === 'admin' && <Unlock className="w-3 h-3 mr-1" />}
-                                {access.permission}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{access.grantedBy}</TableCell>
-                            <TableCell>{formatDate(access.grantedAt)}</TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRevokeAccess(access)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* System Info Tab */}
-              <TabsContent value="system" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center space-x-2">
-                        <Users className="w-5 h-5 text-blue-500" />
-                        <span className="text-sm font-medium text-gray-600">Total Users</span>
-                      </div>
-                      <div className="mt-2">
-                        <div className="text-2xl font-bold">{mockUsers.length}</div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center space-x-2">
-                        <FileText className="w-5 h-5 text-green-500" />
-                        <span className="text-sm font-medium text-gray-600">Total Documents</span>
-                      </div>
-                      <div className="mt-2">
-                        <div className="text-2xl font-bold">{Array.isArray(documents) ? documents.length : 0}</div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center space-x-2">
-                        <Shield className="w-5 h-5 text-purple-500" />
-                        <span className="text-sm font-medium text-gray-600">Access Rules</span>
-                      </div>
-                      <div className="mt-2">
-                        <div className="text-2xl font-bold">{mockDocumentAccess.length}</div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardContent className="p-6">
-                      <div className="flex items-center space-x-2">
-                        <Database className="w-5 h-5 text-orange-500" />
-                        <span className="text-sm font-medium text-gray-600">Storage Used</span>
-                      </div>
-                      <div className="mt-2">
-                        <div className="text-2xl font-bold">{stats?.storageUsed || '6MB'}</div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-
-              {/* Security Tab */}
-              <TabsContent value="security" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <Key className="w-5 h-5" />
-                      <span>API Keys & Security</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <h4 className="font-medium text-gray-900 mb-2">OpenAI Integration</h4>
-                      <p className="text-sm text-gray-600 mb-3">
-                        OpenAI API key is configured and active for document processing and AI responses.
-                      </p>
-                      <Badge variant="default" className="bg-green-500">Connected</Badge>
-                    </div>
-                    
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <h4 className="font-medium text-gray-900 mb-2">Database Security</h4>
-                      <p className="text-sm text-gray-600 mb-3">
-                        PostgreSQL database connections are encrypted and session management is secure.
-                      </p>
-                      <Badge variant="default" className="bg-green-500">Secure</Badge>
-                    </div>
-                    
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <h4 className="font-medium text-gray-900 mb-2">Authentication</h4>
-                      <p className="text-sm text-gray-600 mb-3">
-                        Using Replit Auth with OpenID Connect for secure user authentication.
-                      </p>
-                      <Badge variant="default" className="bg-green-500">Active</Badge>
-                    </div>
-                    
-                    <div className="p-4 bg-yellow-50 rounded-lg">
-                      <h4 className="font-medium text-gray-900 mb-2">Demo Users</h4>
-                      <p className="text-sm text-gray-600 mb-3">
-                        Demo users can be created with email/password: demo123 for testing purposes.
-                      </p>
-                      <div className="space-y-2">
-                        <div className="text-sm"><strong>Current Demo Users:</strong></div>
-                        <div className="text-sm">• john.doe@example.com / demo123</div>
-                        <div className="text-sm">• jane.smith@example.com / demo123</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </main>
+            </CardContent>
+          </Card>
+        )}
       </div>
-
-      {/* Edit User Dialog */}
-      {editingUser && (
-        <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit User</DialogTitle>
-              <DialogDescription>
-                Update user role and status.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Email</Label>
-                <Input value={editingUser.email} disabled />
-              </div>
-              <div>
-                <Label>Role</Label>
-                <Select 
-                  value={editingUser.role} 
-                  onValueChange={(value: 'admin' | 'user') => setEditingUser({...editingUser, role: value})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Status</Label>
-                <Select 
-                  value={editingUser.isActive ? 'active' : 'inactive'} 
-                  onValueChange={(value) => setEditingUser({...editingUser, isActive: value === 'active'})}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEditingUser(null)}>
-                Cancel
-              </Button>
-              <Button onClick={handleUpdateUser}>
-                Update User
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      <ChatModal 
-        isOpen={isChatModalOpen} 
-        onClose={() => setIsChatModalOpen(false)} 
-      />
-    </div>
+    </DashboardLayout>
   );
 }

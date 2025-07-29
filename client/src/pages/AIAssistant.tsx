@@ -1,653 +1,363 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import { apiRequest } from "@/lib/queryClient";
-import Sidebar from "@/components/Layout/Sidebar";
-import TopBar from "@/components/TopBar";
-import ChatModal from "@/components/Chat/ChatModal";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import DashboardLayout from "@/components/Layout/DashboardLayout";
 import { 
-  MessageSquare, 
+  Brain, 
   Send, 
-  Bot, 
   User, 
-  FileText,
-  Plus,
-  Loader2,
-  Sparkles,
-  Clock,
-  Hash,
-  Database,
-  Globe
+  Bot, 
+  Copy, 
+  RefreshCw,
+  ThumbsUp,
+  ThumbsDown,
+  Zap,
+  MessageSquare,
+  Sparkles
 } from "lucide-react";
 
-interface Message {
-  id: number;
+interface ChatMessage {
+  id: string;
   role: 'user' | 'assistant';
   content: string;
-  sources?: Array<{ title: string; id: number }>;
-  createdAt: string;
+  timestamp: string;
+  feedback?: 'positive' | 'negative';
 }
 
-interface Conversation {
-  id: number;
+interface QuickPrompt {
+  id: string;
   title: string;
-  createdAt: string;
+  prompt: string;
+  category: string;
 }
 
 export default function AIAssistant() {
-  const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
-  const [messageInput, setMessageInput] = useState("");
-  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"documents" | "database" | "api">("documents");
-  const [selectedConnection, setSelectedConnection] = useState<number | null>(null);
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputMessage, setInputMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, isLoading, toast]);
-
-  // Get conversations
-  const { data: conversations } = useQuery({
-    queryKey: ["/api/chat/conversations"],
-    enabled: isAuthenticated,
-    retry: false,
-  });
-
-  // Get messages for current conversation
-  const { data: messages, isLoading: messagesLoading } = useQuery({
-    queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
+  const { data: quickPrompts = [] } = useQuery({
+    queryKey: ["/api/ai-assistant/prompts"],
     queryFn: async () => {
-      if (!currentConversationId) return [];
-      const response = await apiRequest('GET', `/api/chat/conversations/${currentConversationId}/messages`);
-      return await response.json();
+      const response = await fetch("/api/ai-assistant/prompts");
+      if (!response.ok) throw new Error("Failed to fetch quick prompts");
+      return response.json();
     },
-    enabled: !!currentConversationId && isAuthenticated,
-    retry: false,
-  });
+  }) as { data: QuickPrompt[] };
 
-  // Get documents for context
-  const { data: documents } = useQuery({
-    queryKey: ["/api/documents"],
-    enabled: isAuthenticated && activeTab === "documents",
-    retry: false,
-  });
-
-  // Get data connections for database and API chat
-  const { data: dataConnections } = useQuery({
-    queryKey: ["/api/data-connections"],
-    enabled: isAuthenticated && (activeTab === "database" || activeTab === "api"),
-    retry: false,
-  });
-
-  // Create new conversation
-  const createConversationMutation = useMutation({
-    mutationFn: async (title: string) => {
-      const response = await apiRequest('POST', '/api/chat/conversations', { title });
-      return await response.json();
-    },
-    onSuccess: (conversation) => {
-      setCurrentConversationId(conversation.id);
-      queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations"] });
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: "Failed to create conversation",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Send message
   const sendMessageMutation = useMutation({
-    mutationFn: async (content: string) => {
-      if (!currentConversationId) {
-        throw new Error("No conversation selected");
-      }
-
-      // Handle different chat types
-      if (activeTab === "database" && selectedConnection) {
-        const response = await apiRequest('POST', '/api/chat/database', {
-          message: content,
-          connectionId: selectedConnection,
-        });
-        const result = await response.json();
-        
-        // Create a chat message with the database response
-        const messageResponse = await apiRequest('POST', '/api/chat/messages', {
-          conversationId: currentConversationId,
-          content: result.response,
-          role: 'assistant',
-        });
-        return await messageResponse.json();
-      } else if (activeTab === "api" && selectedConnection) {
-        // For API connections, use regular chat for now
-        const response = await apiRequest('POST', '/api/chat/messages', {
-          conversationId: currentConversationId,
-          content,
-        });
-        return await response.json();
-      } else {
-        // Default document chat
-        const response = await apiRequest('POST', '/api/chat/messages', {
-          conversationId: currentConversationId,
-          content,
-        });
-        return await response.json();
-      }
-    },
-    onSuccess: () => {
-      setMessageInput("");
-      queryClient.invalidateQueries({ 
-        queryKey: ["/api/chat/conversations", currentConversationId, "messages"] 
+    mutationFn: async (message: string) => {
+      const response = await fetch("/api/ai-assistant/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
       });
+
+      if (!response.ok) throw new Error("Failed to send message");
+      return response.json();
     },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
+    onSuccess: (data) => {
+      const assistantMessage: ChatMessage = {
+        id: Date.now().toString() + "-assistant",
+        role: 'assistant',
+        content: data.response,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+      setIsLoading(false);
+    },
+    onError: () => {
       toast({
-        title: "Error",
-        description: error.message,
+        title: "Message Failed",
+        description: "Failed to send message to AI assistant.",
         variant: "destructive",
       });
+      setIsLoading(false);
     },
   });
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!messageInput.trim()) return;
+  const handleSendMessage = (content: string = inputMessage) => {
+    if (!content.trim()) return;
 
-    // Validate based on active tab
-    if ((activeTab === "database" || activeTab === "api") && !selectedConnection) {
-      toast({
-        title: "Connection Required",
-        description: `Please select a ${activeTab} connection before sending a message.`,
-        variant: "destructive",
-      });
-      return;
-    }
+    const userMessage: ChatMessage = {
+      id: Date.now().toString() + "-user",
+      role: 'user',
+      content: content.trim(),
+      timestamp: new Date().toISOString(),
+    };
 
-    // Create conversation if none exists
-    if (!currentConversationId) {
-      const title = messageInput.slice(0, 50) + (messageInput.length > 50 ? "..." : "");
-      const conversation = await createConversationMutation.mutateAsync(title);
-      if (conversation) {
-        setCurrentConversationId(conversation.id);
-        // Now send the message
-        setTimeout(() => {
-          sendMessageMutation.mutate(messageInput);
-        }, 100);
-      }
-      return;
-    }
-
-    sendMessageMutation.mutate(messageInput);
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage("");
+    setIsLoading(true);
+    sendMessageMutation.mutate(content.trim());
   };
 
-  const handleNewConversation = () => {
-    setCurrentConversationId(null);
-    setMessageInput("");
+  const handleQuickPrompt = (prompt: string) => {
+    setInputMessage(prompt);
   };
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const handleFeedback = (messageId: string, feedback: 'positive' | 'negative') => {
+    setMessages(prev => 
+      prev.map(msg => 
+        msg.id === messageId ? { ...msg, feedback } : msg
+      )
+    );
+
+    // Send feedback to backend
+    fetch("/api/ai-assistant/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId, feedback }),
+    });
+
+    toast({
+      title: "Feedback Recorded",
+      description: "Thank you for your feedback!",
+    });
   };
 
-  const getRecentDocuments = () => {
-    if (!documents || !Array.isArray(documents)) return [];
-    return documents.slice(0, 5);
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied",
+      description: "Message copied to clipboard.",
+    });
   };
 
-  if (isLoading || !isAuthenticated) {
-    return null;
-  }
+  const clearChat = () => {
+    setMessages([]);
+    toast({
+      title: "Chat Cleared",
+      description: "All messages have been cleared.",
+    });
+  };
+
+  const formatTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const promptCategories = Array.from(
+    new Set(quickPrompts.map(p => p.category))
+  );
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar 
-        isMobileOpen={isMobileMenuOpen} 
-        onMobileClose={() => setIsMobileMenuOpen(false)}
-        onOpenChat={() => setIsChatModalOpen(true)}
-      />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar />
-        
-        <main className="flex-1 overflow-auto p-6 bg-gray-50">
-          <div className="max-w-7xl mx-auto space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                  <Sparkles className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-semibold text-gray-900">AI Assistant</h1>
-                  <p className="text-gray-600">Query your knowledge base and get intelligent insights</p>
-                </div>
-              </div>
+    <DashboardLayout>
+      <div className="h-full flex flex-col space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <Brain className="w-5 h-5 text-white" />
             </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Chat Interface */}
-              <div className="lg:col-span-2">
-                <Card className="h-[600px] flex flex-col">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <CardTitle className="flex items-center space-x-2">
-                        <Bot className="w-5 h-5 text-blue-500" />
-                        <span>AI Assistant Chat</span>
-                      </CardTitle>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={handleNewConversation}
-                      >
-                        <Plus className="w-4 h-4 mr-1" />
-                        New Chat
-                      </Button>
-                    </div>
-                    
-                    {/* Chat Categories */}
-                    <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-                      <button
-                        onClick={() => setActiveTab("documents")}
-                        className={`flex-1 flex items-center justify-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                          activeTab === "documents"
-                            ? "bg-white text-blue-600 shadow-sm"
-                            : "text-gray-600 hover:text-gray-900"
-                        }`}
-                      >
-                        <FileText className="w-4 h-4" />
-                        <span>Documents</span>
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("database")}
-                        className={`flex-1 flex items-center justify-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                          activeTab === "database"
-                            ? "bg-white text-blue-600 shadow-sm"
-                            : "text-gray-600 hover:text-gray-900"
-                        }`}
-                      >
-                        <Database className="w-4 h-4" />
-                        <span>Database</span>
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("api")}
-                        className={`flex-1 flex items-center justify-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                          activeTab === "api"
-                            ? "bg-white text-blue-600 shadow-sm"
-                            : "text-gray-600 hover:text-gray-900"
-                        }`}
-                      >
-                        <Globe className="w-4 h-4" />
-                        <span>API</span>
-                      </button>
-                    </div>
-
-                    {/* Connection Selection for Database and API */}
-                    {(activeTab === "database" || activeTab === "api") && dataConnections && (
-                      <div className="mt-3">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Select {activeTab === "database" ? "Database" : "API"} Connection:
-                        </label>
-                        <select
-                          value={selectedConnection || ""}
-                          onChange={(e) => setSelectedConnection(e.target.value ? parseInt(e.target.value) : null)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value="">Select a connection...</option>
-                          {Array.isArray(dataConnections) && dataConnections
-                            .filter((conn: any) => 
-                              activeTab === "database" 
-                                ? conn.type === "database" 
-                                : conn.type === "api"
-                            )
-                            .map((conn: any) => (
-                              <option key={conn.id} value={conn.id}>
-                                {conn.name} ({conn.dbType || conn.apiUrl})
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    )}
-                  </CardHeader>
-                  
-                  <CardContent className="flex-1 flex flex-col min-h-0 p-4 pt-0">
-                    <ScrollArea className="flex-1 pr-4">
-                      <div className="space-y-4">
-                        {!currentConversationId ? (
-                          // Welcome message based on active tab
-                          <div className="flex space-x-3">
-                            <Avatar className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 flex-shrink-0">
-                              <AvatarFallback>
-                                <Bot className="w-4 h-4 text-white" />
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <div className="bg-gray-100 rounded-lg rounded-tl-none p-4">
-                                {activeTab === "documents" && (
-                                  <>
-                                    <p className="text-sm text-gray-700 mb-3">
-                                      Hello! I can help you explore your uploaded documents.
-                                    </p>
-                                    <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
-                                      <li>Search through your uploaded documents</li>
-                                      <li>Answer questions about document content</li>
-                                      <li>Summarize information across multiple files</li>
-                                      <li>Help with document classification and organization</li>
-                                    </ul>
-                                  </>
-                                )}
-                                {activeTab === "database" && (
-                                  <>
-                                    <p className="text-sm text-gray-700 mb-3">
-                                      I can help you query and analyze your database connections.
-                                    </p>
-                                    <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
-                                      <li>Generate SQL queries based on your questions</li>
-                                      <li>Explain database schema and relationships</li>
-                                      <li>Analyze data patterns and insights</li>
-                                      <li>Help with data exploration and reporting</li>
-                                    </ul>
-                                    {!selectedConnection && (
-                                      <p className="text-sm text-orange-600 mt-3">
-                                        Please select a database connection above to start chatting.
-                                      </p>
-                                    )}
-                                  </>
-                                )}
-                                {activeTab === "api" && (
-                                  <>
-                                    <p className="text-sm text-gray-700 mb-3">
-                                      I can help you interact with your API connections.
-                                    </p>
-                                    <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
-                                      <li>Make API calls and analyze responses</li>
-                                      <li>Help with API endpoint exploration</li>
-                                      <li>Format and interpret API data</li>
-                                      <li>Assist with API integration questions</li>
-                                    </ul>
-                                    {!selectedConnection && (
-                                      <p className="text-sm text-orange-600 mt-3">
-                                        Please select an API connection above to start chatting.
-                                      </p>
-                                    )}
-                                  </>
-                                )}
-                                <p className="text-sm text-gray-700 mt-3">
-                                  What would you like to know?
-                                </p>
-                              </div>
-                              <p className="text-xs text-gray-500 mt-1">AI Assistant</p>
-                            </div>
-                          </div>
-                        ) : messagesLoading ? (
-                          <div className="flex items-center justify-center py-8">
-                            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                          </div>
-                        ) : messages && Array.isArray(messages) && messages.length > 0 ? (
-                          messages.map((message: Message) => (
-                            <div key={message.id} className={`flex space-x-3 ${message.role === 'user' ? 'justify-end' : ''}`}>
-                              {message.role === 'assistant' && (
-                                <Avatar className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 flex-shrink-0">
-                                  <AvatarFallback>
-                                    <Bot className="w-4 h-4 text-white" />
-                                  </AvatarFallback>
-                                </Avatar>
-                              )}
-                              
-                              <div className={`flex-1 ${message.role === 'user' ? 'max-w-xs' : ''}`}>
-                                <div className={`rounded-lg p-3 ${
-                                  message.role === 'user' 
-                                    ? 'bg-blue-500 text-white rounded-tr-none' 
-                                    : 'bg-gray-100 text-gray-700 rounded-tl-none'
-                                }`}>
-                                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                                  
-                                  {/* Sources for AI messages */}
-                                  {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
-                                    <div className="border-t border-gray-200 pt-2 mt-3">
-                                      <p className="text-xs font-medium text-gray-600 mb-2">Sources:</p>
-                                      <div className="space-y-1">
-                                        {message.sources.map((source, index) => (
-                                          <div key={index} className="flex items-center space-x-2 text-xs text-gray-500">
-                                            <FileText className="w-3 h-3 text-blue-500" />
-                                            <span className="truncate">{source.title}</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                                <p className={`text-xs text-gray-500 mt-1 ${message.role === 'user' ? 'text-right' : ''}`}>
-                                  {formatTime(message.createdAt)}
-                                </p>
-                              </div>
-                              
-                              {message.role === 'user' && (
-                                <Avatar className="w-8 h-8 flex-shrink-0">
-                                  <AvatarFallback>
-                                    <User className="w-4 h-4" />
-                                  </AvatarFallback>
-                                </Avatar>
-                              )}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-center py-8 text-gray-500">
-                            <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                            <p className="text-sm">Start a conversation by asking a question!</p>
-                          </div>
-                        )}
-                        
-                        {/* Loading indicator for pending messages */}
-                        {(sendMessageMutation.isPending || createConversationMutation.isPending) && (
-                          <div className="flex space-x-3">
-                            <Avatar className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 flex-shrink-0">
-                              <AvatarFallback>
-                                <Bot className="w-4 h-4 text-white" />
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <div className="bg-gray-100 rounded-lg rounded-tl-none p-3">
-                                <div className="flex items-center space-x-2">
-                                  <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-                                  <p className="text-sm text-gray-500">Thinking...</p>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </ScrollArea>
-
-                    {/* Chat Input */}
-                    <form onSubmit={handleSendMessage} className="flex items-center space-x-2 mt-4">
-                      <Input
-                        type="text"
-                        placeholder={currentConversationId ? "Ask about your documents..." : "Start a new conversation..."}
-                        value={messageInput}
-                        onChange={(e) => setMessageInput(e.target.value)}
-                        className="flex-1"
-                        disabled={sendMessageMutation.isPending || createConversationMutation.isPending}
-                      />
-                      <Button 
-                        type="submit"
-                        disabled={!messageInput.trim() || sendMessageMutation.isPending || createConversationMutation.isPending}
-                        className="bg-blue-500 text-white hover:bg-blue-600"
-                      >
-                        {sendMessageMutation.isPending || createConversationMutation.isPending ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Send className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </form>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Sidebar with document context and conversation history */}
-              <div className="space-y-6">
-                {/* Recent Documents */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <FileText className="w-5 h-5 text-blue-500" />
-                      <span>Available Documents</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {getRecentDocuments().length > 0 ? (
-                      <div className="space-y-3">
-                        {getRecentDocuments().map((doc: any) => (
-                          <div key={doc.id} className="border border-gray-200 rounded-lg p-3">
-                            <h4 className="font-medium text-gray-800 text-sm truncate">
-                              {doc.name || doc.originalName}
-                            </h4>
-                            <div className="flex items-center justify-between mt-2">
-                              <div className="flex items-center space-x-2">
-                                {doc.aiCategory && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {doc.aiCategory}
-                                  </Badge>
-                                )}
-                              </div>
-                              <span className="text-xs text-gray-500">
-                                {new Date(doc.createdAt).toLocaleDateString()}
-                              </span>
-                            </div>
-                            {doc.tags && doc.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {doc.tags.slice(0, 3).map((tag: string) => (
-                                  <Badge key={tag} variant="secondary" className="text-xs">
-                                    <Hash className="w-2 h-2 mr-1" />
-                                    {tag}
-                                  </Badge>
-                                ))}
-                                {doc.tags.length > 3 && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    +{doc.tags.length - 3}
-                                  </Badge>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                        {documents && Array.isArray(documents) && documents.length > 5 && (
-                          <p className="text-xs text-gray-500 text-center">
-                            +{documents.length - 5} more documents available
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-gray-500">
-                        <FileText className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                        <p className="text-sm">No documents uploaded yet</p>
-                        <p className="text-xs text-gray-400">Upload documents to start chatting</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Conversation History */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <Clock className="w-5 h-5 text-blue-500" />
-                      <span>Recent Conversations</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {conversations && Array.isArray(conversations) && conversations.length > 0 ? (
-                      <div className="space-y-2">
-                        {conversations.slice(0, 5).map((conversation: Conversation) => (
-                          <button
-                            key={conversation.id}
-                            onClick={() => setCurrentConversationId(conversation.id)}
-                            className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                              currentConversationId === conversation.id
-                                ? 'border-blue-500 bg-blue-50'
-                                : 'border-gray-200 hover:bg-gray-50'
-                            }`}
-                          >
-                            <h4 className="font-medium text-gray-800 text-sm truncate">
-                              {conversation.title}
-                            </h4>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {new Date(conversation.createdAt).toLocaleDateString('en-US', { 
-                                month: 'short', 
-                                day: 'numeric', 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </p>
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-gray-500">
-                        <MessageSquare className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                        <p className="text-sm">No conversations yet</p>
-                        <p className="text-xs text-gray-400">Start chatting to see history</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">AI Assistant</h1>
+              <p className="text-gray-600">Get intelligent help with your documents and tasks</p>
             </div>
           </div>
-        </main>
-      </div>
 
-      <ChatModal 
-        isOpen={isChatModalOpen} 
-        onClose={() => setIsChatModalOpen(false)} 
-      />
-    </div>
+          <Button variant="outline" onClick={clearChat}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Clear Chat
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0">
+          {/* Quick Prompts Sidebar */}
+          <div className="lg:col-span-1 space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2 text-lg">
+                  <Sparkles className="w-5 h-5" />
+                  <span>Quick Prompts</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {promptCategories.map(category => (
+                  <div key={category}>
+                    <h4 className="font-medium text-sm text-gray-700 mb-2 uppercase tracking-wider">
+                      {category}
+                    </h4>
+                    <div className="space-y-2">
+                      {quickPrompts
+                        .filter(p => p.category === category)
+                        .map(prompt => (
+                          <Button
+                            key={prompt.id}
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start text-left h-auto py-2 px-3"
+                            onClick={() => handleQuickPrompt(prompt.prompt)}
+                          >
+                            <div>
+                              <div className="font-medium text-sm">{prompt.title}</div>
+                              <div className="text-xs text-gray-500 mt-1 line-clamp-2">
+                                {prompt.prompt}
+                              </div>
+                            </div>
+                          </Button>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+
+                {quickPrompts.length === 0 && (
+                  <div className="text-center py-4">
+                    <Zap className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No quick prompts available</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Chat Interface */}
+          <div className="lg:col-span-3 flex flex-col min-h-0">
+            <Card className="flex-1 flex flex-col min-h-0">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <MessageSquare className="w-5 h-5" />
+                  <span>Chat with AI Assistant</span>
+                </CardTitle>
+              </CardHeader>
+
+              <CardContent className="flex-1 flex flex-col space-y-4 min-h-0">
+                {/* Messages Container */}
+                <div className="flex-1 overflow-y-auto space-y-4 min-h-0 max-h-96">
+                  {messages.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Brain className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        Welcome to AI Assistant
+                      </h3>
+                      <p className="text-gray-500 mb-4">
+                        Start a conversation or use one of the quick prompts to get help with your documents and tasks.
+                      </p>
+                    </div>
+                  ) : (
+                    messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`flex space-x-3 ${
+                          message.role === 'user' ? 'justify-end' : 'justify-start'
+                        }`}
+                      >
+                        {message.role === 'assistant' && (
+                          <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <Bot className="w-4 h-4 text-purple-600" />
+                          </div>
+                        )}
+
+                        <div
+                          className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                            message.role === 'user'
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gray-100 text-gray-900'
+                          }`}
+                        >
+                          <div className="text-sm whitespace-pre-wrap">
+                            {message.content}
+                          </div>
+                          <div className="text-xs mt-1 opacity-70">
+                            {formatTime(message.timestamp)}
+                          </div>
+
+                          {message.role === 'assistant' && (
+                            <div className="flex items-center space-x-2 mt-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => copyToClipboard(message.content)}
+                                className="h-6 px-2"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleFeedback(message.id, 'positive')}
+                                className={`h-6 px-2 ${
+                                  message.feedback === 'positive' ? 'text-green-600' : ''
+                                }`}
+                              >
+                                <ThumbsUp className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleFeedback(message.id, 'negative')}
+                                className={`h-6 px-2 ${
+                                  message.feedback === 'negative' ? 'text-red-600' : ''
+                                }`}
+                              >
+                                <ThumbsDown className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        {message.role === 'user' && (
+                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <User className="w-4 h-4 text-blue-600" />
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+
+                  {isLoading && (
+                    <div className="flex space-x-3 justify-start">
+                      <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                        <Bot className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <div className="bg-gray-100 px-4 py-2 rounded-lg">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Input Area */}
+                <div className="flex space-x-2">
+                  <Textarea
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    placeholder="Ask me anything about your documents..."
+                    className="flex-1 min-h-[80px] resize-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={() => handleSendMessage()}
+                    disabled={!inputMessage.trim() || isLoading}
+                    className="px-4"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
   );
 }

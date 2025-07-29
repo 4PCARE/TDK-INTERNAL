@@ -1,568 +1,451 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import Sidebar from "@/components/Layout/Sidebar";
-import TopBar from "@/components/TopBar";
-import { MeetingItem } from "@/components/MeetingItem";
+import { useAuth } from "@/hooks/useAuth";
+import DashboardLayout from "@/components/Layout/DashboardLayout";
 import { 
-  Calendar,
-  Clock,
-  Users,
+  Calendar, 
+  Plus, 
+  Search, 
+  Users, 
+  Clock, 
   FileText,
-  Download,
-  Copy,
-  ExternalLink,
-  AlertCircle,
-  CheckCircle,
-  RefreshCw
+  Edit,
+  Trash2,
+  Save,
+  X
 } from "lucide-react";
 
-interface User {
-  name: string;
-  email: string;
-  user_id: string;
+interface MeetingNote {
+  id: number;
+  title: string;
+  content: string;
+  date: string;
+  attendees: string[];
+  tags: string[];
+  duration?: number;
+  location?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
 }
-
-interface Meeting {
-  id: string;
-  subject: string;
-  start: {
-    dateTime: string;
-    timeZone: string;
-  };
-  end: {
-    dateTime: string;
-    timeZone: string;
-  };
-  attendees: Array<{
-    emailAddress: {
-      name: string;
-      address: string;
-    };
-  }>;
-  isOnlineMeeting: boolean;
-  onlineMeetingProvider?: string;
-}
-
-interface MeetingNotes {
-  meeting_id: string;
-  notes: string;
-  source: string;
-  last_modified: string;
-}
-
-const TEAMS_API_BASE = "http://localhost:8000"; // Teams Meeting Notes API
 
 export default function MeetingNotes() {
-  const [user, setUser] = useState<User | null>(null);
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [authLoading, setAuthLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [authToken, setAuthToken] = useState<string | null>("demo-token"); // Demo mode
   const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
-  // Demo data for showing the interface
-  const demoUser: User = {
-    name: "John Smith",
-    email: "john.smith@company.com",
-    user_id: "demo-user"
-  };
+  const { data: meetings = [], isLoading } = useQuery({
+    queryKey: ["/api/meeting-notes", searchQuery],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (searchQuery) params.append("search", searchQuery);
 
-  const demoMeetings: Meeting[] = [
-    {
-      id: "meeting-1",
-      subject: "Q1 Planning Review",
-      start: {
-        dateTime: "2025-01-15T09:00:00Z",
-        timeZone: "UTC"
-      },
-      end: {
-        dateTime: "2025-01-15T10:00:00Z",
-        timeZone: "UTC"
-      },
-      attendees: [
-        { emailAddress: { name: "John Smith", address: "john.smith@company.com" } },
-        { emailAddress: { name: "Sarah Johnson", address: "sarah.j@company.com" } },
-        { emailAddress: { name: "Mike Wilson", address: "mike.w@company.com" } }
-      ],
-      isOnlineMeeting: true,
-      onlineMeetingProvider: "teamsForBusiness"
+      const response = await fetch(`/api/meeting-notes?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch meeting notes");
+      return response.json();
     },
-    {
-      id: "meeting-2",
-      subject: "Product Development Sync",
-      start: {
-        dateTime: "2025-01-14T14:30:00Z",
-        timeZone: "UTC"
-      },
-      end: {
-        dateTime: "2025-01-14T15:30:00Z",
-        timeZone: "UTC"
-      },
-      attendees: [
-        { emailAddress: { name: "John Smith", address: "john.smith@company.com" } },
-        { emailAddress: { name: "Emily Chen", address: "emily.chen@company.com" } },
-        { emailAddress: { name: "David Rodriguez", address: "david.r@company.com" } },
-        { emailAddress: { name: "Lisa Park", address: "lisa.park@company.com" } }
-      ],
-      isOnlineMeeting: true,
-      onlineMeetingProvider: "teamsForBusiness"
-    },
-    {
-      id: "meeting-3",
-      subject: "Weekly Team Standup",
-      start: {
-        dateTime: "2025-01-13T10:00:00Z",
-        timeZone: "UTC"
-      },
-      end: {
-        dateTime: "2025-01-13T10:30:00Z",
-        timeZone: "UTC"
-      },
-      attendees: [
-        { emailAddress: { name: "John Smith", address: "john.smith@company.com" } },
-        { emailAddress: { name: "Alex Turner", address: "alex.turner@company.com" } },
-        { emailAddress: { name: "Maria Garcia", address: "maria.g@company.com" } }
-      ],
-      isOnlineMeeting: true,
-      onlineMeetingProvider: "teamsForBusiness"
-    }
-  ];
+  }) as { data: MeetingNote[]; isLoading: boolean };
 
-  // Initialize demo data on component mount
-  useEffect(() => {
-    // Simulate loading and then show demo data
-    setLoading(true);
-    setTimeout(() => {
-      setUser(demoUser);
-      setMeetings(demoMeetings);
-      setLoading(false);
-    }, 1000);
-  }, []);
-
-  const fetchUserInfo = async () => {
-    try {
-      const response = await fetch(`${TEAMS_API_BASE}/api/user`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
+  const createMutation = useMutation({
+    mutationFn: async (data: Omit<MeetingNote, 'id' | 'createdBy' | 'createdAt' | 'updatedAt'>) => {
+      const response = await fetch("/api/meeting-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       });
 
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-      } else {
-        throw new Error('Failed to fetch user info');
-      }
-    } catch (err) {
-      console.error('Error fetching user info:', err);
-      setError('Failed to fetch user information');
-    }
-  };
-
-  const fetchMeetings = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(`${TEAMS_API_BASE}/api/meetings?limit=10`, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setMeetings(data.meetings || []);
-      } else {
-        throw new Error('Failed to fetch meetings');
-      }
-    } catch (err) {
-      console.error('Error fetching meetings:', err);
-      setError('Failed to fetch meetings');
+      if (!response.ok) throw new Error("Failed to create meeting note");
+      return response.json();
+    },
+    onSuccess: () => {
       toast({
-        title: "Error",
-        description: "Failed to fetch meetings from Microsoft Teams.",
+        title: "Meeting Note Created",
+        description: "Your meeting note has been successfully created.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/meeting-notes"] });
+      setIsCreating(false);
+    },
+    onError: () => {
+      toast({
+        title: "Creation Failed",
+        description: "Failed to create meeting note. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+  });
 
-  const handleMicrosoftLogin = async () => {
-    setAuthLoading(true);
-    try {
-      const response = await fetch(`${TEAMS_API_BASE}/auth/login`);
-      const data = await response.json();
-      
-      if (data.auth_url) {
-        // Open Microsoft OAuth in popup
-        const popup = window.open(
-          data.auth_url,
-          'microsoft-auth',
-          'width=500,height=600,scrollbars=yes,resizable=yes'
-        );
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<MeetingNote> }) => {
+      const response = await fetch(`/api/meeting-notes/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
 
-        // Monitor popup for completion
-        const checkClosed = setInterval(() => {
-          if (popup?.closed) {
-            clearInterval(checkClosed);
-            setAuthLoading(false);
-            // Check if authentication was successful by looking for token
-            const savedToken = localStorage.getItem('teams_auth_token');
-            if (savedToken) {
-              setAuthToken(savedToken);
-            }
-          }
-        }, 1000);
-      }
-    } catch (err) {
-      console.error('Error initiating Microsoft login:', err);
-      setAuthLoading(false);
+      if (!response.ok) throw new Error("Failed to update meeting note");
+      return response.json();
+    },
+    onSuccess: () => {
       toast({
-        title: "Error",
-        description: "Failed to initiate Microsoft login.",
+        title: "Meeting Note Updated",
+        description: "Your meeting note has been successfully updated.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/meeting-notes"] });
+      setEditingId(null);
+    },
+    onError: () => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update meeting note. Please try again.",
         variant: "destructive",
       });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`/api/meeting-notes/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete meeting note");
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Meeting Note Deleted",
+        description: "The meeting note has been successfully deleted.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/meeting-notes"] });
+    },
+    onError: () => {
+      toast({
+        title: "Deletion Failed",
+        description: "Failed to delete meeting note. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>, isEdit: boolean = false) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+
+    const data = {
+      title: formData.get("title") as string,
+      content: formData.get("content") as string,
+      date: formData.get("date") as string,
+      attendees: (formData.get("attendees") as string).split(",").map(a => a.trim()).filter(Boolean),
+      tags: (formData.get("tags") as string).split(",").map(t => t.trim()).filter(Boolean),
+      duration: formData.get("duration") ? parseInt(formData.get("duration") as string) : undefined,
+      location: formData.get("location") as string || undefined,
+    };
+
+    if (isEdit && editingId) {
+      updateMutation.mutate({ id: editingId, data });
+    } else {
+      createMutation.mutate(data);
     }
   };
 
-  const handleLogout = () => {
-    setAuthToken(null);
-    setUser(null);
-    setMeetings([]);
-    localStorage.removeItem('teams_auth_token');
-    toast({
-      title: "Logged out",
-      description: "Successfully disconnected from Microsoft Teams.",
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
     });
   };
 
-  const fetchMeetingNotes = async (meetingId: string): Promise<MeetingNotes | null> => {
-    // Demo notes data
-    const demoNotes: { [key: string]: MeetingNotes } = {
-      "meeting-1": {
-        meeting_id: "meeting-1",
-        notes: `Q1 Planning Review - Meeting Notes
-
-Attendees: John Smith, Sarah Johnson, Mike Wilson
-
-Key Discussion Points:
-1. Q1 Budget allocation and resource planning
-2. Project prioritization for the quarter
-3. Team capacity and hiring needs
-
-Decisions Made:
-• Approved $150K budget for Product Development team
-• Agreed to prioritize mobile app development over web redesign
-• Authorized hiring 2 additional developers
-
-Action Items:
-- Sarah: Finalize budget proposal by Jan 20 
-- Mike: Interview candidates for developer positions by Jan 25
-- John: Review project timelines and update stakeholders by Jan 18
-
-Next Meeting: Q1 Mid-quarter review scheduled for February 15th`,
-        source: "Teams Chat",
-        last_modified: "2025-01-15T10:05:00Z"
-      },
-      "meeting-2": {
-        meeting_id: "meeting-2", 
-        notes: `Product Development Sync - Meeting Notes
-
-Attendees: John Smith, Emily Chen, David Rodriguez, Lisa Park
-
-Sprint Review:
-• Completed 85% of planned user stories
-• Mobile authentication module finished ahead of schedule
-• API integration delayed due to third-party dependencies
-
-Current Blockers:
-- Waiting for security audit approval
-- Payment gateway integration pending vendor response
-- UI testing delayed due to design changes
-
-Technical Decisions:
-• Adopted React Native for cross-platform development
-• Implemented JWT authentication with refresh tokens
-• Selected PostgreSQL for data persistence
-
-Action Items:
-- Emily: Follow up with security team for audit status
-- David: Contact payment vendor for integration timeline
-- Lisa: Finalize new UI designs by end of week
-- John: Update project roadmap with current status
-
-Next Sprint Planning: Thursday, Jan 16 at 2:00 PM`,
-        source: "OneNote",
-        last_modified: "2025-01-14T15:35:00Z"
-      },
-      "meeting-3": {
-        meeting_id: "meeting-3",
-        notes: `Weekly Team Standup - Meeting Notes
-
-Attendees: John Smith, Alex Turner, Maria Garcia
-
-Team Updates:
-
-Alex Turner:
-- Completed user registration flow
-- Working on email verification feature
-- Blocked: Need design approval for confirmation page
-
-Maria Garcia:
-- Finished database migration scripts
-- Implemented user profile management
-- Next: Working on account settings page
-
-John Smith:
-- Reviewed pull requests from last week
-- Conducted code review sessions
-- Planning: Preparing for client demo next week
-
-General Discussion:
-• Team velocity is improving - ahead of schedule
-• Client feedback on prototype was positive
-• Need to schedule team building event
-
-Upcoming:
-- Client demo: Friday, Jan 17 at 3:00 PM
-- Code freeze: Wednesday, Jan 22
-- Team lunch: Friday, Jan 24`,
-        source: "Teams Chat",
-        last_modified: "2025-01-13T10:35:00Z"
-      }
-    };
-
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    return demoNotes[meetingId] || null;
-  };
-
-  const exportToPdf = async (meeting: Meeting, notes: string) => {
-    // Demo PDF export - create a simple text file instead
-    try {
-      const pdfContent = `${meeting.subject} - Meeting Notes
-
-Date: ${new Date(meeting.start.dateTime).toLocaleDateString()}
-Time: ${new Date(meeting.start.dateTime).toLocaleTimeString()} - ${new Date(meeting.end.dateTime).toLocaleTimeString()}
-
-Attendees:
-${meeting.attendees.map(a => `- ${a.emailAddress.name} (${a.emailAddress.address})`).join('\n')}
-
-Meeting Notes:
-${notes}
-
-Generated by AI-KMS Meeting Notes Integration
-Date Exported: ${new Date().toLocaleString()}`;
-
-      const blob = new Blob([pdfContent], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `meeting-notes-${meeting.subject.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.txt`;
-      link.click();
-      URL.revokeObjectURL(url);
-      
-      toast({
-        title: "Export successful",
-        description: "Meeting notes exported successfully.",
-      });
-    } catch (err) {
-      console.error('Error exporting notes:', err);
-      toast({
-        title: "Error",
-        description: "Failed to export meeting notes.",
-        variant: "destructive",
-      });
+  const formatDuration = (minutes?: number) => {
+    if (!minutes) return null;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours > 0) {
+      return `${hours}h ${mins > 0 ? mins + 'm' : ''}`;
     }
+    return `${mins}m`;
   };
 
-  const copyToClipboard = async (notes: string) => {
-    try {
-      await navigator.clipboard.writeText(notes);
-      toast({
-        title: "Copied to clipboard",
-        description: "Meeting notes copied to clipboard.",
-      });
-    } catch (err) {
-      console.error('Error copying to clipboard:', err);
-      toast({
-        title: "Error",
-        description: "Failed to copy notes to clipboard.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const formatDateTime = (dateTimeString: string) => {
-    const date = new Date(dateTimeString);
-    return {
-      date: date.toLocaleDateString(),
-      time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-  };
-
-  return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar 
-        isMobileOpen={false}
-        onMobileClose={() => {}}
-        onOpenChat={() => {}}
-        isCollapsed={false}
-        onToggleCollapse={() => {}}
-      />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar />
-        
-        <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
-          <div className="max-w-6xl mx-auto">
-            {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                Meeting Notes
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                Access and manage your Microsoft Teams meeting notes
-              </p>
+  const MeetingForm = ({ meeting, onCancel }: { 
+    meeting?: MeetingNote; 
+    onCancel: () => void; 
+  }) => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between">
+          <span className="flex items-center space-x-2">
+            <FileText className="w-5 h-5" />
+            <span>{meeting ? 'Edit Meeting Note' : 'Create New Meeting Note'}</span>
+          </span>
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            <X className="w-4 h-4" />
+          </Button>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={(e) => handleSubmit(e, !!meeting)} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="title">Meeting Title</Label>
+              <Input
+                id="title"
+                name="title"
+                defaultValue={meeting?.title}
+                required
+                placeholder="Enter meeting title"
+              />
             </div>
 
-            {error && (
-              <Alert className="mb-6" variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+            <div>
+              <Label htmlFor="date">Meeting Date</Label>
+              <Input
+                id="date"
+                name="date"
+                type="date"
+                defaultValue={meeting?.date}
+                required
+              />
+            </div>
 
-            {/* Authentication Section */}
-            {!authToken ? (
-              <Card className="mb-8">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ExternalLink className="h-5 w-5" />
-                    Connect to Microsoft Teams
-                  </CardTitle>
-                  <CardDescription>
-                    Sign in with your Microsoft account to access your Teams meetings and notes
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button 
-                    onClick={handleMicrosoftLogin}
-                    disabled={authLoading}
-                    className="w-full sm:w-auto"
-                  >
-                    {authLoading ? (
-                      <>
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                        Connecting...
-                      </>
-                    ) : (
-                      <>
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        Sign in with Microsoft
-                      </>
-                    )}
+            <div>
+              <Label htmlFor="duration">Duration (minutes)</Label>
+              <Input
+                id="duration"
+                name="duration"
+                type="number"
+                defaultValue={meeting?.duration}
+                placeholder="60"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                name="location"
+                defaultValue={meeting?.location}
+                placeholder="Conference Room A"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="attendees">Attendees</Label>
+            <Input
+              id="attendees"
+              name="attendees"
+              defaultValue={meeting?.attendees?.join(", ")}
+              placeholder="John Doe, Jane Smith, Bob Johnson"
+            />
+            <p className="text-xs text-gray-500 mt-1">Comma-separated list of attendee names</p>
+          </div>
+
+          <div>
+            <Label htmlFor="tags">Tags</Label>
+            <Input
+              id="tags"
+              name="tags"
+              defaultValue={meeting?.tags?.join(", ")}
+              placeholder="planning, quarterly, review"
+            />
+            <p className="text-xs text-gray-500 mt-1">Comma-separated list of tags</p>
+          </div>
+
+          <div>
+            <Label htmlFor="content">Meeting Notes</Label>
+            <Textarea
+              id="content"
+              name="content"
+              defaultValue={meeting?.content}
+              required
+              placeholder="Enter your meeting notes here..."
+              className="min-h-[200px]"
+            />
+          </div>
+
+          <div className="flex justify-end space-x-2">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={createMutation.isPending || updateMutation.isPending}
+              className="flex items-center space-x-2"
+            >
+              <Save className="w-4 h-4" />
+              <span>{meeting ? 'Update' : 'Create'} Note</span>
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Meeting Notes</h1>
+              <p className="text-gray-600">Manage your meeting notes and action items</p>
+            </div>
+          </div>
+
+          <Button 
+            onClick={() => setIsCreating(true)}
+            className="flex items-center space-x-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Note</span>
+          </Button>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Input
+            placeholder="Search meeting notes..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        {/* Create Form */}
+        {isCreating && (
+          <MeetingForm onCancel={() => setIsCreating(false)} />
+        )}
+
+        {/* Meeting Notes List */}
+        <div className="space-y-4">
+          {isLoading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+              <p className="text-gray-500 mt-2">Loading meeting notes...</p>
+            </div>
+          ) : meetings.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-8">
+                <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Meeting Notes</h3>
+                <p className="text-gray-500 mb-4">
+                  {searchQuery ? 'No notes match your search.' : 'Get started by creating your first meeting note.'}
+                </p>
+                {!searchQuery && (
+                  <Button onClick={() => setIsCreating(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create First Note
                   </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <>
-                {/* User Info */}
-                {user && (
-                  <Card className="mb-8">
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            meetings.map((meeting) => (
+              <div key={meeting.id}>
+                {editingId === meeting.id ? (
+                  <MeetingForm 
+                    meeting={meeting} 
+                    onCancel={() => setEditingId(null)} 
+                  />
+                ) : (
+                  <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-5 w-5 text-green-500" />
-                          Connected to Microsoft Teams
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-lg">{meeting.title}</CardTitle>
+                          <div className="flex items-center space-x-4 text-sm text-gray-500 mt-2">
+                            <div className="flex items-center space-x-1">
+                              <Calendar className="w-4 h-4" />
+                              <span>{formatDate(meeting.date)}</span>
+                            </div>
+                            {meeting.duration && (
+                              <div className="flex items-center space-x-1">
+                                <Clock className="w-4 h-4" />
+                                <span>{formatDuration(meeting.duration)}</span>
+                              </div>
+                            )}
+                            {meeting.location && (
+                              <span>📍 {meeting.location}</span>
+                            )}
+                          </div>
                         </div>
-                        <Button variant="outline" onClick={handleLogout}>
-                          Disconnect
-                        </Button>
-                      </CardTitle>
-                      <CardDescription>
-                        Signed in as {user.name} ({user.email})
-                      </CardDescription>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingId(meeting.id)}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteMutation.mutate(meeting.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </CardHeader>
+                    <CardContent>
+                      {meeting.attendees.length > 0 && (
+                        <div className="mb-4">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <Users className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm font-medium text-gray-700">Attendees</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {meeting.attendees.map((attendee, index) => (
+                              <Badge key={index} variant="outline">
+                                {attendee}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Notes</h4>
+                        <div className="prose prose-sm max-w-none text-gray-600">
+                          {meeting.content.split('\n').map((line, index) => (
+                            <p key={index}>{line}</p>
+                          ))}
+                        </div>
+                      </div>
+
+                      {meeting.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {meeting.tags.map((tag, index) => (
+                            <Badge key={index} variant="secondary">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
                   </Card>
                 )}
-
-                {/* Meetings Section */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-5 w-5" />
-                        Recent Meetings
-                      </div>
-                      <Button 
-                        variant="outline" 
-                        onClick={fetchMeetings}
-                        disabled={loading}
-                      >
-                        {loading ? (
-                          <>
-                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                            Loading...
-                          </>
-                        ) : (
-                          <>
-                            <RefreshCw className="mr-2 h-4 w-4" />
-                            Refresh
-                          </>
-                        )}
-                      </Button>
-                    </CardTitle>
-                    <CardDescription>
-                      Your last 10 Teams meetings with notes
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {loading ? (
-                      <div className="space-y-4">
-                        {[1, 2, 3].map((i) => (
-                          <div key={i} className="animate-pulse">
-                            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : meetings.length > 0 ? (
-                      <div className="space-y-4">
-                        {meetings.map((meeting) => (
-                          <MeetingItem
-                            key={meeting.id}
-                            meeting={meeting}
-                            onFetchNotes={fetchMeetingNotes}
-                            onExportPdf={exportToPdf}
-                            onCopyToClipboard={copyToClipboard}
-                            formatDateTime={formatDateTime}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                        <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>No meetings found</p>
-                        <p className="text-sm">Your recent Teams meetings will appear here</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </>
-            )}
-          </div>
-        </main>
+              </div>
+            ))
+          )}
+        </div>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
