@@ -426,12 +426,7 @@ async function checkCarouselIntents(userQuery: string, integrationId: number, us
       return { matched: false, template: null, similarity: 0 };
     }
     
-    console.log(`🎯 Testing ${templates.length} templates for tag match`);
-    
-    // Tag matching threshold (0.5 = 50% overlap)
-    const INTENT_THRESHOLD = 0.5;
-    
-    let bestMatch: { template: any | null, similarity: number } = { template: null, similarity: 0 };
+    console.log(`🎯 Testing ${templates.length} templates for tag match (any overlap = match)`);
     
     for (const template of templates) {
       const templateTags = template?.template?.tags || [];
@@ -444,7 +439,7 @@ async function checkCarouselIntents(userQuery: string, integrationId: number, us
         continue;
       }
       
-      // Calculate tag overlap similarity
+      // Check for ANY tag overlap (simple match approach)
       const commonTags = userIntents.filter(intent => 
         templateTags.some((tag: string) => 
           tag.toLowerCase().includes(intent.toLowerCase()) || 
@@ -452,38 +447,39 @@ async function checkCarouselIntents(userQuery: string, integrationId: number, us
         )
       );
       
-      const similarity = commonTags.length > 0 
-        ? commonTags.length / Math.max(userIntents.length, templateTags.length)
-        : 0;
+      const hasMatch = commonTags.length > 0;
       
       console.log(`🎯 Intent Match Result (Tag-based):`);
       console.log(`   - Template: ${template.template.name}`);
       console.log(`   - User Intents: [${userIntents.join(', ')}]`);
       console.log(`   - Template Tags: [${templateTags.join(', ')}]`);
       console.log(`   - Common Tags: [${commonTags.join(', ')}]`);
-      console.log(`   - Similarity: ${similarity.toFixed(4)}`);
-      console.log(`   - Threshold: ${INTENT_THRESHOLD}`);
-      console.log(`   - Match: ${similarity >= INTENT_THRESHOLD ? 'YES' : 'NO'}`);
+      console.log(`   - Match: ${hasMatch ? 'YES' : 'NO'}`);
       
-      if (similarity > bestMatch.similarity) {
-        bestMatch = { template, similarity };
+      if (hasMatch) {
+        // Found a match - return immediately (first match wins)
+        console.log(`🎯 === FINAL INTENT MATCHING RESULT (TAG-BASED) ===`);
+        console.log(`🎯 Matched Template: ${template.template.name}`);
+        console.log(`🎯 Common Tags: [${commonTags.join(', ')}]`);
+        console.log(`🎯 === CAROUSEL INTENT MATCHING END (TAG-BASED) ===`);
+        
+        return {
+          matched: true,
+          template: template,
+          similarity: 1.0 // Set to 1.0 since any match is considered valid
+        };
       }
     }
     
-    const matched = bestMatch.similarity >= INTENT_THRESHOLD;
-    
+    // No match found
     console.log(`🎯 === FINAL INTENT MATCHING RESULT (TAG-BASED) ===`);
-    console.log(`🎯 Best Match:`);
-    console.log(`   - Template: ${bestMatch.template?.template?.name || 'None'}`);
-    console.log(`   - Similarity: ${bestMatch.similarity.toFixed(4)}`);
-    console.log(`   - Threshold: ${INTENT_THRESHOLD}`);
-    console.log(`   - Matched: ${matched ? 'YES' : 'NO'}`);
+    console.log(`🎯 No templates matched any user intents`);
     console.log(`🎯 === CAROUSEL INTENT MATCHING END (TAG-BASED) ===`);
     
     return {
-      matched,
-      template: matched ? bestMatch.template : null,
-      similarity: bestMatch.similarity
+      matched: false,
+      template: null,
+      similarity: 0
     };
   } catch (error) {
     console.error(`❌ Error in carousel intent matching:`, error);
