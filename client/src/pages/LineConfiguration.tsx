@@ -279,9 +279,11 @@ export default function LineConfiguration() {
 
           <Button
             onClick={() => {
+              console.log("New Template button clicked!");
               setIsCreating(true);
               setSelectedTemplate(null);
               form.reset();
+              console.log("isCreating set to:", true);
             }}
             className="flex items-center space-x-2"
           >
@@ -376,6 +378,7 @@ export default function LineConfiguration() {
 
         {/* Template Creation/Edit Modal */}
         <Dialog open={isCreating || selectedTemplate !== null} onOpenChange={(open) => {
+          console.log("Dialog onOpenChange called with:", open, "isCreating:", isCreating, "selectedTemplate:", selectedTemplate);
           if (!open) {
             setIsCreating(false);
             setSelectedTemplate(null);
