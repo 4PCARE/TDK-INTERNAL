@@ -261,7 +261,7 @@ export default function LineConfiguration() {
   const handleEditTemplate = (template: LineTemplate) => {
     setSelectedTemplate(template);
     setIsCreating(false);
-    
+
     // Transform template data for form
     const formData = {
       name: template.template.name,
@@ -280,7 +280,7 @@ export default function LineConfiguration() {
         }))
       }))
     };
-    
+
     form.reset(formData);
   };
 
@@ -370,11 +370,16 @@ export default function LineConfiguration() {
                             <div className="flex items-center space-x-2">
                               <h3 className="font-medium">{template.template.name}</h3>
                               <Badge variant="outline">{template.template.type}</Badge>
-                              {template.template.integrationId && (
+                              {template.template.integrationId && Array.isArray(lineOaIntegrations) && lineOaIntegrations.length > 0 && (
                                 <Badge variant="secondary">
                                   {(() => {
-                                    const integration = lineOaIntegrations.find((int: any) => int.id === template.template.integrationId);
-                                    return integration?.name || `Integration ID: ${template.template.integrationId}`;
+                                    try {
+                                      const integration = lineOaIntegrations.find((int: any) => int && int.id === template.template.integrationId);
+                                      return integration && integration.name ? integration.name : `Integration ID: ${template.template.integrationId}`;
+                                    } catch (error) {
+                                      console.error('Error finding integration:', error);
+                                      return `Integration ID: ${template.template.integrationId}`;
+                                    }
                                   })()}
                                 </Badge>
                               )}
@@ -437,7 +442,7 @@ export default function LineConfiguration() {
                 {selectedTemplate ? "Edit Template" : "Create New Template"}
               </DialogTitle>
             </DialogHeader>
-            
+
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
                 {/* Template Name */}
