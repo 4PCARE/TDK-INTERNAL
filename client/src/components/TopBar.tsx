@@ -28,10 +28,11 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 interface TopBarProps {
   isSidebarCollapsed?: boolean;
-  onMenuButtonClick?: () => void;
+  onMobileMenuToggle?: () => void;
+  isMobile?: boolean;
 }
 
-export default function TopBar({ isSidebarCollapsed = false, onMenuButtonClick }: TopBarProps) {
+export default function TopBar({ isSidebarCollapsed = false, onMobileMenuToggle, isMobile = false }: TopBarProps) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const isMobile = useIsMobile();
@@ -52,7 +53,7 @@ export default function TopBar({ isSidebarCollapsed = false, onMenuButtonClick }
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           {isMobile && (
-            <Button variant="ghost" size="icon" onClick={onMenuButtonClick}>
+            <Button variant="ghost" size="icon" onClick={onMobileMenuToggle}>
               <Menu className="h-5 w-5" />
             </Button>
           )}
