@@ -88,28 +88,86 @@ async function sendLineReply(
   }
 }
 
-// Send push message to Line user (for Human Agent messages)
+// Send push message to Line user (supports text and carousel templates)
 export async function sendLinePushMessage(
   userId: string,
-  message: string,
+  messageOrTemplate: any,
   channelAccessToken: string,
+  isCarousel: boolean = false,
 ) {
   try {
+    let messagePayload: any;
+    
+    if (isCarousel && messageOrTemplate.template && messageOrTemplate.columns) {
+      console.log(`🎠 Preparing carousel push message for template: ${messageOrTemplate.template.name}`);
+      
+      // Build carousel message for push API
+      const carouselColumns = messageOrTemplate.columns.map((col: any, index: number) => {
+        console.log(`🎠 Building push column ${index + 1}: ${col.column.title}`);
+        
+        const actions = col.actions.map((action: any) => {
+          const actionObj: any = {
+            type: action.type,
+            label: action.label,
+          };
+          
+          if (action.type === 'uri' && action.uri) {
+            actionObj.uri = action.uri;
+          } else if (action.type === 'postback' && action.data) {
+            actionObj.data = action.data;
+          } else if (action.type === 'message' && action.text) {
+            actionObj.text = action.text;
+          }
+          
+          return actionObj;
+        });
+        
+        const columnObj: any = {
+          title: col.column.title,
+          text: col.column.text,
+          actions: actions,
+        };
+        
+        if (col.column.thumbnailImageUrl) {
+          columnObj.thumbnailImageUrl = col.column.thumbnailImageUrl;
+        }
+        
+        return columnObj;
+      });
+      
+      messagePayload = {
+        to: userId,
+        messages: [{
+          type: "template",
+          altText: `${messageOrTemplate.template.name} - Information carousel`,
+          template: {
+            type: "carousel",
+            columns: carouselColumns,
+          },
+        }],
+      };
+      
+      console.log(`🎠 Carousel push message prepared with ${carouselColumns.length} columns`);
+    } else {
+      // Regular text message
+      messagePayload = {
+        to: userId,
+        messages: [
+          {
+            type: "text",
+            text: messageOrTemplate,
+          },
+        ],
+      };
+    }
+
     const response = await fetch("https://api.line.me/v2/bot/message/push", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${channelAccessToken}`,
       },
-      body: JSON.stringify({
-        to: userId,
-        messages: [
-          {
-            type: "text",
-            text: message,
-          },
-        ],
-      }),
+      body: JSON.stringify(messagePayload),
     });
 
     if (!response.ok) {
@@ -118,7 +176,11 @@ export async function sendLinePushMessage(
       return false;
     }
 
-    console.log("✅ Line push message sent successfully to:", userId);
+    if (isCarousel) {
+      console.log("✅ Line carousel push message sent successfully to:", userId);
+    } else {
+      console.log("✅ Line text push message sent successfully to:", userId);
+    }
     return true;
   } catch (error) {
     console.error("💥 Error sending Line push message:", error);
@@ -183,6 +245,253 @@ export async function sendLineImageMessage(
     return true;
   } catch (error) {
     console.error("💥 Error sending Line image message:", error);
+    return false;
+  }
+}
+
+// ===== CAROUSEL INTENT MATCHING SYSTEM =====
+
+// Get Line templates associated with the integration
+async function getIntegrationTemplates(integrationId: number, userId: string): Promise<any[]> {
+  try {
+    console.log(`🎠 === TEMPLATE RETRIEVAL START ===`);
+    console.log(`🎠 Integration ID: ${integrationId}, User ID: ${userId}`);
+    
+    // First get all message templates for the user and integration
+    const messageTemplates = await storage.getLineMessageTemplates(userId, integrationId);
+    console.log(`🎠 Found ${messageTemplates.length} message templates for integration ${integrationId}`);
+    
+    // Get complete template data with columns and actions
+    const completeTemplates = await Promise.all(
+      messageTemplates.map(async (template: any) => {
+        const completeTemplate = await storage.getCompleteLineTemplate(template.id, userId);
+        return completeTemplate;
+      })
+    );
+    
+    // Filter out undefined results
+    const validTemplates = completeTemplates.filter((template: any) => template !== undefined);
+    
+    validTemplates.forEach((template: any, index: number) => {
+      console.log(`🎠 Template ${index + 1}:`);
+      console.log(`   - ID: ${template.template.id}`);
+      console.log(`   - Name: ${template.template.name}`);
+      console.log(`   - Description: ${template.template.description || 'No description'}`);
+      console.log(`   - Type: ${template.template.type}`);
+      console.log(`   - Columns: ${template.columns.length}`);
+    });
+    
+    console.log(`🎠 === TEMPLATE RETRIEVAL END ===`);
+    return validTemplates;
+  } catch (error) {
+    console.error(`❌ Error fetching templates for integration ${integrationId}:`, error);
+    return [];
+  }
+}
+
+// Calculate vector similarity between user query and template description
+async function calculateIntentSimilarity(userQuery: string, templateDescription: string): Promise<number> {
+  try {
+    console.log(`🔍 === INTENT SIMILARITY CALCULATION START ===`);
+    console.log(`🔍 User Query: "${userQuery}"`);
+    console.log(`🔍 Template Description: "${templateDescription}"`);
+    
+    // Generate embeddings for both texts
+    const [queryEmbedding, descriptionEmbedding] = await Promise.all([
+      openai.embeddings.create({
+        model: "text-embedding-3-small",
+        input: userQuery,
+      }),
+      openai.embeddings.create({
+        model: "text-embedding-3-small", 
+        input: templateDescription,
+      })
+    ]);
+    
+    console.log(`🔍 Query embedding dimensions: ${queryEmbedding.data[0].embedding.length}`);
+    console.log(`🔍 Description embedding dimensions: ${descriptionEmbedding.data[0].embedding.length}`);
+    
+    // Calculate cosine similarity
+    const query_vec = queryEmbedding.data[0].embedding;
+    const desc_vec = descriptionEmbedding.data[0].embedding;
+    
+    let dot_product = 0;
+    let query_norm = 0;
+    let desc_norm = 0;
+    
+    for (let i = 0; i < query_vec.length; i++) {
+      dot_product += query_vec[i] * desc_vec[i];
+      query_norm += query_vec[i] * query_vec[i];
+      desc_norm += desc_vec[i] * desc_vec[i];
+    }
+    
+    const similarity = dot_product / (Math.sqrt(query_norm) * Math.sqrt(desc_norm));
+    
+    console.log(`🔍 Cosine Similarity: ${similarity.toFixed(4)}`);
+    console.log(`🔍 === INTENT SIMILARITY CALCULATION END ===`);
+    
+    return similarity;
+  } catch (error) {
+    console.error(`❌ Error calculating intent similarity:`, error);
+    return 0;
+  }
+}
+
+// Check if user query matches any template intents
+async function checkCarouselIntents(userQuery: string, integrationId: number, userId: string): Promise<{matched: boolean, template: any | null, similarity: number}> {
+  try {
+    console.log(`🎯 === CAROUSEL INTENT MATCHING START ===`);
+    console.log(`🎯 User Query: "${userQuery}"`);
+    console.log(`🎯 Integration ID: ${integrationId}`);
+    
+    const templates = await getIntegrationTemplates(integrationId, userId);
+    
+    if (templates.length === 0) {
+      console.log(`🎯 No templates found - skipping intent matching`);
+      return { matched: false, template: null, similarity: 0 };
+    }
+    
+    console.log(`🎯 Testing ${templates.length} templates for intent match`);
+    
+    // Intent matching threshold (0.7 = 70% similarity)
+    const INTENT_THRESHOLD = 0.7;
+    
+    let bestMatch: { template: any | null, similarity: number } = { template: null, similarity: 0 };
+    
+    for (const template of templates) {
+      if (!template?.template?.description || template.template.description.trim() === '') {
+        console.log(`🎯 Skipping template "${template?.template?.name || 'Unknown'}" - no description for intent matching`);
+        continue;
+      }
+      
+      console.log(`🎯 Testing template: "${template.template.name}"`);
+      console.log(`🎯 Description: "${template.template.description}"`);
+      
+      const similarity = await calculateIntentSimilarity(userQuery, template.template.description);
+      
+      console.log(`🎯 Intent Match Result:`);
+      console.log(`   - Template: ${template.template.name}`);
+      console.log(`   - Similarity: ${similarity.toFixed(4)}`);
+      console.log(`   - Threshold: ${INTENT_THRESHOLD}`);
+      console.log(`   - Match: ${similarity >= INTENT_THRESHOLD ? 'YES' : 'NO'}`);
+      
+      if (similarity > bestMatch.similarity) {
+        bestMatch = { template, similarity };
+      }
+    }
+    
+    const matched = bestMatch.similarity >= INTENT_THRESHOLD;
+    
+    console.log(`🎯 === FINAL INTENT MATCHING RESULT ===`);
+    console.log(`🎯 Best Match:`);
+    console.log(`   - Template: ${bestMatch.template?.template?.name || 'None'}`);
+    console.log(`   - Similarity: ${bestMatch.similarity.toFixed(4)}`);
+    console.log(`   - Threshold: ${INTENT_THRESHOLD}`);
+    console.log(`   - Matched: ${matched ? 'YES' : 'NO'}`);
+    console.log(`🎯 === CAROUSEL INTENT MATCHING END ===`);
+    
+    return {
+      matched,
+      template: matched ? bestMatch.template : null,
+      similarity: bestMatch.similarity
+    };
+  } catch (error) {
+    console.error(`❌ Error in carousel intent matching:`, error);
+    return { matched: false, template: null, similarity: 0 };
+  }
+}
+
+// Send carousel message to Line
+async function sendLineCarousel(replyToken: string, template: any, channelAccessToken: string): Promise<boolean> {
+  try {
+    console.log(`🎠 === SENDING CAROUSEL MESSAGE START ===`);
+    console.log(`🎠 Template: ${template.template.name}`);
+    console.log(`🎠 Columns: ${template.columns.length}`);
+    
+    // Build carousel columns
+    const carouselColumns = template.columns.map((col: any, index: number) => {
+      console.log(`🎠 Building column ${index + 1}:`);
+      console.log(`   - Title: ${col.column.title}`);
+      console.log(`   - Text: ${col.column.text}`);
+      console.log(`   - Thumbnail: ${col.column.thumbnailImageUrl || 'None'}`);
+      console.log(`   - Actions: ${col.actions.length}`);
+      
+      // Build actions for this column
+      const actions = col.actions.map((action: any, actionIndex: number) => {
+        console.log(`🎠 Action ${actionIndex + 1}:`);
+        console.log(`     - Type: ${action.type}`);
+        console.log(`     - Label: ${action.label}`);
+        
+        const actionObj: any = {
+          type: action.type,
+          label: action.label,
+        };
+        
+        if (action.type === 'uri' && action.uri) {
+          actionObj.uri = action.uri;
+          console.log(`     - URI: ${action.uri}`);
+        } else if (action.type === 'postback' && action.data) {
+          actionObj.data = action.data;
+          console.log(`     - Data: ${action.data}`);
+        } else if (action.type === 'message' && action.text) {
+          actionObj.text = action.text;
+          console.log(`     - Text: ${action.text}`);
+        }
+        
+        return actionObj;
+      });
+      
+      const columnObj: any = {
+        title: col.column.title,
+        text: col.column.text,
+        actions: actions,
+      };
+      
+      if (col.column.thumbnailImageUrl) {
+        columnObj.thumbnailImageUrl = col.column.thumbnailImageUrl;
+      }
+      
+      return columnObj;
+    });
+    
+    const carouselMessage = {
+      type: "template",
+      altText: `${template.template.name} - Information carousel`,
+      template: {
+        type: "carousel",
+        columns: carouselColumns,
+      },
+    };
+    
+    console.log(`🎠 Carousel message structure:`, JSON.stringify(carouselMessage, null, 2));
+    
+    const response = await fetch("https://api.line.me/v2/bot/message/reply", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${channelAccessToken}`,
+      },
+      body: JSON.stringify({
+        replyToken,
+        messages: [carouselMessage],
+      }),
+    });
+    
+    console.log(`🎠 Line API Response Status: ${response.status}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ Line Carousel API Error:", errorText);
+      console.log(`🎠 === SENDING CAROUSEL MESSAGE FAILED ===`);
+      return false;
+    }
+    
+    console.log("✅ Line carousel message sent successfully");
+    console.log(`🎠 === SENDING CAROUSEL MESSAGE SUCCESS ===`);
+    return true;
+  } catch (error) {
+    console.error("💥 Error sending Line carousel message:", error);
+    console.log(`🎠 === SENDING CAROUSEL MESSAGE ERROR ===`);
     return false;
   }
 }
@@ -716,11 +1025,11 @@ const processedMessageIds = new Map<string, number>();
 // Clean up old processed message IDs (older than 1 hour)
 const cleanupProcessedMessages = () => {
   const oneHourAgo = Date.now() - 60 * 60 * 1000;
-  for (const [messageId, timestamp] of processedMessageIds.entries()) {
+  Array.from(processedMessageIds.entries()).forEach(([messageId, timestamp]) => {
     if (timestamp < oneHourAgo) {
       processedMessageIds.delete(messageId);
     }
-  }
+  });
 };
 
 // Schedule cleanup every 30 minutes
@@ -971,8 +1280,9 @@ if (processedMessageIds.has(messageId)) {
               // Find the image analysis that corresponds to THIS specific message
               const imageAnalysisMessage = updatedChatHistory.find(msg => 
                 msg.messageType === 'system' && 
-                msg.metadata?.messageType === 'image_analysis' &&
-                msg.metadata?.relatedImageMessageId === message.id
+                msg.metadata && 
+                (msg.metadata as any).messageType === 'image_analysis' &&
+                (msg.metadata as any).relatedImageMessageId === message.id
               );
 
               if (imageAnalysisMessage) {
@@ -1244,6 +1554,65 @@ ${imageAnalysisResult}
               }
 
               console.log(`✅ LINE OA: Generated response without document search (${aiResponse.length} chars)`);
+              
+              // Send the AI response first
+              await sendLineReply(replyToken, aiResponse, lineIntegration.channelAccessToken!);
+              
+              // Save AI response to chat history 
+              await storage.createChatHistory({
+                userId: lineIntegration.userId,
+                channelType: "lineoa",
+                channelId: event.source.userId,
+                agentId: lineIntegration.agentId,
+                messageType: "assistant",
+                content: aiResponse,
+                metadata: { documentSearch: false },
+              });
+              
+              console.log(`🎯 LINE OA: Checking carousel intent for non-search response...`);
+              
+              // Check if user query matches any carousel templates
+              const carouselIntent = await checkCarouselIntents(
+                contextMessage, 
+                lineIntegration.id, 
+                lineIntegration.userId
+              );
+              
+              if (carouselIntent.matched && carouselIntent.template) {
+                console.log(`🎠 LINE OA: Intent matched! Sending carousel template: ${carouselIntent.template.template.name}`);
+                
+                // Send carousel as a push message (since we already used the replyToken)
+                const carouselSent = await sendLinePushMessage(
+                  event.source.userId,
+                  carouselIntent.template,
+                  lineIntegration.channelAccessToken,
+                  true // This is a carousel template
+                );
+                
+                if (carouselSent) {
+                  console.log(`✅ LINE OA: Carousel template sent successfully`);
+                  
+                  // Save carousel message to chat history
+                  await storage.createChatHistory({
+                    userId: lineIntegration.userId,
+                    channelType: "lineoa", 
+                    channelId: event.source.userId,
+                    agentId: lineIntegration.agentId,
+                    messageType: "assistant",
+                    content: `[Carousel Template: ${carouselIntent.template.template.name}]`,
+                    metadata: { 
+                      templateId: carouselIntent.template.template.id,
+                      templateName: carouselIntent.template.template.name,
+                      intentSimilarity: carouselIntent.similarity,
+                      messageType: "carousel"
+                    },
+                  });
+                } else {
+                  console.log(`❌ LINE OA: Failed to send carousel template`);
+                }
+              } else {
+                console.log(`🎯 LINE OA: No carousel intent match found (best similarity: ${carouselIntent.similarity.toFixed(4)})`);
+              }
               
             } else {
               console.log(`🔍 LINE OA: Query needs search, performing smart hybrid search with enhanced query`);
@@ -1683,6 +2052,69 @@ ${documentContext}
               aiResponse,
               lineIntegration.channelAccessToken,
             );
+            
+            console.log(`🎯 LINE OA: Checking carousel intent for search response...`);
+            
+            // Check if user query matches any carousel templates (same as non-search path)
+            const carouselIntent = await checkCarouselIntents(
+              contextMessage, 
+              lineIntegration.id, 
+              lineIntegration.userId
+            );
+            
+            if (carouselIntent.matched && carouselIntent.template) {
+              console.log(`🎠 LINE OA: Intent matched! Sending carousel template: ${carouselIntent.template.template.name}`);
+              
+              // Send carousel as a push message (since we already used the replyToken)
+              const carouselSent = await sendLinePushMessage(
+                event.source.userId,
+                carouselIntent.template,
+                lineIntegration.channelAccessToken,
+                true // This is a carousel template
+              );
+              
+              if (carouselSent) {
+                console.log(`✅ LINE OA: Carousel template sent successfully`);
+                
+                // Save carousel message to chat history
+                await storage.createChatHistory({
+                  userId: lineIntegration.userId,
+                  channelType: "lineoa", 
+                  channelId: event.source.userId,
+                  agentId: lineIntegration.agentId,
+                  messageType: "assistant",
+                  content: `[Carousel Template: ${carouselIntent.template.template.name}]`,
+                  metadata: { 
+                    templateId: carouselIntent.template.template.id,
+                    templateName: carouselIntent.template.template.name,
+                    intentSimilarity: carouselIntent.similarity,
+                    messageType: "carousel"
+                  },
+                });
+                
+                // Broadcast carousel message to Agent Console via WebSocket  
+                if (typeof (global as any).broadcastToAgentConsole === "function") {
+                  (global as any).broadcastToAgentConsole({
+                    type: "new_message",
+                    data: {
+                      userId: lineIntegration.userId,
+                      channelType: "lineoa",
+                      channelId: event.source.userId,
+                      agentId: lineIntegration.agentId,
+                      userMessage: `[Carousel: ${carouselIntent.template.template.name}]`,
+                      aiResponse: `Carousel template sent with ${carouselIntent.template.columns.length} columns`,
+                      timestamp: new Date().toISOString(),
+                    },
+                  });
+                  console.log("📡 Broadcasted carousel message to Agent Console");
+                }
+              } else {
+                console.log(`❌ LINE OA: Failed to send carousel template`);
+              }
+            } else {
+              console.log(`🎯 LINE OA: No carousel intent match found (best similarity: ${carouselIntent.similarity.toFixed(4)})`);
+            }
+            
           } else {
             console.log(
               "❌ No channel access token available for Line integration",
