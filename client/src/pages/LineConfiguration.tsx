@@ -258,12 +258,17 @@ export default function LineConfiguration() {
 
   // Handle form submission
   const handleSubmit = (data: TemplateFormData) => {
+    console.log("🔍 handleSubmit called with data:", data);
+    console.log("🔍 selectedTemplate:", selectedTemplate);
+    
     if (selectedTemplate?.template) {
+      console.log("🔍 Calling updateTemplateMutation with id:", selectedTemplate.template.id);
       updateTemplateMutation.mutate({
         id: selectedTemplate.template.id,
         data,
       });
     } else {
+      console.log("🔍 Calling createTemplateMutation");
       createTemplateMutation.mutate(data);
     }
   };
@@ -723,7 +728,15 @@ export default function LineConfiguration() {
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}>
+                  <Button 
+                    type="submit" 
+                    disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}
+                    onClick={() => {
+                      console.log("🔍 Submit button clicked");
+                      console.log("🔍 Form validation state:", form.formState.errors);
+                      console.log("🔍 Form values:", form.getValues());
+                    }}
+                  >
                     <Save className="w-4 h-4 mr-2" />
                     {selectedTemplate ? "Update Template" : "Create Template"}
                   </Button>
