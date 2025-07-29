@@ -1,42 +1,30 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import DashboardLayout from "@/components/Layout/DashboardLayout";
 import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { 
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { 
-  Users, 
-  Building, 
-  Shield, 
-  Plus,
-  MoreVertical,
-  Edit,
-  Trash2,
-  User
+  Plus, 
+  Search, 
+  Edit, 
+  Trash2, 
+  Save, 
+  X,
+  Users,
+  Shield,
+  Mail,
+  Calendar,
+  Building,
+  UserCheck,
+  UserX,
+  MoreHorizontal
 } from "lucide-react";
 import Sidebar from "@/components/Layout/Sidebar";
 import TopBar from "@/components/TopBar";
@@ -155,7 +143,7 @@ export default function UserManagement() {
       const payload = type === 'user' 
         ? { userId: targetId, documentId, permission }
         : { departmentId: parseInt(targetId), documentId, permission };
-      
+
       return apiRequest('POST', '/api/admin/permissions', payload);
     },
     onSuccess: () => {
@@ -221,12 +209,12 @@ export default function UserManagement() {
 
   const handleCreatePermission = () => {
     if (!selectedDocumentId) return;
-    
+
     const type = selectedPermissionUserId ? 'user' : 'department';
     const targetId = selectedPermissionUserId || selectedPermissionDepartmentId;
-    
+
     if (!targetId) return;
-    
+
     createPermissionMutation.mutate({
       type,
       targetId,
@@ -236,26 +224,28 @@ export default function UserManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar 
-        isMobileOpen={isMobileMenuOpen}
-        onMobileClose={() => setIsMobileMenuOpen(false)}
-        onOpenChat={() => setIsChatModalOpen(true)}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-      />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar />
-        
-        <main className="p-6">
-          <div className="max-w-7xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-                <p className="text-gray-600">Manage users, departments, and document permissions</p>
-              </div>
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-600 rounded-lg flex items-center justify-center">
+              <Users className="w-5 h-5 text-white" />
             </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
+              <p className="text-gray-600">Manage user accounts, roles, and permissions</p>
+            </div>
+          </div>
+
+          <Button 
+            onClick={() => setIsCreating(true)}
+            className="flex items-center space-x-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add User</span>
+          </Button>
+        </div>
 
             {/* Quick Actions */}
             <div className="flex gap-4">
@@ -580,7 +570,7 @@ export default function UserManagement() {
                       const document = (documents as Document[]).find(d => d.id === permission.documentId);
                       const user = permission.userId ? (users as UserData[]).find(u => u.id === permission.userId) : null;
                       const department = permission.departmentId ? (departments as Department[]).find(d => d.id === permission.departmentId) : null;
-                      
+
                       return (
                         <div key={permission.id} className="flex items-center justify-between p-4 border rounded-lg">
                           <div>
@@ -616,69 +606,6 @@ export default function UserManagement() {
               </CardContent>
             </Card>
           </div>
-        </main>
-      </div>
-
-      {/* Edit User Dialog */}
-      <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-          </DialogHeader>
-          {editingUser && (
-            <div className="space-y-4">
-              <div>
-                <Label>Email</Label>
-                <Input value={editingUser.email} disabled />
-              </div>
-              <div>
-                <Label>First Name</Label>
-                <Input 
-                  value={editingUser.firstName || ""} 
-                  onChange={(e) => setEditingUser({...editingUser!, firstName: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label>Last Name</Label>
-                <Input 
-                  value={editingUser.lastName || ""} 
-                  onChange={(e) => setEditingUser({...editingUser!, lastName: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label>Department</Label>
-                <Select 
-                  value={editingUser.departmentId?.toString() || "none"} 
-                  onValueChange={(value) => setEditingUser({
-                    ...editingUser, 
-                    departmentId: value === "none" ? undefined : parseInt(value)
-                  })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Department</SelectItem>
-                    {(departments as Department[]).map((dept) => (
-                      <SelectItem key={dept.id} value={dept.id.toString()}>
-                        {dept.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsEditUserOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleUpdateUser} disabled={editUserMutation.isPending}>
-                  {editUserMutation.isPending ? "Updating..." : "Update User"}
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
+    </DashboardLayout>
   );
 }

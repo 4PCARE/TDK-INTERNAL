@@ -24,6 +24,7 @@ import {
   FileText,
 } from "lucide-react";
 import { Link } from "wouter";
+import DashboardLayout from "@/components/Layout/DashboardLayout";
 
 interface AgentChatbot {
   id: number;
@@ -271,7 +272,7 @@ export default function AgentChatbots() {
     queryClient.invalidateQueries({ 
       queryKey: [`/api/agent-chatbots/${agentId}/documents`] 
     });
-    
+
     // Navigate to edit page
     window.location.href = `/create-agent-chatbot?edit=${agentId}`;
   };
@@ -305,208 +306,73 @@ export default function AgentChatbots() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      <Sidebar 
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-      />
-
-      <div className="flex-1 flex flex-col">
-        <TopBar />
-
-        <main className="flex-1 overflow-auto p-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-semibold text-slate-800 mb-2">
-                Agent Chatbots
-              </h1>
-              <p className="text-sm text-slate-500">
-                Manage your AI-powered chatbot agents for different channels
-              </p>
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-lg flex items-center justify-center">
+              <Bot className="w-5 h-5 text-white" />
             </div>
-            <Link href="/create-agent-chatbot">
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Create Agent Chatbot
-              </Button>
-            </Link>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">AI Agent Chatbots</h1>
+              <p className="text-gray-600">Create and manage intelligent chatbots for your documents</p>
+            </div>
           </div>
 
-          {/* Agent Cards */}
-          {agents.length === 0 ? (
-            <div className="text-center py-12">
-              <Bot className="w-16 h-16 mx-auto mb-4 text-slate-400" />
-              <h3 className="text-lg font-medium text-slate-800 mb-2">
-                No Agent Chatbots Yet
-              </h3>
-              <p className="text-sm text-slate-500 mb-6">
-                Create your first AI-powered chatbot agent to start automating
-                customer interactions
-              </p>
-              <Link href="/create-agent-chatbot">
-                <Button className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Your First Agent
+          <Button asChild>
+            <a href="/create-agent-chatbot" className="flex items-center space-x-2">
+              <Plus className="w-4 h-4" />
+              <span>Create Agent</span>
+            </a>
+          </Button>
+        </div>
+
+        {/* Agent List */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {agents.map((agent) => (
+            <Card key={agent.id} className="bg-white shadow-sm rounded-lg overflow-hidden">
+              <CardHeader className="flex items-center space-x-4">
+                <Avatar className="w-10 h-10">
+                  <AvatarFallback>
+                    <Bot className="w-6 h-6" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="space-y-1">
+                  <CardTitle className="text-lg font-medium">{agent.name}</CardTitle>
+                  <p className="text-sm text-gray-500">{agent.description}</p>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <FileText className="w-4 h-4 text-gray-400" />
+                    <span>{agent.documentCount} Documents</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Users className="w-4 h-4 text-gray-400" />
+                    <span>0 Users</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <MessageCircle className="w-4 h-4 text-gray-400" />
+                    <span>0 Chats</span>
+                  </div>
+                </div>
+              </CardContent>
+              <div className="bg-gray-50 px-4 py-3 flex justify-end space-x-2">
+                <Button variant="outline" size="sm">
+                  <Eye className="w-4 h-4 mr-2" />
+                  View
                 </Button>
-              </Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {agents.map((agent) => (
-                <Card
-                  key={agent.id}
-                  className="border border-slate-200 hover:shadow-md transition-shadow"
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="w-10 h-10 bg-blue-100">
-                          <AvatarFallback className="text-blue-600">
-                            <Bot className="w-5 h-5" />
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <CardTitle className="text-lg font-semibold text-slate-800 line-clamp-1">
-                            {agent.name}
-                          </CardTitle>
-                          <div className="flex items-center space-x-2 mt-1">
-                            {agent.isActive ? (
-                              <Badge className="bg-green-100 text-green-800 text-xs">
-                                <Power className="w-3 h-3 mr-1" />
-                                Active
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant="secondary"
-                                className="bg-gray-100 text-gray-600 text-xs"
-                              >
-                                <PowerOff className="w-3 h-3 mr-1" />
-                                Inactive
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            handleToggleAgent(agent.id, agent.isActive)
-                          }
-                          className="h-8 w-8 p-0"
-                        >
-                          {agent.isActive ? (
-                            <PowerOff className="w-4 h-4 text-gray-500" />
-                          ) : (
-                            <Power className="w-4 h-4 text-green-600" />
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0"
-                          onClick={() => handleEditAgent(agent.id)}
-                        >
-                          <Edit className="w-4 h-4 text-blue-500" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeleteAgent(agent.id)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="pt-0">
-                    {agent.description && (
-                      <p className="text-sm text-slate-600 mb-3 line-clamp-2">
-                        {agent.description}
-                      </p>
-                    )}
-
-                    {/* Personality & Profession */}
-                    {(agent.personality || agent.profession) && (
-                      <div className="mb-3">
-                        <div className="flex flex-wrap gap-2">
-                          {agent.personality && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs bg-purple-50 text-purple-700 border-purple-200"
-                            >
-                              {agent.personality.charAt(0).toUpperCase() +
-                                agent.personality.slice(1)}
-                            </Badge>
-                          )}
-                          {agent.profession && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs bg-blue-50 text-blue-700 border-blue-200"
-                            >
-                              {agent.profession === "hr"
-                                ? "HR"
-                                : agent.profession === "it"
-                                  ? "IT"
-                                  : agent.profession
-                                      .replace("_", " ")
-                                      .replace(/\b\w/g, (l) => l.toUpperCase())}
-                            </Badge>
-                          )}
-                          {agent.responseStyle && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs bg-green-50 text-green-700 border-green-200"
-                            >
-                              {agent.responseStyle.charAt(0).toUpperCase() +
-                                agent.responseStyle.slice(1)}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Channels */}
-                    <div className="mb-3">
-                      <p className="text-xs font-medium text-slate-500 mb-2">
-                        Channels:
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {getChannelBadges(agent.channels)}
-                      </div>
-                    </div>
-
-                    {/* Documents */}
-                    <div className="mb-3 pt-3 border-t border-slate-100">
-                      <AgentDocumentList agentId={agent.id} />
-                    </div>
-
-                    {/* Stats */}
-                    <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100">
-                      <div className="flex items-center space-x-1">
-                        <Calendar className="w-3 h-3" />
-                        <span>
-                          Created{" "}
-                          {new Date(agent.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <MessageSquare className="w-3 h-3" />
-                        <span>0 chats</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </main>
+                <Button variant="secondary" size="sm">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Manage
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

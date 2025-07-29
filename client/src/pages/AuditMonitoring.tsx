@@ -30,11 +30,12 @@ import {
   ChevronRight
 } from "lucide-react";
 import { format } from "date-fns";
+import DashboardLayout from "@/components/Layout/DashboardLayout";
 
 export default function AuditMonitoring() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
-  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filterAction, setFilterAction] = useState<string>("all");
   const [filterResourceType, setFilterResourceType] = useState<string>("all");
@@ -121,7 +122,7 @@ export default function AuditMonitoring() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        
+
         toast({
           title: "Export Complete",
           description: "Audit logs have been downloaded successfully",
@@ -157,7 +158,7 @@ export default function AuditMonitoring() {
       ...(log.userAgent && { userAgent: log.userAgent }),
       ...(log.sessionId && { sessionId: log.sessionId }),
     };
-    
+
     return Object.keys(details).length > 0 ? JSON.stringify(details, null, 2) : 'N/A';
   };
 
@@ -193,26 +194,25 @@ export default function AuditMonitoring() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar 
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-      />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar />
-        
-        <main className="flex-1 overflow-auto p-6 bg-gray-50">
-          {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-semibold text-slate-800 mb-2 flex items-center">
-              <Shield className="w-6 h-6 mr-3" />
-              Audit & Monitoring
-            </h1>
-            <p className="text-sm text-slate-500">
-              Track all user actions and API interactions for compliance and security monitoring
-            </p>
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg flex items-center justify-center">
+              <Shield className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Audit & Monitoring</h1>
+              <p className="text-gray-600">Track system activity and security events</p>
+            </div>
           </div>
+
+          <Button className="flex items-center space-x-2">
+            <Download className="w-4 h-4" />
+            <span>Export Logs</span>
+          </Button>
+        </div>
 
           {/* Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
@@ -546,8 +546,7 @@ export default function AuditMonitoring() {
               </div>
             </CardContent>
           </Card>
-        </main>
-      </div>
-    </div>
+        </div>
+    </DashboardLayout>
   );
 }

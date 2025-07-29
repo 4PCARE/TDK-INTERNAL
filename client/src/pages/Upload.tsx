@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Upload as UploadIcon
 } from "lucide-react";
+import DashboardLayout from "@/components/Layout/DashboardLayout";
 
 interface UploadFile {
   file: File;
@@ -69,7 +70,7 @@ export default function Upload() {
         const uploadedDoc = data.documents.find((doc: any) => 
           doc.originalName === uploadFile.file.name
         );
-        
+
         if (uploadedDoc) {
           return {
             ...uploadFile,
@@ -84,7 +85,7 @@ export default function Upload() {
       // Invalidate queries to refresh document lists
       queryClient.invalidateQueries({ queryKey: ['/api/documents'] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
-      
+
       toast({
         title: "Upload Successful",
         description: `${data.documents.length} document(s) uploaded and queued for processing.`,
@@ -198,208 +199,24 @@ export default function Upload() {
   const errorFiles = uploadFiles.filter(f => f.status === 'error');
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar 
-        isMobileOpen={false}
-        onMobileClose={() => {}}
-        onOpenChat={() => {}}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-      />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar isSidebarCollapsed={isSidebarCollapsed} />
-        
-        <main className="flex-1 overflow-auto p-6 bg-gray-50">
-          {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-semibold text-slate-800 mb-2">Upload Documents</h1>
-            <p className="text-sm text-slate-500">
-              Upload multiple documents for automatic classification and AI-powered processing
-            </p>
+    <DashboardLayout>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+            <UploadIcon className="w-5 h-5 text-white" />
           </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Upload Area */}
-            <div className="lg:col-span-2">
-              <Card className="border border-slate-200">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-slate-800">
-                    Document Upload
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <FileUpload onFilesSelected={handleFilesSelected} />
-                  
-                  {uploadFiles.length > 0 && (
-                    <div className="mt-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-medium text-slate-800">
-                          Upload Queue ({uploadFiles.length})
-                        </h3>
-                        <div className="flex space-x-2">
-                          {pendingFiles.length > 0 && (
-                            <Button 
-                              onClick={handleUpload}
-                              disabled={uploadMutation.isPending}
-                              className="bg-primary text-white hover:bg-blue-700"
-                            >
-                              {uploadMutation.isPending ? "Uploading..." : "Upload All"}
-                            </Button>
-                          )}
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={handleClearAll}
-                          >
-                            Clear All
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-3">
-                        {uploadFiles.map((uploadFile) => (
-                          <div 
-                            key={uploadFile.id}
-                            className="flex items-center space-x-4 p-3 bg-slate-50 rounded-lg"
-                          >
-                            <div className="flex-shrink-0">
-                              {getStatusIcon(uploadFile.status)}
-                            </div>
-                            
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-1">
-                                <p className="text-sm font-medium text-slate-800 truncate">
-                                  {uploadFile.file.name}
-                                </p>
-                                {getStatusBadge(uploadFile.status)}
-                              </div>
-                              
-                              <div className="flex items-center space-x-2 text-xs text-slate-500">
-                                <span>{(uploadFile.file.size / 1024 / 1024).toFixed(2)} MB</span>
-                                <span>•</span>
-                                <span>{uploadFile.file.type}</span>
-                              </div>
-                              
-                              {uploadFile.status === 'uploading' && (
-                                <Progress value={uploadFile.progress} className="mt-2" />
-                              )}
-                              
-                              {uploadFile.error && (
-                                <p className="text-xs text-red-600 mt-1">
-                                  {uploadFile.error}
-                                </p>
-                              )}
-                            </div>
-                            
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveFile(uploadFile.id)}
-                              className="text-slate-400 hover:text-slate-600"
-                            >
-                              <XCircle className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Upload Statistics */}
-            <div className="space-y-6">
-              <Card className="border border-slate-200">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-slate-800">
-                    Upload Statistics
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-500">Total Files</span>
-                      <span className="text-sm font-medium text-slate-800">
-                        {uploadFiles.length}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-500">Pending</span>
-                      <span className="text-sm font-medium text-amber-600">
-                        {pendingFiles.length}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-500">Uploaded</span>
-                      <span className="text-sm font-medium text-emerald-600">
-                        {successFiles.length}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-500">Failed</span>
-                      <span className="text-sm font-medium text-red-600">
-                        {errorFiles.length}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border border-slate-200">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-slate-800">
-                    Processing Info
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-start space-x-3">
-                      <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-slate-800">
-                          AI Classification
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          Documents are automatically classified and tagged using AI
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-start space-x-3">
-                      <Clock className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-slate-800">
-                          Processing Time
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          Average processing time is 2-5 minutes per document
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-start space-x-3">
-                      <FileText className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-slate-800">
-                          Supported Formats
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          PDF, DOCX, TXT, XLSX, PPTX, CSV, JSON
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Upload Documents</h1>
+            <p className="text-gray-600">Upload and manage your documents with AI-powered processing</p>
           </div>
-        </main>
+        </div>
+
+        <Card>
+          <CardContent>
+            <FileUpload onFilesSelected={handleFilesSelected} />
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
