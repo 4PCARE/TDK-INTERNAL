@@ -76,6 +76,7 @@ const carouselColumnSchema = z.object({
 const templateSchema = z.object({
   name: z.string().min(1, "Template name is required"),
   description: z.string().min(1, "Template description is required for intent matching"),
+  tags: z.array(z.string()).default([]), // Intent tags for smart matching
   type: z.literal("carousel"),
   integrationId: z.number().optional(),
   columns: z.array(carouselColumnSchema).min(1, "At least one column is required").max(10, "Maximum 10 columns allowed"),
@@ -88,6 +89,7 @@ interface LineTemplate {
     id: number;
     name: string;
     description?: string;
+    tags?: string[];
     type: string;
     integrationId: number | null;
     userId: string;
@@ -162,6 +164,7 @@ export default function LineConfiguration() {
     defaultValues: {
       name: "",
       description: "",
+      tags: [],
       type: "carousel",
       integrationId: integrationId || undefined,
       columns: [
@@ -209,6 +212,7 @@ export default function LineConfiguration() {
       form.reset({
         name: "",
         description: "",
+        tags: [],
         type: "carousel",
         integrationId: integrationId || undefined,
         columns: [
@@ -320,6 +324,7 @@ export default function LineConfiguration() {
     const formData = {
       name: template.template.name,
       description: template.template.description || "",
+      tags: template.template.tags || [],
       type: "carousel" as const,
       integrationId: template.template.integrationId || undefined,
       columns: template.columns.map((col, colIndex) => {
@@ -682,6 +687,59 @@ export default function LineConfiguration() {
                           rows={3}
                           {...field} 
                         />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Intent Tags */}
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Intent Tags</FormLabel>
+                      <FormControl>
+                        <div className="space-y-2">
+                          <Input
+                            placeholder="Type a tag and press Enter (e.g., beauty, cosmetics, anti-aging)"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const input = e.target as HTMLInputElement;
+                                const value = input.value.trim().toLowerCase();
+                                if (value && !field.value.includes(value)) {
+                                  field.onChange([...field.value, value]);
+                                  input.value = '';
+                                }
+                              }
+                            }}
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            {field.value.map((tag, index) => (
+                              <span 
+                                key={index}
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                              >
+                                {tag}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newTags = field.value.filter((_, i) => i !== index);
+                                    field.onChange(newTags);
+                                  }}
+                                  className="hover:bg-blue-200 rounded-full p-0.5"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Add tags that describe the intent of this template (e.g., beauty, cosmetics, anti-aging)
+                          </p>
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

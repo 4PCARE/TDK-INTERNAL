@@ -289,6 +289,72 @@ async function getIntegrationTemplates(integrationId: number, userId: string): P
   }
 }
 
+// Extract intent tags from user query using predefined categories
+function extractIntentFromQuery(userQuery: string): string[] {
+  const query = userQuery.toLowerCase();
+  const intents: string[] = [];
+  
+  // Beauty & Cosmetics intents
+  const beautyKeywords = [
+    'ครีม', 'เซรั่ม', 'โลชั่น', 'ผิว', 'หน้า', 'ตา', 'ริมฝีปาก', 'แก้ม',
+    'เครื่องสำอาง', 'แป้ง', 'ลิปสติก', 'อายแชโดว์', 'มาสคาร่า',
+    'ริ้วรอย', 'ใส', 'ขาว', 'เด็ก', 'สวย', 'งาม', 'beauty', 'cosmetics', 'skincare'
+  ];
+  
+  const antiAgingKeywords = [
+    'ริ้วรอย', 'แก่', 'ชรา', 'เหี่ยว', 'ตีนกา', 'หย่อนคล้อย', 'กระชับ', 
+    'ย้อนวัย', 'เด็กลง', 'ร่องแก้ม', 'หน้าหมอง', 'anti-aging', 'wrinkle'
+  ];
+  
+  const hairKeywords = [
+    'ผม', 'หัว', 'แชมพู', 'ครีมนวด', 'โรคผม', 'หัวล้าน', 'ผมร่วง', 
+    'ผมหงอก', 'hair', 'shampoo'
+  ];
+  
+  const healthKeywords = [
+    'สุขภาพ', 'วิตามิน', 'อาหารเสริม', 'ยา', 'รักษา', 'โรค', 'ป่วย',
+    'health', 'vitamin', 'supplement'
+  ];
+  
+  const fashionKeywords = [
+    'เสื้อผ้า', 'แฟชั่น', 'กระเป๋า', 'รองเท้า', 'เครื่องประดับ', 'นาฬิกา',
+    'fashion', 'clothes', 'bag', 'shoes'
+  ];
+  
+  const electronicKeywords = [
+    'มือถือ', 'โทรศัพท์', 'คอมพิวเตอร์', 'แท็บเล็ต', 'หูฟัง', 'ลำโพง',
+    'โน้ตบุ๊ก', 'electronics', 'phone', 'computer'
+  ];
+  
+  // Check each category
+  if (beautyKeywords.some(keyword => query.includes(keyword))) {
+    intents.push('beauty', 'cosmetics');
+  }
+  
+  if (antiAgingKeywords.some(keyword => query.includes(keyword))) {
+    intents.push('anti-aging', 'skincare');
+  }
+  
+  if (hairKeywords.some(keyword => query.includes(keyword))) {
+    intents.push('hair', 'beauty');
+  }
+  
+  if (healthKeywords.some(keyword => query.includes(keyword))) {
+    intents.push('health', 'wellness');
+  }
+  
+  if (fashionKeywords.some(keyword => query.includes(keyword))) {
+    intents.push('fashion', 'clothing');
+  }
+  
+  if (electronicKeywords.some(keyword => query.includes(keyword))) {
+    intents.push('electronics', 'gadgets');
+  }
+  
+  // Remove duplicates
+  return [...new Set(intents)];
+}
+
 // Calculate vector similarity between user query and template description
 async function calculateIntentSimilarity(userQuery: string, templateDescription: string): Promise<number> {
   try {
@@ -337,12 +403,21 @@ async function calculateIntentSimilarity(userQuery: string, templateDescription:
   }
 }
 
-// Check if user query matches any template intents
+// Check if user query matches any template intents using tag comparison
 async function checkCarouselIntents(userQuery: string, integrationId: number, userId: string): Promise<{matched: boolean, template: any | null, similarity: number}> {
   try {
-    console.log(`🎯 === CAROUSEL INTENT MATCHING START ===`);
+    console.log(`🎯 === CAROUSEL INTENT MATCHING START (TAG-BASED) ===`);
     console.log(`🎯 User Query: "${userQuery}"`);
     console.log(`🎯 Integration ID: ${integrationId}`);
+    
+    // Extract intent from user query
+    const userIntents = extractIntentFromQuery(userQuery);
+    console.log(`🎯 Extracted User Intents: [${userIntents.join(', ')}]`);
+    
+    if (userIntents.length === 0) {
+      console.log(`🎯 No intents extracted from user query - skipping intent matching`);
+      return { matched: false, template: null, similarity: 0 };
+    }
     
     const templates = await getIntegrationTemplates(integrationId, userId);
     
@@ -351,26 +426,41 @@ async function checkCarouselIntents(userQuery: string, integrationId: number, us
       return { matched: false, template: null, similarity: 0 };
     }
     
-    console.log(`🎯 Testing ${templates.length} templates for intent match`);
+    console.log(`🎯 Testing ${templates.length} templates for tag match`);
     
-    // Intent matching threshold (0.7 = 70% similarity)
-    const INTENT_THRESHOLD = 0.7;
+    // Tag matching threshold (0.5 = 50% overlap)
+    const INTENT_THRESHOLD = 0.5;
     
     let bestMatch: { template: any | null, similarity: number } = { template: null, similarity: 0 };
     
     for (const template of templates) {
-      if (!template?.template?.description || template.template.description.trim() === '') {
-        console.log(`🎯 Skipping template "${template?.template?.name || 'Unknown'}" - no description for intent matching`);
+      const templateTags = template?.template?.tags || [];
+      
+      console.log(`🎯 Testing template: "${template?.template?.name || 'Unknown'}"`);
+      console.log(`🎯 Template Tags: [${templateTags.join(', ')}]`);
+      
+      if (templateTags.length === 0) {
+        console.log(`🎯 Skipping template "${template?.template?.name || 'Unknown'}" - no tags for intent matching`);
         continue;
       }
       
-      console.log(`🎯 Testing template: "${template.template.name}"`);
-      console.log(`🎯 Description: "${template.template.description}"`);
+      // Calculate tag overlap similarity
+      const commonTags = userIntents.filter(intent => 
+        templateTags.some((tag: string) => 
+          tag.toLowerCase().includes(intent.toLowerCase()) || 
+          intent.toLowerCase().includes(tag.toLowerCase())
+        )
+      );
       
-      const similarity = await calculateIntentSimilarity(userQuery, template.template.description);
+      const similarity = commonTags.length > 0 
+        ? commonTags.length / Math.max(userIntents.length, templateTags.length)
+        : 0;
       
-      console.log(`🎯 Intent Match Result:`);
+      console.log(`🎯 Intent Match Result (Tag-based):`);
       console.log(`   - Template: ${template.template.name}`);
+      console.log(`   - User Intents: [${userIntents.join(', ')}]`);
+      console.log(`   - Template Tags: [${templateTags.join(', ')}]`);
+      console.log(`   - Common Tags: [${commonTags.join(', ')}]`);
       console.log(`   - Similarity: ${similarity.toFixed(4)}`);
       console.log(`   - Threshold: ${INTENT_THRESHOLD}`);
       console.log(`   - Match: ${similarity >= INTENT_THRESHOLD ? 'YES' : 'NO'}`);
@@ -382,13 +472,13 @@ async function checkCarouselIntents(userQuery: string, integrationId: number, us
     
     const matched = bestMatch.similarity >= INTENT_THRESHOLD;
     
-    console.log(`🎯 === FINAL INTENT MATCHING RESULT ===`);
+    console.log(`🎯 === FINAL INTENT MATCHING RESULT (TAG-BASED) ===`);
     console.log(`🎯 Best Match:`);
     console.log(`   - Template: ${bestMatch.template?.template?.name || 'None'}`);
     console.log(`   - Similarity: ${bestMatch.similarity.toFixed(4)}`);
     console.log(`   - Threshold: ${INTENT_THRESHOLD}`);
     console.log(`   - Matched: ${matched ? 'YES' : 'NO'}`);
-    console.log(`🎯 === CAROUSEL INTENT MATCHING END ===`);
+    console.log(`🎯 === CAROUSEL INTENT MATCHING END (TAG-BASED) ===`);
     
     return {
       matched,

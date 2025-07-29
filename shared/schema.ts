@@ -801,6 +801,7 @@ export const lineMessageTemplates = pgTable("line_message_templates", {
   name: varchar("name").notNull(),
   description: text("description"),
   descriptionEmbedding: text("description_embedding"), // Vector embedding for intent matching
+  tags: text("tags").array().default([]), // Intent tags for smart matching
   templateType: varchar("template_type").notNull().default("carousel"), // 'carousel', 'flex', 'bubble', etc.
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
