@@ -244,15 +244,17 @@ export default function LineConfiguration() {
 
   const updateTemplateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: TemplateFormData }) => {
-      console.log("🔍 updateTemplateMutation - Starting update with:", { id, data });
+      console.log("🔍 FRONTEND UPDATE - Starting update with:", { id, data });
+      console.log("🔍 FRONTEND UPDATE - Tags specifically:", data.tags);
       const response = await apiRequest("PUT", `/api/line-templates/${id}`, data);
       const result = await response.json();
-      console.log("🔍 updateTemplateMutation - Response:", result);
+      console.log("🔍 FRONTEND UPDATE - Response:", result);
       return result;
     },
     onSuccess: (result) => {
-      console.log("🔍 updateTemplateMutation - Success:", result);
+      console.log("🔍 FRONTEND UPDATE - Success:", result);
       queryClient.invalidateQueries({ queryKey: ["/api/line-templates"] });
+      queryClient.refetchQueries({ queryKey: ["/api/line-templates"] }); // Force refetch
       toast({
         title: "Success",
         description: "Template updated successfully",
@@ -324,7 +326,7 @@ export default function LineConfiguration() {
     const formData = {
       name: template.template.name,
       description: template.template.description || "",
-      tags: template.template.tags || [],
+      tags: Array.isArray(template.template.tags) ? template.template.tags : [],
       type: "carousel" as const,
       integrationId: template.template.integrationId || undefined,
       columns: template.columns.map((col, colIndex) => {

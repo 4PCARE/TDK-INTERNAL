@@ -5097,14 +5097,14 @@ Memory management: Keep track of conversation context within the last ${agentCon
   app.post("/api/line-templates", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { name, description, type, integrationId, columns } = req.body;
+      const { name, description, tags, type, integrationId, columns } = req.body;
 
       // Validate required fields
       if (!name || !type) {
         return res.status(400).json({ message: "Name and type are required" });
       }
 
-      console.log("Creating Line message template:", { userId, name, description, type, integrationId, columnsCount: columns?.length });
+      console.log("Creating Line message template:", { userId, name, description, tags, type, integrationId, columnsCount: columns?.length });
 
       // Generate embedding for description using OpenAI
       let descriptionEmbedding = null;
@@ -5131,6 +5131,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
         userId,
         name,
         description,
+        tags: Array.isArray(tags) ? tags : (tags ? [tags] : []),
         descriptionEmbedding,
         templateType: type,
         integrationId: integrationId || null,
@@ -5180,18 +5181,27 @@ Memory management: Keep track of conversation context within the last ${agentCon
     try {
       const userId = req.user.claims.sub;
       const templateId = parseInt(req.params.id);
-      const { name, type, integrationId, columns } = req.body;
+      const { name, description, tags, type, integrationId, columns } = req.body;
 
       if (isNaN(templateId)) {
         return res.status(400).json({ message: "Invalid template ID" });
       }
 
+      console.log("🔍 BACKEND UPDATE - Received data:", { templateId, name, description, tags, type, integrationId, columnsCount: columns?.length });
+      console.log("🔍 BACKEND UPDATE - Tags specifically:", tags);
+
       // Update the template basic info
-      const updatedTemplate = await storage.updateLineMessageTemplate(templateId, {
+      const updateData = {
         name,
-        type,
+        description,
+        tags: Array.isArray(tags) ? tags : (tags ? [tags] : []),
+        templateType: type,
         integrationId: integrationId || null,
-      }, userId);
+      };
+      
+      console.log("🔍 BACKEND UPDATE - Sending to storage:", updateData);
+      const updatedTemplate = await storage.updateLineMessageTemplate(templateId, updateData, userId);
+      console.log("🔍 BACKEND UPDATE - Updated template result:", updatedTemplate);
 
       // Handle columns update if provided
       if (columns && Array.isArray(columns)) {
