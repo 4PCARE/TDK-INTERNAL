@@ -85,7 +85,7 @@ export default function AgentChatbots() {
     queryKey: ["/api/agent-chatbots"],
     enabled: isAuthenticated,
     retry: false,
-    refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
+    refetchInterval: 60000, // Refresh every 60 seconds for real-time updates
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true, // Refresh when user comes back to this page
     refetchOnMount: true,
@@ -117,7 +117,7 @@ export default function AgentChatbots() {
       queryKey: [`/api/agent-chatbots/${agentId}/documents`],
       enabled: isAuthenticated && !!agentId,
       retry: false,
-      refetchInterval: 3000, // Refresh every 3 seconds for real-time updates
+      refetchInterval: 120000, // Refresh every 120 seconds
       refetchIntervalInBackground: true,
       refetchOnWindowFocus: true,
       refetchOnMount: true,
@@ -362,7 +362,7 @@ export default function AgentChatbots() {
                     <span>Created {new Date(agent.createdAt).toLocaleDateString()}</span>
                   </div>
                   <div className="flex items-center space-x-1">
-                    <MessageSquare className="w-3 h-3" />
+                    <MessageCircle className="w-3 h-3" />
                     <span>0 chats</span>
                   </div>
                 </div>
@@ -416,3 +416,4 @@ export default function AgentChatbots() {
     </DashboardLayout>
   );
 }
+```
