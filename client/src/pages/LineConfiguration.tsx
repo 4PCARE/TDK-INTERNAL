@@ -268,32 +268,47 @@ export default function LineConfiguration() {
 
   // Handle edit template
   const handleEditTemplate = (template: LineTemplate) => {
+    console.log("🔍 DEBUG handleEditTemplate - Template received:", template);
+    
     setSelectedTemplate(template);
     setIsCreating(false);
 
     // Transform template data for form
-    if (!template.template || !template.columns) return;
+    if (!template.template || !template.columns) {
+      console.log("❌ Template or columns missing:", { template: template.template, columns: template.columns });
+      return;
+    }
     
     const formData = {
       name: template.template.name,
       description: template.template.description || "",
       type: template.template.type as "carousel",
       integrationId: template.template.integrationId || undefined,
-      columns: template.columns.map(col => ({
-        title: col.column.title,
-        text: col.column.text,
-        thumbnailImageUrl: col.column.thumbnailImageUrl || "",
-        actions: col.actions.map(action => ({
-          type: action.type as "uri" | "postback" | "message",
-          label: action.label,
-          uri: action.uri || "",
-          data: action.data || "",
-          text: action.text || "",
-        }))
-      }))
+      columns: template.columns.map((col, colIndex) => {
+        console.log(`🔍 Processing column ${colIndex}:`, col);
+        return {
+          title: col.column.title,
+          text: col.column.text,
+          thumbnailImageUrl: col.column.thumbnailImageUrl || "",
+          actions: col.actions.map((action, actionIndex) => {
+            console.log(`🔍 Processing action ${colIndex}-${actionIndex}:`, action);
+            const actionData = {
+              type: action.type as "uri" | "postback" | "message",
+              label: action.label,
+              uri: action.uri || "",
+              data: action.data || "",
+              text: action.text || "",
+            };
+            console.log(`✅ Transformed action ${colIndex}-${actionIndex}:`, actionData);
+            return actionData;
+          })
+        };
+      })
     };
-
+    
+    console.log("📋 Final form data:", formData);
     form.reset(formData);
+    console.log("✅ Form reset completed");
   };
 
   const getActionIcon = (type: string) => {
@@ -788,6 +803,10 @@ function ActionEditor({
   canRemove: boolean;
 }) {
   const actionType = form.watch(`columns.${columnIndex}.actions.${actionIndex}.type`) || "uri";
+  
+  console.log(`🔍 ActionEditor DEBUG - Column ${columnIndex}, Action ${actionIndex}:`);
+  console.log(`   - actionType from watch:`, actionType);
+  console.log(`   - form values:`, form.getValues());
 
   return (
     <div className="border rounded-lg p-3 space-y-3">
@@ -804,7 +823,12 @@ function ActionEditor({
         <FormField
           control={form.control}
           name={`columns.${columnIndex}.actions.${actionIndex}.type`}
-          render={({ field }) => (
+          render={({ field }) => {
+            console.log(`🔍 Select field DEBUG - Column ${columnIndex}, Action ${actionIndex}:`);
+            console.log(`   - field.value:`, field.value);
+            console.log(`   - field object:`, field);
+            
+            return (
             <FormItem>
               <FormLabel>Type</FormLabel>
               <Select value={field.value || "uri"} onValueChange={field.onChange}>
@@ -821,7 +845,8 @@ function ActionEditor({
               </Select>
               <FormMessage />
             </FormItem>
-          )}
+            );
+          }}
         />
 
         <FormField
