@@ -372,7 +372,10 @@ export default function LineConfiguration() {
                               <Badge variant="outline">{template.template.type}</Badge>
                               {template.template.integrationId && (
                                 <Badge variant="secondary">
-                                  {lineOaIntegrations.find((int: any) => int.id === template.template.integrationId)?.name || `Integration ID: ${template.template.integrationId}`}
+                                  {(() => {
+                                    const integration = lineOaIntegrations.find((int: any) => int.id === template.template.integrationId);
+                                    return integration?.name || `Integration ID: ${template.template.integrationId}`;
+                                  })()}
                                 </Badge>
                               )}
                             </div>
