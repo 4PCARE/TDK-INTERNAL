@@ -46,6 +46,7 @@ import {
   Bot,
   Settings,
   MessageSquare,
+  MessageCircle,
   FileText,
   Check,
   X,
