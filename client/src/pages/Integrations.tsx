@@ -653,7 +653,6 @@ export default function Integrations() {
                                           )}
                                         </Button>
                                       </div>
-                                    </DialogContent>
                                   </Dialog>
                                 )}
 
