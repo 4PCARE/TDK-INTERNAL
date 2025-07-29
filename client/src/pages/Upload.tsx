@@ -5,8 +5,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import Sidebar from "@/components/Layout/Sidebar";
-import TopBar from "@/components/TopBar";
+import DashboardLayout from "@/components/Layout/DashboardLayout";
 import FileUpload from "@/components/FileUpload";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +20,6 @@ import {
   AlertCircle,
   Upload as UploadIcon
 } from "lucide-react";
-import DashboardLayout from "@/components/Layout/DashboardLayout";
 
 interface UploadFile {
   file: File;

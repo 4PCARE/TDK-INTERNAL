@@ -3,36 +3,42 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { useEffect } from "react";
-import Sidebar from "@/components/Layout/Sidebar";
-import TopBar from "@/components/TopBar";
-import DocumentCard from "@/components/DocumentCard";
-import ChatModal from "@/components/Chat/ChatModal";
-import UploadZone from "@/components/Upload/UploadZone";
+import DashboardLayout from "@/components/Layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { 
   FileText, 
   Search, 
   Filter, 
-  Grid3X3, 
-  List,
-  SortAsc,
-  SortDesc,
   Calendar,
-  Upload,
+  User,
+  Download,
+  Eye,
+  Trash2,
+  Edit,
+  Share,
   Tag,
-  ChevronDown,
-  Star
+  Plus,
+  Grid,
+  List,
+  Clock,
+  FileType,
+  Users
 } from "lucide-react";
+import DocumentCard from "@/components/DocumentCard";
+import ShareDocumentDialog from "@/components/ShareDocumentDialog";
+import DocumentEndorsementDialog from "@/components/DocumentEndorsementDialog";
+import ContentSummaryModal from "@/components/ContentSummaryModal";
+import DocumentChatModal from "@/components/Chat/DocumentChatModal";
+import UploadZone from "@/components/Upload/UploadZone";
+import { ChevronDown, Star, Grid3X3, List as ListIcon, SortAsc, SortDesc } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
 import VectorizeAllButton from "@/components/VectorizeAllButton";
-import DashboardLayout from "@/components/Layout/DashboardLayout";
 
 export default function Documents() {
   const { toast } = useToast();
@@ -150,13 +156,7 @@ export default function Documents() {
 
   return (
     <DashboardLayout>
-      <div className="flex h-screen overflow-hidden">
-        
-
-        <div className="flex-1 flex flex-col overflow-hidden">
-          
-
-          <main className="flex-1 overflow-auto p-6 bg-gray-50">
+      <div className="space-y-6">
             {/* Header */}
             <div className="mb-6">
               <h1 className="text-2xl font-semibold text-slate-800 mb-2">My Documents</h1>
@@ -318,7 +318,7 @@ export default function Documents() {
                           size="sm"
                           onClick={() => setViewMode("list")}
                         >
-                          <List className="w-4 h-4" />
+                          <ListIcon className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
@@ -401,13 +401,6 @@ export default function Documents() {
                 )}
               </CardContent>
             </Card>
-          </main>
-        </div>
-
-        <ChatModal 
-          isOpen={isChatModalOpen} 
-          onClose={() => setIsChatModalOpen(false)} 
-        />
       </div>
     </DashboardLayout>
   );
