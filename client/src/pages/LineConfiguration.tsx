@@ -97,10 +97,14 @@ export default function LineConfiguration() {
   const [selectedTemplate, setSelectedTemplate] = useState<LineTemplate | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  // Get integrationId from URL params
+  // Get integrationId from URL params with better validation
   const urlParams = new URLSearchParams(window.location.search);
-  const integrationId = urlParams.get('integrationId') ? parseInt(urlParams.get('integrationId')!) : null;
+  const integrationIdParam = urlParams.get('integrationId');
+  const integrationId = integrationIdParam && !isNaN(parseInt(integrationIdParam)) ? parseInt(integrationIdParam) : null;
 
+  console.log("🔍 LineConfiguration Debug - URL params:", window.location.search);
+  console.log("🔍 Integration ID param:", integrationIdParam);
+  console.log("🔍 Parsed integrationId:", integrationId);
   console.log("LineConfiguration render - integrationId:", integrationId, "isCreating:", isCreating, "selectedTemplate:", selectedTemplate);
 
   useEffect(() => {
@@ -298,6 +302,10 @@ export default function LineConfiguration() {
   };
 
   const lineOaIntegrations = Array.isArray(integrations) ? integrations.filter((int: any) => int.type === "lineoa") : [];
+  
+  console.log("🔍 Debug - All integrations:", integrations);
+  console.log("🔍 Debug - Line OA integrations:", lineOaIntegrations);
+  console.log("🔍 Debug - Looking for integration with ID:", integrationId);
 
   return (
     <DashboardLayout>
@@ -370,15 +378,24 @@ export default function LineConfiguration() {
                             <div className="flex items-center space-x-2">
                               <h3 className="font-medium">{template.template.name}</h3>
                               <Badge variant="outline">{template.template.type}</Badge>
-                              {template.template.integrationId && Array.isArray(lineOaIntegrations) && lineOaIntegrations.length > 0 && (
+                              {template.template.integrationId && (
                                 <Badge variant="secondary">
                                   {(() => {
                                     try {
+                                      console.log("🔍 Template integration ID:", template.template.integrationId);
+                                      console.log("🔍 Available integrations for matching:", lineOaIntegrations.map(int => ({ id: int?.id, name: int?.name })));
+                                      
+                                      if (!Array.isArray(lineOaIntegrations) || lineOaIntegrations.length === 0) {
+                                        return `Integration ID: ${template.template.integrationId} (No integrations loaded)`;
+                                      }
+                                      
                                       const integration = lineOaIntegrations.find((int: any) => int && int.id === template.template.integrationId);
-                                      return integration && integration.name ? integration.name : `Integration ID: ${template.template.integrationId}`;
+                                      console.log("🔍 Found integration:", integration);
+                                      
+                                      return integration && integration.name ? integration.name : `Integration ID: ${template.template.integrationId} (Not found)`;
                                     } catch (error) {
-                                      console.error('Error finding integration:', error);
-                                      return `Integration ID: ${template.template.integrationId}`;
+                                      console.error('❌ Error finding integration:', error);
+                                      return `Integration ID: ${template.template.integrationId} (Error)`;
                                     }
                                   })()}
                                 </Badge>
@@ -474,6 +491,36 @@ export default function LineConfiguration() {
                           {...field} 
                         />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Integration Selection */}
+                <FormField
+                  control={form.control}
+                  name="integrationId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Line OA Integration (Optional)</FormLabel>
+                      <Select 
+                        value={field.value?.toString() || ""} 
+                        onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a Line OA integration" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {lineOaIntegrations.map((integration: any) => (
+                            <SelectItem key={integration.id} value={integration.id.toString()}>
+                              {integration.name} (ID: {integration.id})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
