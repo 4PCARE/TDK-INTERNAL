@@ -214,10 +214,14 @@ export default function LineConfiguration() {
 
   const updateTemplateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: TemplateFormData }) => {
+      console.log("🔍 updateTemplateMutation - Starting update with:", { id, data });
       const response = await apiRequest("PUT", `/api/line-templates/${id}`, data);
-      return response.json();
+      const result = await response.json();
+      console.log("🔍 updateTemplateMutation - Response:", result);
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      console.log("🔍 updateTemplateMutation - Success:", result);
       queryClient.invalidateQueries({ queryKey: ["/api/line-templates"] });
       toast({
         title: "Success",
@@ -227,6 +231,7 @@ export default function LineConfiguration() {
       form.reset();
     },
     onError: (error: any) => {
+      console.log("🔍 updateTemplateMutation - Error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to update template",
@@ -620,7 +625,9 @@ export default function LineConfiguration() {
             </DialogHeader>
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+              <form onSubmit={form.handleSubmit(handleSubmit, (errors) => {
+                console.log("🔍 Form validation errors:", errors);
+              })} className="space-y-6">
                 {/* Template Name */}
                 <FormField
                   control={form.control}
