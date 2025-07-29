@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useFieldArray } from "react-hook-form";
@@ -95,6 +95,16 @@ export default function LineConfiguration() {
   const queryClient = useQueryClient();
   const [selectedTemplate, setSelectedTemplate] = useState<LineTemplate | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+
+  console.log("LineConfiguration render - isCreating:", isCreating, "selectedTemplate:", selectedTemplate);
+
+  useEffect(() => {
+    console.log("useEffect - isCreating changed to:", isCreating);
+  }, [isCreating]);
+
+  useEffect(() => {
+    console.log("useEffect - selectedTemplate changed to:", selectedTemplate);
+  }, [selectedTemplate]);
 
   // Fetch Line OA integrations
   const { data: integrations } = useQuery({
