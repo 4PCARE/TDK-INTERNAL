@@ -431,7 +431,7 @@ export default function AuditMonitoring() {
                       </tr>
                     </thead>
                     <tbody>
-                      {auditLogs.map((log: any) => (
+                      {auditLogs.map((log: any, index) => (
                         <>
                           <tr key={log.id} className="border-b hover:bg-slate-50">
                             <td className="p-2">
