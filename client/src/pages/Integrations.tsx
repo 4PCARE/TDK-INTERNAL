@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { 
   Plus, 
   Settings, 
@@ -128,6 +128,7 @@ export default function Integrations() {
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   
 
@@ -843,6 +844,14 @@ export default function Integrations() {
                               <Badge variant={integration.isVerified ? "default" : "secondary"}>
                                 {integration.isVerified ? "Verified" : "Unverified"}
                               </Badge>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => setLocation('/line-configuration')}
+                                title="Line Templates & Configuration"
+                              >
+                                <MessageSquare className="w-4 h-4" />
+                              </Button>
                               <Button variant="outline" size="sm">
                                 <Settings className="w-4 h-4" />
                               </Button>

@@ -32,6 +32,7 @@ import CreateAgentChatbot from "@/pages/CreateAgentChatbot";
 import AgentChatbots from "@/pages/AgentChatbots";
 import RoleManagement from "@/pages/RoleManagement";
 import AgentConsole from "@/pages/AgentConsole";
+import LineConfiguration from "@/pages/LineConfiguration";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -61,6 +62,7 @@ function Router() {
           <Route path="/ai-assistant" component={AIAssistant} />
           <Route path="/meeting-notes" component={MeetingNotes} />
           <Route path="/integrations" component={Integrations} />
+          <Route path="/line-configuration" component={LineConfiguration} />
           <Route path="/admin" component={Admin} />
           <Route path="/user-management" component={UserManagement} />
           <Route path="/settings" component={Settings} />

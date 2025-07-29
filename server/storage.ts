@@ -17,6 +17,9 @@ import {
   agentChatbotDocuments,
   socialIntegrations,
   chatHistory,
+  lineMessageTemplates,
+  lineCarouselColumns,
+  lineTemplateActions,
   type User,
   type UpsertUser,
   type Category,
@@ -48,6 +51,12 @@ import {
   type InsertSocialIntegration,
   type ChatHistory,
   type InsertChatHistory,
+  type LineMessageTemplate,
+  type InsertLineMessageTemplate,
+  type LineCarouselColumn,
+  type InsertLineCarouselColumn,
+  type LineTemplateAction,
+  type InsertLineTemplateAction,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, like, count, sql, ilike, getTableColumns, gte, lte, inArray } from "drizzle-orm";
@@ -173,6 +182,34 @@ export interface IStorage {
   createChatHistory(history: InsertChatHistory): Promise<ChatHistory>;
   getChatHistory(userId: string, channelType: string, channelId: string, agentId: number, limit?: number): Promise<ChatHistory[]>;
   clearChatHistory(userId: string, channelType: string, channelId: string, agentId: number): Promise<void>;
+
+  // Line Message Template operations
+  getLineMessageTemplates(userId: string, integrationId?: number): Promise<LineMessageTemplate[]>;
+  getLineMessageTemplate(id: number, userId: string): Promise<LineMessageTemplate | undefined>;
+  createLineMessageTemplate(template: InsertLineMessageTemplate): Promise<LineMessageTemplate>;
+  updateLineMessageTemplate(id: number, template: Partial<InsertLineMessageTemplate>, userId: string): Promise<LineMessageTemplate>;
+  deleteLineMessageTemplate(id: number, userId: string): Promise<void>;
+  
+  // Line Carousel Column operations
+  getLineCarouselColumns(templateId: number): Promise<LineCarouselColumn[]>;
+  createLineCarouselColumn(column: InsertLineCarouselColumn): Promise<LineCarouselColumn>;
+  updateLineCarouselColumn(id: number, column: Partial<InsertLineCarouselColumn>): Promise<LineCarouselColumn>;
+  deleteLineCarouselColumn(id: number): Promise<void>;
+  
+  // Line Template Action operations
+  getLineTemplateActions(columnId: number): Promise<LineTemplateAction[]>;
+  createLineTemplateAction(action: InsertLineTemplateAction): Promise<LineTemplateAction>;
+  updateLineTemplateAction(id: number, action: Partial<InsertLineTemplateAction>): Promise<LineTemplateAction>;
+  deleteLineTemplateAction(id: number): Promise<void>;
+  
+  // Complete Line template with all related data
+  getCompleteLineTemplate(id: number, userId: string): Promise<{
+    template: LineMessageTemplate;
+    columns: Array<{
+      column: LineCarouselColumn;
+      actions: LineTemplateAction[];
+    }>;
+  } | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1867,6 +1904,161 @@ export class DatabaseStorage implements IStorage {
         eq(chatHistory.channelId, channelId),
         eq(chatHistory.agentId, agentId)
       ));
+  }
+
+  // Line Message Template operations
+  async getLineMessageTemplates(userId: string, integrationId?: number): Promise<LineMessageTemplate[]> {
+    let whereCondition = eq(lineMessageTemplates.userId, userId);
+    if (integrationId) {
+      whereCondition = and(
+        eq(lineMessageTemplates.userId, userId),
+        eq(lineMessageTemplates.integrationId, integrationId)
+      );
+    }
+
+    return await db
+      .select()
+      .from(lineMessageTemplates)
+      .where(whereCondition)
+      .orderBy(desc(lineMessageTemplates.createdAt));
+  }
+
+  async getLineMessageTemplate(id: number, userId: string): Promise<LineMessageTemplate | undefined> {
+    const [template] = await db
+      .select()
+      .from(lineMessageTemplates)
+      .where(and(
+        eq(lineMessageTemplates.id, id),
+        eq(lineMessageTemplates.userId, userId)
+      ));
+    return template;
+  }
+
+  async createLineMessageTemplate(template: InsertLineMessageTemplate): Promise<LineMessageTemplate> {
+    const [newTemplate] = await db
+      .insert(lineMessageTemplates)
+      .values(template)
+      .returning();
+    return newTemplate;
+  }
+
+  async updateLineMessageTemplate(id: number, template: Partial<InsertLineMessageTemplate>, userId: string): Promise<LineMessageTemplate> {
+    const [updated] = await db
+      .update(lineMessageTemplates)
+      .set({ ...template, updatedAt: new Date() })
+      .where(and(
+        eq(lineMessageTemplates.id, id),
+        eq(lineMessageTemplates.userId, userId)
+      ))
+      .returning();
+    return updated;
+  }
+
+  async deleteLineMessageTemplate(id: number, userId: string): Promise<void> {
+    await db
+      .delete(lineMessageTemplates)
+      .where(and(
+        eq(lineMessageTemplates.id, id),
+        eq(lineMessageTemplates.userId, userId)
+      ));
+  }
+
+  // Line Carousel Column operations
+  async getLineCarouselColumns(templateId: number): Promise<LineCarouselColumn[]> {
+    return await db
+      .select()
+      .from(lineCarouselColumns)
+      .where(eq(lineCarouselColumns.templateId, templateId))
+      .orderBy(lineCarouselColumns.order);
+  }
+
+  async createLineCarouselColumn(column: InsertLineCarouselColumn): Promise<LineCarouselColumn> {
+    const [newColumn] = await db
+      .insert(lineCarouselColumns)
+      .values(column)
+      .returning();
+    return newColumn;
+  }
+
+  async updateLineCarouselColumn(id: number, column: Partial<InsertLineCarouselColumn>): Promise<LineCarouselColumn> {
+    const [updated] = await db
+      .update(lineCarouselColumns)
+      .set(column)
+      .where(eq(lineCarouselColumns.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteLineCarouselColumn(id: number): Promise<void> {
+    await db
+      .delete(lineCarouselColumns)
+      .where(eq(lineCarouselColumns.id, id));
+  }
+
+  // Line Template Action operations
+  async getLineTemplateActions(columnId: number): Promise<LineTemplateAction[]> {
+    return await db
+      .select()
+      .from(lineTemplateActions)
+      .where(eq(lineTemplateActions.columnId, columnId))
+      .orderBy(lineTemplateActions.order);
+  }
+
+  async createLineTemplateAction(action: InsertLineTemplateAction): Promise<LineTemplateAction> {
+    const [newAction] = await db
+      .insert(lineTemplateActions)
+      .values(action)
+      .returning();
+    return newAction;
+  }
+
+  async updateLineTemplateAction(id: number, action: Partial<InsertLineTemplateAction>): Promise<LineTemplateAction> {
+    const [updated] = await db
+      .update(lineTemplateActions)
+      .set(action)
+      .where(eq(lineTemplateActions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteLineTemplateAction(id: number): Promise<void> {
+    await db
+      .delete(lineTemplateActions)
+      .where(eq(lineTemplateActions.id, id));
+  }
+
+  // Complete Line template with all related data
+  async getCompleteLineTemplate(id: number, userId: string): Promise<{
+    template: LineMessageTemplate;
+    columns: Array<{
+      column: LineCarouselColumn;
+      actions: LineTemplateAction[];
+    }>;
+  } | undefined> {
+    // Get template
+    const template = await this.getLineMessageTemplate(id, userId);
+    if (!template) {
+      return undefined;
+    }
+
+    // Get columns
+    const columns = await this.getLineCarouselColumns(id);
+
+    // Get actions for each column
+    const columnsWithActions = await Promise.all(
+      columns.map(async (column) => {
+        const actions = await this.getLineTemplateActions(column.id);
+        return {
+          column,
+          actions,
+        };
+      })
+    );
+
+    return {
+      template,
+      columns: columnsWithActions,
+    };
   }
 }
 

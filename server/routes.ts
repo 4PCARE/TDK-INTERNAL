@@ -5041,6 +5041,205 @@ Memory management: Keep track of conversation context within the last ${agentCon
     }
   });
 
+  // Line Message Template Routes
+  
+  // Get all Line message templates for user
+  app.get("/api/line-templates", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const integrationId = req.query.integrationId ? parseInt(req.query.integrationId) : undefined;
+      
+      const templates = await storage.getLineMessageTemplates(userId, integrationId);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching Line message templates:", error);
+      res.status(500).json({ message: "Failed to fetch Line message templates" });
+    }
+  });
+
+  // Get a specific Line message template with complete data
+  app.get("/api/line-templates/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const templateId = parseInt(req.params.id);
+      
+      if (isNaN(templateId)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+
+      const completeTemplate = await storage.getCompleteLineTemplate(templateId, userId);
+      
+      if (!completeTemplate) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+
+      res.json(completeTemplate);
+    } catch (error) {
+      console.error("Error fetching Line message template:", error);
+      res.status(500).json({ message: "Failed to fetch Line message template" });
+    }
+  });
+
+  // Create a new Line message template
+  app.post("/api/line-templates", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { name, type, integrationId, columns } = req.body;
+
+      // Validate required fields
+      if (!name || !type) {
+        return res.status(400).json({ message: "Name and type are required" });
+      }
+
+      // Create the template
+      const template = await storage.createLineMessageTemplate({
+        userId,
+        name,
+        type,
+        integrationId: integrationId || null,
+      });
+
+      // Create columns if provided
+      if (columns && Array.isArray(columns)) {
+        for (let i = 0; i < columns.length; i++) {
+          const column = columns[i];
+          const createdColumn = await storage.createLineCarouselColumn({
+            templateId: template.id,
+            order: i + 1,
+            thumbnailImageUrl: column.thumbnailImageUrl || null,
+            title: column.title || '',
+            text: column.text || '',
+          });
+
+          // Create actions for this column
+          if (column.actions && Array.isArray(column.actions)) {
+            for (let j = 0; j < column.actions.length; j++) {
+              const action = column.actions[j];
+              await storage.createLineTemplateAction({
+                columnId: createdColumn.id,
+                order: j + 1,
+                type: action.type,
+                label: action.label || '',
+                uri: action.uri || null,
+                data: action.data || null,
+                text: action.text || null,
+              });
+            }
+          }
+        }
+      }
+
+      // Return the complete template
+      const completeTemplate = await storage.getCompleteLineTemplate(template.id, userId);
+      res.status(201).json(completeTemplate);
+    } catch (error) {
+      console.error("Error creating Line message template:", error);
+      res.status(500).json({ message: "Failed to create Line message template" });
+    }
+  });
+
+  // Update a Line message template
+  app.put("/api/line-templates/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const templateId = parseInt(req.params.id);
+      const { name, type, integrationId, columns } = req.body;
+
+      if (isNaN(templateId)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+
+      // Update the template basic info
+      const updatedTemplate = await storage.updateLineMessageTemplate(templateId, {
+        name,
+        type,
+        integrationId: integrationId || null,
+      }, userId);
+
+      // Handle columns update if provided
+      if (columns && Array.isArray(columns)) {
+        // Get existing columns
+        const existingColumns = await storage.getLineCarouselColumns(templateId);
+        
+        // Delete existing columns and actions
+        for (const existingColumn of existingColumns) {
+          const existingActions = await storage.getLineTemplateActions(existingColumn.id);
+          for (const action of existingActions) {
+            await storage.deleteLineTemplateAction(action.id);
+          }
+          await storage.deleteLineCarouselColumn(existingColumn.id);
+        }
+
+        // Create new columns
+        for (let i = 0; i < columns.length; i++) {
+          const column = columns[i];
+          const createdColumn = await storage.createLineCarouselColumn({
+            templateId: templateId,
+            order: i + 1,
+            thumbnailImageUrl: column.thumbnailImageUrl || null,
+            title: column.title || '',
+            text: column.text || '',
+          });
+
+          // Create actions for this column
+          if (column.actions && Array.isArray(column.actions)) {
+            for (let j = 0; j < column.actions.length; j++) {
+              const action = column.actions[j];
+              await storage.createLineTemplateAction({
+                columnId: createdColumn.id,
+                order: j + 1,
+                type: action.type,
+                label: action.label || '',
+                uri: action.uri || null,
+                data: action.data || null,
+                text: action.text || null,
+              });
+            }
+          }
+        }
+      }
+
+      // Return the complete updated template
+      const completeTemplate = await storage.getCompleteLineTemplate(templateId, userId);
+      res.json(completeTemplate);
+    } catch (error) {
+      console.error("Error updating Line message template:", error);
+      res.status(500).json({ message: "Failed to update Line message template" });
+    }
+  });
+
+  // Delete a Line message template
+  app.delete("/api/line-templates/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const templateId = parseInt(req.params.id);
+
+      if (isNaN(templateId)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+
+      // Get existing columns to clean up
+      const existingColumns = await storage.getLineCarouselColumns(templateId);
+      
+      // Delete all actions and columns first
+      for (const column of existingColumns) {
+        const actions = await storage.getLineTemplateActions(column.id);
+        for (const action of actions) {
+          await storage.deleteLineTemplateAction(action.id);
+        }
+        await storage.deleteLineCarouselColumn(column.id);
+      }
+
+      // Delete the template
+      await storage.deleteLineMessageTemplate(templateId, userId);
+
+      res.json({ message: "Template deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting Line message template:", error);
+      res.status(500).json({ message: "Failed to delete Line message template" });
+    }
+  });
+
   // Line OA Webhook endpoint (no authentication required)
   app.post("/api/line/webhook", handleLineWebhook);
   

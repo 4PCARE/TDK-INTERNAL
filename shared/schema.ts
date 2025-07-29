@@ -792,3 +792,93 @@ export const insertChatHistorySchema = createInsertSchema(chatHistory).omit({
 // Chat History types
 export type ChatHistory = typeof chatHistory.$inferSelect;
 export type InsertChatHistory = z.infer<typeof insertChatHistorySchema>;
+
+// Line Message Templates - Main template table
+export const lineMessageTemplates = pgTable("line_message_templates", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  integrationId: integer("integration_id").references(() => socialIntegrations.id, { onDelete: "cascade" }),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  templateType: varchar("template_type").notNull().default("carousel"), // 'carousel', 'flex', 'bubble', etc.
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Line Carousel Columns - Store individual columns for carousel templates
+export const lineCarouselColumns = pgTable("line_carousel_columns", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id").notNull().references(() => lineMessageTemplates.id, { onDelete: "cascade" }),
+  order: integer("order").notNull().default(0), // Display order
+  thumbnailImageUrl: varchar("thumbnail_image_url").notNull(),
+  title: varchar("title").notNull(),
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Line Template Actions - Store actions for each column
+export const lineTemplateActions = pgTable("line_template_actions", {
+  id: serial("id").primaryKey(),
+  columnId: integer("column_id").notNull().references(() => lineCarouselColumns.id, { onDelete: "cascade" }),
+  order: integer("order").notNull().default(0), // Action order (max 3 per column)
+  type: varchar("type").notNull(), // 'uri', 'postback', 'message'
+  label: varchar("label").notNull(),
+  uri: text("uri"), // For 'uri' type actions
+  data: text("data"), // For 'postback' type actions  
+  text: text("text"), // For 'message' type actions
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Relations for Line Message Templates
+export const lineMessageTemplatesRelations = relations(lineMessageTemplates, ({ one, many }) => ({
+  user: one(users, {
+    fields: [lineMessageTemplates.userId],
+    references: [users.id],
+  }),
+  integration: one(socialIntegrations, {
+    fields: [lineMessageTemplates.integrationId],
+    references: [socialIntegrations.id],
+  }),
+  columns: many(lineCarouselColumns),
+}));
+
+export const lineCarouselColumnsRelations = relations(lineCarouselColumns, ({ one, many }) => ({
+  template: one(lineMessageTemplates, {
+    fields: [lineCarouselColumns.templateId],
+    references: [lineMessageTemplates.id],
+  }),
+  actions: many(lineTemplateActions),
+}));
+
+export const lineTemplateActionsRelations = relations(lineTemplateActions, ({ one }) => ({
+  column: one(lineCarouselColumns, {
+    fields: [lineTemplateActions.columnId],
+    references: [lineCarouselColumns.id],
+  }),
+}));
+
+// Insert schemas for Line templates
+export const insertLineMessageTemplateSchema = createInsertSchema(lineMessageTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLineCarouselColumnSchema = createInsertSchema(lineCarouselColumns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertLineTemplateActionSchema = createInsertSchema(lineTemplateActions).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Line template types
+export type LineMessageTemplate = typeof lineMessageTemplates.$inferSelect;
+export type InsertLineMessageTemplate = z.infer<typeof insertLineMessageTemplateSchema>;
+export type LineCarouselColumn = typeof lineCarouselColumns.$inferSelect;
+export type InsertLineCarouselColumn = z.infer<typeof insertLineCarouselColumnSchema>;
+export type LineTemplateAction = typeof lineTemplateActions.$inferSelect;
+export type InsertLineTemplateAction = z.infer<typeof insertLineTemplateActionSchema>;

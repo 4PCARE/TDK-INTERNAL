@@ -1,0 +1,82 @@
+เพิ่มหน้า Line Configuration โดยให้เข้าผ่าน icon รูปเฟืองที่อยู่ในการ์ด Line Official Account ซึ่งอยู่ในเมนู Platform Integration 
+
+ในหน้า Line Configuration จะเป็นการสร้าง template master ของ message ต่าง ๆ ที่ต้องการเตรียมไว้ใช้เพื่อตอบลูกค้าที่ทักผ่าน Line มา 
+
+จากไฟล์ line_carousal_template.xlsx คือตารางที่ฉันต้องการสร้างเป็น table template เอาไว้เพื่อใช้รวมร่างกันเพื่อสร้างเป็น carousal message เพื่อส่งออกให้กับ Line OA ผ่าน Line Messaging API โดยการ Join กันของแต่ ละ Sheet ฉันต้องการให้สร้างเป็น Scripts เพื่อเตรียมไว้สำหรับส่งข้อความ โดยตัวอย่าง Structure ที่จะต้องรวมร่างกันเป็นดังนี้
+
+carousel_columns = [
+        CarouselColumn(
+            thumbnail_image_url='https://i.imgur.com/QZDRxhN.jpeg', 
+            title='สินค้าแนะนำ 1',
+            text='คำอธิบายสั้นๆ ของสินค้าชิ้นที่ 1 ที่น่าสนใจ',
+            actions=[
+                URIAction(
+                    label='ดูรายละเอียด',
+                    uri='https://www.example.com/product1_detail' 
+                ),
+                PostbackAction(
+                    label='สั่งซื้อเลย',
+                    data='action=buy&item=item1' 
+                ),
+                MessageAction( 
+                    label='สอบถาม',
+                    text='สอบถามเกี่ยวกับสินค้า 1'
+                )
+            ]
+        ),
+        CarouselColumn(
+            thumbnail_image_url='https://i.imgur.com/RkshTLC.jpeg', 
+            title='โปรโมชั่นพิเศษ',
+            text='ส่วนลด 20% สำหรับสินค้าบางรายการ ห้ามพลาด!',
+            actions=[
+                URIAction(
+                    label='ดูโปรโมชั่น',
+                    uri='https://www.example.com/promotion'
+                ),
+                PostbackAction(
+                    label='รับสิทธิ์',
+                    data='action=get_promo&item=special_promo'
+                ),
+                MessageAction(
+                    label='แชร์โปรโมชั่น',
+                    text='แชร์โปรโมชั่นนี้'
+                )
+            ]
+        ),
+        CarouselColumn(
+            thumbnail_image_url='https://i.imgur.com/pS4y0UW.png', 
+            title='สินค้าใหม่ล่าสุด',
+            text='พบกับคอลเลกชันใหม่ที่เพิ่งเข้ามาถึง!',
+            actions=[
+                URIAction(
+                    label='ดูสินค้าใหม่',
+                    uri='https://www.example.com/new_arrivals'
+                ),
+                MessageAction(
+                    label='ติดต่อเรา',
+                    text='ต้องการข้อมูลเพิ่มเติม'
+                ),
+                # เพิ่มปุ่มที่ 3 เพื่อให้จำนวนปุ่มเท่ากันกับคอลัมน์อื่น ๆ
+                URIAction(
+                    label='เยี่ยมชมเว็บไซต์', # เปลี่ยน label ตามความเหมาะสม
+                    uri='https://www.example.com' # เปลี่ยน uri ตามความเหมาะสม
+                )
+            ]
+        )
+    ]
+
+ดังนั้นสรุปได้ว่า เมื่อเข้ามาที่เมนู Platform Integration ในการ์ดของ Line OA ให้เติมปุ่มที่มี icon setting (รูปเฟือง) 
+
+เมื่อกดไปแล้วมีให้เลือกว่าจะสร้าง Message Template แบบใดบ้าง โดยเบื้องต้นขอให้เลือกเป็น Carousal กับ Image ได้
+
+เมื่อเลือก Carousal แล้วจะเข้าสู่หน้าการสร้าง Carousal Template โดยให้ User สามารถสร้าง Template ได้ด้วยตนเองผ่าน UI 
+ซึ่งมีสิ่งที่กำหนดได้ดังนี้
+
+thumbnail_image_url
+title
+text
+actions_values
+action_type
+action_label
+description
+
