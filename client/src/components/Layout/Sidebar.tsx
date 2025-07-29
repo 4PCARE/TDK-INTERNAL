@@ -208,7 +208,7 @@ export default function Sidebar({
           // Mobile always full width when open
           isMobile && "w-64",
         )}
-      ></aside>
+      >
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="p-4 border-b border-navy-700/50">
