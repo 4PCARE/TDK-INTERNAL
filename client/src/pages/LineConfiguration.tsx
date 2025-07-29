@@ -598,8 +598,8 @@ export default function LineConfiguration() {
                     <FormItem>
                       <FormLabel>Line OA Integration (Optional)</FormLabel>
                       <Select 
-                        value={field.value?.toString() || ""} 
-                        onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)}
+                        value={field.value?.toString() || "none"} 
+                        onValueChange={(value) => field.onChange(value !== "none" ? parseInt(value) : undefined)}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -607,7 +607,7 @@ export default function LineConfiguration() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
                           {lineOaIntegrations.map((integration: any) => (
                             <SelectItem key={integration.id} value={integration.id.toString()}>
                               {integration.name} (ID: {integration.id})
