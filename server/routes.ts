@@ -5,6 +5,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import OpenAI from "openai";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
+import { setupMicrosoftAuth, isMicrosoftAuthenticated } from "./microsoftAuth";
 import { registerHrApiRoutes } from "./hrApi";
 import { handleLineWebhook, sendLineImageMessage } from "./lineOaWebhook";
 import { pool, db } from "./db";
@@ -205,6 +206,7 @@ const upload = multer({
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+  await setupMicrosoftAuth(app);
 
   // Serve uploaded files and Line images
   const uploadsPath = path.join(process.cwd(), 'uploads');
@@ -420,6 +422,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error serving widget embed script:", error);
       res.status(500).send("// Error loading widget script");
     }
+  });
+
+  // Get authentication methods available
+  app.get("/api/auth/methods", async (req, res) => {
+    res.json({
+      methods: [
+        {
+          name: "replit",
+          displayName: "Login with Replit",
+          endpoint: "/api/login"
+        },
+        {
+          name: "microsoft",
+          displayName: "Login with Microsoft",
+          endpoint: "/api/auth/microsoft"
+        }
+      ]
+    });
   });
 
   // Auth routes
