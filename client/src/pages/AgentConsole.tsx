@@ -264,9 +264,9 @@ export default function AgentConsole() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0">
+        <div className="grid grid-cols-1 lg:grid-cols-6 gap-6 flex-1 min-h-0">
           {/* Users List */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="lg:col-span-2 space-y-4">
             {/* Filters */}
             <Card>
               <CardHeader>
@@ -505,6 +505,118 @@ export default function AgentConsole() {
                   </h3>
                   <p className="text-gray-500">
                     Choose a user from the list to view their conversation
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Right Sidebar - Customer Profile */}
+          <div className="lg:col-span-1 space-y-4">
+            {selectedUser ? (
+              <>
+                {/* Customer Profile */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center space-x-2">
+                      <User className="w-5 h-5" />
+                      <span>Customer Profile</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Contact Information</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center space-x-2">
+                          <User className="w-4 h-4 text-gray-400" />
+                          <span>{selectedUser.userProfile.name}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-gray-500">ID:</span>
+                          <span className="font-mono text-xs">{selectedUser.userId.slice(-8)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {summary && (
+                      <div>
+                        <h4 className="font-medium text-gray-900 mb-2">Conversation Summary</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Total Messages:</span>
+                            <span className="font-medium">{summary.totalMessages}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">First Contact:</span>
+                            <span className="font-medium">{formatDate(summary.firstContactAt)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Last Active:</span>
+                            <span className="font-medium">{formatDate(summary.lastActiveAt)}</span>
+                          </div>
+                          {summary.csatScore && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-500">CSAT Score:</span>
+                              <Badge 
+                                variant={summary.csatScore >= 80 ? "default" : summary.csatScore >= 60 ? "secondary" : "destructive"}
+                                className={
+                                  summary.csatScore >= 80 
+                                    ? "bg-green-100 text-green-800" 
+                                    : summary.csatScore >= 60 
+                                    ? "bg-yellow-100 text-yellow-800" 
+                                    : "bg-red-100 text-red-800"
+                                }
+                              >
+                                {summary.csatScore}/100 {summary.csatScore >= 80 ? "Excellent" : summary.csatScore >= 60 ? "Good" : "Needs Improvement"}
+                              </Badge>
+                            </div>
+                          )}
+                          {summary.sentiment && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Sentiment:</span>
+                              <Badge variant="outline" className="capitalize">
+                                {summary.sentiment}
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {summary?.mainTopics && summary.mainTopics.length > 0 && (
+                      <div>
+                        <h4 className="font-medium text-gray-900 mb-2">Main Topics</h4>
+                        <div className="flex flex-wrap gap-1">
+                          {summary.mainTopics.map((topic, index) => (
+                            <Badge key={index} variant="secondary" className="text-xs">
+                              {topic}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Agent Details</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center space-x-2">
+                          <Bot className="w-4 h-4 text-gray-400" />
+                          <span>{selectedUser.agentName}</span>
+                        </div>
+                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
+                          {selectedUser.channelType.toUpperCase()}
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <User className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">
+                    Select a user to view profile
                   </p>
                 </CardContent>
               </Card>
