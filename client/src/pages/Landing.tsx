@@ -16,8 +16,12 @@ import {
 } from "lucide-react";
 
 export default function Landing() {
-  const handleLogin = () => {
+  const handleReplitLogin = () => {
     window.location.href = "/api/login";
+  };
+
+  const handleMicrosoftLogin = () => {
+    window.location.href = "/api/auth/microsoft";
   };
 
   return (
@@ -32,12 +36,21 @@ export default function Landing() {
               </div>
               <h1 className="text-2xl font-bold text-gray-900">ถามได้คับ</h1>
             </div>
-            <Button
-              onClick={handleLogin}
-              className="bg-blue-500 hover:bg-blue-600"
-            >
-              Sign In
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                onClick={handleReplitLogin}
+                className="bg-blue-500 hover:bg-blue-600"
+              >
+                Sign In with Replit
+              </Button>
+              <Button
+                onClick={handleMicrosoftLogin}
+                variant="outline"
+                className="border-blue-500 text-blue-500 hover:bg-blue-50"
+              >
+                Sign In with Microsoft
+              </Button>
+            </div>
           </div>
         </div>
       </header>
