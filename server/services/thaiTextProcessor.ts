@@ -24,7 +24,7 @@ def segment_thai_text(text):
     """
     try:
         # Tokenize into sentences first
-        sentences = sent_tokenize(text, engine='crfcut')
+        sentences = sent_tokenize(text, engine='newmm')
         
         segmented_sentences = []
         for sentence in sentences:
@@ -45,7 +45,7 @@ def segment_thai_text(text):
                 segmented_sentences.append(segmented_sentence)
         
         # Join sentences back together with newlines preserved
-        result = '\\n'.join(segmented_sentences)
+        result = '\n'.join(segmented_sentences)
         return result
         
     except Exception as e:
@@ -59,6 +59,9 @@ if __name__ == "__main__":
         
         # Process the text
         segmented_text = segment_thai_text(input_text)
+        
+        # Debug logging
+        print(f"DEBUG SEGMENTED SAMPLE: {segmented_text[:300]}", file=sys.stderr)
         
         # Output as JSON
         result = {
@@ -176,9 +179,9 @@ if __name__ == "__main__":
       // First, segment Thai text
       let processedText = await this.segmentThaiText(text);
 
-      // Clean up whitespace while preserving word boundaries
+      // Clean up whitespace while preserving word boundaries from Thai segmentation
       processedText = processedText
-        .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+        .replace(/[ \t]+/g, ' ') // Replace multiple spaces/tabs with single space (preserve word boundaries)
         .replace(/\n\s*\n/g, '\n') // Replace multiple newlines with single newline
         .replace(/^\s+|\s+$/g, '') // Trim leading and trailing whitespace
         .trim();
