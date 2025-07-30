@@ -151,7 +151,10 @@ function calculateThaiSimilarity(str1: string, str2: string): number {
 
 // BM25 scoring implementation
 // Calculate BM25 scores for all chunks at once
-function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { score: number; matchedTerms: string[] }> {
+async function calculateBM25(
+  searchTerms: string[],
+  chunks: any[]
+): Promise<Map<string, { score: number; matchedTerms: string[] }>> {
   const chunkScores = new Map<string, { score: number; matchedTerms: string[] }>();
 
   // BM25 parameters
@@ -186,7 +189,7 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
   const chunkLengths = new Map<string, number>();
   for (const chunk of chunks) {
     const content = chunk.content || '';
-    const tokens = tokenizeWithThaiNormalization(content);
+    const tokens = await tokenizeWithThaiNormalization(content);
     const chunkIndex = chunk.chunkIndex ?? 0;
     const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
 
@@ -226,7 +229,7 @@ function calculateBM25(searchTerms: string[], chunks: any[]): Map<string, { scor
     const chunkIndex = chunk.chunkIndex ?? 0;
     const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
     const content = chunk.content || '';
-    const tokens = tokenizeWithThaiNormalization(content);
+    const tokens = await tokenizeWithThaiNormalization(content);
     const docLength = chunkLengths.get(chunkId) || 1;
 
     const tokenCounts = new Map<string, number>();
@@ -434,7 +437,7 @@ export async function searchSmartHybridDebug(
   }
 
   // Calculate BM25 scores for all chunks at once
-  const bm25Results = calculateBM25(searchTerms, chunks);
+  const bm25Results = await calculateBM25(searchTerms, chunks);
   const keywordMatches: Record<string, number> = {};
   let totalMatches = 0;
 
@@ -703,7 +706,7 @@ export async function searchSmartHybridV1(
       }));
 
       // Use BM25 instead of fuzzy matching
-      const bm25Results = calculateBM25(searchTerms, chunkObjects);
+      const bm25Results = await calculateBM25(searchTerms, chunkObjects);
 
       chunks.forEach((chunk, i) => {
         const chunkId = `${doc.id}-${i}`;
@@ -926,4 +929,63 @@ export async function searchSmartHybridV1(
     console.error("❌ SmartHybrid Search Failed:", error);
     throw new Error("SmartHybrid Search Error");
   }
+}
+
+async function performKeywordSearch(
+  query: string,
+  chunks: Array<{ content: string; chunkIndex: number; documentId: number; documentName: string }>
+): Promise<Array<{ chunk: any; score: number; reason: string }>> {
+  const searchTerms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  console.log(`🔍 performKeywordSearch: Starting with terms: [${searchTerms.join(', ')}]`);
+
+  // Calculate BM25 scores
+  const bm25Results = await calculateBM25(searchTerms, chunks);
+
+  const results: Array<{ chunk: any; score: number; reason: string }> = [];
+
+  for (const bm25Result of bm25Results) {
+    if (bm25Result.score > 0) {
+      results.push({ chunk: bm25Result.chunk, score: bm25Result.score, reason: "BM25 match" });
+    }
+  }
+
+  console.log(`🔍 performKeywordSearch: Found ${results.length} chunks with keyword matches out of ${chunks.length} total chunks`)
+  return results;
+}
+
+async function calculateBM25Score(
+  searchTerms: string[],
+  documentText: string,
+  documents: Array<{ content: string }>,
+  k1: number = 1.2,
+  b: number = 0.75
+): Promise<number> {
+  // Calculate document frequency for each term
+  const termFrequency = new Map<string, number>();
+  for (const term of searchTerms) {
+    termFrequency.set(term, 0);
+  }
+
+  // Tokenize the document
+  const docTokens = await tokenizeWithThaiNormalization(documentText);
+
+  // Count term frequency in the document
+  for (const token of docTokens) {
+    if (termFrequency.has(token)) {
+      termFrequency.set(token, termFrequency.get(token)! + 1);
+    }
+  }
+
+  // Calculate average document length
+  const avgDocLength = documents.reduce((sum, doc) => sum + doc.content.length, 0) / documents.length;
+
+  // Calculate BM25 score
+  let score = 0;
+  for (const term of searchTerms) {
+    const tf = termFrequency.get(term) || 0;
+    const idf = Math.log((documents.length - documents.filter(doc => doc.content.includes(term)).length + 0.5) / (documents.filter(doc => doc.content.includes(term)).length + 0.5) + 1);
+    score += idf * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (documentText.length / avgDocLength)));
+  }
+
+  return score;
 }
