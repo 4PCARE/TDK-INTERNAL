@@ -45,12 +45,39 @@ export interface SearchOptions {
 function splitIntoChunks(text: string, maxChunkSize = 3000, overlap = 300): string[] {
   const chunks: string[] = [];
   let start = 0;
+  
   while (start < text.length) {
     let end = Math.min(start + maxChunkSize, text.length);
-    chunks.push(text.slice(start, end));
+    
+    // Ensure we don't break words at chunk boundaries (except for the last chunk)
+    if (end < text.length) {
+      // Find the last complete word within the chunk size
+      while (end > start && text[end] !== ' ' && text[end] !== '\n' && text[end] !== '\t') {
+        end--;
+      }
+      
+      // If we couldn't find a word boundary, use the original end
+      if (end === start) {
+        end = Math.min(start + maxChunkSize, text.length);
+      }
+    }
+    
+    chunks.push(text.slice(start, end).trim());
     start = end - overlap;
+    
+    // Adjust start to next word boundary if we're overlapping
+    if (start > 0 && start < text.length) {
+      while (start < text.length && text[start] !== ' ' && text[start] !== '\n' && text[start] !== '\t') {
+        start++;
+      }
+      // Skip the space
+      if (start < text.length && (text[start] === ' ' || text[start] === '\n' || text[start] === '\t')) {
+        start++;
+      }
+    }
   }
-  return chunks;
+  
+  return chunks.filter(chunk => chunk.length > 0);
 }
 
 // Fuzzy matching helper functions

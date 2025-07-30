@@ -93,7 +93,7 @@ export class DocumentProcessor {
           documentName: document.name,
           mimeType: document.mimeType,
           tags: tags || [],
-        });
+        }, document.mimeType); // Pass mimeType for chunking logic
         const vectorTime = (Date.now() - vectorStart) / 1000;
         console.log(
           `🔍 Vector indexing completed in ${vectorTime.toFixed(2)}s`,

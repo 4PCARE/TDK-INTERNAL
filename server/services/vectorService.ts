@@ -48,7 +48,17 @@ export class VectorService {
     return chunks.filter(chunk => chunk.length > 50); // Filter out very small chunks
   }
 
-  async addDocument(id: string, content: string, metadata: Record<string, any>): Promise<string> {
+  async addDocument(
+    id: string,
+    content: string,
+    metadata: {
+      userId: string;
+      documentName: string;
+      mimeType: string;
+      tags: string[];
+    },
+    fileType?: string
+  ): Promise<string> {
     try {
       // Remove existing document chunks if they exist from database
       await db.delete(documentVectors).where(eq(documentVectors.documentId, parseInt(id)));
@@ -60,7 +70,7 @@ export class VectorService {
       // Process content with Thai text segmentation for better searchability
       console.log(`Document ${id}: Processing Thai text segmentation...`);
       const processedContent = await thaiTextProcessor.processForSearch(content);
-      
+
       // Split processed content into chunks for better coverage
       const chunks = this.splitTextIntoChunks(processedContent);
       console.log(`Document ${id}: Split into ${chunks.length} chunks for vector processing`);
@@ -174,7 +184,7 @@ export class VectorService {
         .where(whereCondition);
 
       console.log(`VectorService: Retrieved ${dbVectors.length} vectors from database`);
-      
+
       // Additional filtering at database level to ensure we only get proper chunks
       const validChunks = dbVectors.filter(dbVector => {
         const isValidChunk = (
@@ -182,11 +192,11 @@ export class VectorService {
           dbVector.chunkIndex !== undefined &&
           dbVector.content.length <= 4000 // Reasonable chunk size limit
         );
-        
+
         if (!isValidChunk) {
           console.warn(`⚠️ VECTOR SERVICE: Filtering out invalid chunk - Doc ${dbVector.documentId}, chunkIndex: ${dbVector.chunkIndex}, length: ${dbVector.content.length}`);
         }
-        
+
         return isValidChunk;
       });
 
@@ -247,7 +257,7 @@ export class VectorService {
 
       // For chatbot integration, we want top chunks globally, not per document
       console.log(`VectorService: Taking top ${limit} chunks globally from ${allResults.length} total chunks`);
-      
+
       const combinedResults = allResults.slice(0, limit);
 
       // Sort by similarity and apply final limit

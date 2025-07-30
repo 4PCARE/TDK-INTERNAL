@@ -6,7 +6,7 @@ export interface EmbeddingService {
   generateEmbedding(text: string): Promise<number[]>;
   generateEmbeddings(texts: string[]): Promise<number[][]>;
   calculateSimilarity(embedding1: number[], embedding2: number[]): number;
-  chunkText(text: string, maxTokens?: number): string[];
+  chunkText(text: string, maxTokens?: number, fileType?: string): string[];
 }
 
 export class OpenAIEmbeddingService implements EmbeddingService {
@@ -76,11 +76,22 @@ export class OpenAIEmbeddingService implements EmbeddingService {
     return dotProduct / (magnitude1 * magnitude2);
   }
 
-  chunkText(text: string, maxTokens: number = this.maxTokensPerChunk): string[] {
-    // Simple chunking by sentences, approximately 4 characters per token
-    const approxMaxChars = maxTokens * 4;
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  chunkText(text: string, maxTokens: number = this.maxTokensPerChunk, fileType?: string): string[] {
+    const maxChars = maxTokens * 4; // Approximate characters
+    if (text.length <= maxChars) {
+      return [text];
+    }
+
     const chunks: string[] = [];
+    const approxMaxChars = Math.floor(maxChars * 0.9); // Leave some buffer
+
+    // Special handling for Excel files - chunk by rows
+    if (fileType && (fileType.includes('spreadsheet') || fileType.includes('excel') || fileType.includes('csv'))) {
+      return this.chunkExcelContent(text, approxMaxChars);
+    }
+
+    // For other text types, split by sentences but preserve word boundaries
+    const sentences = text.split(/(?<=[.!?])\s+/);
     let currentChunk = "";
 
     for (const sentence of sentences) {
@@ -89,7 +100,9 @@ export class OpenAIEmbeddingService implements EmbeddingService {
 
       // If adding this sentence would exceed the limit, start a new chunk
       if (currentChunk.length + trimmedSentence.length > approxMaxChars && currentChunk.length > 0) {
-        chunks.push(currentChunk.trim());
+        // Ensure we don't break words at chunk boundaries
+        const finalChunk = this.ensureWordBoundary(currentChunk.trim(), approxMaxChars);
+        chunks.push(finalChunk);
         currentChunk = trimmedSentence;
       } else {
         currentChunk += (currentChunk ? ". " : "") + trimmedSentence;
@@ -98,7 +111,8 @@ export class OpenAIEmbeddingService implements EmbeddingService {
 
     // Add the last chunk if it has content
     if (currentChunk.trim()) {
-      chunks.push(currentChunk.trim());
+      const finalChunk = this.ensureWordBoundary(currentChunk.trim(), approxMaxChars);
+      chunks.push(finalChunk);
     }
 
     // If no chunks were created (very short text), return the original text as a single chunk
@@ -107,6 +121,54 @@ export class OpenAIEmbeddingService implements EmbeddingService {
     }
 
     return chunks;
+  }
+
+  private chunkExcelContent(text: string, maxChars: number): string[] {
+    const chunks: string[] = [];
+    let currentChunk = "";
+
+    // Split by lines (rows in Excel)
+    const lines = text.split(/\r?\n/);
+
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) continue;
+
+      // If adding this row would exceed the limit, start a new chunk
+      if (currentChunk.length + trimmedLine.length + 1 > maxChars && currentChunk.length > 0) {
+        chunks.push(currentChunk.trim());
+        currentChunk = trimmedLine;
+      } else {
+        currentChunk += (currentChunk ? "\n" : "") + trimmedLine;
+      }
+    }
+
+    // Add the last chunk if it has content
+    if (currentChunk.trim()) {
+      chunks.push(currentChunk.trim());
+    }
+
+    return chunks.length > 0 ? chunks : [text.trim()];
+  }
+
+  private ensureWordBoundary(text: string, maxChars: number): string {
+    // If text is within limit, return as is
+    if (text.length <= maxChars) {
+      return text;
+    }
+
+    // Find the last complete word within the character limit
+    let cutoff = maxChars;
+    while (cutoff > 0 && text[cutoff] !== ' ' && text[cutoff] !== '\n' && text[cutoff] !== '\t') {
+      cutoff--;
+    }
+
+    // If we couldn't find a word boundary, use the original cutoff
+    if (cutoff === 0) {
+      cutoff = maxChars;
+    }
+
+    return text.substring(0, cutoff).trim();
   }
 
   getModel(): string {
