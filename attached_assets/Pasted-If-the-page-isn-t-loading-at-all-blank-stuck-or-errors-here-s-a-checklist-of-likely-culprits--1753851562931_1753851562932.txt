@@ -1,0 +1,137 @@
+If the page isn’t loading at all (blank, stuck, or errors), here’s a checklist of **likely culprits** based on your full component:
+
+---
+
+### 🧠 1. **Auth Redirect Loop or Silent Block**
+
+* **Issue**: If `isLoading` is `true` or `!isAuthenticated` is `true`, the component returns `null`:
+
+  ```tsx
+  if (isLoading || !isAuthenticated) {
+    return null;
+  }
+  ```
+
+  So if `useAuth()` doesn’t resolve properly or is stuck, **you'll get a blank page**.
+
+* ✅ **Fix**:
+
+  * Add a `console.log({ isLoading, isAuthenticated })` to debug.
+  * Make sure `useAuth()` is properly initialized and resolved.
+
+---
+
+### 🔁 2. **Redirection Loop or Premature `window.location.href`**
+
+* You redirect on unauthenticated users:
+
+  ```tsx
+  if (!isLoading && !isAuthenticated) {
+    ...
+    window.location.href = "/api/login";
+  }
+  ```
+
+  If your auth endpoint or cookie setup is **not working** or **causing redirect loops**, you might never see the page.
+
+* ✅ **Fix**:
+
+  * Temporarily comment out the redirect and inspect what’s going on.
+  * Add logging to confirm if `toast()` or redirect fires repeatedly.
+
+---
+
+### 📡 3. **Fetch Error / Query Failure**
+
+* If the initial `fetch("/api/documents")` or `fetch("/api/documents/search?...")` fails (e.g., 500, 404, or CORS), `useQuery` throws and you don’t catch/render the error.
+
+* ✅ **Fix**:
+
+  * Add an `onError` to your `useQuery`:
+
+    ```ts
+    useQuery({
+      ...
+      onError: (err) => {
+        console.error("Query failed:", err);
+        toast({ title: "Error", description: "Failed to load documents", variant: "destructive" });
+      }
+    });
+    ```
+  * Or wrap in a try-catch inside your `queryFn`.
+
+---
+
+### 🧩 4. **Missing Components**
+
+* You’re importing components like:
+
+  ```ts
+  import { Select, SelectTrigger, SelectValue, SelectItem, SelectContent } from "@/components/ui/select";
+  ```
+
+  But they don’t show in your shared code. If one of these isn’t exported properly or doesn’t exist, it could break the page at runtime silently (especially in production builds).
+
+* ✅ **Fix**:
+
+  * Make sure all your component imports (`Select`, `Upload`, etc.) are implemented and exported.
+  * Check browser console for:
+
+    ```
+    Uncaught TypeError: Cannot read properties of undefined (reading 'Select')
+    ```
+
+---
+
+### 📦 5. **Missing `react-query` Provider**
+
+* You’re using `useQuery` but if your app is missing:
+
+  ```tsx
+  <QueryClientProvider client={queryClient}>
+  ```
+
+  then React Query won’t work and `useQuery` may misbehave.
+
+* ✅ **Fix**:
+
+  * Ensure you're wrapping your `Documents` page in `QueryClientProvider`.
+
+---
+
+### 🔀 6. **URL Params Bug**
+
+* You read the search param:
+
+  ```ts
+  const urlParams = new URLSearchParams(window.location.search);
+  const searchParam = urlParams.get('search');
+  if (searchParam) setSearchQuery(searchParam);
+  ```
+
+  This is synchronous inside `useEffect`, so it's safe—but check if `searchQuery` stays stuck in some invalid state (e.g., `" "`).
+
+---
+
+### ✅ Debug Checklist (Add these)
+
+```tsx
+useEffect(() => {
+  console.log("Auth:", { isLoading, isAuthenticated });
+}, [isLoading, isAuthenticated]);
+
+useEffect(() => {
+  console.log("Search Query:", searchQuery);
+}, [searchQuery]);
+```
+
+And enable browser console (F12 → Console tab) for:
+
+* Redirection loops
+* 404 / 500 errors
+* Missing component exports
+* JS runtime crashes
+
+---
+
+Want me to help you add a **skeleton loader or fallback UI** during `isLoading`, or debug with a `try-catch` boundary?
