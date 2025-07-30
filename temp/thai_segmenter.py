@@ -32,8 +32,7 @@ def segment_thai_text(text):
                 segmented_sentences.append(segmented_sentence)
 
         # Join sentences back together with newlines preserved
-        result = '
-'.join(segmented_sentences)
+        result = '\n'.join(segmented_sentences)
         return result
 
     except Exception as e:
