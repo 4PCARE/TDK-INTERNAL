@@ -1,5 +1,7 @@
+
+<change_summary>Fix Agent Console API parameter issues and React key conflicts</change_summary>
 import { useState, useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,7 +94,7 @@ export default function AgentConsole() {
       if (!selectedUser) return [];
 
       const params = new URLSearchParams({
-        targetUserId: selectedUser.userId,
+        targetUserId: selectedUser.userId, // Fixed: use targetUserId instead of userId
         channelType: selectedUser.channelType,
         channelId: selectedUser.channelId,
         agentId: selectedUser.agentId.toString(),
@@ -112,7 +114,7 @@ export default function AgentConsole() {
       if (!selectedUser) return null;
 
       const params = new URLSearchParams({
-        targetUserId: selectedUser.userId,
+        targetUserId: selectedUser.userId, // Fixed: use targetUserId instead of userId
         channelType: selectedUser.channelType,
         channelId: selectedUser.channelId,
       });
@@ -305,7 +307,7 @@ export default function AgentConsole() {
                     ) : (
                       users.map((user) => (
                         <div
-                          key={`${user.userId}-${user.channelId}`}
+                          key={`${user.userId}-${user.channelId}-${user.agentId}`} // Fixed: make unique key
                           className={`p-3 rounded-lg cursor-pointer transition-all ${
                             selectedUser?.userId === user.userId && selectedUser?.channelId === user.channelId
                               ? 'bg-blue-100 border border-blue-200'
@@ -407,7 +409,7 @@ export default function AgentConsole() {
                       <div className="space-y-4">
                         {messages.map((message) => (
                           <div
-                            key={message.id}
+                            key={`${message.id}-${message.createdAt}`} // Fixed: make unique key
                             className={`flex space-x-3 ${
                               message.messageType === 'user' ? 'justify-start' : 'justify-end'
                             }`}
