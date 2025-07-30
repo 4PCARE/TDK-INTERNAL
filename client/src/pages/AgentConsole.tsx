@@ -407,7 +407,7 @@ export default function AgentConsole() {
 
                 {/* Messages */}
                 <div className="flex-1 flex flex-col min-h-0">
-                  <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
+                  <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 h-0">
                     <div className="space-y-4">
                       {messages.length === 0 ? (
                         <div className="text-center py-8">
