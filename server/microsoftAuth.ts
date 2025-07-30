@@ -43,7 +43,7 @@ export async function setupMicrosoftAuth(app: Express) {
     loggingLevel: 'info'
   }, async function(iss: string, sub: string, profile: any, accessToken: string, refreshToken: string, done: any) {
     try {
-      // Extract user information from Microsoft profile
+      // Extract user information from Microsoft profile with better name handling
       const fullName = typeof profile.name === 'string' ? profile.name : '';
       const nameParts = fullName.split(' ');
 
@@ -56,11 +56,31 @@ export async function setupMicrosoftAuth(app: Express) {
                    profile._json?.preferred_username ||
                    profile._json?.email;
 
+      // Better name extraction with fallbacks
+      let firstName = profile.given_name || profile._json?.given_name || '';
+      let lastName = profile.family_name || profile._json?.family_name || '';
+      
+      // If we don't have first/last name from claims, try to split the full name
+      if (!firstName && !lastName && fullName) {
+        firstName = nameParts[0] || '';
+        lastName = nameParts.slice(1).join(' ') || '';
+      }
+      
+      // If still no name, try display name
+      if (!firstName && !lastName) {
+        const displayName = profile.displayName || profile._json?.displayName || '';
+        if (displayName) {
+          const displayParts = displayName.split(' ');
+          firstName = displayParts[0] || '';
+          lastName = displayParts.slice(1).join(' ') || '';
+        }
+      }
+
       const userInfo = {
         id: profile.oid || profile.sub, // Use oid (object ID) as unique identifier
         email: email,
-        firstName: profile.given_name || nameParts[0] || '',
-        lastName: profile.family_name || nameParts.slice(1).join(' ') || '',
+        firstName: firstName,
+        lastName: lastName,
         profileImageUrl: null // Microsoft Graph API would be needed for profile picture
       };
 

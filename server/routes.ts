@@ -568,10 +568,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const displayName = `${userWithDept.firstName || ''} ${userWithDept.lastName || ''}`.trim() || 
-                       req.user.claims.display_name || 
-                       req.user.claims.name || 
-                       userWithDept.email;
+      // Construct display name from database fields first, then fallback to claims
+      let displayName = `${userWithDept.firstName || ''} ${userWithDept.lastName || ''}`.trim();
+      
+      // If no name in database, try to get from claims and update database
+      if (!displayName) {
+        displayName = req.user.claims.display_name || 
+                     req.user.claims.name || 
+                     userWithDept.email;
+                     
+        // If we have name from claims but not in database, extract and update
+        if (req.user.claims.name && !userWithDept.firstName && !userWithDept.lastName) {
+          const nameParts = req.user.claims.name.split(' ');
+          const firstName = nameParts[0] || '';
+          const lastName = nameParts.slice(1).join(' ') || '';
+          
+          try {
+            // Update the database with extracted name parts
+            await db
+              .update(users)
+              .set({
+                firstName: firstName,
+                lastName: lastName,
+                updatedAt: new Date(),
+              })
+              .where(eq(users.id, userWithDept.id));
+              
+            console.log(`Updated user ${userWithDept.id} with name: ${firstName} ${lastName}`);
+          } catch (error) {
+            console.error("Error updating user name:", error);
+          }
+        }
+      }
 
       res.json({
         id: userWithDept.id,
