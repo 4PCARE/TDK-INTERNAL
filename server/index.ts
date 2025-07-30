@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
 import { registerRoutes } from "./routes";
 import { createReplitAuthRouter } from "./replitAuth";
 import { imageAnalysisRoute } from './lineImageService';
@@ -9,6 +10,18 @@ import { registerHrApiRoutes } from "./hrApi";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+// Session configuration for Microsoft authentication
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-session-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
 
 // CORS configuration for widget endpoints
 app.use((req, res, next) => {

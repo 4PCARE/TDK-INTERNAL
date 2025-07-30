@@ -204,17 +204,28 @@ export async function setupMicrosoftAuth(app: Express) {
 }
 
 export const isMicrosoftAuthenticated: RequestHandler = async (req, res, next) => {
-  const user = req.user as any;
+  console.log("Microsoft auth check - isAuthenticated:", req.isAuthenticated());
+  console.log("Microsoft auth check - user:", req.user ? "exists" : "null");
+  console.log("Microsoft auth check - session:", req.session);
 
-  if (!req.isAuthenticated() || !user.claims?.sub) {
+  if (!req.isAuthenticated() || !req.user) {
+    console.log("Microsoft auth failed - not authenticated or no user");
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const user = req.user as any;
+  if (!user.claims?.sub) {
+    console.log("Microsoft auth failed - no user claims or sub");
     return res.status(401).json({ message: "Unauthorized" });
   }
 
   // Check if token is still valid
   const now = Math.floor(Date.now() / 1000);
   if (user.claims.exp && now > user.claims.exp) {
+    console.log("Microsoft auth failed - token expired");
     return res.status(401).json({ message: "Token expired" });
   }
 
+  console.log("Microsoft auth successful for:", user.claims.email);
   return next();
 };

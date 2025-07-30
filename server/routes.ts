@@ -442,8 +442,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Auth routes
-  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
+  // Auth routes - support both Replit and Microsoft authentication
+  app.get("/api/auth/user", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        // Microsoft auth succeeded
+        return next();
+      }
+      // Try Replit auth as fallback
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { users, departments } = await import("@shared/schema");
