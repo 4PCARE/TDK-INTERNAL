@@ -117,13 +117,13 @@ export default function TopBar({ isSidebarCollapsed = false, onMobileMenuToggle 
                     className="object-cover"
                   />
                   <AvatarFallback className="text-sm">
-                    {(user?.firstName || user?.given_name || user?.first_name || 'U')?.[0]}
-                    {(user?.lastName || user?.family_name || user?.last_name || '')?.[0]}
+                    {(user?.firstName || user?.given_name || user?.first_name || user?.name || 'U')?.[0]}
+                    {(user?.lastName || user?.family_name || user?.last_name || user?.name?.split(' ')[1] || '')?.[0]}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0 text-left hidden sm:block">
                   <p className="text-sm font-medium text-slate-800 truncate">
-                    {user?.name || `${user?.firstName || user?.given_name || user?.first_name || 'User'} ${user?.lastName || user?.family_name || user?.last_name || ''}`.trim()}
+                    {user?.name || user?.firstName || user?.given_name || user?.first_name || 'User'}
                   </p>
                   <div className="flex items-center space-x-2">
                     <p className="text-xs text-slate-500 capitalize">
@@ -143,7 +143,7 @@ export default function TopBar({ isSidebarCollapsed = false, onMobileMenuToggle 
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">
-                    {user?.name || `${user?.firstName || user?.given_name || user?.first_name || 'User'} ${user?.lastName || user?.family_name || user?.last_name || ''}`.trim()}
+                    {user?.name || user?.firstName || user?.given_name || user?.first_name || 'User'}
                   </p>
                   <p className="text-xs leading-none text-muted-foreground">
                     {user?.email}
