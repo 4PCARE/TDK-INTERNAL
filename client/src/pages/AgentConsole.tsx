@@ -345,9 +345,11 @@ export default function AgentConsole() {
                             {user.agentName}
                           </p>
 
-                          <p className="text-xs text-gray-600 truncate mb-1">
-                            {user.lastMessage}
-                          </p>
+                          <div className="text-xs text-gray-600 mb-1 h-8 overflow-hidden">
+                            <p className="leading-4">
+                              {user.lastMessage.length > 80 ? `${user.lastMessage.substring(0, 80)}...` : user.lastMessage}
+                            </p>
+                          </div>
 
                           <p className="text-xs text-gray-400">
                             {formatTime(user.lastMessageAt)}
