@@ -406,8 +406,8 @@ export default function AgentConsole() {
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 flex flex-col">
-                  <ScrollArea ref={scrollAreaRef} className="h-[400px] p-4">
+                <div className="flex-1 flex flex-col min-h-0">
+                  <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
                     <div className="space-y-4">
                       {messages.length === 0 ? (
                         <div className="text-center py-8">
@@ -459,7 +459,7 @@ export default function AgentConsole() {
                   </ScrollArea>
 
                   {/* Message Input or Open Message Button */}
-                  <div className="flex-shrink-0 border-t border-gray-200 p-4">
+                  <div className="flex-shrink-0 border-t border-gray-200 p-3">
                     {showMessageInput ? (
                       <div className="flex space-x-2">
                         <Input
@@ -498,7 +498,7 @@ export default function AgentConsole() {
                     ) : (
                       <Button
                         onClick={() => setShowMessageInput(true)}
-                        className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2"
                       >
                         <MessageSquare className="w-4 h-4 mr-2" />
                         Open Message
