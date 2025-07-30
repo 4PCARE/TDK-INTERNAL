@@ -544,13 +544,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const firstName = req.user.claims.given_name || req.user.claims.first_name || '';
         const lastName = req.user.claims.family_name || req.user.claims.last_name || '';
         const fullName = req.user.claims.name || `${firstName} ${lastName}`.trim();
-        
-        return const displayName = fullName || 
+        const displayName = fullName || 
                          req.user.claims.display_name || 
                          req.user.claims.name || 
                          userEmail;
 
-        res.json({
+        return res.json({
           id: userId,
           email: userEmail,
           name: displayName,
