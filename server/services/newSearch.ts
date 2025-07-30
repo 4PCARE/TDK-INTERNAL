@@ -1,6 +1,11 @@
 import { Document } from "@shared/schema";
 import { vectorService } from './vectorService';
 import { storage } from '../storage';
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 // Configuration: Mass selection percentage for smart selection algorithm
 const MASS_SELECTION_PERCENTAGE = 0.3; // 20% - adjust this value to change selection criteria
@@ -389,6 +394,51 @@ function isThaiTokenSimilar(term1: string, term2: string): boolean {
   return normalizedTerm1 === normalizedTerm2 && normalizedTerm1.length > 0;
 }
 
+async function enrichQueryWithGPT(originalQuery: string, tokenizedQuery: string): Promise<string> {
+  try {
+    const systemPrompt = `You are a lightweight query expansion assistant for Thai text search. Your job is to:
+
+1. Analyze the original and tokenized Thai query
+2. Add relevant synonyms, related terms, and alternative spellings
+3. Keep expansions concise and highly relevant
+4. Preserve English terms as-is
+5. Focus on terms that would improve keyword matching
+
+Rules:
+- Maximum 3-5 additional relevant terms
+- Don't change the core meaning
+- Add common synonyms or alternative spellings
+- For product/brand names, add common variations
+- For locations, add related area names
+- Keep formal/informal variations
+
+Return only the enriched terms (not the original), separated by spaces.`;
+
+    const userPrompt = `Original: "${originalQuery}"
+Tokenized: "${tokenizedQuery}"
+
+Provide 3-5 relevant expansion terms that would help find related content:`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 100
+    });
+
+    const enrichedTerms = response.choices[0]?.message?.content?.trim() || '';
+    console.log(`🔍 GPT ENRICHMENT: Added terms: "${enrichedTerms}"`);
+    
+    return enrichedTerms;
+  } catch (error) {
+    console.error('❌ GPT query enrichment failed:', error);
+    return ''; // Return empty string on failure
+  }
+}
+
 export async function searchSmartHybridDebug(
   query: string,
   userId: string,
@@ -399,7 +449,25 @@ export async function searchSmartHybridDebug(
   const threshold = options.threshold ?? 0.3;
   const massSelectionPercentage = options.massSelectionPercentage || MASS_SELECTION_PERCENTAGE;
 
-  const searchTerms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  // Step 1: Tokenize query using Python (Thai segmentation)
+  console.log(`🔍 QUERY PREPROCESSING: Step 1 - Tokenizing query: "${query}"`);
+  const { thaiTextProcessor } = await import('./thaiTextProcessor');
+  const queryTokenized = await thaiTextProcessor.segmentThaiText(query);
+  console.log(`🔍 QUERY PREPROCESSING: Tokenized query: "${queryTokenized}"`);
+
+  // Step 2: Enrich query using lightweight GPT
+  console.log(`🔍 QUERY PREPROCESSING: Step 2 - Enriching query with GPT`);
+  const queryEnriched = await enrichQueryWithGPT(query, queryTokenized);
+  console.log(`🔍 QUERY PREPROCESSING: Enriched query: "${queryEnriched}"`);
+
+  // Step 3: Concatenate all variants for comprehensive search
+  const combinedQuery = [query, queryTokenized, queryEnriched]
+    .filter(q => q && q.trim().length > 0)
+    .filter((q, index, array) => array.indexOf(q) === index) // Remove duplicates
+    .join(' ');
+  console.log(`🔍 QUERY PREPROCESSING: Combined query: "${combinedQuery}"`);
+
+  const searchTerms = combinedQuery.toLowerCase().split(/\s+/).filter(Boolean);
 
   // 1. Get documents with memory optimization
   const limit = options.specificDocumentIds?.length ? Math.min(options.specificDocumentIds.length, 100) : 100;
@@ -685,7 +753,24 @@ export async function searchSmartHybridV1(
     const keywordWeight = options.keywordWeight ?? 0.5;
     const vectorWeight = options.vectorWeight ?? 0.5;
     const threshold = options.threshold ?? 0.3;
-    const searchTerms = query.toLowerCase().split(/\s+/).filter(Boolean);
+
+    // Apply the same 3-step preprocessing pipeline
+    console.log(`🔍 QUERY PREPROCESSING V1: Step 1 - Tokenizing query: "${query}"`);
+    const { thaiTextProcessor } = await import('./thaiTextProcessor');
+    const queryTokenized = await thaiTextProcessor.segmentThaiText(query);
+    console.log(`🔍 QUERY PREPROCESSING V1: Tokenized query: "${queryTokenized}"`);
+
+    console.log(`🔍 QUERY PREPROCESSING V1: Step 2 - Enriching query with GPT`);
+    const queryEnriched = await enrichQueryWithGPT(query, queryTokenized);
+    console.log(`🔍 QUERY PREPROCESSING V1: Enriched query: "${queryEnriched}"`);
+
+    const combinedQuery = [query, queryTokenized, queryEnriched]
+      .filter(q => q && q.trim().length > 0)
+      .filter((q, index, array) => array.indexOf(q) === index) // Remove duplicates
+      .join(' ');
+    console.log(`🔍 QUERY PREPROCESSING V1: Combined query: "${combinedQuery}"`);
+
+    const searchTerms = combinedQuery.toLowerCase().split(/\s+/).filter(Boolean);
 
     console.log(`🧠 SmartHybrid Search: "${query}" | kW=${keywordWeight} vW=${vectorWeight}`);
 
@@ -935,8 +1020,19 @@ async function performKeywordSearch(
   query: string,
   chunks: Array<{ content: string; chunkIndex: number; documentId: number; documentName: string }>
 ): Promise<Array<{ chunk: any; score: number; reason: string }>> {
-  const searchTerms = query.toLowerCase().split(/\s+/).filter(Boolean);
-  console.log(`🔍 performKeywordSearch: Starting with terms: [${searchTerms.join(', ')}]`);
+  // Apply 3-step preprocessing to the query
+  console.log(`🔍 performKeywordSearch: Preprocessing query: "${query}"`);
+  const { thaiTextProcessor } = await import('./thaiTextProcessor');
+  const queryTokenized = await thaiTextProcessor.segmentThaiText(query);
+  const queryEnriched = await enrichQueryWithGPT(query, queryTokenized);
+  
+  const combinedQuery = [query, queryTokenized, queryEnriched]
+    .filter(q => q && q.trim().length > 0)
+    .filter((q, index, array) => array.indexOf(q) === index)
+    .join(' ');
+  
+  const searchTerms = combinedQuery.toLowerCase().split(/\s+/).filter(Boolean);
+  console.log(`🔍 performKeywordSearch: Starting with preprocessed terms: [${searchTerms.join(', ')}]`);
 
   // Calculate BM25 scores
   const bm25Results = await calculateBM25(searchTerms, chunks);
