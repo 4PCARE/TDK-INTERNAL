@@ -254,7 +254,7 @@ export default function AgentConsole() {
 
   return (
     <DashboardLayout>
-      <div className="h-[calc(100vh-80px)] flex overflow-hidden bg-gray-50 p-4 gap-4">
+      <div className="h-full flex overflow-hidden bg-gray-50 p-4 gap-4">
         {/* Left Sidebar - Channel Selection & User List */}
         <div className="w-80 min-w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
           {/* Header */}
@@ -310,7 +310,7 @@ export default function AgentConsole() {
           </div>
 
           {/* Users List */}
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <ScrollArea className="h-full">
               <div className="p-2">
                 {users.length === 0 ? (
@@ -406,7 +406,7 @@ export default function AgentConsole() {
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 flex flex-col min-h-0">
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                   <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
                     <div className="space-y-4">
                       {messages.length === 0 ? (
@@ -523,7 +523,7 @@ export default function AgentConsole() {
           </div>
 
           {/* Right Sidebar - Customer Profile */}
-          <div className="w-80 min-w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col ml-4">
+          <div className="w-80 min-w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col ml-4 min-h-0 overflow-hidden">
             {selectedUser ? (
               <ScrollArea className="flex-1">
                 <div className="p-4 space-y-6">
