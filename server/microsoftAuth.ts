@@ -33,11 +33,14 @@ export async function setupMicrosoftAuth(app: Express) {
   }, async function(iss: string, sub: string, profile: any, accessToken: string, refreshToken: string, done: any) {
     try {
       // Extract user information from Microsoft profile
+      const fullName = typeof profile.name === 'string' ? profile.name : '';
+      const nameParts = fullName.split(' ');
+
       const userInfo = {
         id: profile.oid || profile.sub, // Use oid (object ID) as unique identifier
         email: profile.preferred_username || profile.upn || profile.email,
-        firstName: profile.given_name || profile.name?.split(' ')[0] || '',
-        lastName: profile.family_name || profile.name?.split(' ').slice(1).join(' ') || '',
+        firstName: profile.given_name || nameParts[0] || '',
+        lastName: profile.family_name || nameParts.slice(1).join(' ') || '',
         profileImageUrl: null // Microsoft Graph API would be needed for profile picture
       };
 
@@ -90,11 +93,14 @@ export async function setupMicrosoftAuth(app: Express) {
     passport.use('microsoft', new OIDCStrategy(strategyConfig, async function(iss: string, sub: string, profile: any, accessToken: string, refreshToken: string, done: any) {
       try {
         // Extract user information from Microsoft profile
+        const fullName = typeof profile.name === 'string' ? profile.name : '';
+        const nameParts = fullName.split(' ');
+
         const userInfo = {
           id: profile.oid || profile.sub,
           email: profile.preferred_username || profile.upn || profile.email,
-          firstName: profile.given_name || profile.name?.split(' ')[0] || '',
-          lastName: profile.family_name || profile.name?.split(' ').slice(1).join(' ') || '',
+          firstName: profile.given_name || nameParts[0] || '',
+          lastName: profile.family_name || nameParts.slice(1).join(' ') || '',
           profileImageUrl: null
         };
 
