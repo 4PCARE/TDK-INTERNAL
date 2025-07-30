@@ -34,11 +34,17 @@ def segment_thai_text(text):
             # Tokenize each sentence into words
             words = word_tokenize(sentence, engine='newmm')
             
-            # Filter out stopwords and empty strings
-            filtered_words = [word.strip() for word in words if word.strip() and word.strip() not in stopwords]
+            # Process words to maintain proper spacing and filtering
+            processed_words = []
+            for word in words:
+                word = word.strip()
+                if word and word not in stopwords:
+                    # Keep meaningful words including numbers and mixed content
+                    if len(word) > 0 and not word.isspace():
+                        processed_words.append(word)
             
-            # Join words with spaces for better searchability
-            segmented_sentence = ' '.join(filtered_words)
+            # Join words with single spaces for proper segmentation
+            segmented_sentence = ' '.join(processed_words)
             if segmented_sentence.strip():
                 segmented_sentences.append(segmented_sentence)
         
@@ -170,10 +176,11 @@ if __name__ == "__main__":
       // First, segment Thai text
       let processedText = await this.segmentThaiText(text);
 
-      // Clean up whitespace
+      // Clean up whitespace while preserving word boundaries
       processedText = processedText
         .replace(/\s+/g, ' ') // Replace multiple spaces with single space
         .replace(/\n\s*\n/g, '\n') // Replace multiple newlines with single newline
+        .replace(/^\s+|\s+$/g, '') // Trim leading and trailing whitespace
         .trim();
 
       return processedText;
