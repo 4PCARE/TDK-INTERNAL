@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,6 +70,7 @@ export default function UserManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isCreating, setIsCreating] = useState(false);
+  const [showBootstrap, setShowBootstrap] = useState(false);
 
   // State for dialogs
   const [isCreateDepartmentOpen, setIsCreateDepartmentOpen] = useState(false);
@@ -194,6 +195,32 @@ export default function UserManagement() {
     }
   });
 
+  const bootstrapAdminMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/bootstrap-admin', {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      toast({ title: "Successfully promoted to admin! Please refresh the page." });
+      setTimeout(() => window.location.reload(), 2000);
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to become admin", 
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive" 
+      });
+    }
+  });
+
+  // Check if user needs admin bootstrap
+  React.useEffect(() => {
+    if (usersLoading) return;
+    
+    // If we get 401 on admin endpoints, check if we can bootstrap
+    if (users && users.length === 0 && user && user.role !== 'admin') {
+      setShowBootstrap(true);
+    }
+  }, [users, usersLoading, user]);
+
   const handleEditUser = (user: UserData) => {
     setEditingUser(user);
     setIsEditUserOpen(true);
@@ -239,14 +266,43 @@ export default function UserManagement() {
             </div>
           </div>
 
-          <Button 
-            onClick={() => setIsCreating(true)}
-            className="flex items-center space-x-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add User</span>
-          </Button>
+          <div className="flex gap-2">
+            {showBootstrap && (
+              <Button 
+                onClick={() => bootstrapAdminMutation.mutate()}
+                disabled={bootstrapAdminMutation.isPending}
+                variant="outline"
+                className="flex items-center space-x-2"
+              >
+                <Shield className="w-4 h-4" />
+                <span>{bootstrapAdminMutation.isPending ? "Promoting..." : "Become Admin"}</span>
+              </Button>
+            )}
+            <Button 
+              onClick={() => setIsCreating(true)}
+              className="flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add User</span>
+            </Button>
+          </div>
         </div>
+
+        {showBootstrap && (
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-3">
+                <Shield className="w-5 h-5 text-amber-600" />
+                <div>
+                  <h3 className="font-medium text-amber-800">Admin Setup Required</h3>
+                  <p className="text-sm text-amber-700">
+                    No admin user exists yet. Click "Become Admin" to get administrative privileges.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
             {/* Quick Actions */}
             <div className="flex gap-4">

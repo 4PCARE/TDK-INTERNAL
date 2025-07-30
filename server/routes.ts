@@ -942,6 +942,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  // Bootstrap admin endpoint - allows first user to become admin
+  app.post("/api/bootstrap-admin", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { users } = await import("@shared/schema");
+      
+      // Check if any admin exists
+      const [existingAdmin] = await db
+        .select()
+        .from(users)
+        .where(eq(users.role, 'admin'))
+        .limit(1);
+      
+      if (existingAdmin) {
+        return res.status(403).json({ 
+          message: "Admin already exists. Contact existing admin for role assignment." 
+        });
+      }
+      
+      // Make this user an admin
+      const [updatedUser] = await db
+        .update(users)
+        .set({
+          role: 'admin',
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+        .returning();
+      
+      console.log(`Bootstrap admin: User ${userId} promoted to admin`);
+      
+      res.json({ 
+        message: "Successfully promoted to admin",
+        user: updatedUser
+      });
+    } catch (error) {
+      console.error("Error bootstrapping admin:", error);
+      res.status(500).json({ message: "Failed to bootstrap admin" });
+    }
+  });
+
   // Update user role
   app.put(
     "/api/admin/users/:userId/role",
