@@ -254,7 +254,7 @@ export default function AgentConsole() {
 
   return (
     <DashboardLayout>
-      <div className="h-full flex overflow-hidden bg-gray-50 p-4 gap-4">
+      <div className="h-full flex overflow-hidden bg-gray-50 p-4 gap-4"></div>
         {/* Left Sidebar - Channel Selection & User List */}
         <div className="w-80 min-w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
           {/* Header */}
