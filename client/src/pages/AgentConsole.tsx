@@ -26,7 +26,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { apiRequest } from "@/lib/api";
+
 
 interface AgentUser {
   userId: string;
@@ -139,7 +139,9 @@ export default function AgentConsole() {
   // WebSocket connection for real-time updates
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const host = window.location.hostname;
+    const port = window.location.port || (protocol === 'https:' ? '443' : '80');
+    const wsUrl = `${protocol}//${host}:${port}/ws`;
 
     console.log('🔌 Connecting to WebSocket:', wsUrl);
 
@@ -407,7 +409,6 @@ export default function AgentConsole() {
                 <div className="flex-1 flex flex-col min-h-0">
                   <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
                     <div className="space-y-4">
-                      {console.log("🧾 Messages to render:", messages)}
                       {messages.length === 0 ? (
                         <div className="text-center py-8">
                           <MessageCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
