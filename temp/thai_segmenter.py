@@ -1,48 +1,47 @@
 
 import sys
 import json
+import io
 from pythainlp import word_tokenize, sent_tokenize
 from pythainlp.corpus.common import thai_stopwords
+
+# Ensure proper UTF-8 encoding for stdin
+sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
 
 def segment_thai_text(text):
     """
     Segment Thai text using PythaiNLP
     Returns segmented text with proper word boundaries
     """
-    try:
-        # Tokenize into sentences first
-        sentences = sent_tokenize(text, engine='newmm')
+    # Tokenize into sentences first
+    sentences = sent_tokenize(text, engine='newmm')
 
-        segmented_sentences = []
-        for sentence in sentences:
-            # Tokenize each sentence into words
-            words = word_tokenize(sentence, engine='newmm')
+    segmented_sentences = []
+    for sentence in sentences:
+        # Tokenize each sentence into words
+        words = word_tokenize(sentence, engine='newmm')
 
-            # Process words - keep ALL words but add spaces between them
-            processed_words = []
-            for word in words:
-                word = word.strip()
-                # Keep all meaningful words (don't filter stopwords for better searchability)
-                if len(word) > 0 and not word.isspace():
-                    processed_words.append(word)
+        # Process words - keep ALL words but add spaces between them
+        processed_words = []
+        for word in words:
+            word = word.strip()
+            # Keep all meaningful words (don't filter stopwords for better searchability)
+            if len(word) > 0 and not word.isspace():
+                processed_words.append(word)
 
-            # Join words with single spaces for proper segmentation
-            segmented_sentence = ' '.join(processed_words)
-            if segmented_sentence.strip():
-                segmented_sentences.append(segmented_sentence)
+        # Join words with single spaces for proper segmentation
+        segmented_sentence = ' '.join(processed_words)
+        if segmented_sentence.strip():
+            segmented_sentences.append(segmented_sentence)
 
-        # Join sentences back together with newlines preserved
-        result = '\n'.join(segmented_sentences)
-        return result
-
-    except Exception as e:
-        # If segmentation fails, return original text
-        return text
+    # Join sentences back together with newlines preserved
+    result = '\n'.join(segmented_sentences)
+    return result
 
 if __name__ == "__main__":
     try:
-        # Read input from stdin
-        input_text = sys.stdin.read()
+        # Read input from stdin and strip whitespace
+        input_text = sys.stdin.read().strip()
 
         # Process the text
         segmented_text = segment_thai_text(input_text)
