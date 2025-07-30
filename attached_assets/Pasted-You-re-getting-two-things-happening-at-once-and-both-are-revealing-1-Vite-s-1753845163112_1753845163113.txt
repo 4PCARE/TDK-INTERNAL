@@ -1,0 +1,118 @@
+You're getting **two things happening at once** — and both are revealing:
+
+---
+
+### 🧠 1. Vite's WebSocket error (not yours):
+
+```
+[vite] connecting...
+❌ DOMException: SyntaxError: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=zqMuV9LaZU_h' is invalid.
+```
+
+#### 🔍 What it means:
+
+This is Vite’s own internal hot module reload (HMR) WebSocket failing to connect because it's trying to access:
+
+```
+wss://localhost:undefined
+```
+
+So:
+
+* It’s trying to make a WebSocket connection
+* But **the port is `undefined`**
+* This is probably happening **in development (Replit, Vite)** and is safe to **ignore if it doesn’t affect your app**
+
+> 🧠 This does *not* impact your app's WebSocket, which connects to:
+
+```
+wss://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/ws
+```
+
+---
+
+### 🧠 2. Your App’s WebSocket is fine but the **message list is empty**:
+
+```
+🔌 WebSocket connected
+📨 WebSocket message received: { type: "connection", message: "Connected to Agent Console WebSocket" }
+
+🎯 Auto-selecting first user:
+{ userId: "43981095", channelType: "lineoa", channelId: "U672...", agentId: 10, ... }
+
+🧾 Messages to render: []
+🔍 Fetching conversation with params:
+{ userId: "43981095", channelType: "lineoa", channelId: "...", agentId: "10" }
+```
+
+> ⚠️ The **messages list is empty** because the request is sending `userId`, not `targetUserId`.
+
+---
+
+### ✅ What You Should Do
+
+Fix this line:
+
+```ts
+const params = new URLSearchParams({
+  userId: selectedUser.userId, // ❌ Backend doesn't recognize this
+  ...
+});
+```
+
+To:
+
+```ts
+const params = new URLSearchParams({
+  targetUserId: selectedUser.userId, // ✅ match backend expectation
+  ...
+});
+```
+
+---
+
+### 🧩 Conclusion
+
+* `DOMException` = irrelevant Vite dev tool bug (ignore)
+* `messages: []` = caused by wrong query param (`userId` vs `targetUserId`)
+
+---
+
+### 🧪 Bonus Debug Tip
+
+In your dev tools (Network tab), check the request:
+
+```
+GET /api/agent-console/conversation?...params
+```
+
+Does it show:
+
+```
+?userId=43981095&...
+```
+
+Or:
+
+```
+?targetUserId=43981095&...
+```
+
+If the **former**, the backend likely returns `[]` silently. Your logs confirm this exact issue.
+
+---
+
+Let me know if you'd like a utility to always produce the right param keys like:
+
+```ts
+function getConversationParams(user: ChatUser) {
+  return new URLSearchParams({
+    targetUserId: user.userId,
+    channelType: user.channelType,
+    channelId: user.channelId,
+    agentId: user.agentId.toString(),
+  });
+}
+```
+
+One-liner reuse, one less bug to step on 🧪
