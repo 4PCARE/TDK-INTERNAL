@@ -312,7 +312,7 @@ export default function AgentConsole() {
           {/* Users List */}
           <div className="flex-1">
             <ScrollArea className="h-[400px]">
-              <div className="p-2"></div>
+              <div className="p-2">
                 {users.length === 0 ? (
                   <div className="text-center py-8">
                     <UserCheck className="w-8 h-8 text-gray-400 mx-auto mb-2" />
