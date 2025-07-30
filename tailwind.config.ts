@@ -11,35 +11,17 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
-        card: {
-          DEFAULT: "var(--card)",
-          foreground: "var(--card-foreground)",
-        },
-        popover: {
-          DEFAULT: "var(--popover)",
-          foreground: "var(--popover-foreground)",
-        },
-        primary: {
-          DEFAULT: "var(--primary)",
-          foreground: "var(--primary-foreground)",
-        },
-        secondary: {
-          DEFAULT: "var(--secondary)",
-          foreground: "var(--secondary-foreground)",
-        },
-        muted: {
-          DEFAULT: "var(--muted)",
-          foreground: "var(--muted-foreground)",
-        },
-        accent: {
-          DEFAULT: "var(--accent)",
-          foreground: "var(--accent-foreground)",
-        },
-        destructive: {
-          DEFAULT: "var(--destructive)",
-          foreground: "var(--destructive-foreground)",
+        navy: {
+          50: "#f0f9ff",
+          100: "#e0f2fe",
+          200: "#bae6fd",
+          300: "#7dd3fc",
+          400: "#38bdf8",
+          500: "#0ea5e9",
+          600: "#0284c7",
+          700: "#0369a1",
+          800: "#075985",
+          900: "#0c4a6e",
         },
         border: "var(--border)",
         input: "var(--input)",
@@ -61,19 +43,17 @@ export default {
           border: "var(--sidebar-border)",
           ring: "var(--sidebar-ring)",
         },
-        navy: {
-          50: "var(--navy-50)",
-          100: "var(--navy-100)",
-          200: "var(--navy-200)",
-          300: "var(--navy-300)",
-          400: "var(--navy-400)",
-          500: "var(--navy-500)",
-          600: "var(--navy-600)",
-          700: "var(--navy-700)",
-          800: "var(--navy-800)",
-          900: "var(--navy-900)",
-          950: "var(--navy-950)",
-        },
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        950: "var(--navy-950)",
       },
       keyframes: {
         "accordion-down": {
