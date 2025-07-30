@@ -545,10 +545,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const lastName = req.user.claims.family_name || req.user.claims.last_name || '';
         const fullName = req.user.claims.name || `${firstName} ${lastName}`.trim();
         
-        return res.json({
+        return const displayName = fullName || 
+                         req.user.claims.display_name || 
+                         req.user.claims.name || 
+                         userEmail;
+
+        res.json({
           id: userId,
           email: userEmail,
-          name: fullName,
+          name: displayName,
+          display_name: displayName,
           firstName: firstName,
           lastName: lastName,
           profileImageUrl: req.user.claims.profile_image_url || null,
@@ -563,10 +569,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      const displayName = `${userWithDept.firstName || ''} ${userWithDept.lastName || ''}`.trim() || 
+                       req.user.claims.display_name || 
+                       req.user.claims.name || 
+                       userWithDept.email;
+
       res.json({
         id: userWithDept.id,
         email: userWithDept.email,
-        name: `${userWithDept.firstName || ''} ${userWithDept.lastName || ''}`.trim(),
+        name: displayName,
+        display_name: displayName,
         firstName: userWithDept.firstName,
         lastName: userWithDept.lastName,
         profileImageUrl: userWithDept.profileImageUrl,
