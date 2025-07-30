@@ -92,6 +92,13 @@ export async function setupMicrosoftAuth(app: Express) {
         throw error;
       }
 
+      // Safely extract name fields, ensuring they are strings
+      const safeName = typeof profile.name === 'string' ? profile.name : 
+                      typeof profile._json?.name === 'string' ? profile._json.name : 
+                      `${userInfo.firstName} ${userInfo.lastName}`.trim();
+
+      const safeDisplayName = safeName || `${userInfo.firstName} ${userInfo.lastName}`.trim() || userInfo.email;
+
       // Create user session object
       const user = {
         claims: {
@@ -102,11 +109,11 @@ export async function setupMicrosoftAuth(app: Express) {
           unique_name: profile.unique_name || profile._json?.unique_name || userInfo.email,
           given_name: userInfo.firstName,
           family_name: userInfo.lastName,
-          name: profile.name || profile._json?.name || `${userInfo.firstName} ${userInfo.lastName}`.trim(),
+          name: safeName,
           first_name: userInfo.firstName,
           last_name: userInfo.lastName,
           profile_image_url: userInfo.profileImageUrl,
-          display_name: profile.name || profile._json?.name || `${userInfo.firstName} ${userInfo.lastName}`.trim(),
+          display_name: safeDisplayName,
           role: 'user', // Default role, can be enhanced later with Azure AD roles
           exp: Math.floor(Date.now() / 1000) + 3600 // 1 hour
         },
@@ -194,6 +201,13 @@ export async function setupMicrosoftAuth(app: Express) {
           throw error;
         }
 
+        // Safely extract name fields, ensuring they are strings
+        const safeName = typeof profile.name === 'string' ? profile.name : 
+                        typeof profile._json?.name === 'string' ? profile._json.name : 
+                        `${userInfo.firstName} ${userInfo.lastName}`.trim();
+
+        const safeDisplayName = safeName || `${userInfo.firstName} ${userInfo.lastName}`.trim() || userInfo.email;
+
         // Create user session object
         const user = {
           claims: {
@@ -204,11 +218,11 @@ export async function setupMicrosoftAuth(app: Express) {
             unique_name: profile.unique_name || profile._json?.unique_name || userInfo.email,
             given_name: userInfo.firstName,
             family_name: userInfo.lastName,
-            name: profile.name || profile._json?.name || `${userInfo.firstName} ${userInfo.lastName}`.trim(),
+            name: safeName,
             first_name: userInfo.firstName,
             last_name: userInfo.lastName,
             profile_image_url: userInfo.profileImageUrl,
-            display_name: profile.name || profile._json?.name || `${userInfo.firstName} ${userInfo.lastName}`.trim(),
+            display_name: safeDisplayName,
             role: 'user', // Default role, can be enhanced later with Azure AD roles
             exp: Math.floor(Date.now() / 1000) + 3600
           },
