@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +23,8 @@ import {
   TrendingUp,
   MessageCircle,
   UserCheck,
-  Settings
+  Settings,
+  ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/api";
@@ -243,196 +245,173 @@ export default function AgentConsole() {
 
   return (
     <DashboardLayout>
-      <div className="h-full flex flex-col space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
-              <MessageSquare className="w-5 h-5 text-white" />
+      <div className="h-full flex">
+        {/* Left Sidebar - Channel Selection & User List */}
+        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+          {/* Header */}
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-6 h-6 bg-gradient-to-br from-green-500 to-green-600 rounded flex items-center justify-center">
+                <MessageSquare className="w-3 h-3 text-white" />
+              </div>
+              <h1 className="text-lg font-bold text-gray-900">Agent Console</h1>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Agent Console</h1>
-              <p className="text-gray-600">Monitor and manage live conversations</p>
+            
+            <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
+              <div className="flex items-center space-x-2">
+                <Dot className="w-3 h-3 text-green-500 animate-pulse" />
+                <span>Real-time WebSocket</span>
+              </div>
+              <span>{users.filter(u => u.isOnline).length} Active Conversations</span>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Badge variant="outline" className="flex items-center space-x-1">
-              <Dot className="w-3 h-3 text-green-500 animate-pulse" />
-              <span>{users.filter(u => u.isOnline).length} Online</span>
-            </Badge>
+          {/* Select Channel */}
+          <div className="p-4 border-b border-gray-200">
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Channel
+              </label>
+              <div className="relative">
+                <select
+                  value={filterAgent}
+                  onChange={(e) => setFilterAgent(e.target.value)}
+                  className="w-full p-2 pr-8 border border-gray-300 rounded-md text-sm bg-white appearance-none"
+                >
+                  <option value="all">All Channels</option>
+                  {uniqueAgents.map(agent => (
+                    <option key={agent.id} value={agent.id.toString()}>
+                      {agent.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              </div>
+            </div>
+            
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                placeholder="Search users..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 text-sm"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-6 gap-6 flex-1 min-h-0">
           {/* Users List */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Filters */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center space-x-2">
-                  <Users className="w-5 h-5" />
-                  <span>Active Users</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search users..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">
-                    Filter by Agent
-                  </label>
-                  <select
-                    value={filterAgent}
-                    onChange={(e) => setFilterAgent(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                  >
-                    <option value="all">All Agents</option>
-                    {uniqueAgents.map(agent => (
-                      <option key={agent.id} value={agent.id.toString()}>
-                        {agent.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Users List */}
-            <Card className="flex-1">
-              <CardContent className="p-0">
-                <ScrollArea className="h-64 lg:h-96">
-                  <div className="space-y-2 p-4">
-                    {users.length === 0 ? (
-                      <div className="text-center py-8">
-                        <UserCheck className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-sm text-gray-500">No active users</p>
-                      </div>
-                    ) : (
-                      users.map((user) => (
-                        <div
-                          key={`${user.userId}-${user.channelType}-${user.channelId}-${user.agentId}`}
-                          className={`p-3 rounded-lg cursor-pointer transition-all ${
-                            selectedUser?.userId === user.userId && selectedUser?.channelId === user.channelId
-                              ? 'bg-blue-100 border border-blue-200'
-                              : 'hover:bg-gray-50 border border-transparent'
-                          }`}
-                          onClick={() => setSelectedUser(user)}
-                        >
-                          <div className="flex items-start space-x-3">
-                            <div className="relative">
-                              <Avatar className="w-8 h-8">
-                                <AvatarFallback className="text-xs">
-                                  {getInitials(user.userProfile.name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              {user.isOnline && (
-                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                              )}
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <p className="text-sm font-medium text-gray-900 truncate">
-                                  {user.userProfile.name}
-                                </p>
-                                <div className="flex items-center space-x-1">
-                                  <Badge variant="secondary" className="text-xs">
-                                    {user.messageCount}
-                                  </Badge>
-                                </div>
-                              </div>
-
-                              <p className="text-xs text-gray-500 mb-1">
-                                {user.agentName}
-                              </p>
-
-                              <p className="text-xs text-gray-600 truncate">
-                                {user.lastMessage}
-                              </p>
-
-                              <p className="text-xs text-gray-400 mt-1">
-                                {formatTime(user.lastMessageAt)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
+          <div className="flex-1 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="p-2">
+                {users.length === 0 ? (
+                  <div className="text-center py-8">
+                    <UserCheck className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No active users</p>
                   </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
+                ) : (
+                  users.map((user) => (
+                    <div
+                      key={`${user.userId}-${user.channelType}-${user.channelId}-${user.agentId}`}
+                      className={`p-3 rounded-lg cursor-pointer transition-all mb-2 ${
+                        selectedUser?.userId === user.userId && selectedUser?.channelId === user.channelId
+                          ? 'bg-blue-50 border border-blue-200'
+                          : 'hover:bg-gray-50 border border-transparent'
+                      }`}
+                      onClick={() => setSelectedUser(user)}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="relative">
+                          <Avatar className="w-8 h-8">
+                            <AvatarFallback className="text-xs">
+                              {getInitials(user.userProfile.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          {user.isOnline && (
+                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                          )}
+                        </div>
 
-          {/* Conversation Area */}
-          <div className="lg:col-span-3 flex flex-col min-h-0">
-            {selectedUser ? (
-              <div className="flex flex-col h-full space-y-4">
-                {/* Conversation Header */}
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="w-10 h-10">
-                          <AvatarFallback>
-                            {getInitials(selectedUser.userProfile.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <h3 className="font-medium text-gray-900">
-                            {selectedUser.userProfile.name}
-                          </h3>
-                          <p className="text-sm text-gray-500">
-                            {selectedUser.agentName} • {selectedUser.channelType}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {user.userProfile.name}
+                            </p>
+                            <Badge variant="secondary" className="text-xs">
+                              {user.messageCount}
+                            </Badge>
+                          </div>
+
+                          <p className="text-xs text-gray-500 mb-1 truncate">
+                            {user.agentName}
+                          </p>
+
+                          <p className="text-xs text-gray-600 truncate mb-1">
+                            {user.lastMessage}
+                          </p>
+
+                          <p className="text-xs text-gray-400">
+                            {formatTime(user.lastMessageAt)}
                           </p>
                         </div>
                       </div>
-
-                      {summary && (
-                        <div className="flex items-center space-x-4 text-sm text-gray-600">
-                          <div className="flex items-center space-x-1">
-                            <MessageCircle className="w-4 h-4" />
-                            <span>{summary.totalMessages} messages</span>
-                          </div>
-                          {summary.sentiment && (
-                            <Badge variant="outline">
-                              {summary.sentiment}
-                            </Badge>
-                          )}
-                        </div>
-                      )}
                     </div>
-                  </CardHeader>
-                </Card>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 flex">
+          {/* Conversation Area */}
+          <div className="flex-1 flex flex-col">
+            {selectedUser ? (
+              <>
+                {/* Conversation Header */}
+                <div className="p-4 border-b border-gray-200 bg-white">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback>
+                          {getInitials(selectedUser.userProfile.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h3 className="font-medium text-gray-900">
+                          {selectedUser.userProfile.name}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {selectedUser.channelType.toUpperCase()} • Agent: {selectedUser.agentName}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm">
+                      Open Message
+                    </Button>
+                  </div>
+                </div>
 
                 {/* Messages */}
-                <Card className="flex-1 flex flex-col min-h-0">
-                  <CardContent className="flex-1 flex flex-col p-0 min-h-0">
-                    <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
-                      <div className="space-y-4">
-                        {console.log("🧾 Messages to render:", messages)}
-                        {messages.length === 0 ? (
-                          <div className="text-center py-8">
-                            <MessageCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                            <p className="text-sm text-gray-500">No messages yet</p>
-                          </div>
-                        ) : (
-                          messages.map((message) => (
-                            <div
-                              key={`message-${message.id}-${message.userId}-${message.createdAt}`}
-                              className={`flex space-x-3 ${
-                                message.messageType === 'user' ? 'justify-start' : 'justify-end'
-                              }`}
-                            >
+                <div className="flex-1 flex flex-col min-h-0">
+                  <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
+                    <div className="space-y-4">
+                      {console.log("🧾 Messages to render:", messages)}
+                      {messages.length === 0 ? (
+                        <div className="text-center py-8">
+                          <MessageCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">No messages yet</p>
+                        </div>
+                      ) : (
+                        messages.map((message) => (
+                          <div
+                            key={`message-${message.id}-${message.userId}-${message.createdAt}`}
+                            className={`flex space-x-3 ${
+                              message.messageType === 'user' ? 'justify-start' : 'justify-end'
+                            }`}
+                          >
                             {message.messageType === 'user' && (
                               <Avatar className="w-8 h-8">
                                 <AvatarFallback className="text-xs">
@@ -465,40 +444,40 @@ export default function AgentConsole() {
                             )}
                           </div>
                         ))
-                        )}
-                      </div>
-                    </ScrollArea>
-
-                    {/* Message Input */}
-                    <div className="border-t p-4">
-                      <div className="flex space-x-2">
-                        <Input
-                          value={newMessage}
-                          onChange={(e) => setNewMessage(e.target.value)}
-                          placeholder="Type a message..."
-                          className="flex-1"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSendMessage();
-                            }
-                          }}
-                        />
-                        <Button
-                          onClick={handleSendMessage}
-                          disabled={!newMessage.trim()}
-                          size="sm"
-                        >
-                          <Send className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                  </ScrollArea>
+
+                  {/* Message Input */}
+                  <div className="border-t border-gray-200 p-4 bg-white">
+                    <div className="flex space-x-2">
+                      <Input
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Type a message..."
+                        className="flex-1"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                      />
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={!newMessage.trim()}
+                        size="sm"
+                        className="px-4"
+                      >
+                        <Send className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </>
             ) : (
-              <Card className="flex-1 flex items-center justify-center">
-                <CardContent className="text-center">
+              <div className="flex-1 flex items-center justify-center bg-gray-50">
+                <div className="text-center">
                   <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
                     Select a Conversation
@@ -506,24 +485,20 @@ export default function AgentConsole() {
                   <p className="text-gray-500">
                     Choose a user from the list to view their conversation
                   </p>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
           </div>
 
           {/* Right Sidebar - Customer Profile */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
             {selectedUser ? (
-              <>
-                {/* Customer Profile */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center space-x-2">
-                      <User className="w-5 h-5" />
-                      <span>Customer Profile</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+              <div className="p-4 space-y-6">
+                {/* Customer Profile Header */}
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Customer Profile</h2>
+                  
+                  <div className="space-y-4">
                     <div>
                       <h4 className="font-medium text-gray-900 mb-2">Contact Information</h4>
                       <div className="space-y-2 text-sm">
@@ -608,18 +583,18 @@ export default function AgentConsole() {
                         </Badge>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </>
+                  </div>
+                </div>
+              </div>
             ) : (
-              <Card>
-                <CardContent className="text-center py-8">
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center">
                   <User className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm text-gray-500">
                     Select a user to view profile
                   </p>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
           </div>
         </div>
