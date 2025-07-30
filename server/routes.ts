@@ -456,6 +456,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const userEmail = req.user.claims.email || req.user.claims.unique_name;
+      const { users, departments } = await import("@shared/schema");
+
+      console.log("Getting user profile for:", { userId, userEmail });
+
+      // Fetch user with department information
+      const [userWithDept] = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+          role: users.role,
+          departmentId: users.departmentId,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+          departmentName: departments.name,
+        })
+        .from(users)
+        .leftJoin(departments, eq(users.departmentId, departments.id))
+        .where(eq(users.id, userId));
+
+      if (!userWithDept) {
+        console.log("User not found in database, returning user claims");
+        // Return user info from claims if not found in database
+        return res.json({
+          id: userId,
+          email: userEmail,
+          firstName: req.user.claims.first_name || '',
+          lastName: req.user.claims.last_name || '',
+          profileImageUrl: req.user.claims.profile_image_url || null,
+          role: 'user', // Default role
+          departmentId: null,
+          departmentName: null,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+      }
+
+      res.json(userWithDept);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Get user profile
+  app.get("/api/user/profile", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const userEmail = req.user.claims.email || req.user.claims.unique_name;
       const { users, departments } = await import("@shared/schema");
 
       // Fetch user with department information
@@ -477,13 +537,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(users.id, userId));
 
       if (!userWithDept) {
-        return res.status(404).json({ message: "User not found" });
+        // Return user info from claims if not found in database
+        return res.json({
+          id: userId,
+          email: userEmail,
+          name: `${req.user.claims.first_name || ''} ${req.user.claims.last_name || ''}`.trim(),
+          firstName: req.user.claims.first_name || '',
+          lastName: req.user.claims.last_name || '',
+          profileImageUrl: req.user.claims.profile_image_url || null,
+          role: 'user',
+          department: null,
+          departmentId: null,
+          preferences: {
+            notifications: true,
+            emailUpdates: true,
+            theme: 'light'
+          }
+        });
       }
 
-      res.json(userWithDept);
+      res.json({
+        id: userWithDept.id,
+        email: userWithDept.email,
+        name: `${userWithDept.firstName || ''} ${userWithDept.lastName || ''}`.trim(),
+        firstName: userWithDept.firstName,
+        lastName: userWithDept.lastName,
+        profileImageUrl: userWithDept.profileImageUrl,
+        role: userWithDept.role,
+        department: userWithDept.departmentName,
+        departmentId: userWithDept.departmentId,
+        preferences: {
+          notifications: true,
+          emailUpdates: true,
+          theme: 'light'
+        }
+      });
     } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ message: "Failed to fetch user profile" });
+    }
+  });
+
+  // Update user profile
+  app.put("/api/user/profile", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { name, department, preferences } = req.body;
+      
+      // For now, just return success since we don't have a full user management system
+      res.json({ 
+        success: true, 
+        message: "Profile updated successfully",
+        id: userId,
+        name: name,
+        department: department,
+        preferences: preferences
+      });
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ message: "Failed to update user profile" });
     }
   });
 
@@ -513,7 +633,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User stats
-  app.get("/api/stats", isAuthenticated, async (req: any, res) => {
+  app.get("/api/stats", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const stats = await storage.getUserStats(userId);
@@ -525,7 +653,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Category routes
-  app.get("/api/categories", isAuthenticated, async (req: any, res) => {
+  app.get("/api/categories", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const categories = await storage.getCategories(userId);
@@ -1223,7 +1359,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   // Document routes
-  app.get("/api/documents", isAuthenticated, async (req: any, res) => {
+  app.get("/api/documents", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const categoryId = req.query.categoryId

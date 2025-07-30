@@ -49,7 +49,7 @@ export async function setupMicrosoftAuth(app: Express) {
 
       const userInfo = {
         id: profile.oid || profile.sub, // Use oid (object ID) as unique identifier
-        email: profile.preferred_username || profile.upn || profile.email,
+        email: profile.preferred_username || profile.upn || profile.email || profile.unique_name,
         firstName: profile.given_name || nameParts[0] || '',
         lastName: profile.family_name || nameParts.slice(1).join(' ') || '',
         profileImageUrl: null // Microsoft Graph API would be needed for profile picture
@@ -109,7 +109,7 @@ export async function setupMicrosoftAuth(app: Express) {
 
         const userInfo = {
           id: profile.oid || profile.sub,
-          email: profile.preferred_username || profile.upn || profile.email,
+          email: profile.preferred_username || profile.upn || profile.email || profile.unique_name,
           firstName: profile.given_name || nameParts[0] || '',
           lastName: profile.family_name || nameParts.slice(1).join(' ') || '',
           profileImageUrl: null
@@ -151,7 +151,7 @@ export async function setupMicrosoftAuth(app: Express) {
         console.error("Microsoft auth error:", err);
         return res.redirect("/api/auth/microsoft?error=auth_failed");
       }
-      
+
       if (!user) {
         console.error("No user returned from Microsoft auth");
         return res.redirect("/api/auth/microsoft?error=no_user");
@@ -193,7 +193,7 @@ export async function setupMicrosoftAuth(app: Express) {
             console.error("Session save error:", err);
             return res.redirect("/api/auth/microsoft?error=session_failed");
           }
-          
+
           console.log("Session saved successfully, redirecting to dashboard");
           // Redirect to dashboard after successful login
           res.redirect("/");
