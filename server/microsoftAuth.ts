@@ -68,12 +68,59 @@ export async function setupMicrosoftAuth(app: Express) {
   // Microsoft login route
   app.get("/api/auth/microsoft", (req, res, next) => {
     const baseUrl = getBaseUrl(req);
+    const redirectUrl = `${baseUrl}/api/auth/microsoft/callback`;
 
-    // Dynamically set redirect URL
-    const strategy = passport._strategy('microsoft') as any;
-    if (strategy && strategy._options) {
-      strategy._options.redirectUrl = `${baseUrl}/api/auth/microsoft/callback`;
-    }
+    // Create a new strategy instance with the correct redirect URL
+    const strategyConfig = {
+      identityMetadata: `https://login.microsoftonline.com/${MICROSOFT_TENANT_ID}/v2.0/.well-known/openid-configuration`,
+      clientID: MICROSOFT_CLIENT_ID,
+      clientSecret: MICROSOFT_CLIENT_SECRET,
+      responseType: 'code',
+      responseMode: 'query',
+      redirectUrl: redirectUrl,
+      allowHttpForRedirectUrl: false,
+      validateIssuer: false,
+      passReqToCallback: false,
+      scope: ['openid', 'profile', 'email'],
+      loggingLevel: 'info'
+    };
+
+    // Remove existing strategy and add new one with correct redirect URL
+    passport.unuse('microsoft');
+    passport.use('microsoft', new OIDCStrategy(strategyConfig, async function(iss: string, sub: string, profile: any, accessToken: string, refreshToken: string, done: any) {
+      try {
+        // Extract user information from Microsoft profile
+        const userInfo = {
+          id: profile.oid || profile.sub,
+          email: profile.preferred_username || profile.upn || profile.email,
+          firstName: profile.given_name || profile.name?.split(' ')[0] || '',
+          lastName: profile.family_name || profile.name?.split(' ').slice(1).join(' ') || '',
+          profileImageUrl: null
+        };
+
+        // Upsert user in database
+        await storage.upsertUser(userInfo);
+
+        // Create user session object
+        const user = {
+          claims: {
+            sub: userInfo.id,
+            email: userInfo.email,
+            first_name: userInfo.firstName,
+            last_name: userInfo.lastName,
+            profile_image_url: userInfo.profileImageUrl,
+            exp: Math.floor(Date.now() / 1000) + 3600
+          },
+          access_token: accessToken,
+          refresh_token: refreshToken
+        };
+
+        return done(null, user);
+      } catch (error) {
+        console.error("Microsoft auth error:", error);
+        return done(error, null);
+      }
+    }));
 
     passport.authenticate('microsoft', {
       prompt: 'select_account'
