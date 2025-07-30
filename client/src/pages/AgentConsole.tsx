@@ -524,7 +524,6 @@ export default function AgentConsole() {
                       )}
                       {/* Invisible div for scroll target */}
                       <div ref={messagesEndRef} />
-                      )}
                     </div>
                   </ScrollArea>
 
