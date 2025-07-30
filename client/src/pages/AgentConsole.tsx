@@ -337,7 +337,7 @@ export default function AgentConsole() {
                   groupedUsers.map((user) => {
                     const isSelected = selectedUser?.userId === user.userId;
                     const userConversations = users.filter(u => u.userId === user.userId);
-                    
+
                     return (
                       <div key={user.userId}>
                         <div
@@ -348,54 +348,55 @@ export default function AgentConsole() {
                           }`}
                           onClick={() => setSelectedUser(user)}
                         >
-                      <div className="flex items-start space-x-3">
-                        <div className="relative">
-                          <Avatar className="w-8 h-8">
-                            <AvatarFallback className="text-xs">
-                              {getInitials(user.userProfile.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          {user.isOnline && (
-                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                          )}
-                        </div>
+                          <div className="flex items-start space-x-3">
+                            <div className="relative">
+                              <Avatar className="w-8 h-8">
+                                <AvatarFallback className="text-xs">
+                                  {getInitials(user.userProfile.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              {user.isOnline && (
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                              )}
+                            </div>
 
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className={`text-sm text-gray-900 truncate ${
-                              isSelected ? 'font-bold' : 'font-medium'
-                            }`}>
-                              {user.userProfile.name}
-                            </p>
-                            <Badge variant="secondary" className="text-xs">
-                              {userConversations.reduce((total, conv) => total + conv.messageCount, 0)}
-                            </Badge>
-                          </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className={`text-sm text-gray-900 truncate ${
+                                  isSelected ? 'font-bold' : 'font-medium'
+                                }`}>
+                                  {user.userProfile.name}
+                                </p>
+                                <Badge variant="secondary" className="text-xs">
+                                  {userConversations.reduce((total, conv) => total + conv.messageCount, 0)}
+                                </Badge>
+                              </div>
 
-                          <p className="text-xs text-gray-500 mb-1 truncate">
-                            {user.agentName}
-                          </p>
+                              <p className="text-xs text-gray-500 mb-1 truncate">
+                                {user.agentName}
+                              </p>
 
-                          <div className="text-xs text-gray-600 mb-1 h-8 overflow-hidden">
-                            <p className="leading-4">
-                              {user.lastMessage.length > 80 ? `${user.lastMessage.substring(0, 80)}...` : user.lastMessage}
-                            </p>
-                          </div>
+                              <div className="text-xs text-gray-600 mb-1 h-8 overflow-hidden">
+                                <p className="leading-4">
+                                  {user.lastMessage.length > 80 ? `${user.lastMessage.substring(0, 80)}...` : user.lastMessage}
+                                </p>
+                              </div>
 
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs text-gray-400">
-                              {formatTime(user.lastMessageAt)}
-                            </p>
-                            {userConversations.length > 1 && (
-                              <span className="text-xs text-blue-600 font-medium">
-                                {userConversations.length} chats
-                              </span>
-                            )}
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-gray-400">
+                                  {formatTime(user.lastMessageAt)}
+                                </p>
+                                {userConversations.length > 1 && (
+                                  <span className="text-xs text-blue-600 font-medium">
+                                    {userConversations.length} chats
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
+                    );
                   })
                 )}
               </div>
