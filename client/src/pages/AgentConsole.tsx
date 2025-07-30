@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -245,18 +244,18 @@ export default function AgentConsole() {
 
   return (
     <DashboardLayout>
-      <div className="h-full flex">
+      <div className="h-screen flex overflow-hidden">
         {/* Left Sidebar - Channel Selection & User List */}
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+        <div className="w-80 min-w-80 bg-white border-r border-gray-200 flex flex-col">
           {/* Header */}
-          <div className="p-4 border-b border-gray-200">
+          <div className="flex-shrink-0 p-4 border-b border-gray-200">
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-6 h-6 bg-gradient-to-br from-green-500 to-green-600 rounded flex items-center justify-center">
                 <MessageSquare className="w-3 h-3 text-white" />
               </div>
               <h1 className="text-lg font-bold text-gray-900">Agent Console</h1>
             </div>
-            
+
             <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
               <div className="flex items-center space-x-2">
                 <Dot className="w-3 h-3 text-green-500 animate-pulse" />
@@ -267,7 +266,7 @@ export default function AgentConsole() {
           </div>
 
           {/* Select Channel */}
-          <div className="p-4 border-b border-gray-200">
+          <div className="flex-shrink-0 p-4 border-b border-gray-200">
             <div className="mb-3">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select Channel
@@ -288,7 +287,7 @@ export default function AgentConsole() {
                 <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               </div>
             </div>
-            
+
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
@@ -364,13 +363,13 @@ export default function AgentConsole() {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex">
+        <div className="flex-1 flex min-w-0">
           {/* Conversation Area */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-w-0">
             {selectedUser ? (
               <>
                 {/* Conversation Header */}
-                <div className="p-4 border-b border-gray-200 bg-white">
+                <div className="flex-shrink-0 p-4 border-b border-gray-200 bg-white">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <Avatar className="w-8 h-8">
@@ -449,7 +448,7 @@ export default function AgentConsole() {
                   </ScrollArea>
 
                   {/* Message Input */}
-                  <div className="border-t border-gray-200 p-4 bg-white">
+                  <div className="flex-shrink-0 border-t border-gray-200 p-4 bg-white">
                     <div className="flex space-x-2">
                       <Input
                         value={newMessage}
@@ -491,101 +490,103 @@ export default function AgentConsole() {
           </div>
 
           {/* Right Sidebar - Customer Profile */}
-          <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+          <div className="w-80 min-w-80 bg-white border-l border-gray-200 flex flex-col">
             {selectedUser ? (
-              <div className="p-4 space-y-6">
-                {/* Customer Profile Header */}
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Customer Profile</h2>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Contact Information</h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center space-x-2">
-                          <User className="w-4 h-4 text-gray-400" />
-                          <span>{selectedUser.userProfile.name}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-gray-500">ID:</span>
-                          <span className="font-mono text-xs">{selectedUser.userId.slice(-8)}</span>
-                        </div>
-                      </div>
-                    </div>
+              <ScrollArea className="flex-1">
+                <div className="p-4 space-y-6">
+                  {/* Customer Profile Header */}
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Customer Profile</h2>
 
-                    {summary && (
+                    <div className="space-y-4">
                       <div>
-                        <h4 className="font-medium text-gray-900 mb-2">Conversation Summary</h4>
+                        <h4 className="font-medium text-gray-900 mb-2">Contact Information</h4>
                         <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Total Messages:</span>
-                            <span className="font-medium">{summary.totalMessages}</span>
+                          <div className="flex items-center space-x-2">
+                            <User className="w-4 h-4 text-gray-400" />
+                            <span>{selectedUser.userProfile.name}</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">First Contact:</span>
-                            <span className="font-medium">{formatDate(summary.firstContactAt)}</span>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-gray-500">ID:</span>
+                            <span className="font-mono text-xs">{selectedUser.userId.slice(-8)}</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Last Active:</span>
-                            <span className="font-medium">{formatDate(summary.lastActiveAt)}</span>
-                          </div>
-                          {summary.csatScore && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-gray-500">CSAT Score:</span>
-                              <Badge 
-                                variant={summary.csatScore >= 80 ? "default" : summary.csatScore >= 60 ? "secondary" : "destructive"}
-                                className={
-                                  summary.csatScore >= 80 
-                                    ? "bg-green-100 text-green-800" 
-                                    : summary.csatScore >= 60 
-                                    ? "bg-yellow-100 text-yellow-800" 
-                                    : "bg-red-100 text-red-800"
-                                }
-                              >
-                                {summary.csatScore}/100 {summary.csatScore >= 80 ? "Excellent" : summary.csatScore >= 60 ? "Good" : "Needs Improvement"}
-                              </Badge>
-                            </div>
-                          )}
-                          {summary.sentiment && (
+                        </div>
+                      </div>
+
+                      {summary && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2">Conversation Summary</h4>
+                          <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
-                              <span className="text-gray-500">Sentiment:</span>
-                              <Badge variant="outline" className="capitalize">
-                                {summary.sentiment}
-                              </Badge>
+                              <span className="text-gray-500">Total Messages:</span>
+                              <span className="font-medium">{summary.totalMessages}</span>
                             </div>
-                          )}
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">First Contact:</span>
+                              <span className="font-medium">{formatDate(summary.firstContactAt)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Last Active:</span>
+                              <span className="font-medium">{formatDate(summary.lastActiveAt)}</span>
+                            </div>
+                            {summary.csatScore && (
+                              <div className="flex justify-between items-center">
+                                <span className="text-gray-500">CSAT Score:</span>
+                                <Badge 
+                                  variant={summary.csatScore >= 80 ? "default" : summary.csatScore >= 60 ? "secondary" : "destructive"}
+                                  className={
+                                    summary.csatScore >= 80 
+                                      ? "bg-green-100 text-green-800" 
+                                      : summary.csatScore >= 60 
+                                      ? "bg-yellow-100 text-yellow-800" 
+                                      : "bg-red-100 text-red-800"
+                                  }
+                                >
+                                  {summary.csatScore}/100 {summary.csatScore >= 80 ? "Excellent" : summary.csatScore >= 60 ? "Good" : "Needs Improvement"}
+                                </Badge>
+                              </div>
+                            )}
+                            {summary.sentiment && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">Sentiment:</span>
+                                <Badge variant="outline" className="capitalize">
+                                  {summary.sentiment}
+                                </Badge>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {summary?.mainTopics && summary.mainTopics.length > 0 && (
+                      {summary?.mainTopics && summary.mainTopics.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2">Main Topics</h4>
+                          <div className="flex flex-wrap gap-1">
+                            {summary.mainTopics.map((topic, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
+                                {topic}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <div>
-                        <h4 className="font-medium text-gray-900 mb-2">Main Topics</h4>
-                        <div className="flex flex-wrap gap-1">
-                          {summary.mainTopics.map((topic, index) => (
-                            <Badge key={index} variant="secondary" className="text-xs">
-                              {topic}
-                            </Badge>
-                          ))}
+                        <h4 className="font-medium text-gray-900 mb-2">Agent Details</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center space-x-2">
+                            <Bot className="w-4 h-4 text-gray-400" />
+                            <span>{selectedUser.agentName}</span>
+                          </div>
+                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
+                            {selectedUser.channelType.toUpperCase()}
+                          </Badge>
                         </div>
-                      </div>
-                    )}
-
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Agent Details</h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center space-x-2">
-                          <Bot className="w-4 h-4 text-gray-400" />
-                          <span>{selectedUser.agentName}</span>
-                        </div>
-                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
-                          {selectedUser.channelType.toUpperCase()}
-                        </Badge>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </ScrollArea>
             ) : (
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
