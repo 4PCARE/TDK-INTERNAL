@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { Document, documentVectors, InsertDocumentVector } from "@shared/schema";
 import { db } from '../db';
 import { eq, and, or, sql, inArray } from "drizzle-orm";
+import { thaiTextProcessor } from './thaiTextProcessor';
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ 
@@ -56,8 +57,12 @@ export class VectorService {
         throw new Error("Document content is empty");
       }
 
-      // Split content into chunks for better coverage
-      const chunks = this.splitTextIntoChunks(content);
+      // Process content with Thai text segmentation for better searchability
+      console.log(`Document ${id}: Processing Thai text segmentation...`);
+      const processedContent = await thaiTextProcessor.processForSearch(content);
+      
+      // Split processed content into chunks for better coverage
+      const chunks = this.splitTextIntoChunks(processedContent);
       console.log(`Document ${id}: Split into ${chunks.length} chunks for vector processing`);
 
       let addedChunks = 0;
@@ -97,12 +102,12 @@ export class VectorService {
             console.warn(`⚠️  CHUNK TOO LARGE: Doc ${id} chunk ${i} has ${chunk.length} chars - might be storing full document instead of chunk!`);
           }
 
-          // Save vector to database
+          // Save vector to database with processed content
           await db.insert(documentVectors).values({
             documentId: parseInt(id),
             chunkIndex: i,
             totalChunks: chunks.length,
-            content: chunk, // This should be the chunk content, not full document
+            content: chunk, // This is the Thai-segmented chunk content
             embedding,
             userId: metadata.userId
           });

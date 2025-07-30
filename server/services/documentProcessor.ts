@@ -8,6 +8,7 @@ import { LlamaParseReader } from "@llamaindex/cloud";
 import { processDocument as aiProcessDocument } from "./openai";
 import { vectorService } from "./vectorService";
 import { storage } from "../storage";
+import { thaiTextProcessor } from './thaiTextProcessor';
 
 // Added imports for PDF processing and OCR
 import { exec } from 'child_process';
@@ -66,12 +67,16 @@ export class DocumentProcessor {
       const aiTime = (Date.now() - aiStart) / 1000;
       console.log(`🤖 AI processing completed in ${aiTime.toFixed(2)}s`);
 
-      // Stage 3: Database Update
-      overallProgress.update(3, { stage: "Updating database..." });
+      // Stage 3: Database Update with Thai text processing
+      overallProgress.update(3, { stage: "Processing Thai text and updating database..." });
+      
+      // Process content for better Thai searchability
+      const processedContent = await thaiTextProcessor.processForSearch(content);
+      
       await storage.updateDocument(
         documentId,
         {
-          content,
+          content: processedContent, // Store Thai-segmented content
           summary,
           tags,
           processedAt: new Date(),
@@ -81,9 +86,9 @@ export class DocumentProcessor {
 
       // Stage 4: Vector Database Indexing
       overallProgress.update(4, { stage: "Creating search index..." });
-      if (content && content.trim().length > 0) {
+      if (processedContent && processedContent.trim().length > 0) {
         const vectorStart = Date.now();
-        await vectorService.addDocument(documentId.toString(), content, {
+        await vectorService.addDocument(documentId.toString(), processedContent, {
           userId: document.userId,
           documentName: document.name,
           mimeType: document.mimeType,
