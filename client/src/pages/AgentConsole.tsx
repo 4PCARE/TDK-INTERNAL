@@ -129,7 +129,9 @@ export default function AgentConsole() {
   // WebSocket connection for real-time updates
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    // Use window.location.host which includes port, or fallback to hostname:port
+    const hostWithPort = window.location.host || `${window.location.hostname}:${window.location.port || '5000'}`;
+    const wsUrl = `${protocol}//${hostWithPort}/ws`;
 
     console.log('🔌 Connecting to WebSocket:', wsUrl);
 
