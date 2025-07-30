@@ -59,13 +59,13 @@ export async function setupMicrosoftAuth(app: Express) {
       // Better name extraction with fallbacks
       let firstName = profile.given_name || profile._json?.given_name || '';
       let lastName = profile.family_name || profile._json?.family_name || '';
-      
+
       // If we don't have first/last name from claims, try to split the full name
       if (!firstName && !lastName && fullName) {
         firstName = nameParts[0] || '';
         lastName = nameParts.slice(1).join(' ') || '';
       }
-      
+
       // If still no name, try display name
       if (!firstName && !lastName) {
         const displayName = profile.displayName || profile._json?.displayName || '';
@@ -107,6 +107,7 @@ export async function setupMicrosoftAuth(app: Express) {
       try {
         const upsertResult = await storage.upsertUser(userInfo);
         console.log("User upsert result:", upsertResult);
+        console.log("User info being upserted:", userInfo);
       } catch (error) {
         console.error("Error upserting Microsoft user:", error);
         throw error;
