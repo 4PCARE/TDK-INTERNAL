@@ -83,6 +83,14 @@ export default function AgentConsole() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
+  // Define all available channel types
+  const allChannelTypes = [
+    { id: "line", name: "Line OA", icon: "📱" },
+    { id: "facebook", name: "Facebook", icon: "f" },
+    { id: "tiktok", name: "TikTok", icon: "🎵" },
+    { id: "webwidget", name: "Web Widget", icon: "🌐" },
+  ];
+
   // Fetch active users
   const { data: users = [], refetch: refetchUsers } = useQuery({
     queryKey: ["/api/agent-console/users", searchQuery, channelFilter],
@@ -650,8 +658,11 @@ export default function AgentConsole() {
                             <span>{selectedUser.agentName}</span>
                           </div>
                           <Badge variant="outline" className="text-xs bg-green-50 text-green-700">
-                            {selectedUser.channelType.toUpperCase()}
-                          </Badge>
+                                <span className="mr-1">
+                                  {allChannelTypes.find(c => c.id === selectedUser.channelType)?.icon || '📱'}
+                                </span>
+                                {allChannelTypes.find(c => c.id === selectedUser.channelType)?.name || selectedUser.channelType.toUpperCase()}
+                              </Badge>
                         </div>
                       </div>
                     </div>
