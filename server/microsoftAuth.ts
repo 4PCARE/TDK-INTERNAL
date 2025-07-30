@@ -76,6 +76,13 @@ export async function setupMicrosoftAuth(app: Express) {
         }
       }
 
+      // Try _json.name as another fallback
+      if (!firstName && !lastName && profile._json?.name) {
+        const jsonNameParts = profile._json.name.trim().split(/\s+/);
+        firstName = jsonNameParts[0] || '';
+        lastName = jsonNameParts.slice(1).join(' ') || '';
+      }
+
       const userInfo = {
         id: profile.oid || profile.sub, // Use oid (object ID) as unique identifier
         email: email,
@@ -186,11 +193,28 @@ export async function setupMicrosoftAuth(app: Express) {
                      profile._json?.preferred_username ||
                      profile._json?.email;
 
+        // Better name extraction with fallbacks
+        let firstName = profile.given_name || profile._json?.given_name || '';
+        let lastName = profile.family_name || profile._json?.family_name || '';
+
+        // If we don't have first/last name from claims, try to split the full name
+        if (!firstName && !lastName && fullName) {
+          firstName = nameParts[0] || '';
+          lastName = nameParts.slice(1).join(' ') || '';
+        }
+
+        // Try _json.name as another fallback
+        if (!firstName && !lastName && profile._json?.name) {
+          const jsonNameParts = profile._json.name.trim().split(/\s+/);
+          firstName = jsonNameParts[0] || '';
+          lastName = jsonNameParts.slice(1).join(' ') || '';
+        }
+
         const userInfo = {
           id: profile.oid || profile.sub,
           email: email,
-          firstName: profile.given_name || nameParts[0] || '',
-          lastName: profile.family_name || nameParts.slice(1).join(' ') || '',
+          firstName: firstName,
+          lastName: lastName,
           profileImageUrl: null
         };
 
