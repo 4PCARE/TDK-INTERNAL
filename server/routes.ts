@@ -456,7 +456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const userEmail = req.user.claims.email || req.user.claims.unique_name;
+      const userEmail = req.user.claims.email || req.user.claims.upn || req.user.claims.unique_name || req.user.claims.preferred_username;
       const { users, departments } = await import("@shared/schema");
 
       console.log("Getting user profile for:", { userId, userEmail });
@@ -485,8 +485,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({
           id: userId,
           email: userEmail,
-          firstName: req.user.claims.first_name || '',
-          lastName: req.user.claims.last_name || '',
+          firstName: req.user.claims.given_name || req.user.claims.first_name || '',
+          lastName: req.user.claims.family_name || req.user.claims.last_name || '',
           profileImageUrl: req.user.claims.profile_image_url || null,
           role: 'user', // Default role
           departmentId: null,
@@ -515,8 +515,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const userEmail = req.user.claims.email || req.user.claims.unique_name;
+      const userEmail = req.user.claims.email || req.user.claims.upn || req.user.claims.unique_name || req.user.claims.preferred_username;
       const { users, departments } = await import("@shared/schema");
+
+      console.log("Getting user profile for:", { userId, userEmail });
 
       // Fetch user with department information
       const [userWithDept] = await db
@@ -537,13 +539,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(users.id, userId));
 
       if (!userWithDept) {
+        console.log("User not found in database, returning user claims");
         // Return user info from claims if not found in database
+        const firstName = req.user.claims.given_name || req.user.claims.first_name || '';
+        const lastName = req.user.claims.family_name || req.user.claims.last_name || '';
+        const fullName = req.user.claims.name || `${firstName} ${lastName}`.trim();
+        
         return res.json({
           id: userId,
           email: userEmail,
-          name: `${req.user.claims.first_name || ''} ${req.user.claims.last_name || ''}`.trim(),
-          firstName: req.user.claims.first_name || '',
-          lastName: req.user.claims.last_name || '',
+          name: fullName,
+          firstName: firstName,
+          lastName: lastName,
           profileImageUrl: req.user.claims.profile_image_url || null,
           role: 'user',
           department: null,
