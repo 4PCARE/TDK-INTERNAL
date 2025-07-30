@@ -1,0 +1,26 @@
+client:536 WebSocket connection to 'wss://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/?token=J45VcLx3brm1' failed: 
+
+client:536 Uncaught (in promise) SyntaxError: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=J45VcLx3brm1' is invalid.
+    at setupWebSocket (client:536:19)
+    at fallback (client:509:16)
+    at WebSocket.<anonymous> (client:555:7)
+chunk-RPCDYKBN.js?v=b6a61e56:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+2
+Documents.tsx:59 Uncaught ReferenceError: useEffect is not defined
+    at Documents (Documents.tsx:59:3)
+chunk-RPCDYKBN.js?v=b6a61e56:14032 The above error occurred in the <Documents> component:
+
+    at Documents (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/pages/Documents.tsx:39:21)
+    at Route (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.de…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=b6a61e56:323:16)
+    at Switch (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.de…/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=b6a61e56:379:17)
+    at Router (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/App.tsx?v=rpLYw9SO54ptVnGGxm0gF:55:42)
+    at Provider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.de…unner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=b6a61e56:38:15)
+    at TooltipProvider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.de…rkspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=b6a61e56:66:5)
+    at QueryClientProvider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.de…rkspace/node_modules/.vite/deps/@tanstack_react-query.js?v=b6a61e56:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+chunk-RPCDYKBN.js?v=b6a61e56:9129 Uncaught ReferenceError: useEffect is not defined
+    at Documents (Documents.tsx:59:3)
+﻿
