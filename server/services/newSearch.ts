@@ -324,14 +324,9 @@ function normalizeThaiText(text: string): string {
 }
 
 async function tokenizeWithThaiNormalization(text: string): string[] {
-  // Use the existing Thai text processor for proper segmentation
-  const { thaiTextProcessor } = await import('./thaiTextProcessor');
-  
-  // First segment Thai text properly
-  const segmentedText = await thaiTextProcessor.segmentThaiText(text);
-  
-  // Then tokenize the segmented text
-  const tokens = segmentedText
+  // Simple tokenization without Thai segmentation for documents
+  // Thai segmentation should only be used for query processing
+  const tokens = text
     .toLowerCase()
     .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
     .filter(token => token.length > 0)
@@ -416,11 +411,11 @@ export async function searchSmartHybridDebug(
   const searchQuery = options.enhancedQuery || query;
   console.log(`🔍 SEARCH: Using ${options.enhancedQuery ? 'preprocessed' : 'original'} query: "${searchQuery}"`);
 
-  // Only tokenize with PythaiNLP for proper Thai word boundaries
-  console.log(`🔍 TOKENIZATION: Segmenting Thai text for search terms`);
+  // Only use PythaiNLP for query processing, not document processing
+  console.log(`🔍 QUERY PROCESSING: Segmenting Thai text for search terms only`);
   const { thaiTextProcessor } = await import('./thaiTextProcessor');
   const tokenizedQuery = await thaiTextProcessor.segmentThaiText(searchQuery);
-  console.log(`🔍 TOKENIZATION: Result: "${tokenizedQuery}"`);
+  console.log(`🔍 QUERY PROCESSING: Result: "${tokenizedQuery}"`);
 
   const searchTerms = tokenizedQuery.toLowerCase().split(/\s+/).filter(Boolean);
 
