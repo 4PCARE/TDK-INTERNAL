@@ -312,7 +312,9 @@ async function calculateBM25(
           fuzzyMatch = findBestFuzzyMatch(term, tokens);
         }
 
-        if (fuzzyMatch.score > 0.75) {
+        // Lower threshold for Thai text due to spacing variations
+        const threshold = isThaiText(term) ? 0.65 : 0.75;
+        if (fuzzyMatch.score > threshold) {
           matchedTerms.push(term);
           processedTerms.add(term);
           const fuzzyTf = fuzzyMatch.count;
@@ -368,12 +370,10 @@ async function tokenizeWithThaiNormalization(text: string): string[] {
 }
 
 function normalizeThaiSpacing(text: string): string {
-  // Generic Thai text normalization - remove excessive spaces between Thai characters
+  // More conservative Thai text normalization
   return text
-    // Remove spaces between Thai characters (but preserve spaces around English/numbers)
-    .replace(/([ก-๙])\s+([ก-๙])/g, '$1$2')
-    // Normalize multiple spaces to single space
-    .replace(/\s+/g, ' ')
+    // Only collapse multiple consecutive spaces to single space
+    .replace(/\s{2,}/g, ' ')
     // Trim leading/trailing spaces
     .trim();
 }
@@ -424,15 +424,31 @@ function isThaiTokenSimilar(term1: string, term2: string): boolean {
   // Exact match after space normalization
   if (normalized1 === normalized2) return true;
   
+  // Special handling for Thai brand names with spacing variations
+  // Check if removing spaces makes them match (e.g., "แมคโดนัลด์" vs "แมค โดนัลด์")
+  const spaceless1 = term1.replace(/\s+/g, '');
+  const spaceless2 = term2.replace(/\s+/g, '');
+  if (spaceless1.toLowerCase() === spaceless2.toLowerCase()) {
+    return true;
+  }
+  
   // Check if one contains the other (for partial matches like "แมค" vs "แมคโดนัลด์")
   if (normalized1.length >= 3 && normalized2.length >= 3) {
     if (normalized1.includes(normalized2) || normalized2.includes(normalized1)) {
       return true;
     }
     
-    // Levenshtein distance for typos
-    const similarity = calculateSimilarity(normalized1, normalized2);
-    return similarity >= 0.85; // Lower threshold for better matching
+    // Also check with original spacing preserved
+    const lower1 = term1.toLowerCase();
+    const lower2 = term2.toLowerCase();
+    if (lower1.includes(lower2) || lower2.includes(lower1)) {
+      return true;
+    }
+    
+    // Levenshtein distance for typos (both with and without spaces)
+    const similarity1 = calculateSimilarity(normalized1, normalized2);
+    const similarity2 = calculateSimilarity(lower1, lower2);
+    return Math.max(similarity1, similarity2) >= 0.85;
   }
   
   return false;
