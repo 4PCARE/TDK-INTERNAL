@@ -23,9 +23,6 @@ def segment_thai_text(text):
     Returns segmented text with proper word boundaries
     """
     try:
-        # Get Thai stopwords
-        stopwords = list(thai_stopwords())
-        
         # Tokenize into sentences first
         sentences = sent_tokenize(text, engine='crfcut')
         
@@ -34,22 +31,21 @@ def segment_thai_text(text):
             # Tokenize each sentence into words
             words = word_tokenize(sentence, engine='newmm')
             
-            # Process words to maintain proper spacing and filtering
+            # Process words - keep ALL words but add spaces between them
             processed_words = []
             for word in words:
                 word = word.strip()
-                if word and word not in stopwords:
-                    # Keep meaningful words including numbers and mixed content
-                    if len(word) > 0 and not word.isspace():
-                        processed_words.append(word)
+                # Keep all meaningful words (don't filter stopwords for better searchability)
+                if len(word) > 0 and not word.isspace():
+                    processed_words.append(word)
             
             # Join words with single spaces for proper segmentation
             segmented_sentence = ' '.join(processed_words)
             if segmented_sentence.strip():
                 segmented_sentences.append(segmented_sentence)
         
-        # Join sentences back together
-        result = ' '.join(segmented_sentences)
+        # Join sentences back together with newlines preserved
+        result = '\n'.join(segmented_sentences)
         return result
         
     except Exception as e:
