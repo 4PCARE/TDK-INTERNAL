@@ -178,12 +178,13 @@ if __name__ == "__main__":
       // First, segment Thai text
       let processedText = await this.segmentThaiText(text);
 
-      // Clean up whitespace while preserving word boundaries from Thai segmentation
+      // Clean up whitespace while preserving Thai word boundaries from segmentation
       processedText = processedText
-        .replace(/[ \t]+/g, ' ') // Replace multiple spaces/tabs with single space (preserve word boundaries)
         .replace(/\n\s*\n/g, '\n') // Replace multiple newlines with single newline
         .replace(/^\s+|\s+$/g, '') // Trim leading and trailing whitespace
         .trim();
+      
+      // DO NOT collapse multiple spaces - they are Thai word boundaries!
 
       return processedText;
 
