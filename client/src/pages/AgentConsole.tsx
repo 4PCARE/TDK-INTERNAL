@@ -276,12 +276,9 @@ export default function AgentConsole() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  const uniqueChannelTypes = Array.from(
-    new Set(users.map(u => u.channelType))
-  ).map(channelType => ({
-    id: channelType,
-    name: channelType.toUpperCase(),
-  }));
+  const uniqueChannelTypes = allChannelTypes.filter(channelType => 
+    users.some(u => u.channelType === channelType.id)
+  );
 
   return (
     <DashboardLayout>
@@ -317,10 +314,18 @@ export default function AgentConsole() {
                   <SelectValue placeholder="Select Channel" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Channels</SelectItem>
-                  {uniqueChannelTypes.map(channel => (
+                  <SelectItem value="all">
+                    <div className="flex items-center space-x-2">
+                      <span>🌐</span>
+                      <span>All Channels</span>
+                    </div>
+                  </SelectItem>
+                  {allChannelTypes.map(channel => (
                     <SelectItem key={channel.id} value={channel.id}>
-                      {channel.name}
+                      <div className="flex items-center space-x-2">
+                        <span>{channel.icon}</span>
+                        <span>{channel.name}</span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -383,9 +388,17 @@ export default function AgentConsole() {
                                 }`}>
                                   {user.userProfile.name}
                                 </p>
-                                <Badge variant="secondary" className="text-xs">
-                                  {userConversations.reduce((total, conv) => total + conv.messageCount, 0)}
-                                </Badge>
+                                <div className="flex items-center space-x-1">
+                                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                    <span className="mr-1">
+                                      {allChannelTypes.find(c => c.id === user.channelType)?.icon || '📱'}
+                                    </span>
+                                    {allChannelTypes.find(c => c.id === user.channelType)?.name || user.channelType.toUpperCase()}
+                                  </Badge>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {userConversations.reduce((total, conv) => total + conv.messageCount, 0)}
+                                  </Badge>
+                                </div>
                               </div>
 
                               <p className="text-xs text-gray-500 mb-1 truncate">
