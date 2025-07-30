@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   FileText, 
   Search, 
@@ -64,9 +65,15 @@ export default function Documents() {
     }
   }, []);
 
+  // Debug auth state
+  useEffect(() => {
+    console.log("Auth state:", { isLoading, isAuthenticated });
+  }, [isLoading, isAuthenticated]);
+
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
+      console.log("Redirecting to login...");
       toast({
         title: "Unauthorized",
         description: "You are logged out. Logging in again...",
@@ -80,41 +87,74 @@ export default function Documents() {
   }, [isAuthenticated, isLoading, toast]);
 
   // Enhanced search with semantic capabilities  
-  const { data: documents, isLoading: documentsLoading } = useQuery({
+  const { data: documents, isLoading: documentsLoading, error: documentsError } = useQuery({
     queryKey: ["/api/documents/search", searchQuery, searchType],
     queryFn: async () => {
-      if (!searchQuery.trim()) {
-        const response = await fetch("/api/documents");
+      try {
+        if (!searchQuery.trim()) {
+          const response = await fetch("/api/documents");
+          if (!response.ok) {
+            throw new Error(`${response.status}: ${response.statusText}`);
+          }
+          return await response.json();
+        }
+
+        const params = new URLSearchParams({
+          query: searchQuery,
+          type: searchType
+        });
+
+        console.log(`Frontend search: "${searchQuery}" (${searchType})`);
+        const response = await fetch(`/api/documents/search?${params}`);
         if (!response.ok) {
           throw new Error(`${response.status}: ${response.statusText}`);
         }
-        return await response.json();
+        const results = await response.json();
+        console.log(`Frontend received ${results.length} search results`);
+        return results;
+      } catch (error) {
+        console.error("Document query failed:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load documents. Please try again.",
+          variant: "destructive",
+        });
+        throw error;
       }
-
-      const params = new URLSearchParams({
-        query: searchQuery,
-        type: searchType
-      });
-
-      console.log(`Frontend search: "${searchQuery}" (${searchType})`);
-      const response = await fetch(`/api/documents/search?${params}`);
-      if (!response.ok) {
-        throw new Error(`${response.status}: ${response.statusText}`);
-      }
-      const results = await response.json();
-      console.log(`Frontend received ${results.length} search results`);
-      return results;
     },
     retry: false,
-  }) as { data: Array<any>; isLoading: boolean };
+    enabled: isAuthenticated,
+  }) as { data: Array<any>; isLoading: boolean; error: any };
 
   const { data: categories } = useQuery({
     queryKey: ["/api/categories"],
     retry: false,
   }) as { data: Array<{ id: number; name: string }> | undefined };
 
-  if (isLoading || !isAuthenticated) {
-    return null;
+  // Show loading state instead of null
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading documents...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <p className="text-gray-600">Redirecting to login...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
   }
 
   // Get unique AI categories and tags for filtering
