@@ -49,7 +49,7 @@ export async function setupMicrosoftAuth(app: Express) {
 
       const userInfo = {
         id: profile.oid || profile.sub, // Use oid (object ID) as unique identifier
-        email: profile.preferred_username || profile.upn || profile.email || profile.unique_name,
+        email: profile.upn || profile.preferred_username || profile.unique_name || profile.email,
         firstName: profile.given_name || nameParts[0] || '',
         lastName: profile.family_name || nameParts.slice(1).join(' ') || '',
         profileImageUrl: null // Microsoft Graph API would be needed for profile picture
@@ -134,7 +134,7 @@ export async function setupMicrosoftAuth(app: Express) {
 
         const userInfo = {
           id: profile.oid || profile.sub,
-          email: profile.preferred_username || profile.upn || profile.email || profile.unique_name,
+          email: profile.upn || profile.preferred_username || profile.unique_name || profile.email,
           firstName: profile.given_name || nameParts[0] || '',
           lastName: profile.family_name || nameParts.slice(1).join(' ') || '',
           profileImageUrl: null

@@ -225,10 +225,37 @@ export class DatabaseStorage implements IStorage {
     console.log("Storage upsertUser called with:", userData);
 
     try {
+      // Get or create default department
+      let defaultDepartment;
+      try {
+        const [dept] = await db
+          .select()
+          .from(departments)
+          .where(eq(departments.name, 'General'))
+          .limit(1);
+        
+        if (!dept) {
+          const [newDept] = await db
+            .insert(departments)
+            .values({
+              name: 'General',
+              description: 'Default department for new users',
+            })
+            .returning();
+          defaultDepartment = newDept;
+        } else {
+          defaultDepartment = dept;
+        }
+      } catch (deptError) {
+        console.error("Error handling default department:", deptError);
+        defaultDepartment = null;
+      }
+
       const [user] = await db
         .insert(users)
         .values({
           ...userData,
+          departmentId: defaultDepartment?.id || null,
           createdAt: new Date(),
           updatedAt: new Date(),
         })
