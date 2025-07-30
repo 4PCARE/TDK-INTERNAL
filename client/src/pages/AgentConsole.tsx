@@ -88,27 +88,24 @@ export default function AgentConsole() {
   }) as { data: AgentUser[]; refetch: () => void };
 
   // Fetch conversation messages
-  const { data: messages = [], refetch: refetchMessages } = useQuery({
+  const { data: messages = [] } = useQuery({
     queryKey: ["/api/agent-console/conversation", selectedUser?.userId, selectedUser?.channelId],
     queryFn: async () => {
       if (!selectedUser) return [];
 
       const params = new URLSearchParams({
-        targetUserId: selectedUser.userId, // Fixed: use targetUserId to match backend
+        targetUserId: selectedUser.userId, // Fixed: use targetUserId instead of userId
         channelType: selectedUser.channelType,
         channelId: selectedUser.channelId,
         agentId: selectedUser.agentId.toString(),
       });
 
-      console.log("🔍 Fetching conversation with params:", Object.fromEntries(params));
       const response = await fetch(`/api/agent-console/conversation?${params}`);
       if (!response.ok) throw new Error("Failed to fetch conversation");
-      const data = await response.json();
-      console.log("📨 Conversation response:", data);
-      return data;
+      return response.json();
     },
-    enabled: !!selectedUser?.userId && !!selectedUser?.channelId,
-  }) as { data: Message[]; refetch: () => void };
+    enabled: !!selectedUser,
+  }) as { data: Message[] };
 
   // Fetch conversation summary
   const { data: summary } = useQuery({
@@ -117,19 +114,16 @@ export default function AgentConsole() {
       if (!selectedUser) return null;
 
       const params = new URLSearchParams({
-        targetUserId: selectedUser.userId, // Fixed: use targetUserId to match backend
+        targetUserId: selectedUser.userId, // Fixed: use targetUserId instead of userId
         channelType: selectedUser.channelType,
         channelId: selectedUser.channelId,
       });
 
-      console.log("📊 Fetching summary with params:", Object.fromEntries(params));
       const response = await fetch(`/api/agent-console/summary?${params}`);
       if (!response.ok) throw new Error("Failed to fetch summary");
-      const data = await response.json();
-      console.log("📊 Summary response:", data);
-      return data;
+      return response.json();
     },
-    enabled: !!selectedUser?.userId && !!selectedUser?.channelId,
+    enabled: !!selectedUser,
   }) as { data: ConversationSummary | null };
 
   // WebSocket connection for real-time updates
@@ -153,7 +147,6 @@ export default function AgentConsole() {
       const data = JSON.parse(event.data);
       if (data.type === 'agent-console-update') {
         refetchUsers();
-        refetchMessages(); // Refetch messages when updates occur
       }
     };
 
@@ -180,11 +173,11 @@ export default function AgentConsole() {
     if (!newMessage.trim() || !selectedUser) return;
 
     try {
-      const response = await fetch("/api/agent-console/send-message", {
+      const response = await fetch("/api/agent-console/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          targetUserId: selectedUser.userId, // Fixed: use targetUserId to match backend
+          targetUserId: selectedUser.userId,
           channelType: selectedUser.channelType,
           channelId: selectedUser.channelId,
           agentId: selectedUser.agentId,
@@ -195,7 +188,6 @@ export default function AgentConsole() {
       if (!response.ok) throw new Error("Failed to send message");
 
       setNewMessage("");
-      refetchMessages(); // Refresh messages after sending
       toast({
         title: "Message Sent",
         description: "Your message has been sent successfully.",
@@ -415,20 +407,13 @@ export default function AgentConsole() {
                   <CardContent className="flex-1 flex flex-col p-0 min-h-0">
                     <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
                       <div className="space-y-4">
-                        {console.log("🧾 Messages to render:", messages)}
-                        {messages.length === 0 ? (
-                          <div className="text-center py-8">
-                            <MessageCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                            <p className="text-sm text-gray-500">No messages yet</p>
-                          </div>
-                        ) : (
-                          messages.map((message) => (
-                            <div
-                              key={`${message.id}-${message.createdAt}`} // Fixed: make unique key
-                              className={`flex space-x-3 ${
-                                message.messageType === 'user' ? 'justify-start' : 'justify-end'
-                              }`}
-                            >
+                        {messages.map((message) => (
+                          <div
+                            key={`${message.id}-${message.createdAt}`} // Fixed: make unique key
+                            className={`flex space-x-3 ${
+                              message.messageType === 'user' ? 'justify-start' : 'justify-end'
+                            }`}
+                          >
                             {message.messageType === 'user' && (
                               <Avatar className="w-8 h-8">
                                 <AvatarFallback className="text-xs">
@@ -460,8 +445,7 @@ export default function AgentConsole() {
                               </Avatar>
                             )}
                           </div>
-                        ))
-                        )}
+                        ))}
                       </div>
                     </ScrollArea>
 
