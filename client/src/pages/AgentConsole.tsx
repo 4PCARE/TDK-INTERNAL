@@ -72,6 +72,7 @@ export default function AgentConsole() {
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterAgent, setFilterAgent] = useState<string>("all");
+  const [showMessageInput, setShowMessageInput] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -181,6 +182,12 @@ export default function AgentConsole() {
     }
   }, [users, selectedUser]);
 
+  // Reset message input when user changes
+  useEffect(() => {
+    setShowMessageInput(false);
+    setNewMessage("");
+  }, [selectedUser]);
+
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedUser) return;
 
@@ -200,6 +207,7 @@ export default function AgentConsole() {
       if (!response.ok) throw new Error("Failed to send message");
 
       setNewMessage("");
+      setShowMessageInput(false);
       refetchMessages(); // Refresh messages after sending
       toast({
         title: "Message Sent",
@@ -449,30 +457,52 @@ export default function AgentConsole() {
                     </div>
                   </ScrollArea>
 
-                  {/* Message Input */}
+                  {/* Message Input or Open Message Button */}
                   <div className="flex-shrink-0 border-t border-gray-200 p-4">
-                    <div className="flex space-x-2">
-                      <Input
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type a message..."
-                        className="flex-1"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSendMessage();
-                          }
-                        }}
-                      />
+                    {showMessageInput ? (
+                      <div className="flex space-x-2">
+                        <Input
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          placeholder="Type a message..."
+                          className="flex-1"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendMessage();
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <Button
+                          onClick={handleSendMessage}
+                          disabled={!newMessage.trim()}
+                          size="sm"
+                          className="px-4"
+                        >
+                          <Send className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setShowMessageInput(false);
+                            setNewMessage("");
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="px-4"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
                       <Button
-                        onClick={handleSendMessage}
-                        disabled={!newMessage.trim()}
-                        size="sm"
-                        className="px-4"
+                        onClick={() => setShowMessageInput(true)}
+                        className="w-full bg-blue-500 hover:bg-blue-600 text-white"
                       >
-                        <Send className="w-4 h-4" />
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        Open Message
                       </Button>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
