@@ -55,8 +55,27 @@ export async function setupMicrosoftAuth(app: Express) {
         profileImageUrl: null // Microsoft Graph API would be needed for profile picture
       };
 
+      console.log("Microsoft profile data:", {
+        oid: profile.oid,
+        sub: profile.sub,
+        email: profile.email,
+        preferred_username: profile.preferred_username,
+        upn: profile.upn,
+        given_name: profile.given_name,
+        family_name: profile.family_name,
+        name: profile.name
+      });
+
+      console.log("Extracted userInfo for database:", userInfo);
+
       // Upsert user in database
-      await storage.upsertUser(userInfo);
+      try {
+        const upsertResult = await storage.upsertUser(userInfo);
+        console.log("User upsert result:", upsertResult);
+      } catch (error) {
+        console.error("Error upserting Microsoft user:", error);
+        throw error;
+      }
 
       // Create user session object
       const user = {
@@ -121,8 +140,27 @@ export async function setupMicrosoftAuth(app: Express) {
           profileImageUrl: null
         };
 
+        console.log("Microsoft profile data (dynamic):", {
+          oid: profile.oid,
+          sub: profile.sub,
+          email: profile.email,
+          preferred_username: profile.preferred_username,
+          upn: profile.upn,
+          given_name: profile.given_name,
+          family_name: profile.family_name,
+          name: profile.name
+        });
+
+        console.log("Extracted userInfo for database (dynamic):", userInfo);
+
         // Upsert user in database
-        await storage.upsertUser(userInfo);
+        try {
+          const upsertResult = await storage.upsertUser(userInfo);
+          console.log("User upsert result (dynamic):", upsertResult);
+        } catch (error) {
+          console.error("Error upserting Microsoft user (dynamic):", error);
+          throw error;
+        }
 
         // Create user session object
         const user = {

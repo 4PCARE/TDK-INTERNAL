@@ -56,7 +56,7 @@ import {
   type LineCarouselColumn,
   type InsertLineCarouselColumn,
   type LineTemplateAction,
-  type InsertLineTemplateAction,
+  type InsertTemplateAction,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, like, count, sql, ilike, getTableColumns, gte, lte, inArray } from "drizzle-orm";
@@ -189,19 +189,19 @@ export interface IStorage {
   createLineMessageTemplate(template: InsertLineMessageTemplate): Promise<LineMessageTemplate>;
   updateLineMessageTemplate(id: number, template: Partial<InsertLineMessageTemplate>, userId: string): Promise<LineMessageTemplate>;
   deleteLineMessageTemplate(id: number, userId: string): Promise<void>;
-  
+
   // Line Carousel Column operations
   getLineCarouselColumns(templateId: number): Promise<LineCarouselColumn[]>;
   createLineCarouselColumn(column: InsertLineCarouselColumn): Promise<LineCarouselColumn>;
   updateLineCarouselColumn(id: number, column: Partial<InsertLineCarouselColumn>): Promise<LineCarouselColumn>;
   deleteLineCarouselColumn(id: number): Promise<void>;
-  
+
   // Line Template Action operations
   getLineTemplateActions(columnId: number): Promise<LineTemplateAction[]>;
   createLineTemplateAction(action: InsertLineTemplateAction): Promise<LineTemplateAction>;
   updateLineTemplateAction(id: number, action: Partial<InsertLineTemplateAction>): Promise<LineTemplateAction>;
   deleteLineTemplateAction(id: number): Promise<void>;
-  
+
   // Complete Line template with all related data
   getCompleteLineTemplate(id: number, userId: string): Promise<{
     template: LineMessageTemplate;
@@ -222,18 +222,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
+    console.log("Storage upsertUser called with:", userData);
+
+    try {
+      const [user] = await db
+        .insert(users)
+        .values({
           ...userData,
+          createdAt: new Date(),
           updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+        })
+        .onConflictDoUpdate({
+          target: users.id,
+          set: {
+            email: userData.email,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            profileImageUrl: userData.profileImageUrl,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+
+      console.log("User upserted successfully:", user);
+      return user;
+    } catch (error) {
+      console.error("Database error in upsertUser:", error);
+      throw error;
+    }
   }
 
   // Category operations
@@ -594,22 +610,22 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDocument(id: number, userId: string): Promise<void> {
     // Delete related records first to avoid foreign key constraint violations
-    
+
     // Delete document access records
     await db.delete(documentAccess).where(eq(documentAccess.documentId, id));
-    
+
     // Delete user favorites
     await db.delete(userFavorites).where(eq(userFavorites.documentId, id));
-    
+
     // Delete user permissions
     await db.delete(documentUserPermissions).where(eq(documentUserPermissions.documentId, id));
-    
+
     // Delete department permissions
     await db.delete(documentDepartmentPermissions).where(eq(documentDepartmentPermissions.documentId, id));
-    
+
     // Delete agent chatbot document associations
     await db.delete(agentChatbotDocuments).where(eq(agentChatbotDocuments.documentId, id));
-    
+
     // Finally delete the document itself
     await db.delete(documents).where(and(eq(documents.id, id), eq(documents.userId, userId)));
   }
@@ -1380,7 +1396,7 @@ export class DatabaseStorage implements IStorage {
       .from(agentChatbots)
       .where(eq(agentChatbots.id, agentId))
       .limit(1);
-    
+
     return agent || null;
   }
 
@@ -1397,7 +1413,7 @@ export class DatabaseStorage implements IStorage {
       .from(documents)
       .where(eq(documents.id, documentId))
       .limit(1);
-    
+
     return document || null;
   }
 
