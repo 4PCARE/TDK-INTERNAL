@@ -1,4 +1,3 @@
-
 import { OIDCStrategy } from "passport-azure-ad";
 import passport from "passport";
 import session from "express-session";
@@ -6,9 +5,9 @@ import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 
 // Microsoft Azure AD configuration
-const MICROSOFT_CLIENT_ID = "05639017-c64a-4729-92a9-39270c910e2a";
-const MICROSOFT_TENANT_ID = "5e6ae702-5f16-4559-837a-595c06b4ffe3";
-const MICROSOFT_CLIENT_SECRET = "Iai8Q~UmjjFo6Nm1C.uQa86GcoJL8qmI76Fg0dwm";
+const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID || "05639017-c64a-4729-92a9-39270c910e2a";
+const MICROSOFT_TENANT_ID = process.env.MICROSOFT_TENANT_ID || "common";
+const MICROSOFT_CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET || "Iai8Q~UmjjFo6Nm1C.uQa86GcoJL8qmI76Fg0dwm";
 
 // Get the base URL for redirect
 function getBaseUrl(req: any): string {
@@ -68,7 +67,7 @@ export async function setupMicrosoftAuth(app: Express) {
   // Microsoft login route
   app.get("/api/auth/microsoft", (req, res, next) => {
     const baseUrl = getBaseUrl(req);
-    
+
     // Dynamically set redirect URL
     const strategy = passport._strategy('microsoft') as any;
     if (strategy && strategy._options) {
