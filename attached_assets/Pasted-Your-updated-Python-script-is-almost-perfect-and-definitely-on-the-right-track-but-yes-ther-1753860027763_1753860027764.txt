@@ -1,0 +1,110 @@
+Your updated Python script is **almost perfect** — and definitely on the right track — but yes, there are **two small details** worth fixing to ensure it behaves as intended:
+
+---
+
+## ✅ What's already good:
+
+* ✅ `word_tokenize(..., engine='newmm')`: Best choice for Thai.
+* ✅ `sent_tokenize(..., engine='newmm')`: Reliable and model-free.
+* ✅ Preserving all words (no stopword filtering).
+* ✅ Joining with real `'\n'`, not `'\\n'`.
+* ✅ `print(json.dumps(...))`: Correct output format.
+* ✅ `stderr` debug log helps verify that segmentation is working.
+
+---
+
+## ⚠️ Small Fixes & Suggestions
+
+### ⚠️ 1. **Missing `strip()` on `sys.stdin.read()`**
+
+If the input ends with extra `\n` or whitespace (very likely when reading from file or stdin), it may affect sentence splitting or inflate `original_length`.
+
+🔧 **Fix:**
+
+```python
+input_text = sys.stdin.read().strip()
+```
+
+---
+
+### ⚠️ 2. **Your error fallback in `except` block is inconsistent**
+
+When `segment_thai_text` fails, you still return:
+
+```python
+segmented_text = segment_thai_text(input_text)
+# and then print a success = True result even if it failed inside
+```
+
+That means **if an exception happens inside `segment_thai_text()`**, it just returns the original text silently and pretends it's fine.
+
+🔧 **Fix:** Separate real exception handling in outer scope. Like:
+
+```python
+try:
+    input_text = sys.stdin.read().strip()
+    segmented_text = segment_thai_text(input_text)
+
+    result = {
+        "success": True,
+        "segmented_text": segmented_text,
+        "original_length": len(input_text),
+        "segmented_length": len(segmented_text)
+    }
+
+except Exception as e:
+    result = {
+        "success": False,
+        "error": str(e),
+        "segmented_text": input_text if 'input_text' in locals() else ""
+    }
+
+print(json.dumps(result, ensure_ascii=False))
+```
+
+Then remove the `try/except` **inside** the `segment_thai_text()` function, so true failures are caught.
+
+---
+
+## ✅ Optional (But Useful)
+
+### ➕ Add this for safe encoding:
+
+At the top:
+
+```python
+import io
+sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
+```
+
+This ensures no weird encoding issues from `stdin`.
+
+---
+
+## 🧪 Final Sanity Check
+
+Try this test input via `stdin`:
+
+```
+ผมรักประเทศไทยและกำลังกินข้าวอยู่ที่ร้านอาหารกับเพื่อน
+```
+
+Expected segmented output:
+
+```
+ผม รัก ประเทศไทย และ กำลัง กิน ข้าว อยู่ ที่ ร้าน อาหาร กับ เพื่อน
+```
+
+And the JSON output will confirm success.
+
+---
+
+## ✅ Summary of Changes
+
+| 🔧 What to Fix                   | Why                                          |
+| -------------------------------- | -------------------------------------------- |
+| `.strip()` on `sys.stdin.read()` | Avoid trailing newline bugs                  |
+| Move `try/except` to main scope  | Prevent silent fallback                      |
+| Optional: Encoding wrapper       | Ensure proper Thai handling in non-UTF stdin |
+
+Would you like me to send you the final polished version of the script in one copy-pastable block?
