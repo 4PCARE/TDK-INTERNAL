@@ -13,13 +13,40 @@ def segment_thai_text(text):
     Segment Thai text using PythaiNLP
     Returns segmented text with proper word boundaries
     """
+    # Try different tokenizers in order of preference
+    tokenizer_engines = ['newmm', 'longest', 'attacut', 'deepcut']
+    
+    selected_engine = 'newmm'  # default
+    
+    # Test which tokenizer is available
+    for engine in tokenizer_engines:
+        try:
+            # Test tokenizer with a simple word
+            word_tokenize("ทดสอบ", engine=engine)
+            selected_engine = engine
+            break
+        except Exception as e:
+            print(f"DEBUG: Tokenizer '{engine}' not available: {e}", file=sys.stderr)
+            continue
+    
+    print(f"DEBUG: Using tokenizer engine: {selected_engine}", file=sys.stderr)
+    
     # Tokenize into sentences first
-    sentences = sent_tokenize(text, engine='newmm')
+    try:
+        sentences = sent_tokenize(text, engine=selected_engine)
+    except:
+        # Fallback to basic sentence splitting if sentence tokenizer fails
+        sentences = text.split('\n')
 
     segmented_sentences = []
     for sentence in sentences:
         # Tokenize each sentence into words
-        words = word_tokenize(sentence, engine='newmm')
+        try:
+            words = word_tokenize(sentence, engine=selected_engine)
+        except Exception as e:
+            print(f"DEBUG: Word tokenization failed with {selected_engine}: {e}", file=sys.stderr)
+            # Fallback to basic space-based tokenization for Thai
+            words = sentence.split()
 
         # Process words - keep ALL words but add spaces between them
         processed_words = []
