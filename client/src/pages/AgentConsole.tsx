@@ -176,13 +176,28 @@ export default function AgentConsole() {
     };
   }, [queryClient]);
 
+  // Group users by userId to avoid duplicates
+  const groupedUsers = users.reduce((acc, user) => {
+    const existingUser = acc.find(u => u.userId === user.userId);
+    if (existingUser) {
+      // Keep the most recent conversation
+      if (new Date(user.lastMessageAt) > new Date(existingUser.lastMessageAt)) {
+        const index = acc.findIndex(u => u.userId === user.userId);
+        acc[index] = user;
+      }
+    } else {
+      acc.push(user);
+    }
+    return acc;
+  }, [] as AgentUser[]);
+
   // Auto-select first user if none selected
   useEffect(() => {
-    if (users.length > 0 && !selectedUser) {
-      console.log('🎯 Agent Console: Auto-selecting first user:', users[0]);
-      setSelectedUser(users[0]);
+    if (groupedUsers.length > 0 && !selectedUser) {
+      console.log('🎯 Agent Console: Auto-selecting first user:', groupedUsers[0]);
+      setSelectedUser(groupedUsers[0]);
     }
-  }, [users, selectedUser]);
+  }, [groupedUsers, selectedUser]);
 
   // Reset message input when user changes
   useEffect(() => {
@@ -313,22 +328,26 @@ export default function AgentConsole() {
           <div className="flex-1 min-h-0">
             <ScrollArea className="h-full">
               <div className="p-2">
-                {users.length === 0 ? (
+                {groupedUsers.length === 0 ? (
                   <div className="text-center py-8">
                     <UserCheck className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm text-gray-500">No active users</p>
                   </div>
                 ) : (
-                  users.map((user) => (
-                    <div
-                      key={`${user.userId}-${user.channelType}-${user.channelId}-${user.agentId}`}
-                      className={`p-3 rounded-lg cursor-pointer transition-all mb-2 ${
-                        selectedUser?.userId === user.userId && selectedUser?.channelId === user.channelId
-                          ? 'bg-blue-50 border border-blue-200'
-                          : 'hover:bg-gray-50 border border-transparent'
-                      }`}
-                      onClick={() => setSelectedUser(user)}
-                    >
+                  groupedUsers.map((user) => {
+                    const isSelected = selectedUser?.userId === user.userId;
+                    const userConversations = users.filter(u => u.userId === user.userId);
+                    
+                    return (
+                      <div key={user.userId}>
+                        <div
+                          className={`p-3 rounded-lg cursor-pointer transition-all mb-2 ${
+                            isSelected
+                              ? 'bg-blue-50 border border-blue-200'
+                              : 'hover:bg-gray-50 border border-transparent'
+                          }`}
+                          onClick={() => setSelectedUser(user)}
+                        >
                       <div className="flex items-start space-x-3">
                         <div className="relative">
                           <Avatar className="w-8 h-8">
@@ -343,11 +362,13 @@ export default function AgentConsole() {
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
-                            <p className="text-sm font-medium text-gray-900 truncate">
+                            <p className={`text-sm text-gray-900 truncate ${
+                              isSelected ? 'font-bold' : 'font-medium'
+                            }`}>
                               {user.userProfile.name}
                             </p>
                             <Badge variant="secondary" className="text-xs">
-                              {user.messageCount}
+                              {userConversations.reduce((total, conv) => total + conv.messageCount, 0)}
                             </Badge>
                           </div>
 
@@ -361,13 +382,21 @@ export default function AgentConsole() {
                             </p>
                           </div>
 
-                          <p className="text-xs text-gray-400">
-                            {formatTime(user.lastMessageAt)}
-                          </p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-gray-400">
+                              {formatTime(user.lastMessageAt)}
+                            </p>
+                            {userConversations.length > 1 && (
+                              <span className="text-xs text-blue-600 font-medium">
+                                {userConversations.length} chats
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  ))
+                  );
+                  })
                 )}
               </div>
             </ScrollArea>
