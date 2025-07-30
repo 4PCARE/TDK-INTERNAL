@@ -1,0 +1,73 @@
+You're using `ScrollArea` components for internal scrolling, which is great, but page-level scrolling might still persist due to these **common culprits**:
+
+---
+
+### 🔍 **Likely Causes of Page-Level Scrolling**
+
+#### 1. **Parent container height is not truly constrained**
+
+Your top-level container uses:
+
+```tsx
+<div className="h-[calc(100vh-80px)] flex overflow-hidden bg-gray-50 p-4 gap-4">
+```
+
+* If any **child exceeds this height**, especially due to padding, borders, or `min-height` of inner elements, the page will still scroll.
+* `h-[calc(100vh-80px)]` is okay, **but if `DashboardLayout` adds more height**, it breaks the limit.
+
+**✅ Suggestion**: Wrap the root-most content in a `min-h-0` and `overflow-hidden` layout:
+
+```tsx
+<DashboardLayout>
+  <div className="flex flex-col h-screen overflow-hidden">
+    <div className="h-[calc(100%-80px)] flex overflow-hidden">
+      {/* ...rest of layout */}
+    </div>
+  </div>
+</DashboardLayout>
+```
+
+---
+
+#### 2. **`ScrollArea`'s parent doesn't have `min-h-0` or `overflow-hidden`**
+
+* Tailwind’s Flexbox layout **does not naturally constrain inner scroll areas** unless explicitly told.
+
+**✅ Fix**:
+Ensure that any element **between `flex` and `ScrollArea`** includes both `min-h-0` and `overflow-hidden`, like so:
+
+```tsx
+<div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+  <ScrollArea className="flex-1 overflow-auto">
+    {/* ... */}
+  </ScrollArea>
+</div>
+```
+
+---
+
+#### 3. **Missing or conflicting layout from `DashboardLayout`**
+
+* If `DashboardLayout` wraps content in something like a `div` without setting proper constraints (`overflow-hidden`, `min-h-0`, `flex-1`, etc.), it can cause the content to bleed out and push the body to scroll.
+
+**✅ Test**: Temporarily replace `DashboardLayout` with a plain `div` and see if the issue disappears. If yes, update `DashboardLayout` to have:
+
+```tsx
+<div className="h-screen overflow-hidden flex flex-col">
+```
+
+---
+
+### ✅ Quick Diagnostic Checklist:
+
+| Area                    | Fix                                                                 |
+| ----------------------- | ------------------------------------------------------------------- |
+| Root container          | Use `h-screen`, `overflow-hidden`, and wrap internal layout         |
+| Intermediate containers | Add `min-h-0`, `overflow-hidden` to all flex-based parents          |
+| `ScrollArea` usage      | Wrap in `flex-1`, ensure height is inherited properly               |
+| `DashboardLayout`       | Ensure it doesn't introduce unwanted padding or scrollable sections |
+| Browser DevTools        | Inspect what element is pushing the scroll (check height overflow)  |
+
+---
+
+If you want, I can also review the relevant CSS output or help you restructure the layout with exact classes to ensure full lock-down of the scroll 🔒🧼. Let me know!
