@@ -25,6 +25,13 @@ import {
   Settings,
   ChevronDown
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 
@@ -297,21 +304,19 @@ export default function AgentConsole() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select Channel
               </label>
-              <div className="relative">
-                <select
-                  value={channelFilter}
-                  onChange={(e) => setChannelFilter(e.target.value)}
-                  className="w-full p-2 pr-8 border border-gray-300 rounded-md text-sm bg-white appearance-none"
-                >
-                  <option value="all">All Channels</option>
+              <Select value={channelFilter} onValueChange={setChannelFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Channel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Channels</SelectItem>
                   {uniqueChannelTypes.map(channel => (
-                    <option key={channel.id} value={channel.id}>
+                    <SelectItem key={channel.id} value={channel.id}>
                       {channel.name}
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              </div>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="relative">
