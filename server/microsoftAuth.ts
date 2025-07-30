@@ -17,6 +17,17 @@ function getBaseUrl(req: any): string {
 }
 
 export async function setupMicrosoftAuth(app: Express) {
+  // Configure session serialization for Microsoft auth
+  passport.serializeUser((user: any, done: any) => {
+    console.log("Serializing user for session:", user.claims?.email);
+    done(null, user);
+  });
+
+  passport.deserializeUser((user: any, done: any) => {
+    console.log("Deserializing user from session:", user.claims?.email);
+    done(null, user);
+  });
+
   // Configure Microsoft OIDC Strategy
   passport.use('microsoft', new OIDCStrategy({
     identityMetadata: `https://login.microsoftonline.com/${MICROSOFT_TENANT_ID}/v2.0/.well-known/openid-configuration`,
@@ -176,8 +187,17 @@ export async function setupMicrosoftAuth(app: Express) {
           console.error("Failed to create audit log for Microsoft login:", auditError);
         }
 
-        // Redirect to dashboard after successful login
-        res.redirect("/");
+        // Save session before redirecting
+        req.session.save((err: any) => {
+          if (err) {
+            console.error("Session save error:", err);
+            return res.redirect("/api/auth/microsoft?error=session_failed");
+          }
+          
+          console.log("Session saved successfully, redirecting to dashboard");
+          // Redirect to dashboard after successful login
+          res.redirect("/");
+        });
       });
     })(req, res, next);
   });
