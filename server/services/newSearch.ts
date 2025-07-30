@@ -166,17 +166,20 @@ async function calculateBM25(
   const k1 = 1.2; // Controls term frequency saturation
   const b = 0.75; // Controls document length normalization
 
-  // Normalize search terms and add Thai normalization variants
+  // Normalize search terms - avoid creating corrupted Thai variants
   const expandedSearchTerms = [];
   for (const term of searchTerms) {
     const normalizedTerm = term.toLowerCase().trim();
     if (normalizedTerm.length > 0) {
       expandedSearchTerms.push(normalizedTerm);
-
-      // Add Thai normalized variant if different
-      const thaiNormalized = normalizeThaiText(normalizedTerm);
-      if (thaiNormalized !== normalizedTerm && thaiNormalized.length > 0) {
-        expandedSearchTerms.push(thaiNormalized);
+      
+      // Only add Thai normalized variant for very simple normalization (case + whitespace)
+      // Don't create corrupted versions by removing vowels/tone marks
+      if (/[\u0E00-\u0E7F]/.test(normalizedTerm)) {
+        const minimalNormalized = normalizedTerm.replace(/\s+/g, '');
+        if (minimalNormalized !== normalizedTerm && minimalNormalized.length > 0) {
+          expandedSearchTerms.push(minimalNormalized);
+        }
       }
     }
   }
@@ -314,40 +317,28 @@ function isThaiText(text: string): boolean {
 }
 
 function normalizeThaiText(text: string): string {
+  // Only apply minimal normalization to preserve readability
   return text
     .replace(/\s+/g, '') // Remove whitespaces
-    .replace(/[์็่้๊๋]/g, '') // Remove tone marks
-    .replace(/[ะาิีึืุูเแโใไ]/g, '') // Simplify vowels
     .toLowerCase();
 }
 
 async function tokenizeWithThaiNormalization(text: string): string[] {
-  // First convert to lowercase for case-insensitive matching
-  const lowercaseText = text.toLowerCase();
-
-  // Apply Thai normalization only to Thai characters, preserve English words
-  const tokens = lowercaseText
+  // Use the existing Thai text processor for proper segmentation
+  const { thaiTextProcessor } = await import('./thaiTextProcessor');
+  
+  // First segment Thai text properly
+  const segmentedText = await thaiTextProcessor.segmentThaiText(text);
+  
+  // Then tokenize the segmented text
+  const tokens = segmentedText
+    .toLowerCase()
     .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
     .filter(token => token.length > 0)
     .map(token => token.trim())
     .filter(token => token.length > 0);
 
-  // Process each token - apply Thai normalization only if it contains Thai characters
-  const processedTokens = [];
-  for (const token of tokens) {
-    if (/[\u0E00-\u0E7F]/.test(token)) {
-      // Thai token - apply normalization
-      const normalized = normalizeThaiText(token);
-      if (normalized.length > 0) {
-        processedTokens.push(normalized);
-      }
-    } else {
-      // Non-Thai token (English/numbers) - keep as is (already lowercase)
-      processedTokens.push(token);
-    }
-  }
-
-  return processedTokens;
+  return tokens;
 }
 
 function tokenize(text: string): string[] {
@@ -389,9 +380,21 @@ function findBestFuzzyMatchThai(term: string, tokens: string[]): { score: number
 }
 
 function isThaiTokenSimilar(term1: string, term2: string): boolean {
-  const normalizedTerm1 = normalizeThaiText(term1);
-  const normalizedTerm2 = normalizeThaiText(term2);
-  return normalizedTerm1 === normalizedTerm2 && normalizedTerm1.length > 0;
+  // Use minimal normalization to avoid false positives
+  const normalized1 = term1.toLowerCase().replace(/\s+/g, '');
+  const normalized2 = term2.toLowerCase().replace(/\s+/g, '');
+  
+  // Only consider similar if they're exactly the same after minimal normalization
+  // or if they have high character overlap (for legitimate variants)
+  if (normalized1 === normalized2) return true;
+  
+  // Check for legitimate Thai character variants (but be conservative)
+  if (normalized1.length >= 3 && normalized2.length >= 3) {
+    const similarity = calculateSimilarity(normalized1, normalized2);
+    return similarity >= 0.9; // Very high threshold to avoid false matches
+  }
+  
+  return false;
 }
 
 async function enrichQueryWithGPT(originalQuery: string, tokenizedQuery: string): Promise<string> {
