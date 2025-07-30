@@ -71,18 +71,18 @@ export default function AgentConsole() {
   const [selectedUser, setSelectedUser] = useState<AgentUser | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterAgent, setFilterAgent] = useState<string>("all");
+  const [channelFilter, setChannelFilter] = useState<string>("all");
   const [showMessageInput, setShowMessageInput] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   // Fetch active users
   const { data: users = [], refetch: refetchUsers } = useQuery({
-    queryKey: ["/api/agent-console/users", searchQuery, filterAgent],
+    queryKey: ["/api/agent-console/users", searchQuery, channelFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchQuery) params.append("search", searchQuery);
-      if (filterAgent !== "all") params.append("agent_id", filterAgent);
+      if (channelFilter !== "all") params.append("channelFilter", channelFilter);
 
       console.log("🔍 Agent Console: Fetching users with params:", Object.fromEntries(params));
       const response = await fetch(`/api/agent-console/users?${params}`);
@@ -261,15 +261,12 @@ export default function AgentConsole() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  const uniqueAgents = Array.from(
-    new Set(users.map(u => u.agentId))
-  ).map(agentId => {
-    const user = users.find(u => u.agentId === agentId);
-    return {
-      id: agentId,
-      name: user?.agentName || `Agent ${agentId}`,
-    };
-  });
+  const uniqueChannelTypes = Array.from(
+    new Set(users.map(u => u.channelType))
+  ).map(channelType => ({
+    id: channelType,
+    name: channelType.toUpperCase(),
+  }));
 
   return (
     <DashboardLayout>
@@ -302,14 +299,14 @@ export default function AgentConsole() {
               </label>
               <div className="relative">
                 <select
-                  value={filterAgent}
-                  onChange={(e) => setFilterAgent(e.target.value)}
+                  value={channelFilter}
+                  onChange={(e) => setChannelFilter(e.target.value)}
                   className="w-full p-2 pr-8 border border-gray-300 rounded-md text-sm bg-white appearance-none"
                 >
                   <option value="all">All Channels</option>
-                  {uniqueAgents.map(agent => (
-                    <option key={agent.id} value={agent.id.toString()}>
-                      {agent.name}
+                  {uniqueChannelTypes.map(channel => (
+                    <option key={channel.id} value={channel.id}>
+                      {channel.name}
                     </option>
                   ))}
                 </select>
