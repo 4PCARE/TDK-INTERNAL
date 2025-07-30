@@ -1,0 +1,179 @@
+Great question, bro. Let's troubleshoot this together like CSI: ThaiText Edition 🔍🇹🇭
+Here are the **most likely issues** based on your goal (“segment properly for search”) and the provided code:
+
+---
+
+## 🚨 1. **`echo` + `stdin` is broken by special characters**
+
+### ❌ Problem:
+
+You're doing:
+
+```ts
+const { stdout, stderr } = await execAsync(`echo '${text.replace(/'/g, "\\'")}' | python3 "${scriptPath}"`)
+```
+
+But `echo` breaks with:
+
+* Quotes (`'`, `"`)
+* Newlines (`\n`)
+* Unicode issues (especially Thai, which may encode oddly in shell)
+
+### ✅ Fix:
+
+Use **`spawn`** or **`stdin`** properly with `child_process.spawn`:
+
+```ts
+import { spawn } from 'child_process';
+
+async segmentThaiText(text: string): Promise<string> {
+  if (!this.containsThaiText(text)) return text;
+
+  const tempDir = path.join(process.cwd(), 'temp');
+  await fs.promises.mkdir(tempDir, { recursive: true });
+  const scriptPath = path.join(tempDir, 'thai_segmenter.py');
+  await fs.promises.writeFile(scriptPath, this.pythonScript);
+
+  return new Promise((resolve, reject) => {
+    const child = spawn('python3', [scriptPath]);
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', data => stdout += data.toString());
+    child.stderr.on('data', data => stderr += data.toString());
+
+    child.on('close', async () => {
+      try {
+        await fs.promises.unlink(scriptPath);
+      } catch {}
+      if (stderr) console.warn('⚠️ stderr:', stderr);
+      try {
+        const result = JSON.parse(stdout);
+        resolve(result.success ? result.segmented_text : text);
+      } catch (err) {
+        console.error('JSON parsing error:', err);
+        reject(text);
+      }
+    });
+
+    child.stdin.write(text);
+    child.stdin.end();
+  });
+}
+```
+
+---
+
+## 🚨 2. **Stopwords removal might be too aggressive**
+
+You filter out every word in `thai_stopwords()`:
+
+```py
+if word and word not in stopwords:
+```
+
+But if you’re segmenting for **search indexing**, maybe you don’t want to filter out words like:
+
+* “ที่”, “จะ”, “ของ”, “ใน” — they *do* carry meaning in phrases.
+
+### ✅ Fix:
+
+Make stopword filtering **optional** or **less strict**, or remove it entirely if your goal is full segmentation:
+
+```py
+# Either remove this line:
+if word and word not in stopwords:
+
+# Or parametrize it in the future
+```
+
+---
+
+## 🚨 3. **CRF-based sentence tokenizer might misbehave**
+
+You’re using:
+
+```py
+sent_tokenize(text, engine='crfcut')
+```
+
+But this needs training data and may behave inconsistently depending on OS or package version.
+
+### ✅ Fix:
+
+Use `newmm` (more robust for your purpose) for sentence too, or skip sentence segmentation entirely if you only need word-level tokens:
+
+```py
+words = word_tokenize(text, engine='newmm')
+```
+
+Or:
+
+```py
+sentences = [text]  # skip sentence split
+```
+
+---
+
+## 🚨 4. **The script doesn't sanitize the input**
+
+The `stdin.read()` method will sometimes include trailing newline or odd characters.
+
+### ✅ Fix:
+
+Add `.strip()` to the raw input:
+
+```py
+input_text = sys.stdin.read().strip()
+```
+
+---
+
+## 🚨 5. **Check Python environment & modules**
+
+Make sure:
+
+* `pythainlp` is installed correctly in your runtime.
+* You’re not accidentally using an old version without `newmm` or `crfcut`.
+
+```sh
+pip show pythainlp
+python3 -c "from pythainlp.tokenize import word_tokenize; print(word_tokenize('สวัสดีครับผมชื่อบอท'))"
+```
+
+---
+
+## ✅ Bonus Tips
+
+### For Debugging:
+
+Log the raw stdout in JS:
+
+```ts
+console.log('Raw stdout:', stdout);
+```
+
+And inside Python:
+
+```py
+print("DEBUG: ", segmented_text, file=sys.stderr)
+```
+
+---
+
+## 🔚 Summary (Fix Checklist)
+
+| ✅ What to Fix                     | How                                                 |
+| --------------------------------- | --------------------------------------------------- |
+| `echo` problem                    | Use `spawn()` + `stdin.write(text)`                 |
+| Too aggressive stopword filtering | Disable or make optional                            |
+| `crfcut` sentence split           | Replace with `newmm` or skip                        |
+| No `.strip()` on stdin            | Use `sys.stdin.read().strip()`                      |
+| Ensure encoding                   | Use UTF-8 everywhere and verify `pythainlp` version |
+
+---
+
+If you want, send me an example input → output pair (actual + expected) and I can debug the full roundtrip for you.
+
+Would you like a full working patch?
