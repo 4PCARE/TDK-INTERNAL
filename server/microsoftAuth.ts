@@ -1,5 +1,5 @@
 
-import { Strategy as OIDCStrategy } from "passport-azure-ad";
+import { OIDCStrategy } from "passport-azure-ad";
 import passport from "passport";
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
