@@ -353,7 +353,11 @@ function normalizeThaiText(text: string): string {
 async function tokenizeWithThaiNormalization(text: string): string[] {
   // Simple tokenization without Thai segmentation for documents
   // Thai segmentation should only be used for query processing
-  const tokens = text
+  
+  // First normalize common brand variations
+  let normalizedText = normalizeBrandNames(text);
+  
+  const tokens = normalizedText
     .toLowerCase()
     .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
     .filter(token => token.length > 0)
@@ -361,6 +365,48 @@ async function tokenizeWithThaiNormalization(text: string): string[] {
     .filter(token => token.length > 0);
 
   return tokens;
+}
+
+function normalizeBrandNames(text: string): string {
+  // Normalize common Thai brand name variations
+  const brandNormalizations = [
+    // McDonald's variations
+    { pattern: /แมค\s*โดนัลด์/g, replacement: 'แมคโดนัลด์' },
+    { pattern: /แม็ค\s*โดนัลด์/g, replacement: 'แมคโดนัลด์' },
+    { pattern: /แม็ค\s*โดนัล/g, replacement: 'แมคโดนัลด์' },
+    
+    // KFC variations
+    { pattern: /เค\s*เอฟ\s*ซี/g, replacement: 'เคเอฟซี' },
+    { pattern: /เค\s*เอฟ\s*ซี่/g, replacement: 'เคเอฟซี' },
+    
+    // Starbucks variations
+    { pattern: /สตาร์\s*บัคส์/g, replacement: 'สตาร์บัคส์' },
+    { pattern: /สตาร์\s*บัค/g, replacement: 'สตาร์บัคส์' },
+    
+    // Pizza Hut variations
+    { pattern: /พิซซ่า\s*ฮัท/g, replacement: 'พิซซ่าฮัท' },
+    { pattern: /พิซซ่า\s*ฮัต/g, replacement: 'พิซซ่าฮัท' },
+    
+    // 7-Eleven variations
+    { pattern: /เซเว่น\s*อีเลฟเว่น/g, replacement: 'เซเว่นอีเลฟเว่น' },
+    { pattern: /เซ\s*เว่น/g, replacement: 'เซเว่น' },
+    
+    // Common mall name variations
+    { pattern: /เดอะ\s*มอลล์/g, replacement: 'เดอะมอลล์' },
+    { pattern: /เดอะ\s*มอล/g, replacement: 'เดอะมอลล์' },
+    
+    // Central variations
+    { pattern: /เซ็นทรัล\s*พลาซ่า/g, replacement: 'เซ็นทรัลพลาซ่า' },
+    { pattern: /เซ็นทรัล\s*เวิลด์/g, replacement: 'เซ็นทรัลเวิลด์' },
+  ];
+  
+  let normalizedText = text;
+  
+  for (const norm of brandNormalizations) {
+    normalizedText = normalizedText.replace(norm.pattern, norm.replacement);
+  }
+  
+  return normalizedText;
 }
 
 function tokenize(text: string): string[] {
@@ -441,7 +487,12 @@ export async function searchSmartHybridDebug(
   // Only use PythaiNLP for query processing, not document processing
   console.log(`🔍 QUERY PROCESSING: Segmenting Thai text for search terms only`);
   const { thaiTextProcessor } = await import('./thaiTextProcessor');
-  const tokenizedQuery = await thaiTextProcessor.segmentThaiText(searchQuery);
+  
+  // First normalize brand names in the search query
+  const normalizedQuery = normalizeBrandNames(searchQuery);
+  console.log(`🔍 BRAND NORMALIZATION: "${searchQuery}" → "${normalizedQuery}"`);
+  
+  const tokenizedQuery = await thaiTextProcessor.segmentThaiText(normalizedQuery);
   console.log(`🔍 QUERY PROCESSING: Result: "${tokenizedQuery}"`);
 
   const searchTerms = tokenizedQuery.toLowerCase().split(/\s+/).filter(Boolean);
