@@ -82,7 +82,7 @@ export default function AgentConsole() {
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchQuery) params.append("search", searchQuery);
-      if (filterAgent !== "all") params.append("agentId", filterAgent);
+      if (filterAgent !== "all") params.append("agent_id", filterAgent);
 
       console.log("🔍 Agent Console: Fetching users with params:", Object.fromEntries(params));
       const response = await fetch(`/api/agent-console/users?${params}`);
