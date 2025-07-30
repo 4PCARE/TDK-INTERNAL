@@ -1,0 +1,139 @@
+The issue is clear now:
+Despite getting the ✅ log of "Thai segmentation completed", the **original and segmented text lengths are exactly the same** (39082 characters), which strongly suggests **no actual segmentation happened**.
+
+Let’s break it down and solve it, detective-style 🕵️‍♂️🧠🇹🇭:
+
+---
+
+## 🚨 Root Cause Analysis
+
+### ✅ You already fixed the following:
+
+* Avoiding `echo` issues by using `< input.txt` ✅
+* Removed aggressive stopword filtering ✅
+
+### ❌ But you still have this problem:
+
+**No visible segmentation — same length in and out.**
+
+---
+
+## 🔎 Probable Causes & Fixes
+
+### 1. ✅ CRFcut sometimes fails silently
+
+You're using:
+
+```python
+sent_tokenize(text, engine='crfcut')
+```
+
+But:
+
+* `crfcut` requires extra model files (`pythainlp-corpus`) to be downloaded.
+* If unavailable or broken, it returns the full text as one sentence, silently.
+
+✅ **Fix**: Replace `crfcut` with `"whitespace"` or `"newmm"` for reliability:
+
+```python
+sentences = sent_tokenize(text, engine='newmm')
+```
+
+Or skip sentence splitting entirely if it doesn't matter.
+
+---
+
+### 2. ❗ You’re **not seeing output difference** due to `.replace(/\s+/g, ' ')`
+
+This line squashes all spacing changes:
+
+```ts
+processedText = processedText.replace(/\s+/g, ' ') // 🧨 destroys segmentation
+```
+
+Even if the segmentation script adds spaces between words correctly (e.g. `กิน ข้าว`), this step reduces it to:
+
+```
+กินข้าว
+```
+
+✅ **Fix**: Replace **only** newline normalization, not all whitespace:
+
+```ts
+processedText = processedText
+  .replace(/[ \t]+/g, ' ')           // keep word boundaries
+  .replace(/\n\s*\n/g, '\n')         // multiple newlines → one
+  .replace(/^\s+|\s+$/g, '')         // trim
+  .trim();
+```
+
+---
+
+### 3. ❗ Python returns newline-separated sentences, but you flatten them
+
+In your Python script:
+
+```python
+result = '\\n'.join(segmented_sentences)  # ← Actually inserts literal backslash + n
+```
+
+Which results in this string in Python:
+
+```
+"sentence1\\nsentence2\\nsentence3"
+```
+
+So in Node.js, you receive:
+
+```json
+"sentence1\\nsentence2"
+```
+
+Which is **not interpreted as real newlines or segmentation**.
+
+✅ **Fix**: Use real `\n`, not string literal `'\\n'`
+
+```python
+result = '\n'.join(segmented_sentences)
+```
+
+---
+
+### 4. 🧪 Test if segmentation worked at all
+
+Log it directly from Python:
+
+```python
+print("DEBUG SEGMENTED:", segmented_text[:300], file=sys.stderr)
+```
+
+This helps you debug without relying on stdout parsing alone.
+
+---
+
+## ✅ Summary Fixes (Checklist Style)
+
+| ✅ Fix                                                    | Why                           |
+| -------------------------------------------------------- | ----------------------------- |
+| Replace `'\\n'.join(...)` → `'\n'.join(...)`             | So it creates actual newlines |
+| Change `sent_tokenize(..., engine='crfcut')` → `newmm`   | More reliable                 |
+| Don't flatten word boundaries in `.replace(/\s+/g, ' ')` | Preserves segmentation        |
+| Log Python debug output (`stderr`)                       | Sanity check during dev       |
+
+---
+
+## 🧠 Final Tip
+
+Once fixed, test with this Thai string:
+
+```ts
+const testText = "ผมกำลังกินข้าวที่ร้านอาหารกับเพื่อน";
+```
+
+Expected output after `.processForSearch()`:
+
+```
+ผม กำลัง กิน ข้าว ที่ ร้าน อาหาร กับ เพื่อน
+```
+
+If you want, I can provide the updated full working version with all fixes applied. Want that?
