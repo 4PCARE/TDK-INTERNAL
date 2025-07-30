@@ -94,7 +94,7 @@ export default function AgentConsole() {
       if (!selectedUser) return [];
 
       const params = new URLSearchParams({
-        userId: selectedUser.userId, // Backend expects 'userId' not 'targetUserId'
+        targetUserId: selectedUser.userId, // Fixed: use targetUserId to match backend
         channelType: selectedUser.channelType,
         channelId: selectedUser.channelId,
         agentId: selectedUser.agentId.toString(),
@@ -117,7 +117,7 @@ export default function AgentConsole() {
       if (!selectedUser) return null;
 
       const params = new URLSearchParams({
-        userId: selectedUser.userId, // Backend expects 'userId' not 'targetUserId'
+        targetUserId: selectedUser.userId, // Fixed: use targetUserId to match backend
         channelType: selectedUser.channelType,
         channelId: selectedUser.channelId,
       });
@@ -184,7 +184,7 @@ export default function AgentConsole() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: selectedUser.userId, // Use 'userId' to match backend
+          targetUserId: selectedUser.userId, // Fixed: use targetUserId to match backend
           channelType: selectedUser.channelType,
           channelId: selectedUser.channelId,
           agentId: selectedUser.agentId,
