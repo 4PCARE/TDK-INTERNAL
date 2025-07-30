@@ -26,7 +26,8 @@ export async function setupMicrosoftAuth(app: Express) {
     responseMode: 'query',
     redirectUrl: 'https://placeholder.com/auth/microsoft/callback', // Will be set dynamically
     allowHttpForRedirectUrl: false,
-    validateIssuer: true,
+    validateIssuer: false, // Disable issuer validation for common endpoint
+    passReqToCallback: false,
     scope: ['openid', 'profile', 'email'],
     loggingLevel: 'info'
   }, async function(iss: string, sub: string, profile: any, accessToken: string, refreshToken: string, done: any) {
