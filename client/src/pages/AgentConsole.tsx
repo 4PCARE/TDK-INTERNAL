@@ -244,9 +244,9 @@ export default function AgentConsole() {
 
   return (
     <DashboardLayout>
-      <div className="h-screen flex overflow-hidden">
+      <div className="h-screen flex overflow-hidden bg-gray-50 p-4 gap-4">
         {/* Left Sidebar - Channel Selection & User List */}
-        <div className="w-80 min-w-80 bg-white border-r border-gray-200 flex flex-col">
+        <div className="w-80 min-w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
           {/* Header */}
           <div className="flex-shrink-0 p-4 border-b border-gray-200">
             <div className="flex items-center space-x-3 mb-4">
@@ -367,9 +367,9 @@ export default function AgentConsole() {
           {/* Conversation Area */}
           <div className="flex-1 flex flex-col min-w-0">
             {selectedUser ? (
-              <>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
                 {/* Conversation Header */}
-                <div className="flex-shrink-0 p-4 border-b border-gray-200 bg-white">
+                <div className="flex-shrink-0 p-4 border-b border-gray-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <Avatar className="w-8 h-8">
@@ -420,9 +420,9 @@ export default function AgentConsole() {
                             )}
 
                             <div
-                              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                              className={`max-w-xs lg:max-w-md px-4 py-3 rounded-lg shadow-sm ${
                                 message.messageType === 'user'
-                                  ? 'bg-gray-100 text-gray-900'
+                                  ? 'bg-white border border-gray-200 text-gray-900'
                                   : 'bg-blue-500 text-white'
                               }`}
                             >
@@ -448,7 +448,7 @@ export default function AgentConsole() {
                   </ScrollArea>
 
                   {/* Message Input */}
-                  <div className="flex-shrink-0 border-t border-gray-200 p-4 bg-white">
+                  <div className="flex-shrink-0 border-t border-gray-200 p-4">
                     <div className="flex space-x-2">
                       <Input
                         value={newMessage}
@@ -473,9 +473,9 @@ export default function AgentConsole() {
                     </div>
                   </div>
                 </div>
-              </>
+              </div>
             ) : (
-              <div className="flex-1 flex items-center justify-center bg-gray-50">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-1 flex items-center justify-center">
                 <div className="text-center">
                   <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -490,7 +490,7 @@ export default function AgentConsole() {
           </div>
 
           {/* Right Sidebar - Customer Profile */}
-          <div className="w-80 min-w-80 bg-white border-l border-gray-200 flex flex-col">
+          <div className="w-80 min-w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col ml-4">
             {selectedUser ? (
               <ScrollArea className="flex-1">
                 <div className="p-4 space-y-6">
