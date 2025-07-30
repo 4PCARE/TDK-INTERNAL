@@ -81,6 +81,7 @@ export default function AgentConsole() {
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [showMessageInput, setShowMessageInput] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   // Define all available channel types
@@ -223,6 +224,13 @@ export default function AgentConsole() {
     setShowMessageInput(false);
     setNewMessage("");
   }, [selectedUser]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedUser) return;
@@ -513,6 +521,9 @@ export default function AgentConsole() {
                             )}
                           </div>
                         ))
+                      )}
+                      {/* Invisible div for scroll target */}
+                      <div ref={messagesEndRef} />
                       )}
                     </div>
                   </ScrollArea>
