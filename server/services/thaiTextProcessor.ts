@@ -45,7 +45,7 @@ def segment_thai_text(text):
                 segmented_sentences.append(segmented_sentence)
         
         # Join sentences back together with newlines preserved
-        result = '\\n'.join(segmented_sentences)
+        result = '\n'.join(segmented_sentences)
         return result
         
     except Exception as e:
@@ -111,15 +111,18 @@ if __name__ == "__main__":
     try {
       console.log(`🇹🇭 Processing Thai text segmentation (${text.length} characters)...`);
 
-      // Write Python script to temporary file
+      // Write Python script and input to temporary files
       const tempDir = path.join(process.cwd(), 'temp');
       await fs.promises.mkdir(tempDir, { recursive: true });
       
       const scriptPath = path.join(tempDir, 'thai_segmenter.py');
+      const inputPath = path.join(tempDir, 'input.txt');
+      
       await fs.promises.writeFile(scriptPath, this.pythonScript);
+      await fs.promises.writeFile(inputPath, text, 'utf8');
 
-      // Execute Python script with input text
-      const { stdout, stderr } = await execAsync(`echo '${text.replace(/'/g, "\\'")}' | python3 "${scriptPath}"`, {
+      // Execute Python script with input file
+      const { stdout, stderr } = await execAsync(`python3 "${scriptPath}" < "${inputPath}"`, {
         timeout: 30000, // 30 second timeout
         maxBuffer: 1024 * 1024 * 10 // 10MB buffer
       });
@@ -138,9 +141,10 @@ if __name__ == "__main__":
         console.log(`   - Segmented: ${result.segmented_length} characters`);
         console.log(`   - Sample: "${segmentedText.substring(0, 200)}..."`);
         
-        // Clean up temp file
+        // Clean up temp files
         try {
           await fs.promises.unlink(scriptPath);
+          await fs.promises.unlink(inputPath);
         } catch (cleanupError) {
           // Ignore cleanup errors
         }
