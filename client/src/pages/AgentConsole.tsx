@@ -176,13 +176,14 @@ export default function AgentConsole() {
     };
   }, [queryClient]);
 
-  // Group users by userId to avoid duplicates
+  // Group users by unique conversation (userId + channelId + agentId) to show all conversations
   const groupedUsers = users.reduce((acc, user) => {
-    const existingUser = acc.find(u => u.userId === user.userId);
+    const conversationKey = `${user.userId}-${user.channelId}-${user.agentId}`;
+    const existingUser = acc.find(u => `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
     if (existingUser) {
       // Keep the most recent conversation
       if (new Date(user.lastMessageAt) > new Date(existingUser.lastMessageAt)) {
-        const index = acc.findIndex(u => u.userId === user.userId);
+        const index = acc.findIndex(u => `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
         acc[index] = user;
       }
     } else {
@@ -335,7 +336,9 @@ export default function AgentConsole() {
                   </div>
                 ) : (
                   groupedUsers.map((user) => {
-                    const isSelected = selectedUser?.userId === user.userId;
+                    const isSelected = selectedUser?.userId === user.userId && 
+                                     selectedUser?.channelId === user.channelId && 
+                                     selectedUser?.agentId === user.agentId;
                     const userConversations = users.filter(u => u.userId === user.userId);
 
                     return (
