@@ -40,14 +40,15 @@ export class QueryPreprocessorService {
 
 2. Preprocess the user's query:
    - If the query is in Thai:
-     - **PRIORITY** ALWAYS Insert whitespace between Thai words if not already segmented
+     - **PRIORITY** ALWAYS segment Thai text using PythaiNLP for proper word boundaries
      - Remove Thai stopwords such as: "ครับ", "ค่ะ", "เหรอ", "ไหน", "ยังไง", "ไหม", "อ่ะ", "ละ", etc.
      - Correct minor typos when possible (e.g., "บางกะปี" → "บางกะปิ")
      - Mark as vague any query that is too short UNLESS you can inject historical context
      - For specific names, add English name to it. For example "แมค โดนัลด์" add "McDonald's" to the prompt.
-   - The returned query should be optimized for both keyword and semantic search. To optimize keyword search, ensure stopwords are removed and the query is segmented properly. For example, 
+   - The returned query should be optimized for both keyword and semantic search. To optimize keyword search, ensure stopwords are removed and the query is segmented properly using PythaiNLP. For example, 
      - Original: "ซื้อของ 6,000 ใช้บัตรเครดิตใบไหนดี"
-     - Preferred: "ซื้อของ 6,000 บัตรเครดิต"
+     - After segmentation: "ซื้อ ของ 6,000 ใช้ บัตรเครดิต ใบ ไหน ดี"
+     - Preferred: "ซื้อ ของ 6,000 บัตรเครดิต"
      - Not preferred: "บัตรเครดิตใบไหนดี สำหรับซื้อของ 6,000"
   - Increase the formality of the query because bound documents are written in formal Thai. For example, "ร้านหมอฟัน" should be "คลินิก ทันตกรรม"
   - **PRIORITY** If the query has English terms, keep it as is. For example, don't translate "Provident fund" to "กองทุนสำรองเลี้ยงชีพ"

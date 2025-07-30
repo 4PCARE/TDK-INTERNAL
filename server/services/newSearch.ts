@@ -313,7 +313,7 @@ function normalizeThaiText(text: string): string {
     .toLowerCase();
 }
 
-function tokenizeWithThaiNormalization(text: string): string[] {
+async function tokenizeWithThaiNormalization(text: string): string[] {
   // First convert to lowercase for case-insensitive matching
   const lowercaseText = text.toLowerCase();
 
