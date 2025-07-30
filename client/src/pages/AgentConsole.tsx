@@ -65,6 +65,7 @@ interface ConversationSummary {
 export default function AgentConsole() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedUser, setSelectedUser] = useState<AgentUser | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,12 +90,12 @@ export default function AgentConsole() {
 
   // Fetch conversation messages
   const { data: messages = [], refetch: refetchMessages } = useQuery({
-    queryKey: ["/api/agent-console/conversation", selectedUser?.userId, selectedUser?.channelId],
+    queryKey: ["/api/agent-console/conversation", selectedUser?.userId, selectedUser?.channelId, selectedUser?.agentId],
     queryFn: async () => {
       if (!selectedUser) return [];
 
       const params = new URLSearchParams({
-        userId: selectedUser.userId, // Backend expects 'userId' not 'targetUserId'
+        userId: selectedUser.userId,
         channelType: selectedUser.channelType,
         channelId: selectedUser.channelId,
         agentId: selectedUser.agentId.toString(),
@@ -117,7 +118,7 @@ export default function AgentConsole() {
       if (!selectedUser) return null;
 
       const params = new URLSearchParams({
-        userId: selectedUser.userId, // Backend expects 'userId' not 'targetUserId'
+        userId: selectedUser.userId,
         channelType: selectedUser.channelType,
         channelId: selectedUser.channelId,
       });
@@ -152,8 +153,10 @@ export default function AgentConsole() {
       console.log('📨 WebSocket message received:', JSON.parse(event.data));
       const data = JSON.parse(event.data);
       if (data.type === 'agent-console-update') {
-        refetchUsers();
-        refetchMessages(); // Refetch messages when updates occur
+        // Refetch users and messages when updates occur
+        queryClient.invalidateQueries({ queryKey: ['/api/agent-console/users'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/agent-console/conversation'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/agent-console/summary'] });
       }
     };
 
@@ -166,7 +169,7 @@ export default function AgentConsole() {
         wsRef.current.close();
       }
     };
-  }, [refetchUsers]);
+  }, [queryClient]);
 
   // Auto-select first user if none selected
   useEffect(() => {
@@ -315,7 +318,7 @@ export default function AgentConsole() {
                     ) : (
                       users.map((user) => (
                         <div
-                          key={`${user.userId}-${user.channelId}-${user.agentId}`} // Fixed: make unique key
+                          key={`${user.userId}-${user.channelType}-${user.channelId}-${user.agentId}`}
                           className={`p-3 rounded-lg cursor-pointer transition-all ${
                             selectedUser?.userId === user.userId && selectedUser?.channelId === user.channelId
                               ? 'bg-blue-100 border border-blue-200'
@@ -424,7 +427,7 @@ export default function AgentConsole() {
                         ) : (
                           messages.map((message) => (
                             <div
-                              key={`${message.id}-${message.createdAt}`} // Fixed: make unique key
+                              key={`message-${message.id}-${message.userId}-${message.createdAt}`}
                               className={`flex space-x-3 ${
                                 message.messageType === 'user' ? 'justify-start' : 'justify-end'
                               }`}
