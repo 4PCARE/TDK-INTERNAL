@@ -135,14 +135,28 @@ export async function setupMicrosoftAuth(app: Express) {
 
   // Microsoft callback route
   app.get("/api/auth/microsoft/callback", (req, res, next) => {
-    passport.authenticate('microsoft', {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/auth/microsoft?error=auth_failed",
-    })(req, res, async (err: any) => {
-      // Log successful login for audit
-      if (!err && req.user) {
+    passport.authenticate('microsoft', (err: any, user: any, info: any) => {
+      if (err) {
+        console.error("Microsoft auth error:", err);
+        return res.redirect("/api/auth/microsoft?error=auth_failed");
+      }
+      
+      if (!user) {
+        console.error("No user returned from Microsoft auth");
+        return res.redirect("/api/auth/microsoft?error=no_user");
+      }
+
+      // Log in the user
+      req.logIn(user, async (loginErr: any) => {
+        if (loginErr) {
+          console.error("Login error:", loginErr);
+          return res.redirect("/api/auth/microsoft?error=login_failed");
+        }
+
+        console.log("Microsoft login successful for user:", user.claims?.email);
+
+        // Log successful login for audit
         try {
-          const user = req.user as any;
           const userId = user.claims?.sub;
           if (userId) {
             await storage.createAuditLog({
@@ -161,9 +175,11 @@ export async function setupMicrosoftAuth(app: Express) {
         } catch (auditError) {
           console.error("Failed to create audit log for Microsoft login:", auditError);
         }
-      }
-      next(err);
-    });
+
+        // Redirect to dashboard after successful login
+        res.redirect("/");
+      });
+    })(req, res, next);
   });
 }
 
