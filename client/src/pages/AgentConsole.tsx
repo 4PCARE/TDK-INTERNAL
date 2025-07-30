@@ -84,9 +84,12 @@ export default function AgentConsole() {
       if (searchQuery) params.append("search", searchQuery);
       if (filterAgent !== "all") params.append("agentId", filterAgent);
 
+      console.log("🔍 Agent Console: Fetching users with params:", Object.fromEntries(params));
       const response = await fetch(`/api/agent-console/users?${params}`);
       if (!response.ok) throw new Error("Failed to fetch users");
-      return response.json();
+      const data = await response.json();
+      console.log("📋 Agent Console: Filtered users response:", data.length, "users");
+      return data;
     },
     refetchInterval: 10000, // Refetch every 10 seconds
   }) as { data: AgentUser[]; refetch: () => void };
