@@ -27,7 +27,8 @@ import {
   List,
   Clock,
   FileType,
-  Users
+  Users,
+  Upload
 } from "lucide-react";
 import DocumentCard from "@/components/DocumentCard";
 import ShareDocumentDialog from "@/components/ShareDocumentDialog";
