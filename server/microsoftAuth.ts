@@ -47,9 +47,18 @@ export async function setupMicrosoftAuth(app: Express) {
       const fullName = typeof profile.name === 'string' ? profile.name : '';
       const nameParts = fullName.split(' ');
 
+      // Extract email from multiple possible sources
+      const email = profile.upn || 
+                   profile.preferred_username || 
+                   profile.unique_name || 
+                   profile.email ||
+                   profile._json?.upn ||
+                   profile._json?.preferred_username ||
+                   profile._json?.email;
+
       const userInfo = {
         id: profile.oid || profile.sub, // Use oid (object ID) as unique identifier
-        email: profile.upn || profile.preferred_username || profile.unique_name || profile.email,
+        email: email,
         firstName: profile.given_name || nameParts[0] || '',
         lastName: profile.family_name || nameParts.slice(1).join(' ') || '',
         profileImageUrl: null // Microsoft Graph API would be needed for profile picture
@@ -63,7 +72,13 @@ export async function setupMicrosoftAuth(app: Express) {
         upn: profile.upn,
         given_name: profile.given_name,
         family_name: profile.family_name,
-        name: profile.name
+        name: profile.name,
+        _json: profile._json ? {
+          upn: profile._json.upn,
+          email: profile._json.email,
+          preferred_username: profile._json.preferred_username,
+          name: profile._json.name
+        } : null
       });
 
       console.log("Extracted userInfo for database:", userInfo);
@@ -82,15 +97,17 @@ export async function setupMicrosoftAuth(app: Express) {
         claims: {
           sub: userInfo.id,
           email: userInfo.email,
-          upn: profile.upn || userInfo.email,
-          preferred_username: profile.preferred_username || userInfo.email,
-          unique_name: profile.unique_name || userInfo.email,
+          upn: profile.upn || profile._json?.upn || userInfo.email,
+          preferred_username: profile.preferred_username || profile._json?.preferred_username || userInfo.email,
+          unique_name: profile.unique_name || profile._json?.unique_name || userInfo.email,
           given_name: userInfo.firstName,
           family_name: userInfo.lastName,
-          name: profile.name || `${userInfo.firstName} ${userInfo.lastName}`.trim(),
+          name: profile.name || profile._json?.name || `${userInfo.firstName} ${userInfo.lastName}`.trim(),
           first_name: userInfo.firstName,
           last_name: userInfo.lastName,
           profile_image_url: userInfo.profileImageUrl,
+          display_name: profile.name || profile._json?.name || `${userInfo.firstName} ${userInfo.lastName}`.trim(),
+          role: 'user', // Default role, can be enhanced later with Azure AD roles
           exp: Math.floor(Date.now() / 1000) + 3600 // 1 hour
         },
         access_token: accessToken,
@@ -132,9 +149,18 @@ export async function setupMicrosoftAuth(app: Express) {
         const fullName = typeof profile.name === 'string' ? profile.name : '';
         const nameParts = fullName.split(' ');
 
+        // Extract email from multiple possible sources
+        const email = profile.upn || 
+                     profile.preferred_username || 
+                     profile.unique_name || 
+                     profile.email ||
+                     profile._json?.upn ||
+                     profile._json?.preferred_username ||
+                     profile._json?.email;
+
         const userInfo = {
           id: profile.oid || profile.sub,
-          email: profile.upn || profile.preferred_username || profile.unique_name || profile.email,
+          email: email,
           firstName: profile.given_name || nameParts[0] || '',
           lastName: profile.family_name || nameParts.slice(1).join(' ') || '',
           profileImageUrl: null
@@ -148,7 +174,13 @@ export async function setupMicrosoftAuth(app: Express) {
           upn: profile.upn,
           given_name: profile.given_name,
           family_name: profile.family_name,
-          name: profile.name
+          name: profile.name,
+          _json: profile._json ? {
+            upn: profile._json.upn,
+            email: profile._json.email,
+            preferred_username: profile._json.preferred_username,
+            name: profile._json.name
+          } : null
         });
 
         console.log("Extracted userInfo for database (dynamic):", userInfo);
@@ -167,15 +199,17 @@ export async function setupMicrosoftAuth(app: Express) {
           claims: {
             sub: userInfo.id,
             email: userInfo.email,
-            upn: profile.upn || userInfo.email,
-            preferred_username: profile.preferred_username || userInfo.email,
-            unique_name: profile.unique_name || userInfo.email,
+            upn: profile.upn || profile._json?.upn || userInfo.email,
+            preferred_username: profile.preferred_username || profile._json?.preferred_username || userInfo.email,
+            unique_name: profile.unique_name || profile._json?.unique_name || userInfo.email,
             given_name: userInfo.firstName,
             family_name: userInfo.lastName,
-            name: profile.name || `${userInfo.firstName} ${userInfo.lastName}`.trim(),
+            name: profile.name || profile._json?.name || `${userInfo.firstName} ${userInfo.lastName}`.trim(),
             first_name: userInfo.firstName,
             last_name: userInfo.lastName,
             profile_image_url: userInfo.profileImageUrl,
+            display_name: profile.name || profile._json?.name || `${userInfo.firstName} ${userInfo.lastName}`.trim(),
+            role: 'user', // Default role, can be enhanced later with Azure AD roles
             exp: Math.floor(Date.now() / 1000) + 3600
           },
           access_token: accessToken,
