@@ -290,19 +290,19 @@ export default function AgentConsole() {
 
   return (
     <DashboardLayout>
-      <div className="flex bg-gray-50 p-4 gap-4 h-[calc(100vh-120px)]">
+      <div className="flex flex-col lg:flex-row bg-gray-50 p-2 lg:p-4 gap-2 lg:gap-4 h-[calc(100vh-120px)]">
         {/* Left Sidebar - Channel Selection & User List */}
-        <div className="w-80 min-w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
+        <div className="w-full lg:w-80 lg:min-w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col max-h-96 lg:max-h-none">
           {/* Header */}
-          <div className="flex-shrink-0 p-4 border-b border-gray-200">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-6 h-6 bg-gradient-to-br from-green-500 to-green-600 rounded flex items-center justify-center">
-                <MessageSquare className="w-3 h-3 text-white" />
+          <div className="flex-shrink-0 p-2 lg:p-4 border-b border-gray-200">
+            <div className="flex items-center space-x-2 lg:space-x-3 mb-2 lg:mb-4">
+              <div className="w-5 h-5 lg:w-6 lg:h-6 bg-gradient-to-br from-green-500 to-green-600 rounded flex items-center justify-center">
+                <MessageSquare className="w-2 h-2 lg:w-3 lg:h-3 text-white" />
               </div>
-              <h1 className="text-lg font-bold text-gray-900">Agent Console</h1>
+              <h1 className="text-base lg:text-lg font-bold text-gray-900">Agent Console</h1>
             </div>
 
-            <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between text-xs lg:text-sm text-gray-600 mb-2 lg:mb-4 space-y-1 lg:space-y-0">
               <div className="flex items-center space-x-2">
                 <Dot className="w-3 h-3 text-green-500 animate-pulse" />
                 <span>Real-time WebSocket</span>
@@ -312,13 +312,13 @@ export default function AgentConsole() {
           </div>
 
           {/* Select Channel */}
-          <div className="flex-shrink-0 p-4 border-b border-gray-200">
-            <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="flex-shrink-0 p-2 lg:p-4 border-b border-gray-200">
+            <div className="mb-2 lg:mb-3">
+              <label className="block text-xs lg:text-sm font-medium text-gray-700 mb-1 lg:mb-2">
                 Select Channel
               </label>
               <Select value={channelFilter} onValueChange={setChannelFilter}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full text-xs lg:text-sm">
                   <SelectValue placeholder="Select Channel" />
                 </SelectTrigger>
                 <SelectContent>
@@ -341,12 +341,12 @@ export default function AgentConsole() {
             </div>
 
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3 lg:w-4 lg:h-4" />
               <Input
                 placeholder="Search users..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 text-sm"
+                className="pl-8 lg:pl-10 text-xs lg:text-sm"
               />
             </div>
           </div>
@@ -370,39 +370,42 @@ export default function AgentConsole() {
                     return (
                       <div key={user.userId}>
                         <div
-                          className={`p-3 rounded-lg cursor-pointer transition-all mb-2 ${
+                          className={`p-2 lg:p-3 rounded-lg cursor-pointer transition-all mb-1 lg:mb-2 ${
                             isSelected
                               ? 'bg-blue-50 border border-blue-200'
                               : 'hover:bg-gray-50 border border-transparent'
                           }`}
                           onClick={() => setSelectedUser(user)}
                         >
-                          <div className="flex items-start space-x-3">
+                          <div className="flex items-start space-x-2 lg:space-x-3">
                             <div className="relative">
-                              <Avatar className="w-8 h-8">
+                              <Avatar className="w-6 h-6 lg:w-8 lg:h-8">
                                 <AvatarFallback className="text-xs">
                                   {getInitials(user.userProfile.name)}
                                 </AvatarFallback>
                               </Avatar>
                               {user.isOnline && (
-                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                                <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 lg:w-3 lg:h-3 bg-green-500 border-1 lg:border-2 border-white rounded-full"></div>
                               )}
                             </div>
 
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-1">
-                                <p className={`text-sm text-gray-900 truncate ${
+                                <p className={`text-xs lg:text-sm text-gray-900 truncate ${
                                   isSelected ? 'font-bold' : 'font-medium'
                                 }`}>
                                   {user.userProfile.name}
                                 </p>
                                 <div className="flex items-center space-x-1">
-                                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 hidden lg:flex">
                                     <span className="mr-1">
                                       {allChannelTypes.find(c => c.id === user.channelType)?.icon || '📱'}
                                     </span>
-                                    {allChannelTypes.find(c => c.id === user.channelType)?.name || user.channelType.toUpperCase()}
+                                    <span className="hidden lg:inline">{allChannelTypes.find(c => c.id === user.channelType)?.name || user.channelType.toUpperCase()}</span>
                                   </Badge>
+                                  <span className="lg:hidden text-lg">
+                                    {allChannelTypes.find(c => c.id === user.channelType)?.icon || '📱'}
+                                  </span>
                                   <Badge variant="secondary" className="text-xs">
                                     {userConversations.reduce((total, conv) => total + conv.messageCount, 0)}
                                   </Badge>
@@ -413,9 +416,9 @@ export default function AgentConsole() {
                                 {user.agentName}
                               </p>
 
-                              <div className="text-xs text-gray-600 mb-1 h-8 overflow-hidden">
-                                <p className="leading-4">
-                                  {user.lastMessage.length > 80 ? `${user.lastMessage.substring(0, 80)}...` : user.lastMessage}
+                              <div className="text-xs text-gray-600 mb-1 h-6 lg:h-8 overflow-hidden">
+                                <p className="leading-3 lg:leading-4">
+                                  {user.lastMessage.length > (window.innerWidth < 768 ? 40 : 80) ? `${user.lastMessage.substring(0, window.innerWidth < 768 ? 40 : 80)}...` : user.lastMessage}
                                 </p>
                               </div>
 
@@ -442,32 +445,33 @@ export default function AgentConsole() {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex min-w-0">
+        <div className="flex-1 flex flex-col lg:flex-row min-w-0">
           {/* Conversation Area */}
-          <div className="flex-1 flex flex-col min-w-0 min-h-[600px]">
+          <div className="flex-1 flex flex-col min-w-0 min-h-[400px] lg:min-h-[600px]">
             {selectedUser ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
                 {/* Conversation Header */}
-                <div className="flex-shrink-0 p-4 border-b border-gray-200">
+                <div className="flex-shrink-0 p-2 lg:p-4 border-b border-gray-200">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="w-8 h-8">
+                    <div className="flex items-center space-x-2 lg:space-x-3">
+                      <Avatar className="w-6 h-6 lg:w-8 lg:h-8">
                         <AvatarFallback>
                           {getInitials(selectedUser.userProfile.name)}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <h3 className="font-medium text-gray-900">
+                        <h3 className="text-sm lg:font-medium text-gray-900">
                           {selectedUser.userProfile.name}
                         </h3>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-xs lg:text-sm text-gray-500">
                           {selectedUser.channelType.toUpperCase()} • Agent: {selectedUser.agentName}
                         </p>
                       </div>
                     </div>
 
-                    <Button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm">
-                      Open Message
+                    <Button className="bg-blue-500 hover:bg-blue-600 text-white px-2 lg:px-4 py-1 lg:py-2 rounded-md text-xs lg:text-sm">
+                      <span className="hidden lg:inline">Open Message</span>
+                      <MessageSquare className="w-4 h-4 lg:hidden" />
                     </Button>
                   </div>
                 </div>
@@ -528,14 +532,14 @@ export default function AgentConsole() {
                   </ScrollArea>
 
                   {/* Message Input or Open Message Button */}
-                  <div className="flex-shrink-0 border-t border-gray-200 p-3">
+                  <div className="flex-shrink-0 border-t border-gray-200 p-2 lg:p-3">
                     {showMessageInput ? (
-                      <div className="flex space-x-2">
+                      <div className="flex flex-col lg:flex-row space-y-2 lg:space-y-0 lg:space-x-2">
                         <Input
                           value={newMessage}
                           onChange={(e) => setNewMessage(e.target.value)}
                           placeholder="Type a message..."
-                          className="flex-1"
+                          className="flex-1 text-sm"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();
@@ -544,30 +548,33 @@ export default function AgentConsole() {
                           }}
                           autoFocus
                         />
-                        <Button
-                          onClick={handleSendMessage}
-                          disabled={!newMessage.trim()}
-                          size="sm"
-                          className="px-4"
-                        >
-                          <Send className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            setShowMessageInput(false);
-                            setNewMessage("");
-                          }}
-                          variant="outline"
-                          size="sm"
-                          className="px-4"
-                        >
-                          Cancel
-                        </Button>
+                        <div className="flex space-x-2">
+                          <Button
+                            onClick={handleSendMessage}
+                            disabled={!newMessage.trim()}
+                            size="sm"
+                            className="px-3 lg:px-4 flex-1 lg:flex-none"
+                          >
+                            <Send className="w-4 h-4" />
+                            <span className="ml-2 lg:hidden">Send</span>
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setShowMessageInput(false);
+                              setNewMessage("");
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="px-3 lg:px-4 flex-1 lg:flex-none"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <Button
                         onClick={() => setShowMessageInput(true)}
-                        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2"
+                        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 text-sm"
                       >
                         <MessageSquare className="w-4 h-4 mr-2" />
                         Open Message
@@ -592,7 +599,7 @@ export default function AgentConsole() {
           </div>
 
           {/* Right Sidebar - Customer Profile */}
-          <div className="w-80 min-w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col ml-4 h-full">
+          <div className="w-full lg:w-80 lg:min-w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col lg:ml-4 mt-2 lg:mt-0 h-full max-h-96 lg:max-h-none">
             {selectedUser ? (
               <ScrollArea className="h-full">
                 <div className="p-4 space-y-6">
