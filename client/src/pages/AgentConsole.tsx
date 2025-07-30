@@ -93,16 +93,28 @@ export default function AgentConsole() {
     queryFn: async () => {
       if (!selectedUser) return [];
 
+      console.log('🔍 Fetching conversation with params:', {
+        targetUserId: selectedUser.userId,
+        channelType: selectedUser.channelType,
+        channelId: selectedUser.channelId,
+        agentId: selectedUser.agentId.toString(),
+      });
+
       const params = new URLSearchParams({
-        targetUserId: selectedUser.userId, // Fixed: use targetUserId instead of userId
+        targetUserId: selectedUser.userId,
         channelType: selectedUser.channelType,
         channelId: selectedUser.channelId,
         agentId: selectedUser.agentId.toString(),
       });
 
       const response = await fetch(`/api/agent-console/conversation?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch conversation");
-      return response.json();
+      if (!response.ok) {
+        console.error('❌ Conversation API failed:', response.status, response.statusText);
+        throw new Error("Failed to fetch conversation");
+      }
+      const data = await response.json();
+      console.log('📨 Conversation response:', data);
+      return data;
     },
     enabled: !!selectedUser,
   }) as { data: Message[] };
@@ -113,15 +125,26 @@ export default function AgentConsole() {
     queryFn: async () => {
       if (!selectedUser) return null;
 
+      console.log('📊 Fetching summary with params:', {
+        targetUserId: selectedUser.userId,
+        channelType: selectedUser.channelType,
+        channelId: selectedUser.channelId,
+      });
+
       const params = new URLSearchParams({
-        targetUserId: selectedUser.userId, // Fixed: use targetUserId instead of userId
+        targetUserId: selectedUser.userId,
         channelType: selectedUser.channelType,
         channelId: selectedUser.channelId,
       });
 
       const response = await fetch(`/api/agent-console/summary?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch summary");
-      return response.json();
+      if (!response.ok) {
+        console.error('❌ Summary API failed:', response.status, response.statusText);
+        throw new Error("Failed to fetch summary");
+      }
+      const data = await response.json();
+      console.log('📊 Summary response:', data);
+      return data;
     },
     enabled: !!selectedUser,
   }) as { data: ConversationSummary | null };
@@ -408,6 +431,7 @@ export default function AgentConsole() {
                 <Card className="flex-1 flex flex-col min-h-0">
                   <CardContent className="flex-1 flex flex-col p-0 min-h-0">
                     <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
+                      {console.log('🧾 Messages to render:', messages)}
                       <div className="space-y-4">
                         {messages.map((message) => (
                           <div
