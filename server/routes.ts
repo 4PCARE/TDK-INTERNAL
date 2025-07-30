@@ -986,7 +986,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update user role
   app.put(
     "/api/admin/users/:userId/role",
-    isAuthenticated,
+    (req: any, res: any, next: any) => {
+      // Try Microsoft auth first, then fallback to Replit auth
+      isMicrosoftAuthenticated(req, res, (err: any) => {
+        if (!err) {
+          return next();
+        }
+        isAuthenticated(req, res, next);
+      });
+    },
     isAdmin,
     async (req: any, res) => {
       try {

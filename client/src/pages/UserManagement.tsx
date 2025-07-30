@@ -195,6 +195,42 @@ export default function UserManagement() {
     }
   });
 
+  // Role update mutation
+  const updateRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      const response = await fetch(`/api/admin/users/${userId}/role`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ role }),
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to update role: ${response.status}`);
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({ 
+        title: "Role updated successfully",
+        description: "User role has been changed"
+      });
+    },
+    onError: (error: any) => {
+      console.error("Error updating user role:", error);
+      toast({ 
+        title: "Failed to update role", 
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive" 
+      });
+    }
+  });
+
   const bootstrapAdminMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/bootstrap-admin', {}),
     onSuccess: () => {
@@ -526,9 +562,45 @@ export default function UserManagement() {
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
-                          {user.role && (
-                            <Badge variant="secondary">{user.role}</Badge>
-                          )}
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-500">Role:</span>
+                            <Select
+                              value={user.role || "user"}
+                              onValueChange={(newRole) => {
+                                if (newRole !== user.role) {
+                                  updateRoleMutation.mutate({
+                                    userId: user.id,
+                                    role: newRole,
+                                  });
+                                }
+                              }}
+                              disabled={updateRoleMutation.isPending}
+                            >
+                              <SelectTrigger className="w-28 h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">
+                                  <div className="flex items-center space-x-1">
+                                    <Shield className="w-3 h-3" />
+                                    <span>Admin</span>
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="user">
+                                  <div className="flex items-center space-x-1">
+                                    <User className="w-3 h-3" />
+                                    <span>User</span>
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="viewer">
+                                  <div className="flex items-center space-x-1">
+                                    <Users className="w-3 h-3" />
+                                    <span>Viewer</span>
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm">
