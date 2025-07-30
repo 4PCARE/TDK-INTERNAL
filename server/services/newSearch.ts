@@ -354,8 +354,8 @@ async function tokenizeWithThaiNormalization(text: string): string[] {
   // Simple tokenization without Thai segmentation for documents
   // Thai segmentation should only be used for query processing
   
-  // First normalize common brand variations
-  let normalizedText = normalizeBrandNames(text);
+  // First normalize Thai spacing
+  let normalizedText = normalizeThaiSpacing(text);
   
   const tokens = normalizedText
     .toLowerCase()
@@ -367,46 +367,15 @@ async function tokenizeWithThaiNormalization(text: string): string[] {
   return tokens;
 }
 
-function normalizeBrandNames(text: string): string {
-  // Normalize common Thai brand name variations
-  const brandNormalizations = [
-    // McDonald's variations
-    { pattern: /แมค\s*โดนัลด์/g, replacement: 'แมคโดนัลด์' },
-    { pattern: /แม็ค\s*โดนัลด์/g, replacement: 'แมคโดนัลด์' },
-    { pattern: /แม็ค\s*โดนัล/g, replacement: 'แมคโดนัลด์' },
-    
-    // KFC variations
-    { pattern: /เค\s*เอฟ\s*ซี/g, replacement: 'เคเอฟซี' },
-    { pattern: /เค\s*เอฟ\s*ซี่/g, replacement: 'เคเอฟซี' },
-    
-    // Starbucks variations
-    { pattern: /สตาร์\s*บัคส์/g, replacement: 'สตาร์บัคส์' },
-    { pattern: /สตาร์\s*บัค/g, replacement: 'สตาร์บัคส์' },
-    
-    // Pizza Hut variations
-    { pattern: /พิซซ่า\s*ฮัท/g, replacement: 'พิซซ่าฮัท' },
-    { pattern: /พิซซ่า\s*ฮัต/g, replacement: 'พิซซ่าฮัท' },
-    
-    // 7-Eleven variations
-    { pattern: /เซเว่น\s*อีเลฟเว่น/g, replacement: 'เซเว่นอีเลฟเว่น' },
-    { pattern: /เซ\s*เว่น/g, replacement: 'เซเว่น' },
-    
-    // Common mall name variations
-    { pattern: /เดอะ\s*มอลล์/g, replacement: 'เดอะมอลล์' },
-    { pattern: /เดอะ\s*มอล/g, replacement: 'เดอะมอลล์' },
-    
-    // Central variations
-    { pattern: /เซ็นทรัล\s*พลาซ่า/g, replacement: 'เซ็นทรัลพลาซ่า' },
-    { pattern: /เซ็นทรัล\s*เวิลด์/g, replacement: 'เซ็นทรัลเวิลด์' },
-  ];
-  
-  let normalizedText = text;
-  
-  for (const norm of brandNormalizations) {
-    normalizedText = normalizedText.replace(norm.pattern, norm.replacement);
-  }
-  
-  return normalizedText;
+function normalizeThaiSpacing(text: string): string {
+  // Generic Thai text normalization - remove excessive spaces between Thai characters
+  return text
+    // Remove spaces between Thai characters (but preserve spaces around English/numbers)
+    .replace(/([ก-๙])\s+([ก-๙])/g, '$1$2')
+    // Normalize multiple spaces to single space
+    .replace(/\s+/g, ' ')
+    // Trim leading/trailing spaces
+    .trim();
 }
 
 function tokenize(text: string): string[] {
@@ -448,18 +417,22 @@ function findBestFuzzyMatchThai(term: string, tokens: string[]): { score: number
 }
 
 function isThaiTokenSimilar(term1: string, term2: string): boolean {
-  // Use minimal normalization to avoid false positives
+  // Normalize spaces for both terms
   const normalized1 = term1.toLowerCase().replace(/\s+/g, '');
   const normalized2 = term2.toLowerCase().replace(/\s+/g, '');
   
-  // Only consider similar if they're exactly the same after minimal normalization
-  // or if they have high character overlap (for legitimate variants)
+  // Exact match after space normalization
   if (normalized1 === normalized2) return true;
   
-  // Check for legitimate Thai character variants (but be conservative)
+  // Check if one contains the other (for partial matches like "แมค" vs "แมคโดนัลด์")
   if (normalized1.length >= 3 && normalized2.length >= 3) {
+    if (normalized1.includes(normalized2) || normalized2.includes(normalized1)) {
+      return true;
+    }
+    
+    // Levenshtein distance for typos
     const similarity = calculateSimilarity(normalized1, normalized2);
-    return similarity >= 0.9; // Very high threshold to avoid false matches
+    return similarity >= 0.85; // Lower threshold for better matching
   }
   
   return false;
@@ -488,9 +461,9 @@ export async function searchSmartHybridDebug(
   console.log(`🔍 QUERY PROCESSING: Segmenting Thai text for search terms only`);
   const { thaiTextProcessor } = await import('./thaiTextProcessor');
   
-  // First normalize brand names in the search query
-  const normalizedQuery = normalizeBrandNames(searchQuery);
-  console.log(`🔍 BRAND NORMALIZATION: "${searchQuery}" → "${normalizedQuery}"`);
+  // First normalize Thai spacing in the search query
+  const normalizedQuery = normalizeThaiSpacing(searchQuery);
+  console.log(`🔍 THAI NORMALIZATION: "${searchQuery}" → "${normalizedQuery}"`);
   
   const tokenizedQuery = await thaiTextProcessor.segmentThaiText(normalizedQuery);
   console.log(`🔍 QUERY PROCESSING: Result: "${tokenizedQuery}"`);
