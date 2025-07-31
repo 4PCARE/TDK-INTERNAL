@@ -548,13 +548,10 @@ export async function searchSmartHybridDebug(
   // Process advanced keyword search results
   for (const result of keywordSearchResults) {
     if (result.similarity > 0) {
-      // The result.id should already be in the format "docId-chunkIndex"
-      const chunkId = result.id;
-
-      // Extract document ID and chunk index for logging
-      const parts = chunkId.split('-');
-      const docId = parts[0];
-      const chunkIndex = parts[1];
+      // Extract document ID and chunk index from the result
+      const docId = result.id;
+      const chunkIndex = result.name.match(/Chunk (\d+)/)?.[1] || "0";
+      const chunkId = `${docId}-${parseInt(chunkIndex) - 1}`; // Adjust for 0-based indexing
 
       keywordMatches[chunkId] = {
         score: result.similarity,
@@ -564,7 +561,7 @@ export async function searchSmartHybridDebug(
       };
       totalMatches++;
 
-      console.log(`🔍 KEYWORD MATCH (Advanced): Doc ${docId}-${chunkIndex} chunk ${parseInt(chunkIndex) + 1} - score: ${result.similarity.toFixed(5)} with aliases`);
+      console.log(`🔍 KEYWORD MATCH (Advanced): Doc ${docId} chunk ${chunkIndex} - score: ${result.similarity.toFixed(5)} with aliases`);
     }
   }
 
@@ -695,7 +692,7 @@ export async function searchSmartHybridDebug(
     const chunkIndexStr = chunkId.substring(lastDashIndex + 1);
     const docId = parseInt(docIdStr);
     const chunkIndex = parseInt(chunkIndexStr);
-
+    
     const keywordInfo = keywordMatches[chunkId];
     const keywordScore = keywordInfo?.score ?? 0;
     const vectorInfo = vectorMatches[chunkId];
