@@ -530,31 +530,30 @@ export async function searchSmartHybridDebug(
   // Use performAdvancedKeywordSearch with alias expansion instead of calculateBM25
   const { performAdvancedKeywordSearch } = await import('./advancedKeywordSearch');
 
+  // Perform advanced keyword search with alias expansion
+  console.log(`🔍 KEYWORD SEARCH: Performing advanced keyword search with aliases...`);
   const keywordSearchResults = await performAdvancedKeywordSearch(
-    searchQuery, // Use the normalized query
-    userId,
-    options.specificDocumentIds,
-    {
-      limit: 1000, // Large limit to get all matches for scoring
-      threshold: 0.0,
-    },
-    agentAliases // Pass agent aliases for bidirectional expansion
+    searchQuery, 
+    userId, 
+    options.specificDocumentIds, 
+    { limit: 200, threshold: 0.01 },
+    agentAliases
   );
 
   console.log(`🔍 KEYWORD SEARCH: performAdvancedKeywordSearch returned ${keywordSearchResults.length} results with aliases`);
 
-  // Convert advanced keyword search results to our expected format
+  // Convert keyword search results to matches format for combining with vector search
   const keywordMatches: Record<string, { score: number; content: string; matchedTerms: string[]; matchDetails: any[] }> = {};
   let totalMatches = 0;
 
-  // Process advanced keyword search results
+  // Process advanced keyword search results (no duplicate processing)
   for (const result of keywordSearchResults) {
     if (result.similarity > 0) {
       // Extract document ID and chunk index from the result
       const docId = result.id;
       const chunkIndex = result.name.match(/Chunk (\d+)/)?.[1] || "0";
-      // Use consistent chunk ID: docId-chunkIndex
-      const chunkId = `${docId}-${parseInt(chunkIndex) - 1}`; // Adjust for 0-based indexing
+      // Use consistent chunk ID format: docId-chunkIndex-chunkIndex (matching performAdvancedKeywordSearch format)
+      const chunkId = `${docId}-${parseInt(chunkIndex) - 1}-${parseInt(chunkIndex) - 1}`;
 
       keywordMatches[chunkId] = {
         score: result.similarity,
@@ -563,41 +562,10 @@ export async function searchSmartHybridDebug(
         matchDetails: (result as any).matchDetails || []
       };
       totalMatches++;
-
-      console.log(`🔍 KEYWORD MATCH (Advanced): Doc ${docId} chunk ${chunkIndex} - score: ${result.similarity.toFixed(5)} with aliases`);
     }
   }
 
-  console.log(`🔍 KEYWORD SEARCH: Found ${totalMatches} chunks with keyword matches (with aliases) out of ${chunks.length} total chunks`)
-
-  // Display top 5 keyword chunks with matched terms
-  if (Object.keys(keywordMatches).length > 0) {
-    const sortedKeywordChunks = Object.entries(keywordMatches)
-      .map(([chunkId, data]) => ({
-        chunkId,
-        score: data.score,
-        content: data.content,
-        matchedTerms: data.matchedTerms || [],
-        matchDetails: data.matchDetails || []
-      }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
-
-    console.log(`\n🏆 TOP 5 KEYWORD CHUNKS WITH MATCHED TERMS:`);
-    sortedKeywordChunks.forEach((chunk, index) => {
-      console.log(`\n${index + 1}. Chunk ${chunk.chunkId} - Score: ${chunk.score.toFixed(5)}`);
-      console.log(`   📝 Matched Terms (${chunk.matchedTerms.length}): [${chunk.matchedTerms.join(', ')}]`);
-      if (chunk.matchDetails && chunk.matchDetails.length > 0) {
-        console.log(`   🔍 Match Details:`);
-        chunk.matchDetails.forEach(detail => {
-          const fuzzyLabel = detail.fuzzyMatch ? ' (fuzzy)' : ' (exact)';
-          console.log(`      - "${detail.term}": score ${detail.score.toFixed(4)}${fuzzyLabel}, positions: [${detail.positions.join(', ')}]`);
-        });
-      }
-      console.log(`   📄 Content Preview: "${chunk.content.substring(0, 150).replace(/\n/g, ' ')}${chunk.content.length > 150 ? '...' : ''}"`);
-    });
-    console.log(`\n`);
-  }
+  console.log(`🔍 KEYWORD SEARCH: Processed ${totalMatches} keyword matches from advanced search (no duplication)`)
 
   if (totalMatches === 0) {
     console.log(`⚠️ KEYWORD SEARCH DEBUG: No positive BM25 scores found. This might indicate:`)
