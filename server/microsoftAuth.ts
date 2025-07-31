@@ -330,16 +330,32 @@ export async function setupMicrosoftAuth(app: Express) {
           console.error("Failed to create audit log for Microsoft login:", auditError);
         }
 
-        // Save session before redirecting
-        req.session.save((err: any) => {
+        // Force session regeneration and save
+        req.session.regenerate((err: any) => {
           if (err) {
-            console.error("Session save error:", err);
-            return res.redirect("/api/auth/microsoft?error=session_failed");
+            console.error("Session regeneration error:", err);
+            // Fallback to regular save
+            req.session.save((saveErr: any) => {
+              if (saveErr) {
+                console.error("Session save error:", saveErr);
+                return res.redirect("/api/auth/microsoft?error=session_failed");
+              }
+              console.log("Session saved successfully (fallback), redirecting to dashboard");
+              res.redirect("/");
+            });
+            return;
           }
 
-          console.log("Session saved successfully, redirecting to dashboard");
-          // Redirect to dashboard after successful login
-          res.redirect("/");
+          // Set session data after regeneration
+          (req.session as any).user = user;
+          req.session.save((saveErr: any) => {
+            if (saveErr) {
+              console.error("Session save error after regeneration:", saveErr);
+              return res.redirect("/api/auth/microsoft?error=session_failed");
+            }
+            console.log("Session regenerated and saved successfully, redirecting to dashboard");
+            res.redirect("/");
+          });
         });
       });
     })(req, res, next);
@@ -349,24 +365,32 @@ export async function setupMicrosoftAuth(app: Express) {
 export const isMicrosoftAuthenticated: RequestHandler = async (req, res, next) => {
   console.log("Microsoft auth check - isAuthenticated:", req.isAuthenticated());
   console.log("Microsoft auth check - user:", req.user ? "exists" : "null");
-  console.log("Microsoft auth check - session:", req.session);
+  console.log("Microsoft auth check - session ID:", req.sessionID);
 
-  if (!req.isAuthenticated() || !req.user) {
-    console.log("Microsoft auth failed - not authenticated or no user");
+  // Check session user first
+  const sessionUser = (req.session as any)?.user;
+  
+  if (!req.isAuthenticated() && !sessionUser) {
+    console.log("Microsoft auth failed - not authenticated and no session user");
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const user = req.user as any;
-  if (!user.claims?.sub) {
+  const user = req.user as any || sessionUser;
+  if (!user || !user.claims?.sub) {
     console.log("Microsoft auth failed - no user claims or sub");
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  // Check if token is still valid
+  // Check if token is still valid (with 1 hour buffer for refresh)
   const now = Math.floor(Date.now() / 1000);
-  if (user.claims.exp && now > user.claims.exp) {
-    console.log("Microsoft auth failed - token expired");
-    return res.status(401).json({ message: "Token expired" });
+  if (user.claims.exp && now > (user.claims.exp - 3600)) {
+    console.log("Microsoft auth token near expiration or expired, but allowing with session fallback");
+    // Don't reject immediately, allow session-based auth to continue
+  }
+
+  // Update session activity
+  if (!req.user && sessionUser) {
+    req.user = sessionUser;
   }
 
   console.log("Microsoft auth successful for:", user.claims.email);

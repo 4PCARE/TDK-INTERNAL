@@ -34,11 +34,12 @@ export function getSession() {
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
-    resave: false,
-    saveUninitialized: false,
+    resave: true, // Force session save to prevent loss
+    saveUninitialized: true, // Save uninitialized sessions
+    rolling: true, // Reset expiration on activity
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === 'production', // Allow non-HTTPS in development
       maxAge: sessionTtl,
     },
   });
@@ -180,15 +181,31 @@ export async function setupAuth(app: Express) {
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
+  const sessionUser = (req.session as any)?.passport?.user;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  // Check both passport user and session fallback
+  if (!req.isAuthenticated() && !sessionUser) {
+    console.log("Replit auth failed - no authentication");
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const currentUser = user || sessionUser;
+  if (!currentUser || !currentUser.expires_at) {
+    console.log("Replit auth failed - no user or expiration");
     return res.status(401).json({ message: "Unauthorized" });
   }
 
   const now = Math.floor(Date.now() / 1000);
-  if (now <= user.expires_at) {
+  if (now <= currentUser.expires_at) {
+    // Update session activity
+    if (req.session) {
+      req.session.touch();
+    }
     return next();
   }
+
+  console.log("Replit auth failed - token expired");
+  return res.status(401).json({ message: "Token expired" });
 
   const refreshToken = user.refresh_token;
   if (!refreshToken) {

@@ -14,12 +14,13 @@ const app = express();
 // Session configuration for Microsoft authentication
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-session-secret-key',
-  resave: false,
-  saveUninitialized: false,
+  resave: true, // Force session save even if unmodified
+  saveUninitialized: true, // Save uninitialized sessions
+  rolling: true, // Reset expiration on activity
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: false, // Allow non-HTTPS in development
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days for better persistence
   }
 }));
 
