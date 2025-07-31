@@ -683,9 +683,13 @@ export async function searchSmartHybridDebug(
 
   for (const chunkId of allChunkIds) {
     // Fix: Split from the right to handle document IDs with dashes
-    const parts = chunkId.split("-");
-    const chunkIndexStr = parts[parts.length - 1];
-    const docIdStr = parts.slice(0, -1).join("-");
+    const lastDashIndex = chunkId.lastIndexOf("-");
+    if (lastDashIndex === -1) {
+      console.warn(`⚠️  Invalid chunk ID format: ${chunkId}`);
+      continue;
+    }
+    const docIdStr = chunkId.substring(0, lastDashIndex);
+    const chunkIndexStr = chunkId.substring(lastDashIndex + 1);
     const docId = parseInt(docIdStr);
     const chunkIndex = parseInt(chunkIndexStr);
     

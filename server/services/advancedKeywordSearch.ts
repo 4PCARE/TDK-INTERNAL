@@ -762,11 +762,13 @@ export async function performAdvancedKeywordSearch(
         const document = docMap.get(chunkScore.documentId);
         if (!document) return;
 
+        // Use correct chunkId format
+        const chunkId = `${chunkScore.documentId}-${chunkScore.chunkIndex}`;
         const chunkLabel = `(Chunk ${chunkScore.chunkIndex + 1})`;
         const documentName = document.name || `Document ${chunkScore.documentId}`;
 
         results.push({
-          id: `${chunkScore.documentId}-${chunkScore.chunkIndex}`,
+          id: chunkId,
           name: `${documentName} ${chunkLabel}`,
           content: chunkScore.content,
           summary: chunkScore.content.slice(0, 200) + "...",
