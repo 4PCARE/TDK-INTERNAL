@@ -109,7 +109,7 @@ export default function Documents() {
         const params = new URLSearchParams({
           query: currentSearchQuery,
           type: currentSearchType,
-          massSelectionPercentage: "0.3"
+          massSelectionPercentage: "0.6"
         });
 
         console.log(`Frontend search: "${currentSearchQuery}" (${currentSearchType}) with 30% mass selection`);
