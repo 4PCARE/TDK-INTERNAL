@@ -2490,6 +2490,69 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     }
   });
 
+  // Test document search for agent chatbots
+  app.post("/api/agent-chatbots/test-search", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { query, documentIds, searchPrompt } = req.body;
+
+      console.log(`🔍 Testing document search - Query: "${query}", Documents: [${documentIds.join(', ')}], SearchPrompt: "${searchPrompt || 'none'}"`);
+
+      if (!query || !query.trim()) {
+        return res.status(400).json({ message: "Search query is required" });
+      }
+
+      if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
+        return res.status(400).json({ message: "Document IDs are required" });
+      }
+
+      // Use hybrid search with document ID filtering
+      const results = await semanticSearchServiceV2.searchDocuments(
+        query,
+        userId,
+        { 
+          searchType: "hybrid",
+          keywordWeight: 0.4,
+          vectorWeight: 0.6,
+          specificDocumentIds: documentIds // This restricts search to only bot-bound documents
+        },
+      );
+
+      console.log(`📊 Search completed - Found ${results.length} results`);
+
+      // Transform results to match expected format
+      const transformedResults = results.map((result: any) => ({
+        documentName: result.name || result.documentName || `Document ${result.id}`,
+        content: result.content,
+        score: result.similarity || result.score || 0,
+        chunkIndex: result.chunkIndex || 0,
+        category: result.aiCategory || result.category,
+        documentId: result.id || result.documentId
+      }));
+
+      const stats = {
+        totalResults: transformedResults.length,
+        avgScore: transformedResults.length > 0 
+          ? transformedResults.reduce((sum, r) => sum + r.score, 0) / transformedResults.length 
+          : 0,
+        searchType: "hybrid",
+        documentsSearched: documentIds.length
+      };
+
+      res.json({
+        success: true,
+        results: transformedResults,
+        stats: stats
+      });
+    } catch (error) {
+      console.error("Error testing document search:", error);
+      res.status(500).json({ 
+        message: "Failed to test document search",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Re-vectorize all documents endpoint
   app.post(
     "/api/vector/reindex-all",

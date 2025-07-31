@@ -596,6 +596,15 @@ export default function CreateAgentChatbot() {
       return;
     }
 
+    if (selectedDocuments.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one document for the agent before testing search",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const currentFormData = form.getValues();
 
     console.log("Testing document search with:", { 
