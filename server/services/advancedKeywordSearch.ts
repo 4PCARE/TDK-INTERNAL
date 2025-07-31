@@ -1,4 +1,3 @@
-
 import { storage } from '../storage';
 import { aiKeywordExpansionService } from './aiKeywordExpansion';
 import { db } from '../db';
@@ -91,13 +90,13 @@ export class AdvancedKeywordSearchService {
       const documentResults = new Map<number, any>();
 
       topChunks
-        .filter(chunk => chunk.score > 0.1) // Minimum relevance threshold
+        .filter(chunk => chunk.score > 0.01) // Lower minimum relevance threshold
         .forEach(chunkScore => {
           const document = docMap.get(chunkScore.documentId);
           if (!document) return;
 
           const existingResult = documentResults.get(chunkScore.documentId);
-          
+
           // If this document already has a result, only replace if this chunk has a better score
           if (!existingResult || chunkScore.score > existingResult.similarity) {
             documentResults.set(chunkScore.documentId, {
@@ -261,7 +260,7 @@ export class AdvancedKeywordSearchService {
     }
 
     let fuzzyMatch = false;
-    
+
     // If no exact matches, try fuzzy matching
     if (exactMatches === 0) {
       // Token-level fuzzy matching
@@ -278,7 +277,7 @@ export class AdvancedKeywordSearchService {
           }
         }
       }
-      
+
       // Partial matching for longer terms
       if (fuzzyMatches === 0 && term.length >= 4) {
         const partialPositions = this.findPartialMatches(term, chunkText);
@@ -343,41 +342,41 @@ export class AdvancedKeywordSearchService {
       .replace(/[์็่้๊๋]/g, '') // Remove tone marks
       .replace(/[ะาิีึืุูเแโใไ]/g, 'a') // Normalize vowels
       .toLowerCase();
-    
+
     const norm1 = normalize(term1);
     const norm2 = normalize(term2);
-    
+
     const distance = this.levenshteinDistance(norm1, norm2);
     const maxLength = Math.max(norm1.length, norm2.length);
     const similarity = (maxLength - distance) / maxLength;
-    
+
     return similarity >= 0.75; // Slightly lower threshold for Thai
   }
 
   private findPartialMatches(term: string, text: string): number[] {
     const positions: number[] = [];
-    
+
     // Find partial matches for longer terms
     if (term.length >= 4) {
       const words = text.split(/\s+/);
       let currentPos = 0;
-      
+
       for (const word of words) {
         const wordPos = text.indexOf(word, currentPos);
-        
+
         // Check if word contains most characters from the term
         const termChars = term.toLowerCase().split('');
         const wordChars = word.toLowerCase().split('');
         const matchingChars = termChars.filter(char => wordChars.includes(char));
-        
+
         if (matchingChars.length >= Math.ceil(term.length * 0.7)) {
           positions.push(wordPos);
         }
-        
+
         currentPos = wordPos + word.length;
       }
     }
-    
+
     return positions;
   }
 
@@ -450,7 +449,7 @@ export class AdvancedKeywordSearchService {
       // Get AI keyword expansion
       console.log(`Getting AI keyword expansion for: "${query}"`);
       const expansionResult = await aiKeywordExpansionService.getExpandedSearchTerms(query, chatHistory);
-      
+
       console.log(`AI Expansion Result:`, {
         original: expansionResult.original,
         expanded: expansionResult.expanded,
@@ -460,7 +459,7 @@ export class AdvancedKeywordSearchService {
 
       // Parse original query
       const originalSearchTerms = this.parseQuery(query);
-      
+
       // Create enhanced search terms combining original and AI-expanded
       const enhancedSearchTerms: SearchTerm[] = [
         // Original terms with high weight
@@ -468,7 +467,7 @@ export class AdvancedKeywordSearchService {
           ...term,
           source: 'original' as const
         })),
-        
+
         // AI-expanded terms with contextual weight
         ...expansionResult.expanded
           .filter(keyword => !originalSearchTerms.some(ot => ot.term.toLowerCase() === keyword.toLowerCase()))
@@ -518,13 +517,13 @@ export class AdvancedKeywordSearchService {
       const documentResults = new Map<number, any>();
 
       topChunks
-        .filter(chunk => chunk.score > 0.1) // Minimum relevance threshold
+        .filter(chunk => chunk.score > 0.01) // Lower minimum relevance threshold
         .forEach(chunkScore => {
           const document = docMap.get(chunkScore.documentId);
           if (!document) return;
 
           const existingResult = documentResults.get(chunkScore.documentId);
-          
+
           // If this document already has a result, only replace if this chunk has a better score
           if (!existingResult || chunkScore.score > existingResult.similarity) {
             documentResults.set(chunkScore.documentId, {
