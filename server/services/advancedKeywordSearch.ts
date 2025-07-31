@@ -1,4 +1,3 @@
-
 import { storage } from '../storage';
 import { aiKeywordExpansionService } from './aiKeywordExpansion';
 import { db } from '../db';
@@ -97,7 +96,7 @@ export class AdvancedKeywordSearchService {
           if (!document) return;
 
           const existingResult = documentResults.get(chunkScore.documentId);
-          
+
           // If this document already has a result, only replace if this chunk has a better score
           if (!existingResult || chunkScore.score > existingResult.similarity) {
             documentResults.set(chunkScore.documentId, {
@@ -261,7 +260,7 @@ export class AdvancedKeywordSearchService {
     }
 
     let fuzzyMatch = false;
-    
+
     // If no exact matches, try fuzzy matching
     if (exactMatches === 0) {
       // Token-level fuzzy matching
@@ -278,7 +277,7 @@ export class AdvancedKeywordSearchService {
           }
         }
       }
-      
+
       // Partial matching for longer terms
       if (fuzzyMatches === 0 && term.length >= 4) {
         const partialPositions = this.findPartialMatches(term, chunkText);
@@ -343,41 +342,41 @@ export class AdvancedKeywordSearchService {
       .replace(/[์็่้๊๋]/g, '') // Remove tone marks
       .replace(/[ะาิีึืุูเแโใไ]/g, 'a') // Normalize vowels
       .toLowerCase();
-    
+
     const norm1 = normalize(term1);
     const norm2 = normalize(term2);
-    
+
     const distance = this.levenshteinDistance(norm1, norm2);
     const maxLength = Math.max(norm1.length, norm2.length);
     const similarity = (maxLength - distance) / maxLength;
-    
+
     return similarity >= 0.75; // Slightly lower threshold for Thai
   }
 
   private findPartialMatches(term: string, text: string): number[] {
     const positions: number[] = [];
-    
+
     // Find partial matches for longer terms
     if (term.length >= 4) {
       const words = text.split(/\s+/);
       let currentPos = 0;
-      
+
       for (const word of words) {
         const wordPos = text.indexOf(word, currentPos);
-        
+
         // Check if word contains most characters from the term
         const termChars = term.toLowerCase().split('');
         const wordChars = word.toLowerCase().split('');
         const matchingChars = termChars.filter(char => wordChars.includes(char));
-        
+
         if (matchingChars.length >= Math.ceil(term.length * 0.7)) {
           positions.push(wordPos);
         }
-        
+
         currentPos = wordPos + word.length;
       }
     }
-    
+
     return positions;
   }
 
@@ -450,7 +449,7 @@ export class AdvancedKeywordSearchService {
       // Get AI keyword expansion
       console.log(`Getting AI keyword expansion for: "${query}"`);
       const expansionResult = await aiKeywordExpansionService.getExpandedSearchTerms(query, chatHistory);
-      
+
       console.log(`AI Expansion Result:`, {
         original: expansionResult.original,
         expanded: expansionResult.expanded,
@@ -460,7 +459,7 @@ export class AdvancedKeywordSearchService {
 
       // Parse original query
       const originalSearchTerms = this.parseQuery(query);
-      
+
       // Create enhanced search terms combining original and AI-expanded
       const enhancedSearchTerms: SearchTerm[] = [
         // Original terms with high weight
@@ -468,7 +467,7 @@ export class AdvancedKeywordSearchService {
           ...term,
           source: 'original' as const
         })),
-        
+
         // AI-expanded terms with contextual weight
         ...expansionResult.expanded
           .filter(keyword => !originalSearchTerms.some(ot => ot.term.toLowerCase() === keyword.toLowerCase()))
@@ -524,7 +523,7 @@ export class AdvancedKeywordSearchService {
           if (!document) return;
 
           const existingResult = documentResults.get(chunkScore.documentId);
-          
+
           // If this document already has a result, only replace if this chunk has a better score
           if (!existingResult || chunkScore.score > existingResult.similarity) {
             documentResults.set(chunkScore.documentId, {
@@ -584,3 +583,47 @@ export class AdvancedKeywordSearchService {
 }
 
 export const advancedKeywordSearchService = new AdvancedKeywordSearchService();
+import { segmentThaiText } from '../segmentThaiText'; // Import Thai segmentation
+import { SearchOptions, SearchResult } from '@shared/types';
+
+export async function performAdvancedKeywordSearch(
+  query: string,
+  documentIds?: number[],
+  options: SearchOptions = {},
+  agentAliases?: Record<string, string[]>
+): Promise<SearchResult[]> {
+  console.log(`🔍 ADVANCED KEYWORD SEARCH: Starting search for "${query}"`);
+
+  try {
+    // Get Thai segmentation
+    const segmentedQuery = await segmentThaiText(query);
+    console.log(`🔍 Thai segmentation result:`, segmentedQuery);
+
+    let searchTerms = segmentedQuery.segments || [query];
+
+    // Apply alias expansion if provided
+    if (agentAliases) {
+      const expandedTerms = new Set(searchTerms);
+
+      for (const term of searchTerms) {
+        const lowerTerm = term.toLowerCase();
+
+        // Check if this term has aliases
+        for (const [primaryTerm, aliases] of Object.entries(agentAliases)) {
+          if (primaryTerm.toLowerCase() === lowerTerm || 
+              aliases.some(alias => alias.toLowerCase() === lowerTerm)) {
+
+            // Add the primary term and all its aliases
+            expandedTerms.add(primaryTerm);
+            aliases.forEach(alias => expandedTerms.add(alias));
+
+            console.log(`🔍 ALIAS EXPANSION: "${term}" expanded to include [${primaryTerm}, ${aliases.join(', ')}]`);
+          }
+        }
+      }
+
+      searchTerms = Array.from(expandedTerms);
+      console.log(`🔍 EXPANDED TERMS: ${searchTerms.length} terms after alias expansion:`, searchTerms);
+    }
+
+    console.log(`🔍 BM25: Processing ${searchTerms.length} search terms (with Thai variants):`, searchTerms);

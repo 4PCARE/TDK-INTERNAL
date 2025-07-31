@@ -542,3 +542,43 @@ export class SemanticSearchServiceV2 {
 }
 
 export const semanticSearchServiceV2 = new SemanticSearchServiceV2();
+
+export async function searchSmartHybridDebug(
+  query: string,
+  userId: string,
+  options: Omit<SearchOptions, 'searchType'> = {}
+): Promise<SearchResult[]> {
+  console.log(`🔍 SMART HYBRID SEARCH: Starting for query "${query}" by user ${userId}`);
+  console.log(`📋 Search options:`, options);
+
+  try {
+    // Get document IDs and agent configuration if restricted
+    let searchDocumentIds = options.documentIds;
+    let agentAliases: Record<string, string[]> | undefined;
+
+    if (options.agentId) {
+      console.log(`🤖 Agent-restricted search: Getting documents for agent ${options.agentId}`);
+      const agentDocuments = await storage.getAgentChatbotDocuments(options.agentId);
+      searchDocumentIds = agentDocuments.map(doc => doc.documentId);
+      console.log(`📚 Agent documents: [${searchDocumentIds.join(', ')}]`);
+
+      // Get agent configuration including aliases
+      const agent = await storage.getAgentChatbot(options.agentId);
+      if (agent?.aliases) {
+        agentAliases = agent.aliases;
+        console.log(`🔍 AGENT ALIASES: Loaded ${Object.keys(agentAliases).length} alias mappings`);
+      }
+    }
+
+// Phase 1: Advanced Keyword Search with BM25
+    console.log(`🔍 PHASE 1: Starting advanced keyword search`);
+    const keywordResults = await performAdvancedKeywordSearch(
+      query, 
+      searchDocumentIds, 
+      { 
+        ...options, 
+        searchType: 'keyword',
+        maxResults: 200  // Get more for hybrid scoring
+      },
+      agentAliases  // Pass agent aliases for term expansion
+    );

@@ -68,6 +68,9 @@ export class WidgetChatService {
           const searchPrompt = agent.searchPrompt || undefined;
           const aliases = agent.aliases || undefined;
 
+          console.log(`🔍 Widget Chat: Agent search prompt:`, searchPrompt || 'none');
+          console.log(`🔍 Widget Chat: Agent aliases:`, aliases ? Object.keys(aliases).length + ' mappings' : 'none');
+
           // Use query preprocessor with agent's custom prompt and aliases
           const { queryPreprocessor } = await import('./queryPreprocessor');
           const queryAnalysis = await queryPreprocessor.analyzeQuery(
