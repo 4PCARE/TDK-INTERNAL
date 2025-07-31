@@ -46,7 +46,7 @@ export default function Documents() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchType, setSearchType] = useState<"keyword" | "semantic" | "hybrid">("hybrid");
+  const [searchType, setSearchType] = useState<"keyword" | "semantic" | "hybrid" | "document-priority">("document-priority");
   const [sortBy, setSortBy] = useState("newest");
   const [filterCategories, setFilterCategories] = useState<string[]>([]);
   const [filterTags, setFilterTags] = useState<string[]>([]);
@@ -223,11 +223,12 @@ export default function Documents() {
                       />
                     </div>
 
-                    <Select value={searchType} onValueChange={(value: "keyword" | "semantic" | "hybrid") => setSearchType(value)}>
+                    <Select value={searchType} onValueChange={(value: "keyword" | "semantic" | "hybrid" | "document-priority") => setSearchType(value)}>
                       <SelectTrigger className="w-48">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="document-priority">Document Name Priority</SelectItem>
                         <SelectItem value="keyword">Keyword Search</SelectItem>
                         <SelectItem value="semantic">AI Semantic Search</SelectItem>
                         <SelectItem value="hybrid">Hybrid Search</SelectItem>
