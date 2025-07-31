@@ -84,7 +84,7 @@ function splitIntoChunks(text: string, maxChunkSize = 3000, overlap = 300): stri
 function levenshteinDistance(str1: string, str2: string): number {
   const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
 
-  for (let i = 0; <= str1.length; i++) {
+  for (let i = 0; i <= str1.length; i++) {
     matrix[0][i] = i;
   }
 
