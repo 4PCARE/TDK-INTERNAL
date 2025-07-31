@@ -1041,7 +1041,7 @@ async function getAiResponseDirectly(
         console.log(`ℹ️ No recent image analysis found in chat history`);
 
         // Debug: Show what system messages we have
-        const allSystemMessages = chatHistory.filter(```text
+        const allSystemMessages = chatHistory.filter(
           (msg) => msg.messageType === "system",
         );
         console.log(
