@@ -1,3 +1,4 @@
+
 import { storage } from '../storage';
 import { aiKeywordExpansionService } from './aiKeywordExpansion';
 import { db } from '../db';
@@ -583,7 +584,7 @@ export class AdvancedKeywordSearchService {
 }
 
 export const advancedKeywordSearchService = new AdvancedKeywordSearchService();
-import { segmentThaiText } from '../segmentThaiText'; // Import Thai segmentation
+
 import { SearchOptions, SearchResult } from '@shared/types';
 
 export async function performAdvancedKeywordSearch(
@@ -596,6 +597,7 @@ export async function performAdvancedKeywordSearch(
 
   try {
     // Get Thai segmentation
+    const { segmentThaiText } = await import('../segmentThaiText');
     const segmentedQuery = await segmentThaiText(query);
     console.log(`🔍 Thai segmentation result:`, segmentedQuery);
 
@@ -606,7 +608,7 @@ export async function performAdvancedKeywordSearch(
       console.log(`🔍 BM25: Applying bidirectional alias expansion with ${Object.keys(agentAliases).length} alias groups`);
       const expandedTerms = new Set(searchTerms);
 
-      for (const term of searchTerms) {
+      for (const term of searchTermies) {
         const lowerTerm = term.toLowerCase();
 
         // Method 1: Check if this term is a key in aliases (key -> values)
@@ -635,3 +637,81 @@ export async function performAdvancedKeywordSearch(
     }
 
     console.log(`🔍 BM25: Processing ${searchTerms.length} search terms (with Thai variants):`, searchTerms);
+
+    // Get chunks from database
+    const { db } = await import('../db');
+    const { documentVectors } = await import('@shared/schema');
+    const { eq, and, or } = await import('drizzle-orm');
+
+    let whereCondition: any = eq(documentVectors.userId, options.userId || '');
+    if (documentIds && documentIds.length > 0) {
+      whereCondition = and(
+        eq(documentVectors.userId, options.userId || ''),
+        or(...documentIds.map(id => eq(documentVectors.documentId, id)))
+      );
+    }
+
+    const chunks = await db.select().from(documentVectors).where(whereCondition);
+    console.log(`🔍 KEYWORD SEARCH: Found ${chunks.length} chunks to search`);
+
+    if (chunks.length === 0) {
+      return [];
+    }
+
+    // Use the advanced keyword search service
+    const service = new AdvancedKeywordSearchService();
+    const chunkScores = service['calculateChunkScores'](chunks, searchTerms.map(term => ({
+      term,
+      weight: 1.0,
+      fuzzy: term.length >= 4
+    })));
+
+    // Sort by relevance and limit results
+    chunkScores.sort((a, b) => b.score - a.score);
+    const limit = options.limit || 20;
+    const topChunks = chunkScores.slice(0, limit);
+
+    // Get document metadata for the top chunks
+    const { storage } = await import('../storage');
+    const documents = await storage.getDocuments(options.userId || '');
+    const docMap = new Map(documents.map(doc => [doc.id, doc]));
+
+    // Format results
+    const results: SearchResult[] = [];
+
+    topChunks
+      .filter(chunk => chunk.score > (options.threshold || 0.1))
+      .forEach(chunkScore => {
+        const document = docMap.get(chunkScore.documentId);
+        if (!document) return;
+
+        const chunkLabel = `(Chunk ${chunkScore.chunkIndex + 1})`;
+        const documentName = document.name || `Document ${chunkScore.documentId}`;
+
+        results.push({
+          id: `${chunkScore.documentId}-${chunkScore.chunkIndex}`,
+          name: `${documentName} ${chunkLabel}`,
+          content: chunkScore.content,
+          summary: chunkScore.content.slice(0, 200) + "...",
+          aiCategory: document.aiCategory ?? null,
+          aiCategoryColor: document.aiCategoryColor ?? null,
+          similarity: Math.min(chunkScore.score / 10, 1.0), // Normalize to 0-1
+          createdAt: document.createdAt?.toISOString() ?? new Date().toISOString(),
+          categoryId: document.categoryId ?? null,
+          tags: document.tags ?? null,
+          fileSize: document.fileSize ?? null,
+          mimeType: document.mimeType ?? null,
+          isFavorite: document.isFavorite ?? null,
+          updatedAt: document.updatedAt?.toISOString() ?? null,
+          userId: document.userId ?? options.userId || ''
+        });
+      });
+
+    console.log(`🔍 ADVANCED KEYWORD SEARCH: Returning ${results.length} results with alias expansion`);
+    return results;
+
+  } catch (error) {
+    console.error('❌ performAdvancedKeywordSearch error:', error);
+    return [];
+  }
+}
