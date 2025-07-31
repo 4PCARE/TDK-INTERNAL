@@ -1303,6 +1303,21 @@ ${imageContext}`;
 // Store processed message IDs to prevent duplicates with timestamp for cleanup
 const processedMessageIds = new Map<string, number>();
 
+// Utility function to extract agent aliases
+function getAgentAliases(agent: any): Record<string, string[]> {
+  let agentAliases: Record<string, string[]> = {};
+  if (agent.aliases) {
+    try {
+      agentAliases = typeof agent.aliases === 'string' 
+        ? JSON.parse(agent.aliases) 
+        : agent.aliases;
+    } catch (error) {
+      console.error(`⚠️ Error parsing agent aliases for agent ${agent.name}:`, error);
+    }
+  }
+  return agentAliases;
+}
+
 // Clean up old processed message IDs (older than 1 hour)
 const cleanupProcessedMessages = () => {
   const oneHourAgo = Date.now() - 60 * 60 * 1000;
@@ -1985,17 +2000,10 @@ ${imageAnalysisResult}
               );
 
               // Step 2: Get agent aliases for term expansion
-              let agentAliases: Record<string, string[]> = {};
-              if (agent.aliases) {
-                try {
-                  agentAliases = typeof agent.aliases === 'string' 
-                    ? JSON.parse(agent.aliases) 
-                    : agent.aliases;
-                  console.log(`🔍 LINE OA: Loaded ${Object.keys(agentAliases).length} alias groups for agent ${agent.name}`);
-                  console.log(`🔍 LINE OA: Agent aliases:`, agentAliases);
-                } catch (error) {
-                  console.error(`⚠️ LINE OA: Error parsing agent aliases:`, error);
-                }
+              const agentAliases = getAgentAliases(agent);
+              console.log(`🔍 LINE OA: Loaded ${Object.keys(agentAliases).length} alias groups for agent ${agent.name}`);
+              if (Object.keys(agentAliases).length > 0) {
+                console.log(`🔍 LINE OA: Agent aliases:`, agentAliases);
               }
 
               // Step 3: Perform new search workflow with agent's bound documents (smart hybrid)
