@@ -1984,7 +1984,21 @@ ${imageAnalysisResult}
                 `🔍 LINE OA: Query needs search, performing smart hybrid search with enhanced query`,
               );
 
-              // Step 2: Perform new search workflow with agent's bound documents (smart hybrid)
+              // Step 2: Get agent aliases for term expansion
+              let agentAliases: Record<string, string[]> = {};
+              if (agent.aliases) {
+                try {
+                  agentAliases = typeof agent.aliases === 'string' 
+                    ? JSON.parse(agent.aliases) 
+                    : agent.aliases;
+                  console.log(`🔍 LINE OA: Loaded ${Object.keys(agentAliases).length} alias groups for agent ${agent.name}`);
+                  console.log(`🔍 LINE OA: Agent aliases:`, agentAliases);
+                } catch (error) {
+                  console.error(`⚠️ LINE OA: Error parsing agent aliases:`, error);
+                }
+              }
+
+              // Step 3: Perform new search workflow with agent's bound documents (smart hybrid)
               const { searchSmartHybridDebug } = await import(
                 "./services/newSearch"
               );
@@ -1999,6 +2013,7 @@ ${imageAnalysisResult}
                   vectorWeight: queryAnalysis.vectorWeight,
                   specificDocumentIds: agentDocIds, // Restrict search to agent's bound documents
                   massSelectionPercentage: 0.3, // Use 30% mass selection for Line OA
+                  agentAliases: agentAliases, // Pass agent aliases for term expansion
                 },
               );
 

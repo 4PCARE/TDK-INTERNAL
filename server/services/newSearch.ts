@@ -462,6 +462,7 @@ export async function searchSmartHybridDebug(
   options: Omit<SearchOptions, "searchType"> & { 
     massSelectionPercentage?: number;
     enhancedQuery?: string; // Accept preprocessed query from queryPreprocessor
+    agentAliases?: Record<string, string[]>; // Agent aliases for term expansion
   }
 ): Promise<SearchResult[]> {
   const keywordWeight = options.keywordWeight ?? 0.5;
@@ -521,22 +522,44 @@ export async function searchSmartHybridDebug(
     chunkMap.set(chunkId, chunk);
   }
 
-  // Calculate BM25 scores for all chunks at once
-  const bm25Results = await calculateBM25(searchTerms, chunks);
+  // Get agentAliases from options
+  const agentAliases = options.agentAliases;
+
+  // Use performAdvancedKeywordSearch with alias expansion instead of calculateBM25
+  const { performAdvancedKeywordSearch } = await import('./advancedKeywordSearch');
+  
+  const keywordSearchResults = await performAdvancedKeywordSearch(
+    searchQuery, // Use the normalized query
+    options.specificDocumentIds,
+    {
+      limit: 1000, // Large limit to get all matches for scoring
+      threshold: 0.0,
+    },
+    agentAliases // Pass agent aliases for bidirectional expansion
+  );
+
+  console.log(`🔍 KEYWORD SEARCH: performAdvancedKeywordSearch returned ${keywordSearchResults.length} results with aliases`);
+
+  // Convert advanced keyword search results to our expected format
   const keywordMatches: Record<string, number> = {};
   let totalMatches = 0;
 
-  for (const [chunkId, bm25Match] of Array.from(bm25Results.entries())) {
-    if (bm25Match.score > 0) {
-      keywordMatches[chunkId] = bm25Match.score;
+  // Process advanced keyword search results
+  for (const result of keywordSearchResults) {
+    if (result.similarity > 0) {
+      // Extract document ID and chunk index from the result
+      const docId = result.id;
+      const chunkIndex = result.name.match(/Chunk (\d+)/)?.[1] || "0";
+      const chunkId = `${docId}-${parseInt(chunkIndex) - 1}`; // Adjust for 0-based indexing
+      
+      keywordMatches[chunkId] = result.similarity;
       totalMatches++;
 
-      const [docId, chunkIndex] = chunkId.split('-');
-      console.log(`🔍 KEYWORD MATCH (BM25): Doc ${docId} chunk ${chunkIndex} - ${bm25Match.matchedTerms.length}/${searchTerms.length} terms matched (${bm25Match.matchedTerms.join(', ')}) score: ${bm25Match.score.toFixed(5)}`);
+      console.log(`🔍 KEYWORD MATCH (Advanced): Doc ${docId} chunk ${chunkIndex} - score: ${result.similarity.toFixed(5)} with aliases`);
     }
   }
 
-  console.log(`🔍 KEYWORD SEARCH: Found ${totalMatches} chunks with keyword matches out of ${chunks.length} total chunks`)
+  console.log(`🔍 KEYWORD SEARCH: Found ${totalMatches} chunks with keyword matches (with aliases) out of ${chunks.length} total chunks`)
 
   if (totalMatches === 0) {
     console.log(`⚠️ KEYWORD SEARCH DEBUG: No positive BM25 scores found. This might indicate:`)
