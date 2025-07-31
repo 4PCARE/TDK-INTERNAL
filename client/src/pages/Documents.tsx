@@ -102,10 +102,11 @@ export default function Documents() {
 
         const params = new URLSearchParams({
           query: searchQuery,
-          type: searchType
+          type: searchType,
+          massSelectionPercentage: "0.3"
         });
 
-        console.log(`Frontend search: "${searchQuery}" (${searchType})`);
+        console.log(`Frontend search: "${searchQuery}" (${searchType}) with 30% mass selection`);
         const response = await fetch(`/api/documents/search?${params}`);
         if (!response.ok) {
           throw new Error(`${response.status}: ${response.statusText}`);
