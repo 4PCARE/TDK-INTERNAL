@@ -470,8 +470,13 @@ export async function searchSmartHybridDebug(
   const massSelectionPercentage = options.massSelectionPercentage || MASS_SELECTION_PERCENTAGE;
 
   // Combine original query with enhanced query from preprocessor
-  const searchQuery = options.enhancedQuery ? query + " " + options.enhancedQuery : query;
+  let searchQuery = options.enhancedQuery ? query + " " + options.enhancedQuery : query;
   console.log(`🔍 SEARCH: Using ${options.enhancedQuery ? 'combined original + enhanced' : 'original'} query: "${searchQuery}"`);
+
+  // Step 2: Alias-based query expansion
+  const expandedQuery = await expandQueryWithAliases(searchQuery, userId);
+  searchQuery = expandedQuery;
+  console.log(`🔍 ALIAS EXPANSION: Expanded query: "${searchQuery}"`);
 
   // Only use PythaiNLP for query processing, not document processing
   console.log(`🔍 QUERY PROCESSING: Segmenting Thai text for search terms only`);
@@ -761,6 +766,71 @@ export async function searchSmartHybridDebug(
   return results;
 }
 
+// Alias-based query expansion function
+async function expandQueryWithAliases(searchQuery: string, userId: string): Promise<string> {
+  try {
+    // Get agent aliases from database
+    const { db } = await import('../db');
+    const { agentChatbots } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+
+    // Find agent by userId (assuming one agent per user, adjust as needed)
+    const agents = await db.select().from(agentChatbots).where(eq(agentChatbots.userId, userId)).limit(1);
+    
+    if (!agents.length || !agents[0].aliases) {
+      console.log(`🔍 ALIAS EXPANSION: No agent or aliases found for user ${userId}`);
+      return searchQuery;
+    }
+
+    const aliases = agents[0].aliases as Record<string, string[]>;
+    console.log(`🔍 ALIAS EXPANSION: Found ${Object.keys(aliases).length} alias groups`);
+
+    // Split search query into terms for matching
+    const queryTerms = searchQuery.toLowerCase().split(/\s+/);
+    const expandedTerms = new Set<string>();
+
+    // Bidirectional lookup: check if any query terms match aliases
+    for (const [canonicalName, aliasArray] of Object.entries(aliases)) {
+      const lowerAliasArray = aliasArray.map(alias => alias.toLowerCase());
+      
+      // Check if any query term matches any alias in this group
+      const hasMatch = queryTerms.some(term => 
+        lowerAliasArray.some(alias => 
+          alias.includes(term) || term.includes(alias) || 
+          // Handle partial matches for compound terms
+          (term.length >= 3 && alias.includes(term)) ||
+          (alias.length >= 3 && term.includes(alias))
+        )
+      );
+
+      if (hasMatch) {
+        console.log(`🔍 ALIAS MATCH: Found match for "${canonicalName}"`);
+        // Add all aliases from this group to expanded terms
+        aliasArray.forEach(alias => {
+          if (alias.trim().length > 0) {
+            expandedTerms.add(alias.trim());
+          }
+        });
+      }
+    }
+
+    // If we found matches, append them to the original query
+    if (expandedTerms.size > 0) {
+      const aliasesString = Array.from(expandedTerms).join(' ');
+      const finalQuery = `${searchQuery} ${aliasesString}`;
+      console.log(`🔍 ALIAS EXPANSION: Added ${expandedTerms.size} aliases: [${Array.from(expandedTerms).join(', ')}]`);
+      return finalQuery;
+    }
+
+    console.log(`🔍 ALIAS EXPANSION: No matching aliases found`);
+    return searchQuery;
+
+  } catch (error) {
+    console.error('🔍 ALIAS EXPANSION ERROR:', error);
+    return searchQuery; // Return original query on error
+  }
+}
+
 export async function searchSmartHybridV1(
   query: string,
   userId: string,
@@ -775,8 +845,13 @@ export async function searchSmartHybridV1(
     const threshold = options.threshold ?? 0.3;
 
     // Combine original query with enhanced query from preprocessor
-    const searchQuery = options.enhancedQuery ? query + " " + options.enhancedQuery : query;
+    let searchQuery = options.enhancedQuery ? query + " " + options.enhancedQuery : query;
     console.log(`🔍 SEARCH V1: Using ${options.enhancedQuery ? 'combined original + enhanced' : 'original'} query: "${searchQuery}"`);
+
+    // Step 2: Alias-based query expansion
+    const expandedQuery = await expandQueryWithAliases(searchQuery, userId);
+    searchQuery = expandedQuery;
+    console.log(`🔍 ALIAS EXPANSION V1: Expanded query: "${searchQuery}"`);
 
     // Only tokenize with PythaiNLP for proper Thai word boundaries
     console.log(`🔍 TOKENIZATION V1: Segmenting Thai text for search terms`);
