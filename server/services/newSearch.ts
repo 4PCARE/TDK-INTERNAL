@@ -220,7 +220,7 @@ async function calculateBM25(
   const totalChunks = chunks.length;
   let totalDocLength = 0;
 
-  // First pass: calculate document frequencies and total length
+  // First pass: calculate document frequencies and total length with enhanced fuzzy matching
   const chunkLengths = new Map<string, number>();
   for (const chunk of chunks) {
     const content = chunk.content || '';
@@ -232,20 +232,36 @@ async function calculateBM25(
     chunkLengths.set(chunkId, tokens.length);
     totalDocLength += tokens.length;
 
-    // Count document frequency for each search term with fuzzy matching
-    const uniqueTokens = new Set(tokens);
+    // Count document frequency for each search term with comprehensive fuzzy matching
     for (const term of normalizedSearchTerms) {
       let hasMatch = false;
 
-      // Exact match first
-      if (uniqueTokens.has(term)) {
+      // Strategy 1: Exact match
+      if (tokens.includes(term)) {
         hasMatch = true;
       } else {
-        // Fuzzy match for Thai text
-        for (const token of uniqueTokens) {
-          if (isThaiTokenSimilar(term, token)) {
+        // Strategy 2: Enhanced fuzzy matching
+        for (const token of tokens) {
+          // Thai-specific similarity
+          if (isThaiText(term) && isThaiTokenSimilar(term, token)) {
             hasMatch = true;
             break;
+          }
+          
+          // English/general fuzzy matching
+          if (!isThaiText(term) && calculateSimilarity(term, token) > 0.75) {
+            hasMatch = true;
+            break;
+          }
+        }
+
+        // Strategy 3: Partial and substring matching
+        if (!hasMatch) {
+          const partialMatch = findPartialStringMatches(term, tokens);
+          const substringMatch = findSubstringMatches(term, tokens);
+          
+          if (partialMatch.score > 0.6 || substringMatch.score > 0.5) {
+            hasMatch = true;
           }
         }
       }
@@ -260,7 +276,7 @@ async function calculateBM25(
 
   const avgDocLength = totalDocLength / totalChunks;
 
-  // Second pass: calculate BM25 scores
+  // Second pass: calculate BM25 scores with enhanced fuzzy matching
   for (const chunk of chunks) {
     const chunkIndex = chunk.chunkIndex ?? 0;
     const chunkId = `${chunk.documentId}-${chunkIndex}`;
@@ -286,51 +302,78 @@ async function calculateBM25(
         continue;
       }
 
-      let tf = tokenCounts.get(term) || 0;
+      let bestScore = 0;
+      let bestTf = 0;
+      let matchType = 'none';
 
-      if (tf > 0) {
-        // Exact match found
+      // 1. Check for exact matches first
+      const exactTf = tokenCounts.get(term) || 0;
+      if (exactTf > 0) {
+        bestScore = 1.0; // Perfect match
+        bestTf = exactTf;
+        matchType = 'exact';
+      } else {
+        // 2. Enhanced fuzzy matching with multiple strategies
+        const fuzzyResults = [];
+
+        // Strategy A: Token-level fuzzy matching
+        if (isThaiText(term)) {
+          const thaiMatch = findBestFuzzyMatchThai(term, tokens);
+          if (thaiMatch.score > 0.65) { // Lower threshold for Thai
+            fuzzyResults.push({ ...thaiMatch, type: 'thai' });
+          }
+        } else {
+          const fuzzyMatch = findBestFuzzyMatch(term, tokens);
+          if (fuzzyMatch.score > 0.75) {
+            fuzzyResults.push({ ...fuzzyMatch, type: 'fuzzy' });
+          }
+        }
+
+        // Strategy B: Partial string matching (for compound words)
+        const partialMatches = findPartialStringMatches(term, tokens);
+        if (partialMatches.score > 0.6) {
+          fuzzyResults.push({ ...partialMatches, type: 'partial' });
+        }
+
+        // Strategy C: Substring containment (for brand names, etc.)
+        const substringMatches = findSubstringMatches(term, tokens);
+        if (substringMatches.score > 0.5) {
+          fuzzyResults.push({ ...substringMatches, type: 'substring' });
+        }
+
+        // Select the best fuzzy match
+        if (fuzzyResults.length > 0) {
+          const bestFuzzy = fuzzyResults.reduce((best, current) => 
+            current.score > best.score ? current : best
+          );
+          bestScore = bestFuzzy.score;
+          bestTf = bestFuzzy.count;
+          matchType = bestFuzzy.type;
+        }
+      }
+
+      // Calculate BM25 score if we have any match
+      if (bestScore > 0 && bestTf > 0) {
         matchedTerms.push(term);
         processedTerms.add(term);
 
         // BM25 formula components
         const df = termDF.get(term) || 1;
-        // Fix IDF calculation to ensure positive scores
-        const idf = Math.log(totalChunks / df) + 1; // Add 1 to ensure positive scores
+        const idf = Math.log(totalChunks / df) + 1; // Ensure positive scores
 
         // Term frequency component with saturation
-        const tfComponent = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (docLength / avgDocLength)));
+        const tfComponent = (bestTf * (k1 + 1)) / (bestTf + k1 * (1 - b + b * (docLength / avgDocLength)));
 
-        bm25Score += idf * tfComponent;
+        // Apply match quality penalty for fuzzy matches
+        const qualityMultiplier = matchType === 'exact' ? 1.0 : 
+                                 matchType === 'thai' ? 0.9 :
+                                 matchType === 'fuzzy' ? 0.8 :
+                                 matchType === 'partial' ? 0.7 : 0.6;
 
-        console.log(`🔍 BM25 MATCH: Chunk ${chunkId}, term "${term}", tf=${tf}, df=${df}, idf=${idf.toFixed(3)}, tfComp=${tfComponent.toFixed(3)}, score+=${(idf * tfComponent).toFixed(3)}`);
-      } else {
-        // Try fuzzy matching for unmatched terms only
-        let fuzzyMatch = { score: 0, count: 0 };
-        if (isThaiText(term)) {
-          fuzzyMatch = findBestFuzzyMatchThai(term, tokens);
-        } else {
-          fuzzyMatch = findBestFuzzyMatch(term, tokens);
-        }
+        const termScore = idf * tfComponent * bestScore * qualityMultiplier;
+        bm25Score += termScore;
 
-        // Lower threshold for Thai text due to spacing variations
-        const threshold = isThaiText(term) ? 0.65 : 0.75;
-        if (fuzzyMatch.score > threshold) {
-          matchedTerms.push(term);
-          processedTerms.add(term);
-          const fuzzyTf = fuzzyMatch.count;
-
-          // Apply BM25 formula to fuzzy matches with penalty
-          const df = termDF.get(term) || 1;
-          // Fix IDF calculation to ensure positive scores
-          const idf = Math.log(totalChunks / df) + 1; // Add 1 to ensure positive scores
-          const tfComponent = (fuzzyTf * (k1 + 1)) / (fuzzyTf + k1 * (1 - b + b * (docLength / avgDocLength)));
-
-          const fuzzyScore = idf * tfComponent * fuzzyMatch.score * 0.8;
-          bm25Score += fuzzyScore;
-
-          console.log(`🔍 BM25 FUZZY: Chunk ${chunkId}, term "${term}", fuzzyTf=${fuzzyTf}, fuzzyScore=${fuzzyMatch.score.toFixed(3)}, score+=${fuzzyScore.toFixed(3)}`);
-        }
+        console.log(`🔍 BM25 ${matchType.toUpperCase()}: Chunk ${chunkId}, term "${term}", tf=${bestTf}, quality=${bestScore.toFixed(3)}, multiplier=${qualityMultiplier}, score+=${termScore.toFixed(3)}`);
       }
     }
 
@@ -453,6 +496,81 @@ function isThaiTokenSimilar(term1: string, term2: string): boolean {
   }
 
   return false;
+}
+
+function findPartialStringMatches(term: string, tokens: string[]): { score: number; count: number } {
+  let bestScore = 0;
+  let count = 0;
+  const termLower = term.toLowerCase();
+
+  for (const token of tokens) {
+    const tokenLower = token.toLowerCase();
+    
+    // Check if term is contained in token or vice versa
+    if (termLower.length >= 3 && tokenLower.length >= 3) {
+      if (tokenLower.includes(termLower)) {
+        // Term is contained in token (e.g., "แมค" in "แมคโดนัลด์")
+        bestScore = Math.max(bestScore, termLower.length / tokenLower.length);
+        count++;
+      } else if (termLower.includes(tokenLower)) {
+        // Token is contained in term
+        bestScore = Math.max(bestScore, tokenLower.length / termLower.length);
+        count++;
+      }
+    }
+  }
+
+  return { score: bestScore, count };
+}
+
+function findSubstringMatches(term: string, tokens: string[]): { score: number; count: number } {
+  let bestScore = 0;
+  let count = 0;
+  const termLower = term.toLowerCase();
+
+  // For compound searches like "แมคโดนัลด์ เดอะมอลล์"
+  const termParts = termLower.split(/\s+/).filter(part => part.length > 2);
+
+  for (const token of tokens) {
+    const tokenLower = token.toLowerCase();
+    
+    // Check if any part of the term matches with the token
+    for (const part of termParts) {
+      if (part.length >= 3) {
+        // Exact substring match
+        if (tokenLower.includes(part) || part.includes(tokenLower)) {
+          const overlap = Math.min(part.length, tokenLower.length);
+          const maxLength = Math.max(part.length, tokenLower.length);
+          bestScore = Math.max(bestScore, overlap / maxLength);
+          count++;
+        }
+        
+        // Character-level similarity for Thai text
+        if (isThaiText(part) && isThaiText(tokenLower)) {
+          const similarity = calculateThaiSimilarity(part, tokenLower);
+          if (similarity > 0.7) {
+            bestScore = Math.max(bestScore, similarity);
+            count++;
+          }
+        }
+      }
+    }
+  }
+
+  return { score: bestScore, count };
+}
+
+function calculateThaiSimilarity(str1: string, str2: string): number {
+  // Special handling for Thai text with tone marks and vowels
+  const normalize = (str: string) => str
+    .replace(/[์็่้๊๋]/g, '') // Remove tone marks
+    .replace(/[ะาิีึืุูเแโใไ]/g, '') // Simplify vowels
+    .toLowerCase();
+
+  const norm1 = normalize(str1);
+  const norm2 = normalize(str2);
+
+  return calculateSimilarity(norm1, norm2);
 }
 
 // Remove duplicate GPT enrichment - use preprocessor instead
