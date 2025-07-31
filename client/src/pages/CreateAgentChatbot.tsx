@@ -922,9 +922,8 @@ export default function CreateAgentChatbot() {
       icon: Zap,
     },
     {
-      id: "```python
-empathetic",
-      label: "Empathetic",
+      id: "empathetic",
+      label: "Empathetic", 
       description: "Understanding, supportive, and compassionate",
       icon: User,
     },
@@ -1971,8 +1970,7 @@ empathetic",
                                               onCheckedChange={field.onChange}
                                             />
                                           </FormControl>
-                                          <Form```python
-Item className="text-sm">Block Hate Speech</FormLabel>
+                                          <FormLabel className="text-sm">Block Hate Speech</FormLabel>
                                         </FormItem>
                                       )}
                                     />
