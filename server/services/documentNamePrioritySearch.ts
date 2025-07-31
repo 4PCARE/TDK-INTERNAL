@@ -101,29 +101,20 @@ export class DocumentNamePrioritySearchService {
       console.log(`🧠 Semantic search disabled, skipping vector search`);
     }
 
-    // Combine content-based matches (keyword + semantic) for mass selection
-    const contentMatches = [
+    // Combine all results with priority scores
+    const allResults = [
+      ...nameMatches.map(r => ({ ...r, matchType: 'name' as const, similarity: r.nameScore || 1.0 })),
       ...keywordMatches.map(r => ({ ...r, matchType: 'keyword' as const, similarity: r.keywordScore || 0.8 })),
       ...semanticMatches.map(r => ({ ...r, matchType: 'semantic' as const, similarity: r.semanticScore || 0.6 }))
     ];
 
-    console.log(`📊 Total candidates: ${nameMatches.length + contentMatches.length} (${nameMatches.length} name + ${keywordMatches.length} keyword + ${semanticMatches.length} semantic)`);
+    console.log(`📊 Total candidates: ${allResults.length} (${nameMatches.length} name + ${keywordMatches.length} keyword + ${semanticMatches.length} semantic)`);
 
-    // Apply mass selection ONLY to content matches, keep ALL name matches
-    let selectedContentResults: DocumentNameSearchResult[] = [];
-    if (contentMatches.length > 0) {
-      selectedContentResults = this.applyMassSelection(contentMatches, massSelectionPercentage, limit - nameMatches.length);
-    }
+    // Apply mass-based selection
+    const selectedResults = this.applyMassSelection(allResults, massSelectionPercentage, limit);
 
-    // Combine results: ALL name matches + selected content matches
-    const allNameResults = nameMatches.map(r => ({ ...r, matchType: 'name' as const, similarity: r.nameScore || 1.0 }));
-    const finalResults = [
-      ...allNameResults,
-      ...selectedContentResults
-    ];
-
-    console.log(`✅ DOCUMENT NAME PRIORITY SEARCH: Returning ${finalResults.length} results (${allNameResults.length} name matches + ${selectedContentResults.length} content matches)`);
-    return finalResults;
+    console.log(`✅ DOCUMENT NAME PRIORITY SEARCH: Returning ${selectedResults.length} results`);
+    return selectedResults;
   }
 
   private findNameMatches(documents: any[], query: string, searchTerms: string[]): DocumentNameSearchResult[] {
