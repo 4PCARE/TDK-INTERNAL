@@ -1045,11 +1045,11 @@ async function getAiResponseDirectly(
           (msg) => msg.messageType === "system",
         );
         console.log(
-          `🔍 Total system messages in history: ${allSystemMessages.length}`,
+          `Total system messages in history: ${allSystemMessages.length}`,
         );
         allSystemMessages.forEach((msg, index) => {
           console.log(
-            `📝 System ${index + 1}: ${msg.content.substring(0, 100)}... (metadata: ${JSON.stringify(msg.metadata)})`,
+            `System ${index + 1}: ${msg.content.substring(0, 100)}... (metadata: ${JSON.stringify(msg.metadata)})`,
           );
         });
       }
