@@ -383,7 +383,7 @@ export class SemanticSearchServiceV2 {
         if (accumulatedScore >= scoreThreshold || selectedChunks.length >= maxChunks) break;
       }
 
-      console.log(`🎯 STRICT SELECTION: Selected ${selectedChunks.length} top chunks (10% score mass threshold, max 8 chunks)`);
+      console.log(`🎯 STRICT SELECTION: Selected ${selectedChunks.length} top chunks (${(massSelectionPercentage * 100).toFixed(1)}% score mass threshold, max 8 chunks)`);
 
       // Step 4: Load document metadata for display purposes
       const uniqueDocIds = [...new Set(selectedChunks.map(c => c.docId))];
