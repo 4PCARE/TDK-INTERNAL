@@ -542,9 +542,13 @@ export default function CreateAgentChatbot() {
       console.log("Form submission data:", JSON.stringify(finalData, null, 2));
       console.log("Guardrails enabled:", data.guardrailsEnabled);
       console.log("Guardrails config:", data.guardrailsConfig);
+      console.log("Parsed aliases:", parsedAliases);
+      console.log("Original aliases string:", data.aliases);
+      console.log("Parsed aliases:", parsedAliases);
 
       saveAgentMutation.mutate(finalData);
     } catch (error: any) {
+      console.error("Form submission error:", error);
       toast({
         title: "Submission Error",
         description: error.message || "Failed to submit the form. Please check your inputs.",
