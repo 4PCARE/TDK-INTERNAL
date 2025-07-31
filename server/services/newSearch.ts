@@ -226,7 +226,8 @@ async function calculateBM25(
     const content = chunk.content || '';
     const tokens = await tokenizeWithThaiNormalization(content);
     const chunkIndex = chunk.chunkIndex ?? 0;
-    const chunkId = `${chunk.documentId}-${chunkIndex}`;
+    // Use consistent chunk ID format: docId-chunkIndex-chunkIndex
+    const chunkId = `${chunk.documentId}-${chunkIndex}-${chunkIndex}`;
 
     chunkLengths.set(chunkId, tokens.length);
     totalDocLength += tokens.length;
@@ -518,8 +519,8 @@ export async function searchSmartHybridDebug(
   // Create a map for faster chunk lookup
   const chunkMap = new Map();
   for (const chunk of chunks) {
-    // Use consistent chunk ID: docId-chunkIndex
-    const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
+    // Use consistent chunk ID format: docId-chunkIndex-chunkIndex (matching keyword search format)
+    const chunkId = `${chunk.documentId}-${chunk.chunkIndex}-${chunk.chunkIndex}`;
     chunkMap.set(chunkId, chunk);
   }
 
