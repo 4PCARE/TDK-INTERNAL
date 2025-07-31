@@ -1487,6 +1487,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced document search with semantic capabilities and document name priority
+  app.get("/api/documents/search", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { query, type = "document-priority", massSelectionPercentage = "0.3" } = req.query;
+
+      console.log(`🔍 SEARCH REQUEST: "${query}" (${type}) for user ${userId}`);
+
+      if (!query || query.trim() === "") {
+        // Return all documents if no search query
+        const documents = await storage.getDocuments(userId, { limit: 1000 });
+        console.log(`📂 No search query, returning ${documents.length} documents`);
+        return res.json(documents);
+      }
+
+      let results = [];
+      const massPercentage = parseFloat(massSelectionPercentage);
+
+      switch (type) {
+        case "document-priority":
+          const { documentNamePrioritySearchService } = await import("./services/documentNamePrioritySearch");
+          results = await documentNamePrioritySearchService.searchDocuments(
+            query,
+            userId,
+            { massSelectionPercentage: massPercentage }
+          );
+          break;
+
+        case "keyword":
+          results = await semanticSearchServiceV2.searchDocuments(
+            query,
+            userId,
+            Math.min(50, Math.floor(100 * massPercentage)),
+            undefined,
+            "keyword",
+            massPercentage
+          );
+          break;
+
+        case "semantic":
+          results = await semanticSearchServiceV2.searchDocuments(
+            query,
+            userId,
+            Math.min(50, Math.floor(100 * massPercentage)),
+            undefined,
+            "semantic",
+            massPercentage
+          );
+          break;
+
+        case "hybrid":
+        default:
+          results = await semanticSearchServiceV2.searchDocuments(
+            query,
+            userId,
+            Math.min(50, Math.floor(100 * massPercentage)),
+            undefined,
+            "smart-hybrid",
+            massPercentage
+          );
+          break;
+      }
+
+      console.log(`✅ SEARCH COMPLETE: Returning ${results.length} results for "${query}"`);
+      res.json(results);
+    } catch (error) {
+      console.error("Error in document search:", error);
+      res.status(500).json({ message: "Search failed", error: error.message });
+    }
+  });
+
   // Create WebSocket server for real-time communication
   const server = createServer(app);
   return server;

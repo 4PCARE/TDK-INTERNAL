@@ -109,22 +109,30 @@ export default function Documents() {
         console.log(`Frontend search: "${searchQuery}" (${searchType}) with 30% mass selection`);
         const response = await fetch(`/api/documents/search?${params}`);
         if (!response.ok) {
-          throw new Error(`${response.status}: ${response.statusText}`);
+          const errorText = await response.text();
+          console.error("Search API error:", response.status, errorText);
+          throw new Error(`Search failed: ${response.status} ${response.statusText}`);
         }
         const results = await response.json();
-        console.log(`Frontend received ${results.length} search results`);
-        return results;
+        console.log(`Frontend received ${Array.isArray(results) ? results.length : 'non-array'} search results`);
+        
+        // Ensure we always return an array
+        return Array.isArray(results) ? results : [];
       } catch (error) {
         console.error("Document query failed:", error);
         toast({
-          title: "Error",
-          description: "Failed to load documents. Please try again.",
+          title: "Search Error",
+          description: error.message || "Failed to load documents. Please try again.",
           variant: "destructive",
         });
-        throw error;
+        // Return empty array instead of throwing to prevent UI crashes
+        return [];
       }
     },
-    retry: false,
+    retry: (failureCount, error) => {
+      // Retry up to 2 times for network errors, but not for auth errors
+      return failureCount < 2 && !error.message?.includes('401');
+    },
     enabled: isAuthenticated,
   }) as { data: Array<any>; isLoading: boolean; error: any };
 
@@ -160,11 +168,12 @@ export default function Documents() {
   }
 
   // Get unique AI categories and tags for filtering
-  const aiCategories = documents ? Array.from(new Set(documents.map((doc: any) => doc.aiCategory).filter(Boolean))) : [];
-  const allTags = documents ? Array.from(new Set(documents.flatMap((doc: any) => doc.tags || []))) : [];
+  const documentsArray = Array.isArray(documents) ? documents : [];
+  const aiCategories = documentsArray.length > 0 ? Array.from(new Set(documentsArray.map((doc: any) => doc.aiCategory).filter(Boolean))) : [];
+  const allTags = documentsArray.length > 0 ? Array.from(new Set(documentsArray.flatMap((doc: any) => doc.tags || []))) : [];
 
   // Filter and sort documents with multi-select support
-  const filteredDocuments = documents ? documents.filter((doc: any) => {
+  const filteredDocuments = documentsArray.length > 0 ? documentsArray.filter((doc: any) => {
     // Apply category filters
     const matchesCategory = filterCategories.length === 0 || 
                            filterCategories.includes(doc.aiCategory) ||
@@ -195,6 +204,18 @@ export default function Documents() {
         return 0;
     }
   }) : [];
+
+  // Handle errors with user-friendly messages
+  useEffect(() => {
+    if (documentsError && !documentsLoading) {
+      console.error("Documents error:", documentsError);
+      toast({
+        title: "Failed to Load Documents",
+        description: "There was an issue loading your documents. Please refresh the page or try again later.",
+        variant: "destructive",
+      });
+    }
+  }, [documentsError, documentsLoading, toast]);
 
   return (
     <DashboardLayout>
