@@ -611,8 +611,8 @@ export async function searchSmartHybridDebug(
   for (const result of vectorResults) {
     const docId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
     const chunkIndex = result.document.chunkIndex ?? 0;
-    // Use consistent chunk ID: docId-chunkIndex
-    const chunkId = `${docId}-${chunkIndex}`;
+    // Use consistent chunk ID matching keyword format: docId-chunkIndex-chunkIndex
+    const chunkId = `${docId}-${chunkIndex}-${chunkIndex}`;
     const score = result.similarity;
 
     if (score >= threshold) {
