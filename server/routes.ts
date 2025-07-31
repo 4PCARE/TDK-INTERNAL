@@ -132,6 +132,7 @@ import { processDocument, generateChatResponse } from "./services/openai";
 import { documentProcessor } from "./services/documentProcessor";
 import { vectorService } from "./services/vectorService";
 import { semanticSearchServiceV2 } from "./services/semanticSearchV2";
+import { documentNamePrioritySearchService } from "./services/documentNamePrioritySearch";
 
 // File upload configuration
 const uploadDir = path.join(process.cwd(), "uploads");
