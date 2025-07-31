@@ -60,14 +60,69 @@ export class WidgetChatService {
         const agentDocumentIds = agentDocuments.map(doc => doc.id);
         console.log(`Widget Chat: Restricting search to agent's ${agentDocumentIds.length} documents: [${agentDocumentIds.join(', ')}]`);
 
-        aiResponseFromDocs = await generateChatResponse(
-          userMessage,
-          agentDocuments,
-          undefined, // No specific document ID - will be handled by hybrid search internally
-          'hybrid',  // Use hybrid search like debug page
-          0.4,       // keywordWeight
-          0.6        // vectorWeight
-        );
+        // If we have agent documents, try to get AI response from them
+        if (agentDocs.length > 0) {
+          console.log(`🔍 Widget Chat: Searching through ${agentDocs.length} agent documents`);
+
+          // Get search prompt and aliases from agent configuration
+          const searchPrompt = agent.searchPrompt || undefined;
+          const aliases = agent.aliases || undefined;
+
+          // Use query preprocessor with agent's custom prompt and aliases
+          const { queryPreprocessor } = await import('./queryPreprocessor');
+          const queryAnalysis = await queryPreprocessor.analyzeQuery(
+            userMessage,
+            conversationHistory,
+            `Widget chat for agent: ${agent.name}`,
+            searchPrompt,
+            aliases
+          );
+
+          if (!queryAnalysis.needsSearch) {
+            console.log(`🚫 Widget Chat: Query doesn't need search according to preprocessor`);
+            // Continue to fallback response generation
+          } else {
+            console.log(`✅ Widget Chat: Using enhanced query with preprocessing`);
+
+            // Use hybrid search with enhanced query
+            const searchResults = await semanticSearchServiceV2.searchDocuments(
+              queryAnalysis.enhancedQuery,
+              null, // Widget doesn't have a userId - we'll handle this differently
+              {
+                searchType: 'smart_hybrid',
+                maxResults: 10,
+                includeContent: true,
+                documentIds: agentDocs.map(doc => doc.documentId),
+                keywordWeight: queryAnalysis.keywordWeight,
+                vectorWeight: queryAnalysis.vectorWeight
+              }
+            );
+
+            if (searchResults && searchResults.length > 0) {
+              console.log(`📚 Widget Chat: Found ${searchResults.length} relevant document chunks`);
+              if (queryAnalysis.aliasesApplied && queryAnalysis.aliasesApplied.length > 0) {
+                console.log(`🔗 Widget Chat: Applied aliases: ${queryAnalysis.aliasesApplied.join(', ')}`);
+              }
+
+              // Get AI response with document context
+              const { generateChatResponse } = await import('./openai');
+              aiResponseFromDocs = await generateChatResponse(
+                userMessage,
+                searchResults.map(result => ({
+                  id: result.documentId || 0,
+                  name: result.documentName || result.name || 'Unknown Document',
+                  content: result.content || result.chunk || '',
+                  summary: result.summary || '',
+                  tags: result.tags || []
+                })),
+                undefined, // No specific document ID
+                'smart_hybrid',
+                queryAnalysis.keywordWeight,
+                queryAnalysis.vectorWeight
+              );
+            }
+          }
+        }
         console.log(`✅ Widget Chat: Generated response using hybrid search (${aiResponseFromDocs.length} chars)`);
       } catch (error) {
         console.error("Widget Chat: generateChatResponse failed:", error);

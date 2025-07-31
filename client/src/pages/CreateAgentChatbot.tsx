@@ -63,8 +63,10 @@ import {
   Info,
   BookOpen,
   Lightbulb,
+  Link,
 } from "lucide-react";
-import { Link } from "wouter";
+
+import { useRouter } from 'next/router';
 
 // Schema for form validation
 const createAgentSchema = z.object({
@@ -135,6 +137,7 @@ const createAgentSchema = z.object({
   memoryLimit: z.number().min(1).max(50).default(10),
   // Advanced Search Enhancement
   searchPrompt: z.string().optional(),
+  aliases: z.string().optional(),
 });
 
 type CreateAgentForm = z.infer<typeof createAgentSchema>;
@@ -151,6 +154,8 @@ export default function CreateAgentChatbot() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
   const queryClient = useQueryClient();
+    const router = useRouter();
+
 
   const [selectedDocuments, setSelectedDocuments] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -196,6 +201,7 @@ export default function CreateAgentChatbot() {
       allowedTopics: [],
       blockedTopics: [],
       searchPrompt: "",
+      aliases: "",
     },
   });
 
@@ -244,7 +250,7 @@ export default function CreateAgentChatbot() {
       const agent = existingAgent as any;
       console.log("Loading existing agent data:", JSON.stringify(agent, null, 2));
       console.log("Agent guardrails config from DB:", agent.guardrailsConfig);
-      
+
       form.reset({
         name: agent.name || "",
         description: agent.description || "",
@@ -265,6 +271,7 @@ export default function CreateAgentChatbot() {
         memoryEnabled: agent.memoryEnabled || false,
         memoryLimit: agent.memoryLimit || 10,
         searchPrompt: agent.searchPrompt || "",
+        aliases: agent.aliases ? JSON.stringify(agent.aliases, null, 2) : "",
         // Advanced Guardrails Configuration
         guardrailsEnabled: (agent.guardrailsConfig !== null && agent.guardrailsConfig !== undefined),
         guardrailsConfig: agent.guardrailsConfig ? {
@@ -383,14 +390,14 @@ export default function CreateAgentChatbot() {
     },
     onSuccess: (data) => {
       console.log("Test agent response received:", data);
-      
+
       if (isTestChatMode) {
         // Add user message and AI response to chat history
         const userMessage = { role: "user" as const, content: testMessage, timestamp: new Date() };
         const assistantMessage = { role: "assistant" as const, content: data.response, timestamp: new Date() };
         setTestChatHistory(prev => [...prev, userMessage, assistantMessage]);
         setTestMessage(""); // Clear input for next message
-        
+
         // Auto-scroll to bottom after response
         setTimeout(() => {
           if (chatHistoryRef.current) {
@@ -400,7 +407,7 @@ export default function CreateAgentChatbot() {
       } else {
         setTestResponse(data.response || "No response received");
       }
-      
+
       setIsTestingAgent(false);
     },
     onError: (error) => {
@@ -450,10 +457,10 @@ export default function CreateAgentChatbot() {
       // Clear form and navigate back
       form.reset();
       setSelectedDocuments([]);
-      
+
       // Invalidate comprehensive cache keys to ensure frontend updates
       queryClient.invalidateQueries({ queryKey: ["/api/agent-chatbots"] });
-      
+
       // If editing, also invalidate the specific agent's cache
       if (isEditing && editAgentId) {
         queryClient.invalidateQueries({ 
@@ -463,7 +470,7 @@ export default function CreateAgentChatbot() {
           queryKey: [`/api/agent-chatbots/${editAgentId}/documents`] 
         });
       }
-      
+
       // Invalidate all agent-related cache to ensure complete refresh
       queryClient.invalidateQueries({ 
         predicate: (query) => {
@@ -471,8 +478,8 @@ export default function CreateAgentChatbot() {
           return typeof queryKey === "string" && queryKey.includes("/api/agent-chatbots");
         }
       });
-      
-      window.history.back();
+
+            router.back();
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -497,20 +504,52 @@ export default function CreateAgentChatbot() {
   });
 
   const onSubmit = (data: CreateAgentForm) => {
-    // Build the guardrails configuration object
-    const guardrailsConfig = data.guardrailsEnabled ? data.guardrailsConfig : null;
-    
-    const finalData = {
-      ...data,
-      documentIds: selectedDocuments,
-      guardrailsConfig,
-    };
-    
-    console.log("Form submission data:", JSON.stringify(finalData, null, 2));
-    console.log("Guardrails enabled:", data.guardrailsEnabled);
-    console.log("Guardrails config:", data.guardrailsConfig);
-    
-    saveAgentMutation.mutate(finalData);
+    try {
+      console.log("Form submitted with data:", data);
+
+      // Parse aliases JSON
+      let parsedAliases = null;
+      if (data.aliases && data.aliases.trim()) {
+        try {
+          parsedAliases = JSON.parse(data.aliases);
+          // Validate that it's an object with string keys and string array values
+          if (typeof parsedAliases !== 'object' || parsedAliases === null) {
+            throw new Error('Aliases must be a valid JSON object');
+          }
+          for (const [key, value] of Object.entries(parsedAliases)) {
+            if (typeof key !== 'string' || !Array.isArray(value) || !value.every(v => typeof v === 'string')) {
+              throw new Error('Each alias key must be a string with an array of string values');
+            }
+          }
+        } catch (error) {
+          toast({
+            title: "Invalid Aliases Format",
+            description: "Please enter aliases in valid JSON format. Each key should be a string with an array of string values.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      const finalData = {
+        ...data,
+        aliases: parsedAliases,
+        documentIds: selectedDocuments,
+        guardrailsConfig,
+      };
+
+      console.log("Form submission data:", JSON.stringify(finalData, null, 2));
+      console.log("Guardrails enabled:", data.guardrailsEnabled);
+      console.log("Guardrails config:", data.guardrailsConfig);
+
+      saveAgentMutation.mutate(finalData);
+    } catch (error: any) {
+      toast({
+        title: "Submission Error",
+        description: error.message || "Failed to submit the form. Please check your inputs.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Test document search mutation
@@ -559,17 +598,17 @@ export default function CreateAgentChatbot() {
     }
 
     const currentFormData = form.getValues();
-    
+
     console.log("Testing document search with:", { 
       query: searchTestQuery, 
       documentIds: selectedDocuments,
       searchPrompt: currentFormData.searchPrompt 
     });
-    
+
     setIsTestingSearch(true);
     setSearchResults([]);
     setSearchStats(null);
-    
+
     testDocumentSearchMutation.mutate({
       query: searchTestQuery,
       documentIds: selectedDocuments,
@@ -588,7 +627,7 @@ export default function CreateAgentChatbot() {
     }
 
     const currentFormData = form.getValues();
-    
+
     // Basic validation for required fields
     if (!currentFormData.name || !currentFormData.personality || !currentFormData.profession || !currentFormData.responseStyle) {
       toast({
@@ -601,7 +640,7 @@ export default function CreateAgentChatbot() {
 
     // Build guardrails configuration for testing (same as deployment)
     const guardrailsConfig = currentFormData.guardrailsEnabled ? currentFormData.guardrailsConfig : null;
-    
+
     const testConfigData = {
       ...currentFormData,
       guardrailsConfig: guardrailsConfig, // Include guardrails config for testing
@@ -610,20 +649,20 @@ export default function CreateAgentChatbot() {
     console.log("Starting test agent with:", { message: testMessage, config: testConfigData, documents: selectedDocuments });
     console.log("Guardrails enabled for test:", currentFormData.guardrailsEnabled);
     console.log("Guardrails config for test:", guardrailsConfig);
-    
+
     setIsTestingAgent(true);
-    
+
     if (!isTestChatMode) {
       setTestResponse("");
     }
-    
+
     // Prepare chat history for API call (respecting memory limit)
     const memoryLimit = currentFormData.memoryLimit || 10;
     const recentHistory = testChatHistory.slice(-memoryLimit).map(msg => ({
       role: msg.role,
       content: msg.content
     }));
-    
+
     testAgentMutation.mutate({
       message: testMessage,
       agentConfig: testConfigData,
@@ -680,7 +719,7 @@ export default function CreateAgentChatbot() {
 
   const toggleDocument = (documentId: number) => {
     const isSelected = selectedDocuments.includes(documentId);
-    
+
     if (isEditing && editAgentId) {
       // For editing mode, use API calls for real-time updates
       if (isSelected) {
@@ -689,7 +728,7 @@ export default function CreateAgentChatbot() {
         addDocumentMutation.mutate(documentId);
       }
     }
-    
+
     // Update local state immediately for UI responsiveness
     setSelectedDocuments((prev) =>
       prev.includes(documentId)
@@ -914,7 +953,7 @@ export default function CreateAgentChatbot() {
                   className="w-full justify-start"
                   onClick={() => setActiveTab("skills")}
                 >
-                  <Brain className="w-4 h-4 mr-2" />
+                  <Brain className="w-4 h-4 h-4 mr-2" />
                   Skills
                 </Button>
                 <Button
@@ -1918,7 +1957,7 @@ export default function CreateAgentChatbot() {
                                         <FormItem className="flex flex-row items-center space-x-3 space-y-0">
                                           <FormControl>
                                             <Checkbox
-                                              checked={field.value}
+                                              checked{field.value}
                                               onCheckedChange={field.onChange}
                                             />
                                           </FormControl>
@@ -2112,18 +2151,59 @@ export default function CreateAgentChatbot() {
                                   <FormLabel>Custom Search Prompt</FormLabel>
                                   <FormControl>
                                     <Textarea
-                                      placeholder="เพิ่มคำแนะนำสำหรับการค้นหาเอกสาร เช่น 'ค้นหาเอกสารที่เกี่ยวข้องกับ HR, การลา, เงินเดือน' หรือ 'มุ่งเน้นหาข้อมูลจากนโยบายบริษัท'"
-                                      className="min-h-[100px]"
+                                      placeholder="เพิ่มคำแนะนำสำหรับการค้นหาเอกสาร เช่น 'ค้นหาเอกสารที่เกี่ยวข้องกับ HR, การลา, เงินเดือน' หรือ 'มุ่งเน้นการหาข้อมูลเกี่ยวกับนโยบายบริษัท'"
                                       {...field}
+                                      rows={3}
                                     />
                                   </FormControl>
                                   <FormDescription>
-                                    ระบุคำแนะนำเพิ่มเติมที่จะช่วยให้บอทค้นหาเอกสารที่เกี่ยวข้องได้แม่นยำยิ่งขึ้น
+                                    This prompt will guide the AI in finding relevant documents for your agent's knowledge base
                                   </FormDescription>
                                   <FormMessage />
                                 </FormItem>
                               )}
                             />
+
+                            {/* Term Aliases */}
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                  <Link className="h-5 w-5" />
+                                  Term Aliases
+                                </CardTitle>
+                                <CardDescription>
+                                  Configure term aliases to automatically expand search queries. When one term is found, all related terms will be included.
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent className="space-y-4">
+                                <FormField
+                                  control={form.control}
+                                  name="aliases"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Aliases Configuration</FormLabel>
+                                      <FormControl>
+                                        <Textarea
+                                          placeholder={`ตัวอย่าง JSON format:
+{
+  "บัตรเครดิต": ["credit card", "บัตรกรุงเทพ", "บัตรกสิกร"],
+  "ลาป่วย": ["sick leave", "ลาพักรักษาตัว", "medical leave"],
+  "เงินเดือน": ["salary", "ค่าจ้าง", "wages", "pay"]
+}`}
+                                          {...field}
+                                          rows={8}
+                                          className="font-mono text-sm"
+                                        />
+                                      </FormControl>
+                                      <FormDescription>
+                                        Enter aliases in JSON format. Each key is a primary term, and its value is an array of alternate terms.
+                                        When any term is found in a query, all related terms will be automatically included for better search coverage.
+                                      </FormDescription>
+                                    </FormItem>
+                                  )}
+                                />
+                              </CardContent>
+                            </Card>
                           </CardContent>
                         </Card>
 
