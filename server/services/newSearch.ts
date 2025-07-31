@@ -247,7 +247,7 @@ async function calculateBM25(
             hasMatch = true;
             break;
           }
-          
+
           // English/general fuzzy matching
           if (!isThaiText(term) && calculateSimilarity(term, token) > 0.75) {
             hasMatch = true;
@@ -259,7 +259,7 @@ async function calculateBM25(
         if (!hasMatch) {
           const partialMatch = findPartialStringMatches(term, tokens);
           const substringMatch = findSubstringMatches(term, tokens);
-          
+
           if (partialMatch.score > 0.6 || substringMatch.score > 0.5) {
             hasMatch = true;
           }
@@ -505,7 +505,7 @@ function findPartialStringMatches(term: string, tokens: string[]): { score: numb
 
   for (const token of tokens) {
     const tokenLower = token.toLowerCase();
-    
+
     // Check if term is contained in token or vice versa
     if (termLower.length >= 3 && tokenLower.length >= 3) {
       if (tokenLower.includes(termLower)) {
@@ -533,7 +533,7 @@ function findSubstringMatches(term: string, tokens: string[]): { score: number; 
 
   for (const token of tokens) {
     const tokenLower = token.toLowerCase();
-    
+
     // Check if any part of the term matches with the token
     for (const part of termParts) {
       if (part.length >= 3) {
@@ -544,7 +544,7 @@ function findSubstringMatches(term: string, tokens: string[]): { score: number; 
           bestScore = Math.max(bestScore, overlap / maxLength);
           count++;
         }
-        
+
         // Character-level similarity for Thai text
         if (isThaiText(part) && isThaiText(tokenLower)) {
           const similarity = calculateThaiSimilarity(part, tokenLower);
@@ -558,19 +558,6 @@ function findSubstringMatches(term: string, tokens: string[]): { score: number; 
   }
 
   return { score: bestScore, count };
-}
-
-function calculateThaiSimilarity(str1: string, str2: string): number {
-  // Special handling for Thai text with tone marks and vowels
-  const normalize = (str: string) => str
-    .replace(/[์็่้๊๋]/g, '') // Remove tone marks
-    .replace(/[ะาิีึืุูเแโใไ]/g, '') // Simplify vowels
-    .toLowerCase();
-
-  const norm1 = normalize(str1);
-  const norm2 = normalize(str2);
-
-  return calculateSimilarity(norm1, norm2);
 }
 
 // Remove duplicate GPT enrichment - use preprocessor instead
@@ -827,6 +814,7 @@ export async function searchSmartHybridDebug(
   let selectedChunks = [];
 
   if (scoredChunks.length > 0) {
+    ```
     // Use TRUE mass-based selection - accumulate until we get 90% of total score
     const totalScore = scoredChunks.reduce((sum, c) => sum + c.finalScore, 0);
     const avgScore = totalScore / scoredChunks.length;
@@ -1276,7 +1264,7 @@ async function performChunkSplitAndRankSearch(
       vectorWeight = 0.7,
       massSelectionPercentage = 0.3, // 30% score mass threshold for document chat
     } = options;
-  
+
   //TODO: Implementation
   return []
 }
