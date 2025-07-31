@@ -757,34 +757,34 @@ export async function performAdvancedKeywordSearch(
     const results: SearchResult[] = [];
 
     topChunks
-      .filter(chunk => chunk.score > (options.threshold || 0.1))
-      .forEach(chunkScore => {
-        const document = docMap.get(chunkScore.documentId);
-        if (!document) return;
+        .filter(chunk => chunk.score > (options.threshold || 0.1))
+        .forEach(chunkScore => {
+          const document = docMap.get(chunkScore.documentId);
+          if (!document) return;
 
-        // Use consistent chunk ID format: docId-chunkIndex
-        const chunkId = `${chunkScore.documentId}-${chunkScore.chunkIndex}`;
-        const chunkLabel = `(Chunk ${chunkScore.chunkIndex + 1})`;
-        const documentName = document.name || `Document ${chunkScore.documentId}`;
+          // Use consistent chunk ID format: docId-chunkIndex
+          const chunkId = `${chunkScore.documentId}-${chunkScore.chunkIndex}`;
+          const chunkLabel = `(Chunk ${chunkScore.chunkIndex + 1})`;
+          const documentName = document.name || `Document ${chunkScore.documentId}`;
 
-        results.push({
-          id: chunkId, // Use consistent chunk ID format
-          name: `${documentName} ${chunkLabel}`,
-          content: chunkScore.content,
-          summary: chunkScore.content.slice(0, 200) + "...",
-          aiCategory: document.aiCategory ?? null,
-          aiCategoryColor: document.aiCategoryColor ?? null,
-          similarity: Math.min(chunkScore.score / 10, 1.0), // Normalize to 0-1
-          createdAt: document.createdAt?.toISOString() ?? new Date().toISOString(),
-          categoryId: document.categoryId ?? null,
-          tags: document.tags ?? null,
-          fileSize: document.fileSize ?? null,
-          mimeType: document.mimeType ?? null,
-          isFavorite: document.isFavorite ?? null,
-          updatedAt: document.updatedAt?.toISOString() ?? null,
-          userId: document.userId ?? userId
+          results.push({
+            id: chunkId, // Use consistent chunk ID format
+            name: `${documentName} ${chunkLabel}`,
+            content: chunkScore.content,
+            summary: chunkScore.content.slice(0, 200) + "...",
+            aiCategory: document.aiCategory ?? null,
+            aiCategoryColor: document.aiCategoryColor ?? null,
+            similarity: Math.min(chunkScore.score / 10, 1.0), // Normalize to 0-1
+            createdAt: document.createdAt?.toISOString() ?? new Date().toISOString(),
+            categoryId: document.categoryId ?? null,
+            tags: document.tags ?? null,
+            fileSize: document.fileSize ?? null,
+            mimeType: document.mimeType ?? null,
+            isFavorite: document.isFavorite ?? null,
+            updatedAt: document.updatedAt?.toISOString() ?? null,
+            userId: document.userId ?? userId
+          });
         });
-      });
 
     console.log(`🔍 ADVANCED KEYWORD SEARCH: Returning ${results.length} results with alias expansion`);
     return results;

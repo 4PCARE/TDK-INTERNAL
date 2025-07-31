@@ -549,12 +549,9 @@ export async function searchSmartHybridDebug(
   // Process advanced keyword search results (no duplicate processing)
   for (const result of keywordSearchResults) {
     if (result.similarity > 0) {
-      // Extract document ID and chunk index from the result
-      const docId = result.id;
-      const chunkIndex = result.name.match(/Chunk (\d+)/)?.[1] || "0";
-      // Use consistent chunk ID format: docId-chunkIndex  
-      const chunkId = `${docId}-${parseInt(chunkIndex) - 1}`;
-
+      // Parse the chunk ID from advanced search result (should be docId-chunkIndex format)
+      const chunkId = result.id;
+      
       keywordMatches[chunkId] = {
         score: result.similarity,
         content: result.content,
