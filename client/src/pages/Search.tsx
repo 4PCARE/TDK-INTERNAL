@@ -1,4 +1,5 @@
 import { useState } from "react";
+import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -43,11 +44,45 @@ export default function SearchPage() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  const { data: searchResults, isLoading: searchLoading, error } = useQuery({
+  const { data: rawSearchResults, isLoading: searchLoading, error } = useQuery({
     queryKey: ["/api/search", { q: searchQuery, type: searchType }],
     enabled: !!searchQuery && hasSearched,
     retry: false,
   });
+
+  // Process search results to show only the most similar chunk per document
+  const searchResults = React.useMemo(() => {
+    if (!rawSearchResults?.results) return rawSearchResults;
+
+    if (searchType === "keyword") {
+      // For keyword search, return as-is (no chunk processing needed)
+      return rawSearchResults;
+    }
+
+    // For semantic search, group by document and keep only the most similar chunk
+    const documentMap = new Map();
+    
+    rawSearchResults.results.forEach((result: any) => {
+      // Extract document ID from chunk ID (format: "docId-chunkIndex")
+      const docId = result.id.split('-')[0];
+      
+      if (!documentMap.has(docId) || result.similarity > documentMap.get(docId).similarity) {
+        // Create a cleaned result without chunk information
+        const cleanResult = {
+          ...result,
+          id: docId, // Use document ID
+          name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk label
+        };
+        documentMap.set(docId, cleanResult);
+      }
+    });
+
+    return {
+      ...rawSearchResults,
+      results: Array.from(documentMap.values()),
+      count: documentMap.size
+    };
+  }, [rawSearchResults, searchType]);
 
   const handleSearch = (query: string, type: "keyword" | "semantic") => {
     setSearchQuery(query);
