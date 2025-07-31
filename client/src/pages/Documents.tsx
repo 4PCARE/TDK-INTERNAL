@@ -166,11 +166,11 @@ export default function Documents() {
   }) as { data: Array<any>; isLoading: boolean; error: any };
 
   const handleSearch = () => {
-    // Validate that at least one search type is selected (filename is always enabled)
-    if (!searchKeyword && !searchMeaning) {
+    // Validate that at least one search type is selected
+    if (!searchFileName && !searchKeyword && !searchMeaning) {
       toast({
         title: "Search Options Required",
-        description: "Please select at least one content search option: Content (keyword) or Content (meaning).",
+        description: "Please select at least one search option: File name, Content (keyword), or Content (meaning).",
         variant: "destructive",
       });
       return;
@@ -338,11 +338,9 @@ export default function Documents() {
                         id="searchFileName"
                         checked={searchFileName}
                         onCheckedChange={setSearchFileName}
-                        disabled={true}
-                        className="opacity-50"
                       />
-                      <label htmlFor="searchFileName" className="text-sm text-slate-500 cursor-not-allowed">
-                        File name (always enabled)
+                      <label htmlFor="searchFileName" className="text-sm text-slate-700 cursor-pointer">
+                        File name
                       </label>
                     </div>
                     <div className="flex items-center space-x-2">
