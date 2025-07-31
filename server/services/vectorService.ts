@@ -223,10 +223,33 @@ export class VectorService {
             console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has ${dbVector.content.length} chars - suspiciously large for a chunk!`);
           }
 
-          // Ensure embedding is valid array
+          // Ensure embedding is valid array with detailed debugging
           let embedding = dbVector.embedding;
-          if (!embedding || !Array.isArray(embedding) || embedding.length === 0) {
-            console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has invalid embedding`);
+          let hasValidEmbedding = true;
+          
+          if (!embedding) {
+            console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has null/undefined embedding`);
+            hasValidEmbedding = false;
+          } else if (!Array.isArray(embedding)) {
+            console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} embedding is not an array, type: ${typeof embedding}`);
+            hasValidEmbedding = false;
+          } else if (embedding.length === 0) {
+            console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has empty embedding array`);
+            hasValidEmbedding = false;
+          } else if (embedding.length !== 1536) {
+            console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has wrong embedding dimension: ${embedding.length} (expected 1536)`);
+            hasValidEmbedding = false;
+          } else {
+            // Check for NaN or non-numeric values
+            const invalidValues = embedding.filter(val => typeof val !== 'number' || isNaN(val));
+            if (invalidValues.length > 0) {
+              console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has ${invalidValues.length} invalid values in embedding`);
+              hasValidEmbedding = false;
+            }
+          }
+
+          if (!hasValidEmbedding) {
+            console.warn(`⚠️  VECTOR SERVICE: Using zero-filled fallback embedding for Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex}`);
             embedding = new Array(1536).fill(0); // Default embedding size for text-embedding-3-small
           }
 
@@ -244,13 +267,23 @@ export class VectorService {
             totalChunks: dbVector.totalChunks
           };
 
-          // Calculate similarity with error handling
+          // Calculate similarity with error handling and detailed logging
           let similarity = 0;
           try {
             similarity = this.cosineSimilarity(queryEmbedding, embedding);
+            
+            // Log similarity calculation results for debugging
+            if (similarity > 0.1) {
+              console.log(`✅ VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} - Good similarity: ${similarity.toFixed(4)}`);
+            } else if (similarity === 0) {
+              console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} - Zero similarity (likely zero-filled embedding)`);
+            } else {
+              console.log(`📊 VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} - Low similarity: ${similarity.toFixed(4)}`);
+            }
+            
             // Ensure similarity is a valid number
             if (isNaN(similarity) || !isFinite(similarity)) {
-              console.warn(`⚠️  VECTOR SERVICE: Invalid similarity calculated for Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex}`);
+              console.warn(`⚠️  VECTOR SERVICE: Invalid similarity calculated for Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex}: ${similarity}`);
               similarity = 0;
             }
           } catch (error) {
@@ -284,6 +317,24 @@ export class VectorService {
         .sort((a, b) => b.similarity - a.similarity);
 
       console.log(`Vector search for "${query}": Found ${finalResults.length} relevant chunks globally (all results)`);
+
+      // Calculate and log statistics about vector similarities
+      const validSimilarities = finalResults.filter(r => r.similarity > 0);
+      const zeroSimilarities = finalResults.filter(r => r.similarity === 0);
+      const highSimilarities = finalResults.filter(r => r.similarity > 0.2);
+      
+      console.log(`📊 VECTOR SEARCH STATISTICS:`);
+      console.log(`   Total chunks: ${finalResults.length}`);
+      console.log(`   Chunks with similarity > 0: ${validSimilarities.length} (${(validSimilarities.length/finalResults.length*100).toFixed(1)}%)`);
+      console.log(`   Chunks with similarity = 0: ${zeroSimilarities.length} (${(zeroSimilarities.length/finalResults.length*100).toFixed(1)}%)`);
+      console.log(`   Chunks with similarity > 0.2: ${highSimilarities.length} (${(highSimilarities.length/finalResults.length*100).toFixed(1)}%)`);
+      
+      if (validSimilarities.length > 0) {
+        const avgSimilarity = validSimilarities.reduce((sum, r) => sum + r.similarity, 0) / validSimilarities.length;
+        const maxSimilarity = Math.max(...validSimilarities.map(r => r.similarity));
+        console.log(`   Average similarity (non-zero): ${avgSimilarity.toFixed(4)}`);
+        console.log(`   Max similarity: ${maxSimilarity.toFixed(4)}`);
+      }
 
       // Debug: Log top results with similarity scores
       console.log(`Debug: Top 5 vector search results for "${query}":`);
