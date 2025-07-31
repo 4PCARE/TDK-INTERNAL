@@ -166,8 +166,6 @@ export default function Documents() {
   }) as { data: Array<any>; isLoading: boolean; error: any };
 
   const handleSearch = () => {
-    // No validation needed since filename search is always enabled
-
     setCurrentSearchQuery(searchQuery);
     setCurrentSearchFileName(searchFileName);
     setCurrentSearchKeyword(searchKeyword);
