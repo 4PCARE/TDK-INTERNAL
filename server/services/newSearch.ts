@@ -497,7 +497,6 @@ function findBestFuzzyMatchThai(term: string, tokens: string[]): { score: number
       }
       count++;
     }
-    }
   }
 
   return { score: bestScore, count };
@@ -547,11 +546,6 @@ function isThaiTokenSimilar(term1: string, term2: string): boolean {
         return true;
       }
     }
-  }
-
-  return false;
-}alculateSimilarity(lower1, lower2);
-    return Math.max(similarity1, similarity2) >= 0.85;
   }
 
   return false;
