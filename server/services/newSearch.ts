@@ -226,8 +226,8 @@ async function calculateBM25(
     const content = chunk.content || '';
     const tokens = await tokenizeWithThaiNormalization(content);
     const chunkIndex = chunk.chunkIndex ?? 0;
-    // Use consistent chunk ID format: docId-chunkIndex-chunkIndex
-    const chunkId = `${chunk.documentId}-${chunkIndex}-${chunkIndex}`;
+    // Use consistent chunk ID format: docId-chunkIndex
+    const chunkId = `${chunk.documentId}-${chunkIndex}`;
 
     chunkLengths.set(chunkId, tokens.length);
     totalDocLength += tokens.length;
@@ -263,7 +263,7 @@ async function calculateBM25(
   // Second pass: calculate BM25 scores
   for (const chunk of chunks) {
     const chunkIndex = chunk.chunkIndex ?? 0;
-    const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
+    const chunkId = `${chunk.documentId}-${chunkIndex}`;
     const content = chunk.content || '';
     const tokens = await tokenizeWithThaiNormalization(content);
     const docLength = chunkLengths.get(chunkId) || 1;
