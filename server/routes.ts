@@ -1540,13 +1540,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           break;
 
         case "keyword":
-          results = await semanticSearchServiceV2.searchDocuments(
+          // Pure keyword search without vector search
+          const { advancedKeywordSearchService } = await import('./services/advancedKeywordSearch');
+          results = await advancedKeywordSearchService.searchDocuments(
             query,
             userId,
-            Math.min(50, Math.floor(100 * massPercentage)),
-            undefined,
-            "keyword",
-            massPercentage
+            [],
+            Math.min(50, Math.floor(100 * massPercentage))
           );
           break;
 
