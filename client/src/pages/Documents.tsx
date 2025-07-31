@@ -361,7 +361,7 @@ export default function Documents() {
                         Content (meaning)
                       </label>
                       <span className="text-xs text-slate-500 ml-1">
-                        {searchMeaning ? "(AI enabled)" : "(faster without AI)"}
+                        {searchMeaning ? "(deeper search – may take longer)" : "(faster without AI)"}
                       </span>
                     </div>
                   </div>
