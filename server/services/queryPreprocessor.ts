@@ -55,11 +55,11 @@ export class QueryPreprocessorService {
 
 3. Determine if the user's query requires a document search:
    - Mark \`needsSearch: false\` if the query is vague, purely conversational, AND lacks historical context. For example, common short words like "แก", "นาย", "เธอ", "ครับ", "ค่ะ", or openers like "สวัสดี", "ว่าไง", "คุณชื่ออะไร", "คุณทำอะไรได้บ้าง", or rhetorical/sarcastic lines like "แกไม่มีสิทธิ์มาเรียกฉันว่าพ่อ"
-     - **CRITICAL** even though the information is already provided, the user might want to confirm the result or the results could be updated. Mark needSearch as ture.
    - Mark \`needsSearch: true\` if:
      • The query contains specific nouns or named entities (e.g., product names, service names, brands, locations, floors, HR terms like "ลาหยุด", "สวัสดิการ", "เบิกเงิน")
      • The query follows an information-seeking pattern (e.g., "มีไหม", "เปิดกี่โมง", "ต้องใช้เอกสารอะไรบ้าง", "ได้กี่วัน", "ทำยังไง", "ขั้นตอนคืออะไร")
      • The query can be made meaningful using recent chat history (e.g., pronouns like “ที่นั่น”, “ตรงนั้น”, “อันนั้น” after a previous store or topic)
+     • **CRITICAL** even though the information is already provided, the user might want to confirm the result or the results could be updated. Mark needSearch as true anyway!!!.
 
 4. If a search is needed:
    - **PRIORITY 1**: Inject specific context from chat history (store names, brands, locations)
