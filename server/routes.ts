@@ -1542,11 +1542,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           results = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
-            {
-              searchType: "keyword",
-              limit: Math.min(50, Math.floor(100 * massPercentage)),
-              massSelectionPercentage: massPercentage
-            }
+            Math.min(50, Math.floor(100 * massPercentage)),
+            undefined,
+            "keyword",
+            massPercentage
           );
           break;
 
@@ -1554,11 +1553,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           results = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
-            {
-              searchType: "semantic", 
-              limit: Math.min(50, Math.floor(100 * massPercentage)),
-              massSelectionPercentage: massPercentage
-            }
+            Math.min(50, Math.floor(100 * massPercentage)),
+            undefined,
+            "semantic",
+            massPercentage
           );
           break;
 
@@ -1567,11 +1565,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           results = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
-            {
-              searchType: "hybrid",
-              limit: Math.min(50, Math.floor(100 * massPercentage)),
-              massSelectionPercentage: massPercentage
-            }
+            Math.min(50, Math.floor(100 * massPercentage)),
+            undefined,
+            "smart-hybrid",
+            massPercentage
           );
           break;
       }
