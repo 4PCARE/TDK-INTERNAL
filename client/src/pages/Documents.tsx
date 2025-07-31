@@ -46,7 +46,9 @@ export default function Documents() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchType, setSearchType] = useState<"keyword" | "semantic" | "hybrid" | "document-priority">("document-priority");
+  const [searchFileName, setSearchFileName] = useState(true);
+  const [searchKeyword, setSearchKeyword] = useState(true);
+  const [searchMeaning, setSearchMeaning] = useState(false); // Default unchecked for speed
   const [sortBy, setSortBy] = useState("newest");
   const [filterCategories, setFilterCategories] = useState<string[]>([]);
   const [filterTags, setFilterTags] = useState<string[]>([]);
@@ -91,11 +93,13 @@ export default function Documents() {
 
   const [hasSearched, setHasSearched] = useState(false);
   const [currentSearchQuery, setCurrentSearchQuery] = useState("");
-  const [currentSearchType, setCurrentSearchType] = useState<"keyword" | "semantic" | "hybrid" | "document-priority">("document-priority");
+  const [currentSearchFileName, setCurrentSearchFileName] = useState(true);
+  const [currentSearchKeyword, setCurrentSearchKeyword] = useState(true);
+  const [currentSearchMeaning, setCurrentSearchMeaning] = useState(false);
 
-  // Enhanced search with semantic capabilities  
+  // Enhanced search with checkbox-based search types
   const { data: documents, isLoading: documentsLoading, error: documentsError } = useQuery({
-    queryKey: ["/api/documents/search", currentSearchQuery, currentSearchType, hasSearched],
+    queryKey: ["/api/documents/search", currentSearchQuery, currentSearchFileName, currentSearchKeyword, currentSearchMeaning, hasSearched],
     queryFn: async () => {
       try {
         if (!hasSearched || !currentSearchQuery.trim()) {
@@ -106,13 +110,30 @@ export default function Documents() {
           return await response.json();
         }
 
+        // Determine search type based on checkbox combinations
+        let searchType = "keyword"; // Default fallback
+        if (currentSearchFileName && currentSearchKeyword && currentSearchMeaning) {
+          searchType = "document-priority"; // All three enabled
+        } else if (currentSearchFileName && currentSearchKeyword && !currentSearchMeaning) {
+          searchType = "document-priority"; // Name + keyword only (faster)
+        } else if (currentSearchKeyword && currentSearchMeaning && !currentSearchFileName) {
+          searchType = "hybrid"; // Content search with both keyword and semantic
+        } else if (currentSearchMeaning && !currentSearchKeyword && !currentSearchFileName) {
+          searchType = "semantic"; // Semantic only
+        } else if (currentSearchKeyword && !currentSearchMeaning && !currentSearchFileName) {
+          searchType = "keyword"; // Keyword only
+        }
+
         const params = new URLSearchParams({
           query: currentSearchQuery,
-          type: currentSearchType,
-          massSelectionPercentage: "0.6"
+          type: searchType,
+          massSelectionPercentage: "0.6",
+          searchFileName: currentSearchFileName.toString(),
+          searchKeyword: currentSearchKeyword.toString(),
+          searchMeaning: currentSearchMeaning.toString()
         });
 
-        console.log(`Frontend search: "${currentSearchQuery}" (${currentSearchType}) with 30% mass selection`);
+        console.log(`Frontend search: "${currentSearchQuery}" with fileName:${currentSearchFileName}, keyword:${currentSearchKeyword}, meaning:${currentSearchMeaning} (type: ${searchType})`);
         const response = await fetch(`/api/documents/search?${params}`);
         if (!response.ok) {
           const errorText = await response.text();
@@ -143,8 +164,20 @@ export default function Documents() {
   }) as { data: Array<any>; isLoading: boolean; error: any };
 
   const handleSearch = () => {
+    // Validate that at least one search type is selected
+    if (!searchFileName && !searchKeyword && !searchMeaning) {
+      toast({
+        title: "Search Options Required",
+        description: "Please select at least one search option: File name, Content (keyword), or Content (meaning).",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setCurrentSearchQuery(searchQuery);
-    setCurrentSearchType(searchType);
+    setCurrentSearchFileName(searchFileName);
+    setCurrentSearchKeyword(searchKeyword);
+    setCurrentSearchMeaning(searchMeaning);
     setHasSearched(true);
   };
 
@@ -209,8 +242,8 @@ export default function Documents() {
 
     return matchesCategory && matchesTag && matchesFavorites;
   }).sort((a: any, b: any) => {
-    // For document-priority search, preserve the backend ordering which prioritizes by score
-    if (hasSearched && currentSearchType === "document-priority") {
+    // For searches with file name enabled, preserve the backend ordering which prioritizes by score
+    if (hasSearched && currentSearchFileName) {
       // If documents have equal importance (same search result position), sort by recency
       const aIndex = documentsArray.indexOf(a);
       const bIndex = documentsArray.indexOf(b);
@@ -276,18 +309,6 @@ export default function Documents() {
                       />
                     </div>
 
-                    <Select value={searchType} onValueChange={(value: "keyword" | "semantic" | "hybrid" | "document-priority") => setSearchType(value)}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="document-priority">Document Name Priority</SelectItem>
-                        <SelectItem value="keyword">Keyword Search</SelectItem>
-                        <SelectItem value="semantic">AI Semantic Search</SelectItem>
-                        <SelectItem value="hybrid">Hybrid Search</SelectItem>
-                      </SelectContent>
-                    </Select>
-
                     <Button 
                       onClick={handleSearch}
                       disabled={!searchQuery.trim()}
@@ -305,6 +326,44 @@ export default function Documents() {
                         Clear
                       </Button>
                     )}
+                  </div>
+
+                  {/* Search Options Row */}
+                  <div className="flex items-center gap-6">
+                    <div className="text-sm font-medium text-slate-600">Search in:</div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="searchFileName"
+                        checked={searchFileName}
+                        onCheckedChange={setSearchFileName}
+                      />
+                      <label htmlFor="searchFileName" className="text-sm text-slate-700 cursor-pointer">
+                        File name
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="searchKeyword"
+                        checked={searchKeyword}
+                        onCheckedChange={setSearchKeyword}
+                      />
+                      <label htmlFor="searchKeyword" className="text-sm text-slate-700 cursor-pointer">
+                        Content (keyword)
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="searchMeaning"
+                        checked={searchMeaning}
+                        onCheckedChange={setSearchMeaning}
+                      />
+                      <label htmlFor="searchMeaning" className="text-sm text-slate-700 cursor-pointer">
+                        Content (meaning)
+                      </label>
+                      <span className="text-xs text-slate-500 ml-1">
+                        {searchMeaning ? "(AI enabled)" : "(faster without AI)"}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Filters Row */}
