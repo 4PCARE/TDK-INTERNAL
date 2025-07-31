@@ -145,7 +145,7 @@ function findBestMatch(searchTerm: string, text: string): { score: number; match
       if (isThaiTokenSimilar(searchTerm, cleanWord)) {
         const normalized1 = searchTerm.toLowerCase().replace(/\s+/g, '');
         const normalized2 = cleanWord.toLowerCase().replace(/\s+/g, '');
-
+        
         if (normalized1 === normalized2) {
           bestScore = 0.95;
           bestMatch = cleanWord;
@@ -487,7 +487,7 @@ function findBestFuzzyMatchThai(term: string, tokens: string[]): { score: number
       // Calculate more nuanced similarity score
       const normalized1 = term.toLowerCase().replace(/\s+/g, '');
       const normalized2 = token.toLowerCase().replace(/\s+/g, '');
-
+      
       if (normalized1 === normalized2) {
         bestScore = Math.max(bestScore, 0.95); // Very high score for exact match after space normalization
       } else if (normalized1.includes(normalized2) || normalized2.includes(normalized1)) {
@@ -730,8 +730,7 @@ export async function searchSmartHybridDebug(
   }
 
   // 3. Perform vector search
-  console.log(`🔍 VECTOR SEARCH: Starting vector search for "${query}"`);
-  const vectorResults = await vectorService.searchDocuments(query, userId, -1, options.specificDocumentIds);
+  const vectorResults = await vectorService.searchDocuments(query, userId, 100, options.specificDocumentIds);
   const vectorMatches: Record<string, { score: number, content: string }> = {};
   for (const result of vectorResults) {
     const docId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
@@ -824,18 +823,7 @@ export async function searchSmartHybridDebug(
     const keywordInfo = keywordMatches[chunkId];
     const keywordScore = keywordInfo?.score ?? 0;
     const vectorInfo = vectorMatches[chunkId];
-    let vectorScore = vectorInfo?.score ?? 0;
-
-    // If vector score is 0 but keyword score exists, apply minimum vector baseline
-    if (vectorScore === 0 && keywordScore > 0) {
-      // Use a small baseline vector score (10% of average vector score if available)
-      const vectorScores = Object.values(vectorMatches).map(v => v.score).filter(s => s > 0);
-      if (vectorScores.length > 0) {
-        const avgVectorScore = vectorScores.reduce((a, b) => a + b, 0) / vectorScores.length;
-        vectorScore = Math.max(0.1, avgVectorScore * 0.1); // 10% of average as baseline
-        console.log(`📊 BASELINE: Chunk ${chunkId} assigned baseline vector score: ${vectorScore.toFixed(4)}`);
-      }
-    }
+    const vectorScore = vectorInfo?.score ?? 0;
 
     // Get content from either source, prioritizing vector content for consistency
     let content = vectorInfo?.content ?? "";
@@ -854,11 +842,6 @@ export async function searchSmartHybridDebug(
 
     console.log(`📊 CHUNK ${chunkId}: Keyword=${keywordScore.toFixed(4)}→${normalizedKeywordScore.toFixed(3)}, Vector=${vectorScore.toFixed(3)}, Final=${finalScore.toFixed(3)}`);
 
-    // Option 1: Require both scores > 0 (uncomment to enable strict filtering)
-    // const requireBothScores = keywordScore > 0 && (vectorInfo?.score ?? 0) > 0;
-    // if (finalScore > 0 && content.length > 0 && requireBothScores) {
-
-    // Option 2: Accept any positive final score (current behavior)
     if (finalScore > 0 && content.length > 0) {
       scoredChunks.push({
         docId,
