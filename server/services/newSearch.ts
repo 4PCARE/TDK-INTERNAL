@@ -84,7 +84,7 @@ function splitIntoChunks(text: string, maxChunkSize = 3000, overlap = 300): stri
 function levenshteinDistance(str1: string, str2: string): number {
   const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
 
-  for (let i = 0; i <= str1.length; i++) {
+  for (let i = 0; <= str1.length; i++) {
     matrix[0][i] = i;
   }
 
@@ -227,7 +227,7 @@ async function calculateBM25(
     const tokens = await tokenizeWithThaiNormalization(content);
     const chunkIndex = chunk.chunkIndex ?? 0;
     // Use consistent chunk ID format: docId-chunkIndex
-    const chunkId = `${chunk.documentId}-${chunkIndex}`;
+    const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
 
     chunkLengths.set(chunkId, tokens.length);
     totalDocLength += tokens.length;
@@ -551,7 +551,7 @@ export async function searchSmartHybridDebug(
     if (result.similarity > 0) {
       // Parse the chunk ID from advanced search result (should be docId-chunkIndex format)
       const chunkId = result.id;
-      
+
       keywordMatches[chunkId] = {
         score: result.similarity,
         content: result.content,
@@ -1139,4 +1139,26 @@ async function calculateBM25Score(
   }
 
   return score;
+}
+
+async function performChunkSplitAndRankSearch(
+    query: string,
+    userId: string,
+    options: Omit<SearchOptions, 'searchType'> & {
+      keywordWeight?: number;
+      vectorWeight?: number;
+      massSelectionPercentage?: number;
+    } = {}
+  ): Promise<SearchResult[]> {
+    const {
+      maxResults = 50,
+      includeContent = true,
+      specificDocumentIds,
+      keywordWeight = 0.3,
+      vectorWeight = 0.7,
+      massSelectionPercentage = 0.3, // 30% score mass threshold for document chat
+    } = options;
+  
+  //TODO: Implementation
+  return []
 }
