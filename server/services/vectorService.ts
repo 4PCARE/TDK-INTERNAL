@@ -255,17 +255,14 @@ export class VectorService {
         })
         .sort((a, b) => b.similarity - a.similarity);
 
-      // For chatbot integration, we want top chunks globally, not per document
-      console.log(`VectorService: Taking top ${limit} chunks globally from ${allResults.length} total chunks`);
+      // Return all chunks globally without limit restriction
+      console.log(`VectorService: Returning all ${allResults.length} chunks globally`);
 
-      const combinedResults = allResults.slice(0, limit);
+      // Sort by similarity but don't apply limit
+      const finalResults = allResults
+        .sort((a, b) => b.similarity - a.similarity);
 
-      // Sort by similarity and apply final limit
-      const finalResults = combinedResults
-        .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, limit);
-
-      console.log(`Vector search for "${query}": Found ${finalResults.length} relevant chunks globally`);
+      console.log(`Vector search for "${query}": Found ${finalResults.length} relevant chunks globally (all results)`);
 
       // Debug: Log top results with similarity scores
       console.log(`Debug: Top 5 vector search results for "${query}":`);
