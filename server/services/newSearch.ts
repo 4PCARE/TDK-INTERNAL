@@ -562,6 +562,35 @@ export async function searchSmartHybridDebug(
 
   console.log(`🔍 KEYWORD SEARCH: Found ${totalMatches} chunks with keyword matches (with aliases) out of ${chunks.length} total chunks`)
 
+  // Display top 5 keyword chunks with matched terms
+  if (Object.keys(keywordMatches).length > 0) {
+    const sortedKeywordChunks = Object.entries(keywordMatches)
+      .map(([chunkId, data]) => ({
+        chunkId,
+        score: data.score,
+        content: data.content,
+        matchedTerms: data.matchedTerms || [],
+        matchDetails: data.matchDetails || []
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+
+    console.log(`\n🏆 TOP 5 KEYWORD CHUNKS WITH MATCHED TERMS:`);
+    sortedKeywordChunks.forEach((chunk, index) => {
+      console.log(`\n${index + 1}. Chunk ${chunk.chunkId} - Score: ${chunk.score.toFixed(5)}`);
+      console.log(`   📝 Matched Terms (${chunk.matchedTerms.length}): [${chunk.matchedTerms.join(', ')}]`);
+      if (chunk.matchDetails && chunk.matchDetails.length > 0) {
+        console.log(`   🔍 Match Details:`);
+        chunk.matchDetails.forEach(detail => {
+          const fuzzyLabel = detail.fuzzyMatch ? ' (fuzzy)' : ' (exact)';
+          console.log(`      - "${detail.term}": score ${detail.score.toFixed(4)}${fuzzyLabel}, positions: [${detail.positions.join(', ')}]`);
+        });
+      }
+      console.log(`   📄 Content Preview: "${chunk.content.substring(0, 150).replace(/\n/g, ' ')}${chunk.content.length > 150 ? '...' : ''}"`);
+    });
+    console.log(`\n`);
+  }
+
   if (totalMatches === 0) {
     console.log(`⚠️ KEYWORD SEARCH DEBUG: No positive BM25 scores found. This might indicate:`)
     console.log(`   - Search terms: [${searchTerms.join(', ')}]`)

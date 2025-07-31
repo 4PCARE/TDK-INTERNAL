@@ -1,4 +1,3 @@
-
 import { storage } from '../storage';
 import { aiKeywordExpansionService } from './aiKeywordExpansion';
 import { db } from '../db';
@@ -615,7 +614,7 @@ export async function performAdvancedKeywordSearch(
       for (const term of searchTerms) {
         // Add the original term
         individualTerms.add(term.toLowerCase());
-        
+
         // Split into individual words and add them too
         const words = term.toLowerCase().split(/\s+/).filter(word => word.length > 0);
         words.forEach(word => individualTerms.add(word));
@@ -701,16 +700,47 @@ export async function performAdvancedKeywordSearch(
     const chunkScores = service['calculateChunkScores'](chunks, searchTermObjects);
 
     console.log(`🔍 ADVANCED KEYWORD: Calculated scores for ${chunkScores.length} chunks`);
-    
+
     // Filter out zero scores first
     const scoredChunks = chunkScores.filter(chunk => chunk.score > 0);
     console.log(`🔍 ADVANCED KEYWORD: ${scoredChunks.length} chunks have positive scores`);
+
+    let totalMatches = 0;
+    for (const chunkScore of chunkScores) {
+      if (chunkScore.score > 0) {
+        totalMatches++;
+        console.log(`🔍 KEYWORD MATCH (Advanced): Doc ${chunkScore.documentId}-${chunkScore.chunkIndex} chunk ${chunkScore.chunkIndex + 1} - score: ${chunkScore.score.toFixed(5)} with aliases`);
+      }
+    }
+
+    console.log(`🔍 KEYWORD SEARCH: Found ${totalMatches} chunks with keyword matches (with aliases) out of ${chunks.length} total chunks`)
+
+  // Display top 5 keyword chunks with matched terms
+  if (chunkScores.length > 0) {
+    const topKeywordChunks = chunkScores
+      .filter(chunk => chunk.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+
+    console.log(`\n🏆 TOP 5 KEYWORD CHUNKS WITH MATCHED TERMS:`);
+    topKeywordChunks.forEach((chunk, index) => {
+      console.log(`\n${index + 1}. Doc ${chunk.documentId}, Chunk ${chunk.chunkIndex + 1} - Score: ${chunk.score.toFixed(5)}`);
+      console.log(`   📝 Matched Terms (${chunk.matchedTerms.length}): [${chunk.matchedTerms.join(', ')}]`);
+      console.log(`   🔍 Match Details:`);
+      chunk.matchDetails.forEach(detail => {
+        const fuzzyLabel = detail.fuzzyMatch ? ' (fuzzy)' : ' (exact)';
+        console.log(`      - "${detail.term}": score ${detail.score.toFixed(4)}${fuzzyLabel}, positions: [${detail.positions.join(', ')}]`);
+      });
+      console.log(`   📄 Content Preview: "${chunk.content.substring(0, 150).replace(/\n/g, ' ')}${chunk.content.length > 150 ? '...' : ''}"`);
+    });
+    console.log(`\n`);
+  }
 
     // Sort by relevance and limit results
     scoredChunks.sort((a, b) => b.score - a.score);
     const limit = options.limit || 20;
     const topChunks = scoredChunks.slice(0, limit);
-    
+
     if (topChunks.length > 0) {
       console.log(`🔍 ADVANCED KEYWORD: Top 3 scoring chunks:`);
       topChunks.slice(0, 3).forEach((chunk, i) => {
