@@ -586,7 +586,7 @@ export default function CreateAgentChatbot() {
     },
   });
 
-  const handleTestDocumentSearch = () => {
+  const handleTestDocumentSearch = async () => {
     if (!searchTestQuery.trim()) {
       toast({
         title: "Error",
@@ -607,6 +607,68 @@ export default function CreateAgentChatbot() {
 
     const currentFormData = form.getValues();
 
+    // Auto-save current state before testing document search (only if editing existing agent)
+    if (isEditing && editAgentId) {
+      try {
+        console.log("Auto-saving agent configuration before testing document search...");
+        
+        // Parse aliases JSON
+        let parsedAliases = null;
+        if (currentFormData.aliases && currentFormData.aliases.trim()) {
+          try {
+            parsedAliases = JSON.parse(currentFormData.aliases);
+            // Validate that it's an object with string keys and string array values
+            if (typeof parsedAliases !== 'object' || parsedAliases === null) {
+              throw new Error('Aliases must be a valid JSON object');
+            }
+            for (const [key, value] of Object.entries(parsedAliases)) {
+              if (typeof key !== 'string' || !Array.isArray(value) || !value.every(v => typeof v === 'string')) {
+                throw new Error('Each alias key must be a string with an array of string values');
+              }
+            }
+          } catch (error) {
+            toast({
+              title: "Invalid Aliases Format",
+              description: "Please fix aliases format before testing. Each key should be a string with an array of string values.",
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+
+        const guardrailsConfig = currentFormData.guardrailsEnabled ? currentFormData.guardrailsConfig : null;
+
+        const saveData = {
+          ...currentFormData,
+          aliases: parsedAliases,
+          documentIds: selectedDocuments,
+          guardrailsConfig,
+        };
+
+        // Perform the auto-save
+        await apiRequest(
+          "PUT",
+          `/api/agent-chatbots/${editAgentId}`,
+          saveData,
+        );
+
+        console.log("Auto-save completed successfully");
+        
+        // Invalidate cache to ensure UI reflects saved state
+        queryClient.invalidateQueries({ queryKey: [`/api/agent-chatbots/${editAgentId}`] });
+        queryClient.invalidateQueries({ queryKey: ["/api/agent-chatbots"] });
+
+      } catch (error) {
+        console.error("Auto-save failed:", error);
+        toast({
+          title: "Auto-save Failed",
+          description: "Could not save current configuration. Please save manually before testing search.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     console.log("Testing document search with:", { 
       query: searchTestQuery, 
       documentIds: selectedDocuments,
@@ -624,7 +686,7 @@ export default function CreateAgentChatbot() {
     });
   };
 
-  const handleTestAgent = () => {
+  const handleTestAgent = async () => {
     if (!testMessage.trim()) {
       toast({
         title: "Error",
@@ -644,6 +706,68 @@ export default function CreateAgentChatbot() {
         variant: "destructive",
       });
       return;
+    }
+
+    // Auto-save current state before testing (only if editing existing agent)
+    if (isEditing && editAgentId) {
+      try {
+        console.log("Auto-saving agent configuration before testing...");
+        
+        // Parse aliases JSON
+        let parsedAliases = null;
+        if (currentFormData.aliases && currentFormData.aliases.trim()) {
+          try {
+            parsedAliases = JSON.parse(currentFormData.aliases);
+            // Validate that it's an object with string keys and string array values
+            if (typeof parsedAliases !== 'object' || parsedAliases === null) {
+              throw new Error('Aliases must be a valid JSON object');
+            }
+            for (const [key, value] of Object.entries(parsedAliases)) {
+              if (typeof key !== 'string' || !Array.isArray(value) || !value.every(v => typeof v === 'string')) {
+                throw new Error('Each alias key must be a string with an array of string values');
+              }
+            }
+          } catch (error) {
+            toast({
+              title: "Invalid Aliases Format",
+              description: "Please fix aliases format before testing. Each key should be a string with an array of string values.",
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+
+        const guardrailsConfig = currentFormData.guardrailsEnabled ? currentFormData.guardrailsConfig : null;
+
+        const saveData = {
+          ...currentFormData,
+          aliases: parsedAliases,
+          documentIds: selectedDocuments,
+          guardrailsConfig,
+        };
+
+        // Perform the auto-save
+        await apiRequest(
+          "PUT",
+          `/api/agent-chatbots/${editAgentId}`,
+          saveData,
+        );
+
+        console.log("Auto-save completed successfully");
+        
+        // Invalidate cache to ensure UI reflects saved state
+        queryClient.invalidateQueries({ queryKey: [`/api/agent-chatbots/${editAgentId}`] });
+        queryClient.invalidateQueries({ queryKey: ["/api/agent-chatbots"] });
+
+      } catch (error) {
+        console.error("Auto-save failed:", error);
+        toast({
+          title: "Auto-save Failed",
+          description: "Could not save current configuration. Please save manually before testing.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     // Build guardrails configuration for testing (same as deployment)
