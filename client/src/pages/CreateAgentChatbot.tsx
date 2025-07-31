@@ -918,7 +918,6 @@ export default function CreateAgentChatbot() {
       icon: Briefcase,
     },
     {
-      ```python
       id: "energetic",
       label: "Energetic",
       description: "Enthusiastic, dynamic, and motivating",
