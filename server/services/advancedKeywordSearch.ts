@@ -589,11 +589,12 @@ import { SearchOptions, SearchResult } from '@shared/types';
 
 export async function performAdvancedKeywordSearch(
   query: string,
+  userId: string,
   documentIds?: number[],
   options: SearchOptions = {},
   agentAliases?: Record<string, string[]>
 ): Promise<SearchResult[]> {
-  console.log(`🔍 ADVANCED KEYWORD SEARCH: Starting search for "${query}"`);
+  console.log(`🔍 ADVANCED KEYWORD SEARCH: Starting search for "${query}" for user ${userId}`);
 
   try {
     // Get Thai segmentation
@@ -671,10 +672,10 @@ export async function performAdvancedKeywordSearch(
     const { documentVectors } = await import('@shared/schema');
     const { eq, and, or } = await import('drizzle-orm');
 
-    let whereCondition: any = eq(documentVectors.userId, options.userId || '');
+    let whereCondition: any = eq(documentVectors.userId, userId);
     if (documentIds && documentIds.length > 0) {
       whereCondition = and(
-        eq(documentVectors.userId, options.userId || ''),
+        eq(documentVectors.userId, userId),
         or(...documentIds.map(id => eq(documentVectors.documentId, id)))
       );
     }
@@ -683,7 +684,7 @@ export async function performAdvancedKeywordSearch(
     console.log(`🔍 ADVANCED KEYWORD: Found ${chunks.length} chunks to search`);
 
     if (chunks.length === 0) {
-      console.log(`🔍 ADVANCED KEYWORD: No chunks found for user ${options.userId}`);
+      console.log(`🔍 ADVANCED KEYWORD: No chunks found for user ${userId}`);
       return [];
     }
 
@@ -719,7 +720,7 @@ export async function performAdvancedKeywordSearch(
 
     // Get document metadata for the top chunks
     const { storage } = await import('../storage');
-    const documents = await storage.getDocuments(options.userId || '');
+    const documents = await storage.getDocuments(userId);
     const docMap = new Map(documents.map(doc => [doc.id, doc]));
 
     // Format results
@@ -749,7 +750,7 @@ export async function performAdvancedKeywordSearch(
           mimeType: document.mimeType ?? null,
           isFavorite: document.isFavorite ?? null,
           updatedAt: document.updatedAt?.toISOString() ?? null,
-          userId: document.userId ?? (options.userId || '')
+          userId: document.userId ?? userId
         });
       });
 

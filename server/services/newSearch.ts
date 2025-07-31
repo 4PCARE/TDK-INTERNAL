@@ -45,26 +45,26 @@ export interface SearchOptions {
 function splitIntoChunks(text: string, maxChunkSize = 3000, overlap = 300): string[] {
   const chunks: string[] = [];
   let start = 0;
-  
+
   while (start < text.length) {
     let end = Math.min(start + maxChunkSize, text.length);
-    
+
     // Ensure we don't break words at chunk boundaries (except for the last chunk)
     if (end < text.length) {
       // Find the last complete word within the chunk size
       while (end > start && text[end] !== ' ' && text[end] !== '\n' && text[end] !== '\t') {
         end--;
       }
-      
+
       // If we couldn't find a word boundary, use the original end
       if (end === start) {
         end = Math.min(start + maxChunkSize, text.length);
       }
     }
-    
+
     chunks.push(text.slice(start, end).trim());
     start = end - overlap;
-    
+
     // Adjust start to next word boundary if we're overlapping
     if (start > 0 && start < text.length) {
       while (start < text.length && text[start] !== ' ' && text[start] !== '\n' && text[start] !== '\t') {
@@ -76,7 +76,7 @@ function splitIntoChunks(text: string, maxChunkSize = 3000, overlap = 300): stri
       }
     }
   }
-  
+
   return chunks.filter(chunk => chunk.length > 0);
 }
 
@@ -199,7 +199,7 @@ async function calculateBM25(
     const normalizedTerm = term.toLowerCase().trim();
     if (normalizedTerm.length > 0) {
       expandedSearchTerms.push(normalizedTerm);
-      
+
       // Only add Thai normalized variant for very simple normalization (case + whitespace)
       // Don't create corrupted versions by removing vowels/tone marks
       if (/[\u0E00-\u0E7F]/.test(normalizedTerm)) {
@@ -355,10 +355,10 @@ function normalizeThaiText(text: string): string {
 async function tokenizeWithThaiNormalization(text: string): string[] {
   // Simple tokenization without Thai segmentation for documents
   // Thai segmentation should only be used for query processing
-  
+
   // First normalize Thai spacing
   let normalizedText = normalizeThaiSpacing(text);
-  
+
   const tokens = normalizedText
     .toLowerCase()
     .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
@@ -420,10 +420,10 @@ function isThaiTokenSimilar(term1: string, term2: string): boolean {
   // Normalize spaces for both terms
   const normalized1 = term1.toLowerCase().replace(/\s+/g, '');
   const normalized2 = term2.toLowerCase().replace(/\s+/g, '');
-  
+
   // Exact match after space normalization
   if (normalized1 === normalized2) return true;
-  
+
   // Special handling for Thai brand names with spacing variations
   // Check if removing spaces makes them match (e.g., "แมคโดนัลด์" vs "แมค โดนัลด์")
   const spaceless1 = term1.replace(/\s+/g, '');
@@ -431,26 +431,26 @@ function isThaiTokenSimilar(term1: string, term2: string): boolean {
   if (spaceless1.toLowerCase() === spaceless2.toLowerCase()) {
     return true;
   }
-  
+
   // Check if one contains the other (for partial matches like "แมค" vs "แมคโดนัลด์")
   if (normalized1.length >= 3 && normalized2.length >= 3) {
     if (normalized1.includes(normalized2) || normalized2.includes(normalized1)) {
       return true;
     }
-    
+
     // Also check with original spacing preserved
     const lower1 = term1.toLowerCase();
     const lower2 = term2.toLowerCase();
     if (lower1.includes(lower2) || lower2.includes(lower1)) {
       return true;
     }
-    
+
     // Levenshtein distance for typos (both with and without spaces)
     const similarity1 = calculateSimilarity(normalized1, normalized2);
     const similarity2 = calculateSimilarity(lower1, lower2);
     return Math.max(similarity1, similarity2) >= 0.85;
   }
-  
+
   return false;
 }
 
@@ -477,11 +477,11 @@ export async function searchSmartHybridDebug(
   // Only use PythaiNLP for query processing, not document processing
   console.log(`🔍 QUERY PROCESSING: Segmenting Thai text for search terms only`);
   const { thaiTextProcessor } = await import('./thaiTextProcessor');
-  
+
   // First normalize Thai spacing in the search query
   const normalizedQuery = normalizeThaiSpacing(searchQuery);
   console.log(`🔍 THAI NORMALIZATION: "${searchQuery}" → "${normalizedQuery}"`);
-  
+
   const tokenizedQuery = await thaiTextProcessor.segmentThaiText(normalizedQuery);
   console.log(`🔍 QUERY PROCESSING: Result: "${tokenizedQuery}"`);
 
@@ -527,9 +527,10 @@ export async function searchSmartHybridDebug(
 
   // Use performAdvancedKeywordSearch with alias expansion instead of calculateBM25
   const { performAdvancedKeywordSearch } = await import('./advancedKeywordSearch');
-  
+
   const keywordSearchResults = await performAdvancedKeywordSearch(
     searchQuery, // Use the normalized query
+    userId,
     options.specificDocumentIds,
     {
       limit: 1000, // Large limit to get all matches for scoring
@@ -551,7 +552,7 @@ export async function searchSmartHybridDebug(
       const docId = result.id;
       const chunkIndex = result.name.match(/Chunk (\d+)/)?.[1] || "0";
       const chunkId = `${docId}-${parseInt(chunkIndex) - 1}`; // Adjust for 0-based indexing
-      
+
       keywordMatches[chunkId] = result.similarity;
       totalMatches++;
 
@@ -1061,7 +1062,7 @@ async function performKeywordSearch(
   console.log(`🔍 performKeywordSearch: Tokenizing query: "${query}"`);
   const { thaiTextProcessor } = await import('./thaiTextProcessor');
   const tokenizedQuery = await thaiTextProcessor.segmentThaiText(query);
-  
+
   const searchTerms = tokenizedQuery.toLowerCase().split(/\s+/).filter(Boolean);
   console.log(`🔍 performKeywordSearch: Starting with tokenized terms: [${searchTerms.join(', ')}]`);
 
