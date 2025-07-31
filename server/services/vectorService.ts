@@ -223,10 +223,17 @@ export class VectorService {
             console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has ${dbVector.content.length} chars - suspiciously large for a chunk!`);
           }
 
+          // Ensure embedding is valid array
+          let embedding = dbVector.embedding;
+          if (!embedding || !Array.isArray(embedding) || embedding.length === 0) {
+            console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has invalid embedding`);
+            embedding = new Array(1536).fill(0); // Default embedding size for text-embedding-3-small
+          }
+
           const vectorDoc: VectorDocument = {
             id: `${dbVector.documentId}_chunk_${dbVector.chunkIndex}`,
             content: dbVector.content, // This should be chunk content from document_vectors table
-            embedding: dbVector.embedding,
+            embedding: embedding,
             metadata: {
               originalDocumentId: dbVector.documentId.toString(),
               userId: dbVector.userId,
@@ -237,9 +244,23 @@ export class VectorService {
             totalChunks: dbVector.totalChunks
           };
 
+          // Calculate similarity with error handling
+          let similarity = 0;
+          try {
+            similarity = this.cosineSimilarity(queryEmbedding, embedding);
+            // Ensure similarity is a valid number
+            if (isNaN(similarity) || !isFinite(similarity)) {
+              console.warn(`⚠️  VECTOR SERVICE: Invalid similarity calculated for Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex}`);
+              similarity = 0;
+            }
+          } catch (error) {
+            console.error(`⚠️  VECTOR SERVICE: Error calculating similarity for Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex}:`, error);
+            similarity = 0;
+          }
+
           return {
             document: vectorDoc,
-            similarity: this.cosineSimilarity(queryEmbedding, dbVector.embedding)
+            similarity: similarity
           };
         })
         .filter(result => {
@@ -283,10 +304,58 @@ export class VectorService {
   }
 
   private cosineSimilarity(a: number[], b: number[]): number {
-    const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
-    const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
-    const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
-    return dotProduct / (magnitudeA * magnitudeB);
+    // Validate inputs
+    if (!a || !b || !Array.isArray(a) || !Array.isArray(b)) {
+      console.warn('⚠️  COSINE SIMILARITY: Invalid input vectors');
+      return 0;
+    }
+
+    if (a.length !== b.length) {
+      console.warn(`⚠️  COSINE SIMILARITY: Vector length mismatch - a: ${a.length}, b: ${b.length}`);
+      return 0;
+    }
+
+    if (a.length === 0) {
+      console.warn('⚠️  COSINE SIMILARITY: Empty vectors');
+      return 0;
+    }
+
+    // Calculate dot product
+    let dotProduct = 0;
+    for (let i = 0; i < a.length; i++) {
+      if (isNaN(a[i]) || isNaN(b[i])) {
+        console.warn(`⚠️  COSINE SIMILARITY: NaN detected at index ${i}`);
+        return 0;
+      }
+      dotProduct += a[i] * b[i];
+    }
+
+    // Calculate magnitudes
+    let magnitudeA = 0;
+    let magnitudeB = 0;
+    for (let i = 0; i < a.length; i++) {
+      magnitudeA += a[i] * a[i];
+      magnitudeB += b[i] * b[i];
+    }
+
+    magnitudeA = Math.sqrt(magnitudeA);
+    magnitudeB = Math.sqrt(magnitudeB);
+
+    // Avoid division by zero
+    if (magnitudeA === 0 || magnitudeB === 0) {
+      console.warn('⚠️  COSINE SIMILARITY: Zero magnitude vector detected');
+      return 0;
+    }
+
+    const similarity = dotProduct / (magnitudeA * magnitudeB);
+    
+    // Ensure result is valid
+    if (isNaN(similarity) || !isFinite(similarity)) {
+      console.warn('⚠️  COSINE SIMILARITY: Invalid similarity result');
+      return 0;
+    }
+
+    return similarity;
   }
 
   async getDocumentCount(): Promise<number> {
