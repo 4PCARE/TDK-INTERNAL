@@ -1041,7 +1041,7 @@ async function getAiResponseDirectly(
         console.log(`ℹ️ No recent image analysis found in chat history`);
 
         // Debug: Show what system messages we have
-        const allSystemMessages = chatHistory.filter(
+        const allSystemMessages = chatHistory.filter(```text
           (msg) => msg.messageType === "system",
         );
         console.log(
@@ -1061,7 +1061,7 @@ async function getAiResponseDirectly(
         role: "system",
         content: `${agent.systemPrompt}${contextPrompt}
 
-สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้ ��มูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว
+สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้ มูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว
 
 ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
 ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
@@ -2077,7 +2077,7 @@ ${imageAnalysisResult}
                 // Step 4: Build system prompt with document context (mirroring debug-prompt-inspector)
                 const baseSystemPrompt = `${agent.systemPrompt}
 
-เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
+เอกสารอ้างอิงสำหรับการตอบคำถาม:
 ${documentContext}
 
 สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้อมูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว
