@@ -570,7 +570,7 @@ export async function searchSmartHybridDebug(
       }
     }
 
-// Phase 1: Advanced Keyword Search with BM25
+    // Phase 1: Advanced Keyword Search with BM25
     console.log(`🔍 PHASE 1: Starting advanced keyword search`);
     const keywordResults = await performAdvancedKeywordSearch(
       query, 
@@ -582,3 +582,13 @@ export async function searchSmartHybridDebug(
       },
       agentAliases  // Pass agent aliases for term expansion
     );
+
+    console.log(`✅ PHASE 1 COMPLETE: Found ${keywordResults.length} keyword results`);
+
+    return keywordResults.slice(0, options.limit || 20);
+
+  } catch (error) {
+    console.error("❌ SMART HYBRID SEARCH ERROR:", error);
+    throw new Error("Failed to perform smart hybrid search");
+  }
+}
