@@ -63,6 +63,8 @@ export default function Documents() {
     const searchParam = urlParams.get('search');
     if (searchParam) {
       setSearchQuery(searchParam);
+      setCurrentSearchQuery(searchParam);
+      setHasSearched(true);
     }
   }, []);
 
@@ -87,12 +89,16 @@ export default function Documents() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
+  const [hasSearched, setHasSearched] = useState(false);
+  const [currentSearchQuery, setCurrentSearchQuery] = useState("");
+  const [currentSearchType, setCurrentSearchType] = useState<"keyword" | "semantic" | "hybrid" | "document-priority">("document-priority");
+
   // Enhanced search with semantic capabilities  
   const { data: documents, isLoading: documentsLoading, error: documentsError } = useQuery({
-    queryKey: ["/api/documents/search", searchQuery, searchType],
+    queryKey: ["/api/documents/search", currentSearchQuery, currentSearchType, hasSearched],
     queryFn: async () => {
       try {
-        if (!searchQuery.trim()) {
+        if (!hasSearched || !currentSearchQuery.trim()) {
           const response = await fetch("/api/documents");
           if (!response.ok) {
             throw new Error(`${response.status}: ${response.statusText}`);
@@ -101,12 +107,12 @@ export default function Documents() {
         }
 
         const params = new URLSearchParams({
-          query: searchQuery,
-          type: searchType,
+          query: currentSearchQuery,
+          type: currentSearchType,
           massSelectionPercentage: "0.3"
         });
 
-        console.log(`Frontend search: "${searchQuery}" (${searchType}) with 30% mass selection`);
+        console.log(`Frontend search: "${currentSearchQuery}" (${currentSearchType}) with 30% mass selection`);
         const response = await fetch(`/api/documents/search?${params}`);
         if (!response.ok) {
           const errorText = await response.text();
@@ -135,6 +141,18 @@ export default function Documents() {
     },
     enabled: isAuthenticated,
   }) as { data: Array<any>; isLoading: boolean; error: any };
+
+  const handleSearch = () => {
+    setCurrentSearchQuery(searchQuery);
+    setCurrentSearchType(searchType);
+    setHasSearched(true);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    setCurrentSearchQuery("");
+    setHasSearched(false);
+  };
 
   const { data: categories } = useQuery({
     queryKey: ["/api/categories"],
@@ -240,6 +258,7 @@ export default function Documents() {
                         placeholder="Search documents, content, or tags..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                         className="pl-10"
                       />
                     </div>
@@ -255,6 +274,24 @@ export default function Documents() {
                         <SelectItem value="hybrid">Hybrid Search</SelectItem>
                       </SelectContent>
                     </Select>
+
+                    <Button 
+                      onClick={handleSearch}
+                      disabled={!searchQuery.trim()}
+                      className="bg-primary text-white hover:bg-blue-700"
+                    >
+                      <Search className="w-4 h-4 mr-2" />
+                      Search
+                    </Button>
+
+                    {hasSearched && (
+                      <Button 
+                        variant="outline"
+                        onClick={handleClearSearch}
+                      >
+                        Clear
+                      </Button>
+                    )}
                   </div>
 
                   {/* Filters Row */}
@@ -446,11 +483,14 @@ export default function Documents() {
                   <div className="text-center py-16 text-slate-500">
                     <FileText className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                     <h3 className="text-lg font-medium text-slate-800 mb-2">
-                      {searchQuery || filterCategories.length > 0 || filterTags.length > 0 || showFavoritesOnly ? "No documents found" : "No documents yet"}
+                      {hasSearched && currentSearchQuery ? "No documents found" : 
+                       filterCategories.length > 0 || filterTags.length > 0 || showFavoritesOnly ? "No documents found" : 
+                       "No documents yet"}
                     </h3>
                     <p className="text-sm text-slate-500 mb-6">
-                      {searchQuery || filterCategories.length > 0 || filterTags.length > 0 || showFavoritesOnly
-                        ? "Try adjusting your search or filter criteria"
+                      {hasSearched && currentSearchQuery ? "Try adjusting your search terms or search type" :
+                       filterCategories.length > 0 || filterTags.length > 0 || showFavoritesOnly
+                        ? "Try adjusting your filter criteria"
                         : "Upload your first document to get started with AI-powered knowledge management"
                       }
                     </p>
