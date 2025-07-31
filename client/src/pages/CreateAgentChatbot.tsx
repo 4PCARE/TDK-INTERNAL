@@ -588,7 +588,9 @@ export default function CreateAgentChatbot() {
     },
   });
 
-  const handleTestDocumentSearch = async () => {
+  const handleTestDocumentSearch = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    
     if (!searchTestQuery.trim()) {
       toast({
         title: "Error",
@@ -688,7 +690,9 @@ export default function CreateAgentChatbot() {
     });
   };
 
-  const handleTestAgent = async () => {
+  const handleTestAgent = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    
     if (!testMessage.trim()) {
       toast({
         title: "Error",
@@ -2365,6 +2369,7 @@ export default function CreateAgentChatbot() {
                             </div>
 
                             <Button
+                              type="button"
                               onClick={handleTestDocumentSearch}
                               disabled={isTestingSearch || !searchTestQuery.trim()}
                               className="w-full bg-purple-600 hover:bg-purple-700"
@@ -2653,6 +2658,7 @@ export default function CreateAgentChatbot() {
 
                                 {/* Test Button */}
                                 <Button
+                                  type="button"
                                   onClick={handleTestAgent}
                                   disabled={isTestingAgent || testAgentMutation.isPending || !testMessage.trim()}
                                   className="w-full bg-green-600 hover:bg-green-700"
