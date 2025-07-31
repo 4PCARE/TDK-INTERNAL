@@ -66,7 +66,7 @@ import {
   Link,
 } from "lucide-react";
 
-import { useRouter } from 'next/router';
+
 
 // Schema for form validation
 const createAgentSchema = z.object({
@@ -154,7 +154,6 @@ export default function CreateAgentChatbot() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
   const queryClient = useQueryClient();
-    const router = useRouter();
 
 
   const [selectedDocuments, setSelectedDocuments] = useState<number[]>([]);
@@ -479,7 +478,7 @@ export default function CreateAgentChatbot() {
         }
       });
 
-            router.back();
+            window.history.back();
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
