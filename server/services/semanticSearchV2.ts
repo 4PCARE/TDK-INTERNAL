@@ -73,7 +73,7 @@ export class SemanticSearchServiceV2 {
       const vectorResults = await vectorService.searchDocuments(
         query, 
         userId, 
-        limit * 3, // Get more chunks to allow for document consolidation
+        limit * 2, 
         options.specificDocumentIds
       );
       console.log(`SemanticSearchV2: Vector service returned ${vectorResults.length} results`);
@@ -90,15 +90,12 @@ export class SemanticSearchServiceV2 {
       const documents = await storage.getDocuments(userId, { limit: 1000 });
       const docMap = new Map(documents.map(doc => [doc.id, doc]));
 
-      // Group chunks by document and keep only the most similar chunk per document
-      const documentBestChunks = new Map<number, {
-        chunk: any;
-        similarity: number;
-        content: string;
-      }>();
+      // Process each chunk individually (no deduplication by document)
+      const results: SearchResult[] = [];
 
       for (const vectorResult of vectorResults) {
         const docId = parseInt(vectorResult.document.metadata.originalDocumentId || vectorResult.document.id);
+        const chunkIndex = vectorResult.document.chunkIndex ?? 0;
         const doc = docMap.get(docId);
 
         if (doc && vectorResult.similarity >= threshold) {
@@ -115,33 +112,27 @@ export class SemanticSearchServiceV2 {
             }
           }
 
-          // Check if this is the best chunk for this document
-          const existingBest = documentBestChunks.get(docId);
-          if (!existingBest || vectorResult.similarity > existingBest.similarity) {
-            documentBestChunks.set(docId, {
-              chunk: vectorResult,
-              similarity: vectorResult.similarity,
-              content: vectorResult.document.content
-            });
+          // Create chunk-level result
+          const chunkId = `${docId}-${chunkIndex ?? 0}`;
+          const chunkLabel = chunkIndex !== undefined ? ` (Chunk ${(chunkIndex ?? 0) + 1})` : "";
+
+          // Debug: Verify we're getting chunk content, not full document
+          if (vectorResult.document.content.length > 3000) {
+            console.warn(`⚠️  SEMANTIC SEARCH: Doc ${docId} chunk ${chunkIndex} has ${vectorResult.document.content.length} chars - might be full document!`);
           }
-        }
-      }
 
-      console.log(`SemanticSearchV2: Consolidated ${vectorResults.length} chunks into ${documentBestChunks.size} documents`);
+          // Debug: Log what we're actually getting from vectorResult
+          console.log(`DEBUG SEMANTIC: Doc ${docId} chunk ${chunkIndex} - vectorResult content length: ${vectorResult.document.content.length}`);
+          console.log(`DEBUG SEMANTIC: Content preview: "${vectorResult.document.content.substring(0, 100)}..."`);
 
-      // Create document-level results using the best chunk content for each document
-      const results: SearchResult[] = [];
-      for (const [docId, bestChunk] of documentBestChunks.entries()) {
-        const doc = docMap.get(docId);
-        if (doc) {
           results.push({
-            id: doc.id.toString(), // Use document ID, not chunk ID
-            name: doc.name, // Remove chunk label
-            content: bestChunk.content, // Use the content from the most similar chunk
-            summary: doc.summary || bestChunk.content.slice(0, 200) + "...",
+            id: chunkId, // Use string ID to avoid conflicts
+            name: doc.name + chunkLabel,
+            content: vectorResult.document.content, // ✅ This should be chunk content from vectorService
+            summary: vectorResult.document.content.slice(0, 200) + "...",
             aiCategory: doc.aiCategory,
             aiCategoryColor: doc.aiCategoryColor,
-            similarity: bestChunk.similarity, // Use the best chunk's similarity score
+            similarity: vectorResult.similarity,
             createdAt: doc.createdAt.toISOString(),
             // Include all fields needed for proper display (matching DocumentCard interface)
             categoryId: doc.categoryId,
@@ -155,7 +146,7 @@ export class SemanticSearchServiceV2 {
         }
       }
 
-      console.log(`SemanticSearchV2: Returning ${results.length} document-level results`);
+      console.log(`SemanticSearchV2: Processed ${results.length} chunk-level results`);
 
       // Sort by similarity and limit results
       return results
@@ -336,20 +327,17 @@ export class SemanticSearchServiceV2 {
         return [];
       }
 
-      // Step 2: Score chunks with both vector and keyword, group by document
-      const documentBestChunks = new Map<number, {
-        docId: number;
-        chunkIndex: number;
-        content: string;
-        similarity: number;
-        vectorScore: number;
-        keywordScore: number;
-      }>();
-
-      vectorResults.forEach(result => {
+      // Step 2: Score chunks with both vector and keyword
+      const scoredChunks = vectorResults.map(result => {
         const docId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
         const chunkIndex = result.document.chunkIndex ?? 0;
+        const chunkId = `${docId}-${chunkIndex}`;
         const chunkText = result.document.content.toLowerCase();
+
+        // Debug: Log chunk content length to catch any full documents sneaking in
+        if (result.document.content.length > 3000) {
+          console.warn(`⚠️  Vector result for doc ${docId} chunk ${chunkIndex} has ${result.document.content.length} chars - suspiciously large for a chunk!`);
+        }
 
         const matchedTerms = searchTerms.filter(term => chunkText.includes(term));
         let keywordScore = matchedTerms.length / searchTerms.length;
@@ -366,64 +354,61 @@ export class SemanticSearchServiceV2 {
         // Calculate combined score
         const combinedScore = Math.min(1.0, result.similarity * vectorWeight + keywordScore * keywordWeight);
 
-        // Keep only the best chunk per document
-        const existingBest = documentBestChunks.get(docId);
-        if (!existingBest || combinedScore > existingBest.similarity) {
-          documentBestChunks.set(docId, {
-            docId,
-            chunkIndex,
-            content: result.document.content,
-            similarity: combinedScore,
-            vectorScore: result.similarity,
-            keywordScore: keywordScore
-          });
-        }
+        return {
+          docId,
+          chunkIndex,
+          chunkId,
+          content: result.document.content,
+          similarity: combinedScore,
+          vectorScore: result.similarity,
+          keywordScore: keywordScore
+        };
       });
 
-      console.log(`📈 Consolidated ${vectorResults.length} chunks into ${documentBestChunks.size} documents with best scores`);
+      console.log(`📈 Scored ${scoredChunks.length} chunks with combined vector+keyword scoring`);
 
-      // Step 3: Convert to array and apply mass selection at document level
-      const documentScores = Array.from(documentBestChunks.values());
-      const totalScore = documentScores.reduce((sum, doc) => sum + doc.similarity, 0);
-      const massSelectionPercentage = options.massSelectionPercentage || 0.6;
+      // Step 3: Rank and select top chunks using configurable mass selection percentage
+      const totalScore = scoredChunks.reduce((sum, c) => sum + c.similarity, 0);
+      const massSelectionPercentage = options.massSelectionPercentage || 0.6; // Default to 60% for document bots
       const scoreThreshold = totalScore * massSelectionPercentage;
 
-      documentScores.sort((a, b) => b.similarity - a.similarity);
+      scoredChunks.sort((a, b) => b.similarity - a.similarity);
 
-      const selectedDocuments = [];
+      const selectedChunks = [];
       let accumulatedScore = 0;
-      const minDocs = Math.min(5, documentScores.length); // Minimum 5 documents
-      const maxDocs = Math.min(15, documentScores.length); // Cap at 15 documents
+      const minChunks = 8; // Minimum 8 chunks for document bots
+      const maxChunks = Math.min(16, scoredChunks.length); // Cap at 16 chunks for document bots
       
-      for (const doc of documentScores) {
-        selectedDocuments.push(doc);
-        accumulatedScore += doc.similarity;
+      for (const chunk of scoredChunks) {
+        selectedChunks.push(chunk);
+        accumulatedScore += chunk.similarity;
         
-        // Only stop if we have at least minimum docs AND reached score threshold, or hit max docs
-        if ((selectedDocuments.length >= minDocs && accumulatedScore >= scoreThreshold) || selectedDocuments.length >= maxDocs) {
+        // Only stop if we have at least minimum chunks AND reached score threshold, or hit max chunks
+        if ((selectedChunks.length >= minChunks && accumulatedScore >= scoreThreshold) || selectedChunks.length >= maxChunks) {
           break;
         }
       }
 
-      console.log(`🎯 DOCUMENT SELECTION: Selected ${selectedDocuments.length} documents (${(massSelectionPercentage * 100).toFixed(1)}% score mass threshold)`);
+      console.log(`🎯 STRICT SELECTION: Selected ${selectedChunks.length} top chunks (${(massSelectionPercentage * 100).toFixed(1)}% score mass threshold, min 8 chunks, max 16 chunks)`);
 
       // Step 4: Load document metadata for display purposes
-      const uniqueDocIds = [...new Set(selectedDocuments.map(d => d.docId))];
+      const uniqueDocIds = [...new Set(selectedChunks.map(c => c.docId))];
       const documents = await storage.getDocuments(userId, { limit: 1000 });
       const docMap = new Map(documents.filter(doc => uniqueDocIds.includes(doc.id)).map(doc => [doc.id, doc]));
 
-      // Step 5: Format final results - return documents with best chunk content
-      const finalResults: SearchResult[] = selectedDocuments.map(docData => {
-        const doc = docMap.get(docData.docId);
+      // Step 5: Format final results - return chunks, not documents
+      const finalResults: SearchResult[] = selectedChunks.map((chunk, index) => {
+        const doc = docMap.get(chunk.docId);
+        const chunkLabel = chunk.chunkIndex !== undefined ? ` (Chunk ${chunk.chunkIndex + 1})` : "";
 
         return {
-          id: docData.docId.toString(), // Use document ID, not chunk ID
-          name: doc?.name ?? "Untitled", // Remove chunk label
-          content: docData.content, // Use content from the most similar chunk
-          summary: doc?.summary || docData.content.slice(0, 200) + "...",
+          id: `${chunk.docId}-${chunk.chunkIndex ?? 0}`, // Use string ID to avoid conflicts
+          name: (doc?.name ?? "Untitled") + chunkLabel,
+          content: chunk.content, // ✅ Use chunk content, not full document
+          summary: chunk.content.slice(0, 200) + "...", // ✅ Generate summary from chunk
           aiCategory: doc?.aiCategory ?? null,
           aiCategoryColor: doc?.aiCategoryColor ?? null,
-          similarity: docData.similarity,
+          similarity: chunk.similarity,
           createdAt: doc?.createdAt?.toISOString() ?? new Date().toISOString(),
           categoryId: doc?.categoryId ?? null,
           tags: doc?.tags ?? null,
@@ -435,7 +420,18 @@ export class SemanticSearchServiceV2 {
         };
       });
 
-      console.log(`✅ Hybrid search: Returned ${finalResults.length} document-level results using best chunk content`);
+      console.log(`✅ Chunk split search: Returned ${finalResults.length} ranked chunks from document_vectors table`);
+
+      // Debug: Log first few results to confirm chunk content (not full doc)
+      finalResults.slice(0, 3).forEach((result, index) => {
+        console.log(`${index + 1}. ${result.name} - Score: ${result.similarity.toFixed(4)}`);
+        console.log(`   Content (${result.content.length} chars): ${result.content.substring(0, 150)}...`);
+
+        // Additional debugging to catch if we're accidentally getting full documents
+        if (result.content.length > 3000) {
+          console.warn(`⚠️  POTENTIAL ISSUE: Result ${index + 1} has ${result.content.length} characters - might be full document instead of chunk!`);
+        }
+      });
 
       return finalResults;
 
