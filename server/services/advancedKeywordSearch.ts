@@ -666,7 +666,7 @@ export async function performAdvancedKeywordSearch(
 
     console.log(`🔍 BM25: Processing ${searchTerms.length} search terms (with Thai variants):`, searchTerms);
 
-    // Get chunks from database
+    // Get chunks from database - use the same imports as other functions
     const { db } = await import('../db');
     const { documentVectors } = await import('@shared/schema');
     const { eq, and, or } = await import('drizzle-orm');
@@ -680,24 +680,42 @@ export async function performAdvancedKeywordSearch(
     }
 
     const chunks = await db.select().from(documentVectors).where(whereCondition);
-    console.log(`🔍 KEYWORD SEARCH: Found ${chunks.length} chunks to search`);
+    console.log(`🔍 ADVANCED KEYWORD: Found ${chunks.length} chunks to search`);
 
     if (chunks.length === 0) {
+      console.log(`🔍 ADVANCED KEYWORD: No chunks found for user ${options.userId}`);
       return [];
     }
 
-    // Use the advanced keyword search service
+    // Use the advanced keyword search service with proper search terms
     const service = new AdvancedKeywordSearchService();
-    const chunkScores = service['calculateChunkScores'](chunks, searchTerms.map(term => ({
-      term,
+    const searchTermObjects = searchTerms.map(term => ({
+      term: term.toLowerCase(),
       weight: 1.0,
-      fuzzy: term.length >= 4
-    })));
+      fuzzy: term.length >= 4,
+      source: 'original' as const
+    }));
+
+    console.log(`🔍 ADVANCED KEYWORD: Processing ${searchTermObjects.length} search term objects`);
+    const chunkScores = service['calculateChunkScores'](chunks, searchTermObjects);
+
+    console.log(`🔍 ADVANCED KEYWORD: Calculated scores for ${chunkScores.length} chunks`);
+    
+    // Filter out zero scores first
+    const scoredChunks = chunkScores.filter(chunk => chunk.score > 0);
+    console.log(`🔍 ADVANCED KEYWORD: ${scoredChunks.length} chunks have positive scores`);
 
     // Sort by relevance and limit results
-    chunkScores.sort((a, b) => b.score - a.score);
+    scoredChunks.sort((a, b) => b.score - a.score);
     const limit = options.limit || 20;
-    const topChunks = chunkScores.slice(0, limit);
+    const topChunks = scoredChunks.slice(0, limit);
+    
+    if (topChunks.length > 0) {
+      console.log(`🔍 ADVANCED KEYWORD: Top 3 scoring chunks:`);
+      topChunks.slice(0, 3).forEach((chunk, i) => {
+        console.log(`  ${i + 1}. Doc ${chunk.documentId}, Chunk ${chunk.chunkIndex}, Score: ${chunk.score.toFixed(4)}`);
+      });
+    }
 
     // Get document metadata for the top chunks
     const { storage } = await import('../storage');
