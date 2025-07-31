@@ -692,7 +692,7 @@ export async function searchSmartHybridDebug(
     const chunkIndexStr = chunkId.substring(lastDashIndex + 1);
     const docId = parseInt(docIdStr);
     const chunkIndex = parseInt(chunkIndexStr);
-    
+
     const keywordInfo = keywordMatches[chunkId];
     const keywordScore = keywordInfo?.score ?? 0;
     const vectorInfo = vectorMatches[chunkId];
@@ -795,23 +795,27 @@ export async function searchSmartHybridDebug(
     const doc = docMap.get(chunk.docId);
     const label = `(Chunk ${chunk.chunkIndex + 1})`;
     const documentName = doc?.name || `Document ${chunk.docId}`;
-    return {
-      id: `${chunk.docId}-${chunk.chunkIndex}`,
-      name: `${documentName} ${label}`,
-      content: chunk.content,
-      summary: chunk.content.slice(0, 200) + "...",
-      aiCategory: doc?.aiCategory ?? null,
-      aiCategoryColor: doc?.aiCategoryColor ?? null,
-      similarity: chunk.finalScore,
-      createdAt: doc?.createdAt?.toISOString() ?? new Date().toISOString(),
-      categoryId: doc?.categoryId ?? null,
-      tags: doc?.tags ?? null,
-      fileSize: doc?.fileSize ?? null,
-      mimeType: doc?.mimeType ?? null,
-      isFavorite: doc?.isFavorite ?? null,
-      updatedAt: doc?.updatedAt?.toISOString() ?? null,
-      userId: doc?.userId ?? userId
-    };
+
+      // Generate consistent chunk ID format
+      const chunkId = `doc${chunk.docId}_chunk${chunk.chunkIndex}`;
+
+      return {
+        id: chunkId,
+        name: `${documentName} ${label}`,
+        content: chunk.content,
+        summary: chunk.content.slice(0, 200) + "...",
+        aiCategory: doc?.aiCategory ?? null,
+        aiCategoryColor: doc?.aiCategoryColor ?? null,
+        similarity: chunk.finalScore,
+        createdAt: doc?.createdAt?.toISOString() ?? new Date().toISOString(),
+        categoryId: doc?.categoryId ?? null,
+        tags: doc?.tags ?? null,
+        fileSize: doc?.fileSize ?? null,
+        mimeType: doc?.mimeType ?? null,
+        isFavorite: doc?.isFavorite ?? null,
+        updatedAt: doc?.updatedAt?.toISOString() ?? null,
+        userId: doc?.userId ?? userId
+      };
   });
 
   // Memory cleanup - clear the objects instead of assigning null
@@ -1073,8 +1077,11 @@ export async function searchSmartHybridV1(
       const doc = docMap.get(chunk.docId);
       const chunkLabel = chunk.chunkIndex !== undefined ? ` (Chunk ${chunk.chunkIndex + 1})` : "";
       const documentName = doc?.name || `Document ${chunk.docId}`;
+       // Generate consistent chunk ID format
+      const chunkId = `doc${chunk.docId}_chunk${chunk.chunkIndex}`;
+
       return {
-        id: `${chunk.docId}-${chunk.chunkIndex}`,
+        id: chunkId,
         name: documentName + chunkLabel,
         content: chunk.content,
         summary: chunk.content.slice(0, 200) + "...",

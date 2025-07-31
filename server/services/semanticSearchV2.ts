@@ -111,8 +111,8 @@ export class SemanticSearchServiceV2 {
             }
           }
 
-          // Create chunk-level result
-          const chunkId = `${docId}-${chunkIndex ?? 0}`;
+          // Create chunk-level result with consistent ID format
+          const chunkId = `doc${docId}_chunk${chunkIndex ?? 0}`;
           const chunkLabel = chunkIndex !== undefined ? ` (Chunk ${(chunkIndex ?? 0) + 1})` : "";
 
           // Debug: Verify we're getting chunk content, not full document
@@ -125,7 +125,7 @@ export class SemanticSearchServiceV2 {
           console.log(`DEBUG SEMANTIC: Content preview: "${vectorResult.document.content.substring(0, 100)}..."`);
 
           results.push({
-            id: chunkId, // Use string ID to avoid conflicts
+            id: chunkId, // Use consistent chunk ID format
             name: doc.name + chunkLabel,
             content: vectorResult.document.content, // ✅ This should be chunk content from vectorService
             summary: vectorResult.document.content.slice(0, 200) + "...",
@@ -341,7 +341,7 @@ export class SemanticSearchServiceV2 {
       const scoredChunks = vectorResults.map(result => {
         const docId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
         const chunkIndex = result.document.chunkIndex ?? 0;
-        const chunkId = `${docId}-${chunkIndex}`;
+        const chunkId = `doc${docId}_chunk${chunkIndex}`;
         const chunkText = result.document.content.toLowerCase();
 
         // Debug: Log chunk content length to catch any full documents sneaking in
@@ -405,7 +405,7 @@ export class SemanticSearchServiceV2 {
         const chunkLabel = chunk.chunkIndex !== undefined ? ` (Chunk ${chunk.chunkIndex + 1})` : "";
 
         return {
-          id: `${chunk.docId}-${chunk.chunkIndex ?? 0}`, // Use string ID to avoid conflicts
+          id: `doc${chunk.docId}_chunk${chunk.chunkIndex ?? 0}`, // Use consistent chunk ID format
           name: (doc?.name ?? "Untitled") + chunkLabel,
           content: chunk.content, // ✅ Use chunk content, not full document
           summary: chunk.content.slice(0, 200) + "...", // ✅ Generate summary from chunk
