@@ -762,8 +762,8 @@ export async function performAdvancedKeywordSearch(
         const document = docMap.get(chunkScore.documentId);
         if (!document) return;
 
-        // Use correct chunkId format
-        const chunkId = `${chunkScore.documentId}-${chunkScore.chunkIndex}`;
+        // Use document ID only for result ID (not chunk-specific ID)
+        const chunkId = chunkScore.documentId.toString();
         const chunkLabel = `(Chunk ${chunkScore.chunkIndex + 1})`;
         const documentName = document.name || `Document ${chunkScore.documentId}`;
 
