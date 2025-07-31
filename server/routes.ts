@@ -865,7 +865,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lastName: users.lastName,
             profileImageUrl: users          .profileImageUrl,
             role: users.role,
-                        departmentId: users.departmentId,
+                        departmentId: users<replit_final_file>
+.departmentId,
             createdAt: users.createdAt,
             updatedAt: users.updatedAt,
           })
