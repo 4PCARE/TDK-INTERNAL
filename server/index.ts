@@ -1,5 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
+import pgSession from "connect-pg-simple";
+import { pool } from "./db";
 import { registerRoutes } from "./routes";
 import { createReplitAuthRouter } from "./replitAuth";
 import { imageAnalysisRoute } from './lineImageService';
@@ -11,8 +13,16 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
-// Session configuration for Microsoft authentication
+// PostgreSQL session store for persistent sessions
+const PostgreSQLStore = pgSession(session);
+
+// Session configuration with PostgreSQL store
 app.use(session({
+  store: new PostgreSQLStore({
+    pool: pool,
+    tableName: 'sessions',
+    createTableIfMissing: true
+  }),
   secret: process.env.SESSION_SECRET || 'your-session-secret-key',
   resave: false,
   saveUninitialized: false,
