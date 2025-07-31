@@ -249,6 +249,8 @@ export default function CreateAgentChatbot() {
       const agent = existingAgent as any;
       console.log("Loading existing agent data:", JSON.stringify(agent, null, 2));
       console.log("Agent guardrails config from DB:", agent.guardrailsConfig);
+      console.log("Agent aliases from DB:", agent.aliases);
+      console.log("Agent aliases type:", typeof agent.aliases);
 
       // Set form values
       form.reset({
@@ -271,7 +273,7 @@ export default function CreateAgentChatbot() {
         memoryEnabled: agent.memoryEnabled || false,
         memoryLimit: agent.memoryLimit || 10,
         searchPrompt: agent.searchPrompt || "",
-        aliases: agent.aliases ? JSON.stringify(agent.aliases, null, 2) : "",
+        aliases: agent.aliases ? (typeof agent.aliases === 'string' ? agent.aliases : JSON.stringify(agent.aliases, null, 2)) : "",
         // Advanced Guardrails Configuration
         guardrailsEnabled: (agent.guardrailsConfig !== null && agent.guardrailsConfig !== undefined),
         guardrailsConfig: agent.guardrailsConfig ? {

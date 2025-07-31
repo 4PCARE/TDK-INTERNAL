@@ -1764,7 +1764,7 @@ export class DatabaseStorage implements IStorage {
     if (integration.channelId !== undefined) updateData.channel_id = integration.channelId;
     if (integration.channelSecret !== undefined) updateData.channel_secret = integration.channelSecret;
     if (integration.channelAccessToken !== undefined) updateData.channel_access_token = integration.channelAccessToken;
-    if (integration.agentId !== undefined) updateData.agent_id = integration.agentId;
+    if (integration.agentId !== undefined)updateData.agent_id = integration.agentId;
     if (integration.isActive !== undefined) updateData.is_active = integration.isActive;
     if (integration.isVerified !== undefined) updateData.is_verified = integration.isVerified;
 
@@ -2022,7 +2022,7 @@ export class DatabaseStorage implements IStorage {
     return newAction;
   }
 
-  async updateLineTemplateAction(id: number, action: Partial<InsertLineTemplateAction>): Promise<LineTemplateAction> {
+  async updateLineTemplateAction(id: number, action: Partial<InsertTemplateAction>): Promise<LineTemplateAction> {
     const [updated] = await db
       .update(lineTemplateActions)
       .set(action)
