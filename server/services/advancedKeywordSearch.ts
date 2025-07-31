@@ -602,23 +602,17 @@ export async function performAdvancedKeywordSearch(
     const segmentedQuery = await processor.segmentThaiText(query);
     console.log(`🔍 Thai segmentation result:`, segmentedQuery);
 
-    let searchTerms = segmentedQuery.segments || [query];
+    // Extract individual terms from the segmented text
+    let searchTerms = segmentedQuery.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+    console.log(`🔍 BM25: Individual terms from Thai segmentation:`, searchTerms);
 
     // Apply alias expansion if provided (works both ways: key->values and values->key)
     if (agentAliases) {
       console.log(`🔍 BM25: Applying bidirectional alias expansion with ${Object.keys(agentAliases).length} alias groups`);
       const expandedTerms = new Set(searchTerms);
 
-      // First, split each search term into individual words for better alias matching
-      const individualTerms = new Set();
-      for (const term of searchTerms) {
-        // Add the original term
-        individualTerms.add(term.toLowerCase());
-
-        // Split into individual words and add them too
-        const words = term.toLowerCase().split(/\s+/).filter(word => word.length > 0);
-        words.forEach(word => individualTerms.add(word));
-      }
+      // Use the already segmented individual terms for alias matching
+      const individualTerms = new Set(searchTerms.map(term => term.toLowerCase()));
 
       console.log(`🔍 BM25: Individual terms for alias matching:`, Array.from(individualTerms));
 
