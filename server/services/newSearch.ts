@@ -8,7 +8,7 @@ const openai = new OpenAI({
 });
 
 // Configuration: Mass selection percentage for smart selection algorithm
-const MASS_SELECTION_PERCENTAGE = 0.3; // 20% - adjust this value to change selection criteria
+const MASS_SELECTION_PERCENTAGE = 0.3; // 30% - adjust this value to change selection criteria
 
 export interface SearchResult {
   id: string;
@@ -685,7 +685,7 @@ export async function searchSmartHybridDebug(
 
         // For document chat, don't stop until we have at least 5 chunks, regardless of mass target
         // For other origins, use default minimum of 2 chunks
-        const minChunks = massSelectionPercentage >= 0.6 ? 5 : 2; // 60% mass = document chat, needs 5 chunks minimum
+        const minChunks = massSelectionPercentage >= 0.3 ? 5 : 2; // 30% mass = document chat, needs 5 chunks minimum
 
         if (potentialScore > scoreTarget && selectedChunks.length >= minChunks) {
           console.log(`📊 STOPPING: Adding chunk ${selectedChunks.length + 1} would exceed ${(massSelectionPercentage * 100).toFixed(1)}% mass target (${(potentialScore/totalScore*100).toFixed(1)}% > ${(massSelectionPercentage * 100).toFixed(1)}%) - stopping at ${selectedChunks.length} chunks`);
