@@ -369,21 +369,27 @@ export class SemanticSearchServiceV2 {
 
       // Step 3: Rank and select top chunks using configurable mass selection percentage
       const totalScore = scoredChunks.reduce((sum, c) => sum + c.similarity, 0);
-      const massSelectionPercentage = options.massSelectionPercentage || 0.3; // Default to 30%
+      const massSelectionPercentage = options.massSelectionPercentage || 0.6; // Default to 60% for document bots
       const scoreThreshold = totalScore * massSelectionPercentage;
 
       scoredChunks.sort((a, b) => b.similarity - a.similarity);
 
       const selectedChunks = [];
       let accumulatedScore = 0;
-      const maxChunks = Math.min(8, scoredChunks.length); // Cap at 8 chunks
+      const minChunks = 8; // Minimum 8 chunks for document bots
+      const maxChunks = Math.min(16, scoredChunks.length); // Cap at 16 chunks for document bots
+      
       for (const chunk of scoredChunks) {
         selectedChunks.push(chunk);
         accumulatedScore += chunk.similarity;
-        if (accumulatedScore >= scoreThreshold || selectedChunks.length >= maxChunks) break;
+        
+        // Only stop if we have at least minimum chunks AND reached score threshold, or hit max chunks
+        if ((selectedChunks.length >= minChunks && accumulatedScore >= scoreThreshold) || selectedChunks.length >= maxChunks) {
+          break;
+        }
       }
 
-      console.log(`🎯 STRICT SELECTION: Selected ${selectedChunks.length} top chunks (${(massSelectionPercentage * 100).toFixed(1)}% score mass threshold, max 8 chunks)`);
+      console.log(`🎯 STRICT SELECTION: Selected ${selectedChunks.length} top chunks (${(massSelectionPercentage * 100).toFixed(1)}% score mass threshold, min 8 chunks, max 16 chunks)`);
 
       // Step 4: Load document metadata for display purposes
       const uniqueDocIds = [...new Set(selectedChunks.map(c => c.docId))];

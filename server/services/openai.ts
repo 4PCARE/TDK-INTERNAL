@@ -405,7 +405,7 @@ export async function generateChatResponse(
             keywordWeight,
             vectorWeight,
             specificDocumentIds: documentIds, // Filter to only agent's documents
-            massSelectionPercentage: 0.3 // Use 30% for document chat
+            massSelectionPercentage: 0.6 // Use 60% for document chat bots
           }
         );
 

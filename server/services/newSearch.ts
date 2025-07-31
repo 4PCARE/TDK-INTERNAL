@@ -45,26 +45,26 @@ export interface SearchOptions {
 function splitIntoChunks(text: string, maxChunkSize = 3000, overlap = 300): string[] {
   const chunks: string[] = [];
   let start = 0;
-  
+
   while (start < text.length) {
     let end = Math.min(start + maxChunkSize, text.length);
-    
+
     // Ensure we don't break words at chunk boundaries (except for the last chunk)
     if (end < text.length) {
       // Find the last complete word within the chunk size
       while (end > start && text[end] !== ' ' && text[end] !== '\n' && text[end] !== '\t') {
         end--;
       }
-      
+
       // If we couldn't find a word boundary, use the original end
       if (end === start) {
         end = Math.min(start + maxChunkSize, text.length);
       }
     }
-    
+
     chunks.push(text.slice(start, end).trim());
     start = end - overlap;
-    
+
     // Adjust start to next word boundary if we're overlapping
     if (start > 0 && start < text.length) {
       while (start < text.length && text[start] !== ' ' && text[start] !== '\n' && text[start] !== '\t') {
@@ -76,7 +76,7 @@ function splitIntoChunks(text: string, maxChunkSize = 3000, overlap = 300): stri
       }
     }
   }
-  
+
   return chunks.filter(chunk => chunk.length > 0);
 }
 
@@ -199,7 +199,7 @@ async function calculateBM25(
     const normalizedTerm = term.toLowerCase().trim();
     if (normalizedTerm.length > 0) {
       expandedSearchTerms.push(normalizedTerm);
-      
+
       // Only add Thai normalized variant for very simple normalization (case + whitespace)
       // Don't create corrupted versions by removing vowels/tone marks
       if (/[\u0E00-\u0E7F]/.test(normalizedTerm)) {
@@ -355,10 +355,10 @@ function normalizeThaiText(text: string): string {
 async function tokenizeWithThaiNormalization(text: string): string[] {
   // Simple tokenization without Thai segmentation for documents
   // Thai segmentation should only be used for query processing
-  
+
   // First normalize Thai spacing
   let normalizedText = normalizeThaiSpacing(text);
-  
+
   const tokens = normalizedText
     .toLowerCase()
     .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
@@ -420,10 +420,10 @@ function isThaiTokenSimilar(term1: string, term2: string): boolean {
   // Normalize spaces for both terms
   const normalized1 = term1.toLowerCase().replace(/\s+/g, '');
   const normalized2 = term2.toLowerCase().replace(/\s+/g, '');
-  
+
   // Exact match after space normalization
   if (normalized1 === normalized2) return true;
-  
+
   // Special handling for Thai brand names with spacing variations
   // Check if removing spaces makes them match (e.g., "แมคโดนัลด์" vs "แมค โดนัลด์")
   const spaceless1 = term1.replace(/\s+/g, '');
@@ -431,26 +431,26 @@ function isThaiTokenSimilar(term1: string, term2: string): boolean {
   if (spaceless1.toLowerCase() === spaceless2.toLowerCase()) {
     return true;
   }
-  
+
   // Check if one contains the other (for partial matches like "แมค" vs "แมคโดนัลด์")
   if (normalized1.length >= 3 && normalized2.length >= 3) {
     if (normalized1.includes(normalized2) || normalized2.includes(normalized1)) {
       return true;
     }
-    
+
     // Also check with original spacing preserved
     const lower1 = term1.toLowerCase();
     const lower2 = term2.toLowerCase();
     if (lower1.includes(lower2) || lower2.includes(lower1)) {
       return true;
     }
-    
+
     // Levenshtein distance for typos (both with and without spaces)
     const similarity1 = calculateSimilarity(normalized1, normalized2);
     const similarity2 = calculateSimilarity(lower1, lower2);
     return Math.max(similarity1, similarity2) >= 0.85;
   }
-  
+
   return false;
 }
 
@@ -476,11 +476,11 @@ export async function searchSmartHybridDebug(
   // Only use PythaiNLP for query processing, not document processing
   console.log(`🔍 QUERY PROCESSING: Segmenting Thai text for search terms only`);
   const { thaiTextProcessor } = await import('./thaiTextProcessor');
-  
+
   // First normalize Thai spacing in the search query
   const normalizedQuery = normalizeThaiSpacing(searchQuery);
   console.log(`🔍 THAI NORMALIZATION: "${searchQuery}" → "${normalizedQuery}"`);
-  
+
   const tokenizedQuery = await thaiTextProcessor.segmentThaiText(normalizedQuery);
   console.log(`🔍 QUERY PROCESSING: Result: "${tokenizedQuery}"`);
 
@@ -663,13 +663,14 @@ export async function searchSmartHybridDebug(
   // 5. Sort by finalScore and apply smart selection
   scoredChunks.sort((a, b) => b.finalScore - a.finalScore);
 
-  // Smart selection: TRUE 90% mass selection (not percentile!)
-  const maxResults = Math.min(8, scoredChunks.length); // Cap at 50 results to prevent overwhelming responses
+  // Smart selection: TRUE mass-based selection for document bots
+  const minResults = massSelectionPercentage >= 0.6 ? 8 : 2; // Document bots need minimum 8 chunks
+  const maxResults = massSelectionPercentage >= 0.6 ? Math.min(16, scoredChunks.length) : Math.min(8, scoredChunks.length); // Document bots cap at 16 chunks
 
   let selectedChunks = [];
 
   if (scoredChunks.length > 0) {
-    // Use TRUE mass-based selection - accumulate until we get 90% of total score
+    // Use TRUE mass-based selection - accumulate until we get the target percentage of total score
     const totalScore = scoredChunks.reduce((sum, c) => sum + c.finalScore, 0);
     const avgScore = totalScore / scoredChunks.length;
 
@@ -678,16 +679,13 @@ export async function searchSmartHybridDebug(
       const scoreTarget = totalScore * massSelectionPercentage;
       let accScore = 0;
 
-      console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, ${(massSelectionPercentage * 100).toFixed(1)}% target: ${scoreTarget.toFixed(4)}`);
+      console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, ${(massSelectionPercentage * 100).toFixed(1)}% target: ${scoreTarget.toFixed(4)}, min ${minResults} chunks, max ${maxResults} chunks`);
 
       for (const chunk of scoredChunks) {
         const potentialScore = accScore + chunk.finalScore;
 
-        // For document chat, don't stop until we have at least 5 chunks, regardless of mass target
-        // For other origins, use default minimum of 2 chunks
-        const minChunks = massSelectionPercentage >= 0.3 ? 5 : 2; // 30% mass = document chat, needs 5 chunks minimum
-
-        if (potentialScore > scoreTarget && selectedChunks.length >= minChunks) {
+        // For document bots (60% mass), don't stop until we have at least 8 chunks, regardless of mass target
+        if (potentialScore > scoreTarget && selectedChunks.length >= minResults) {
           console.log(`📊 STOPPING: Adding chunk ${selectedChunks.length + 1} would exceed ${(massSelectionPercentage * 100).toFixed(1)}% mass target (${(potentialScore/totalScore*100).toFixed(1)}% > ${(massSelectionPercentage * 100).toFixed(1)}%) - stopping at ${selectedChunks.length} chunks`);
           break;
         }
@@ -695,21 +693,17 @@ export async function searchSmartHybridDebug(
         selectedChunks.push(chunk);
         accScore += chunk.finalScore;
 
-        console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, mass=${(accScore/totalScore*100).toFixed(1)}% (need ${(massSelectionPercentage * 100).toFixed(1)}%)`);
-
-        // Check if we've reached the target mass AND minimum chunks
-        if (accScore >= scoreTarget && selectedChunks.length >= minChunks) {
-          console.log(`📊 STOPPING: Reached ${(massSelectionPercentage * 100).toFixed(1)}% mass target (${(accScore/totalScore*100).toFixed(1)}%) with ${selectedChunks.length} chunks`);
-          break;
-        }
-
-        // Safety cap to prevent excessive results
         if (selectedChunks.length >= maxResults) {
-          console.log(`📊 STOPPING: Hit safety cap at ${maxResults} chunks`);
+          console.log(`📊 STOPPING: Reached maximum ${maxResults} chunks`);
           break;
         }
       }
-    } else {
+
+    // Calculate selected chunks total score
+    const selectedTotalScore = selectedChunks.reduce((sum, c) => sum + c.finalScore, 0);
+    console.log(`📊 SCORE BREAKDOWN: ${selectedTotalScore.toFixed(4)} out of ${totalScore.toFixed(4)} (${(selectedTotalScore/totalScore*100).toFixed(1)}%)`);
+    console.log(`🎯 TRUE MASS SELECTION (${(massSelectionPercentage * 100).toFixed(1)}%): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} chunks capturing ${(selectedTotalScore/totalScore*100).toFixed(1)}% of total score mass`);
+  } else {
       // If scores are very low, take top 5 as fallback
       selectedChunks = scoredChunks.slice(0, Math.min(5, scoredChunks.length));
     }
@@ -1038,7 +1032,7 @@ async function performKeywordSearch(
   console.log(`🔍 performKeywordSearch: Tokenizing query: "${query}"`);
   const { thaiTextProcessor } = await import('./thaiTextProcessor');
   const tokenizedQuery = await thaiTextProcessor.segmentThaiText(query);
-  
+
   const searchTerms = tokenizedQuery.toLowerCase().split(/\s+/).filter(Boolean);
   console.log(`🔍 performKeywordSearch: Starting with tokenized terms: [${searchTerms.join(', ')}]`);
 
