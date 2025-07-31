@@ -209,6 +209,19 @@ export default function Documents() {
 
     return matchesCategory && matchesTag && matchesFavorites;
   }).sort((a: any, b: any) => {
+    // For document-priority search, preserve the backend ordering which prioritizes by score
+    if (hasSearched && currentSearchType === "document-priority") {
+      // If documents have equal importance (same search result position), sort by recency
+      const aIndex = documentsArray.indexOf(a);
+      const bIndex = documentsArray.indexOf(b);
+      if (aIndex !== bIndex) {
+        return aIndex - bIndex; // Preserve backend order
+      }
+      // If same position (shouldn't happen), fall back to recency
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
+
+    // For other search types or when no search is applied, use the selected sort option
     switch (sortBy) {
       case "newest":
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
