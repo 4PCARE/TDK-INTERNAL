@@ -1518,6 +1518,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         case "document-priority":
         case "keyword-name-priority":
         case "filename-only":
+          // Enhanced search that prioritizes document names, then keywords, then semantic (when enabled)
+          const searchFileName = req.query.searchFileName === 'true';
+          const searchKeyword = req.query.searchKeyword === 'true'; 
+          const searchMeaning = req.query.searchMeaning === 'true';
+          const massPercentage = parseFloat(req.query.massSelectionPercentage as string) || 0.6;
+
           const { documentNamePrioritySearchService } = await import('./services/documentNamePrioritySearch');
           results = await documentNamePrioritySearchService.searchDocuments(
             query,
@@ -1525,9 +1531,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             {
               limit: 100,
               massSelectionPercentage: massPercentage,
-              enableNameSearch: true,
-              enableKeywordSearch: type !== "filename-only",
-              enableSemanticSearch: false // Disable semantic search by default for document-priority
+              enableNameSearch: searchFileName !== false, // Default to true unless explicitly disabled
+              enableKeywordSearch: searchKeyword !== false && type !== "filename-only", // Default to true unless explicitly disabled
+              enableSemanticSearch: searchMeaning === true // Only enable when explicitly requested
             }
           );
           break;
