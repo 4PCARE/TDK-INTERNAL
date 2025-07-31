@@ -1045,11 +1045,11 @@ async function getAiResponseDirectly(
           (msg) => msg.messageType === "system",
         );
         console.log(
-          `Total system messages in history: ${allSystemMessages.length}`,
+          `🔍 Total system messages in history: ${allSystemMessages.length}`,
         );
         allSystemMessages.forEach((msg, index) => {
           console.log(
-            `System ${index + 1}: ${msg.content.substring(0, 100)}... (metadata: ${JSON.stringify(msg.metadata)})`,
+            `📝 System ${index + 1}: ${msg.content.substring(0, 100)}... (metadata: ${JSON.stringify(msg.metadata)})`,
           );
         });
       }
@@ -1061,7 +1061,7 @@ async function getAiResponseDirectly(
         role: "system",
         content: `${agent.systemPrompt}${contextPrompt}
 
-สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้ มูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว
+สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้ ��มูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว
 
 ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
 ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
@@ -1302,21 +1302,6 @@ ${imageContext}`;
 
 // Store processed message IDs to prevent duplicates with timestamp for cleanup
 const processedMessageIds = new Map<string, number>();
-
-// Utility function to extract agent aliases
-function getAgentAliases(agent: any): Record<string, string[]> {
-  let agentAliases: Record<string, string[]> = {};
-  if (agent.aliases) {
-    try {
-      agentAliases = typeof agent.aliases === 'string' 
-        ? JSON.parse(agent.aliases) 
-        : agent.aliases;
-    } catch (error) {
-      console.error(`⚠️ Error parsing agent aliases for agent ${agent.name}:`, error);
-    }
-  }
-  return agentAliases;
-}
 
 // Clean up old processed message IDs (older than 1 hour)
 const cleanupProcessedMessages = () => {
@@ -1999,14 +1984,7 @@ ${imageAnalysisResult}
                 `🔍 LINE OA: Query needs search, performing smart hybrid search with enhanced query`,
               );
 
-              // Step 2: Get agent aliases for term expansion
-              const agentAliases = getAgentAliases(agent);
-              console.log(`🔍 LINE OA: Loaded ${Object.keys(agentAliases).length} alias groups for agent ${agent.name}`);
-              if (Object.keys(agentAliases).length > 0) {
-                console.log(`🔍 LINE OA: Agent aliases:`, agentAliases);
-              }
-
-              // Step 3: Perform new search workflow with agent's bound documents (smart hybrid)
+              // Step 2: Perform new search workflow with agent's bound documents (smart hybrid)
               const { searchSmartHybridDebug } = await import(
                 "./services/newSearch"
               );
@@ -2021,7 +1999,6 @@ ${imageAnalysisResult}
                   vectorWeight: queryAnalysis.vectorWeight,
                   specificDocumentIds: agentDocIds, // Restrict search to agent's bound documents
                   massSelectionPercentage: 0.3, // Use 30% mass selection for Line OA
-                  agentAliases: agentAliases, // Pass agent aliases for term expansion
                 },
               );
 
@@ -2077,7 +2054,7 @@ ${imageAnalysisResult}
                 // Step 4: Build system prompt with document context (mirroring debug-prompt-inspector)
                 const baseSystemPrompt = `${agent.systemPrompt}
 
-เอกสารอ้างอิงสำหรับการตอบคำถาม:
+เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
 ${documentContext}
 
 สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้อมูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว

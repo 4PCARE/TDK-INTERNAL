@@ -1,3 +1,4 @@
+
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -22,15 +23,12 @@ export class QueryPreprocessorService {
   async analyzeQuery(
     userQuery: string,
     chatHistory: ChatMessage[] = [],
-    context?: string,
-    customPrompt?: string,
-    aliases?: { [key: string]: string[] }
+    context?: string
   ): Promise<QueryAnalysis> {
     try {
       console.log(`🧠 PRE-FEED: Analyzing query "${userQuery}"`);
-
-      // Apply custom search prompt and aliases
-      let enhancedSystemPrompt = `You are a query analysis AI for a Thai shopping mall information system. Your job is to:
+      
+      const systemPrompt = `You are a query analysis AI for a Thai shopping mall information system. Your job is to:
 
 1. **CRITICAL: Inject Historical Context**
    - ALWAYS examine the chat history for relevant context, especially:
@@ -40,22 +38,7 @@ export class QueryPreprocessorService {
    - If the user's query is vague (e.g., "อยู่ชั้นไหน", "ราคาเท่าไหร่", "มีส่วนลดมั้ย") but chat history contains specific context (store names, brands, products), YOU MUST inject that context into the enhanced query
    - Example: User says "อยู่ชั้นไหน" and history mentions "OPPO" → Enhanced query should be "OPPO อยู่ ชั้น"
 
-2. **ALIAS EXPANSION**: Apply the following term aliases when any of these terms appear in the query:`;
-
-      if (aliases && Object.keys(aliases).length > 0) {
-        enhancedSystemPrompt += `\n   - Aliases to apply:\n`;
-        for (const [primary, alternates] of Object.entries(aliases)) {
-          enhancedSystemPrompt += `     • If you find "${primary}" or any of [${alternates.join(', ')}], include ALL terms: ${primary}, ${alternates.join(', ')}\n`;
-        }
-        enhancedSystemPrompt += `   - When aliases are found, add ALL related terms to the enhanced query for better search coverage.\n`;
-      }
-
-      if (customPrompt && customPrompt.trim()) {
-        enhancedSystemPrompt += `\n3. **CUSTOM SEARCH GUIDANCE**: ${customPrompt.trim()}\n`;
-      }
-
-      enhancedSystemPrompt += `
-${customPrompt || aliases ? '4.' : '3.'} Preprocess the user's query:
+2. Preprocess the user's query:
    - If the query is in Thai:
      - **PRIORITY** ALWAYS segment Thai text using PythaiNLP for proper word boundaries
      - Remove Thai stopwords such as: "ครับ", "ค่ะ", "เหรอ", "ไหน", "ยังไง", "ไหม", "อ่ะ", "ละ", etc.
@@ -70,15 +53,15 @@ ${customPrompt || aliases ? '4.' : '3.'} Preprocess the user's query:
   - Increase the formality of the query because bound documents are written in formal Thai. For example, "ร้านหมอฟัน" should be "คลินิก ทันตกรรม"
   - **PRIORITY** If the query has English terms, keep it as is. For example, don't translate "Provident fund" to "กองทุนสำรองเลี้ยงชีพ"
 
-${customPrompt || aliases ? '5.' : '4.'} Determine if the user's query requires a document search:
+3. Determine if the user's query requires a document search:
    - Mark \`needsSearch: false\` if the query is vague, purely conversational, AND lacks historical context. For example, common short words like "แก", "นาย", "เธอ", "ครับ", "ค่ะ", or openers like "สวัสดี", "ว่าไง", "คุณชื่ออะไร", "คุณทำอะไรได้บ้าง", or rhetorical/sarcastic lines like "แกไม่มีสิทธิ์มาเรียกฉันว่าพ่อ"
      - **CRITICAL** even though the information is already provided, the user might want to confirm the result or the results could be updated. Mark needSearch as ture.
    - Mark \`needsSearch: true\` if:
      • The query contains specific nouns or named entities (e.g., product names, service names, brands, locations, floors, HR terms like "ลาหยุด", "สวัสดิการ", "เบิกเงิน")
      • The query follows an information-seeking pattern (e.g., "มีไหม", "เปิดกี่โมง", "ต้องใช้เอกสารอะไรบ้าง", "ได้กี่วัน", "ทำยังไง", "ขั้นตอนคืออะไร")
-     • The query can be made meaningful using recent chat history (e.g., pronouns like "ที่นั่น", "ตรงนั้น", "อันนั้น" after a previous store or topic)
+     • The query can be made meaningful using recent chat history (e.g., pronouns like “ที่นั่น”, “ตรงนั้น”, “อันนั้น” after a previous store or topic)
 
-${customPrompt || aliases ? '6.' : '5.'} If a search is needed:
+4. If a search is needed:
    - **PRIORITY 1**: Inject specific context from chat history (store names, brands, locations)
    - **PRIORITY 2**: Enhance with relevant terms and category context:
      - For food or drink: \`"อาหาร"\`, \`"ร้านอาหาร"\`, \`"dining"\`
@@ -87,7 +70,7 @@ ${customPrompt || aliases ? '6.' : '5.'} If a search is needed:
    - Search anyway even tho agent have answered in the history. The user might want to confirm the result.
      - For example, don't return false with this reason "Since the assistant has already provided a response indicating that there is no OPPO store in that location, the query does not require a new search", instead, return true because there might be an update in the data.
 
-${customPrompt || aliases ? '7.' : '6.'} Set hybrid search weights:
+5. Set hybrid search weights:
    - Questions about **store names, specific locations, contact details, or floor info** → High keyword weight (0.85–0.95)
    - **General recommendations, service comparisons, or abstract needs** → Higher semantic weight (0.8–0.9)
    - For example
@@ -102,11 +85,8 @@ Respond in JSON format:
   "enhancedQuery": "enhanced search phrase in Thai/English",
   "keywordWeight": 0.0-1.0,
   "vectorWeight": 0.0-1.0,
-  "reasoning": "explanation of your decision",
-  "aliasesApplied": ["list of aliases that were applied"]
+  "reasoning": "explanation of your decision"
 }`;
-
-      const systemPrompt = enhancedSystemPrompt;
 
       const chatHistoryText = chatHistory
         .slice(-5) // Last 5 messages for context
@@ -182,15 +162,15 @@ Analyze this query and provide your response.`;
   private getFallbackAnalysis(userQuery: string): QueryAnalysis {
     // Simple fallback logic
     const lowerQuery = userQuery.toLowerCase();
-
+    
     // Check if it's a location question
     const isLocationQuery = /อยู่ไหน|ชั้นไหน|ที่ไหน|where|location|floor/.test(lowerQuery);
-
+    
     // Check for store names
     const hasStoreName = /oppo|xolo|kfc|starbucks|uniqlo|ทำเล|ร้าน/.test(lowerQuery);
-
+    
     const needsSearch = isLocationQuery || hasStoreName || lowerQuery.length > 3;
-
+    
     return {
       needsSearch,
       enhancedQuery: userQuery,

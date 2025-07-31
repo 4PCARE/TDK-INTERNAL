@@ -41,8 +41,8 @@ export class SemanticSearchServiceV2 {
   async searchDocuments(
     query: string,
     userId: string,
-    options: SearchOptions = {},
-  ): Promise<SearchResult[] & { searchStats?: any }> {
+    options: SearchOptions
+  ): Promise<SearchResult[]> {
     const { searchType, limit = 20, threshold = this.similarityThreshold } = options;
 
     try {
@@ -111,8 +111,8 @@ export class SemanticSearchServiceV2 {
             }
           }
 
-          // Create chunk-level result with consistent ID format
-          const chunkId = `doc${docId}_chunk${chunkIndex ?? 0}`;
+          // Create chunk-level result
+          const chunkId = `${docId}-${chunkIndex ?? 0}`;
           const chunkLabel = chunkIndex !== undefined ? ` (Chunk ${(chunkIndex ?? 0) + 1})` : "";
 
           // Debug: Verify we're getting chunk content, not full document
@@ -125,7 +125,7 @@ export class SemanticSearchServiceV2 {
           console.log(`DEBUG SEMANTIC: Content preview: "${vectorResult.document.content.substring(0, 100)}..."`);
 
           results.push({
-            id: chunkId, // Use consistent chunk ID format
+            id: chunkId, // Use string ID to avoid conflicts
             name: doc.name + chunkLabel,
             content: vectorResult.document.content, // ✅ This should be chunk content from vectorService
             summary: vectorResult.document.content.slice(0, 200) + "...",
@@ -284,7 +284,7 @@ export class SemanticSearchServiceV2 {
     query: string,
     userId: string,
     options: Omit<SearchOptions, "searchType">
-  ): Promise<SearchResult[] & { searchStats?: any }> {
+  ): Promise<SearchResult[]> {
     try {
       const keywordWeight = options.keywordWeight || 0.4;
       const vectorWeight = options.vectorWeight || 0.6;
@@ -292,22 +292,11 @@ export class SemanticSearchServiceV2 {
       console.log(`Hybrid search using weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
 
       // Use the new chunk split and rank search method
-      console.log(`🔄 Hybrid search: Using performChunkSplitAndRankSearch method`);
-
-    const startTime = Date.now();
-    const results = await this.performChunkSplitAndRankSearch(query, userId, options);
-    const endTime = Date.now();
-
-    // Add search statistics to results
-    (results as any).searchStats = {
-      totalDocuments: options.specificDocumentIds?.length || 0,
-      retrievedChunks: results.length,
-      searchTime: endTime - startTime,
-      searchMethod: 'chunk_split_rank'
-    };
-
-      console.log(`🔄 Hybrid search: Returning ${results.length} chunk-based results`);
-      return results;
+      console.log("🔄 Hybrid search: Using performChunkSplitAndRankSearch method");
+      const chunkResults = await this.performChunkSplitAndRankSearch(query, userId, options);
+      
+      console.log(`🔄 Hybrid search: Returning ${chunkResults.length} chunk-based results`);
+      return chunkResults;
 
     } catch (error) {
       console.error("Error performing hybrid search:", error);
@@ -341,9 +330,9 @@ export class SemanticSearchServiceV2 {
       const scoredChunks = vectorResults.map(result => {
         const docId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
         const chunkIndex = result.document.chunkIndex ?? 0;
-        const chunkId = `doc${docId}_chunk${chunkIndex}`;
+        const chunkId = `${docId}-${chunkIndex}`;
         const chunkText = result.document.content.toLowerCase();
-
+        
         // Debug: Log chunk content length to catch any full documents sneaking in
         if (result.document.content.length > 3000) {
           console.warn(`⚠️  Vector result for doc ${docId} chunk ${chunkIndex} has ${result.document.content.length} chars - suspiciously large for a chunk!`);
@@ -405,7 +394,7 @@ export class SemanticSearchServiceV2 {
         const chunkLabel = chunk.chunkIndex !== undefined ? ` (Chunk ${chunk.chunkIndex + 1})` : "";
 
         return {
-          id: `doc${chunk.docId}_chunk${chunk.chunkIndex ?? 0}`, // Use consistent chunk ID format
+          id: `${chunk.docId}-${chunk.chunkIndex ?? 0}`, // Use string ID to avoid conflicts
           name: (doc?.name ?? "Untitled") + chunkLabel,
           content: chunk.content, // ✅ Use chunk content, not full document
           summary: chunk.content.slice(0, 200) + "...", // ✅ Generate summary from chunk
@@ -429,7 +418,7 @@ export class SemanticSearchServiceV2 {
       finalResults.slice(0, 3).forEach((result, index) => {
         console.log(`${index + 1}. ${result.name} - Score: ${result.similarity.toFixed(4)}`);
         console.log(`   Content (${result.content.length} chars): ${result.content.substring(0, 150)}...`);
-
+        
         // Additional debugging to catch if we're accidentally getting full documents
         if (result.content.length > 3000) {
           console.warn(`⚠️  POTENTIAL ISSUE: Result ${index + 1} has ${result.content.length} characters - might be full document instead of chunk!`);
@@ -542,53 +531,3 @@ export class SemanticSearchServiceV2 {
 }
 
 export const semanticSearchServiceV2 = new SemanticSearchServiceV2();
-
-export async function searchSmartHybridDebug(
-  query: string,
-  userId: string,
-  options: Omit<SearchOptions, 'searchType'> = {}
-): Promise<SearchResult[]> {
-  console.log(`🔍 SMART HYBRID SEARCH: Starting for query "${query}" by user ${userId}`);
-  console.log(`📋 Search options:`, options);
-
-  try {
-    // Get document IDs and agent configuration if restricted
-    let searchDocumentIds = options.documentIds;
-    let agentAliases: Record<string, string[]> | undefined;
-
-    if (options.agentId) {
-      console.log(`🤖 Agent-restricted search: Getting documents for agent ${options.agentId}`);
-      const agentDocuments = await storage.getAgentChatbotDocuments(options.agentId);
-      searchDocumentIds = agentDocuments.map(doc => doc.documentId);
-      console.log(`📚 Agent documents: [${searchDocumentIds.join(', ')}]`);
-
-      // Get agent configuration including aliases
-      const agent = await storage.getAgentChatbot(options.agentId);
-      if (agent?.aliases) {
-        agentAliases = agent.aliases;
-        console.log(`🔍 AGENT ALIASES: Loaded ${Object.keys(agentAliases).length} alias mappings`);
-      }
-    }
-
-    // Phase 1: Advanced Keyword Search with BM25
-    console.log(`🔍 PHASE 1: Starting advanced keyword search`);
-    const keywordResults = await performAdvancedKeywordSearch(
-      query, 
-      searchDocumentIds, 
-      { 
-        ...options, 
-        searchType: 'keyword',
-        maxResults: 200  // Get more for hybrid scoring
-      },
-      agentAliases  // Pass agent aliases for term expansion
-    );
-
-    console.log(`✅ PHASE 1 COMPLETE: Found ${keywordResults.length} keyword results`);
-
-    return keywordResults.slice(0, options.limit || 20);
-
-  } catch (error) {
-    console.error("❌ SMART HYBRID SEARCH ERROR:", error);
-    throw new Error("Failed to perform smart hybrid search");
-  }
-}

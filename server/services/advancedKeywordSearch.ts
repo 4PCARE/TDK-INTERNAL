@@ -1,3 +1,4 @@
+
 import { storage } from '../storage';
 import { aiKeywordExpansionService } from './aiKeywordExpansion';
 import { db } from '../db';
@@ -96,7 +97,7 @@ export class AdvancedKeywordSearchService {
           if (!document) return;
 
           const existingResult = documentResults.get(chunkScore.documentId);
-
+          
           // If this document already has a result, only replace if this chunk has a better score
           if (!existingResult || chunkScore.score > existingResult.similarity) {
             documentResults.set(chunkScore.documentId, {
@@ -260,7 +261,7 @@ export class AdvancedKeywordSearchService {
     }
 
     let fuzzyMatch = false;
-
+    
     // If no exact matches, try fuzzy matching
     if (exactMatches === 0) {
       // Token-level fuzzy matching
@@ -277,7 +278,7 @@ export class AdvancedKeywordSearchService {
           }
         }
       }
-
+      
       // Partial matching for longer terms
       if (fuzzyMatches === 0 && term.length >= 4) {
         const partialPositions = this.findPartialMatches(term, chunkText);
@@ -342,41 +343,41 @@ export class AdvancedKeywordSearchService {
       .replace(/[์็่้๊๋]/g, '') // Remove tone marks
       .replace(/[ะาิีึืุูเแโใไ]/g, 'a') // Normalize vowels
       .toLowerCase();
-
+    
     const norm1 = normalize(term1);
     const norm2 = normalize(term2);
-
+    
     const distance = this.levenshteinDistance(norm1, norm2);
     const maxLength = Math.max(norm1.length, norm2.length);
     const similarity = (maxLength - distance) / maxLength;
-
+    
     return similarity >= 0.75; // Slightly lower threshold for Thai
   }
 
   private findPartialMatches(term: string, text: string): number[] {
     const positions: number[] = [];
-
+    
     // Find partial matches for longer terms
     if (term.length >= 4) {
       const words = text.split(/\s+/);
       let currentPos = 0;
-
+      
       for (const word of words) {
         const wordPos = text.indexOf(word, currentPos);
-
+        
         // Check if word contains most characters from the term
         const termChars = term.toLowerCase().split('');
         const wordChars = word.toLowerCase().split('');
         const matchingChars = termChars.filter(char => wordChars.includes(char));
-
+        
         if (matchingChars.length >= Math.ceil(term.length * 0.7)) {
           positions.push(wordPos);
         }
-
+        
         currentPos = wordPos + word.length;
       }
     }
-
+    
     return positions;
   }
 
@@ -449,7 +450,7 @@ export class AdvancedKeywordSearchService {
       // Get AI keyword expansion
       console.log(`Getting AI keyword expansion for: "${query}"`);
       const expansionResult = await aiKeywordExpansionService.getExpandedSearchTerms(query, chatHistory);
-
+      
       console.log(`AI Expansion Result:`, {
         original: expansionResult.original,
         expanded: expansionResult.expanded,
@@ -459,7 +460,7 @@ export class AdvancedKeywordSearchService {
 
       // Parse original query
       const originalSearchTerms = this.parseQuery(query);
-
+      
       // Create enhanced search terms combining original and AI-expanded
       const enhancedSearchTerms: SearchTerm[] = [
         // Original terms with high weight
@@ -467,7 +468,7 @@ export class AdvancedKeywordSearchService {
           ...term,
           source: 'original' as const
         })),
-
+        
         // AI-expanded terms with contextual weight
         ...expansionResult.expanded
           .filter(keyword => !originalSearchTerms.some(ot => ot.term.toLowerCase() === keyword.toLowerCase()))
@@ -523,7 +524,7 @@ export class AdvancedKeywordSearchService {
           if (!document) return;
 
           const existingResult = documentResults.get(chunkScore.documentId);
-
+          
           // If this document already has a result, only replace if this chunk has a better score
           if (!existingResult || chunkScore.score > existingResult.similarity) {
             documentResults.set(chunkScore.documentId, {
@@ -583,208 +584,3 @@ export class AdvancedKeywordSearchService {
 }
 
 export const advancedKeywordSearchService = new AdvancedKeywordSearchService();
-
-import { SearchOptions, SearchResult } from '@shared/types';
-
-export async function performAdvancedKeywordSearch(
-  query: string,
-  userId: string,
-  documentIds?: number[],
-  options: SearchOptions = {},
-  agentAliases?: Record<string, string[]>
-): Promise<SearchResult[]> {
-  console.log(`🔍 ADVANCED KEYWORD SEARCH: Starting search for "${query}" for user ${userId}`);
-
-  try {
-    // Get Thai segmentation
-    const { ThaiTextProcessor } = await import('./thaiTextProcessor');
-    const processor = new ThaiTextProcessor();
-    const segmentedQuery = await processor.segmentThaiText(query);
-    console.log(`🔍 Thai segmentation result:`, segmentedQuery);
-
-    // Extract individual terms from the segmented text
-    let searchTerms = segmentedQuery.toLowerCase().split(/\s+/).filter(term => term.length > 0);
-    console.log(`🔍 BM25: Individual terms from Thai segmentation:`, searchTerms);
-
-    // Apply alias expansion if provided (works both ways: key->values and values->key)
-    if (agentAliases) {
-      console.log(`🔍 BM25: Applying bidirectional alias expansion with ${Object.keys(agentAliases).length} alias groups`);
-      const expandedTerms = new Set(searchTerms);
-
-      // Use the already segmented individual terms for alias matching
-      const individualTerms = new Set(searchTerms.map(term => term.toLowerCase()));
-
-      console.log(`🔍 BM25: Individual terms for alias matching:`, Array.from(individualTerms));
-
-      // Process each individual term for alias expansion
-      for (const term of individualTerms) {
-        const lowerTerm = term.toLowerCase();
-
-        // Method 1: Check if this term is a key in aliases (key -> values)
-        if (agentAliases[term] || agentAliases[lowerTerm]) {
-          const aliasGroup = agentAliases[term] || agentAliases[lowerTerm];
-          aliasGroup.forEach(alias => {
-            expandedTerms.add(alias.toLowerCase());
-            // Also add individual words from multi-word aliases
-            const aliasWords = alias.toLowerCase().split(/\s+/).filter(word => word.length > 0);
-            aliasWords.forEach(word => expandedTerms.add(word));
-          });
-          console.log(`🔍 BM25: Expanded key "${term}" with values:`, aliasGroup);
-        }
-
-        // Method 2: Check if this term is a value in any alias group (value -> key + other values)
-        for (const [key, values] of Object.entries(agentAliases)) {
-          const lowerValues = values.map(v => v.toLowerCase());
-          const matchFound = lowerValues.includes(lowerTerm) || 
-            lowerValues.some(value => value.toLowerCase().split(/\s+/).includes(lowerTerm));
-
-          if (matchFound) {
-            // Add the key
-            expandedTerms.add(key.toLowerCase());
-            // Add all values in this group
-            values.forEach(alias => {
-              expandedTerms.add(alias.toLowerCase());
-              // Also add individual words from multi-word aliases
-              const aliasWords = alias.toLowerCase().split(/\s+/).filter(word => word.length > 0);
-              aliasWords.forEach(word => expandedTerms.add(word));
-            });
-            console.log(`🔍 BM25: Found "${term}" as value, expanded with key "${key}" and all values:`, values);
-            break; // Found in this group, no need to check others
-          }
-        }
-      }
-
-      searchTerms = Array.from(expandedTerms);
-      console.log(`🔍 BM25: Final bidirectionally expanded terms:`, searchTerms);
-    }
-
-    console.log(`🔍 BM25: Processing ${searchTerms.length} search terms (with Thai variants):`, searchTerms);
-
-    // Get chunks from database - use the same imports as other functions
-    const { db } = await import('../db');
-    const { documentVectors } = await import('@shared/schema');
-    const { eq, and, or } = await import('drizzle-orm');
-
-    let whereCondition: any = eq(documentVectors.userId, userId);
-    if (documentIds && documentIds.length > 0) {
-      whereCondition = and(
-        eq(documentVectors.userId, userId),
-        or(...documentIds.map(id => eq(documentVectors.documentId, id)))
-      );
-    }
-
-    const chunks = await db.select().from(documentVectors).where(whereCondition);
-    console.log(`🔍 ADVANCED KEYWORD: Found ${chunks.length} chunks to search`);
-
-    if (chunks.length === 0) {
-      console.log(`🔍 ADVANCED KEYWORD: No chunks found for user ${userId}`);
-      return [];
-    }
-
-    // Use the advanced keyword search service with proper search terms
-    const service = new AdvancedKeywordSearchService();
-    const searchTermObjects = searchTerms.map(term => ({
-      term: term.toLowerCase(),
-      weight: 1.0,
-      fuzzy: term.length >= 4,
-      source: 'original' as const
-    }));
-
-    console.log(`🔍 ADVANCED KEYWORD: Processing ${searchTermObjects.length} search term objects`);
-    const chunkScores = service['calculateChunkScores'](chunks, searchTermObjects);
-
-    console.log(`🔍 ADVANCED KEYWORD: Calculated scores for ${chunkScores.length} chunks`);
-
-    // Filter out zero scores first
-    const scoredChunks = chunkScores.filter(chunk => chunk.score > 0);
-    console.log(`🔍 ADVANCED KEYWORD: ${scoredChunks.length} chunks have positive scores`);
-
-    let totalMatches = 0;
-    for (const chunkScore of chunkScores) {
-      if (chunkScore.score > 0) {
-        totalMatches++;
-        console.log(`🔍 KEYWORD MATCH (Advanced): Doc ${chunkScore.documentId} chunk ${chunkScore.chunkIndex + 1} - score: ${chunkScore.score.toFixed(5)} with aliases`);
-      }
-    }
-
-    console.log(`🔍 KEYWORD SEARCH: Found ${totalMatches} chunks with keyword matches (with aliases) out of ${chunks.length} total chunks`)
-
-  // Display top 5 keyword chunks with matched terms
-  if (chunkScores.length > 0) {
-    const topKeywordChunks = chunkScores
-      .filter(chunk => chunk.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
-
-    console.log(`\n🏆 TOP 5 KEYWORD CHUNKS WITH MATCHED TERMS:`);
-    topKeywordChunks.forEach((chunk, index) => {
-      console.log(`\n${index + 1}. Doc ${chunk.documentId} Chunk ${chunk.chunkIndex + 1} - Score: ${chunk.score.toFixed(5)}`);
-      console.log(`   📝 Matched Terms (${chunk.matchedTerms.length}): [${chunk.matchedTerms.join(', ')}]`);
-      console.log(`   🔍 Match Details:`);
-      chunk.matchDetails.forEach(detail => {
-        const fuzzyLabel = detail.fuzzyMatch ? ' (fuzzy)' : ' (exact)';
-        console.log(`      - "${detail.term}": score ${detail.score.toFixed(4)}${fuzzyLabel}, positions: [${detail.positions.join(', ')}]`);
-      });
-      console.log(`   📄 Content Preview: "${chunk.content.substring(0, 150).replace(/\n/g, ' ')}${chunk.content.length > 150 ? '...' : ''}"`);
-    });
-    console.log(`\n`);
-  }
-
-    // Sort by relevance and limit results
-    scoredChunks.sort((a, b) => b.score - a.score);
-    const limit = options.limit || 20;
-    const topChunks = scoredChunks.slice(0, limit);
-
-    if (topChunks.length > 0) {
-      console.log(`🔍 ADVANCED KEYWORD: Top 3 scoring chunks:`);
-      topChunks.slice(0, 3).forEach((chunk, i) => {
-        console.log(`  ${i + 1}. Doc ${chunk.documentId}, Chunk ${chunk.chunkIndex}, Score: ${chunk.score.toFixed(4)}`);
-      });
-    }
-
-    // Get document metadata for the top chunks
-    const { storage } = await import('../storage');
-    const documents = await storage.getDocuments(userId);
-    const docMap = new Map(documents.map(doc => [doc.id, doc]));
-
-    // Format results
-    const results: SearchResult[] = [];
-
-    topChunks
-        .filter(chunk => chunk.score > (options.threshold || 0.1))
-        .forEach(chunkScore => {
-          const document = docMap.get(chunkScore.documentId);
-          if (!document) return;
-
-          // Use consistent chunk ID format: docId-chunkIndex
-          const chunkId = `${chunkScore.documentId}-${chunkScore.chunkIndex}`;
-          const chunkLabel = `(Chunk ${chunkScore.chunkIndex + 1})`;
-          const documentName = document.name || `Document ${chunkScore.documentId}`;
-
-          results.push({
-            id: chunkId, // Use consistent chunk ID format
-            name: `${documentName} ${chunkLabel}`,
-            content: chunkScore.content,
-            summary: chunkScore.content.slice(0, 200) + "...",
-            aiCategory: document.aiCategory ?? null,
-            aiCategoryColor: document.aiCategoryColor ?? null,
-            similarity: Math.min(chunkScore.score / 10, 1.0), // Normalize to 0-1
-            createdAt: document.createdAt?.toISOString() ?? new Date().toISOString(),
-            categoryId: document.categoryId ?? null,
-            tags: document.tags ?? null,
-            fileSize: document.fileSize ?? null,
-            mimeType: document.mimeType ?? null,
-            isFavorite: document.isFavorite ?? null,
-            updatedAt: document.updatedAt?.toISOString() ?? null,
-            userId: document.userId ?? userId
-          });
-        });
-
-    console.log(`🔍 ADVANCED KEYWORD SEARCH: Returning ${results.length} results with alias expansion`);
-    return results;
-
-  } catch (error) {
-    console.error('❌ performAdvancedKeywordSearch error:', error);
-    return [];
-  }
-}

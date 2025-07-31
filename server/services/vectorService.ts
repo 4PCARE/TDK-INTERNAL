@@ -223,40 +223,10 @@ export class VectorService {
             console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has ${dbVector.content.length} chars - suspiciously large for a chunk!`);
           }
 
-          // Ensure embedding is valid array with detailed debugging
-          let embedding = dbVector.embedding;
-          let hasValidEmbedding = true;
-          
-          if (!embedding) {
-            console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has null/undefined embedding`);
-            hasValidEmbedding = false;
-          } else if (!Array.isArray(embedding)) {
-            console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} embedding is not an array, type: ${typeof embedding}`);
-            hasValidEmbedding = false;
-          } else if (embedding.length === 0) {
-            console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has empty embedding array`);
-            hasValidEmbedding = false;
-          } else if (embedding.length !== 1536) {
-            console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has wrong embedding dimension: ${embedding.length} (expected 1536)`);
-            hasValidEmbedding = false;
-          } else {
-            // Check for NaN or non-numeric values
-            const invalidValues = embedding.filter(val => typeof val !== 'number' || isNaN(val));
-            if (invalidValues.length > 0) {
-              console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has ${invalidValues.length} invalid values in embedding`);
-              hasValidEmbedding = false;
-            }
-          }
-
-          if (!hasValidEmbedding) {
-            console.warn(`⚠️  VECTOR SERVICE: Using zero-filled fallback embedding for Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex}`);
-            embedding = new Array(1536).fill(0); // Default embedding size for text-embedding-3-small
-          }
-
           const vectorDoc: VectorDocument = {
             id: `${dbVector.documentId}_chunk_${dbVector.chunkIndex}`,
             content: dbVector.content, // This should be chunk content from document_vectors table
-            embedding: embedding,
+            embedding: dbVector.embedding,
             metadata: {
               originalDocumentId: dbVector.documentId.toString(),
               userId: dbVector.userId,
@@ -267,33 +237,9 @@ export class VectorService {
             totalChunks: dbVector.totalChunks
           };
 
-          // Calculate similarity with error handling and detailed logging
-          let similarity = 0;
-          try {
-            similarity = this.cosineSimilarity(queryEmbedding, embedding);
-            
-            // Log similarity calculation results for debugging
-            if (similarity > 0.1) {
-              console.log(`✅ VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} - Good similarity: ${similarity.toFixed(4)}`);
-            } else if (similarity === 0) {
-              console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} - Zero similarity (likely zero-filled embedding)`);
-            } else {
-              console.log(`📊 VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} - Low similarity: ${similarity.toFixed(4)}`);
-            }
-            
-            // Ensure similarity is a valid number
-            if (isNaN(similarity) || !isFinite(similarity)) {
-              console.warn(`⚠️  VECTOR SERVICE: Invalid similarity calculated for Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex}: ${similarity}`);
-              similarity = 0;
-            }
-          } catch (error) {
-            console.error(`⚠️  VECTOR SERVICE: Error calculating similarity for Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex}:`, error);
-            similarity = 0;
-          }
-
           return {
             document: vectorDoc,
-            similarity: similarity
+            similarity: this.cosineSimilarity(queryEmbedding, dbVector.embedding)
           };
         })
         .filter(result => {
@@ -309,32 +255,17 @@ export class VectorService {
         })
         .sort((a, b) => b.similarity - a.similarity);
 
-      // Return all chunks globally without limit restriction
-      console.log(`VectorService: Returning all ${allResults.length} chunks globally`);
+      // For chatbot integration, we want top chunks globally, not per document
+      console.log(`VectorService: Taking top ${limit} chunks globally from ${allResults.length} total chunks`);
 
-      // Sort by similarity but don't apply limit
-      const finalResults = allResults
-        .sort((a, b) => b.similarity - a.similarity);
+      const combinedResults = allResults.slice(0, limit);
 
-      console.log(`Vector search for "${query}": Found ${finalResults.length} relevant chunks globally (all results)`);
+      // Sort by similarity and apply final limit
+      const finalResults = combinedResults
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, limit);
 
-      // Calculate and log statistics about vector similarities
-      const validSimilarities = finalResults.filter(r => r.similarity > 0);
-      const zeroSimilarities = finalResults.filter(r => r.similarity === 0);
-      const highSimilarities = finalResults.filter(r => r.similarity > 0.2);
-      
-      console.log(`📊 VECTOR SEARCH STATISTICS:`);
-      console.log(`   Total chunks: ${finalResults.length}`);
-      console.log(`   Chunks with similarity > 0: ${validSimilarities.length} (${(validSimilarities.length/finalResults.length*100).toFixed(1)}%)`);
-      console.log(`   Chunks with similarity = 0: ${zeroSimilarities.length} (${(zeroSimilarities.length/finalResults.length*100).toFixed(1)}%)`);
-      console.log(`   Chunks with similarity > 0.2: ${highSimilarities.length} (${(highSimilarities.length/finalResults.length*100).toFixed(1)}%)`);
-      
-      if (validSimilarities.length > 0) {
-        const avgSimilarity = validSimilarities.reduce((sum, r) => sum + r.similarity, 0) / validSimilarities.length;
-        const maxSimilarity = Math.max(...validSimilarities.map(r => r.similarity));
-        console.log(`   Average similarity (non-zero): ${avgSimilarity.toFixed(4)}`);
-        console.log(`   Max similarity: ${maxSimilarity.toFixed(4)}`);
-      }
+      console.log(`Vector search for "${query}": Found ${finalResults.length} relevant chunks globally`);
 
       // Debug: Log top results with similarity scores
       console.log(`Debug: Top 5 vector search results for "${query}":`);
@@ -355,58 +286,10 @@ export class VectorService {
   }
 
   private cosineSimilarity(a: number[], b: number[]): number {
-    // Validate inputs
-    if (!a || !b || !Array.isArray(a) || !Array.isArray(b)) {
-      console.warn('⚠️  COSINE SIMILARITY: Invalid input vectors');
-      return 0;
-    }
-
-    if (a.length !== b.length) {
-      console.warn(`⚠️  COSINE SIMILARITY: Vector length mismatch - a: ${a.length}, b: ${b.length}`);
-      return 0;
-    }
-
-    if (a.length === 0) {
-      console.warn('⚠️  COSINE SIMILARITY: Empty vectors');
-      return 0;
-    }
-
-    // Calculate dot product
-    let dotProduct = 0;
-    for (let i = 0; i < a.length; i++) {
-      if (isNaN(a[i]) || isNaN(b[i])) {
-        console.warn(`⚠️  COSINE SIMILARITY: NaN detected at index ${i}`);
-        return 0;
-      }
-      dotProduct += a[i] * b[i];
-    }
-
-    // Calculate magnitudes
-    let magnitudeA = 0;
-    let magnitudeB = 0;
-    for (let i = 0; i < a.length; i++) {
-      magnitudeA += a[i] * a[i];
-      magnitudeB += b[i] * b[i];
-    }
-
-    magnitudeA = Math.sqrt(magnitudeA);
-    magnitudeB = Math.sqrt(magnitudeB);
-
-    // Avoid division by zero
-    if (magnitudeA === 0 || magnitudeB === 0) {
-      console.warn('⚠️  COSINE SIMILARITY: Zero magnitude vector detected');
-      return 0;
-    }
-
-    const similarity = dotProduct / (magnitudeA * magnitudeB);
-    
-    // Ensure result is valid
-    if (isNaN(similarity) || !isFinite(similarity)) {
-      console.warn('⚠️  COSINE SIMILARITY: Invalid similarity result');
-      return 0;
-    }
-
-    return similarity;
+    const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
+    const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+    const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
+    return dotProduct / (magnitudeA * magnitudeB);
   }
 
   async getDocumentCount(): Promise<number> {

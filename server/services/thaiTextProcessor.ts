@@ -110,7 +110,7 @@ export class ThaiTextProcessor {
         .replace(/\n\s*\n/g, '\n') // Replace multiple newlines with single newline
         .replace(/^\s+|\s+$/g, '') // Trim leading and trailing whitespace
         .trim();
-
+      
       // DO NOT collapse multiple spaces - they are Thai word boundaries!
 
       return processedText;

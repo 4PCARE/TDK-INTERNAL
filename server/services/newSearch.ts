@@ -8,7 +8,7 @@ const openai = new OpenAI({
 });
 
 // Configuration: Mass selection percentage for smart selection algorithm
-const MASS_SELECTION_PERCENTAGE = 0.3; // 30% - adjust this value to change selection criteria
+const MASS_SELECTION_PERCENTAGE = 0.3; // 20% - adjust this value to change selection criteria
 
 export interface SearchResult {
   id: string;
@@ -45,26 +45,26 @@ export interface SearchOptions {
 function splitIntoChunks(text: string, maxChunkSize = 3000, overlap = 300): string[] {
   const chunks: string[] = [];
   let start = 0;
-
+  
   while (start < text.length) {
     let end = Math.min(start + maxChunkSize, text.length);
-
+    
     // Ensure we don't break words at chunk boundaries (except for the last chunk)
     if (end < text.length) {
       // Find the last complete word within the chunk size
       while (end > start && text[end] !== ' ' && text[end] !== '\n' && text[end] !== '\t') {
         end--;
       }
-
+      
       // If we couldn't find a word boundary, use the original end
       if (end === start) {
         end = Math.min(start + maxChunkSize, text.length);
       }
     }
-
+    
     chunks.push(text.slice(start, end).trim());
     start = end - overlap;
-
+    
     // Adjust start to next word boundary if we're overlapping
     if (start > 0 && start < text.length) {
       while (start < text.length && text[start] !== ' ' && text[start] !== '\n' && text[start] !== '\t') {
@@ -76,7 +76,7 @@ function splitIntoChunks(text: string, maxChunkSize = 3000, overlap = 300): stri
       }
     }
   }
-
+  
   return chunks.filter(chunk => chunk.length > 0);
 }
 
@@ -126,43 +126,11 @@ function findBestMatch(searchTerm: string, text: string): { score: number; match
     return { score: 1.0, matchedText: searchTerm };
   }
 
-  // For Thai text, also check with space normalization
-  if (/[\u0E00-\u0E7F]/.test(searchTerm)) {
-    const normalizedSearchTerm = searchTerm.replace(/\s+/g, '');
-    const normalizedText = text.replace(/\s+/g, '');
-    if (normalizedText.includes(normalizedSearchTerm)) {
-      return { score: 0.95, matchedText: searchTerm };
-    }
-  }
-
   // Check word-level fuzzy matches
   for (const word of words) {
     const cleanWord = word.replace(/[^\w\u0E00-\u0E7F]/g, ''); // Keep Thai and English chars
     if (cleanWord.length < 2) continue;
 
-    // Enhanced Thai matching
-    if (/[\u0E00-\u0E7F]/.test(searchTerm) && /[\u0E00-\u0E7F]/.test(cleanWord)) {
-      if (isThaiTokenSimilar(searchTerm, cleanWord)) {
-        const normalized1 = searchTerm.toLowerCase().replace(/\s+/g, '');
-        const normalized2 = cleanWord.toLowerCase().replace(/\s+/g, '');
-
-        if (normalized1 === normalized2) {
-          bestScore = 0.95;
-          bestMatch = cleanWord;
-        } else if (normalized1.includes(normalized2) || normalized2.includes(normalized1)) {
-          if (bestScore < 0.85) {
-            bestScore = 0.85;
-            bestMatch = cleanWord;
-          }
-        } else if (bestScore < 0.80) {
-          bestScore = 0.80;
-          bestMatch = cleanWord;
-        }
-        continue;
-      }
-    }
-
-    // Regular similarity for non-Thai or when Thai matching doesn't apply
     const similarity = calculateSimilarity(searchTerm, cleanWord);
     if (similarity > bestScore && similarity >= 0.7) { // 70% similarity threshold
       bestScore = similarity;
@@ -231,7 +199,7 @@ async function calculateBM25(
     const normalizedTerm = term.toLowerCase().trim();
     if (normalizedTerm.length > 0) {
       expandedSearchTerms.push(normalizedTerm);
-
+      
       // Only add Thai normalized variant for very simple normalization (case + whitespace)
       // Don't create corrupted versions by removing vowels/tone marks
       if (/[\u0E00-\u0E7F]/.test(normalizedTerm)) {
@@ -252,48 +220,31 @@ async function calculateBM25(
   const totalChunks = chunks.length;
   let totalDocLength = 0;
 
-  // First pass: calculate document frequencies and total length with enhanced fuzzy matching
+  // First pass: calculate document frequencies and total length
   const chunkLengths = new Map<string, number>();
   for (const chunk of chunks) {
     const content = chunk.content || '';
     const tokens = await tokenizeWithThaiNormalization(content);
     const chunkIndex = chunk.chunkIndex ?? 0;
-    // Use consistent chunk ID format: docId-chunkIndex
     const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
 
     chunkLengths.set(chunkId, tokens.length);
     totalDocLength += tokens.length;
 
-    // Count document frequency for each search term with comprehensive fuzzy matching
+    // Count document frequency for each search term with fuzzy matching
+    const uniqueTokens = new Set(tokens);
     for (const term of normalizedSearchTerms) {
       let hasMatch = false;
 
-      // Strategy 1: Exact match
-      if (tokens.includes(term)) {
+      // Exact match first
+      if (uniqueTokens.has(term)) {
         hasMatch = true;
       } else {
-        // Strategy 2: Enhanced fuzzy matching
-        for (const token of tokens) {
-          // Thai-specific similarity
-          if (isThaiText(term) && isThaiTokenSimilar(term, token)) {
+        // Fuzzy match for Thai text
+        for (const token of uniqueTokens) {
+          if (isThaiTokenSimilar(term, token)) {
             hasMatch = true;
             break;
-          }
-
-          // English/general fuzzy matching
-          if (!isThaiText(term) && calculateSimilarity(term, token) > 0.75) {
-            hasMatch = true;
-            break;
-          }
-        }
-
-        // Strategy 3: Partial and substring matching
-        if (!hasMatch) {
-          const partialMatch = findPartialStringMatches(term, tokens);
-          const substringMatch = findSubstringMatches(term, tokens);
-
-          if (partialMatch.score > 0.6 || substringMatch.score > 0.5) {
-            hasMatch = true;
           }
         }
       }
@@ -308,10 +259,10 @@ async function calculateBM25(
 
   const avgDocLength = totalDocLength / totalChunks;
 
-  // Second pass: calculate BM25 scores with enhanced fuzzy matching
+  // Second pass: calculate BM25 scores
   for (const chunk of chunks) {
     const chunkIndex = chunk.chunkIndex ?? 0;
-    const chunkId = `${chunk.documentId}-${chunkIndex}`;
+    const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
     const content = chunk.content || '';
     const tokens = await tokenizeWithThaiNormalization(content);
     const docLength = chunkLengths.get(chunkId) || 1;
@@ -334,78 +285,51 @@ async function calculateBM25(
         continue;
       }
 
-      let bestScore = 0;
-      let bestTf = 0;
-      let matchType = 'none';
+      let tf = tokenCounts.get(term) || 0;
 
-      // 1. Check for exact matches first
-      const exactTf = tokenCounts.get(term) || 0;
-      if (exactTf > 0) {
-        bestScore = 1.0; // Perfect match
-        bestTf = exactTf;
-        matchType = 'exact';
-      } else {
-        // 2. Enhanced fuzzy matching with multiple strategies
-        const fuzzyResults = [];
-
-        // Strategy A: Token-level fuzzy matching
-        if (isThaiText(term)) {
-          const thaiMatch = findBestFuzzyMatchThai(term, tokens);
-          if (thaiMatch.score > 0.65) { // Lower threshold for Thai
-            fuzzyResults.push({ ...thaiMatch, type: 'thai' });
-          }
-        } else {
-          const fuzzyMatch = findBestFuzzyMatch(term, tokens);
-          if (fuzzyMatch.score > 0.75) {
-            fuzzyResults.push({ ...fuzzyMatch, type: 'fuzzy' });
-          }
-        }
-
-        // Strategy B: Partial string matching (for compound words)
-        const partialMatches = findPartialStringMatches(term, tokens);
-        if (partialMatches.score > 0.6) {
-          fuzzyResults.push({ ...partialMatches, type: 'partial' });
-        }
-
-        // Strategy C: Substring containment (for brand names, etc.)
-        const substringMatches = findSubstringMatches(term, tokens);
-        if (substringMatches.score > 0.5) {
-          fuzzyResults.push({ ...substringMatches, type: 'substring' });
-        }
-
-        // Select the best fuzzy match
-        if (fuzzyResults.length > 0) {
-          const bestFuzzy = fuzzyResults.reduce((best, current) => 
-            current.score > best.score ? current : best
-          );
-          bestScore = bestFuzzy.score;
-          bestTf = bestFuzzy.count;
-          matchType = bestFuzzy.type;
-        }
-      }
-
-      // Calculate BM25 score if we have any match
-      if (bestScore > 0 && bestTf > 0) {
+      if (tf > 0) {
+        // Exact match found
         matchedTerms.push(term);
         processedTerms.add(term);
 
         // BM25 formula components
         const df = termDF.get(term) || 1;
-        const idf = Math.log(totalChunks / df) + 1; // Ensure positive scores
+        // Fix IDF calculation to ensure positive scores
+        const idf = Math.log(totalChunks / df) + 1; // Add 1 to ensure positive scores
 
         // Term frequency component with saturation
-        const tfComponent = (bestTf * (k1 + 1)) / (bestTf + k1 * (1 - b + b * (docLength / avgDocLength)));
+        const tfComponent = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (docLength / avgDocLength)));
 
-        // Apply match quality penalty for fuzzy matches
-        const qualityMultiplier = matchType === 'exact' ? 1.0 : 
-                                 matchType === 'thai' ? 0.9 :
-                                 matchType === 'fuzzy' ? 0.8 :
-                                 matchType === 'partial' ? 0.7 : 0.6;
+        bm25Score += idf * tfComponent;
 
-        const termScore = idf * tfComponent * bestScore * qualityMultiplier;
-        bm25Score += termScore;
+        console.log(`🔍 BM25 MATCH: Chunk ${chunkId}, term "${term}", tf=${tf}, df=${df}, idf=${idf.toFixed(3)}, tfComp=${tfComponent.toFixed(3)}, score+=${(idf * tfComponent).toFixed(3)}`);
+      } else {
+        // Try fuzzy matching for unmatched terms only
+        let fuzzyMatch = { score: 0, count: 0 };
+        if (isThaiText(term)) {
+          fuzzyMatch = findBestFuzzyMatchThai(term, tokens);
+        } else {
+          fuzzyMatch = findBestFuzzyMatch(term, tokens);
+        }
 
-        console.log(`🔍 BM25 ${matchType.toUpperCase()}: Chunk ${chunkId}, term "${term}", tf=${bestTf}, quality=${bestScore.toFixed(3)}, multiplier=${qualityMultiplier}, score+=${termScore.toFixed(3)}`);
+        // Lower threshold for Thai text due to spacing variations
+        const threshold = isThaiText(term) ? 0.65 : 0.75;
+        if (fuzzyMatch.score > threshold) {
+          matchedTerms.push(term);
+          processedTerms.add(term);
+          const fuzzyTf = fuzzyMatch.count;
+
+          // Apply BM25 formula to fuzzy matches with penalty
+          const df = termDF.get(term) || 1;
+          // Fix IDF calculation to ensure positive scores
+          const idf = Math.log(totalChunks / df) + 1; // Add 1 to ensure positive scores
+          const tfComponent = (fuzzyTf * (k1 + 1)) / (fuzzyTf + k1 * (1 - b + b * (docLength / avgDocLength)));
+
+          const fuzzyScore = idf * tfComponent * fuzzyMatch.score * 0.8;
+          bm25Score += fuzzyScore;
+
+          console.log(`🔍 BM25 FUZZY: Chunk ${chunkId}, term "${term}", fuzzyTf=${fuzzyTf}, fuzzyScore=${fuzzyMatch.score.toFixed(3)}, score+=${fuzzyScore.toFixed(3)}`);
+        }
       }
     }
 
@@ -431,10 +355,10 @@ function normalizeThaiText(text: string): string {
 async function tokenizeWithThaiNormalization(text: string): string[] {
   // Simple tokenization without Thai segmentation for documents
   // Thai segmentation should only be used for query processing
-
+  
   // First normalize Thai spacing
   let normalizedText = normalizeThaiSpacing(text);
-
+  
   const tokens = normalizedText
     .toLowerCase()
     .split(/[\s\-_,\.!?\(\)\[\]\/\\:\;\"\']+/)
@@ -484,17 +408,7 @@ function findBestFuzzyMatchThai(term: string, tokens: string[]): { score: number
 
   for (const token of tokens) {
     if (isThaiTokenSimilar(term, token)) {
-      // Calculate more nuanced similarity score
-      const normalized1 = term.toLowerCase().replace(/\s+/g, '');
-      const normalized2 = token.toLowerCase().replace(/\s+/g, '');
-
-      if (normalized1 === normalized2) {
-        bestScore = Math.max(bestScore, 0.95); // Very high score for exact match after space normalization
-      } else if (normalized1.includes(normalized2) || normalized2.includes(normalized1)) {
-        bestScore = Math.max(bestScore, 0.85); // High score for containment
-      } else {
-        bestScore = Math.max(bestScore, 0.80); // Good score for fuzzy match
-      }
+      bestScore = 0.8; // Assign a fixed score for Thai similarity
       count++;
     }
   }
@@ -506,10 +420,10 @@ function isThaiTokenSimilar(term1: string, term2: string): boolean {
   // Normalize spaces for both terms
   const normalized1 = term1.toLowerCase().replace(/\s+/g, '');
   const normalized2 = term2.toLowerCase().replace(/\s+/g, '');
-
+  
   // Exact match after space normalization
   if (normalized1 === normalized2) return true;
-
+  
   // Special handling for Thai brand names with spacing variations
   // Check if removing spaces makes them match (e.g., "แมคโดนัลด์" vs "แมค โดนัลด์")
   const spaceless1 = term1.replace(/\s+/g, '');
@@ -517,100 +431,27 @@ function isThaiTokenSimilar(term1: string, term2: string): boolean {
   if (spaceless1.toLowerCase() === spaceless2.toLowerCase()) {
     return true;
   }
-
+  
   // Check if one contains the other (for partial matches like "แมค" vs "แมคโดนัลด์")
   if (normalized1.length >= 3 && normalized2.length >= 3) {
     if (normalized1.includes(normalized2) || normalized2.includes(normalized1)) {
       return true;
     }
-
+    
     // Also check with original spacing preserved
     const lower1 = term1.toLowerCase();
     const lower2 = term2.toLowerCase();
     if (lower1.includes(lower2) || lower2.includes(lower1)) {
       return true;
     }
-
-    // Enhanced fuzzy matching: Check if terms are similar when spaces are normalized
-    if (Math.abs(normalized1.length - normalized2.length) <= 2) {
-      const similarity = calculateSimilarity(normalized1, normalized2);
-      if (similarity >= 0.85) {
-        return true;
-      }
-    }
-
-    // Also check similarity with original spacing
-    if (Math.abs(term1.length - term2.length) <= 3) {
-      const similarity = calculateSimilarity(term1.toLowerCase(), term2.toLowerCase());
-      if (similarity >= 0.80) {
-        return true;
-      }
-    }
+    
+    // Levenshtein distance for typos (both with and without spaces)
+    const similarity1 = calculateSimilarity(normalized1, normalized2);
+    const similarity2 = calculateSimilarity(lower1, lower2);
+    return Math.max(similarity1, similarity2) >= 0.85;
   }
-
+  
   return false;
-}
-
-function findPartialStringMatches(term: string, tokens: string[]): { score: number; count: number } {
-  let bestScore = 0;
-  let count = 0;
-  const termLower = term.toLowerCase();
-
-  for (const token of tokens) {
-    const tokenLower = token.toLowerCase();
-
-    // Check if term is contained in token or vice versa
-    if (termLower.length >= 3 && tokenLower.length >= 3) {
-      if (tokenLower.includes(termLower)) {
-        // Term is contained in token (e.g., "แมค" in "แมคโดนัลด์")
-        bestScore = Math.max(bestScore, termLower.length / tokenLower.length);
-        count++;
-      } else if (termLower.includes(tokenLower)) {
-        // Token is contained in term
-        bestScore = Math.max(bestScore, tokenLower.length / termLower.length);
-        count++;
-      }
-    }
-  }
-
-  return { score: bestScore, count };
-}
-
-function findSubstringMatches(term: string, tokens: string[]): { score: number; count: number } {
-  let bestScore = 0;
-  let count = 0;
-  const termLower = term.toLowerCase();
-
-  // For compound searches like "แมคโดนัลด์ เดอะมอลล์"
-  const termParts = termLower.split(/\s+/).filter(part => part.length > 2);
-
-  for (const token of tokens) {
-    const tokenLower = token.toLowerCase();
-
-    // Check if any part of the term matches with the token
-    for (const part of termParts) {
-      if (part.length >= 3) {
-        // Exact substring match
-        if (tokenLower.includes(part) || part.includes(tokenLower)) {
-          const overlap = Math.min(part.length, tokenLower.length);
-          const maxLength = Math.max(part.length, tokenLower.length);
-          bestScore = Math.max(bestScore, overlap / maxLength);
-          count++;
-        }
-
-        // Character-level similarity for Thai text
-        if (isThaiText(part) && isThaiText(tokenLower)) {
-          const similarity = calculateThaiSimilarity(part, tokenLower);
-          if (similarity > 0.7) {
-            bestScore = Math.max(bestScore, similarity);
-            count++;
-          }
-        }
-      }
-    }
-  }
-
-  return { score: bestScore, count };
 }
 
 // Remove duplicate GPT enrichment - use preprocessor instead
@@ -621,7 +462,6 @@ export async function searchSmartHybridDebug(
   options: Omit<SearchOptions, "searchType"> & { 
     massSelectionPercentage?: number;
     enhancedQuery?: string; // Accept preprocessed query from queryPreprocessor
-    agentAliases?: Record<string, string[]>; // Agent aliases for term expansion
   }
 ): Promise<SearchResult[]> {
   const keywordWeight = options.keywordWeight ?? 0.5;
@@ -636,11 +476,11 @@ export async function searchSmartHybridDebug(
   // Only use PythaiNLP for query processing, not document processing
   console.log(`🔍 QUERY PROCESSING: Segmenting Thai text for search terms only`);
   const { thaiTextProcessor } = await import('./thaiTextProcessor');
-
+  
   // First normalize Thai spacing in the search query
   const normalizedQuery = normalizeThaiSpacing(searchQuery);
   console.log(`🔍 THAI NORMALIZATION: "${searchQuery}" → "${normalizedQuery}"`);
-
+  
   const tokenizedQuery = await thaiTextProcessor.segmentThaiText(normalizedQuery);
   console.log(`🔍 QUERY PROCESSING: Result: "${tokenizedQuery}"`);
 
@@ -677,50 +517,26 @@ export async function searchSmartHybridDebug(
   // Create a map for faster chunk lookup
   const chunkMap = new Map();
   for (const chunk of chunks) {
-    // Use consistent chunk ID format: docId-chunkIndex
     const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
     chunkMap.set(chunkId, chunk);
   }
 
-  // Get agentAliases from options
-  const agentAliases = options.agentAliases;
-
-  // Use performAdvancedKeywordSearch with alias expansion instead of calculateBM25
-  const { performAdvancedKeywordSearch } = await import('./advancedKeywordSearch');
-
-  // Perform advanced keyword search with alias expansion
-  console.log(`🔍 KEYWORD SEARCH: Performing advanced keyword search with aliases...`);
-  const keywordSearchResults = await performAdvancedKeywordSearch(
-    searchQuery, 
-    userId, 
-    options.specificDocumentIds, 
-    { limit: 200, threshold: 0.01 },
-    agentAliases
-  );
-
-  console.log(`🔍 KEYWORD SEARCH: performAdvancedKeywordSearch returned ${keywordSearchResults.length} results with aliases`);
-
-  // Convert keyword search results to matches format for combining with vector search
-  const keywordMatches: Record<string, { score: number; content: string; matchedTerms: string[]; matchDetails: any[] }> = {};
+  // Calculate BM25 scores for all chunks at once
+  const bm25Results = await calculateBM25(searchTerms, chunks);
+  const keywordMatches: Record<string, number> = {};
   let totalMatches = 0;
 
-  // Process advanced keyword search results (no duplicate processing)
-  for (const result of keywordSearchResults) {
-    if (result.similarity > 0) {
-      // Parse the chunk ID from advanced search result (should be docId-chunkIndex format)
-      const chunkId = result.id;
-
-      keywordMatches[chunkId] = {
-        score: result.similarity,
-        content: result.content,
-        matchedTerms: (result as any).matchedTerms || [],
-        matchDetails: (result as any).matchDetails || []
-      };
+  for (const [chunkId, bm25Match] of Array.from(bm25Results.entries())) {
+    if (bm25Match.score > 0) {
+      keywordMatches[chunkId] = bm25Match.score;
       totalMatches++;
+
+      const [docId, chunkIndex] = chunkId.split('-');
+      console.log(`🔍 KEYWORD MATCH (BM25): Doc ${docId} chunk ${chunkIndex} - ${bm25Match.matchedTerms.length}/${searchTerms.length} terms matched (${bm25Match.matchedTerms.join(', ')}) score: ${bm25Match.score.toFixed(5)}`);
     }
   }
 
-  console.log(`🔍 KEYWORD SEARCH: Processed ${totalMatches} keyword matches from advanced search (no duplication)`)
+  console.log(`🔍 KEYWORD SEARCH: Found ${totalMatches} chunks with keyword matches out of ${chunks.length} total chunks`)
 
   if (totalMatches === 0) {
     console.log(`⚠️ KEYWORD SEARCH DEBUG: No positive BM25 scores found. This might indicate:`)
@@ -735,7 +551,6 @@ export async function searchSmartHybridDebug(
   for (const result of vectorResults) {
     const docId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
     const chunkIndex = result.document.chunkIndex ?? 0;
-    // Use consistent chunk ID format: docId-chunkIndex
     const chunkId = `${docId}-${chunkIndex}`;
     const score = result.similarity;
 
@@ -760,8 +575,6 @@ export async function searchSmartHybridDebug(
     finalScore: number;
     keywordScore: number;
     vectorScore: number;
-    matchedTerms: string[];
-    matchDetails: any[];
   }[] = [];
 
   console.log(`🧮 SCORING CALCULATION: Combining ${allChunkIds.size} unique chunks`);
@@ -769,7 +582,7 @@ export async function searchSmartHybridDebug(
   console.log(`📐 FORMULA: Final Score = (Keyword Score × ${keywordWeight}) + (Vector Score × ${vectorWeight})`);
 
   // Step 1: Collect all BM25 scores for statistical normalization
-  const allBM25Scores = Object.values(keywordMatches).map(match => match.score).filter(score => score > 0);
+  const allBM25Scores = Object.values(keywordMatches).filter(score => score > 0);
 
   let normalizeKeywordScore = (score: number) => score;
 
@@ -810,33 +623,24 @@ export async function searchSmartHybridDebug(
 
   for (const chunkId of allChunkIds) {
     // Fix: Split from the right to handle document IDs with dashes
-    const lastDashIndex = chunkId.lastIndexOf("-");
-    if (lastDashIndex === -1) {
-      console.warn(`⚠️  Invalid chunk ID format: ${chunkId}`);
-      continue;
-    }
-    const docIdStr = chunkId.substring(0, lastDashIndex);
-    const chunkIndexStr = chunkId.substring(lastDashIndex + 1);
+    const parts = chunkId.split("-");
+    const chunkIndexStr = parts[parts.length - 1];
+    const docIdStr = parts.slice(0, -1).join("-");
     const docId = parseInt(docIdStr);
     const chunkIndex = parseInt(chunkIndexStr);
-
-    const keywordInfo = keywordMatches[chunkId];
-    const keywordScore = keywordInfo?.score ?? 0;
+    const keywordScore = keywordMatches[chunkId] ?? 0;
     const vectorInfo = vectorMatches[chunkId];
     const vectorScore = vectorInfo?.score ?? 0;
 
-    // Get content from either source, prioritizing vector content for consistency
+    // Get content from vector search, or fallback to chunk map
     let content = vectorInfo?.content ?? "";
-    if (!content && keywordInfo) {
-      content = keywordInfo.content;
-    }
-    // Fallback to chunk map if still no content
-    if (!content) {
+    if (!content && keywordScore > 0) {
+      // Get the chunk content from the chunk map for keyword-only matches
       const chunk = chunkMap.get(chunkId);
       content = chunk?.content ?? "";
     }
 
-    // Apply statistical normalization to keyword scores
+    // Apply statistical normalization to TF-IDF scores
     const normalizedKeywordScore = normalizeKeywordScore(keywordScore);
     const finalScore = normalizedKeywordScore * keywordWeight + vectorScore * vectorWeight;
 
@@ -849,9 +653,7 @@ export async function searchSmartHybridDebug(
         content,
         finalScore,
         keywordScore: normalizedKeywordScore, // Store normalized score
-        vectorScore,
-        matchedTerms: keywordInfo?.matchedTerms ?? [],
-        matchDetails: keywordInfo?.matchDetails ?? []
+        vectorScore
       });
     }
   }
@@ -876,34 +678,34 @@ export async function searchSmartHybridDebug(
       const scoreTarget = totalScore * massSelectionPercentage;
       let accScore = 0;
 
-      console.log(`TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, ${(massSelectionPercentage * 100).toFixed(1)}% target: ${scoreTarget.toFixed(4)}`);
+      console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, ${(massSelectionPercentage * 100).toFixed(1)}% target: ${scoreTarget.toFixed(4)}`);
 
       for (const chunk of scoredChunks) {
         const potentialScore = accScore + chunk.finalScore;
 
         // For document chat, don't stop until we have at least 5 chunks, regardless of mass target
         // For other origins, use default minimum of 2 chunks
-        const minChunks = massSelectionPercentage >= 0.3 ? 5 : 2; // 30% mass = document chat, needs 5 chunks minimum
+        const minChunks = massSelectionPercentage >= 0.6 ? 5 : 2; // 60% mass = document chat, needs 5 chunks minimum
 
         if (potentialScore > scoreTarget && selectedChunks.length >= minChunks) {
-          console.log(`STOPPING: Adding chunk ${selectedChunks.length + 1} would exceed ${(massSelectionPercentage * 100).toFixed(1)}% mass target (${(potentialScore/totalScore*100).toFixed(1)}% > ${(massSelectionPercentage * 100).toFixed(1)}%) - stopping at ${selectedChunks.length} chunks`);
+          console.log(`📊 STOPPING: Adding chunk ${selectedChunks.length + 1} would exceed ${(massSelectionPercentage * 100).toFixed(1)}% mass target (${(potentialScore/totalScore*100).toFixed(1)}% > ${(massSelectionPercentage * 100).toFixed(1)}%) - stopping at ${selectedChunks.length} chunks`);
           break;
         }
 
         selectedChunks.push(chunk);
         accScore += chunk.finalScore;
 
-        console.log(`Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, mass=${(accScore/totalScore*100).toFixed(1)}% (need ${(massSelectionPercentage * 100).toFixed(1)}%)`);
+        console.log(`📊 Chunk ${selectedChunks.length}: score=${chunk.finalScore.toFixed(4)}, accumulated=${accScore.toFixed(4)}, target=${scoreTarget.toFixed(4)}, mass=${(accScore/totalScore*100).toFixed(1)}% (need ${(massSelectionPercentage * 100).toFixed(1)}%)`);
 
         // Check if we've reached the target mass AND minimum chunks
         if (accScore >= scoreTarget && selectedChunks.length >= minChunks) {
-          console.log(`STOPPING: Reached ${(massSelectionPercentage * 100).toFixed(1)}% mass target (${(accScore/totalScore*100).toFixed(1)}%) with ${selectedChunks.length} chunks`);
+          console.log(`📊 STOPPING: Reached ${(massSelectionPercentage * 100).toFixed(1)}% mass target (${(accScore/totalScore*100).toFixed(1)}%) with ${selectedChunks.length} chunks`);
           break;
         }
 
         // Safety cap to prevent excessive results
         if (selectedChunks.length >= maxResults) {
-          console.log(`STOPPING: Hit safety cap at ${maxResults} chunks`);
+          console.log(`📊 STOPPING: Hit safety cap at ${maxResults} chunks`);
           break;
         }
       }
@@ -914,35 +716,31 @@ export async function searchSmartHybridDebug(
 
     // Calculate selected chunks total score
     const selectedTotalScore = selectedChunks.reduce((sum, c) => sum + c.finalScore, 0);
-    console.log(`SCORE BREAKDOWN: ${selectedTotalScore.toFixed(4)} out of ${totalScore.toFixed(4)} (${(selectedTotalScore/totalScore*100).toFixed(1)}%)`);
-    console.log(`TRUE MASS SELECTION (${(massSelectionPercentage * 100).toFixed(1)}%): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} chunks capturing ${(selectedTotalScore/totalScore*100).toFixed(1)}% of total score mass`);
+    console.log(`📊 SCORE BREAKDOWN: ${selectedTotalScore.toFixed(4)} out of ${totalScore.toFixed(4)} (${(selectedTotalScore/totalScore*100).toFixed(1)}%)`);
+    console.log(`🎯 TRUE MASS SELECTION (${(massSelectionPercentage * 100).toFixed(1)}%): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} chunks capturing ${(selectedTotalScore/totalScore*100).toFixed(1)}% of total score mass`);
   }
 
   const results: SearchResult[] = selectedChunks.map(chunk => {
     const doc = docMap.get(chunk.docId);
     const label = `(Chunk ${chunk.chunkIndex + 1})`;
     const documentName = doc?.name || `Document ${chunk.docId}`;
-
-      // Generate consistent chunk ID format
-      const chunkId = `doc${chunk.docId}_chunk${chunk.chunkIndex}`;
-
-      return {
-        id: chunkId,
-        name: `${documentName} ${label}`,
-        content: chunk.content,
-        summary: chunk.content.slice(0, 200) + "...",
-        aiCategory: doc?.aiCategory ?? null,
-        aiCategoryColor: doc?.aiCategoryColor ?? null,
-        similarity: chunk.finalScore,
-        createdAt: doc?.createdAt?.toISOString() ?? new Date().toISOString(),
-        categoryId: doc?.categoryId ?? null,
-        tags: doc?.tags ?? null,
-        fileSize: doc?.fileSize ?? null,
-        mimeType: doc?.mimeType ?? null,
-        isFavorite: doc?.isFavorite ?? null,
-        updatedAt: doc?.updatedAt?.toISOString() ?? null,
-        userId: doc?.userId ?? userId
-      };
+    return {
+      id: `${chunk.docId}-${chunk.chunkIndex}`,
+      name: `${documentName} ${label}`,
+      content: chunk.content,
+      summary: chunk.content.slice(0, 200) + "...",
+      aiCategory: doc?.aiCategory ?? null,
+      aiCategoryColor: doc?.aiCategoryColor ?? null,
+      similarity: chunk.finalScore,
+      createdAt: doc?.createdAt?.toISOString() ?? new Date().toISOString(),
+      categoryId: doc?.categoryId ?? null,
+      tags: doc?.tags ?? null,
+      fileSize: doc?.fileSize ?? null,
+      mimeType: doc?.mimeType ?? null,
+      isFavorite: doc?.isFavorite ?? null,
+      updatedAt: doc?.updatedAt?.toISOString() ?? null,
+      userId: doc?.userId ?? userId
+    };
   });
 
   // Memory cleanup - clear the objects instead of assigning null
@@ -1019,7 +817,7 @@ export async function searchSmartHybridV1(
       });
     }
 
-    // 2. Extract vector chunks
+    const vectorResults = await vectorService.searchDocuments(query, userId, 100, options.specificDocumentIds);
     const vectorChunks: Record<string, { content: string; score: number }> = {};
     for (const result of vectorResults) {
       if (!result.document) {
@@ -1028,18 +826,15 @@ export async function searchSmartHybridV1(
       }
 
       const doc = result.document;
-      // Fix: Use correct metadata extraction
-      const docId = parseInt(doc.metadata?.originalDocumentId || doc.id.split('_')[0]);
-      const chunkIndex = doc.chunkIndex ?? doc.metadata?.chunkIndex ?? 0;
+      const docId = parseInt(result.metadata?.originalDocumentId || result.id);
+      const chunkIndex = doc.chunkIndex ?? 0;
       const chunkId = `${docId}-${chunkIndex}`;
-
-      console.log(`🔍 VECTOR MAPPING: docId=${docId}, chunkIndex=${chunkIndex} -> chunkId=${chunkId} -> similarity: ${result.similarity.toFixed(4)}`);
-
-      // Always include vector results regardless of threshold for combination
-      vectorChunks[chunkId] = {
-        content: doc.content,
-        score: result.similarity
-      };
+      if (result.similarity >= threshold) {
+        vectorChunks[chunkId] = {
+          content: doc.content,
+          score: result.similarity
+        };
+      }
     }
 
     // 3. Merge & Take Higher Score per chunk
@@ -1061,15 +856,6 @@ export async function searchSmartHybridV1(
       const keywordScore = keywordChunks[chunkId]?.score ?? 0;
       const vectorScore = vectorChunks[chunkId]?.score ?? 0;
       const content = keywordChunks[chunkId]?.content || vectorChunks[chunkId]?.content || "";
-
-      // Debug: Log when we have both scores
-      if (keywordScore > 0 && vectorScore > 0) {
-        console.log(`✅ HYBRID MATCH ${chunkId}: keyword=${keywordScore.toFixed(4)}, vector=${vectorScore.toFixed(4)}`);
-      } else if (vectorScore > 0 && keywordScore === 0) {
-        console.log(`🔍 VECTOR ONLY ${chunkId}: vector=${vectorScore.toFixed(4)}`);
-      } else if (keywordScore > 0 && vectorScore === 0) {
-        console.log(`📝 KEYWORD ONLY ${chunkId}: keyword=${keywordScore.toFixed(4)}`);
-      }
 
       const hybridScore = Math.max(
         vectorScore * adaptedVectorWeight + keywordScore * adaptedKeywordWeight,
@@ -1216,11 +1002,8 @@ export async function searchSmartHybridV1(
       const doc = docMap.get(chunk.docId);
       const chunkLabel = chunk.chunkIndex !== undefined ? ` (Chunk ${chunk.chunkIndex + 1})` : "";
       const documentName = doc?.name || `Document ${chunk.docId}`;
-       // Generate consistent chunk ID format
-      const chunkId = `doc${chunk.docId}_chunk${chunk.chunkIndex}`;
-
       return {
-        id: chunkId,
+        id: `${chunk.docId}-${chunk.chunkIndex}`,
         name: documentName + chunkLabel,
         content: chunk.content,
         summary: chunk.content.slice(0, 200) + "...",
@@ -1255,7 +1038,7 @@ async function performKeywordSearch(
   console.log(`🔍 performKeywordSearch: Tokenizing query: "${query}"`);
   const { thaiTextProcessor } = await import('./thaiTextProcessor');
   const tokenizedQuery = await thaiTextProcessor.segmentThaiText(query);
-
+  
   const searchTerms = tokenizedQuery.toLowerCase().split(/\s+/).filter(Boolean);
   console.log(`🔍 performKeywordSearch: Starting with tokenized terms: [${searchTerms.join(', ')}]`);
 
@@ -1309,26 +1092,4 @@ async function calculateBM25Score(
   }
 
   return score;
-}
-
-async function performChunkSplitAndRankSearch(
-    query: string,
-    userId: string,
-    options: Omit<SearchOptions, 'searchType'> & {
-      keywordWeight?: number;
-      vectorWeight?: number;
-      massSelectionPercentage?: number;
-    } = {}
-  ): Promise<SearchResult[]> {
-    const {
-      maxResults = 50,
-      includeContent = true,
-      specificDocumentIds,
-      keywordWeight = 0.3,
-      vectorWeight = 0.7,
-      massSelectionPercentage = 0.3, // 30% score mass threshold for document chat
-    } = options;
-
-  //TODO: Implementation
-  return []
 }
