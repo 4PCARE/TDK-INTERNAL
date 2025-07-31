@@ -609,24 +609,51 @@ export async function performAdvancedKeywordSearch(
       console.log(`🔍 BM25: Applying bidirectional alias expansion with ${Object.keys(agentAliases).length} alias groups`);
       const expandedTerms = new Set(searchTerms);
 
+      // First, split each search term into individual words for better alias matching
+      const individualTerms = new Set();
       for (const term of searchTerms) {
+        // Add the original term
+        individualTerms.add(term.toLowerCase());
+        
+        // Split into individual words and add them too
+        const words = term.toLowerCase().split(/\s+/).filter(word => word.length > 0);
+        words.forEach(word => individualTerms.add(word));
+      }
+
+      console.log(`🔍 BM25: Individual terms for alias matching:`, Array.from(individualTerms));
+
+      // Process each individual term for alias expansion
+      for (const term of individualTerms) {
         const lowerTerm = term.toLowerCase();
 
         // Method 1: Check if this term is a key in aliases (key -> values)
         if (agentAliases[term] || agentAliases[lowerTerm]) {
           const aliasGroup = agentAliases[term] || agentAliases[lowerTerm];
-          aliasGroup.forEach(alias => expandedTerms.add(alias.toLowerCase()));
+          aliasGroup.forEach(alias => {
+            expandedTerms.add(alias.toLowerCase());
+            // Also add individual words from multi-word aliases
+            const aliasWords = alias.toLowerCase().split(/\s+/).filter(word => word.length > 0);
+            aliasWords.forEach(word => expandedTerms.add(word));
+          });
           console.log(`🔍 BM25: Expanded key "${term}" with values:`, aliasGroup);
         }
 
         // Method 2: Check if this term is a value in any alias group (value -> key + other values)
         for (const [key, values] of Object.entries(agentAliases)) {
           const lowerValues = values.map(v => v.toLowerCase());
-          if (lowerValues.includes(lowerTerm)) {
+          const matchFound = lowerValues.includes(lowerTerm) || 
+            lowerValues.some(value => value.toLowerCase().split(/\s+/).includes(lowerTerm));
+
+          if (matchFound) {
             // Add the key
             expandedTerms.add(key.toLowerCase());
-            // Add all other values in this group
-            values.forEach(alias => expandedTerms.add(alias.toLowerCase()));
+            // Add all values in this group
+            values.forEach(alias => {
+              expandedTerms.add(alias.toLowerCase());
+              // Also add individual words from multi-word aliases
+              const aliasWords = alias.toLowerCase().split(/\s+/).filter(word => word.length > 0);
+              aliasWords.forEach(word => expandedTerms.add(word));
+            });
             console.log(`🔍 BM25: Found "${term}" as value, expanded with key "${key}" and all values:`, values);
             break; // Found in this group, no need to check others
           }
