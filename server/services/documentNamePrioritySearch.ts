@@ -29,6 +29,9 @@ export interface DocumentNameSearchOptions {
   limit?: number;
   massSelectionPercentage?: number;
   specificDocumentIds?: number[];
+  enableNameSearch?: boolean;
+  enableKeywordSearch?: boolean;
+  enableSemanticSearch?: boolean;
 }
 
 export class DocumentNamePrioritySearchService {
@@ -42,7 +45,10 @@ export class DocumentNamePrioritySearchService {
     const { 
       limit = 20, 
       massSelectionPercentage = this.MASS_SELECTION_PERCENTAGE,
-      specificDocumentIds 
+      specificDocumentIds,
+      enableNameSearch = true,
+      enableKeywordSearch = true,
+      enableSemanticSearch = true
     } = options;
 
     console.log(`🔍 DOCUMENT NAME PRIORITY SEARCH: Starting search for "${query}"`);
@@ -62,22 +68,38 @@ export class DocumentNamePrioritySearchService {
     console.log(`🔤 Search terms: [${searchTerms.join(', ')}]`);
 
     const results: DocumentNameSearchResult[] = [];
+    let nameMatches: DocumentNameSearchResult[] = [];
+    let keywordMatches: DocumentNameSearchResult[] = [];
+    let semanticMatches: DocumentNameSearchResult[] = [];
 
     // 1. PRIORITY 1: Document Name Matches
-    const nameMatches = this.findNameMatches(documents, query, searchTerms);
-    console.log(`📄 Found ${nameMatches.length} name matches`);
+    if (enableNameSearch) {
+      nameMatches = this.findNameMatches(documents, query, searchTerms);
+      console.log(`📄 Found ${nameMatches.length} name matches`);
+    } else {
+      console.log(`📄 Name search disabled, skipping`);
+    }
 
     // 2. PRIORITY 2: Keyword Content Matches (exclude name matches)
-    const nameMatchIds = new Set(nameMatches.map(m => m.id));
-    const remainingDocs = documents.filter(doc => !nameMatchIds.has(doc.id));
-    const keywordMatches = await this.findKeywordMatches(remainingDocs, query, searchTerms, userId);
-    console.log(`🔑 Found ${keywordMatches.length} keyword matches`);
+    if (enableKeywordSearch) {
+      const nameMatchIds = new Set(nameMatches.map(m => m.id));
+      const remainingDocs = documents.filter(doc => !nameMatchIds.has(doc.id));
+      keywordMatches = await this.findKeywordMatches(remainingDocs, query, searchTerms, userId);
+      console.log(`🔑 Found ${keywordMatches.length} keyword matches`);
+    } else {
+      console.log(`🔑 Keyword search disabled, skipping`);
+    }
 
     // 3. PRIORITY 3: Semantic Matches (exclude name and keyword matches)
-    const keywordMatchIds = new Set(keywordMatches.map(m => m.id));
-    const semanticCandidates = remainingDocs.filter(doc => !keywordMatchIds.has(doc.id));
-    const semanticMatches = await this.findSemanticMatches(semanticCandidates, query, userId);
-    console.log(`🧠 Found ${semanticMatches.length} semantic matches`);
+    if (enableSemanticSearch) {
+      const nameMatchIds = new Set(nameMatches.map(m => m.id));
+      const keywordMatchIds = new Set(keywordMatches.map(m => m.id));
+      const semanticCandidates = documents.filter(doc => !nameMatchIds.has(doc.id) && !keywordMatchIds.has(doc.id));
+      semanticMatches = await this.findSemanticMatches(semanticCandidates, query, userId);
+      console.log(`🧠 Found ${semanticMatches.length} semantic matches`);
+    } else {
+      console.log(`🧠 Semantic search disabled, skipping vector search`);
+    }
 
     // Combine all results with priority scores
     const allResults = [
