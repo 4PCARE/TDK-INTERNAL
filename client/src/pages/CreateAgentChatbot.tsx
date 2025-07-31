@@ -530,6 +530,8 @@ export default function CreateAgentChatbot() {
         }
       }
 
+      const guardrailsConfig = data.guardrailsEnabled ? data.guardrailsConfig : null;
+
       const finalData = {
         ...data,
         aliases: parsedAliases,
