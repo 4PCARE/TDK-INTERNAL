@@ -1486,3 +1486,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch documents" });
     }
   });
+
+  // Create WebSocket server for real-time communication
+  const server = createServer(app);
+  return server;
+}
