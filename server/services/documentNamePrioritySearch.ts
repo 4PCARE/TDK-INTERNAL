@@ -302,11 +302,9 @@ export class DocumentNamePrioritySearchService {
 export const documentNamePrioritySearchService = new DocumentNamePrioritySearchService();
 ```
 
-```text
-The code has been updated to conditionally call the vector service based on the search type and to handle empty semantic results.
+
 </text>
 
-```typescript
 import { Document } from "@shared/schema";
 import { vectorService } from './vectorService';
 import { storage } from '../storage';
@@ -372,8 +370,6 @@ export class DocumentNamePrioritySearchService {
     const searchTerms = tokenizedQuery.toLowerCase().split(/\s+/).filter(Boolean);
     console.log(`🔤 Search terms: [${searchTerms.join(', ')}]`);
 
-    const results: DocumentNameSearchResult[] = [];
-
     // 1. PRIORITY 1: Document Name Matches
     const nameMatches = this.findNameMatches(documents, query, searchTerms);
     console.log(`📄 Found ${nameMatches.length} name matches`);
@@ -384,71 +380,27 @@ export class DocumentNamePrioritySearchService {
     const keywordMatches = await this.findKeywordMatches(remainingDocs, query, searchTerms, userId);
     console.log(`🔑 Found ${keywordMatches.length} keyword matches`);
 
-    // Create a map of documents for faster lookup
-    const documentsMap = new Map(documents.map(doc => [doc.id, doc]));
-
-    // Prepare document IDs for semantic search
-    const documentIds = remainingDocs.map(doc => doc.id);
-
-    // 3. Semantic search (vector similarity) - only if meaning search is enabled
-    let semanticResults: Array<{ document: any; similarity: number }> = [];
+    // 3. PRIORITY 3: Semantic Matches (exclude name and keyword matches) - only if enabled
+    const keywordMatchIds = new Set(keywordMatches.map(m => m.id));
+    const semanticCandidates = remainingDocs.filter(doc => !keywordMatchIds.has(doc.id));
+    
+    let semanticMatches: DocumentNameSearchResult[] = [];
     if (searchType === "document-priority" || searchType === "hybrid" || searchType === "semantic") {
       console.log(`🧠 Performing semantic search (meaning search enabled)...`);
-      semanticResults = await vectorService.searchDocuments(
-        query,
-        userId,
-        Math.min(100, Math.floor(documents.length * 0.5)), // Search up to 50% of documents or 100 max
-        documentIds
-      );
+      semanticMatches = await this.findSemanticMatches(semanticCandidates, query, userId);
     } else {
       console.log(`⏭️ Skipping semantic search (meaning search disabled)`);
     }
-
-    console.log(`🧠 Found ${semanticResults.length} semantic matches`);
-
-    // Convert semantic results to scored format
-    const semanticScoredResults = semanticResults.length > 0 ? semanticResults.map(result => {
-      const docId = parseInt(result.document.metadata.originalDocumentId);
-      const doc = documentsMap.get(docId);
-      if (!doc) return null;
-
-      return {
-        document: doc,
-        score: result.similarity * 0.8, // Weight semantic similarity slightly lower
-        matchType: 'semantic' as const,
-        matchedTerms: [],
-        similarity: result.similarity
-      };
-    }).filter(Boolean) as ScoredDocument[] : [];
+    console.log(`🧠 Found ${semanticMatches.length} semantic matches`);
 
     // Combine all results with priority scores
     const allResults = [
       ...nameMatches.map(r => ({ ...r, matchType: 'name' as const, similarity: r.nameScore || 1.0 })),
       ...keywordMatches.map(r => ({ ...r, matchType: 'keyword' as const, similarity: r.keywordScore || 0.8 })),
-      ...semanticScoredResults.map(r => ({ ...r, matchType: 'semantic' as const, similarity: r.similarity || 0.6 })
-        .map(r => ({
-            id: r.document.id.toString(),
-            name: r.document.name || r.document.originalName,
-            content: r.document.content || '',
-            summary: r.document.summary,
-            aiCategory: r.document.aiCategory,
-            aiCategoryColor: r.document.aiCategoryColor,
-            similarity: r.similarity,
-            createdAt: r.document.createdAt?.toISOString() || new Date().toISOString(),
-            categoryId: r.document.categoryId,
-            tags: r.document.tags,
-            fileSize: r.document.fileSize,
-            mimeType: r.document.mimeType,
-            isFavorite: r.document.isFavorite,
-            updatedAt: r.document.updatedAt?.toISOString(),
-            userId: r.document.userId,
-            matchType: 'semantic',
-            semanticScore: r.similarity
-          }))
-      ).flat()
+      ...semanticMatches.map(r => ({ ...r, matchType: 'semantic' as const, similarity: r.semanticScore || 0.6 }))
     ];
 
-    console.log(`📊 Total candidates: ${allResults.length} (${nameMatches.length} name + ${keywordMatches.length} keyword + ${semanticScoredResults.length} semantic)`);
+    console.log(`📊 Total candidates: ${allResults.length} (${nameMatches.length} name + ${keywordMatches.length} keyword + ${semanticMatches.length} semantic)`);
 
     // Apply mass-based selection
     const selectedResults = this.applyMassSelection(allResults, massSelectionPercentage, limit);
