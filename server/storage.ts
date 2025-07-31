@@ -199,7 +199,7 @@ export interface IStorage {
   // Line Template Action operations
   getLineTemplateActions(columnId: number): Promise<LineTemplateAction[]>;
   createLineTemplateAction(action: InsertLineTemplateAction): Promise<LineTemplateAction>;
-  updateLineTemplateAction(id: number, action: Partial<InsertLineTemplateAction>): Promise<LineTemplateAction>;
+  updateLineTemplateAction(id: number, action: Partial<InsertTemplateAction>): Promise<LineTemplateAction>;
   deleteLineTemplateAction(id: number): Promise<void>;
 
   // Complete Line template with all related data
@@ -1765,7 +1765,7 @@ export class DatabaseStorage implements IStorage {
     if (integration.channelSecret !== undefined) updateData.channel_secret = integration.channelSecret;
     if (integration.channelAccessToken !== undefined) updateData.channel_access_token = integration.channelAccessToken;
     if (integration.agentId !== undefined) updateData.agent_id = integration.agentId;
-    if (integration.isActive !== undefined) updateData.is_active = integration.isActive;
+    if (integration.isActive !== undefinedupdateData.is_active = integration.isActive;
     if (integration.isVerified !== undefined) updateData.is_verified = integration.isVerified;
 
     const [updated] = await db
@@ -2069,6 +2069,50 @@ export class DatabaseStorage implements IStorage {
       template,
       columns: columnsWithActions,
     };
+  }
+
+  // Add searchPrompt to createAgentChatbot and updateAgentChatbot functions
+  async createAgentChatbot(agent: InsertAgentChatbot): Promise<AgentChatbot> {
+    const [newAgent] = await db
+      .insert(agentChatbots)
+      .values({
+        ...agent,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        guardrailsConfig: agent.guardrailsConfig,
+        memoryEnabled: agent.memoryEnabled,
+        memoryLimit: agent.memoryLimit,
+        searchPrompt: agent.searchPrompt,
+      })
+      .returning();
+    return newAgent;
+  }
+
+  async updateAgentChatbot(id: number, agent: Partial<InsertAgentChatbot>, userId: string): Promise<AgentChatbot> {
+    console.log("Storage updateAgentChatbot - Input data:", JSON.stringify(agent, null, 2));
+    console.log("Storage updateAgentChatbot - Guardrails config:", agent.guardrailsConfig);
+
+    const updateData = { ...agent, updatedAt: new Date() };
+    console.log("Storage updateAgentChatbot - Final update data:", JSON.stringify(updateData, null, 2));
+
+    const [updated] = await db
+      .update(agentChatbots)
+      .set({
+        ...updateData,
+        updatedAt: new Date(),
+        guardrailsConfig: agent.guardrailsConfig,
+        memoryEnabled: agent.memoryEnabled,
+        memoryLimit: agent.memoryLimit,
+        searchPrompt: agent.searchPrompt,
+      })
+      .where(and(eq(agentChatbots.id, id), eq(agentChatbots.userId, userId)))
+      .returning();
+
+    if (!updated) {
+      throw new Error("Agent not found");
+    }
+    console.log("Storage updateAgentChatbot - Updated result:", JSON.stringify(updated, null, 2));
+    return updated;
   }
 }
 

@@ -4035,6 +4035,83 @@ ${agentConfig.blockedTopics?.length > 0 ? `Blocked topics: ${agentConfig.blocked
     },
   );
 
+  // Test Document Search endpoint
+  app.post(
+    "/api/agent-chatbots/test-search",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const { query, documentIds, searchPrompt } = req.body;
+        const userId = req.user.claims.sub;
+        
+        if (!query) {
+          return res.status(400).json({ message: "Search query is required" });
+        }
+
+        console.log(`🔍 Testing document search - Query: "${query}", Documents: [${documentIds?.join(', ') || 'all'}], SearchPrompt: "${searchPrompt || 'none'}"`);
+        
+        const startTime = Date.now();
+        
+        // Perform search with enhanced query if searchPrompt is provided
+        let enhancedQuery = query;
+        if (searchPrompt && searchPrompt.trim()) {
+          enhancedQuery = `${searchPrompt.trim()} ${query}`;
+        }
+        
+        const searchOptions = {
+          searchType: 'smart_hybrid' as const,
+          maxResults: 10,
+          includeContent: true,
+          documentIds: documentIds?.length > 0 ? documentIds : undefined,
+        };
+
+        const searchResults = await semanticSearchServiceV2.searchDocuments(
+          enhancedQuery,
+          userId,
+          searchOptions
+        );
+        
+        const searchTime = Date.now() - startTime;
+        
+        // Format results for frontend
+        const formattedResults = searchResults.map((result: any, index: number) => ({
+          documentName: result.documentName || result.name || `Document ${result.documentId}`,
+          content: result.content || result.chunk || '',
+          score: result.score || result.similarity || 0,
+          chunkIndex: result.chunkIndex || index,
+          category: result.categoryName || result.category,
+          documentId: result.documentId,
+        }));
+
+        // Calculate statistics
+        const stats = {
+          totalDocuments: documentIds?.length || 'all',
+          retrievedChunks: formattedResults.length,
+          searchTime,
+          searchMethod: 'smart_hybrid',
+          enhancedQuery: searchPrompt ? enhancedQuery : null,
+        };
+
+        console.log(`📊 Search completed - Found ${formattedResults.length} results in ${searchTime}ms`);
+
+        res.json({
+          success: true,
+          results: formattedResults,
+          stats,
+          query: enhancedQuery,
+        });
+      } catch (error) {
+        console.error("Error testing document search:", error);
+        res.status(500).json({ 
+          success: false, 
+          message: "Failed to test document search",
+          results: [],
+          stats: null,
+        });
+      }
+    },
+  );
+
   // Test Agent Chat endpoint (with conversation history)
   app.post(
     "/api/agent-chatbots/test-chat",

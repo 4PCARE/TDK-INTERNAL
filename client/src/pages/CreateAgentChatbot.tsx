@@ -133,6 +133,8 @@ const createAgentSchema = z.object({
   // Memory Configuration
   memoryEnabled: z.boolean().default(false),
   memoryLimit: z.number().min(1).max(50).default(10),
+  // Advanced Search Enhancement
+  searchPrompt: z.string().optional(),
 });
 
 type CreateAgentForm = z.infer<typeof createAgentSchema>;
@@ -163,6 +165,10 @@ export default function CreateAgentChatbot() {
     timestamp: Date;
   }>>([]);
   const [isTestChatMode, setIsTestChatMode] = useState(false);
+  const [searchTestQuery, setSearchTestQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchStats, setSearchStats] = useState<any>(null);
+  const [isTestingSearch, setIsTestingSearch] = useState(false);
   const chatHistoryRef = useRef<HTMLDivElement>(null);
 
   // Check if we're editing an existing agent
@@ -189,6 +195,7 @@ export default function CreateAgentChatbot() {
       responseLength: "medium",
       allowedTopics: [],
       blockedTopics: [],
+      searchPrompt: "",
     },
   });
 
@@ -257,6 +264,7 @@ export default function CreateAgentChatbot() {
         blockedTopics: agent.blockedTopics || [],
         memoryEnabled: agent.memoryEnabled || false,
         memoryLimit: agent.memoryLimit || 10,
+        searchPrompt: agent.searchPrompt || "",
         // Advanced Guardrails Configuration
         guardrailsEnabled: (agent.guardrailsConfig !== null && agent.guardrailsConfig !== undefined),
         guardrailsConfig: agent.guardrailsConfig ? {
@@ -503,6 +511,70 @@ export default function CreateAgentChatbot() {
     console.log("Guardrails config:", data.guardrailsConfig);
     
     saveAgentMutation.mutate(finalData);
+  };
+
+  // Test document search mutation
+  const testDocumentSearchMutation = useMutation({
+    mutationFn: async (queryData: { query: string; documentIds: number[]; searchPrompt?: string }) => {
+      const response = await apiRequest("POST", "/api/agent-chatbots/test-search", queryData);
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      console.log("Document search test response:", data);
+      setSearchResults(data.results || []);
+      setSearchStats(data.stats || null);
+      setIsTestingSearch(false);
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to test document search",
+        variant: "destructive",
+      });
+      setSearchResults([]);
+      setSearchStats(null);
+      setIsTestingSearch(false);
+    },
+  });
+
+  const handleTestDocumentSearch = () => {
+    if (!searchTestQuery.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a search query",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const currentFormData = form.getValues();
+    
+    console.log("Testing document search with:", { 
+      query: searchTestQuery, 
+      documentIds: selectedDocuments,
+      searchPrompt: currentFormData.searchPrompt 
+    });
+    
+    setIsTestingSearch(true);
+    setSearchResults([]);
+    setSearchStats(null);
+    
+    testDocumentSearchMutation.mutate({
+      query: searchTestQuery,
+      documentIds: selectedDocuments,
+      searchPrompt: currentFormData.searchPrompt,
+    });
   };
 
   const handleTestAgent = () => {
@@ -852,6 +924,14 @@ export default function CreateAgentChatbot() {
                 >
                   <Shield className="w-4 h-4 mr-2" />
                   Guardrails
+                </Button>
+                <Button
+                  variant={activeTab === "advanced" ? "default" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => setActiveTab("advanced")}
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Advanced
                 </Button>
                 <Button
                   variant={activeTab === "test" ? "default" : "ghost"}
@@ -2005,6 +2085,153 @@ export default function CreateAgentChatbot() {
                                 </p>
                               </div>
                             </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+
+                    {activeTab === "advanced" && (
+                      <div className="space-y-6">
+                        {/* Search Enhancement Prompt */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Search className="h-5 w-5" />
+                              Search Enhancement
+                            </CardTitle>
+                            <CardDescription>
+                              Add custom prompts to improve document search effectiveness for your agent
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <FormField
+                              control={form.control}
+                              name="searchPrompt"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Custom Search Prompt</FormLabel>
+                                  <FormControl>
+                                    <Textarea
+                                      placeholder="เพิ่มคำแนะนำสำหรับการค้นหาเอกสาร เช่น 'ค้นหาเอกสารที่เกี่ยวข้องกับ HR, การลา, เงินเดือน' หรือ 'มุ่งเน้นหาข้อมูลจากนโยบายบริษัท'"
+                                      className="min-h-[100px]"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    ระบุคำแนะนำเพิ่มเติมที่จะช่วยให้บอทค้นหาเอกสารที่เกี่ยวข้องได้แม่นยำยิ่งขึ้น
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </CardContent>
+                        </Card>
+
+                        {/* Document Search Testing */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <FileText className="h-5 w-5" />
+                              Document Search Testing
+                            </CardTitle>
+                            <CardDescription>
+                              Test what documents your agent will retrieve for specific queries
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="searchTestQuery">Test Query</Label>
+                              <Textarea
+                                id="searchTestQuery"
+                                placeholder="พิมพ์คำถามที่ต้องการทดสอบการค้นหาเอกสาร เช่น 'ขอดูข้อมูลการลาพักร้อน' หรือ 'นโยบายเงินเดือนของบริษัท'"
+                                value={searchTestQuery}
+                                onChange={(e) => setSearchTestQuery(e.target.value)}
+                                className="min-h-[80px]"
+                              />
+                            </div>
+
+                            <Button
+                              onClick={handleTestDocumentSearch}
+                              disabled={isTestingSearch || !searchTestQuery.trim()}
+                              className="w-full bg-purple-600 hover:bg-purple-700"
+                            >
+                              {isTestingSearch ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                  Testing Document Search...
+                                </>
+                              ) : (
+                                <>
+                                  <Search className="w-4 h-4 mr-2" />
+                                  Test Document Search
+                                </>
+                              )}
+                            </Button>
+
+                            {/* Search Results */}
+                            {searchResults && (
+                              <div className="space-y-3 mt-4">
+                                <Label>Retrieved Documents</Label>
+                                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 max-h-80 overflow-y-auto">
+                                  {searchResults.length === 0 ? (
+                                    <div className="text-center text-slate-500 py-4">
+                                      <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                      <p>No documents found for this query</p>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-3">
+                                      {searchResults.map((result, index) => (
+                                        <div key={index} className="bg-white border border-slate-200 rounded-lg p-3">
+                                          <div className="flex items-start justify-between mb-2">
+                                            <h4 className="font-medium text-slate-800">{result.documentName}</h4>
+                                            <Badge variant="secondary" className="text-xs">
+                                              Score: {(result.score * 100).toFixed(1)}%
+                                            </Badge>
+                                          </div>
+                                          <p className="text-sm text-slate-600 mb-2 line-clamp-3">
+                                            {result.content.length > 200 ? `${result.content.substring(0, 200)}...` : result.content}
+                                          </p>
+                                          <div className="flex items-center gap-2 text-xs text-slate-500">
+                                            <span>Chunk {result.chunkIndex + 1}</span>
+                                            {result.category && (
+                                              <>
+                                                <span>•</span>
+                                                <span>{result.category}</span>
+                                              </>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Search Statistics */}
+                            {searchStats && (
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <h4 className="font-medium text-blue-900 mb-2">Search Statistics</h4>
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
+                                  <div>
+                                    <span className="text-blue-600">Total Documents:</span>
+                                    <div className="font-medium">{searchStats.totalDocuments}</div>
+                                  </div>
+                                  <div>
+                                    <span className="text-blue-600">Retrieved:</span>
+                                    <div className="font-medium">{searchStats.retrievedChunks}</div>
+                                  </div>
+                                  <div>
+                                    <span className="text-blue-600">Search Time:</span>
+                                    <div className="font-medium">{searchStats.searchTime}ms</div>
+                                  </div>
+                                  <div>
+                                    <span className="text-blue-600">Method:</span>
+                                    <div className="font-medium">{searchStats.searchMethod}</div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
                       </div>
