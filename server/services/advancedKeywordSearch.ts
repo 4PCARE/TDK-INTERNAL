@@ -768,7 +768,7 @@ export async function performAdvancedKeywordSearch(
         const documentName = document.name || `Document ${chunkScore.documentId}`;
 
         results.push({
-          id: chunkId,
+          id: chunkId, // Use consistent chunk ID format
           name: `${documentName} ${chunkLabel}`,
           content: chunkScore.content,
           summary: chunkScore.content.slice(0, 200) + "...",
