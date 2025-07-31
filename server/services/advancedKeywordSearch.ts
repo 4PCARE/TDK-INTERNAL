@@ -597,8 +597,9 @@ export async function performAdvancedKeywordSearch(
 
   try {
     // Get Thai segmentation
-    const { segmentThaiText } = await import('../segmentThaiText');
-    const segmentedQuery = await segmentThaiText(query);
+    const { ThaiTextProcessor } = await import('./thaiTextProcessor');
+    const processor = new ThaiTextProcessor();
+    const segmentedQuery = await processor.segmentThaiText(query);
     console.log(`🔍 Thai segmentation result:`, segmentedQuery);
 
     let searchTerms = segmentedQuery.segments || [query];
