@@ -115,13 +115,15 @@ export default function Documents() {
         if (currentSearchFileName && currentSearchKeyword && currentSearchMeaning) {
           searchType = "document-priority"; // All three enabled
         } else if (currentSearchFileName && currentSearchKeyword && !currentSearchMeaning) {
-          searchType = "document-priority"; // Name + keyword only (faster)
+          searchType = "keyword-name-priority"; // Name + keyword only (faster, no vector search)
         } else if (currentSearchKeyword && currentSearchMeaning && !currentSearchFileName) {
           searchType = "hybrid"; // Content search with both keyword and semantic
         } else if (currentSearchMeaning && !currentSearchKeyword && !currentSearchFileName) {
           searchType = "semantic"; // Semantic only
         } else if (currentSearchKeyword && !currentSearchMeaning && !currentSearchFileName) {
           searchType = "keyword"; // Keyword only
+        } else if (currentSearchFileName && !currentSearchKeyword && !currentSearchMeaning) {
+          searchType = "filename-only"; // File name only
         }
 
         const params = new URLSearchParams({

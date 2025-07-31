@@ -1,4 +1,3 @@
-
 import { Document } from "@shared/schema";
 import { vectorService } from './vectorService';
 import { storage } from '../storage';
@@ -67,7 +66,7 @@ export class DocumentNamePrioritySearchService {
     // 1. PRIORITY 1: Document Name Matches
     const nameMatches = this.findNameMatches(documents, query, searchTerms);
     console.log(`📄 Found ${nameMatches.length} name matches`);
-    
+
     // 2. PRIORITY 2: Keyword Content Matches (exclude name matches)
     const nameMatchIds = new Set(nameMatches.map(m => m.id));
     const remainingDocs = documents.filter(doc => !nameMatchIds.has(doc.id));
@@ -91,7 +90,7 @@ export class DocumentNamePrioritySearchService {
 
     // Apply mass-based selection
     const selectedResults = this.applyMassSelection(allResults, massSelectionPercentage, limit);
-    
+
     console.log(`✅ DOCUMENT NAME PRIORITY SEARCH: Returning ${selectedResults.length} results`);
     return selectedResults;
   }
@@ -218,7 +217,7 @@ export class DocumentNamePrioritySearchService {
 
     // Group vector results by document and take the best chunk score per document
     const docScores = new Map<number, number>();
-    
+
     for (const result of vectorResults) {
       const docId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
       const currentScore = docScores.get(docId) || 0;
@@ -267,7 +266,7 @@ export class DocumentNamePrioritySearchService {
     // Calculate total score mass
     const totalScore = results.reduce((sum, r) => sum + r.similarity, 0);
     const targetMass = totalScore * massSelectionPercentage;
-    
+
     console.log(`📊 MASS SELECTION: Total score: ${totalScore.toFixed(4)}, target mass: ${targetMass.toFixed(4)} (${(massSelectionPercentage * 100).toFixed(1)}%)`);
 
     const selected: DocumentNameSearchResult[] = [];
@@ -295,7 +294,7 @@ export class DocumentNamePrioritySearchService {
     }
 
     console.log(`🎯 MASS SELECTION RESULT: Selected ${selected.length} documents capturing ${(accumulatedScore/totalScore*100).toFixed(1)}% of total score mass`);
-    
+
     return selected;
   }
 }

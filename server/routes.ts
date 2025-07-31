@@ -571,7 +571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Construct display name from database fields first, then fallback to claims
       let displayName = `${userWithDept.firstName || ''} ${userWithDept.lastName || ''}`.trim();
 
-      // If no name in database, try to get from claims and update database
+      // If no name in database, try to get from claims and update
       if (!displayName) {
         displayName = req.user.claims.display_name || 
                      req.user.claims.name || 
@@ -1515,11 +1515,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       switch (type) {
         case "document-priority":
-          const { documentNamePrioritySearchService } = await import("./services/documentNamePrioritySearch");
+        case "keyword-name-priority":
+        case "filename-only":
+          // Enhanced search that prioritizes document names, then keywords, then semantic (when enabled)
+          const searchFileName = req.query.searchFileName === 'true';
+          const searchKeyword = req.query.searchKeyword === 'true'; 
+          const searchMeaning = req.query.searchMeaning === 'true';
+          const massPercentage = parseFloat(req.query.massSelectionPercentage as string) || 0.6;
+
           results = await documentNamePrioritySearchService.searchDocuments(
             query,
             userId,
-            { massSelectionPercentage: massPercentage }
+            type,
+            massPercentage
           );
           break;
 
