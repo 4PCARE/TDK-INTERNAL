@@ -362,7 +362,7 @@ export class SemanticSearchServiceV2 {
         }
 
         // Calculate combined score
-        const combinedScore = Math.min(1.0, result.similarity * vectorWeight + keywordScore * keywordWeight);
+        const combinedScore = Math.min(1.0, result.similarity * vectorWeight + keywordScore * keywordWeight); vectorWeight + keywordScore * keywordWeight);
 
         return {
           docId,

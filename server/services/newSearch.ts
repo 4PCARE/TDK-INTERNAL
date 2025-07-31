@@ -542,7 +542,7 @@ export async function searchSmartHybridDebug(
   console.log(`🔍 KEYWORD SEARCH: performAdvancedKeywordSearch returned ${keywordSearchResults.length} results with aliases`);
 
   // Convert advanced keyword search results to our expected format
-  const keywordMatches: Record<string, number> = {};
+  const keywordMatches: Record<string, { score: number; content: string; matchedTerms: string[]; matchDetails: any[] }> = {};
   let totalMatches = 0;
 
   // Process advanced keyword search results
@@ -553,7 +553,12 @@ export async function searchSmartHybridDebug(
       const chunkIndex = result.name.match(/Chunk (\d+)/)?.[1] || "0";
       const chunkId = `${docId}-${parseInt(chunkIndex) - 1}`; // Adjust for 0-based indexing
 
-      keywordMatches[chunkId] = result.similarity;
+      keywordMatches[chunkId] = {
+        score: result.similarity,
+        content: result.content,
+        matchedTerms: (result as any).matchedTerms || [],
+        matchDetails: (result as any).matchDetails || []
+      };
       totalMatches++;
 
       console.log(`🔍 KEYWORD MATCH (Advanced): Doc ${docId} chunk ${chunkIndex} - score: ${result.similarity.toFixed(5)} with aliases`);
@@ -628,6 +633,8 @@ export async function searchSmartHybridDebug(
     finalScore: number;
     keywordScore: number;
     vectorScore: number;
+    matchedTerms: string[];
+    matchDetails: any[];
   }[] = [];
 
   console.log(`🧮 SCORING CALCULATION: Combining ${allChunkIds.size} unique chunks`);
@@ -635,7 +642,7 @@ export async function searchSmartHybridDebug(
   console.log(`📐 FORMULA: Final Score = (Keyword Score × ${keywordWeight}) + (Vector Score × ${vectorWeight})`);
 
   // Step 1: Collect all BM25 scores for statistical normalization
-  const allBM25Scores = Object.values(keywordMatches).filter(score => score > 0);
+  const allBM25Scores = Object.values(keywordMatches).map(match => match.score).filter(score => score > 0);
 
   let normalizeKeywordScore = (score: number) => score;
 
@@ -681,19 +688,24 @@ export async function searchSmartHybridDebug(
     const docIdStr = parts.slice(0, -1).join("-");
     const docId = parseInt(docIdStr);
     const chunkIndex = parseInt(chunkIndexStr);
-    const keywordScore = keywordMatches[chunkId] ?? 0;
+    
+    const keywordInfo = keywordMatches[chunkId];
+    const keywordScore = keywordInfo?.score ?? 0;
     const vectorInfo = vectorMatches[chunkId];
     const vectorScore = vectorInfo?.score ?? 0;
 
-    // Get content from vector search, or fallback to chunk map
+    // Get content from either source, prioritizing vector content for consistency
     let content = vectorInfo?.content ?? "";
-    if (!content && keywordScore > 0) {
-      // Get the chunk content from the chunk map for keyword-only matches
+    if (!content && keywordInfo) {
+      content = keywordInfo.content;
+    }
+    // Fallback to chunk map if still no content
+    if (!content) {
       const chunk = chunkMap.get(chunkId);
       content = chunk?.content ?? "";
     }
 
-    // Apply statistical normalization to TF-IDF scores
+    // Apply statistical normalization to keyword scores
     const normalizedKeywordScore = normalizeKeywordScore(keywordScore);
     const finalScore = normalizedKeywordScore * keywordWeight + vectorScore * vectorWeight;
 
@@ -706,7 +718,9 @@ export async function searchSmartHybridDebug(
         content,
         finalScore,
         keywordScore: normalizedKeywordScore, // Store normalized score
-        vectorScore
+        vectorScore,
+        matchedTerms: keywordInfo?.matchedTerms ?? [],
+        matchDetails: keywordInfo?.matchDetails ?? []
       });
     }
   }
