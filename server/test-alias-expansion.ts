@@ -18,9 +18,11 @@ async function testAliasExpansion() {
     console.log('📋 Agent:', agent.name);
     console.log('🔍 Current aliases:', agent.aliases);
     
-    // Test search with aliases
+    // Test search with aliases (both directions)
     const testQueries = [
-      'The 1 มีโปรมั้ย',
+      'The 1 มีโปรมั้ย',  // Should expand to T1, บัตรเดอะวัน, etc.
+      'T1',               // Should expand to The 1, บัตรเดอะวัน, etc.
+      'บัตรเดอะวัน',      // Should expand to The 1, T1, etc.
       'promotion',
       'โปรโมชั่น',
       'discount'

@@ -601,29 +601,37 @@ export async function performAdvancedKeywordSearch(
 
     let searchTerms = segmentedQuery.segments || [query];
 
-    // Apply alias expansion if provided
+    // Apply alias expansion if provided (works both ways: key->values and values->key)
     if (agentAliases) {
+      console.log(`🔍 BM25: Applying bidirectional alias expansion with ${Object.keys(agentAliases).length} alias groups`);
       const expandedTerms = new Set(searchTerms);
 
       for (const term of searchTerms) {
         const lowerTerm = term.toLowerCase();
 
-        // Check if this term has aliases
-        for (const [primaryTerm, aliases] of Object.entries(agentAliases)) {
-          if (primaryTerm.toLowerCase() === lowerTerm || 
-              aliases.some(alias => alias.toLowerCase() === lowerTerm)) {
+        // Method 1: Check if this term is a key in aliases (key -> values)
+        if (agentAliases[term] || agentAliases[lowerTerm]) {
+          const aliasGroup = agentAliases[term] || agentAliases[lowerTerm];
+          aliasGroup.forEach(alias => expandedTerms.add(alias.toLowerCase()));
+          console.log(`🔍 BM25: Expanded key "${term}" with values:`, aliasGroup);
+        }
 
-            // Add the primary term and all its aliases
-            expandedTerms.add(primaryTerm);
-            aliases.forEach(alias => expandedTerms.add(alias));
-
-            console.log(`🔍 ALIAS EXPANSION: "${term}" expanded to include [${primaryTerm}, ${aliases.join(', ')}]`);
+        // Method 2: Check if this term is a value in any alias group (value -> key + other values)
+        for (const [key, values] of Object.entries(agentAliases)) {
+          const lowerValues = values.map(v => v.toLowerCase());
+          if (lowerValues.includes(lowerTerm)) {
+            // Add the key
+            expandedTerms.add(key.toLowerCase());
+            // Add all other values in this group
+            values.forEach(alias => expandedTerms.add(alias.toLowerCase()));
+            console.log(`🔍 BM25: Found "${term}" as value, expanded with key "${key}" and all values:`, values);
+            break; // Found in this group, no need to check others
           }
         }
       }
 
       searchTerms = Array.from(expandedTerms);
-      console.log(`🔍 EXPANDED TERMS: ${searchTerms.length} terms after alias expansion:`, searchTerms);
+      console.log(`🔍 BM25: Final bidirectionally expanded terms:`, searchTerms);
     }
 
     console.log(`🔍 BM25: Processing ${searchTerms.length} search terms (with Thai variants):`, searchTerms);
