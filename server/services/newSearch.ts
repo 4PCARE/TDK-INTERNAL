@@ -469,9 +469,9 @@ export async function searchSmartHybridDebug(
   const threshold = options.threshold ?? 0.3;
   const massSelectionPercentage = options.massSelectionPercentage || MASS_SELECTION_PERCENTAGE;
 
-  // Use enhanced query from preprocessor if provided, otherwise use original
-  const searchQuery = options.enhancedQuery || query;
-  console.log(`🔍 SEARCH: Using ${options.enhancedQuery ? 'preprocessed' : 'original'} query: "${searchQuery}"`);
+  // Combine original query with enhanced query from preprocessor
+  const searchQuery = options.enhancedQuery ? query + " " + options.enhancedQuery : query;
+  console.log(`🔍 SEARCH: Using ${options.enhancedQuery ? 'combined original + enhanced' : 'original'} query: "${searchQuery}"`);
 
   // Only use PythaiNLP for query processing, not document processing
   console.log(`🔍 QUERY PROCESSING: Segmenting Thai text for search terms only`);
@@ -774,9 +774,9 @@ export async function searchSmartHybridV1(
     const vectorWeight = options.vectorWeight ?? 0.5;
     const threshold = options.threshold ?? 0.3;
 
-    // Use enhanced query from preprocessor if provided, otherwise use original
-    const searchQuery = options.enhancedQuery || query;
-    console.log(`🔍 SEARCH V1: Using ${options.enhancedQuery ? 'preprocessed' : 'original'} query: "${searchQuery}"`);
+    // Combine original query with enhanced query from preprocessor
+    const searchQuery = options.enhancedQuery ? query + " " + options.enhancedQuery : query;
+    console.log(`🔍 SEARCH V1: Using ${options.enhancedQuery ? 'combined original + enhanced' : 'original'} query: "${searchQuery}"`);
 
     // Only tokenize with PythaiNLP for proper Thai word boundaries
     console.log(`🔍 TOKENIZATION V1: Segmenting Thai text for search terms`);
