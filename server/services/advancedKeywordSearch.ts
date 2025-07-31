@@ -709,7 +709,7 @@ export async function performAdvancedKeywordSearch(
     for (const chunkScore of chunkScores) {
       if (chunkScore.score > 0) {
         totalMatches++;
-        console.log(`🔍 KEYWORD MATCH (Advanced): Doc ${chunkScore.documentId}-${chunkScore.chunkIndex} chunk ${chunkScore.chunkIndex + 1} - score: ${chunkScore.score.toFixed(5)} with aliases`);
+        console.log(`🔍 KEYWORD MATCH (Advanced): Doc ${chunkScore.documentId} chunk ${chunkScore.chunkIndex + 1} - score: ${chunkScore.score.toFixed(5)} with aliases`);
       }
     }
 
@@ -724,7 +724,7 @@ export async function performAdvancedKeywordSearch(
 
     console.log(`\n🏆 TOP 5 KEYWORD CHUNKS WITH MATCHED TERMS:`);
     topKeywordChunks.forEach((chunk, index) => {
-      console.log(`\n${index + 1}. Doc ${chunk.documentId}, Chunk ${chunk.chunkIndex + 1} - Score: ${chunk.score.toFixed(5)}`);
+      console.log(`\n${index + 1}. Doc ${chunk.documentId} Chunk ${chunk.chunkIndex + 1} - Score: ${chunk.score.toFixed(5)}`);
       console.log(`   📝 Matched Terms (${chunk.matchedTerms.length}): [${chunk.matchedTerms.join(', ')}]`);
       console.log(`   🔍 Match Details:`);
       chunk.matchDetails.forEach(detail => {
