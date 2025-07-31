@@ -250,6 +250,7 @@ export default function CreateAgentChatbot() {
       console.log("Loading existing agent data:", JSON.stringify(agent, null, 2));
       console.log("Agent guardrails config from DB:", agent.guardrailsConfig);
 
+      // Set form values
       form.reset({
         name: agent.name || "",
         description: agent.description || "",
@@ -594,7 +595,7 @@ export default function CreateAgentChatbot() {
 
   const handleTestDocumentSearch = async (e?: React.MouseEvent) => {
     e?.preventDefault();
-    
+
     if (!searchTestQuery.trim()) {
       toast({
         title: "Error",
@@ -619,7 +620,7 @@ export default function CreateAgentChatbot() {
     if (isEditing && editAgentId) {
       try {
         console.log("Auto-saving agent configuration before testing document search...");
-        
+
         // Parse aliases JSON
         let parsedAliases = null;
         if (currentFormData.aliases && currentFormData.aliases.trim()) {
@@ -661,7 +662,7 @@ export default function CreateAgentChatbot() {
         );
 
         console.log("Auto-save completed successfully");
-        
+
         // Invalidate cache to ensure UI reflects saved state
         queryClient.invalidateQueries({ queryKey: [`/api/agent-chatbots/${editAgentId}`] });
         queryClient.invalidateQueries({ queryKey: ["/api/agent-chatbots"] });
@@ -696,7 +697,7 @@ export default function CreateAgentChatbot() {
 
   const handleTestAgent = async (e?: React.MouseEvent) => {
     e?.preventDefault();
-    
+
     if (!testMessage.trim()) {
       toast({
         title: "Error",
@@ -722,7 +723,7 @@ export default function CreateAgentChatbot() {
     if (isEditing && editAgentId) {
       try {
         console.log("Auto-saving agent configuration before testing...");
-        
+
         // Parse aliases JSON
         let parsedAliases = null;
         if (currentFormData.aliases && currentFormData.aliases.trim()) {
@@ -764,7 +765,7 @@ export default function CreateAgentChatbot() {
         );
 
         console.log("Auto-save completed successfully");
-        
+
         // Invalidate cache to ensure UI reflects saved state
         queryClient.invalidateQueries({ queryKey: [`/api/agent-chatbots/${editAgentId}`] });
         queryClient.invalidateQueries({ queryKey: ["/api/agent-chatbots"] });
@@ -921,7 +922,8 @@ export default function CreateAgentChatbot() {
       icon: Zap,
     },
     {
-      id: "empathetic",
+      id: "```python
+empathetic",
       label: "Empathetic",
       description: "Understanding, supportive, and compassionate",
       icon: User,
@@ -1969,7 +1971,8 @@ export default function CreateAgentChatbot() {
                                               onCheckedChange={field.onChange}
                                             />
                                           </FormControl>
-                                          <FormLabel className="text-sm">Block Hate Speech</FormLabel>
+                                          <Form```python
+Item className="text-sm">Block Hate Speech</FormLabel>
                                         </FormItem>
                                       )}
                                     />
