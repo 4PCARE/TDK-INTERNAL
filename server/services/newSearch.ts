@@ -126,11 +126,43 @@ function findBestMatch(searchTerm: string, text: string): { score: number; match
     return { score: 1.0, matchedText: searchTerm };
   }
 
+  // For Thai text, also check with space normalization
+  if (/[\u0E00-\u0E7F]/.test(searchTerm)) {
+    const normalizedSearchTerm = searchTerm.replace(/\s+/g, '');
+    const normalizedText = text.replace(/\s+/g, '');
+    if (normalizedText.includes(normalizedSearchTerm)) {
+      return { score: 0.95, matchedText: searchTerm };
+    }
+  }
+
   // Check word-level fuzzy matches
   for (const word of words) {
     const cleanWord = word.replace(/[^\w\u0E00-\u0E7F]/g, ''); // Keep Thai and English chars
     if (cleanWord.length < 2) continue;
 
+    // Enhanced Thai matching
+    if (/[\u0E00-\u0E7F]/.test(searchTerm) && /[\u0E00-\u0E7F]/.test(cleanWord)) {
+      if (isThaiTokenSimilar(searchTerm, cleanWord)) {
+        const normalized1 = searchTerm.toLowerCase().replace(/\s+/g, '');
+        const normalized2 = cleanWord.toLowerCase().replace(/\s+/g, '');
+        
+        if (normalized1 === normalized2) {
+          bestScore = 0.95;
+          bestMatch = cleanWord;
+        } else if (normalized1.includes(normalized2) || normalized2.includes(normalized1)) {
+          if (bestScore < 0.85) {
+            bestScore = 0.85;
+            bestMatch = cleanWord;
+          }
+        } else if (bestScore < 0.80) {
+          bestScore = 0.80;
+          bestMatch = cleanWord;
+        }
+        continue;
+      }
+    }
+
+    // Regular similarity for non-Thai or when Thai matching doesn't apply
     const similarity = calculateSimilarity(searchTerm, cleanWord);
     if (similarity > bestScore && similarity >= 0.7) { // 70% similarity threshold
       bestScore = similarity;
@@ -452,8 +484,19 @@ function findBestFuzzyMatchThai(term: string, tokens: string[]): { score: number
 
   for (const token of tokens) {
     if (isThaiTokenSimilar(term, token)) {
-      bestScore = 0.8; // Assign a fixed score for Thai similarity
+      // Calculate more nuanced similarity score
+      const normalized1 = term.toLowerCase().replace(/\s+/g, '');
+      const normalized2 = token.toLowerCase().replace(/\s+/g, '');
+      
+      if (normalized1 === normalized2) {
+        bestScore = Math.max(bestScore, 0.95); // Very high score for exact match after space normalization
+      } else if (normalized1.includes(normalized2) || normalized2.includes(normalized1)) {
+        bestScore = Math.max(bestScore, 0.85); // High score for containment
+      } else {
+        bestScore = Math.max(bestScore, 0.80); // Good score for fuzzy match
+      }
       count++;
+    }
     }
   }
 
@@ -489,9 +532,25 @@ function isThaiTokenSimilar(term1: string, term2: string): boolean {
       return true;
     }
 
-    // Levenshtein distance for typos (both with and without spaces)
-    const similarity1 = calculateSimilarity(normalized1, normalized2);
-    const similarity2 = calculateSimilarity(lower1, lower2);
+    // Enhanced fuzzy matching: Check if terms are similar when spaces are normalized
+    if (Math.abs(normalized1.length - normalized2.length) <= 2) {
+      const similarity = calculateSimilarity(normalized1, normalized2);
+      if (similarity >= 0.85) {
+        return true;
+      }
+    }
+
+    // Also check similarity with original spacing
+    if (Math.abs(term1.length - term2.length) <= 3) {
+      const similarity = calculateSimilarity(term1.toLowerCase(), term2.toLowerCase());
+      if (similarity >= 0.80) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}alculateSimilarity(lower1, lower2);
     return Math.max(similarity1, similarity2) >= 0.85;
   }
 
