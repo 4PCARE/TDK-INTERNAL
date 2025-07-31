@@ -378,83 +378,75 @@ export async function generateChatResponse(
   documents: any[],
   specificDocumentId?: number,
   searchType: 'hybrid' | 'semantic' | 'keyword' = 'hybrid',
-  keywordWeight: number = 0.4,
-  vectorWeight: number = 0.6,
+  keywordWeight: number = 0.95,
+  vectorWeight: number = 0.05,
   massSelectionPercentage?: number
 ): Promise<string> {
   try {
     let relevantContent = "";
 
-    // Use hybrid search for better context
+    // Use the same hybrid search system as Line OA bot
     try {
-      console.log(`Chat: Performing ${searchType} search for query: "${userMessage}" with weights: keyword=${keywordWeight}, vector=${vectorWeight}`);
+      console.log(`📄 DOCUMENT BOT: Performing smart hybrid search for query: "${userMessage}"`);
 
-      // Get document IDs to filter search scope to only agent's documents
-      const documentIds = documents.map(doc => doc.id).filter(id => id !== undefined);
-      console.log(`Chat: Restricting search to ${documentIds.length} agent documents: [${documentIds.join(', ')}]`);
+      // Get document IDs to filter search scope
+      const documentIds = specificDocumentId 
+        ? [specificDocumentId] 
+        : documents.map(doc => doc.id).filter(id => id !== undefined);
+      
+      console.log(`📄 DOCUMENT BOT: Restricting search to ${documentIds.length} documents: [${documentIds.join(', ')}]`);
 
-      if (searchType === 'hybrid') {
-        // Use semantic search V2 service for hybrid search with document filtering
-        const { semanticSearchServiceV2 } = await import('./semanticSearchV2');
-        const searchResults = await semanticSearchServiceV2.searchDocuments(
-          userMessage,
-          documents[0]?.userId,
-          {
-            searchType: 'hybrid',
-            limit: 2, // Only get top 2 chunks globally as requested
-            keywordWeight,
-            vectorWeight,
-            specificDocumentIds: documentIds, // Filter to only agent's documents
-            massSelectionPercentage: 0.6 // Use 60% for document chat bots
+      // Use the same search method as Line OA bot with document-specific configuration
+      const { searchSmartHybridDebug } = await import('./newSearch');
+      const searchResults = await searchSmartHybridDebug(
+        userMessage,
+        documents[0]?.userId,
+        {
+          keywordWeight: 0.95, // High keyword weight for document bots
+          vectorWeight: 0.05,
+          specificDocumentIds: documentIds,
+          massSelectionPercentage: 0.6, // 60% mass selection for document bots
+          limit: 16 // Max 16 chunks for document bots
+        }
+      );
+
+      if (searchResults.length > 0) {
+        console.log(`📄 DOCUMENT BOT: Smart hybrid search found ${searchResults.length} relevant chunks from document(s)`);
+        
+        // Build document context from search results
+        console.log(`📄 DOCUMENT BOT: Building document context from search results:`);
+        const documentContents = [];
+        let totalChars = 0;
+        const maxChars = 15000; // Same limit as Line OA bot
+        
+        for (let i = 0; i < Math.min(searchResults.length, 16); i++) {
+          const result = searchResults[i];
+          const chunkContent = `=== ${result.name} ===\n${result.content}\n`;
+          
+          if (totalChars + chunkContent.length <= maxChars) {
+            documentContents.push(chunkContent);
+            totalChars += chunkContent.length;
+            console.log(`  ${i + 1}. ${result.name} - Similarity: ${result.similarity.toFixed(4)}`);
+            console.log(`      Content preview: ${result.content.substring(0, 100)}...`);
+          } else {
+            break;
           }
-        );
-
-        if (searchResults.length > 0) {
-          console.log(`Chat: Found ${searchResults.length} hybrid search results`);
-          // Use only top 2 chunks as requested for chatbot integration
-          relevantContent = searchResults
-            .slice(0, 2)
-            .map(result => result.content)
-            .join("\n\n");
-        } else {
-          console.log("Chat: No hybrid search results found, using document content");
-          relevantContent = documents
-            .map(doc => doc.content || doc.summary || '')
-            .filter(content => content.length > 0)
-            .slice(0, 2)
-            .map(content => content.substring(0, 15000))
-            .join("\n\n");
         }
+        
+        relevantContent = documentContents.join('\n');
+        console.log(`📄 DOCUMENT BOT: Used ${documentContents.length}/${searchResults.length} chunks (${totalChars} chars)`);
       } else {
-        // Fallback to vector search for non-hybrid modes
-        const { vectorService } = await import('./vectorService');
-        const vectorResults = await vectorService.searchDocuments(
-          userMessage, 
-          documents[0]?.userId, 
-          2, // Only get top 2 chunks as requested
-          specificDocumentId ? [specificDocumentId] : documentIds
-        );
-
-        if (vectorResults.length > 0) {
-          console.log(`Chat: Found ${vectorResults.length} vector results`);
-          // Use only top 2 chunks as requested for chatbot integration
-          relevantContent = vectorResults
-            .slice(0, 2)
-            .map(result => result.document.content)
-            .join("\n\n");
-        } else {
-          console.log("Chat: No vector results found, using document content");
-          relevantContent = documents
-            .map(doc => doc.content || doc.summary || '')
-            .filter(content => content.length > 0)
-            .slice(0, 2)
-            .map(content => content.substring(0, 15000))
-            .join("\n\n");
-        }
+        console.log("📄 DOCUMENT BOT: No hybrid search results found, using fallback document content");
+        relevantContent = documents
+          .map(doc => doc.content || doc.summary || '')
+          .filter(content => content.length > 0)
+          .slice(0, 2)
+          .map(content => content.substring(0, 15000))
+          .join("\n\n");
       }
     } catch (searchError) {
-      console.error(`${searchType} search failed:`, searchError);
-      console.log("Chat: Falling back to document content");
+      console.error(`📄 DOCUMENT BOT: Smart hybrid search failed:`, searchError);
+      console.log("📄 DOCUMENT BOT: Falling back to document content");
       relevantContent = documents
         .map(doc => doc.content || doc.summary || '')
         .filter(content => content.length > 0)
