@@ -592,7 +592,7 @@ export const agentChatbots = pgTable("agent_chatbots", {
   // Memory configuration for chat history
   memoryEnabled: boolean("memory_enabled").default(true),
   
-  // Term aliases for search query expansion
+  // Term aliases for search query expansion  
   aliases: jsonb("aliases").$type<Record<string, string[]>>(),
   
   // Advanced guardrails configuration
