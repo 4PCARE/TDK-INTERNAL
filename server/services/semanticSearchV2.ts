@@ -33,6 +33,7 @@ export interface SearchOptions {
   keywordWeight?: number;
   vectorWeight?: number;
   specificDocumentIds?: number[];
+  massSelectionPercentage?: number;
 }
 
 export class SemanticSearchServiceV2 {
@@ -294,7 +295,7 @@ export class SemanticSearchServiceV2 {
       // Use the new chunk split and rank search method
       console.log("🔄 Hybrid search: Using performChunkSplitAndRankSearch method");
       const chunkResults = await this.performChunkSplitAndRankSearch(query, userId, options);
-      
+
       console.log(`🔄 Hybrid search: Returning ${chunkResults.length} chunk-based results`);
       return chunkResults;
 
@@ -332,7 +333,7 @@ export class SemanticSearchServiceV2 {
         const chunkIndex = result.document.chunkIndex ?? 0;
         const chunkId = `${docId}-${chunkIndex}`;
         const chunkText = result.document.content.toLowerCase();
-        
+
         // Debug: Log chunk content length to catch any full documents sneaking in
         if (result.document.content.length > 3000) {
           console.warn(`⚠️  Vector result for doc ${docId} chunk ${chunkIndex} has ${result.document.content.length} chars - suspiciously large for a chunk!`);
@@ -366,9 +367,10 @@ export class SemanticSearchServiceV2 {
 
       console.log(`📈 Scored ${scoredChunks.length} chunks with combined vector+keyword scoring`);
 
-      // Step 3: Rank and select top 10% score mass for strict filtering
+      // Step 3: Rank and select top chunks using configurable mass selection percentage
       const totalScore = scoredChunks.reduce((sum, c) => sum + c.similarity, 0);
-      const scoreThreshold = totalScore * 0.10;
+      const massSelectionPercentage = options.massSelectionPercentage || 0.3; // Default to 30%
+      const scoreThreshold = totalScore * massSelectionPercentage;
 
       scoredChunks.sort((a, b) => b.similarity - a.similarity);
 
@@ -418,7 +420,7 @@ export class SemanticSearchServiceV2 {
       finalResults.slice(0, 3).forEach((result, index) => {
         console.log(`${index + 1}. ${result.name} - Score: ${result.similarity.toFixed(4)}`);
         console.log(`   Content (${result.content.length} chars): ${result.content.substring(0, 150)}...`);
-        
+
         // Additional debugging to catch if we're accidentally getting full documents
         if (result.content.length > 3000) {
           console.warn(`⚠️  POTENTIAL ISSUE: Result ${index + 1} has ${result.content.length} characters - might be full document instead of chunk!`);
