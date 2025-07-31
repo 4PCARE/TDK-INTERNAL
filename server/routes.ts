@@ -865,8 +865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lastName: users.lastName,
             profileImageUrl: users          .profileImageUrl,
             role: users.role,
-                        departmentId: users<replit_final_file>
-.departmentId,
+            departmentId: users.departmentId,
             createdAt: users.createdAt,
             updatedAt: users.updatedAt,
           })
@@ -1523,7 +1522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const searchFileName = req.query.searchFileName === 'true';
           const searchKeyword = req.query.searchKeyword === 'true'; 
           const searchMeaning = req.query.searchMeaning === 'true';
-          const massPercentageLocal = parseFloat(req.query.massSelectionPercentage as string) || 0.6;
+          const massPercentage = parseFloat(req.query.massSelectionPercentage as string) || 0.6;
 
           const { documentNamePrioritySearchService } = await import('./services/documentNamePrioritySearch');
           results = await documentNamePrioritySearchService.searchDocuments(
@@ -1531,7 +1530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             userId,
             {
               limit: 100,
-              massSelectionPercentage: massPercentageLocal,
+              massSelectionPercentage: massPercentage,
               enableNameSearch: searchFileName !== false, // Default to true unless explicitly disabled
               enableKeywordSearch: searchKeyword !== false && type !== "filename-only", // Default to true unless explicitly disabled
               enableSemanticSearch: searchMeaning === true // Only enable when explicitly requested
@@ -1540,13 +1539,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           break;
 
         case "keyword":
-          // Pure keyword search without vector search
-          const { advancedKeywordSearchService } = await import('./services/advancedKeywordSearch');
-          results = await advancedKeywordSearchService.searchDocuments(
+          results = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
-            [],
-            Math.min(50, Math.floor(100 * massPercentage))
+            Math.min(50, Math.floor(100 * massPercentage)),
+            undefined,
+            "keyword",
+            massPercentage
           );
           break;
 
