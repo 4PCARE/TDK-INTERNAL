@@ -1523,7 +1523,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const searchFileName = req.query.searchFileName === 'true';
           const searchKeyword = req.query.searchKeyword === 'true'; 
           const searchMeaning = req.query.searchMeaning === 'true';
-          const massPercentage = parseFloat(req.query.massSelectionPercentage as string) || 0.6;
+          const massPercentageLocal = parseFloat(req.query.massSelectionPercentage as string) || 0.6;
 
           const { documentNamePrioritySearchService } = await import('./services/documentNamePrioritySearch');
           results = await documentNamePrioritySearchService.searchDocuments(
@@ -1531,7 +1531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             userId,
             {
               limit: 100,
-              massSelectionPercentage: massPercentage,
+              massSelectionPercentage: massPercentageLocal,
               enableNameSearch: searchFileName !== false, // Default to true unless explicitly disabled
               enableKeywordSearch: searchKeyword !== false && type !== "filename-only", // Default to true unless explicitly disabled
               enableSemanticSearch: searchMeaning === true // Only enable when explicitly requested
