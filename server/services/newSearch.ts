@@ -145,7 +145,7 @@ function findBestMatch(searchTerm: string, text: string): { score: number; match
       if (isThaiTokenSimilar(searchTerm, cleanWord)) {
         const normalized1 = searchTerm.toLowerCase().replace(/\s+/g, '');
         const normalized2 = cleanWord.toLowerCase().replace(/\s+/g, '');
-        
+
         if (normalized1 === normalized2) {
           bestScore = 0.95;
           bestMatch = cleanWord;
@@ -487,7 +487,7 @@ function findBestFuzzyMatchThai(term: string, tokens: string[]): { score: number
       // Calculate more nuanced similarity score
       const normalized1 = term.toLowerCase().replace(/\s+/g, '');
       const normalized2 = token.toLowerCase().replace(/\s+/g, '');
-      
+
       if (normalized1 === normalized2) {
         bestScore = Math.max(bestScore, 0.95); // Very high score for exact match after space normalization
       } else if (normalized1.includes(normalized2) || normalized2.includes(normalized1)) {
@@ -655,82 +655,10 @@ export async function searchSmartHybridDebug(
 
   const docMap = new Map(relevantDocs.map(doc => [doc.id, doc]));
 
-  // 2. Perform keyword search on the same chunks from document_vectors table
-  console.log(`🔍 KEYWORD SEARCH: Starting with terms: [${searchTerms.join(', ')}]`);
+  // 2. Get vector search results (get all available chunks)
+  console.log(`🔍 VECTOR SEARCH: Starting vector search for "${query}"`);
+  const vectorResults = await vectorService.searchDocuments(query, userId, -1, options.specificDocumentIds);
 
-  // Get chunks from database (same source as vector search)
-  const { db } = await import('../db');
-  const { documentVectors } = await import('@shared/schema');
-  const { eq, and, or } = await import('drizzle-orm');
-
-  let whereCondition: any = eq(documentVectors.userId, userId);
-  if (options.specificDocumentIds?.length) {
-    whereCondition = and(
-      eq(documentVectors.userId, userId),
-      or(...options.specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
-    );
-  }
-
-  const chunks = await db.select().from(documentVectors).where(whereCondition);
-  console.log(`🔍 KEYWORD SEARCH: Found ${chunks.length} chunks to search`);
-
-  // Create a map for faster chunk lookup
-  const chunkMap = new Map();
-  for (const chunk of chunks) {
-    // Use consistent chunk ID format: docId-chunkIndex
-    const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
-    chunkMap.set(chunkId, chunk);
-  }
-
-  // Get agentAliases from options
-  const agentAliases = options.agentAliases;
-
-  // Use performAdvancedKeywordSearch with alias expansion instead of calculateBM25
-  const { performAdvancedKeywordSearch } = await import('./advancedKeywordSearch');
-
-  // Perform advanced keyword search with alias expansion
-  console.log(`🔍 KEYWORD SEARCH: Performing advanced keyword search with aliases...`);
-  const keywordSearchResults = await performAdvancedKeywordSearch(
-    searchQuery, 
-    userId, 
-    options.specificDocumentIds, 
-    { limit: 200, threshold: 0.01 },
-    agentAliases
-  );
-
-  console.log(`🔍 KEYWORD SEARCH: performAdvancedKeywordSearch returned ${keywordSearchResults.length} results with aliases`);
-
-  // Convert keyword search results to matches format for combining with vector search
-  const keywordMatches: Record<string, { score: number; content: string; matchedTerms: string[]; matchDetails: any[] }> = {};
-  let totalMatches = 0;
-
-  // Process advanced keyword search results (no duplicate processing)
-  for (const result of keywordSearchResults) {
-    if (result.similarity > 0) {
-      // Parse the chunk ID from advanced search result (should be docId-chunkIndex format)
-      const chunkId = result.id;
-
-      keywordMatches[chunkId] = {
-        score: result.similarity,
-        content: result.content,
-        matchedTerms: (result as any).matchedTerms || [],
-        matchDetails: (result as any).matchDetails || []
-      };
-      totalMatches++;
-    }
-  }
-
-  console.log(`🔍 KEYWORD SEARCH: Processed ${totalMatches} keyword matches from advanced search (no duplication)`)
-
-  if (totalMatches === 0) {
-    console.log(`⚠️ KEYWORD SEARCH DEBUG: No positive BM25 scores found. This might indicate:`)
-    console.log(`   - Search terms: [${searchTerms.join(', ')}]`)
-    console.log(`   - Total chunks processed: ${chunks.length}`)
-    console.log(`   - No document frequencies found for any search terms`)
-  }
-
-  // 3. Perform vector search
-  const vectorResults = await vectorService.searchDocuments(query, userId, 100, options.specificDocumentIds);
   const vectorMatches: Record<string, { score: number, content: string }> = {};
   for (const result of vectorResults) {
     const docId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
@@ -856,7 +784,7 @@ export async function searchSmartHybridDebug(
     // Option 1: Require both scores > 0 (uncomment to enable strict filtering)
     // const requireBothScores = keywordScore > 0 && (vectorInfo?.score ?? 0) > 0;
     // if (finalScore > 0 && content.length > 0 && requireBothScores) {
-    
+
     // Option 2: Accept any positive final score (current behavior)
     if (finalScore > 0 && content.length > 0) {
       scoredChunks.push({
