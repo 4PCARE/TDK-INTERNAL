@@ -300,15 +300,6 @@ export class DocumentNamePrioritySearchService {
 }
 
 export const documentNamePrioritySearchService = new DocumentNamePrioritySearchService();
-```
-
-
-</text>
-
-import { Document } from "@shared/schema";
-import { vectorService } from './vectorService';
-import { storage } from '../storage';
-import { thaiTextProcessor } from './thaiTextProcessor';
 
 export interface DocumentNameSearchResult {
   id: string;
