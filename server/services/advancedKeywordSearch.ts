@@ -608,7 +608,7 @@ export async function performAdvancedKeywordSearch(
       console.log(`🔍 BM25: Applying bidirectional alias expansion with ${Object.keys(agentAliases).length} alias groups`);
       const expandedTerms = new Set(searchTerms);
 
-      for (const term of searchTermies) {
+      for (const term of searchTerms) {
         const lowerTerm = term.toLowerCase();
 
         // Method 1: Check if this term is a key in aliases (key -> values)
@@ -703,7 +703,7 @@ export async function performAdvancedKeywordSearch(
           mimeType: document.mimeType ?? null,
           isFavorite: document.isFavorite ?? null,
           updatedAt: document.updatedAt?.toISOString() ?? null,
-          userId: document.userId ?? options.userId || ''
+          userId: document.userId ?? (options.userId || '')
         });
       });
 
