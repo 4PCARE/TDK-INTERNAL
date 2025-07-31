@@ -27,20 +27,29 @@ export function getSession() {
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
+    createTableIfMissing: true, // Allow table creation for robustness
+    ttl: Math.floor(sessionTtl / 1000), // Convert to seconds for postgres store
     tableName: "sessions",
+    pruneSessionInterval: 60 * 60, // Prune expired sessions every hour
   });
+  
+  // Handle store errors gracefully
+  sessionStore.on('error', (err) => {
+    console.error('Session store error:', err);
+  });
+  
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
-    resave: true, // Force session save to prevent loss
-    saveUninitialized: true, // Save uninitialized sessions
+    resave: false, // Don't save session if unmodified
+    saveUninitialized: false, // Don't save uninitialized sessions
     rolling: true, // Reset expiration on activity
+    name: 'replit.sid', // Custom session name
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Allow non-HTTPS in development
+      secure: false, // Always false for Replit environment
       maxAge: sessionTtl,
+      sameSite: 'lax'
     },
   });
 }
@@ -196,6 +205,8 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   }
 
   const now = Math.floor(Date.now() / 1000);
+  
+  // If token is still valid, proceed
   if (now <= currentUser.expires_at) {
     // Update session activity
     if (req.session) {
@@ -204,23 +215,34 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return next();
   }
 
-  console.log("Replit auth failed - token expired");
-  return res.status(401).json({ message: "Token expired" });
-
-  const refreshToken = user.refresh_token;
+  // Token expired - try to refresh
+  const refreshToken = currentUser.refresh_token;
   if (!refreshToken) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    console.log("Replit auth failed - token expired, no refresh token");
+    return res.status(401).json({ message: "Token expired" });
   }
 
   try {
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
-    updateUserSession(user, tokenResponse);
+    updateUserSession(currentUser, tokenResponse);
+    
+    // Update both req.user and session
+    req.user = currentUser;
+    if (req.session) {
+      (req.session as any).passport = { user: currentUser };
+      req.session.save((err) => {
+        if (err) {
+          console.error("Failed to save refreshed session:", err);
+        }
+      });
+    }
+    
+    console.log("Token refreshed successfully for user:", currentUser.claims?.email);
     return next();
   } catch (error) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    console.log("Replit auth failed - token refresh failed:", error);
+    return res.status(401).json({ message: "Token refresh failed" });
   }
 };
 

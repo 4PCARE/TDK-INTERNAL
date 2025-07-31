@@ -330,32 +330,15 @@ export async function setupMicrosoftAuth(app: Express) {
           console.error("Failed to create audit log for Microsoft login:", auditError);
         }
 
-        // Force session regeneration and save
-        req.session.regenerate((err: any) => {
-          if (err) {
-            console.error("Session regeneration error:", err);
-            // Fallback to regular save
-            req.session.save((saveErr: any) => {
-              if (saveErr) {
-                console.error("Session save error:", saveErr);
-                return res.redirect("/api/auth/microsoft?error=session_failed");
-              }
-              console.log("Session saved successfully (fallback), redirecting to dashboard");
-              res.redirect("/");
-            });
-            return;
+        // Ensure session is saved properly
+        (req.session as any).user = user;
+        req.session.save((saveErr: any) => {
+          if (saveErr) {
+            console.error("Session save error:", saveErr);
+            return res.redirect("/api/auth/microsoft?error=session_failed");
           }
-
-          // Set session data after regeneration
-          (req.session as any).user = user;
-          req.session.save((saveErr: any) => {
-            if (saveErr) {
-              console.error("Session save error after regeneration:", saveErr);
-              return res.redirect("/api/auth/microsoft?error=session_failed");
-            }
-            console.log("Session regenerated and saved successfully, redirecting to dashboard");
-            res.redirect("/");
-          });
+          console.log("Session saved successfully, redirecting to dashboard");
+          res.redirect("/");
         });
       });
     })(req, res, next);
