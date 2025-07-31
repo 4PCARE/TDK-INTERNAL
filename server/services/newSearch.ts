@@ -226,7 +226,7 @@ async function calculateBM25(
     const content = chunk.content || '';
     const tokens = await tokenizeWithThaiNormalization(content);
     const chunkIndex = chunk.chunkIndex ?? 0;
-    const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
+    const chunkId = `${chunk.documentId}-${chunkIndex}`;
 
     chunkLengths.set(chunkId, tokens.length);
     totalDocLength += tokens.length;
@@ -518,6 +518,7 @@ export async function searchSmartHybridDebug(
   // Create a map for faster chunk lookup
   const chunkMap = new Map();
   for (const chunk of chunks) {
+    // Use consistent chunk ID: docId-chunkIndex
     const chunkId = `${chunk.documentId}-${chunk.chunkIndex}`;
     chunkMap.set(chunkId, chunk);
   }
@@ -551,6 +552,7 @@ export async function searchSmartHybridDebug(
       // Extract document ID and chunk index from the result
       const docId = result.id;
       const chunkIndex = result.name.match(/Chunk (\d+)/)?.[1] || "0";
+      // Use consistent chunk ID: docId-chunkIndex
       const chunkId = `${docId}-${parseInt(chunkIndex) - 1}`; // Adjust for 0-based indexing
 
       keywordMatches[chunkId] = {
@@ -609,6 +611,7 @@ export async function searchSmartHybridDebug(
   for (const result of vectorResults) {
     const docId = parseInt(result.document.metadata.originalDocumentId || result.document.id);
     const chunkIndex = result.document.chunkIndex ?? 0;
+    // Use consistent chunk ID: docId-chunkIndex
     const chunkId = `${docId}-${chunkIndex}`;
     const score = result.similarity;
 
