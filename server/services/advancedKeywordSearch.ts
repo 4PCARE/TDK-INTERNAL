@@ -782,7 +782,9 @@ export async function performAdvancedKeywordSearch(
           mimeType: document.mimeType ?? null,
           isFavorite: document.isFavorite ?? null,
           updatedAt: document.updatedAt?.toISOString() ?? null,
-          userId: document.userId ?? userId
+          userId: document.userId ?? userId,
+          matchedTerms: chunkScore.matchedTerms,
+          matchDetails: chunkScore.matchDetails
         });
       });
 
