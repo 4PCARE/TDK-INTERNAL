@@ -145,7 +145,7 @@ function findBestMatch(searchTerm: string, text: string): { score: number; match
       if (isThaiTokenSimilar(searchTerm, cleanWord)) {
         const normalized1 = searchTerm.toLowerCase().replace(/\s+/g, '');
         const normalized2 = cleanWord.toLowerCase().replace(/\s+/g, '');
-        
+
         if (normalized1 === normalized2) {
           bestScore = 0.95;
           bestMatch = cleanWord;
@@ -487,7 +487,7 @@ function findBestFuzzyMatchThai(term: string, tokens: string[]): { score: number
       // Calculate more nuanced similarity score
       const normalized1 = term.toLowerCase().replace(/\s+/g, '');
       const normalized2 = token.toLowerCase().replace(/\s+/g, '');
-      
+
       if (normalized1 === normalized2) {
         bestScore = Math.max(bestScore, 0.95); // Very high score for exact match after space normalization
       } else if (normalized1.includes(normalized2) || normalized2.includes(normalized1)) {
@@ -1019,7 +1019,7 @@ export async function searchSmartHybridV1(
       });
     }
 
-    const vectorResults = await vectorService.searchDocuments(query, userId, 100, options.specificDocumentIds);
+    // 2. Extract vector chunks
     const vectorChunks: Record<string, { content: string; score: number }> = {};
     for (const result of vectorResults) {
       if (!result.document) {
@@ -1028,15 +1028,18 @@ export async function searchSmartHybridV1(
       }
 
       const doc = result.document;
-      const docId = parseInt(result.metadata?.originalDocumentId || result.id);
-      const chunkIndex = doc.chunkIndex ?? 0;
+      // Fix: Use correct metadata extraction
+      const docId = parseInt(doc.metadata?.originalDocumentId || doc.id.split('_')[0]);
+      const chunkIndex = doc.chunkIndex ?? doc.metadata?.chunkIndex ?? 0;
       const chunkId = `${docId}-${chunkIndex}`;
-      if (result.similarity >= threshold) {
-        vectorChunks[chunkId] = {
-          content: doc.content,
-          score: result.similarity
-        };
-      }
+
+      console.log(`🔍 VECTOR MAPPING: docId=${docId}, chunkIndex=${chunkIndex} -> chunkId=${chunkId} -> similarity: ${result.similarity.toFixed(4)}`);
+
+      // Always include vector results regardless of threshold for combination
+      vectorChunks[chunkId] = {
+        content: doc.content,
+        score: result.similarity
+      };
     }
 
     // 3. Merge & Take Higher Score per chunk
@@ -1058,6 +1061,15 @@ export async function searchSmartHybridV1(
       const keywordScore = keywordChunks[chunkId]?.score ?? 0;
       const vectorScore = vectorChunks[chunkId]?.score ?? 0;
       const content = keywordChunks[chunkId]?.content || vectorChunks[chunkId]?.content || "";
+
+      // Debug: Log when we have both scores
+      if (keywordScore > 0 && vectorScore > 0) {
+        console.log(`✅ HYBRID MATCH ${chunkId}: keyword=${keywordScore.toFixed(4)}, vector=${vectorScore.toFixed(4)}`);
+      } else if (vectorScore > 0 && keywordScore === 0) {
+        console.log(`🔍 VECTOR ONLY ${chunkId}: vector=${vectorScore.toFixed(4)}`);
+      } else if (keywordScore > 0 && vectorScore === 0) {
+        console.log(`📝 KEYWORD ONLY ${chunkId}: keyword=${keywordScore.toFixed(4)}`);
+      }
 
       const hybridScore = Math.max(
         vectorScore * adaptedVectorWeight + keywordScore * adaptedKeywordWeight,
