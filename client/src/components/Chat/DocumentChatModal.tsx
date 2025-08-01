@@ -173,9 +173,9 @@ export default function DocumentChatModal({
       defaultHeight="70%"
       minWidth={500}
       minHeight={400}
-      className="flex flex-col"
+      className="flex flex-col h-full"
     >
-      <div className="flex items-center space-x-2 mb-4">
+      <div className="flex items-center space-x-2 mb-4 flex-shrink-0">
         <FileText className="w-5 h-5 text-blue-600" />
         <span className="text-sm text-gray-600">
           คุณกำลังแชทเฉพาะกับเอกสารนี้
@@ -183,9 +183,9 @@ export default function DocumentChatModal({
       </div>
 
       {/* Chat Messages - Scrollable Container */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4"></div>
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
