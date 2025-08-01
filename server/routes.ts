@@ -1987,16 +1987,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate AI response using existing chat functionality
       try {
-        // Get user's documents for context
-        const userDocuments = await storage.getDocuments(userId, { limit: 100 });
+        // Check if documentId is specified in request body
+        const { documentId } = req.body;
+        let userDocuments;
+        let specificDocumentId;
+
+        if (documentId) {
+          // If documentId specified, get only that document
+          console.log(`📄 Chat: Restricting to document ID ${documentId}`);
+          const singleDoc = await storage.getDocumentById(documentId, userId);
+          if (!singleDoc) {
+            return res.status(404).json({ message: "Document not found" });
+          }
+          userDocuments = [singleDoc];
+          specificDocumentId = documentId;
+        } else {
+          // Get all user's documents for context
+          console.log(`📄 Chat: Using all user documents`);
+          userDocuments = await storage.getDocuments(userId, { limit: 100 });
+          specificDocumentId = undefined;
+        }
         
         const aiResponse = await generateChatResponse(
           message,
-          userDocuments,  // Pass documents array instead of userId
-          undefined,      // No specific document ID
-          'hybrid',       // Use hybrid search
-          0.4,           // keywordWeight
-          0.6            // vectorWeight
+          userDocuments,
+          specificDocumentId,  // Pass the specific document ID
+          'hybrid',            // Use hybrid search
+          0.4,                // keywordWeight
+          0.6                 // vectorWeight
         );
         
         // Add AI response
