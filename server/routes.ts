@@ -1612,7 +1612,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`✅ SEARCH COMPLETE: Returning ${results.length} results for "${query}"`);
-      res.json(results);
+      
+      // POST-PROCESS: Handle chunk results that may have document-chunk IDs
+      const processedResults = results.map(result => {
+        // Check if this is a chunk result (ID format: "documentId-chunkIndex")
+        if (typeof result.id === 'string' && result.id.includes('-')) {
+          const parts = result.id.split('-');
+          if (parts.length === 2 && !isNaN(parseInt(parts[0])) && !isNaN(parseInt(parts[1]))) {
+            // This is a chunk result, ensure it's properly formatted
+            const documentId = parseInt(parts[0]);
+            const chunkIndex = parseInt(parts[1]);
+            
+            console.log(`📝 POST-PROCESS: Converting chunk result ${result.id} to proper format`);
+            
+            return {
+              ...result,
+              id: result.id, // Keep the chunk ID format for frontend
+              documentId: documentId, // Add separate documentId field
+              chunkIndex: chunkIndex, // Add chunkIndex for reference
+              isChunk: true // Flag to identify chunk results
+            };
+          }
+        }
+        
+        // Regular document result, ensure ID is number
+        return {
+          ...result,
+          id: typeof result.id === 'string' ? parseInt(result.id) : result.id,
+          isChunk: false
+        };
+      });
+      
+      console.log(`📝 POST-PROCESS: Processed ${processedResults.length} results (chunks converted to proper format)`);
+      res.json(processedResults);
     } catch (error) {
       console.error("Error in document search:", error);
       res.status(500).json({ message: "Search failed", error: error.message });
