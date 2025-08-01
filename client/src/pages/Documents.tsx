@@ -107,7 +107,9 @@ export default function Documents() {
           if (!response.ok) {
             throw new Error(`${response.status}: ${response.statusText}`);
           }
-          return await response.json();
+          const data = await response.json();
+          // /api/documents returns a plain array, not an object with results property
+          return Array.isArray(data) ? data : [];
         }
 
         // Determine search type based on checkbox combinations
@@ -143,10 +145,22 @@ export default function Documents() {
           throw new Error(`Search failed: ${response.status} ${response.statusText}`);
         }
         const results = await response.json();
-        console.log(`Frontend received ${Array.isArray(results) ? results.length : 'non-array'} search results`);
+        console.log(`Frontend received search response:`, results);
         
-        // Ensure we always return an array
-        return Array.isArray(results) ? results : [];
+        // Handle the API response format { results: [...], count: number }
+        if (results && Array.isArray(results.results)) {
+          console.log(`Frontend received ${results.results.length} search results`);
+          return results.results;
+        }
+        
+        // Fallback for direct array response (backwards compatibility)
+        if (Array.isArray(results)) {
+          console.log(`Frontend received ${results.length} direct array results`);
+          return results;
+        }
+        
+        console.log('Frontend received invalid search results format');
+        return [];
       } catch (error) {
         console.error("Document query failed:", error);
         toast({
