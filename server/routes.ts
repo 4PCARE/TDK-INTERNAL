@@ -1200,6 +1200,20 @@ app.get("/api/documents/search-consolidated", isAuthenticated, async (req: any, 
   }
 });
 
+  // Update user role
+  app.put(
+    "/api/admin/users/:userId/role",
+    (req: any, res: any, next: any) => {
+      // Try Microsoft auth first, then fallback to Replit auth
+      isMicrosoftAuthenticated(req, res, (err: any) => {
+        if (!err) {
+          return next();
+        }
+        isAuthenticated(req, res, next);
+      });
+    },
+    isAdmin,</old_str>
+
     async (req: any, res) => {
       try {
         const { userId } = req.params;
