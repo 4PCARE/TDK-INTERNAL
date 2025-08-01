@@ -1304,7 +1304,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         limit,
         offset,
       });
-      res.json(documents);
+      
+      // Ensure we always return an array
+      const documentsArray = Array.isArray(documents) ? documents : [];
+      res.json(documentsArray);
     } catch (error) {
       console.error("Error fetching documents:", error);
       res.status(500).json({ message: "Failed to fetch documents" });
@@ -1390,6 +1393,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ results: [], count: 0 });
       }
 
+      // Additional safety check for undefined/null results
+      if (!searchResults) {
+        console.log("❌ Search service returned null/undefined results");
+        return res.json({ results: [], count: 0 });
+      }
+
       // Filter out invalid results and ensure proper document IDs
       const validResults = searchResults
         .filter(result => {
@@ -1427,9 +1436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error) {
       console.error("❌ Document search error:", error);
-      res.status(500).json({ 
-        message: "Search failed", 
-        error: error instanceof Error ? error.message : String(error),
+      res.json({ 
         results: [],
         count: 0
       });
