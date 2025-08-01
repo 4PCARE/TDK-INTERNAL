@@ -1652,7 +1652,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // CHAT ROUTES
   // ============================
 
-  // Chat message endpoint
+  // ============================
+  // CHAT CONVERSATION ROUTES
+  // ============================
+
+  // Create new conversation
+  app.post("/api/chat/conversations", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { title, documentId } = req.body;
+
+      const conversationData = {
+        title: title || "New Conversation",
+        userId,
+        documentId: documentId || null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      // For now, create a simple conversation object
+      const conversation = {
+        id: Date.now(), // Simple ID generation
+        ...conversationData
+      };
+
+      console.log("📝 Created new conversation:", conversation.id);
+      res.status(201).json(conversation);
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      res.status(500).json({ message: "Failed to create conversation" });
+    }
+  });
+
+  // Get conversation messages
+  app.get("/api/chat/conversations/:id/messages", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const conversationId = parseInt(req.params.id);
+
+      if (isNaN(conversationId)) {
+        return res.status(400).json({ message: "Invalid conversation ID" });
+      }
+
+      // For now, return empty messages array
+      // In a full implementation, you'd fetch from database
+      const messages = [];
+
+      console.log(`📨 Retrieved ${messages.length} messages for conversation ${conversationId}`);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching conversation messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  // Send message to conversation
+  app.post("/api/chat/messages", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { conversationId, message, documentId } = req.body;
+
+      if (!message || !message.trim()) {
+        return res.status(400).json({ message: "Message content is required" });
+      }
+
+      // Create user message
+      const userMessage = {
+        id: Date.now(),
+        role: "user" as const,
+        content: message.trim(),
+        createdAt: new Date().toISOString()
+      };
+
+      try {
+        // Generate AI response - pass documentId if provided for document-specific chat
+        const aiResponse = await generateChatResponse(
+          message, 
+          userId, 
+          "web", 
+          "default",
+          undefined, // agentId
+          documentId // Pass documentId for context
+        );
+
+        // Create AI message
+        const aiMessage = {
+          id: Date.now() + 1,
+          role: "assistant" as const,
+          content: aiResponse,
+          createdAt: new Date().toISOString()
+        };
+
+        console.log(`✅ Chat message processed for conversation ${conversationId}`);
+        res.json({ userMessage, aiMessage });
+      } catch (aiError) {
+        console.error("Error generating AI response:", aiError);
+        res.json({ 
+          userMessage, 
+          error: "Failed to generate AI response" 
+        });
+      }
+    } catch (error) {
+      console.error("Error processing chat message:", error);
+      res.status(500).json({ message: "Failed to process chat message" });
+    }
+  });
+
+  // Chat message endpoint (legacy)
   app.post("/api/chat/message", (req: any, res: any, next: any) => {
     // Try Microsoft auth first, then fallback to Replit auth
     isMicrosoftAuthenticated(req, res, (err: any) => {
