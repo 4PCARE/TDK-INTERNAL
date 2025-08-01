@@ -22,9 +22,6 @@ interface DocumentCardProps {
     similarity?: number;
     content?: string;
     isChunkResult?: boolean;
-    chunkContent?: string;
-    chunkId?: string;
-    topChunks?: any;
   };
 }
 
@@ -163,7 +160,7 @@ export default function DocumentCard({ document }: DocumentCardProps) {
         <h4 className="font-medium text-gray-900 mb-1 truncate" title={document.name}>
           {document.name}
         </h4>
-
+        
         {/* Show similarity score for search results */}
         {document.similarity !== undefined && (
           <div className="mb-2">
@@ -172,24 +169,10 @@ export default function DocumentCard({ document }: DocumentCardProps) {
             </Badge>
           </div>
         )}
-
-        {/* Content preview */}
-        <div className="mb-3">
-          {document.isChunkResult && document.chunkContent ? (
-            <div>
-              <div className="text-xs text-gray-500 mb-1">
-                Best matching content (Chunk {document.chunkId ? document.chunkId.split('-')[1] : 'N/A'}):
-              </div>
-              <p className="text-sm text-gray-600 line-clamp-3">
-                {document.chunkContent}
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-600 line-clamp-3">
-              {document.content || document.description || "No content preview available"}
-            </p>
-          )}
-        </div>
+        
+        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+          {document.content || document.description || "No description available"}
+        </p>
 
         {/* Tags */}
         {document.tags && document.tags.length > 0 && (

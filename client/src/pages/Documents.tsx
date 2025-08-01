@@ -111,13 +111,13 @@ export default function Documents() {
     }
   };
 
-  // Enhanced search with semantic capabilities - using consolidated endpoint
+  // Enhanced search with semantic capabilities
   const { data: rawSearchResults, isLoading: documentsLoading, error: documentsError } = useQuery({
-    queryKey: ["/api/documents/search-consolidated", searchQuery, searchFileName, searchKeyword, searchMeaning],
+    queryKey: ["/api/documents/search", searchQuery, searchFileName, searchKeyword, searchMeaning],
     queryFn: async () => {
       try {
         if (!searchQuery.trim()) {
-          const response = await fetch("/api/documents/search-consolidated");
+          const response = await fetch("/api/documents");
           if (!response.ok) {
             throw new Error(`${response.status}: ${response.statusText}`);
           }
@@ -149,18 +149,18 @@ export default function Documents() {
         ].filter(Boolean).join(", ");
 
         console.log(`Frontend search: "${searchQuery}" with ${searchTypeDescription}:${searchFileName}, keyword:${searchKeyword}, meaning:${searchMeaning} (type: ${searchType})`);
-        const response = await fetch(`/api/documents/search-consolidated?${params}`);
+        const response = await fetch(`/api/documents/search?${params}`);
         if (!response.ok) {
           throw new Error(`${response.status}: ${response.statusText}`);
         }
         const results = await response.json();
 
-        if (!results || !Array.isArray(results.results)) {
-          console.log("Frontend received invalid search results format");
-          return { results: [], count: 0 };
+        if (!Array.isArray(results)) {
+          console.log("Frontend received non-array search results");
+          return [];
         }
 
-        console.log(`Frontend received ${results.results.length} consolidated search results`);
+        console.log(`Frontend received ${results.length} search results`);
         return results;
       } catch (error) {
         console.error("Document query failed:", error);
@@ -174,10 +174,53 @@ export default function Documents() {
     },
     retry: false,
     enabled: isAuthenticated,
-  }) as { data: { results: Array<any>; count: number } | undefined; isLoading: boolean; error: any };
+  }) as { data: Array<any>; isLoading: boolean; error: any };
 
-  // Documents are already consolidated by the backend
-  const documents = rawSearchResults;
+  // Post-process search results to deduplicate documents
+  const documents = useMemo(() => {
+    if (!rawSearchResults) return [];
+
+    // If it's already an array (non-search results), return as-is
+    if (Array.isArray(rawSearchResults)) {
+      return rawSearchResults;
+    }
+
+    // If it's a search result object with results array
+    if (rawSearchResults?.results && Array.isArray(rawSearchResults.results)) {
+      const documentMap = new Map();
+
+      rawSearchResults.results.forEach((result: any) => {
+        // Extract original document ID from chunk ID (format: "docId-chunkIndex")
+        const originalDocId = result.id.toString().includes('-') ? result.id.toString().split('-')[0] : result.id.toString();
+
+        if (!documentMap.has(originalDocId)) {
+          // First chunk for this document - use it as the main result
+          documentMap.set(originalDocId, {
+            ...result,
+            id: parseInt(originalDocId), // Use original document ID
+            name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk suffix
+            content: result.summary || result.content, // Use summary if available
+            isChunkResult: false
+          });
+        } else {
+          // Additional chunk for existing document - keep highest similarity
+          const existing = documentMap.get(originalDocId);
+          if (result.similarity > existing.similarity) {
+            documentMap.set(originalDocId, {
+              ...existing,
+              similarity: result.similarity,
+              content: result.summary || result.content
+            });
+          }
+        }
+      });
+
+      return Array.from(documentMap.values());
+    }
+
+    // Fallback to empty array
+    return [];
+  }, [rawSearchResults]);
 
   const { data: categories } = useQuery({
     queryKey: ["/api/categories"],
@@ -215,7 +258,7 @@ export default function Documents() {
   const allTags = documents ? Array.from(new Set(documents.flatMap((doc: any) => doc.tags || []))) : [];
 
   // Filter and sort documents with multi-select support
-  const filteredDocuments = documents?.results ? documents.results.filter((doc: any) => {
+  const filteredDocuments = documents ? documents.filter((doc: any) => {
     // Apply category filters
     const matchesCategory = filterCategories.length === 0 || 
                            filterCategories.includes(doc.aiCategory) ||
@@ -479,7 +522,7 @@ export default function Documents() {
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg font-semibold text-slate-800">
-                    Documents ({documents?.count || 0})
+                    Documents ({filteredDocuments?.length || 0})
                   </CardTitle>
                   <div className="flex items-center space-x-2">
                     <VectorizeAllButton />
