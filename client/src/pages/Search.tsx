@@ -87,21 +87,22 @@ export default function SearchPage() {
         const data = await response.json();
         console.log(`📊 Search response received:`, data);
 
-        // Handle both array and object response formats
-        let results = [];
+        // Validate response format
         if (Array.isArray(data)) {
-          results = data;
+          // Direct array response
+          console.log(`✅ Setting ${data.length} search results (direct array)`);
+          setRawSearchResultsState(data);
+          return data;
         } else if (data && Array.isArray(data.results)) {
-          results = data.results;
+          // Object with results property
+          console.log(`✅ Setting search response with ${data.results.length} results`);
+          setRawSearchResultsState(data);
+          return data;
         } else {
           console.error('Frontend received invalid search results format:', data);
           setRawSearchResultsState([]);
-          return;
+          return [];
         }
-
-        console.log(`✅ Setting ${results.length} search results`);
-        setRawSearchResultsState(results);
-        return results;
       } catch (error) {
         console.error("Search API error:", error);
         toast({
@@ -121,23 +122,32 @@ export default function SearchPage() {
   const searchResults = React.useMemo(() => {
     console.log(`🔄 PROCESSING SEARCH RESULTS:`, {
       hasRawResults: !!rawSearchResults,
+      isArray: Array.isArray(rawSearchResults),
       hasResults: !!rawSearchResults?.results,
-      resultCount: rawSearchResults?.results?.length || 0,
+      resultCount: Array.isArray(rawSearchResults) ? rawSearchResults.length : rawSearchResults?.results?.length || 0,
       searchType: searchType
     });
 
-    if (!rawSearchResults?.results) {
+    // Handle both array and object formats
+    let resultsArray = [];
+    if (Array.isArray(rawSearchResults)) {
+      resultsArray = rawSearchResults;
+    } else if (rawSearchResults?.results && Array.isArray(rawSearchResults.results)) {
+      resultsArray = rawSearchResults.results;
+    }
+
+    if (!resultsArray || resultsArray.length === 0) {
       console.log(`❌ NO RAW SEARCH RESULTS TO PROCESS`);
       return [];
     }
 
     console.log(`📊 RAW SEARCH RESULTS:`, {
-      count: rawSearchResults.results.length,
-      firstResult: rawSearchResults.results[0] ? {
-        id: rawSearchResults.results[0].id,
-        name: rawSearchResults.results[0].name,
-        hasContent: !!rawSearchResults.results[0].content,
-        contentLength: rawSearchResults.results[0].content?.length || 0
+      count: resultsArray.length,
+      firstResult: resultsArray[0] ? {
+        id: resultsArray[0].id,
+        name: resultsArray[0].name,
+        hasContent: !!resultsArray[0].content,
+        contentLength: resultsArray[0].content?.length || 0
       } : null
     });
 
@@ -146,19 +156,19 @@ export default function SearchPage() {
       console.log(`🔤 KEYWORD SEARCH: Returning results as-is`);
 
       // Log any problematic IDs
-      const invalidIds = rawSearchResults.results.filter((r: any) => !r.id || r.id === 'NaN' || isNaN(Number(r.id)));
+      const invalidIds = resultsArray.filter((r: any) => !r.id || r.id === 'NaN' || isNaN(Number(r.id)));
       if (invalidIds.length > 0) {
         console.log(`❌ FOUND ${invalidIds.length} INVALID IDs IN KEYWORD RESULTS:`, invalidIds.map((r: any) => ({ id: r.id, name: r.name })));
       }
 
-      return rawSearchResults.results;
+      return resultsArray;
     }
 
     // For semantic search, group by document and keep only the most similar chunk
     console.log(`🧠 SEMANTIC SEARCH: Processing chunks by document`);
     const documentMap = new Map();
 
-    rawSearchResults.results.forEach((result: any, index: number) => {
+    resultsArray.forEach((result: any, index: number) => {
       console.log(`   Processing result ${index + 1}:`, {
         originalId: result.id,
         name: result.name,
@@ -203,7 +213,7 @@ export default function SearchPage() {
     const processedResults = Array.from(documentMap.values());
 
     console.log(`✅ SEMANTIC PROCESSING COMPLETE:`, {
-      originalCount: rawSearchResults.results.length,
+      originalCount: resultsArray.length,
       processedCount: processedResults.length,
       documentMapSize: documentMap.size
     });
