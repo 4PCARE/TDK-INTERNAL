@@ -1566,43 +1566,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (searchMeaning) {
         console.log("Performing semantic search...");
         try {
-          const semanticChunks = await semanticSearchServiceV2.searchDocuments(
+          const semanticDocs = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
             { searchType: "semantic" },
           );
           
-          // Deduplicate chunks to one result per document, keeping the best match
-          const docMap = new Map();
-          semanticChunks.forEach(chunk => {
-            const docId = chunk.id || chunk.document?.id;
-            if (!docId) return;
-            
-            const existingDoc = docMap.get(docId);
-            const chunkSimilarity = chunk.similarity || 0;
-            
-            if (!existingDoc || chunkSimilarity > (existingDoc.similarity || 0)) {
-              // Use the chunk with highest similarity for this document
-              docMap.set(docId, {
-                id: docId,
-                name: chunk.name || chunk.document?.name || "Unknown Document",
-                content: chunk.content || chunk.document?.content,
-                summary: chunk.summary || chunk.document?.summary,
-                aiCategory: chunk.aiCategory || chunk.document?.aiCategory,
-                createdAt: chunk.createdAt || chunk.document?.createdAt,
-                similarity: chunkSimilarity,
-                tags: chunk.tags || [],
-                categoryId: chunk.categoryId || null,
-                userId: userId,
-                searchScore: 20 + chunkSimilarity * 25, // Lower priority but similarity-based
-                searchType: "semantic"
-              });
-            }
-          });
+          semanticResults = semanticDocs.map(doc => ({
+            ...doc,
+            searchScore: 20 + (doc.similarity || 0) * 25, // Lower priority but similarity-based
+            searchType: "semantic"
+          }));
           
-          semanticResults = Array.from(docMap.values());
-          
-          console.log(`Semantic search returned ${semanticResults.length} unique documents from ${semanticChunks.length} chunks`);
+          console.log(`Semantic search returned ${semanticResults.length} results`);
         } catch (error) {
           console.error("Semantic search failed:", error);
         }
