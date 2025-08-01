@@ -1930,11 +1930,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { message, conversationId } = req.body;
 
-      console.log("📨 Chat message request:", { userId, conversationId, message: message?.substring(0, 50) + "..." });
+      console.log("📨 Chat message request full payload:", { 
+        userId, 
+        conversationId, 
+        message: message,
+        messageType: typeof message,
+        messageLength: message?.length,
+        conversationIdType: typeof conversationId,
+        fullBody: req.body
+      });
 
-      // Validate required fields
-      if (!message || !conversationId) {
-        return res.status(400).json({ message: "Message and conversation ID are required" });
+      // Enhanced validation with detailed error messages
+      if (!message || message.trim() === "") {
+        console.log("❌ Message validation failed:", { message, type: typeof message });
+        return res.status(400).json({ 
+          message: "Message is required and cannot be empty",
+          details: { message: message, messageType: typeof message }
+        });
+      }
+
+      if (!conversationId) {
+        console.log("❌ ConversationId validation failed:", { conversationId, type: typeof conversationId });
+        return res.status(400).json({ 
+          message: "Conversation ID is required",
+          details: { conversationId: conversationId, conversationIdType: typeof conversationId }
+        });
       }
 
       const { chatMessages, chatConversations } = await import("@shared/schema");

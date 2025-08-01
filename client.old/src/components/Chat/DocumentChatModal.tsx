@@ -297,3 +297,45 @@ export default function DocumentChatModal({
     </ResizableDialog>
   );
 }
+
+const sendMessage = async () => {
+    if (!messageInput.trim() || !currentConversationId || isSending) return;
+
+    const userMessage = messageInput.trim();
+    console.log("Sending message:", { message: userMessage, conversationId: currentConversationId });
+
+    setMessageInput("");
+    setIsSending(true);
+
+    try {
+      // Send message to backend with proper validation
+      const payload = {
+        message: userMessage,
+        conversationId: currentConversationId,
+      };
+
+      console.log("Message payload:", payload);
+
+      const response = await apiRequest("POST", "/api/chat/messages", payload);
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("API Error:", response.status, errorData);
+        throw new Error(`Failed to send message: ${errorData}`);
+      }
+
+      // Refetch messages to get the AI response
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
+      });
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast({
+        title: "Error",
+        description: `Failed to send message: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };

@@ -120,11 +120,48 @@ export default function DocumentChatModal({
     }
   }, [isOpen]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() || sendMessageMutation.isPending) return;
 
-    sendMessageMutation.mutate(message.trim());
+    const userMessage = message.trim();
+    console.log("Sending message:", { message: userMessage, conversationId: currentConversationId });
+
+    setMessage("");
+    //setIsSending(true);  The original code doesn't track "isSending" state at the component level
+
+    try {
+      // Send message to backend with proper validation
+      const payload = {
+        message: userMessage,
+        conversationId: currentConversationId,
+      };
+
+      console.log("Message payload:", payload);
+
+      //const response = await apiRequest("POST", "/api/chat/messages", payload);
+      sendMessageMutation.mutate(userMessage); // Use the existing mutation
+
+      //if (!response.ok) {
+      //  const errorData = await response.text();
+      //  console.error("API Error:", response.status, errorData);
+      //  throw new Error(`Failed to send message: ${errorData}`);
+      //}
+
+      // Refetch messages to get the AI response
+      //await queryClient.invalidateQueries({
+      //  queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
+      //});
+    } catch (error: any) {
+      console.error("Error sending message:", error);
+      toast({
+        title: "Error",
+        description: `Failed to send message: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      //setIsSending(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
