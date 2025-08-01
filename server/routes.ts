@@ -1535,7 +1535,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`🔍 SEARCH REQUEST: "${query}" (${type}) for user ${userId}`);
 
-      if (!query || query.trim() === "") {
+      // Validate query parameter
+      if (!query || typeof query !== 'string' || query.trim() === "") {
         // Return all documents if no search query
         const documents = await storage.getDocuments(userId, { limit: 1000 });
         console.log(`📂 No search query, returning ${documents.length} documents`);
@@ -1557,7 +1558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const { documentNamePrioritySearchService } = await import('./services/documentNamePrioritySearch');
           results = await documentNamePrioritySearchService.searchDocuments(
-            query as string,
+            query,
             userId,
             {
               limit: 100,
@@ -1571,7 +1572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         case "keyword":
           results = await semanticSearchServiceV2.searchDocuments(
-            query as string,
+            query,
             userId,
             {
               searchType: "keyword",
@@ -1584,7 +1585,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         case "semantic":
           results = await semanticSearchServiceV2.searchDocuments(
-            query as string,
+            query,
             userId,
             {
               searchType: "semantic",
@@ -1598,7 +1599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         case "hybrid":
         default:
           results = await semanticSearchServiceV2.searchDocuments(
-            query as string,
+            query,
             userId,
             {
               searchType: "hybrid",
