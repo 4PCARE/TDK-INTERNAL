@@ -425,14 +425,7 @@ export class DatabaseStorage implements IStorage {
       .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
       .slice(offset, offset + limit);
 
-    return sortedDocuments.map(doc => ({
-        ...doc,
-        createdAt: doc.createdAt.toISOString(),
-        updatedAt: doc.updatedAt?.toISOString() || null,
-        tags: Array.isArray(doc.tags) ? doc.tags : [],
-        chunkIndex: 0, // Document-level view, so chunk 0
-        originalDocumentId: doc.id.toString() // Self-reference for document-level results
-      }));
+    return sortedDocuments;
   }
 
   async getDocument(id: number, userId: string): Promise<Document | undefined> {

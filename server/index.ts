@@ -5,7 +5,6 @@ import { createReplitAuthRouter } from "./replitAuth";
 import { imageAnalysisRoute } from './lineImageService';
 import viteRoute from "./vite";
 import debugRoutes from "./debug-routes";
-import debugSearchFieldsRoutes from "./debug-search-fields";
 import debugChunkTest from "./debug-chunk-test";
 import { registerHrApiRoutes } from "./hrApi";
 import { setupVite, serveStatic, log } from "./vite";
@@ -74,10 +73,9 @@ app.use((req, res, next) => {
 (async () => {
   // Mount debug routes BEFORE registerRoutes to ensure higher priority
   app.use(debugRoutes);
-  app.use("/api/debug", debugRoutes);
-  app.use("/api/debug", debugSearchFieldsRoutes);
+  app.use("/api", debugRoutes);
   app.use("/api", debugChunkTest);
-
+  
   // Register HR API routes
   registerHrApiRoutes(app);
 

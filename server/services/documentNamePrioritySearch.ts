@@ -23,8 +23,6 @@ export interface DocumentNameSearchResult {
   nameScore?: number;
   keywordScore?: number;
   semanticScore?: number;
-  chunkIndex?: number;
-  originalDocumentId?: string;
 }
 
 export interface DocumentNameSearchOptions {
@@ -165,9 +163,7 @@ export class DocumentNamePrioritySearchService {
           updatedAt: doc.updatedAt?.toISOString(),
           userId: doc.userId,
           matchType: 'name',
-          nameScore,
-          chunkIndex: 0, // Document-level match, so chunk 0
-          originalDocumentId: doc.id.toString()
+          nameScore
         });
       }
     }
@@ -222,9 +218,7 @@ export class DocumentNamePrioritySearchService {
           updatedAt: doc.updatedAt?.toISOString(),
           userId: doc.userId,
           matchType: 'keyword',
-          keywordScore,
-          chunkIndex: 0, // Keyword search result
-          originalDocumentId: doc.id.toString()
+          keywordScore
         });
       }
     }
@@ -284,9 +278,7 @@ export class DocumentNamePrioritySearchService {
           updatedAt: doc.updatedAt?.toISOString(),
           userId: doc.userId,
           matchType: 'semantic',
-          semanticScore,
-          chunkIndex: 0,
-          originalDocumentId: docId.toString()
+          semanticScore
         });
       }
     }
