@@ -291,7 +291,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================
   // AUDIT & MONITORING ROUTES
   // ============================
-  
+
   app.get("/api/audit/logs", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -863,7 +863,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const categoryId = parseInt(req.params.id);
-      
+
       if (isNaN(categoryId)) {
         return res.status(400).json({ message: "Invalid category ID" });
       }
@@ -875,7 +875,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const category = await storage.updateCategory(categoryId, updateData);
-      
+
       if (!category) {
         return res.status(404).json({ message: "Category not found" });
       }
@@ -899,7 +899,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const categoryId = parseInt(req.params.id);
-      
+
       if (isNaN(categoryId)) {
         return res.status(400).json({ message: "Invalid category ID" });
       }
@@ -1139,7 +1139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       switch (type) {
         case "keyword-name-priority":
           console.log(`🎯 DOCUMENT NAME PRIORITY SEARCH INITIATED`);
-          
+
           // Calculate massSelectionPercentage based on mass percentage with minimum of 0.1
           const massPercentageOverride = Math.max(0.1, massPercentage);
 
@@ -1320,7 +1320,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userId = req.user.claims.sub;
-      
+
       const documentData = {
         name: req.body.name || req.file.originalname,
         description: req.body.description || "",
@@ -1371,7 +1371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const documentId = parseInt(req.params.id);
-      
+
       if (isNaN(documentId)) {
         return res.status(400).json({ message: "Invalid document ID" });
       }
@@ -1385,7 +1385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const document = await storage.updateDocument(documentId, updateData, userId);
-      
+
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
       }
@@ -1410,7 +1410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const documentId = parseInt(req.params.id);
-      
+
       if (isNaN(documentId)) {
         return res.status(400).json({ message: "Invalid document ID" });
       }
@@ -1592,6 +1592,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("❌ Error fetching conversation:", error);
       // Return empty array on error instead of error response
       res.json([]);
+    }
+  });
+
+  // Get conversation summary
+  app.get("/api/agent-console/summary", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const { userId, channelType, channelId } = req.query;
+      console.log("📊 Agent Console: Fetching summary for:", { userId, channelType, channelId });
+
+      if (!userId || !channelType || !channelId) {
+        return res.json(null);
+      }
+
+      // Get conversation statistics
+      const [stats] = await db
+        .select({
+          totalMessages: sql<number>`count(*)`,
+          firstContactAt: sql<Date>`min(${chatHistory.createdAt})`,
+          lastActiveAt: sql<Date>`max(${chatHistory.createdAt})`,
+        })
+        .from(chatHistory)
+        .where(and(
+          eq(chatHistory.userId, userId as string),
+          eq(chatHistory.channelType, channelType as string),
+          eq(chatHistory.channelId, channelId as string)
+        ));
+
+      if (!stats || stats.totalMessages === 0) {
+        return res.json(null);
+      }
+
+      // Calculate CSAT score if we have enough messages
+      let csatScore = undefined;
+      if (stats.totalMessages >= 3) {
+        try {
+          csatScore = await calculateCSATScore(
+            userId as string, 
+            channelType as string, 
+            channelId as string
+          );
+        } catch (error) {
+          console.error("❌ Error calculating CSAT:", error);
+        }
+      }
+
+      const summary = {
+        totalMessages: Number(stats.totalMessages),
+        firstContactAt: stats.firstContactAt,
+        lastActiveAt: stats.lastActiveAt,
+        sentiment: 'neutral', // Default sentiment
+        mainTopics: [], // Could be enhanced with topic analysis
+        csatScore
+      };
+
+      console.log("📊 Agent Console: Returning summary:", summary);
+      res.json(summary);
+    } catch (error) {
+      console.error("❌ Error fetching summary:", error);
+      res.json(null);
     }
   });
 
