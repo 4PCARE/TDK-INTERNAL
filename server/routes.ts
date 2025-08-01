@@ -1488,41 +1488,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get individual document details
-  app.get("/api/documents/:id", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const documentId = parseInt(req.params.id);
-
-      console.log(`📄 Fetching document details for ID: ${documentId}, User: ${userId}`);
-
-      if (isNaN(documentId)) {
-        return res.status(400).json({ message: "Invalid document ID" });
-      }
-
-      const document = await storage.getDocumentById(documentId, userId);
-      
-      if (!document) {
-        return res.status(404).json({ message: "Document not found" });
-      }
-
-      console.log(`✅ Document found: ${document.name}`);
-      res.json(document);
-    } catch (error) {
-      console.error("Error fetching document details:", error);
-      res.status(500).json({ message: "Failed to fetch document details" });
-    }
-  });
-
   // Enhanced document search with semantic capabilities and document name priority
+  // IMPORTANT: This must come BEFORE the /api/documents/:id route to prevent conflicts
   app.get("/api/documents/search", (req: any, res: any, next: any) => {
     // Try Microsoft auth first, then fallback to Replit auth
     isMicrosoftAuthenticated(req, res, (err: any) => {
@@ -1755,6 +1722,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("🚨".repeat(40) + "\n");
       
       res.status(500).json({ message: "Search failed", error: error.message });
+    }
+  });
+
+  // Get individual document details
+  // IMPORTANT: This must come AFTER the /api/documents/search route to prevent conflicts
+  app.get("/api/documents/:id", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const documentId = parseInt(req.params.id);
+
+      console.log(`📄 Fetching document details for ID: ${documentId}, User: ${userId}`);
+
+      if (isNaN(documentId)) {
+        return res.status(400).json({ message: "Invalid document ID" });
+      }
+
+      const document = await storage.getDocumentById(documentId, userId);
+      
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      console.log(`✅ Document found: ${document.name}`);
+      res.json(document);
+    } catch (error) {
+      console.error("Error fetching document details:", error);
+      res.status(500).json({ message: "Failed to fetch document details" });
     }
   });
 
