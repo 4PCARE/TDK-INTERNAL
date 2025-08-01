@@ -222,6 +222,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerHrApiRoutes(app);
 
   // ============================
+  // AUTHENTICATION ROUTES
+  // ============================
+
+  // Auth status check endpoint
+  app.get("/api/auth/user", async (req: any, res) => {
+    try {
+      // Check Microsoft auth first
+      if (req.isAuthenticated() && req.user) {
+        const user = req.user as any;
+        if (user.claims?.sub) {
+          console.log("Microsoft auth successful for:", user.claims.email);
+          return res.json({
+            id: user.claims.sub,
+            email: user.claims.email,
+            firstName: user.claims.given_name || user.claims.first_name || '',
+            lastName: user.claims.family_name || user.claims.last_name || '',
+            profileImageUrl: user.claims.picture || user.claims.profile_image_url || null,
+            role: 'user', // Default role, will be updated from database
+            isAuthenticated: true,
+            provider: 'microsoft'
+          });
+        }
+      }
+
+      // Check session user (Microsoft fallback)
+      const sessionUser = (req.session as any)?.user;
+      if (sessionUser && sessionUser.claims?.sub) {
+        console.log("Microsoft session auth successful for:", sessionUser.claims.email);
+        return res.json({
+          id: sessionUser.claims.sub,
+          email: sessionUser.claims.email,
+          firstName: sessionUser.claims.given_name || sessionUser.claims.first_name || '',
+          lastName: sessionUser.claims.family_name || sessionUser.claims.last_name || '',
+          profileImageUrl: sessionUser.claims.picture || sessionUser.claims.profile_image_url || null,
+          role: 'user',
+          isAuthenticated: true,
+          provider: 'microsoft'
+        });
+      }
+
+      // Check Replit auth
+      const replitUser = (req.session as any)?.passport?.user;
+      if (replitUser && replitUser.claims?.sub) {
+        console.log("Replit auth successful for:", replitUser.claims.email);
+        return res.json({
+          id: replitUser.claims.sub,
+          email: replitUser.claims.email,
+          firstName: replitUser.claims.first_name || '',
+          lastName: replitUser.claims.last_name || '',
+          profileImageUrl: replitUser.claims.profile_image_url || null,
+          role: 'user',
+          isAuthenticated: true,
+          provider: 'replit'
+        });
+      }
+
+      console.log("No authentication found");
+      res.status(401).json({ message: "Unauthorized", isAuthenticated: false });
+    } catch (error) {
+      console.error("Error checking auth status:", error);
+      res.status(500).json({ message: "Auth check failed", isAuthenticated: false });
+    }
+  });
+
+  // ============================
   // AUDIT & MONITORING ROUTES
   // ============================
   
