@@ -1547,7 +1547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const agentIds = [...new Set(chatUsers.map(u => u.agentId).filter(id => id && id > 0))];
 
       // Fetch user profiles
-      const userProfiles = await db
+      const userProfiles = userIds.length > 0 ? await db
         .select({
           id: users.id,
           email: users.email,
@@ -1555,7 +1555,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lastName: users.lastName,
         })
         .from(users)
-        .where(sql`${users.id} = ANY(${userIds})`);
+        .where(sql`${users.id} IN ${sql`(${sql.join(userIds.map(id => sql`${id}`), sql`, `)})`}`) : [];
 
       // Fetch agent information
       const agents = agentIds.length > 0 ? await db
@@ -1564,7 +1564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: agentChatbots.name,
         })
         .from(agentChatbots)
-        .where(sql`${agentChatbots.id} = ANY(${agentIds})`) : [];
+        .where(sql`${agentChatbots.id} IN ${sql`(${sql.join(agentIds.map(id => sql`${id}`), sql`, `)})`}`) : [];
 
       // Create lookup maps
       const userProfileMap = new Map(userProfiles.map(u => [u.id, u]));
