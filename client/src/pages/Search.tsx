@@ -28,7 +28,7 @@ export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState<"keyword" | "semantic">("keyword");
   const [hasSearched, setHasSearched] = useState(false);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [rawSearchResultsState, setRawSearchResultsState] = useState<any[]>([]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -95,12 +95,12 @@ export default function SearchPage() {
           results = data.results;
         } else {
           console.error('Frontend received invalid search results format:', data);
-          setSearchResults([]);
+          setRawSearchResultsState([]);
           return;
         }
 
         console.log(`✅ Setting ${results.length} search results`);
-        setSearchResults(results);
+        setRawSearchResultsState(results);
         return results;
       } catch (error) {
         console.error("Search API error:", error);
@@ -109,7 +109,7 @@ export default function SearchPage() {
           description: "Failed to retrieve search results.",
           variant: "destructive",
         });
-        setSearchResults([]);
+        setRawSearchResultsState([]);
         throw error;
       }
     },
