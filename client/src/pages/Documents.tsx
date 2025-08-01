@@ -147,6 +147,51 @@ export default function Documents() {
         const results = await response.json();
         console.log(`Frontend received ${Array.isArray(results) ? results.length : 'non-array'} search results`);
         
+        // Post-process semantic search results to show best chunk per document
+        if (Array.isArray(results) && results.length > 0) {
+          // Check if these are chunk-based results (from semantic search)
+          const hasChunkIds = results.some(result => 
+            typeof result.id === 'string' && result.id.includes('-')
+          );
+          
+          if (hasChunkIds) {
+            console.log('Post-processing chunk-based search results...');
+            
+            // Group chunks by document ID and select best chunk per document
+            const documentMap = new Map();
+            
+            results.forEach(result => {
+              if (typeof result.id === 'string' && result.id.includes('-')) {
+                const documentId = result.id.split('-')[0];
+                
+                // Keep the chunk with highest similarity for each document
+                if (!documentMap.has(documentId) || 
+                    (result.similarity || 0) > (documentMap.get(documentId).similarity || 0)) {
+                  
+                  // Convert chunk result back to document format
+                  const documentResult = {
+                    ...result,
+                    id: parseInt(documentId), // Convert back to document ID
+                    name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk label
+                    content: result.summary || result.content, // Use summary if available
+                    // Keep all other document metadata
+                  };
+                  
+                  documentMap.set(documentId, documentResult);
+                }
+              } else {
+                // Non-chunk result, keep as is
+                documentMap.set(result.id.toString(), result);
+              }
+            });
+            
+            const processedResults = Array.from(documentMap.values());
+            console.log(`Post-processing: ${results.length} chunks → ${processedResults.length} documents`);
+            
+            return processedResults;
+          }
+        }
+        
         // Ensure we always return an array
         return Array.isArray(results) ? results : [];
       } catch (error) {
