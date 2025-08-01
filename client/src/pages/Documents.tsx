@@ -111,13 +111,13 @@ export default function Documents() {
     }
   };
 
-  // Enhanced search with semantic capabilities
+  // Enhanced search with semantic capabilities - using consolidated endpoint
   const { data: rawSearchResults, isLoading: documentsLoading, error: documentsError } = useQuery({
-    queryKey: ["/api/documents/search", searchQuery, searchFileName, searchKeyword, searchMeaning],
+    queryKey: ["/api/documents/search-consolidated", searchQuery, searchFileName, searchKeyword, searchMeaning],
     queryFn: async () => {
       try {
         if (!searchQuery.trim()) {
-          const response = await fetch("/api/documents");
+          const response = await fetch("/api/documents/search-consolidated");
           if (!response.ok) {
             throw new Error(`${response.status}: ${response.statusText}`);
           }
@@ -149,18 +149,18 @@ export default function Documents() {
         ].filter(Boolean).join(", ");
 
         console.log(`Frontend search: "${searchQuery}" with ${searchTypeDescription}:${searchFileName}, keyword:${searchKeyword}, meaning:${searchMeaning} (type: ${searchType})`);
-        const response = await fetch(`/api/documents/search?${params}`);
+        const response = await fetch(`/api/documents/search-consolidated?${params}`);
         if (!response.ok) {
           throw new Error(`${response.status}: ${response.statusText}`);
         }
         const results = await response.json();
 
-        if (!Array.isArray(results)) {
-          console.log("Frontend received non-array search results");
-          return [];
+        if (!results || !Array.isArray(results.results)) {
+          console.log("Frontend received invalid search results format");
+          return { results: [], count: 0 };
         }
 
-        console.log(`Frontend received ${results.length} search results`);
+        console.log(`Frontend received ${results.results.length} consolidated search results`);
         return results;
       } catch (error) {
         console.error("Document query failed:", error);
@@ -174,87 +174,10 @@ export default function Documents() {
     },
     retry: false,
     enabled: isAuthenticated,
-  }) as { data: Array<any>; isLoading: boolean; error: any };
+  }) as { data: { results: Array<any>; count: number } | undefined; isLoading: boolean; error: any };
 
-  // Post-process search results to deduplicate documents
-  const documents = useMemo(() => {
-    if (!rawSearchResults?.results) return rawSearchResults;
-
-    // Post-process search results to consolidate chunks back into documents
-    const documentMap = new Map();
-
-    rawSearchResults.results.forEach((result: any) => {
-      // Extract original document ID from chunk ID (format: "docId-chunkIndex")
-      const originalDocId = result.id.toString().includes('-') ? result.id.toString().split('-')[0] : result.id.toString();
-
-      if (!documentMap.has(originalDocId)) {
-        // First chunk for this document - use it as the main result
-        documentMap.set(originalDocId, {
-          ...result,
-          id: parseInt(originalDocId), // Use original document ID as number
-          name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk suffix from name
-          content: result.content, // Keep chunk content for display
-          summary: result.summary, // Preserve summary
-          chunkContent: result.content, // Store original chunk content
-          chunkId: result.id, // Store original chunk ID
-          isChunkResult: true, // Mark as chunk-based result
-          topChunks: [{ // Store all chunks for this document
-            id: result.id,
-            content: result.content,
-            similarity: result.similarity,
-            chunkIndex: result.id.toString().includes('-') ? parseInt(result.id.toString().split('-')[1]) : 0
-          }]
-        });
-      } else {
-        // Additional chunk for existing document
-        const existing = documentMap.get(originalDocId);
-
-        // Add this chunk to the list
-        existing.topChunks.push({
-          id: result.id,
-          content: result.content,
-          similarity: result.similarity,
-          chunkIndex: result.id.toString().includes('-') ? parseInt(result.id.toString().split('-')[1]) : 0
-        });
-
-        // Sort chunks by similarity and keep the best one as the main content
-        existing.topChunks.sort((a, b) => b.similarity - a.similarity);
-
-        // Update main document with highest similarity chunk
-        if (result.similarity > existing.similarity) {
-          existing.similarity = result.similarity;
-          existing.content = result.content;
-          existing.summary = result.summary;
-          existing.chunkContent = result.content;
-          existing.chunkId = result.id;
-        }
-      }
-    });
-
-    // Convert map to array and sort by chunk count first (most chunks = higher rank), then by similarity
-    const processedResults = Array.from(documentMap.values()).sort((a, b) => {
-      // Primary sort: by number of chunks (more chunks = higher rank)
-      if (a.topChunks.length !== b.topChunks.length) {
-        return b.topChunks.length - a.topChunks.length;
-      }
-      // Secondary sort: by similarity (higher similarity = higher rank)
-      return b.similarity - a.similarity;
-    });
-
-    console.log(`Post-processing: Consolidated ${rawSearchResults.results.length} chunks into ${processedResults.length} documents`);
-
-    // Debug: Log first few processed results with chunk count ranking
-    processedResults.slice(0, 3).forEach((doc, index) => {
-      console.log(`${index + 1}. Doc ${doc.id}: ${doc.name} (${doc.topChunks.length} chunks, best similarity: ${doc.similarity.toFixed(3)}) - Rank by chunk count!`);
-      console.log(`   Content preview: ${doc.content.substring(0, 150)}...`);
-    });
-
-    return {
-      ...rawSearchResults,
-      results: processedResults,
-      count: processedResults.length
-    };
-  }, [rawSearchResults]);
+  // Documents are already consolidated by the backend
+  const documents = rawSearchResults;
 
   const { data: categories } = useQuery({
     queryKey: ["/api/categories"],
@@ -292,7 +215,7 @@ export default function Documents() {
   const allTags = documents ? Array.from(new Set(documents.flatMap((doc: any) => doc.tags || []))) : [];
 
   // Filter and sort documents with multi-select support
-  const filteredDocuments = documents ? documents.filter((doc: any) => {
+  const filteredDocuments = documents?.results ? documents.results.filter((doc: any) => {
     // Apply category filters
     const matchesCategory = filterCategories.length === 0 || 
                            filterCategories.includes(doc.aiCategory) ||
@@ -556,7 +479,7 @@ export default function Documents() {
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg font-semibold text-slate-800">
-                    Documents ({filteredDocuments?.length || 0})
+                    Documents ({documents?.count || 0})
                   </CardTitle>
                   <div className="flex items-center space-x-2">
                     <VectorizeAllButton />
