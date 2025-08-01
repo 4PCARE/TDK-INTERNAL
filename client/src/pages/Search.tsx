@@ -128,7 +128,7 @@ export default function SearchPage() {
 
     if (!rawSearchResults?.results) {
       console.log(`❌ NO RAW SEARCH RESULTS TO PROCESS`);
-      return rawSearchResults;
+      return [];
     }
 
     console.log(`📊 RAW SEARCH RESULTS:`, {
@@ -142,7 +142,7 @@ export default function SearchPage() {
     });
 
     if (searchType === "keyword") {
-      // For keyword search, return as-is (no chunk processing needed)
+      // For keyword search, return results array directly
       console.log(`🔤 KEYWORD SEARCH: Returning results as-is`);
 
       // Log any problematic IDs
@@ -151,7 +151,7 @@ export default function SearchPage() {
         console.log(`❌ FOUND ${invalidIds.length} INVALID IDs IN KEYWORD RESULTS:`, invalidIds.map((r: any) => ({ id: r.id, name: r.name })));
       }
 
-      return rawSearchResults;
+      return rawSearchResults.results;
     }
 
     // For semantic search, group by document and keep only the most similar chunk
@@ -214,11 +214,7 @@ export default function SearchPage() {
       console.log(`❌ FINAL RESULTS STILL CONTAIN ${finalInvalidIds.length} INVALID IDs:`, finalInvalidIds);
     }
 
-    return {
-      ...rawSearchResults,
-      results: processedResults,
-      count: processedResults.length
-    };
+    return processedResults;
   }, [rawSearchResults, searchType]);
 
   const handleSearch = (query: string, type: "keyword" | "semantic") => {
