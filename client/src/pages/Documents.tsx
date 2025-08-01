@@ -174,7 +174,20 @@ export default function Documents() {
                     id: parseInt(documentId), // Convert back to document ID
                     name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk label
                     content: result.summary || result.content, // Use summary if available
-                    // Keep all other document metadata
+                    originalName: result.name.replace(/ \(Chunk \d+\)$/, ''), // Ensure originalName exists
+                    // Ensure essential document properties exist
+                    status: result.status || 'processed',
+                    fileSize: result.fileSize || 0,
+                    createdAt: result.createdAt || new Date().toISOString(),
+                    categoryId: result.categoryId || null,
+                    category: result.category || null,
+                    aiCategory: result.aiCategory || 'General',
+                    tags: result.tags || [],
+                    isFavorite: result.isFavorite || false,
+                    isEndorsed: result.isEndorsed || false,
+                    isInVectorDb: result.isInVectorDb !== undefined ? result.isInVectorDb : true,
+                    uploaderEmail: result.uploaderEmail || null,
+                    uploaderRole: result.uploaderRole || null,
                   };
                   
                   documentMap.set(documentId, documentResult);
