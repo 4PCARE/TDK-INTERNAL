@@ -158,10 +158,10 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
           <span className="text-sm text-gray-600">พูดคุยกับ AI Assistant</span>
         </div>
 
-        {/* Messages Area - Scrollable */}
-        <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-full">
-            <div className="p-4 space-y-4 min-h-[400px] flex flex-col">
+        {/* Messages Area - Properly Scrollable */}
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-4 min-h-full flex flex-col">
               {isLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
@@ -184,82 +184,84 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
                   </div>
                 </div>
               ) : (
-                messages.map((msg: ChatMessage) => (
-                  <div key={msg.id} className="flex items-start space-x-3">
-                    <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        msg.role === "assistant" ? "bg-blue-100" : "bg-gray-100"
-                      }`}
-                    >
-                      {msg.role === "assistant" ? (
-                        <Bot className="w-5 h-5 text-blue-600" />
-                      ) : (
-                        <User className="w-5 h-5 text-gray-600" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
-                        {msg.content}
-                        {msg.role === "assistant" && (
+                <>
+                  {messages.map((msg: ChatMessage) => (
+                    <div key={msg.id} className="flex items-start space-x-3">
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          msg.role === "assistant" ? "bg-blue-100" : "bg-gray-100"
+                        }`}
+                      >
+                        {msg.role === "assistant" ? (
+                          <Bot className="w-5 h-5 text-blue-600" />
+                        ) : (
+                          <User className="w-5 h-5 text-gray-600" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
+                          {msg.content}
+                          {msg.role === "assistant" && (
+                            <div className="mt-2">
+                              <p className="text-xs text-gray-500 italic">
+                                Is there anything else you'd like me to help with?
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(msg.createdAt).toLocaleDateString('th-TH', {
+                            year: 'numeric',
+                            month: 'long', 
+                            day: 'numeric'
+                          })} เวลา {new Date(msg.createdAt).toLocaleTimeString('th-TH', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                          })} น.
+                        </p>
+                        {msg.role === 'assistant' && (
                           <div className="mt-2">
-                            <p className="text-xs text-gray-500 italic">
-                              Is there anything else you'd like me to help with?
-                            </p>
+                            <FeedbackButtons
+                              messageId={msg.id}
+                              userQuery={messages[messages.findIndex(m => m.id === msg.id) - 1]?.content || ''}
+                              assistantResponse={msg.content}
+                              conversationId={currentConversationId!}
+                              documentContext={{ mode: 'documents' }}
+                            />
                           </div>
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {new Date(msg.createdAt).toLocaleDateString('th-TH', {
-                          year: 'numeric',
-                          month: 'long', 
-                          day: 'numeric'
-                        })} เวลา {new Date(msg.createdAt).toLocaleTimeString('th-TH', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          hour12: false
-                        })} น.
-                      </p>
-                      {msg.role === 'assistant' && (
-                        <div className="mt-2">
-                          <FeedbackButtons
-                            messageId={msg.id}
-                            userQuery={messages[messages.findIndex(m => m.id === msg.id) - 1]?.content || ''}
-                            assistantResponse={msg.content}
-                            conversationId={currentConversationId!}
-                            documentContext={{ mode: 'documents' }}
-                          />
+                    </div>
+                  ))}
+                  
+                  {/* Loading indicator */}
+                  {sendMessageMutation.isPending && (
+                    <div className="flex items-start space-x-3">
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Bot className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
+                          <div
+                            className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
+                            style={{ animationDelay: "0.1s" }}
+                          ></div>
+                          <div
+                            className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
+                            style={{ animationDelay: "0.2s" }}
+                          ></div>
                         </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
-              
-              {/* Loading indicator */}
-              {sendMessageMutation.isPending && (
-                <div className="flex items-start space-x-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2">
-                      <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
-                      <div
-                        className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                        style={{ animationDelay: "0.1s" }}
-                      ></div>
-                      <div
-                        className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                        style={{ animationDelay: "0.2s" }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
+                  )}
+                </>
               )}
               
               <div ref={messagesEndRef} />
             </div>
-          </ScrollArea>
+          </div>
         </div>
 
         {/* Input Area - Fixed at Bottom */}
