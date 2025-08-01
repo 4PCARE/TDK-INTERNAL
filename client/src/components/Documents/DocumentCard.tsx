@@ -107,8 +107,31 @@ export default function DocumentCard({ document }: DocumentCardProps) {
     toggleFavoriteMutation.mutate();
   };
 
+  const handleViewDetails = async () => {
+    console.log(`🔍 Document Details clicked for document ID: ${document.id}`);
+    console.log(`📄 Document name: ${document.name}`);
+
+    try {
+      console.log(`🚀 Making API request to: /api/documents/${document.id}`);
+
+      // Use the apiRequest utility that other parts of the app use
+      const data = await apiRequest('GET', `/api/documents/${document.id}`);
+
+      console.log(`✅ Document details fetched successfully:`, data);
+      console.log(`📝 Document content preview:`, JSON.stringify(data, null, 2).substring(0, 200) + '...');
+
+    } catch (error) {
+      console.error(`❌ Error fetching document details:`, error);
+      toast({
+        title: "Error",
+        description: `Failed to load document details: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
-    <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+    <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={handleViewDetails}>
       <CardContent className="p-4">
         {/* Document Type Icon */}
         <div className="flex items-center justify-between mb-3">
