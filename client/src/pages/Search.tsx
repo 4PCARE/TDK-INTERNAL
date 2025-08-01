@@ -51,13 +51,17 @@ export default function SearchPage() {
 
   // Post-process search results to deduplicate documents
   const searchResults = useMemo(() => {
-    if (!rawSearchResults?.results) return rawSearchResults;
+    if (!rawSearchResults) return null;
+    
+    if (!rawSearchResults.results || !Array.isArray(rawSearchResults.results)) {
+      return rawSearchResults;
+    }
 
     const documentMap = new Map();
     
     rawSearchResults.results.forEach((result: any) => {
       // Extract original document ID from chunk ID (format: "docId-chunkIndex")
-      const originalDocId = result.id.includes('-') ? result.id.split('-')[0] : result.id;
+      const originalDocId = result.id.toString().includes('-') ? result.id.toString().split('-')[0] : result.id.toString();
       
       if (!documentMap.has(originalDocId)) {
         // First chunk for this document - use it as the main result

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -169,45 +169,48 @@ export default function Documents() {
 
   // Post-process search results to deduplicate documents
   const documents = useMemo(() => {
-    if (!rawSearchResults) return rawSearchResults;
+    if (!rawSearchResults) return [];
 
-    const documentMap = new Map();
-
-    if(Array.isArray(rawSearchResults)){
+    // If it's already an array (non-search results), return as-is
+    if (Array.isArray(rawSearchResults)) {
       return rawSearchResults;
     }
 
-    if(!rawSearchResults?.results){
-        return [];
+    // If it's a search result object with results array
+    if (rawSearchResults?.results && Array.isArray(rawSearchResults.results)) {
+      const documentMap = new Map();
+
+      rawSearchResults.results.forEach((result: any) => {
+        // Extract original document ID from chunk ID (format: "docId-chunkIndex")
+        const originalDocId = result.id.toString().includes('-') ? result.id.toString().split('-')[0] : result.id.toString();
+
+        if (!documentMap.has(originalDocId)) {
+          // First chunk for this document - use it as the main result
+          documentMap.set(originalDocId, {
+            ...result,
+            id: parseInt(originalDocId), // Use original document ID
+            name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk suffix
+            content: result.summary || result.content, // Use summary if available
+            isChunkResult: false
+          });
+        } else {
+          // Additional chunk for existing document - keep highest similarity
+          const existing = documentMap.get(originalDocId);
+          if (result.similarity > existing.similarity) {
+            documentMap.set(originalDocId, {
+              ...existing,
+              similarity: result.similarity,
+              content: result.summary || result.content
+            });
+          }
+        }
+      });
+
+      return Array.from(documentMap.values());
     }
 
-    rawSearchResults.results.forEach((result: any) => {
-      // Extract original document ID from chunk ID (format: "docId-chunkIndex")
-      const originalDocId = result.id.includes('-') ? result.id.split('-')[0] : result.id;
-
-      if (!documentMap.has(originalDocId)) {
-        // First chunk for this document - use it as the main result
-        documentMap.set(originalDocId, {
-          ...result,
-          id: parseInt(originalDocId), // Use original document ID
-          name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk suffix
-          content: result.summary || result.content, // Use summary if available
-          isChunkResult: false
-        });
-      } else {
-        // Additional chunk for existing document - keep highest similarity
-        const existing = documentMap.get(originalDocId);
-        if (result.similarity > existing.similarity) {
-          documentMap.set(originalDocId, {
-            ...existing,
-            similarity: result.similarity,
-            content: result.summary || result.content
-          });
-        }
-      }
-    });
-
-    return Array.from(documentMap.values());
+    // Fallback to empty array
+    return [];
   }, [rawSearchResults]);
 
   const { data: categories } = useQuery({
