@@ -100,6 +100,7 @@ export default function SearchPage() {
 
       console.log(`✅ Setting ${results.length} search results`);
       setSearchResults(results);
+      return results;
     } catch (error) {
       console.error("Search API error:", error);
       toast({
