@@ -1535,11 +1535,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`🔍 SEARCH REQUEST: "${query}" (${type}) for user ${userId}`);
 
-      // Validate query parameter - allow empty query to return all documents
-      if (!query || query.trim() === "") {
-        // Return all documents if no search query
+      // Handle empty or missing query by returning all documents
+      if (!query || typeof query !== 'string' || query.trim() === "") {
+        console.log(`📂 No search query provided, returning all documents`);
         const documents = await storage.getDocuments(userId, { limit: 1000 });
-        console.log(`📂 No search query, returning ${documents.length} documents`);
+        console.log(`📂 Returning ${documents.length} documents without search`);
         return res.json(documents);
       }
 
