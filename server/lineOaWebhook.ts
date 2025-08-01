@@ -1038,10 +1038,8 @@ async function getAiResponseDirectly(
           );
         });
       } else {
-        console.log(`ℹ️ No recent image analysis found in chat history`);
-
-        // Debug: Show what system messages we have
-        const allSystemMessages = chathistory.filter(
+        console.log(`ℹ️ No recent image analysis found in chat history`);        // Debug: Show what system messages we have
+        const allSystemMessages = chatHistory.filter(
           (msg) => msg.messageType === "system",
         );
         console.log(
@@ -1968,6 +1966,7 @@ ${imageAnalysisResult}
                       templateId: carouselIntent.template.template.id,
                       templateName: carouselIntent.template.template.name,
                       intentSimilarity: carouselIntent.similarity,
+                      ```text
                       messageType: "carousel",
                     },
                   });
@@ -2269,7 +2268,7 @@ ${documentContext}
                 );
 
                 // Build system prompt without document context (similar to needsSearch = false case)
-                // Get current date and time in Thai format
+                // Get current date and time for fallback case
                 const now = new Date();
                 const thaiDate = now.toLocaleDateString('th-TH', {
                   year: 'numeric',
@@ -2283,6 +2282,7 @@ ${documentContext}
                   hour12: false
                 });
 
+                // Build system prompt without document context (similar to needsSearch = false case)
                 const fallbackSystemPrompt = `${agent.systemPrompt}
 
 📅 วันที่และเวลาปัจจุบัน: ${thaiDate} เวลา ${thaiTime} น.
