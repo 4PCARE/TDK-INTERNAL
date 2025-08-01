@@ -150,15 +150,6 @@ export default function Documents() {
     retry: false,
   }) as { data: Array<any>; isLoading: boolean; error: any };
 
-        } catch (error) {
-        console.error("Document query failed:", error);
-        throw error;
-      }
-    },
-    enabled: isAuthenticated,
-    retry: false,
-  }) as { data: Array<any>; isLoading: boolean; error: any };
-
   const handleSearch = () => {
     // Validate that at least one search type is selected (filename is always enabled)
     if (!searchKeyword && !searchMeaning) {
