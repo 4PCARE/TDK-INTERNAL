@@ -124,6 +124,8 @@ export default function Documents() {
           searchType = "keyword"; // Keyword only
         } else if (currentSearchFileName && !currentSearchKeyword && !currentSearchMeaning) {
           searchType = "filename-only"; // File name only
+        } else if (!currentSearchFileName && !currentSearchKeyword && !currentSearchMeaning) {
+          searchType = "filename-only"; // Default to filename-only when all are disabled
         }
 
         const params = new URLSearchParams({
@@ -166,16 +168,6 @@ export default function Documents() {
   }) as { data: Array<any>; isLoading: boolean; error: any };
 
   const handleSearch = () => {
-    // Validate that at least one search type is selected (filename is always enabled)
-    if (!searchKeyword && !searchMeaning) {
-      toast({
-        title: "Search Options Required",
-        description: "Please select at least one content search option: Content (keyword) or Content (meaning).",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setCurrentSearchQuery(searchQuery);
     setCurrentSearchFileName(searchFileName);
     setCurrentSearchKeyword(searchKeyword);
