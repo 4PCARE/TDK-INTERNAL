@@ -999,9 +999,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 // Dedicated endpoint for Documents page - consolidates chunks into documents
-app.get("/api/documents/search-consolidated", async (req, res) => {
+app.get("/api/documents/search-consolidated", isAuthenticated, async (req: any, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user.claims.sub;
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
