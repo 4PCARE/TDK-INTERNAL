@@ -65,7 +65,7 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
 
       const response = await apiRequest("POST", "/api/chat/messages", {
         conversationId: currentConversationId,
-        content,
+        message: content,
       });
       return response.json();
     },
