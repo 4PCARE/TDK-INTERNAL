@@ -131,89 +131,97 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
 
         {/* Chat Messages */}
         <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-          <div className="space-y-4">
+          <div className="space-y-4 max-w-none">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
               </div>
             ) : messages.length === 0 ? (
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-900">
-                    Hello! I can help you search and analyze your documents.
-                    What would you like to know?
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">Just now</p>
+              <div className="flex flex-col space-y-2 max-w-4xl">
+                <div className="flex items-start space-x-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Bot className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900">
+                      Hello! I can help you search and analyze your documents.
+                      What would you like to know?
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">Just now</p>
+                  </div>
                 </div>
               </div>
             ) : (
               messages.map((msg: ChatMessage) => (
-                <div key={msg.id} className="flex items-start space-x-3">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      msg.role === "assistant" ? "bg-blue-100" : "bg-gray-100"
-                    }`}
-                  >
-                    {msg.role === "assistant" ? (
-                      <Bot className="w-5 h-5 text-blue-600" />
-                    ) : (
-                      <User className="w-5 h-5 text-gray-600" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm text-gray-900 whitespace-pre-wrap">
-                      {msg.content}
-                      {msg.role === "assistant" && (
-                        <div className="mt-3">
-                          <p className="text-xs text-gray-500 italic">
-                            Is there anything else you'd like me to help with?
-                          </p>
+                <div key={msg.id} className="flex flex-col space-y-2 max-w-4xl">
+                  <div className="flex items-start space-x-3">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        msg.role === "assistant" ? "bg-blue-100" : "bg-gray-100"
+                      }`}
+                    >
+                      {msg.role === "assistant" ? (
+                        <Bot className="w-5 h-5 text-blue-600" />
+                      ) : (
+                        <User className="w-5 h-5 text-gray-600" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-gray-900 whitespace-pre-wrap leading-normal">
+                        {msg.content}
+                        {msg.role === "assistant" && (
+                          <div className="mt-2">
+                            <p className="text-xs text-gray-500 italic">
+                              Is there anything else you'd like me to help with?
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(msg.createdAt).toLocaleDateString('th-TH', {
+                          year: 'numeric',
+                          month: 'long', 
+                          day: 'numeric'
+                        })} เวลา {new Date(msg.createdAt).toLocaleTimeString('th-TH', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: false
+                        })} น.
+                      </p>
+                      {msg.role === 'assistant' && (
+                        <div className="mt-2">
+                          <FeedbackButtons
+                            messageId={msg.id}
+                            userQuery={messages[messages.findIndex(m => m.id === msg.id) - 1]?.content || ''}
+                            assistantResponse={msg.content}
+                            conversationId={currentConversationId!}
+                            documentContext={{ mode: 'documents' }}
+                          />
                         </div>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(msg.createdAt).toLocaleDateString('th-TH', {
-                        year: 'numeric',
-                        month: 'long', 
-                        day: 'numeric'
-                      })} เวลา {new Date(msg.createdAt).toLocaleTimeString('th-TH', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: false
-                      })} น.
-                    </p>
-                    {msg.role === 'assistant' && (
-                      <FeedbackButtons
-                        messageId={msg.id}
-                        userQuery={messages[messages.findIndex(m => m.id === msg.id) - 1]?.content || ''}
-                        assistantResponse={msg.content}
-                        conversationId={currentConversationId!}
-                        documentContext={{ mode: 'documents' }}
-                      />
-                    )}
                   </div>
                 </div>
               ))
             )}
             {sendMessageMutation.isPending && (
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
-                    <div
-                      className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                      style={{ animationDelay: "0.1s" }}
-                    ></div>
-                    <div
-                      className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                      style={{ animationDelay: "0.2s" }}
-                    ></div>
+              <div className="flex flex-col space-y-2 max-w-4xl">
+                <div className="flex items-start space-x-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Bot className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
+                      <div
+                        className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
+                        style={{ animationDelay: "0.1s" }}
+                      ></div>
+                      <div
+                        className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
+                        style={{ animationDelay: "0.2s" }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
               </div>
