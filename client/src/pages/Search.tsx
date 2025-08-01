@@ -50,67 +50,68 @@ export default function SearchPage() {
     queryFn: async () => {
       if (!searchQuery || !searchQuery.trim()) return null;
 
-      console.log("\n" + "🌟".repeat(50));
-      console.log("🔍 FRONTEND SEARCH INITIATED");
-      console.log("🌟".repeat(50));
-      console.log(`⏰ TIME: ${new Date().toISOString()}`);
-      console.log(`🔤 QUERY: "${searchQuery}"`);
-      console.log(`🏷️  TYPE: ${searchType}`);
-      console.log(`📏 QUERY LENGTH: ${searchQuery.length}`);
-      console.log(`🧹 TRIMMED QUERY: "${searchQuery.trim()}"`);
+      try {
+        console.log("\n" + "🌟".repeat(50));
+        console.log("🔍 FRONTEND SEARCH INITIATED");
+        console.log("🌟".repeat(50));
+        console.log(`⏰ TIME: ${new Date().toISOString()}`);
+        console.log(`🔤 QUERY: "${searchQuery}"`);
+        console.log(`🏷️  TYPE: ${searchType}`);
+        console.log(`📏 QUERY LENGTH: ${searchQuery.length}`);
+        console.log(`🧹 TRIMMED QUERY: "${searchQuery.trim()}"`);
 
-      const params = new URLSearchParams({
-        q: searchQuery.trim(),
-        type: searchType
-      });
+        const params = new URLSearchParams({
+          q: searchQuery.trim(),
+          type: searchType
+        });
 
-      const url = `/api/documents/search?${params}`;
-      console.log(`🚀 FULL REQUEST URL: ${url}`);
-      console.log(`📋 URL PARAMS:`, {
-        q: searchQuery.trim(),
-        type: searchType
-      });
+        const url = `/api/documents/search?${params}`;
+        console.log(`🚀 FULL REQUEST URL: ${url}`);
+        console.log(`📋 URL PARAMS:`, {
+          q: searchQuery.trim(),
+          type: searchType
+        });
 
-      console.log(`🌐 MAKING FETCH REQUEST...`);
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+        console.log(`🌐 MAKING FETCH REQUEST...`);
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
 
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.status}`);
-      }
+        if (!response.ok) {
+          throw new Error(`Search failed: ${response.status}`);
+        }
 
-      const data = await response.json();
-      console.log(`📊 Search response received:`, data);
+        const data = await response.json();
+        console.log(`📊 Search response received:`, data);
 
-      // Handle both array and object response formats
-      let results = [];
-      if (Array.isArray(data)) {
-        results = data;
-      } else if (data && Array.isArray(data.results)) {
-        results = data.results;
-      } else {
-        console.error('Frontend received invalid search results format:', data);
+        // Handle both array and object response formats
+        let results = [];
+        if (Array.isArray(data)) {
+          results = data;
+        } else if (data && Array.isArray(data.results)) {
+          results = data.results;
+        } else {
+          console.error('Frontend received invalid search results format:', data);
+          setSearchResults([]);
+          return;
+        }
+
+        console.log(`✅ Setting ${results.length} search results`);
+        setSearchResults(results);
+        return results;
+      } catch (error) {
+        console.error("Search API error:", error);
+        toast({
+          title: "Search Error",
+          description: "Failed to retrieve search results.",
+          variant: "destructive",
+        });
         setSearchResults([]);
-        return;
+        throw error;
       }
-
-      console.log(`✅ Setting ${results.length} search results`);
-      setSearchResults(results);
-      return results;
-    } catch (error) {
-      console.error("Search API error:", error);
-      toast({
-        title: "Search Error",
-        description: "Failed to retrieve search results.",
-        variant: "destructive",
-      });
-      setSearchResults([]);
-      throw error;
-    }
     },
     enabled: !!searchQuery && hasSearched && searchQuery.trim().length > 0,
     retry: false,
