@@ -18,8 +18,17 @@ import {
   Database,
   Shield,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Bot,
+  Zap
 } from "lucide-react";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface UserProfile {
   id: string;
@@ -42,11 +51,26 @@ interface SystemSettings {
   enableAnalytics: boolean;
 }
 
+interface LLMConfig {
+  provider: string;
+  embeddingProvider: string;
+  openAIConfig?: {
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+  };
+  geminiConfig?: {
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+  };
+}
+
 export default function Settings() {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'profile' | 'system' | 'security'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'system' | 'security' | 'llm'>('profile');
 
   const { data: userProfile, isLoading: profileLoading } = useQuery({
     queryKey: ["/api/user/profile"],
@@ -57,6 +81,11 @@ export default function Settings() {
     queryKey: ["/api/admin/settings"],
     enabled: user?.role === 'admin',
   }) as { data: SystemSettings | undefined; isLoading: boolean };
+
+  const { data: llmConfig, isLoading: llmLoading } = useQuery({
+    queryKey: ["/api/llm/config"],
+    enabled: !!user,
+  }) as { data: LLMConfig | undefined; isLoading: boolean };
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: Partial<UserProfile>) => {
@@ -118,6 +147,36 @@ export default function Settings() {
     },
   });
 
+  const updateLlmMutation = useMutation({
+    mutationFn: async (data: Partial<LLMConfig>) => {
+      const response = await fetch("/api/llm/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update LLM configuration");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "LLM Configuration Updated",
+        description: "Your AI provider settings have been successfully updated.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/llm/config"] });
+    },
+    onError: () => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update LLM configuration. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleProfileSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -148,6 +207,28 @@ export default function Settings() {
     };
 
     updateSystemMutation.mutate(systemData);
+  };
+
+  const handleLlmSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+
+    const llmData = {
+      provider: formData.get("provider") as string,
+      embeddingProvider: formData.get("embeddingProvider") as string,
+      openAIConfig: {
+        model: formData.get("openaiModel") as string,
+        temperature: parseFloat(formData.get("openaiTemperature") as string),
+        maxTokens: parseInt(formData.get("openaiMaxTokens") as string),
+      },
+      geminiConfig: {
+        model: formData.get("geminiModel") as string,
+        temperature: parseFloat(formData.get("geminiTemperature") as string),
+        maxTokens: parseInt(formData.get("geminiMaxTokens") as string),
+      },
+    };
+
+    updateLlmMutation.mutate(llmData);
   };
 
   const TabButton = ({ id, icon: Icon, label, isActive, onClick }: {
@@ -192,6 +273,13 @@ export default function Settings() {
             label="Profile"
             isActive={activeTab === 'profile'}
             onClick={() => setActiveTab('profile')}
+          />
+          <TabButton
+            id="llm"
+            icon={Bot}
+            label="AI Provider"
+            isActive={activeTab === 'llm'}
+            onClick={() => setActiveTab('llm')}
           />
           {user?.role === 'admin' && (
             <>
@@ -413,6 +501,192 @@ export default function Settings() {
                         <Save className="w-4 h-4" />
                       )}
                       <span>Save Changes</span>
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === 'llm' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Bot className="w-5 h-5" />
+                <span>AI Provider Configuration</span>
+              </CardTitle>
+              <p className="text-sm text-gray-600 mt-2">
+                Configure which AI provider to use for chat and document embeddings. 
+                Changing providers will require re-embedding all documents.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {llmLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
+                </div>
+              ) : (
+                <form onSubmit={handleLlmSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="provider">Chat Provider</Label>
+                        <Select name="provider" defaultValue={llmConfig?.provider || "OpenAI"}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select chat provider" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="OpenAI">OpenAI (GPT-4)</SelectItem>
+                            <SelectItem value="Gemini">Google Gemini</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-gray-500 mt-1">Provider for AI chat responses</p>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="embeddingProvider">Embedding Provider</Label>
+                        <Select name="embeddingProvider" defaultValue={llmConfig?.embeddingProvider || "OpenAI"}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select embedding provider" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="OpenAI">OpenAI Embeddings</SelectItem>
+                            <SelectItem value="Gemini">Google Gemini Embeddings</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-gray-500 mt-1">Provider for document embeddings and search</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Zap className="w-4 h-4 text-blue-600" />
+                          <h4 className="font-medium text-blue-800">Provider Status</h4>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>OpenAI:</span>
+                            <Badge variant="outline" className="text-green-700 border-green-300">
+                              Available
+                            </Badge>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Gemini:</span>
+                            <Badge variant="outline" className="text-yellow-700 border-yellow-300">
+                              Requires API Key
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* OpenAI Configuration */}
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-gray-900">OpenAI Settings</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="openaiModel">Model</Label>
+                          <Select name="openaiModel" defaultValue={llmConfig?.openAIConfig?.model || "gpt-4o"}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="gpt-4o">GPT-4o (Latest)</SelectItem>
+                              <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
+                              <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="openaiTemperature">Temperature</Label>
+                          <Input
+                            name="openaiTemperature"
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="2"
+                            defaultValue={llmConfig?.openAIConfig?.temperature || 0.7}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="openaiMaxTokens">Max Tokens</Label>
+                          <Input
+                            name="openaiMaxTokens"
+                            type="number"
+                            min="100"
+                            max="8000"
+                            defaultValue={llmConfig?.openAIConfig?.maxTokens || 4000}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Gemini Configuration */}
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-gray-900">Gemini Settings</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="geminiModel">Model</Label>
+                          <Select name="geminiModel" defaultValue={llmConfig?.geminiConfig?.model || "gemini-2.5-flash"}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                              <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                              <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="geminiTemperature">Temperature</Label>
+                          <Input
+                            name="geminiTemperature"
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="2"
+                            defaultValue={llmConfig?.geminiConfig?.temperature || 0.7}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="geminiMaxTokens">Max Tokens</Label>
+                          <Input
+                            name="geminiMaxTokens"
+                            type="number"
+                            min="100"
+                            max="8000"
+                            defaultValue={llmConfig?.geminiConfig?.maxTokens || 4000}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <h4 className="font-medium text-yellow-800 mb-2">Important Notice</h4>
+                    <p className="text-sm text-yellow-700">
+                      Changing the embedding provider will invalidate existing document embeddings. 
+                      All documents will need to be re-embedded with the new provider for search to work properly.
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button 
+                      type="submit" 
+                      disabled={updateLlmMutation.isPending}
+                      className="flex items-center space-x-2"
+                    >
+                      {updateLlmMutation.isPending ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4" />
+                      )}
+                      <span>Save Configuration</span>
                     </Button>
                   </div>
                 </form>

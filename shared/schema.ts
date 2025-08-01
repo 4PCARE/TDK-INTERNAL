@@ -521,6 +521,35 @@ export type InsertAiAssistantFeedback = typeof aiAssistantFeedback.$inferInsert;
 export type AiResponseAnalysis = typeof aiResponseAnalysis.$inferSelect;
 export type InsertAiResponseAnalysis = typeof aiResponseAnalysis.$inferInsert;
 
+// LLM Provider Configuration
+export const llmConfig = pgTable("llm_config", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  provider: varchar("provider").notNull().default("OpenAI"), // 'OpenAI' or 'Gemini'
+  embeddingProvider: varchar("embedding_provider").notNull().default("OpenAI"), // Track embedding provider separately
+  configData: jsonb("config_data"), // Store provider-specific config
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("llm_config_user_idx").on(table.userId),
+]);
+
+// Document chunk embeddings with provider tracking
+export const documentChunkEmbeddings = pgTable("document_chunk_embeddings", {
+  id: serial("id").primaryKey(),
+  documentId: integer("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
+  chunkIndex: integer("chunk_index").notNull(),
+  embedding: text("embedding").notNull(), // JSON array of embedding vector
+  embeddingProvider: varchar("embedding_provider").notNull(), // Track which provider generated this
+  embeddingModel: varchar("embedding_model").notNull(), // Track model version
+  chunkText: text("chunk_text").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("doc_chunk_embedding_idx").on(table.documentId, table.chunkIndex),
+  index("embedding_provider_idx").on(table.embeddingProvider),
+]);
+
 // Audit logs for compliance tracking
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
@@ -765,6 +794,39 @@ export type InsertAgentChatbotDocument = z.infer<typeof insertAgentChatbotDocume
 // Social Integration types
 export type SocialIntegration = typeof socialIntegrations.$inferSelect;
 export type InsertSocialIntegration = z.infer<typeof insertSocialIntegrationSchema>;
+
+// LLM Configuration types and schemas
+export const insertLlmConfigSchema = createInsertSchema(llmConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDocumentChunkEmbeddingSchema = createInsertSchema(documentChunkEmbeddings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type LlmConfig = typeof llmConfig.$inferSelect;
+export type InsertLlmConfig = z.infer<typeof insertLlmConfigSchema>;
+export type DocumentChunkEmbedding = typeof documentChunkEmbeddings.$inferSelect;
+export type InsertDocumentChunkEmbedding = z.infer<typeof insertDocumentChunkEmbeddingSchema>;
+
+// Relations for LLM Config
+export const llmConfigRelations = relations(llmConfig, ({ one }) => ({
+  user: one(users, {
+    fields: [llmConfig.userId],
+    references: [users.id],
+  }),
+}));
+
+export const documentChunkEmbeddingsRelations = relations(documentChunkEmbeddings, ({ one }) => ({
+  document: one(documents, {
+    fields: [documentChunkEmbeddings.documentId],
+    references: [documents.id],
+  }),
+}));
 
 // Chat History table - stores conversation history for each user/channel
 export const chatHistory = pgTable("chat_history", {

@@ -5683,6 +5683,133 @@ Memory management: Keep track of conversation context within the last ${agentCon
     path: '/ws' 
   });
 
+  // LLM Configuration API routes
+  app.get("/api/llm/config", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get current LLM configuration for user
+      const configResult = await pool.query(`
+        SELECT provider, embedding_provider, config_data, created_at, updated_at
+        FROM llm_config
+        WHERE user_id = $1
+        ORDER BY updated_at DESC
+        LIMIT 1
+      `, [userId]);
+
+      if (configResult.rows.length === 0) {
+        // Return default configuration
+        return res.json({
+          provider: "OpenAI",
+          embeddingProvider: "OpenAI",
+          openAIConfig: {
+            model: "gpt-4o",
+            temperature: 0.7,
+            maxTokens: 4000,
+          },
+          geminiConfig: {
+            model: "gemini-2.5-flash",
+            temperature: 0.7,
+            maxTokens: 4000,
+          },
+        });
+      }
+
+      const config = configResult.rows[0];
+      const configData = config.config_data || {};
+
+      res.json({
+        provider: config.provider,
+        embeddingProvider: config.embedding_provider,
+        openAIConfig: configData.openAIConfig || {
+          model: "gpt-4o",
+          temperature: 0.7,
+          maxTokens: 4000,
+        },
+        geminiConfig: configData.geminiConfig || {
+          model: "gemini-2.5-flash",
+          temperature: 0.7,
+          maxTokens: 4000,
+        },
+        createdAt: config.created_at,
+        updatedAt: config.updated_at,
+      });
+    } catch (error) {
+      console.error("Error fetching LLM config:", error);
+      res.status(500).json({ message: "Failed to fetch LLM configuration" });
+    }
+  });
+
+  app.put("/api/llm/config", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { 
+        provider, 
+        embeddingProvider, 
+        openAIConfig, 
+        geminiConfig 
+      } = req.body;
+
+      // Validate provider options
+      if (!["OpenAI", "Gemini"].includes(provider)) {
+        return res.status(400).json({ message: "Invalid provider. Must be 'OpenAI' or 'Gemini'" });
+      }
+      
+      if (!["OpenAI", "Gemini"].includes(embeddingProvider)) {
+        return res.status(400).json({ message: "Invalid embedding provider. Must be 'OpenAI' or 'Gemini'" });
+      }
+
+      const configData = {
+        openAIConfig: openAIConfig || {
+          model: "gpt-4o",
+          temperature: 0.7,
+          maxTokens: 4000,
+        },
+        geminiConfig: geminiConfig || {
+          model: "gemini-2.5-flash",
+          temperature: 0.7,
+          maxTokens: 4000,
+        },
+      };
+
+      // Check if user has existing config
+      const existingResult = await pool.query(`
+        SELECT id FROM llm_config WHERE user_id = $1
+      `, [userId]);
+
+      let configResult;
+      if (existingResult.rows.length > 0) {
+        // Update existing config
+        configResult = await pool.query(`
+          UPDATE llm_config 
+          SET provider = $2, embedding_provider = $3, config_data = $4, updated_at = NOW()
+          WHERE user_id = $1
+          RETURNING provider, embedding_provider, config_data, created_at, updated_at
+        `, [userId, provider, embeddingProvider, JSON.stringify(configData)]);
+      } else {
+        // Create new config
+        configResult = await pool.query(`
+          INSERT INTO llm_config (user_id, provider, embedding_provider, config_data)
+          VALUES ($1, $2, $3, $4)
+          RETURNING provider, embedding_provider, config_data, created_at, updated_at
+        `, [userId, provider, embeddingProvider, JSON.stringify(configData)]);
+      }
+
+      const config = configResult.rows[0];
+      res.json({
+        provider: config.provider,
+        embeddingProvider: config.embedding_provider,
+        openAIConfig: configData.openAIConfig,
+        geminiConfig: configData.geminiConfig,
+        createdAt: config.created_at,
+        updatedAt: config.updated_at,
+      });
+    } catch (error) {
+      console.error("Error updating LLM config:", error);
+      res.status(500).json({ message: "Failed to update LLM configuration" });
+    }
+  });
+
   // Store connected WebSocket clients
   const wsClients = new Set<WebSocket>();
   
