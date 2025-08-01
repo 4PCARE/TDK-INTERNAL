@@ -1519,7 +1519,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
       
-      const { q: query, type = "document-priority", massSelectionPercentage = "0.3" } = req.query;
+      const { query, type = "document-priority", massSelectionPercentage = "0.3" } = req.query;
 
       console.log(`\n🎯 EXTRACTED SEARCH PARAMETERS:`);
       console.log(`   Query: "${query}"`);
