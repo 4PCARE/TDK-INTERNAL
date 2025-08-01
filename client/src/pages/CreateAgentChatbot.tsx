@@ -215,20 +215,38 @@ export default function CreateAgentChatbot() {
   }) as { data: Document[] };
 
   // Fetch agent data for editing
-  const { data: existingAgent, isLoading: isLoadingAgent } = useQuery({
+  const { data: existingAgent, isLoading: isLoadingAgent, error: agentError } = useQuery({
     queryKey: [`/api/agent-chatbots/${editAgentId}`],
-    enabled: isAuthenticated && isEditing,
-    retry: false,
+    enabled: isAuthenticated && isEditing && editAgentId && !isNaN(Number(editAgentId)),
+    retry: (failureCount, error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return false;
+      }
+      return failureCount < 2;
+    },
     refetchOnMount: true,
     refetchOnWindowFocus: true,
     staleTime: 0, // Always fetch fresh data
   });
 
   // Fetch agent documents for editing
-  const { data: agentDocuments = [] } = useQuery({
+  const { data: agentDocuments = [], error: documentsError } = useQuery({
     queryKey: [`/api/agent-chatbots/${editAgentId}/documents`],
-    enabled: isAuthenticated && isEditing,
-    retry: false,
+    enabled: isAuthenticated && isEditing && editAgentId && !isNaN(Number(editAgentId)),
+    retry: (failureCount, error) => {
+      if (isUnauthorizedError(error)) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
   // Load existing agent data into form when editing
@@ -794,6 +812,7 @@ export default function CreateAgentChatbot() {
     "Competitor Information",
   ];
 
+  // Handle loading and error states
   if (isLoading || (isEditing && isLoadingAgent)) {
     return (
       <DashboardLayout>
@@ -803,6 +822,59 @@ export default function CreateAgentChatbot() {
             <p className="text-gray-600">
               {isEditing ? "Loading agent configuration..." : "Loading form..."}
             </p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Handle errors when loading agent data
+  if (isEditing && (agentError || documentsError)) {
+    return (
+      <DashboardLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-red-500 mb-4">
+              <Bot className="w-16 h-16 mx-auto mb-2" />
+              <h2 className="text-xl font-semibold">Failed to Load Agent</h2>
+              <p className="text-gray-600 mt-2">
+                {agentError ? "Could not load agent configuration." : "Could not load agent documents."}
+              </p>
+            </div>
+            <div className="space-x-2">
+              <Button onClick={() => window.location.reload()}>
+                Retry
+              </Button>
+              <Link href="/agent-chatbots">
+                <Button variant="outline">
+                  Back to Agents
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Validate edit mode
+  if (isEditing && (!existingAgent || !editAgentId || isNaN(Number(editAgentId)))) {
+    return (
+      <DashboardLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-yellow-500 mb-4">
+              <Bot className="w-16 h-16 mx-auto mb-2" />
+              <h2 className="text-xl font-semibold">Agent Not Found</h2>
+              <p className="text-gray-600 mt-2">
+                The agent you're trying to edit could not be found.
+              </p>
+            </div>
+            <Link href="/agent-chatbots">
+              <Button>
+                Back to Agents
+              </Button>
+            </Link>
           </div>
         </div>
       </DashboardLayout>

@@ -436,7 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub;
       
       if (!userId) {
         return res.status(401).json({ message: "User ID required" });
@@ -453,6 +453,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching agent chatbots:", error);
       res.status(500).json({ message: "Failed to fetch agent chatbots" });
+    }
+  });
+
+  // Get single agent chatbot
+  app.get("/api/agent-chatbots/:id", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const agentId = parseInt(req.params.id);
+      
+      if (!userId) {
+        return res.status(401).json({ message: "User ID required" });
+      }
+
+      if (isNaN(agentId)) {
+        return res.status(400).json({ message: "Invalid agent ID" });
+      }
+
+      // Get specific agent chatbot
+      const [agent] = await db
+        .select()
+        .from(agentChatbots)
+        .where(
+          and(
+            eq(agentChatbots.id, agentId),
+            eq(agentChatbots.userId, userId)
+          )
+        )
+        .limit(1);
+
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      res.json(agent);
+    } catch (error) {
+      console.error("Error fetching agent chatbot:", error);
+      res.status(500).json({ message: "Failed to fetch agent chatbot" });
     }
   });
 
