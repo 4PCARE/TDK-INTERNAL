@@ -107,9 +107,21 @@ export default function DocumentCard({ document }: DocumentCardProps) {
     toggleFavoriteMutation.mutate();
   };
 
-  const handleViewDetails = async () => {
+  const handleViewDetails = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     console.log(`🔍 Document Details clicked for document ID: ${document.id}`);
     console.log(`📄 Document name: ${document.name}`);
+
+    // Validate document ID
+    if (!document.id || isNaN(Number(document.id))) {
+      console.error(`❌ Invalid document ID: ${document.id}`);
+      toast({
+        title: "Error",
+        description: "Invalid document ID",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       console.log(`🚀 Making API request to: /api/documents/${document.id}`);
@@ -131,7 +143,7 @@ export default function DocumentCard({ document }: DocumentCardProps) {
   };
 
   return (
-    <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={handleViewDetails}>
+    <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
       <CardContent className="p-4">
         {/* Document Type Icon */}
         <div className="flex items-center justify-between mb-3">
@@ -161,6 +173,10 @@ export default function DocumentCard({ document }: DocumentCardProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
+                <DropdownMenuItem onClick={handleViewDetails}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="text-red-600"
                   onClick={(e) => {
