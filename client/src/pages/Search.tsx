@@ -45,7 +45,7 @@ export default function SearchPage() {
   }, [isAuthenticated, isLoading, toast]);
 
   const { data: rawSearchResults, isLoading: searchLoading, error } = useQuery({
-    queryKey: ["/api/search", { q: searchQuery, type: searchType }],
+    queryKey: ["/api/documents/search", { q: searchQuery, type: searchType }],
     enabled: !!searchQuery && hasSearched,
     retry: false,
   });
