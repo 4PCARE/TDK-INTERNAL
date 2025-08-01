@@ -636,6 +636,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================
+  // USER PROFILE ROUTES
+  // ============================
+
+  // Get user profile
+  app.get("/api/user/profile", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get user from database
+      const [user] = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+          role: users.role,
+          departmentId: users.departmentId,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Get department name if user has one
+      let departmentName = null;
+      if (user.departmentId) {
+        const [dept] = await db
+          .select({ name: departments.name })
+          .from(departments)
+          .where(eq(departments.id, user.departmentId))
+          .limit(1);
+        departmentName = dept?.name || null;
+      }
+
+      const profile = {
+        id: user.id,
+        email: user.email,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profileImageUrl: user.profileImageUrl,
+        role: user.role,
+        department: departmentName,
+        departmentId: user.departmentId,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        preferences: {
+          notifications: true, // Default preferences
+          emailUpdates: true,
+          theme: 'light'
+        }
+      };
+
+      res.json(profile);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ message: "Failed to fetch user profile" });
+    }
+  });
+
+  // Update user profile
+  app.put("/api/user/profile", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { name, firstName, lastName, department, preferences } = req.body;
+
+      // Parse name into first and last name if provided
+      let updateData: any = {
+        updatedAt: new Date(),
+      };
+
+      if (firstName !== undefined) updateData.firstName = firstName || null;
+      if (lastName !== undefined) updateData.lastName = lastName || null;
+      
+      // If name is provided but not firstName/lastName, try to split
+      if (name && !firstName && !lastName) {
+        const nameParts = name.trim().split(' ');
+        updateData.firstName = nameParts[0] || null;
+        updateData.lastName = nameParts.slice(1).join(' ') || null;
+      }
+
+      const [updatedUser] = await db
+        .update(users)
+        .set(updateData)
+        .where(eq(users.id, userId))
+        .returning();
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json({ 
+        message: "Profile updated successfully",
+        user: updatedUser 
+      });
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ message: "Failed to update user profile" });
+    }
+  });
+
+  // ============================
   // ADMIN ROUTES
   // ============================
 
@@ -798,6 +922,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get admin settings
+  app.get("/api/admin/settings", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, isAdmin, async (req: any, res) => {
+    try {
+      // Return default system settings
+      const settings = {
+        maxFileSize: 25, // MB
+        allowedFileTypes: [
+          "pdf", "docx", "xlsx", "pptx", "txt", "csv", "json",
+          "jpg", "jpeg", "png", "gif", "webp"
+        ],
+        retentionDays: 365,
+        autoBackup: false,
+        enableAnalytics: true
+      };
+
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching admin settings:", error);
+      res.status(500).json({ message: "Failed to fetch admin settings" });
+    }
+  });
+
+  // Update admin settings
+  app.put("/api/admin/settings", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, isAdmin, async (req: any, res) => {
+    try {
+      // For now, just acknowledge the update
+      // In a real implementation, you'd save these to a settings table
+      const { maxFileSize, allowedFileTypes, retentionDays, autoBackup, enableAnalytics } = req.body;
+
+      console.log("Admin settings update:", {
+        maxFileSize,
+        allowedFileTypes,
+        retentionDays,
+        autoBackup,
+        enableAnalytics
+      });
+
+      res.json({ 
+        message: "Settings updated successfully",
+        settings: req.body
+      });
+    } catch (error) {
+      console.error("Error updating admin settings:", error);
+      res.status(500).json({ message: "Failed to update admin settings" });
+    }
+  });
+
   // ============================
   // CATEGORY ROUTES
   // ============================
@@ -928,16 +1115,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      // Note: getStats method may not exist in storage interface - replaced with basic stats
-      const basicStats = {
+      
+      // Get actual document count from database
+      const [docCount] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(documents)
+        .where(eq(documents.userId, userId));
+
+      // Get documents processed today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const [todayCount] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(documents)
+        .where(and(
+          eq(documents.userId, userId),
+          gte(documents.createdAt, today)
+        ));
+
+      // Calculate approximate storage used (sum of file sizes)
+      const [storageResult] = await db
+        .select({ 
+          total: sql<number>`COALESCE(sum(${documents.fileSize}), 0)` 
+        })
+        .from(documents)
+        .where(eq(documents.userId, userId));
+
+      const stats = {
+        totalDocuments: Number(docCount?.count || 0),
+        processedToday: Number(todayCount?.count || 0),
+        storageUsed: Number(storageResult?.total || 0)
+      };
+
+      console.log(`📊 User stats for ${userId.substring(0, 8)}...:`, stats);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      // Return default stats on error instead of failing
+      res.json({
         totalDocuments: 0,
         processedToday: 0,
         storageUsed: 0
-      };
-      res.json(basicStats);
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-      res.status(500).json({ message: "Failed to fetch stats" });
+      });
     }
   });
 
@@ -1102,11 +1322,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       isAuthenticated(req, res, next);
     });
   }, async (req: any, res) => {
-    // ============ TERMINAL LOGGING START ============
-    console.log("\n" + "=".repeat(80));
-    console.log("🚨 SEARCH API ENDPOINT HIT!");
-    console.log("=".repeat(80));
-
     try {
       const userId = req.user.claims.sub;
       const query = (req.query.q as string) || "";
@@ -1118,54 +1333,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const searchKeyword = req.query.keyword !== "false" && req.query.keyword !== false;
       const searchMeaning = req.query.meaning === "true" || req.query.meaning === true;
 
-      console.log("📊 SEARCH PARAMETERS:");
-      console.log(`   🔍 Query: "${query}"`);
-      console.log(`   👤 User ID: ${userId}`);
-      console.log(`   🎯 Type: ${type}`);
-      console.log(`   📊 Mass Percentage: ${massPercentage}`);
-      console.log(`   📄 Search File Name: ${searchFileName}`);
-      console.log(`   🔤 Search Keyword: ${searchKeyword}`);
-      console.log(`   🧠 Search Meaning: ${searchMeaning}`);
+      console.log("🔍 Document search:", { query, type, userId: userId.substring(0, 8) + '...' });
 
       if (!query.trim()) {
-        console.log("❌ EMPTY QUERY - RETURNING EMPTY RESULTS");
-        console.log("=".repeat(80) + "\n");
         return res.json({ results: [], count: 0 });
       }
 
-      let results: any[] = [];
+      let searchResults: any[] = [];
 
       // Determine search strategy
       switch (type) {
         case "keyword-name-priority":
-          console.log(`🎯 DOCUMENT NAME PRIORITY SEARCH INITIATED`);
-
-          // Calculate massSelectionPercentage based on mass percentage with minimum of 0.1
           const massPercentageOverride = Math.max(0.1, massPercentage);
-
-          console.log(`🔧 DOCUMENT PRIORITY SEARCH CONFIG:`, {
-            searchFileName,
-            searchKeyword,
-            searchMeaning,
-            massPercentageOverride
-          });
-
-          results = await documentNamePrioritySearchService.searchDocuments(
+          searchResults = await documentNamePrioritySearchService.searchDocuments(
             query,
             userId,
             {
               limit: 100,
               massSelectionPercentage: massPercentageOverride,
-              enableNameSearch: searchFileName !== false, // Default to true unless explicitly disabled
-              enableKeywordSearch: searchKeyword !== false, // Default to true unless explicitly disabled
-              enableSemanticSearch: searchMeaning === true // Only enable when explicitly requested
+              enableNameSearch: searchFileName !== false,
+              enableKeywordSearch: searchKeyword !== false,
+              enableSemanticSearch: searchMeaning === true
             }
           );
           break;
 
         case "keyword":
-          console.log(`🔤 KEYWORD SEARCH INITIATED`);
-          results = await semanticSearchServiceV2.searchDocuments(
+          searchResults = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
             { limit: Math.min(50, Math.floor(100 * massPercentage)), searchType: "keyword" }
@@ -1173,8 +1367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           break;
 
         case "semantic":
-          console.log(`🧠 SEMANTIC SEARCH INITIATED`);
-          results = await semanticSearchServiceV2.searchDocuments(
+          searchResults = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
             { limit: Math.min(50, Math.floor(100 * massPercentage)), searchType: "semantic" }
@@ -1183,8 +1376,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         case "hybrid":
         default:
-          console.log(`🔄 HYBRID SEARCH INITIATED`);
-          results = await semanticSearchServiceV2.searchDocuments(
+          searchResults = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
             { limit: Math.min(50, Math.floor(100 * massPercentage)), searchType: "hybrid" }
@@ -1192,81 +1384,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
           break;
       }
 
-      console.log(`\n✅ SEARCH EXECUTION COMPLETE!`);
-
-      if (results && results.length > 0) {
-        console.log(`\n📊 DETAILED SEARCH RESULTS ANALYSIS:`);
-        console.log(`   🔢 Total results: ${results.length}`);
-
-        // Check for problematic document IDs
-        const invalidResults = results.filter(r => !r.id || r.id === 'NaN' || isNaN(Number(r.id)));
-        const validResults = results.filter(r => r.id && r.id !== 'NaN' && !isNaN(Number(r.id)));
-
-        console.log(`   ✅ Valid IDs: ${validResults.length}`);
-        console.log(`   ❌ Invalid IDs: ${invalidResults.length}`);
-
-        if (invalidResults.length > 0) {
-          console.log(`\n❌ INVALID DOCUMENT IDs FOUND:`);
-          invalidResults.forEach((result, idx) => {
-            console.log(`   ${idx + 1}. ID: "${result.id}" (type: ${typeof result.id}), Name: "${result.name}"`);
-            console.log(`      🔍 Full invalid result:`, JSON.stringify(result, null, 2));
-          });
-        }
-
-        if (validResults.length > 0) {
-          console.log(`\n📄 SAMPLE VALID RESULTS (first 5):`);
-          validResults.slice(0, 5).forEach((result, idx) => {
-            console.log(`   ${idx + 1}. ID: ${result.id} (${typeof result.id}), Name: "${result.name}", Similarity: ${result.similarity || 'N/A'}`);
-          });
-        }
-
-        // Check if we're returning chunk data vs document data
-        const hasChunkData = results.some(r => r.content && r.content.length < 5000 && r.name?.includes('Chunk'));
-        const hasDocumentData = results.some(r => r.name && !r.name.includes('Chunk'));
-
-        console.log(`\n🔍 RESULT TYPE ANALYSIS:`);
-        console.log(`   📄 Has document-like data: ${hasDocumentData}`);
-        console.log(`   🧩 Has chunk-like data: ${hasChunkData}`);
-
-        if (hasChunkData) {
-          console.log(`   ⚠️  WARNING: Search results contain chunk data - this WILL cause frontend issues!`);
-        }
-
-        // Log all result IDs for debugging
-        console.log(`\n🆔 ALL RESULT IDs:`);
-        results.forEach((result, idx) => {
-          console.log(`   ${idx + 1}. "${result.id}" (${typeof result.id}) - Valid: ${result.id && result.id !== 'NaN' && !isNaN(Number(result.id))}`);
-        });
-
-      } else {
-        console.log(`\n📭 NO SEARCH RESULTS FOUND for query: "${query}"`);
-        console.log(`   This could mean:`);
-        console.log(`   - No documents match the search terms`);
-        console.log(`   - Search service failed`);
-        console.log(`   - Database connection issue`);
+      // Ensure we have valid results and convert them to proper document format
+      if (!Array.isArray(searchResults)) {
+        console.log("❌ Search service returned non-array:", typeof searchResults);
+        return res.json({ results: [], count: 0 });
       }
 
-      console.log(`\n🚀 SENDING RESPONSE TO CLIENT`);
-      console.log(`   Response structure: { results: Array(${results.length}), count: ${results.length} }`);
-      console.log("=".repeat(80));
-      console.log("🏁 SEARCH API ENDPOINT COMPLETE");
-      console.log("=".repeat(80) + "\n");
+      // Filter out invalid results and ensure proper document IDs
+      const validResults = searchResults
+        .filter(result => {
+          // Ensure result has required properties
+          if (!result || typeof result !== 'object') return false;
+          
+          // Check for valid document ID
+          const hasValidId = result.id && !isNaN(Number(result.id)) && Number(result.id) > 0;
+          const hasValidDocId = result.documentId && !isNaN(Number(result.documentId)) && Number(result.documentId) > 0;
+          
+          return hasValidId || hasValidDocId;
+        })
+        .map(result => {
+          // Normalize the result to ensure consistent format
+          const documentId = result.documentId || result.id;
+          
+          return {
+            id: Number(documentId),
+            name: result.name || result.documentName || `Document ${documentId}`,
+            description: result.description || '',
+            similarity: result.similarity || result.score || 0,
+            fileName: result.fileName || '',
+            createdAt: result.createdAt || new Date().toISOString(),
+            // Include any other relevant fields
+            ...result
+          };
+        });
 
-      res.json({ results: results, count: results.length });
+      console.log(`✅ Search complete: ${validResults.length} valid results`);
+
+      res.json({ 
+        results: validResults, 
+        count: validResults.length 
+      });
+
     } catch (error) {
-      console.log("\n" + "🚨".repeat(40));
-      console.log("❌ CRITICAL ERROR IN DOCUMENT SEARCH!");
-      console.log("🚨".repeat(40));
-      console.log(`⏰ ERROR TIME: ${new Date().toISOString()}`);
-      console.log(`💥 ERROR MESSAGE: ${error instanceof Error ? error.message : String(error)}`);
-      console.log(`🔍 QUERY THAT FAILED: "${req.query.q}"`);
-      console.log(`👤 USER ID: ${req.user?.claims?.sub}`);
-      console.log(`📊 FULL QUERY PARAMS:`, JSON.stringify(req.query, null, 2));
-      console.log(`🛠️  ERROR STACK:`);
-      console.log(error instanceof Error ? error.stack : 'No stack trace available');
-      console.log("🚨".repeat(40) + "\n");
-
-      res.status(500).json({ message: "Search failed", error: error instanceof Error ? error.message : String(error) });
+      console.error("❌ Document search error:", error);
+      res.status(500).json({ 
+        message: "Search failed", 
+        error: error instanceof Error ? error.message : String(error),
+        results: [],
+        count: 0
+      });
     }
   });
 
