@@ -19,6 +19,9 @@ interface DocumentCardProps {
     tags?: string[];
     isFavorite: boolean;
     createdAt: string;
+    similarity?: number;
+    content?: string;
+    isChunkResult?: boolean;
   };
 }
 
@@ -157,8 +160,18 @@ export default function DocumentCard({ document }: DocumentCardProps) {
         <h4 className="font-medium text-gray-900 mb-1 truncate" title={document.name}>
           {document.name}
         </h4>
+        
+        {/* Show similarity score for search results */}
+        {document.similarity !== undefined && (
+          <div className="mb-2">
+            <Badge variant="outline" className="text-xs">
+              {Math.round(document.similarity * 100)}% match
+            </Badge>
+          </div>
+        )}
+        
         <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-          {document.description || "No description available"}
+          {document.content || document.description || "No description available"}
         </p>
 
         {/* Tags */}

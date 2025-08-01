@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -93,11 +93,11 @@ export default function Documents() {
   // Determine search type based on checkboxes
   const determineSearchType = () => {
     const selectedCount = [searchFileName, searchKeyword, searchMeaning].filter(Boolean).length;
-    
+
     if (selectedCount === 0) {
       return "filename"; // Fallback to filename search if nothing selected
     }
-    
+
     if (searchFileName && searchKeyword && searchMeaning) {
       return "hybrid-all"; // All three types
     } else if (searchKeyword && searchMeaning) {
@@ -112,7 +112,7 @@ export default function Documents() {
   };
 
   // Enhanced search with semantic capabilities  
-  const { data: documents, isLoading: documentsLoading, error: documentsError } = useQuery({
+  const { data: rawSearchResults, isLoading: documentsLoading, error: documentsError } = useQuery({
     queryKey: ["/api/documents/search", searchQuery, searchFileName, searchKeyword, searchMeaning],
     queryFn: async () => {
       try {
@@ -145,12 +145,12 @@ export default function Documents() {
           throw new Error(`${response.status}: ${response.statusText}`);
         }
         const results = await response.json();
-        
+
         if (!Array.isArray(results)) {
           console.log("Frontend received non-array search results");
           return [];
         }
-        
+
         console.log(`Frontend received ${results.length} search results`);
         return results;
       } catch (error) {
@@ -166,6 +166,49 @@ export default function Documents() {
     retry: false,
     enabled: isAuthenticated,
   }) as { data: Array<any>; isLoading: boolean; error: any };
+
+  // Post-process search results to deduplicate documents
+  const documents = useMemo(() => {
+    if (!rawSearchResults) return rawSearchResults;
+
+    const documentMap = new Map();
+
+    if(Array.isArray(rawSearchResults)){
+      return rawSearchResults;
+    }
+
+    if(!rawSearchResults?.results){
+        return [];
+    }
+
+    rawSearchResults.results.forEach((result: any) => {
+      // Extract original document ID from chunk ID (format: "docId-chunkIndex")
+      const originalDocId = result.id.includes('-') ? result.id.split('-')[0] : result.id;
+
+      if (!documentMap.has(originalDocId)) {
+        // First chunk for this document - use it as the main result
+        documentMap.set(originalDocId, {
+          ...result,
+          id: parseInt(originalDocId), // Use original document ID
+          name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk suffix
+          content: result.summary || result.content, // Use summary if available
+          isChunkResult: false
+        });
+      } else {
+        // Additional chunk for existing document - keep highest similarity
+        const existing = documentMap.get(originalDocId);
+        if (result.similarity > existing.similarity) {
+          documentMap.set(originalDocId, {
+            ...existing,
+            similarity: result.similarity,
+            content: result.summary || result.content
+          });
+        }
+      }
+    });
+
+    return Array.from(documentMap.values());
+  }, [rawSearchResults]);
 
   const { data: categories } = useQuery({
     queryKey: ["/api/categories"],
@@ -277,7 +320,7 @@ export default function Documents() {
                         />
                       </div>
                     </div>
-                    
+
                     {/* Search Type Checkboxes */}
                     <div className="flex items-center gap-6">
                       <div className="flex items-center space-x-2">
@@ -293,7 +336,7 @@ export default function Documents() {
                           File Name
                         </label>
                       </div>
-                      
+
                       <div className="flex items-center space-x-2">
                         <Checkbox 
                           id="search-keyword" 
@@ -307,7 +350,7 @@ export default function Documents() {
                           Content (Keyword)
                         </label>
                       </div>
-                      
+
                       <div className="flex items-center space-x-2">
                         <Checkbox 
                           id="search-meaning" 
@@ -321,7 +364,7 @@ export default function Documents() {
                           Content (Meaning)
                         </label>
                       </div>
-                      
+
                       <div className="text-xs text-slate-500 ml-4">
                         Press Enter to search • Meaning search may be slower
                       </div>

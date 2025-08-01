@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -43,11 +43,50 @@ export default function SearchPage() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  const { data: searchResults, isLoading: searchLoading, error } = useQuery({
+  const { data: rawSearchResults, isLoading: searchLoading, error } = useQuery({
     queryKey: ["/api/search", { q: searchQuery, type: searchType }],
     enabled: !!searchQuery && hasSearched,
     retry: false,
   });
+
+  // Post-process search results to deduplicate documents
+  const searchResults = useMemo(() => {
+    if (!rawSearchResults?.results) return rawSearchResults;
+
+    const documentMap = new Map();
+    
+    rawSearchResults.results.forEach((result: any) => {
+      // Extract original document ID from chunk ID (format: "docId-chunkIndex")
+      const originalDocId = result.id.includes('-') ? result.id.split('-')[0] : result.id;
+      
+      if (!documentMap.has(originalDocId)) {
+        // First chunk for this document - use it as the main result
+        documentMap.set(originalDocId, {
+          ...result,
+          id: parseInt(originalDocId), // Use original document ID
+          name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk suffix
+          content: result.summary || result.content, // Use summary if available
+          isChunkResult: false
+        });
+      } else {
+        // Additional chunk for existing document - keep highest similarity
+        const existing = documentMap.get(originalDocId);
+        if (result.similarity > existing.similarity) {
+          documentMap.set(originalDocId, {
+            ...existing,
+            similarity: result.similarity,
+            content: result.summary || result.content
+          });
+        }
+      }
+    });
+
+    return {
+      ...rawSearchResults,
+      results: Array.from(documentMap.values()),
+      count: documentMap.size
+    };
+  }, [rawSearchResults]);
 
   const handleSearch = (query: string, type: "keyword" | "semantic") => {
     setSearchQuery(query);
