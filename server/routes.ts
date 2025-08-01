@@ -1537,16 +1537,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { q: query, type = "document-priority", massSelectionPercentage = "0.3" } = req.query;
 
       console.log(`🔍 SEARCH REQUEST: "${query}" (${type}) for user ${userId}`);
+      console.log(`📋 SEARCH PARAMS:`, {
+        query: query,
+        type: type,
+        massSelectionPercentage: massSelectionPercentage,
+        userId: userId,
+        fullQuery: req.query
+      });
 
       if (!query || query.trim() === "") {
         // Return all documents if no search query
         const documents = await storage.getDocuments(userId, { limit: 1000 });
         console.log(`📂 No search query, returning ${documents.length} documents`);
+        
+        // Log first few documents to check their structure
+        if (documents.length > 0) {
+          console.log(`📄 SAMPLE DOCUMENT STRUCTURE:`, {
+            firstDoc: {
+              id: documents[0].id,
+              name: documents[0].name,
+              type: typeof documents[0].id,
+              hasValidId: documents[0].id && !isNaN(Number(documents[0].id))
+            }
+          });
+        }
+        
         return res.json({ results: documents, count: documents.length });
       }
 
       let results = [];
       const massPercentage = parseFloat(massSelectionPercentage);
+
+      console.log(`🎯 SEARCH TYPE: ${type}, Mass Percentage: ${massPercentage}`);
 
       switch (type) {
         case "document-priority":
@@ -1557,6 +1579,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const searchKeyword = req.query.searchKeyword === 'true'; 
           const searchMeaning = req.query.searchMeaning === 'true';
           const massPercentageOverride = parseFloat(req.query.massSelectionPercentage as string) || 0.6;
+
+          console.log(`🔧 DOCUMENT PRIORITY SEARCH CONFIG:`, {
+            searchFileName,
+            searchKeyword,
+            searchMeaning,
+            massPercentageOverride
+          });
 
           const { documentNamePrioritySearchService } = await import('./services/documentNamePrioritySearch');
           results = await documentNamePrioritySearchService.searchDocuments(
@@ -1573,6 +1602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           break;
 
         case "keyword":
+          console.log(`🔤 KEYWORD SEARCH INITIATED`);
           results = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
@@ -1584,6 +1614,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           break;
 
         case "semantic":
+          console.log(`🧠 SEMANTIC SEARCH INITIATED`);
           results = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
@@ -1596,6 +1627,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         case "hybrid":
         default:
+          console.log(`🔄 HYBRID SEARCH INITIATED`);
           results = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
@@ -1608,9 +1640,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`✅ SEARCH COMPLETE: Returning ${results.length} results for "${query}"`);
+      
+      // Log detailed result analysis
+      if (results.length > 0) {
+        console.log(`📊 SEARCH RESULTS ANALYSIS:`);
+        console.log(`   Total results: ${results.length}`);
+        
+        // Check for problematic document IDs
+        const invalidResults = results.filter(r => !r.id || r.id === 'NaN' || isNaN(Number(r.id)));
+        if (invalidResults.length > 0) {
+          console.log(`❌ FOUND ${invalidResults.length} INVALID DOCUMENT IDs:`);
+          invalidResults.forEach((result, idx) => {
+            console.log(`   ${idx + 1}. ID: ${result.id} (type: ${typeof result.id}), Name: ${result.name}`);
+            console.log(`      Full result:`, JSON.stringify(result, null, 2));
+          });
+        }
+        
+        // Log first few valid results
+        const validResults = results.filter(r => r.id && r.id !== 'NaN' && !isNaN(Number(r.id)));
+        console.log(`✅ VALID RESULTS: ${validResults.length}/${results.length}`);
+        
+        if (validResults.length > 0) {
+          console.log(`📄 SAMPLE VALID RESULTS:`);
+          validResults.slice(0, 3).forEach((result, idx) => {
+            console.log(`   ${idx + 1}. ID: ${result.id} (${typeof result.id}), Name: ${result.name}, Similarity: ${result.similarity || 'N/A'}`);
+          });
+        }
+        
+        // Check if we're returning chunk data vs document data
+        const hasChunkData = results.some(r => r.content && r.content.length < 5000 && (r.chunkIndex !== undefined || r.name?.includes('Chunk')));
+        const hasDocumentData = results.some(r => !r.chunkIndex && r.name && !r.name.includes('Chunk'));
+        
+        console.log(`🔍 RESULT TYPE ANALYSIS:`);
+        console.log(`   Has chunk-like data: ${hasChunkData}`);
+        console.log(`   Has document-like data: ${hasDocumentData}`);
+        
+        if (hasChunkData) {
+          console.log(`⚠️  WARNING: Search results contain chunk data - this might cause issues in the frontend`);
+        }
+      } else {
+        console.log(`📭 NO SEARCH RESULTS FOUND for query: "${query}"`);
+      }
+      
       res.json({ results: results, count: results.length });
     } catch (error) {
-      console.error("Error in document search:", error);
+      console.error("❌ ERROR IN DOCUMENT SEARCH:", error);
+      console.error("❌ ERROR STACK:", error.stack);
+      console.error("❌ ERROR DETAILS:", {
+        message: error.message,
+        query: req.query,
+        userId: req.user?.claims?.sub
+      });
       res.status(500).json({ message: "Search failed", error: error.message });
     }
   });

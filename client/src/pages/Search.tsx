@@ -79,19 +79,68 @@ export default function SearchPage() {
 
   // Process search results to show only the most similar chunk per document
   const searchResults = React.useMemo(() => {
-    if (!rawSearchResults?.results) return rawSearchResults;
+    console.log(`🔄 PROCESSING SEARCH RESULTS:`, {
+      hasRawResults: !!rawSearchResults,
+      hasResults: !!rawSearchResults?.results,
+      resultCount: rawSearchResults?.results?.length || 0,
+      searchType: searchType
+    });
+
+    if (!rawSearchResults?.results) {
+      console.log(`❌ NO RAW SEARCH RESULTS TO PROCESS`);
+      return rawSearchResults;
+    }
+
+    console.log(`📊 RAW SEARCH RESULTS:`, {
+      count: rawSearchResults.results.length,
+      firstResult: rawSearchResults.results[0] ? {
+        id: rawSearchResults.results[0].id,
+        name: rawSearchResults.results[0].name,
+        hasContent: !!rawSearchResults.results[0].content,
+        contentLength: rawSearchResults.results[0].content?.length || 0
+      } : null
+    });
 
     if (searchType === "keyword") {
       // For keyword search, return as-is (no chunk processing needed)
+      console.log(`🔤 KEYWORD SEARCH: Returning results as-is`);
+      
+      // Log any problematic IDs
+      const invalidIds = rawSearchResults.results.filter((r: any) => !r.id || r.id === 'NaN' || isNaN(Number(r.id)));
+      if (invalidIds.length > 0) {
+        console.log(`❌ FOUND ${invalidIds.length} INVALID IDs IN KEYWORD RESULTS:`, invalidIds.map((r: any) => ({ id: r.id, name: r.name })));
+      }
+      
       return rawSearchResults;
     }
 
     // For semantic search, group by document and keep only the most similar chunk
+    console.log(`🧠 SEMANTIC SEARCH: Processing chunks by document`);
     const documentMap = new Map();
 
-    rawSearchResults.results.forEach((result: any) => {
+    rawSearchResults.results.forEach((result: any, index: number) => {
+      console.log(`   Processing result ${index + 1}:`, {
+        originalId: result.id,
+        name: result.name,
+        similarity: result.similarity,
+        hasChunkInfo: result.id?.includes('-') || result.name?.includes('Chunk')
+      });
+
       // Extract document ID from chunk ID (format: "docId-chunkIndex")
-      const docId = result.id.split('-')[0];
+      let docId = result.id;
+      
+      // Check if this looks like a chunk ID
+      if (typeof result.id === 'string' && result.id.includes('-')) {
+        docId = result.id.split('-')[0];
+        console.log(`   Extracted document ID: ${docId} from chunk ID: ${result.id}`);
+      }
+
+      // Validate the extracted document ID
+      if (!docId || docId === 'NaN' || isNaN(Number(docId))) {
+        console.log(`❌ INVALID DOCUMENT ID EXTRACTED: ${docId} from original ID: ${result.id}`);
+        console.log(`   Result details:`, JSON.stringify(result, null, 2));
+        return; // Skip this result
+      }
 
       if (!documentMap.has(docId) || result.similarity > documentMap.get(docId).similarity) {
         // Create a cleaned result without chunk information
@@ -100,14 +149,35 @@ export default function SearchPage() {
           id: docId, // Use document ID
           name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk label
         };
+        
+        console.log(`   Setting document ${docId}:`, {
+          cleanedId: cleanResult.id,
+          cleanedName: cleanResult.name,
+          similarity: cleanResult.similarity
+        });
+        
         documentMap.set(docId, cleanResult);
       }
     });
 
+    const processedResults = Array.from(documentMap.values());
+    
+    console.log(`✅ SEMANTIC PROCESSING COMPLETE:`, {
+      originalCount: rawSearchResults.results.length,
+      processedCount: processedResults.length,
+      documentMapSize: documentMap.size
+    });
+
+    // Final validation of processed results
+    const finalInvalidIds = processedResults.filter((r: any) => !r.id || r.id === 'NaN' || isNaN(Number(r.id)));
+    if (finalInvalidIds.length > 0) {
+      console.log(`❌ FINAL RESULTS STILL CONTAIN ${finalInvalidIds.length} INVALID IDs:`, finalInvalidIds);
+    }
+
     return {
       ...rawSearchResults,
-      results: Array.from(documentMap.values()),
-      count: documentMap.size
+      results: processedResults,
+      count: processedResults.length
     };
   }, [rawSearchResults, searchType]);
 
@@ -213,12 +283,44 @@ export default function SearchPage() {
 
                     {/* Results */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {searchResults.results
-                        .filter((doc: any) => doc.id && doc.id !== 'NaN' && !isNaN(Number(doc.id)))
-                        .map((doc: any) => (
-                          <DocumentCard 
-                            key={doc.id} 
-                            document={{
+                      {(() => {
+                        console.log(`🎨 RENDERING SEARCH RESULTS:`, {
+                          totalResults: searchResults.results?.length || 0,
+                          searchType: searchType,
+                          query: searchQuery
+                        });
+
+                        if (!searchResults.results) {
+                          console.log(`❌ NO RESULTS TO RENDER`);
+                          return null;
+                        }
+
+                        // Log all results before filtering
+                        console.log(`📋 ALL RESULTS BEFORE FILTERING:`);
+                        searchResults.results.forEach((doc: any, index: number) => {
+                          console.log(`   ${index + 1}. ID: ${doc.id} (${typeof doc.id}), Name: ${doc.name}, Valid: ${doc.id && doc.id !== 'NaN' && !isNaN(Number(doc.id))}`);
+                        });
+
+                        const filteredResults = searchResults.results.filter((doc: any) => {
+                          const isValid = doc.id && doc.id !== 'NaN' && !isNaN(Number(doc.id));
+                          if (!isValid) {
+                            console.log(`❌ FILTERING OUT INVALID DOCUMENT:`, {
+                              id: doc.id,
+                              name: doc.name,
+                              type: typeof doc.id,
+                              reason: !doc.id ? 'no id' : doc.id === 'NaN' ? 'id is NaN string' : 'id is not a number'
+                            });
+                          }
+                          return isValid;
+                        });
+
+                        console.log(`✅ FILTERED RESULTS: ${filteredResults.length}/${searchResults.results.length} valid documents`);
+
+                        return filteredResults.map((doc: any) => {
+                          console.log(`🎯 RENDERING DOCUMENT CARD:`, {
+                            id: doc.id,
+                            name: doc.name,
+                            cardData: {
                               id: doc.id,
                               name: doc.name,
                               description: doc.description,
@@ -227,9 +329,26 @@ export default function SearchPage() {
                               tags: doc.tags || [],
                               isFavorite: doc.isFavorite || false,
                               createdAt: doc.createdAt || new Date().toISOString()
-                            }} 
-                          />
-                        ))}
+                            }
+                          });
+
+                          return (
+                            <DocumentCard 
+                              key={doc.id} 
+                              document={{
+                                id: doc.id,
+                                name: doc.name,
+                                description: doc.description,
+                                mimeType: doc.mimeType || 'application/octet-stream',
+                                fileSize: doc.fileSize || 0,
+                                tags: doc.tags || [],
+                                isFavorite: doc.isFavorite || false,
+                                createdAt: doc.createdAt || new Date().toISOString()
+                              }} 
+                            />
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
                 ) : hasSearched ? (
