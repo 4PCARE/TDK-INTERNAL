@@ -1491,11 +1491,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const query = req.query.query as string;
-      const searchType =
-        (req.query.type as "keyword" | "semantic" | "hybrid") || "hybrid";
+      const searchType = req.query.type as string || "hybrid";
+      const searchFileName = req.query.fileName === "true";
+      const searchKeyword = req.query.keyword === "true";
+      const searchMeaning = req.query.meaning === "true";
 
       console.log(
-        `Search request - User: ${userId}, Query: "${query}", Type: ${searchType}`,
+        `Search request - User: ${userId}, Query: "${query}", Type: ${searchType}, FileName: ${searchFileName}, Keyword: ${searchKeyword}, Meaning: ${searchMeaning}`,
       );
 
       if (!query || query.trim().length === 0) {
@@ -1504,15 +1506,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       let results = [];
+      let filenameResults = [];
+      let keywordResults = [];
+      let semanticResults = [];
 
-      if (searchType === "keyword") {
-        console.log("Performing advanced keyword search...");
+      // Filename search
+      if (searchFileName) {
+        console.log("Performing filename search...");
+        try {
+          const allDocs = await storage.getDocuments(userId);
+          filenameResults = allDocs.filter(doc => 
+            (doc.name || doc.originalName || "").toLowerCase().includes(query.toLowerCase())
+          ).map(doc => ({
+            ...doc,
+            searchScore: 100, // Highest priority for filename matches
+            searchType: "filename"
+          }));
+          console.log(`Filename search returned ${filenameResults.length} results`);
+        } catch (error) {
+          console.error("Filename search failed:", error);
+        }
+      }
+
+      // Keyword search
+      if (searchKeyword) {
+        console.log("Performing keyword search...");
         try {
           const { advancedKeywordSearchService } = await import('./services/advancedKeywordSearch');
           const advancedResults = await advancedKeywordSearchService.searchDocuments(query, userId, 50);
           
-          // Convert advanced results to match expected format
-          results = advancedResults.map(result => ({
+          keywordResults = advancedResults.map(result => ({
             id: result.id,
             name: result.name,
             content: result.content,
@@ -1520,63 +1543,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
             aiCategory: result.aiCategory,
             createdAt: result.createdAt,
             similarity: result.similarity,
-            tags: [], // Will be populated from storage if needed
+            tags: [],
             categoryId: null,
-            userId: userId
+            userId: userId,
+            searchScore: 50 + (result.similarity * 30), // Medium priority with similarity boost
+            searchType: "keyword"
           }));
           
-          console.log(`Advanced keyword search returned ${results.length} results`);
+          console.log(`Keyword search returned ${keywordResults.length} results`);
         } catch (error) {
-          console.error("Advanced keyword search failed, falling back to basic:", error);
-          results = await storage.searchDocuments(userId, query);
-          console.log(`Fallback keyword search returned ${results.length} results`);
+          console.error("Keyword search failed, falling back to basic:", error);
+          const basicResults = await storage.searchDocuments(userId, query);
+          keywordResults = basicResults.map(doc => ({
+            ...doc,
+            searchScore: 40,
+            searchType: "keyword"
+          }));
         }
-      } else if (searchType === "semantic") {
+      }
+
+      // Semantic search
+      if (searchMeaning) {
         console.log("Performing semantic search...");
         try {
-          results = await semanticSearchServiceV2.searchDocuments(
+          const semanticDocs = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
             { searchType: "semantic" },
           );
-          console.log(`Semantic search returned ${results.length} results`);
-        } catch (semanticError) {
-          console.error(
-            "Semantic search failed, falling back to keyword:",
-            semanticError,
-          );
-          results = await storage.searchDocuments(userId, query);
-          console.log(
-            `Fallback keyword search returned ${results.length} results`,
-          );
-        }
-      } else {
-        // hybrid
-        console.log("Performing hybrid search...");
-        try {
-          results = await semanticSearchServiceV2.searchDocuments(
-            query,
-            userId,
-            { 
-              searchType: "hybrid",
-              keywordWeight: 0.4,
-              vectorWeight: 0.6
-            },
-          );
-          console.log(`Hybrid search returned ${results.length} results`);
-        } catch (hybridError) {
-          console.error(
-            "Hybrid search failed, falling back to keyword:",
-            hybridError,
-          );
-          results = await storage.searchDocuments(userId, query);
-          console.log(
-            `Fallback keyword search returned ${results.length} results`,
-          );
+          
+          semanticResults = semanticDocs.map(doc => ({
+            ...doc,
+            searchScore: 20 + (doc.similarity || 0) * 25, // Lower priority but similarity-based
+            searchType: "semantic"
+          }));
+          
+          console.log(`Semantic search returned ${semanticResults.length} results`);
+        } catch (error) {
+          console.error("Semantic search failed:", error);
         }
       }
 
-      console.log(`Final results count: ${results.length}`);
+      // Merge and deduplicate results
+      const allResults = [...filenameResults, ...keywordResults, ...semanticResults];
+      const deduplicatedResults = new Map();
+      
+      // Keep the highest scoring result for each document
+      allResults.forEach(result => {
+        const docId = result.id;
+        if (!deduplicatedResults.has(docId) || 
+            result.searchScore > deduplicatedResults.get(docId).searchScore) {
+          deduplicatedResults.set(docId, result);
+        }
+      });
+      
+      // Sort by search score (highest first) then by relevance
+      results = Array.from(deduplicatedResults.values())
+        .sort((a, b) => {
+          if (b.searchScore !== a.searchScore) {
+            return b.searchScore - a.searchScore;
+          }
+          // Secondary sort by similarity if available
+          return (b.similarity || 0) - (a.similarity || 0);
+        });
+
+      console.log(`Final results count: ${results.length} (filename: ${filenameResults.length}, keyword: ${keywordResults.length}, semantic: ${semanticResults.length})`);
 
       // Log the search action for audit
       await storage.createAuditLog({
@@ -1589,11 +1620,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: {
           query: query,
           searchType: searchType,
+          searchFileName,
+          searchKeyword,
+          searchMeaning,
           resultsCount: results.length,
         },
       });
 
       res.json(results);
+
+
     } catch (error) {
       console.error("Search error:", error);
       res.status(500).json({ message: "Failed to search documents" });

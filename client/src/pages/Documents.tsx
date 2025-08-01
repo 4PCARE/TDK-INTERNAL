@@ -46,7 +46,10 @@ export default function Documents() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchType, setSearchType] = useState<"keyword" | "semantic" | "hybrid">("hybrid");
+  const [pendingSearchQuery, setPendingSearchQuery] = useState("");
+  const [searchFileName, setSearchFileName] = useState(true);
+  const [searchKeyword, setSearchKeyword] = useState(true);
+  const [searchMeaning, setSearchMeaning] = useState(false);
   const [sortBy, setSortBy] = useState("newest");
   const [filterCategories, setFilterCategories] = useState<string[]>([]);
   const [filterTags, setFilterTags] = useState<string[]>([]);
@@ -87,9 +90,30 @@ export default function Documents() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
+  // Determine search type based on checkboxes
+  const determineSearchType = () => {
+    const selectedCount = [searchFileName, searchKeyword, searchMeaning].filter(Boolean).length;
+    
+    if (selectedCount === 0) {
+      return "filename"; // Fallback to filename search if nothing selected
+    }
+    
+    if (searchFileName && searchKeyword && searchMeaning) {
+      return "hybrid-all"; // All three types
+    } else if (searchKeyword && searchMeaning) {
+      return "hybrid"; // Traditional hybrid
+    } else if (searchMeaning) {
+      return "semantic";
+    } else if (searchKeyword) {
+      return "keyword";
+    } else {
+      return "filename";
+    }
+  };
+
   // Enhanced search with semantic capabilities  
   const { data: documents, isLoading: documentsLoading, error: documentsError } = useQuery({
-    queryKey: ["/api/documents/search", searchQuery, searchType],
+    queryKey: ["/api/documents/search", searchQuery, searchFileName, searchKeyword, searchMeaning],
     queryFn: async () => {
       try {
         if (!searchQuery.trim()) {
@@ -100,18 +124,33 @@ export default function Documents() {
           return await response.json();
         }
 
+        const searchType = determineSearchType();
         const params = new URLSearchParams({
           query: searchQuery,
           type: searchType,
-          massSelectionPercentage: "0.3"
+          fileName: searchFileName.toString(),
+          keyword: searchKeyword.toString(),
+          meaning: searchMeaning.toString()
         });
 
-        console.log(`Frontend search: "${searchQuery}" (${searchType}) with 30% mass selection`);
+        const searchTypeDescription = [
+          searchFileName && "fileName",
+          searchKeyword && "keyword", 
+          searchMeaning && "meaning"
+        ].filter(Boolean).join(", ");
+
+        console.log(`Frontend search: "${searchQuery}" with ${searchTypeDescription}:${searchFileName}, keyword:${searchKeyword}, meaning:${searchMeaning} (type: ${searchType})`);
         const response = await fetch(`/api/documents/search?${params}`);
         if (!response.ok) {
           throw new Error(`${response.status}: ${response.statusText}`);
         }
         const results = await response.json();
+        
+        if (!Array.isArray(results)) {
+          console.log("Frontend received non-array search results");
+          return [];
+        }
+        
         console.log(`Frontend received ${results.length} search results`);
         return results;
       } catch (error) {
@@ -212,27 +251,81 @@ export default function Documents() {
               <CardContent className="p-4">
                 <div className="space-y-4">
                   {/* Search Row */}
-                  <div className="flex gap-4">
-                    <div className="flex-1 relative">
-                      <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                      <Input
-                        placeholder="Search documents, content, or tags..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10"
-                      />
+                  <div className="space-y-3">
+                    <div className="flex gap-4">
+                      <div className="flex-1 relative">
+                        <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder="Search documents, content, or tags... (Press Enter to search)"
+                          value={pendingSearchQuery}
+                          onChange={(e) => setPendingSearchQuery(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              // Check if at least one checkbox is selected, otherwise default to filename
+                              if (!searchFileName && !searchKeyword && !searchMeaning) {
+                                toast({
+                                  title: "Search Type Required",
+                                  description: "Please select at least one search type or we'll search by filename only.",
+                                  variant: "default",
+                                });
+                                setSearchFileName(true);
+                              }
+                              setSearchQuery(pendingSearchQuery);
+                            }
+                          }}
+                          className="pl-10"
+                        />
+                      </div>
                     </div>
-
-                    <Select value={searchType} onValueChange={(value: "keyword" | "semantic" | "hybrid") => setSearchType(value)}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="keyword">Keyword Search</SelectItem>
-                        <SelectItem value="semantic">AI Semantic Search</SelectItem>
-                        <SelectItem value="hybrid">Hybrid Search</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    
+                    {/* Search Type Checkboxes */}
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="search-filename" 
+                          checked={searchFileName}
+                          onCheckedChange={(checked) => setSearchFileName(checked as boolean)}
+                        />
+                        <label 
+                          htmlFor="search-filename" 
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          File Name
+                        </label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="search-keyword" 
+                          checked={searchKeyword}
+                          onCheckedChange={(checked) => setSearchKeyword(checked as boolean)}
+                        />
+                        <label 
+                          htmlFor="search-keyword" 
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          Content (Keyword)
+                        </label>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="search-meaning" 
+                          checked={searchMeaning}
+                          onCheckedChange={(checked) => setSearchMeaning(checked as boolean)}
+                        />
+                        <label 
+                          htmlFor="search-meaning" 
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          Content (Meaning)
+                        </label>
+                      </div>
+                      
+                      <div className="text-xs text-slate-500 ml-4">
+                        Press Enter to search • Meaning search may be slower
+                      </div>
+                    </div>
                   </div>
 
                   {/* Filters Row */}
