@@ -213,21 +213,23 @@ export default function SearchPage() {
 
                     {/* Results */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {searchResults.results.map((doc: any) => (
-                        <DocumentCard 
-                          key={doc.id} 
-                          document={{
-                            id: doc.id,
-                            name: doc.name,
-                            description: doc.description,
-                            mimeType: doc.mimeType || 'application/octet-stream',
-                            fileSize: doc.fileSize || 0,
-                            tags: doc.tags || [],
-                            isFavorite: doc.isFavorite || false,
-                            createdAt: doc.createdAt || new Date().toISOString()
-                          }} 
-                        />
-                      ))}
+                      {searchResults.results
+                        .filter((doc: any) => doc.id && doc.id !== 'NaN' && !isNaN(Number(doc.id)))
+                        .map((doc: any) => (
+                          <DocumentCard 
+                            key={doc.id} 
+                            document={{
+                              id: doc.id,
+                              name: doc.name,
+                              description: doc.description,
+                              mimeType: doc.mimeType || 'application/octet-stream',
+                              fileSize: doc.fileSize || 0,
+                              tags: doc.tags || [],
+                              isFavorite: doc.isFavorite || false,
+                              createdAt: doc.createdAt || new Date().toISOString()
+                            }} 
+                          />
+                        ))}
                     </div>
                   </div>
                 ) : hasSearched ? (

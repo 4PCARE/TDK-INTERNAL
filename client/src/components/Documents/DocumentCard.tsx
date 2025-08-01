@@ -24,8 +24,31 @@ interface DocumentCardProps {
 }
 
 export default function DocumentCard({ document }: DocumentCardProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showEndorsementDialog, setShowEndorsementDialog] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch document details when modal opens - with validation
+  const { data: documentDetails, isLoading: detailsLoading } = useQuery({
+    queryKey: [`/api/documents/${document.id}`],
+    queryFn: async () => {
+      // Validate document ID before making request
+      if (!document.id || document.id === 'NaN' || isNaN(Number(document.id))) {
+        throw new Error(`Invalid document ID: ${document.id}`);
+      }
+
+      console.log(`📄 Fetching document details for ID: ${document.id}, User: ${(window as any).currentUser?.id || 'unknown'}`);
+      const response = await fetch(`/api/documents/${document.id}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch document details: ${response.status}`);
+      }
+      return response.json();
+    },
+    enabled: isOpen && !!document.id && document.id !== 'NaN' && !isNaN(Number(document.id)),
+    retry: false,
+  });
 
   const toggleFavoriteMutation = useMutation({
     mutationFn: async () => {
