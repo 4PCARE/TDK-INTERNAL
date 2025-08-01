@@ -1593,7 +1593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           agentId: user.agentId || 0,
           agentName: agent?.name || 'Default Agent',
           lastMessage: user.lastMessage || 'No message',
-          lastMessageAt: user.lastMessageAt.toISOString(),
+          lastMessageAt: new Date(user.lastMessageAt).toISOString(),
           messageCount: Number(user.messageCount),
           isOnline: false, // Default to false, could be enhanced with real-time presence
           userProfile: {
