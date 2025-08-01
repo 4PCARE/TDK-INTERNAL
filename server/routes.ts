@@ -1503,12 +1503,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { search, channelFilter } = req.query;
       console.log("🔍 Agent Console: Fetching users with filters:", { search, channelFilter });
 
-      // Build base query  
+      // Build base query to get conversation summaries
       let baseQuery = db
         .select({
           userId: chatHistory.userId,
           channelType: chatHistory.channelType,
           channelId: chatHistory.channelId,
+          agentId: chatHistory.agentId,
           messageCount: sql<number>`count(*)`,
           lastMessageAt: sql<Date>`max(${chatHistory.createdAt})`,
           lastMessage: sql<string>`(
@@ -1537,21 +1538,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const chatUsers = await baseQuery
-        .groupBy(chatHistory.userId, chatHistory.channelType, chatHistory.channelId)
+        .groupBy(chatHistory.userId, chatHistory.channelType, chatHistory.channelId, chatHistory.agentId)
         .orderBy(sql`max(${chatHistory.createdAt}) desc`)
         .limit(100);
 
-      // Format users for the agent console
-      const formattedUsers = chatUsers.map(user => ({
-        id: user.userId,
-        userId: user.userId,
-        channelType: user.channelType,
-        channelId: user.channelId,
-        messageCount: Number(user.messageCount),
-        lastMessageAt: user.lastMessageAt,
-        lastMessage: user.lastMessage || 'No message',
-        displayName: user.userId.startsWith('U') ? `Line User ${user.userId.slice(-6)}` : user.userId,
-      }));
+      // Get unique user IDs and agent IDs for batch lookup
+      const userIds = [...new Set(chatUsers.map(u => u.userId))];
+      const agentIds = [...new Set(chatUsers.map(u => u.agentId).filter(id => id && id > 0))];
+
+      // Fetch user profiles
+      const userProfiles = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+        })
+        .from(users)
+        .where(sql`${users.id} = ANY(${userIds})`);
+
+      // Fetch agent information
+      const agents = agentIds.length > 0 ? await db
+        .select({
+          id: agentChatbots.id,
+          name: agentChatbots.name,
+        })
+        .from(agentChatbots)
+        .where(sql`${agentChatbots.id} = ANY(${agentIds})`) : [];
+
+      // Create lookup maps
+      const userProfileMap = new Map(userProfiles.map(u => [u.id, u]));
+      const agentMap = new Map(agents.map(a => [a.id, a]));
+
+      // Format users for the agent console with proper AgentUser interface
+      const formattedUsers = chatUsers.map(user => {
+        const userProfile = userProfileMap.get(user.userId);
+        const agent = agentMap.get(user.agentId || 0);
+        
+        // Generate display name
+        let displayName = 'Unknown User';
+        if (userProfile) {
+          const fullName = `${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim();
+          displayName = fullName || userProfile.email || user.userId;
+        } else if (user.userId.startsWith('U')) {
+          displayName = `Line User ${user.userId.slice(-6)}`;
+        } else {
+          displayName = user.userId;
+        }
+
+        return {
+          userId: user.userId,
+          channelType: user.channelType,
+          channelId: user.channelId,
+          agentId: user.agentId || 0,
+          agentName: agent?.name || 'Default Agent',
+          lastMessage: user.lastMessage || 'No message',
+          lastMessageAt: user.lastMessageAt.toISOString(),
+          messageCount: Number(user.messageCount),
+          isOnline: false, // Default to false, could be enhanced with real-time presence
+          userProfile: {
+            name: displayName,
+          },
+        };
+      });
 
       console.log("📋 Agent Console: Returning", formattedUsers.length, "users");
       res.json(formattedUsers);
@@ -1577,21 +1626,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("🔍 Agent Console: Fetching conversation for:", { userId, channelType, channelId, agentId });
 
       if (!userId || !channelType || !channelId) {
-        console.log("❌ Missing required parameters");
-        return res.json([]);
+        console.log("❌ Missing required parameters for conversation");
+        return res.status(400).json({ message: "Missing required parameters: userId, channelType, channelId" });
       }
 
-      const messages = await storage.getChatHistory(userId as string, channelType as string, channelId as string, agentId ? parseInt(agentId as string) : 0);
+      try {
+        const messages = await storage.getChatHistory(
+          userId as string, 
+          channelType as string, 
+          channelId as string, 
+          agentId ? parseInt(agentId as string) : 0
+        );
 
-      // Ensure we always return an array
-      const messageArray = Array.isArray(messages) ? messages : [];
-      console.log("📨 Agent Console: Returning", messageArray.length, "messages");
+        // Ensure we always return an array and format messages properly
+        const messageArray = Array.isArray(messages) ? messages : [];
+        
+        // Format messages to match the expected Message interface
+        const formattedMessages = messageArray.map((msg: any, index: number) => ({
+          id: msg.id || index,
+          userId: msg.userId || userId,
+          channelType: msg.channelType || channelType,
+          channelId: msg.channelId || channelId,
+          agentId: msg.agentId || (agentId ? parseInt(agentId as string) : 0),
+          messageType: msg.messageType || msg.role || 'user',
+          content: msg.content || '',
+          metadata: msg.metadata || null,
+          createdAt: msg.createdAt || new Date().toISOString(),
+        }));
 
-      res.json(messageArray);
+        console.log("📨 Agent Console: Returning", formattedMessages.length, "formatted messages");
+        res.json(formattedMessages);
+      } catch (storageError) {
+        console.error("❌ Storage error fetching conversation:", storageError);
+        res.json([]);
+      }
     } catch (error) {
       console.error("❌ Error fetching conversation:", error);
-      // Return empty array on error instead of error response
-      res.json([]);
+      res.status(500).json({ message: "Failed to fetch conversation", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
