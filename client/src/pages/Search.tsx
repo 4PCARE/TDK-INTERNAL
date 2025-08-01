@@ -48,32 +48,27 @@ export default function SearchPage() {
     queryKey: ["search", searchQuery, searchType],
     queryFn: async () => {
       if (!searchQuery || !searchQuery.trim()) return null;
-      
+
       console.log(`🔍 Search triggered with query: "${searchQuery}", type: "${searchType}"`);
-      
+
       const params = new URLSearchParams({
         q: searchQuery.trim(),
         type: searchType
       });
-      
+
       const url = `/api/documents/search?${params}`;
       console.log(`🚀 Making search request to: ${url}`);
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
+
+      const response = await fetch(url);
+
       console.log(`📊 Search response status: ${response.status}`);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ Search failed with status ${response.status}:`, errorText);
         throw new Error(`Search failed: ${response.status} - ${errorText}`);
       }
-      
+
       const data = await response.json();
       console.log(`✅ Search completed, got ${data?.length || 0} results`);
       return data;
@@ -93,11 +88,11 @@ export default function SearchPage() {
 
     // For semantic search, group by document and keep only the most similar chunk
     const documentMap = new Map();
-    
+
     rawSearchResults.results.forEach((result: any) => {
       // Extract document ID from chunk ID (format: "docId-chunkIndex")
       const docId = result.id.split('-')[0];
-      
+
       if (!documentMap.has(docId) || result.similarity > documentMap.get(docId).similarity) {
         // Create a cleaned result without chunk information
         const cleanResult = {
