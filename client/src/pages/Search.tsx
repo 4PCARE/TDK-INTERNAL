@@ -109,6 +109,7 @@ export default function SearchPage() {
         variant: "destructive",
       });
       setSearchResults([]);
+      throw error;
     }
     },
     enabled: !!searchQuery && hasSearched && searchQuery.trim().length > 0,
