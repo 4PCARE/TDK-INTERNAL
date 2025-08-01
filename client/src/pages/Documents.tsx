@@ -169,25 +169,35 @@ export default function Documents() {
                     (result.similarity || 0) > (documentMap.get(documentId).similarity || 0)) {
                   
                   // Convert chunk result back to document format
+                  const cleanName = result.name.replace(/ \(Chunk \d+\)$/, '');
                   const documentResult = {
                     ...result,
                     id: parseInt(documentId), // Convert back to document ID
-                    name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk label
-                    content: result.summary || result.content, // Use summary if available
-                    originalName: result.name.replace(/ \(Chunk \d+\)$/, ''), // Ensure originalName exists
-                    // Ensure essential document properties exist
+                    name: cleanName,
+                    originalName: cleanName, // Use cleaned name as originalName
+                    fileName: cleanName, // Ensure fileName exists for DocumentCard
+                    content: result.content, // Keep original content
+                    summary: result.summary, // Keep summary if available
+                    // Ensure essential document properties exist with proper types
                     status: result.status || 'processed',
-                    fileSize: result.fileSize || 0,
+                    fileSize: typeof result.fileSize === 'number' ? result.fileSize : 0,
                     createdAt: result.createdAt || new Date().toISOString(),
                     categoryId: result.categoryId || null,
                     category: result.category || null,
                     aiCategory: result.aiCategory || 'General',
-                    tags: result.tags || [],
-                    isFavorite: result.isFavorite || false,
-                    isEndorsed: result.isEndorsed || false,
-                    isInVectorDb: result.isInVectorDb !== undefined ? result.isInVectorDb : true,
+                    tags: Array.isArray(result.tags) ? result.tags : [],
+                    isFavorite: Boolean(result.isFavorite),
+                    isEndorsed: Boolean(result.isEndorsed),
+                    isInVectorDb: result.isInVectorDb !== undefined ? Boolean(result.isInVectorDb) : true,
                     uploaderEmail: result.uploaderEmail || null,
                     uploaderRole: result.uploaderRole || null,
+                    // Ensure mimeType exists for DocumentCard
+                    mimeType: result.mimeType || 'application/octet-stream',
+                    fileType: result.fileType || 'unknown',
+                    // Remove chunk-specific properties that might interfere
+                    similarity: undefined,
+                    matchedTerms: undefined,
+                    matchDetails: undefined,
                   };
                   
                   documentMap.set(documentId, documentResult);
