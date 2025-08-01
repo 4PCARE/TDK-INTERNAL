@@ -86,6 +86,15 @@ export default function SearchPage() {
 
         const data = await response.json();
         console.log(`📊 Search response received:`, data);
+        console.log(`📊 Response structure analysis:`, {
+          isArray: Array.isArray(data),
+          hasResults: !!data?.results,
+          resultsIsArray: Array.isArray(data?.results),
+          resultsLength: data?.results?.length,
+          hasCount: !!data?.count,
+          countValue: data?.count,
+          firstResult: data?.results?.[0]
+        });
 
         // Validate response format
         if (Array.isArray(data)) {
@@ -96,6 +105,7 @@ export default function SearchPage() {
         } else if (data && Array.isArray(data.results)) {
           // Object with results property
           console.log(`✅ Setting search response with ${data.results.length} results`);
+          console.log(`📋 Sample results:`, data.results.slice(0, 3));
           setRawSearchResultsState(data);
           return data;
         } else {
