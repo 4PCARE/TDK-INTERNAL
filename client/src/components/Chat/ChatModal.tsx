@@ -26,7 +26,6 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
   const [message, setMessage] = useState("");
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -151,20 +150,18 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
       defaultHeight="70%"
       minWidth={600}
       minHeight={500}
-      className="flex flex-col h-full"
     >
-      {/* Header */}
-      <div className="flex items-center space-x-2 mb-4 flex-shrink-0">
-        <Bot className="w-5 h-5 text-blue-600" />
-        <span className="text-sm text-gray-600">พูดคุยกับ AI Assistant</span>
-      </div>
+      <div className="flex flex-col h-full">
+        {/* Header */}
+        <div className="flex items-center space-x-2 p-4 border-b border-gray-200 flex-shrink-0">
+          <Bot className="w-5 h-5 text-blue-600" />
+          <span className="text-sm text-gray-600">พูดคุยกับ AI Assistant</span>
+        </div>
 
-      {/* Chat Container */}
-      <div className="flex-1 flex flex-col min-h-0">
         {/* Messages Area - Scrollable */}
         <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-full px-4" ref={scrollAreaRef}>
-            <div className="space-y-4 py-4">
+          <ScrollArea className="h-full">
+            <div className="p-4 space-y-4">
               {isLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
