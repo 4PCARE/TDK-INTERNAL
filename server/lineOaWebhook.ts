@@ -1966,7 +1966,6 @@ ${imageAnalysisResult}
                       templateId: carouselIntent.template.template.id,
                       templateName: carouselIntent.template.template.name,
                       intentSimilarity: carouselIntent.similarity,
-                      ```text
                       messageType: "carousel",
                     },
                   });
