@@ -48,11 +48,13 @@ export default function Dashboard() {
   const { data: documents = [] } = useQuery({
     queryKey: ["/api/documents"],
     enabled: isAuthenticated,
+    retry: false,
   }) as { data: Array<any> };
 
   const { data: stats } = useQuery({
     queryKey: ["/api/stats"],
     enabled: isAuthenticated,
+    retry: false,
   }) as { data: { totalDocuments: number } | undefined };
 
   // Upload mutation with progress tracking
@@ -169,6 +171,10 @@ export default function Dashboard() {
   }
 
   const recentDocuments = Array.isArray(documents) ? documents.slice(0, 5) : [];
+
+  // Debug logging
+  console.log("Dashboard documents data:", documents);
+  console.log("Dashboard stats data:", stats);
 
   return (
     <DashboardLayout>
