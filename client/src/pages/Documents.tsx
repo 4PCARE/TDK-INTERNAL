@@ -178,48 +178,75 @@ export default function Documents() {
 
   // Post-process search results to deduplicate documents
   const documents = useMemo(() => {
-    if (!rawSearchResults) return [];
+    if (!rawSearchResults?.results) return rawSearchResults;
 
-    // If it's already an array (non-search results), return as-is
-    if (Array.isArray(rawSearchResults)) {
-      return rawSearchResults;
-    }
+    // Post-process search results to consolidate chunks back into documents
+    const documentMap = new Map();
 
-    // If it's a search result object with results array
-    if (rawSearchResults?.results && Array.isArray(rawSearchResults.results)) {
-      const documentMap = new Map();
+    rawSearchResults.results.forEach((result: any) => {
+      // Extract original document ID from chunk ID (format: "docId-chunkIndex")
+      const originalDocId = result.id.toString().includes('-') ? result.id.toString().split('-')[0] : result.id.toString();
 
-      rawSearchResults.results.forEach((result: any) => {
-        // Extract original document ID from chunk ID (format: "docId-chunkIndex")
-        const originalDocId = result.id.toString().includes('-') ? result.id.toString().split('-')[0] : result.id.toString();
+      if (!documentMap.has(originalDocId)) {
+        // First chunk for this document - use it as the main result
+        documentMap.set(originalDocId, {
+          ...result,
+          id: parseInt(originalDocId), // Use original document ID as number
+          name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk suffix from name
+          content: result.content, // Keep chunk content for display
+          summary: result.summary, // Preserve summary
+          chunkContent: result.content, // Store original chunk content
+          chunkId: result.id, // Store original chunk ID
+          isChunkResult: true, // Mark as chunk-based result
+          topChunks: [{ // Store all chunks for this document
+            id: result.id,
+            content: result.content,
+            similarity: result.similarity,
+            chunkIndex: result.id.toString().includes('-') ? parseInt(result.id.toString().split('-')[1]) : 0
+          }]
+        });
+      } else {
+        // Additional chunk for existing document
+        const existing = documentMap.get(originalDocId);
 
-        if (!documentMap.has(originalDocId)) {
-          // First chunk for this document - use it as the main result
-          documentMap.set(originalDocId, {
-            ...result,
-            id: parseInt(originalDocId), // Use original document ID
-            name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk suffix
-            content: result.summary || result.content, // Use summary if available
-            isChunkResult: false
-          });
-        } else {
-          // Additional chunk for existing document - keep highest similarity
-          const existing = documentMap.get(originalDocId);
-          if (result.similarity > existing.similarity) {
-            documentMap.set(originalDocId, {
-              ...existing,
-              similarity: result.similarity,
-              content: result.summary || result.content
-            });
-          }
+        // Add this chunk to the list
+        existing.topChunks.push({
+          id: result.id,
+          content: result.content,
+          similarity: result.similarity,
+          chunkIndex: result.id.toString().includes('-') ? parseInt(result.id.toString().split('-')[1]) : 0
+        });
+
+        // Sort chunks by similarity and keep the best one as the main content
+        existing.topChunks.sort((a, b) => b.similarity - a.similarity);
+
+        // Update main document with highest similarity chunk
+        if (result.similarity > existing.similarity) {
+          existing.similarity = result.similarity;
+          existing.content = result.content;
+          existing.summary = result.summary;
+          existing.chunkContent = result.content;
+          existing.chunkId = result.id;
         }
-      });
+      }
+    });
 
-      return Array.from(documentMap.values());
-    }
+    // Convert map to array and sort by similarity
+    const processedResults = Array.from(documentMap.values()).sort((a, b) => b.similarity - a.similarity);
 
-    // Fallback to empty array
-    return [];
+    console.log(`Post-processing: Consolidated ${rawSearchResults.results.length} chunks into ${processedResults.length} documents`);
+
+    // Debug: Log first few processed results
+    processedResults.slice(0, 3).forEach((doc, index) => {
+      console.log(`${index + 1}. Doc ${doc.id}: ${doc.name} (${doc.topChunks.length} chunks, best similarity: ${doc.similarity.toFixed(3)})`);
+      console.log(`   Content preview: ${doc.content.substring(0, 150)}...`);
+    });
+
+    return {
+      ...rawSearchResults,
+      results: processedResults,
+      count: processedResults.length
+    };
   }, [rawSearchResults]);
 
   const { data: categories } = useQuery({
