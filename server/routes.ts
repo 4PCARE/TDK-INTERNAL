@@ -1532,11 +1532,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       isAuthenticated(req, res, next);
     });
   }, async (req: any, res) => {
+    // ============ TERMINAL LOGGING START ============
+    console.log("\n" + "=".repeat(80));
+    console.log("🚨 SEARCH API ENDPOINT HIT!");
+    console.log("=".repeat(80));
+    console.log(`⏰ TIME: ${new Date().toISOString()}`);
+    console.log(`🌐 METHOD: ${req.method}`);
+    console.log(`📍 URL: ${req.url}`);
+    console.log(`🔍 FULL QUERY:`, JSON.stringify(req.query, null, 2));
+    console.log(`👤 USER: ${req.user?.claims?.sub || 'UNKNOWN'}`);
+    console.log("=".repeat(80));
+    
     try {
       const userId = req.user.claims.sub;
       const { q: query, type = "document-priority", massSelectionPercentage = "0.3" } = req.query;
 
-      console.log(`🔍 SEARCH REQUEST: "${query}" (${type}) for user ${userId}`);
+      console.log(`\n🎯 EXTRACTED SEARCH PARAMETERS:`);
+      console.log(`   Query: "${query}"`);
+      console.log(`   Type: ${type}`);
+      console.log(`   Mass %: ${massSelectionPercentage}`);
+      console.log(`   User ID: ${userId}`);
+      
+      console.log(`\n🔍 SEARCH REQUEST: "${query}" (${type}) for user ${userId}`);
       console.log(`📋 SEARCH PARAMS:`, {
         query: query,
         type: type,
@@ -1545,10 +1562,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fullQuery: req.query
       });
 
+      console.log(`\n🔍 QUERY VALIDATION:`);
+      console.log(`   Empty query check: ${!query || query.trim() === ""}`);
+      console.log(`   Query value: "${query}"`);
+      console.log(`   Query type: ${typeof query}`);
+      console.log(`   Query trimmed: "${query?.trim()}"`);
+
       if (!query || query.trim() === "") {
+        console.log(`\n📂 NO SEARCH QUERY - RETURNING ALL DOCUMENTS`);
+        
         // Return all documents if no search query
         const documents = await storage.getDocuments(userId, { limit: 1000 });
-        console.log(`📂 No search query, returning ${documents.length} documents`);
+        console.log(`📊 Retrieved ${documents.length} total documents`);
         
         // Log first few documents to check their structure
         if (documents.length > 0) {
@@ -1560,8 +1585,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               hasValidId: documents[0].id && !isNaN(Number(documents[0].id))
             }
           });
+          
+          // Log first 3 documents with full details
+          console.log(`📋 FIRST 3 DOCUMENTS:`);
+          documents.slice(0, 3).forEach((doc, idx) => {
+            console.log(`   ${idx + 1}. ID: ${doc.id}, Name: ${doc.name}, Valid: ${doc.id && !isNaN(Number(doc.id))}`);
+          });
         }
         
+        console.log(`✅ RETURNING ALL DOCUMENTS: ${documents.length} results`);
         return res.json({ results: documents, count: documents.length });
       }
 
@@ -1639,31 +1671,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           break;
       }
 
-      console.log(`✅ SEARCH COMPLETE: Returning ${results.length} results for "${query}"`);
+      console.log(`\n✅ SEARCH EXECUTION COMPLETE!`);
+      console.log(`📊 RESULTS SUMMARY: ${results.length} results for "${query}"`);
       
       // Log detailed result analysis
       if (results.length > 0) {
-        console.log(`📊 SEARCH RESULTS ANALYSIS:`);
-        console.log(`   Total results: ${results.length}`);
+        console.log(`\n📊 DETAILED SEARCH RESULTS ANALYSIS:`);
+        console.log(`   🔢 Total results: ${results.length}`);
         
         // Check for problematic document IDs
         const invalidResults = results.filter(r => !r.id || r.id === 'NaN' || isNaN(Number(r.id)));
+        const validResults = results.filter(r => r.id && r.id !== 'NaN' && !isNaN(Number(r.id)));
+        
+        console.log(`   ✅ Valid IDs: ${validResults.length}`);
+        console.log(`   ❌ Invalid IDs: ${invalidResults.length}`);
+        
         if (invalidResults.length > 0) {
-          console.log(`❌ FOUND ${invalidResults.length} INVALID DOCUMENT IDs:`);
+          console.log(`\n❌ INVALID DOCUMENT IDs FOUND:`);
           invalidResults.forEach((result, idx) => {
-            console.log(`   ${idx + 1}. ID: ${result.id} (type: ${typeof result.id}), Name: ${result.name}`);
-            console.log(`      Full result:`, JSON.stringify(result, null, 2));
+            console.log(`   ${idx + 1}. ID: "${result.id}" (type: ${typeof result.id}), Name: "${result.name}"`);
+            console.log(`      🔍 Full invalid result:`, JSON.stringify(result, null, 2));
           });
         }
         
-        // Log first few valid results
-        const validResults = results.filter(r => r.id && r.id !== 'NaN' && !isNaN(Number(r.id)));
-        console.log(`✅ VALID RESULTS: ${validResults.length}/${results.length}`);
-        
         if (validResults.length > 0) {
-          console.log(`📄 SAMPLE VALID RESULTS:`);
-          validResults.slice(0, 3).forEach((result, idx) => {
-            console.log(`   ${idx + 1}. ID: ${result.id} (${typeof result.id}), Name: ${result.name}, Similarity: ${result.similarity || 'N/A'}`);
+          console.log(`\n📄 SAMPLE VALID RESULTS (first 5):`);
+          validResults.slice(0, 5).forEach((result, idx) => {
+            console.log(`   ${idx + 1}. ID: ${result.id} (${typeof result.id}), Name: "${result.name}", Similarity: ${result.similarity || 'N/A'}`);
           });
         }
         
@@ -1671,26 +1705,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const hasChunkData = results.some(r => r.content && r.content.length < 5000 && (r.chunkIndex !== undefined || r.name?.includes('Chunk')));
         const hasDocumentData = results.some(r => !r.chunkIndex && r.name && !r.name.includes('Chunk'));
         
-        console.log(`🔍 RESULT TYPE ANALYSIS:`);
-        console.log(`   Has chunk-like data: ${hasChunkData}`);
-        console.log(`   Has document-like data: ${hasDocumentData}`);
+        console.log(`\n🔍 RESULT TYPE ANALYSIS:`);
+        console.log(`   📄 Has document-like data: ${hasDocumentData}`);
+        console.log(`   🧩 Has chunk-like data: ${hasChunkData}`);
         
         if (hasChunkData) {
-          console.log(`⚠️  WARNING: Search results contain chunk data - this might cause issues in the frontend`);
+          console.log(`   ⚠️  WARNING: Search results contain chunk data - this WILL cause frontend issues!`);
         }
+        
+        // Log all result IDs for debugging
+        console.log(`\n🆔 ALL RESULT IDs:`);
+        results.forEach((result, idx) => {
+          console.log(`   ${idx + 1}. "${result.id}" (${typeof result.id}) - Valid: ${result.id && result.id !== 'NaN' && !isNaN(Number(result.id))}`);
+        });
+        
       } else {
-        console.log(`📭 NO SEARCH RESULTS FOUND for query: "${query}"`);
+        console.log(`\n📭 NO SEARCH RESULTS FOUND for query: "${query}"`);
+        console.log(`   This could mean:`);
+        console.log(`   - No documents match the search terms`);
+        console.log(`   - Search service failed`);
+        console.log(`   - Database connection issue`);
       }
+      
+      console.log(`\n🚀 SENDING RESPONSE TO CLIENT`);
+      console.log(`   Response structure: { results: Array(${results.length}), count: ${results.length} }`);
+      console.log("=".repeat(80));
+      console.log("🏁 SEARCH API ENDPOINT COMPLETE");
+      console.log("=".repeat(80) + "\n");
       
       res.json({ results: results, count: results.length });
     } catch (error) {
-      console.error("❌ ERROR IN DOCUMENT SEARCH:", error);
-      console.error("❌ ERROR STACK:", error.stack);
-      console.error("❌ ERROR DETAILS:", {
-        message: error.message,
-        query: req.query,
-        userId: req.user?.claims?.sub
-      });
+      console.log("\n" + "🚨".repeat(40));
+      console.log("❌ CRITICAL ERROR IN DOCUMENT SEARCH!");
+      console.log("🚨".repeat(40));
+      console.log(`⏰ ERROR TIME: ${new Date().toISOString()}`);
+      console.log(`💥 ERROR MESSAGE: ${error.message}`);
+      console.log(`🔍 QUERY THAT FAILED: "${req.query.q}"`);
+      console.log(`👤 USER ID: ${req.user?.claims?.sub}`);
+      console.log(`📊 FULL QUERY PARAMS:`, JSON.stringify(req.query, null, 2));
+      console.log(`🛠️  ERROR STACK:`);
+      console.log(error.stack);
+      console.log("🚨".repeat(40) + "\n");
+      
       res.status(500).json({ message: "Search failed", error: error.message });
     }
   });

@@ -49,7 +49,14 @@ export default function SearchPage() {
     queryFn: async () => {
       if (!searchQuery || !searchQuery.trim()) return null;
 
-      console.log(`🔍 Search triggered with query: "${searchQuery}", type: "${searchType}"`);
+      console.log("\n" + "🌟".repeat(50));
+      console.log("🔍 FRONTEND SEARCH INITIATED");
+      console.log("🌟".repeat(50));
+      console.log(`⏰ TIME: ${new Date().toISOString()}`);
+      console.log(`🔤 QUERY: "${searchQuery}"`);
+      console.log(`🏷️  TYPE: ${searchType}`);
+      console.log(`📏 QUERY LENGTH: ${searchQuery.length}`);
+      console.log(`🧹 TRIMMED QUERY: "${searchQuery.trim()}"`);
 
       const params = new URLSearchParams({
         q: searchQuery.trim(),
@@ -57,20 +64,47 @@ export default function SearchPage() {
       });
 
       const url = `/api/documents/search?${params}`;
-      console.log(`🚀 Making search request to: ${url}`);
+      console.log(`🚀 FULL REQUEST URL: ${url}`);
+      console.log(`📋 URL PARAMS:`, {
+        q: searchQuery.trim(),
+        type: searchType
+      });
 
+      console.log(`🌐 MAKING FETCH REQUEST...`);
       const response = await fetch(url);
 
-      console.log(`📊 Search response status: ${response.status}`);
+      console.log(`📊 RESPONSE RECEIVED:`);
+      console.log(`   Status: ${response.status}`);
+      console.log(`   Status Text: ${response.statusText}`);
+      console.log(`   Headers:`, Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`❌ Search failed with status ${response.status}:`, errorText);
+        console.log(`❌ SEARCH FAILED!`);
+        console.log(`   Status: ${response.status}`);
+        console.log(`   Error Text: ${errorText}`);
+        console.log("🌟".repeat(50) + "\n");
         throw new Error(`Search failed: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
-      console.log(`✅ Search completed, got ${data?.length || 0} results`);
+      console.log(`✅ SEARCH RESPONSE PARSED:`);
+      console.log(`   Type: ${typeof data}`);
+      console.log(`   Has results: ${!!data?.results}`);
+      console.log(`   Results count: ${data?.results?.length || 0}`);
+      console.log(`   Full response structure:`, Object.keys(data || {}));
+      
+      if (data?.results && data.results.length > 0) {
+        console.log(`📄 FIRST 3 RESULTS:`);
+        data.results.slice(0, 3).forEach((result, idx) => {
+          console.log(`   ${idx + 1}. ID: ${result.id}, Name: "${result.name}", Type: ${typeof result.id}`);
+        });
+      }
+      
+      console.log("🌟".repeat(50));
+      console.log("✅ FRONTEND SEARCH COMPLETE");
+      console.log("🌟".repeat(50) + "\n");
+      
       return data;
     },
     enabled: !!searchQuery && hasSearched && searchQuery.trim().length > 0,
