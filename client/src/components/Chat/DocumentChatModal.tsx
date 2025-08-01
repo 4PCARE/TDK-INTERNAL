@@ -189,9 +189,9 @@ export default function DocumentChatModal({
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex-1 flex flex-col justify-center px-4 py-4">
-            <div className="space-y-4 max-w-2xl mx-auto">
-              <div className="flex items-start space-x-3">
+          <div className="flex-1 overflow-y-auto px-4 py-4">
+            <div className="h-full flex flex-col justify-start">
+              <div className="flex items-start space-x-3 mb-4">
                 <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
                   <Bot className="w-5 h-5 text-green-600" />
                 </div>
@@ -206,9 +206,6 @@ export default function DocumentChatModal({
                   </div>
                   <p className="text-xs text-gray-500 mt-1">เมื่อสักครู่</p>
                 </div>
-              </div>
-              <div className="text-center py-4">
-                <p className="text-xs text-gray-400">พิมพ์คำถามของคุณด้านล่าง...</p>
               </div>
             </div>
           </div>
@@ -291,7 +288,7 @@ export default function DocumentChatModal({
                   </div>
                 </div>
               ))}
-              
+
               {/* Loading indicator */}
               {sendMessageMutation.isPending && (
                 <div className="flex items-start space-x-3">
@@ -313,7 +310,7 @@ export default function DocumentChatModal({
                   </div>
                 </div>
               )}
-              
+
               <div ref={messagesEndRef} />
             </div>
           </div>
@@ -351,3 +348,4 @@ export default function DocumentChatModal({
     </ResizableDialog>
   );
 }
+```
