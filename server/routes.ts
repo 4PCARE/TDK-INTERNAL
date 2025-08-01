@@ -28,6 +28,7 @@ import {
   auditLogs,
   socialIntegrations,
   agentChatbots,
+  agentChatbotDocuments,
 } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
@@ -565,6 +566,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get agent chatbot documents - FIXED: Missing route that was causing bot details malfunction
+  app.get("/api/agent-chatbots/:id/documents", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const agentId = parseInt(req.params.id);
+
+      if (!userId) {
+        return res.status(401).json({ message: "User ID required" });
+      }
+
+      if (isNaN(agentId)) {
+        return res.status(400).json({ message: "Invalid agent ID" });
+      }
+
+      // First verify the agent belongs to the user
+      const [agent] = await db
+        .select()
+        .from(agentChatbots)
+        .where(and(
+          eq(agentChatbots.id, agentId),
+          eq(agentChatbots.userId, userId)
+        ))
+        .limit(1);
+
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      // Fetch agent documents with document details using proper join
+      const agentDocuments = await db
+        .select({
+          id: agentChatbotDocuments.id,
+          documentId: agentChatbotDocuments.documentId,
+          agentId: agentChatbotDocuments.agentId,
+          addedAt: agentChatbotDocuments.createdAt,
+          // Include document details
+          documentName: documents.name,
+          documentDescription: documents.description,
+          documentFileName: documents.fileName,
+          documentMimeType: documents.mimeType,
+          documentSummary: documents.summary,
+          documentTags: documents.tags,
+          documentIsPublic: documents.isPublic,
+          documentCreatedAt: documents.createdAt,
+        })
+        .from(agentChatbotDocuments)
+        .innerJoin(documents, eq(agentChatbotDocuments.documentId, documents.id))
+        .where(and(
+          eq(agentChatbotDocuments.agentId, agentId),
+          eq(agentChatbotDocuments.userId, userId)
+        ))
+        .orderBy(sql`${agentChatbotDocuments.createdAt} desc`);
+
+      res.json(agentDocuments || []);
+    } catch (error) {
+      console.error("Error fetching agent chatbot documents:", error);
+      res.status(500).json({ message: "Failed to fetch agent documents" });
+    }
+  });
+
   // ============================
   // ADMIN ROUTES
   // ============================
@@ -804,7 +873,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         color: req.body.color,
       };
 
-      const category = await storage.updateCategory(categoryId, userId, updateData);
+      const category = await storage.updateCategory(categoryId, updateData);
       
       if (!category) {
         return res.status(404).json({ message: "Category not found" });
@@ -834,11 +903,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid category ID" });
       }
 
-      const success = await storage.deleteCategory(categoryId, userId);
-      
-      if (!success) {
-        return res.status(404).json({ message: "Category not found" });
-      }
+      await storage.deleteCategory(categoryId, userId);
 
       res.json({ success: true });
     } catch (error) {
@@ -1270,7 +1335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const document = await storage.createDocument(documentData);
 
       // Process document in background
-      processDocument(document.id, document.filePath, document.mimeType).catch(
+      processDocument(document.filePath, document.mimeType).catch(
         (error) => {
           console.error(`Background processing failed for document ${document.id}:`, error);
         }
