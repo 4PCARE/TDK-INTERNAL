@@ -327,6 +327,20 @@ Columns: ${table.columns.map((col: any) => `${col.name} (${col.type})`).join(", 
   `,
     )
     .join("\n\n");
+  
+  // Get current date and time in Thai format
+  const now = new Date();
+  const thaiDate = now.toLocaleDateString('th-TH', {
+    year: 'numeric',
+    month: 'long', 
+    day: 'numeric',
+    weekday: 'long'
+  });
+  const thaiTime = now.toLocaleTimeString('th-TH', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
 
   const prompt = `You are an AI assistant that helps users interact with their database using natural language.
 
@@ -343,7 +357,10 @@ Based on the database schema and user question, please:
 2. Suggest specific SQL queries that would answer their question
 3. Explain what the results would show
 
-Format your response in a clear, conversational way that helps the user understand how to get the information they need from their database.`;
+Format your response in a clear, conversational way that helps the user understand how to get the information they need from their database.
+
+Current date: ${thaiDate}
+Current time: ${thaiTime}`;
 
   try {
     const completion = await openai.chat.completions.create({

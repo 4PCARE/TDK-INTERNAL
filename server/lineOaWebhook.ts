@@ -2049,6 +2049,19 @@ ${imageAnalysisResult}
                   `📄 LINE OA: Used ${chunksUsed}/${searchResults.length} chunks (${documentContext.length} chars)`,
                 );
 
+                const now = new Date();
+                const thaiDate = now.toLocaleDateString('th-TH', {
+                  year: 'numeric',
+                  month: 'long', 
+                  day: 'numeric',
+                  weekday: 'long'
+                });
+                const thaiTime = now.toLocaleTimeString('th-TH', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false
+                });
+
                 // Step 4: Build system prompt with document context (mirroring debug-prompt-inspector)
                 const baseSystemPrompt = `${agent.systemPrompt}
 
@@ -2059,7 +2072,10 @@ ${documentContext}
 
 กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
 ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
-คุณสามารถอ้างอิงบทสนทนาก่อนหน้านี้เพื่อให้คำตอบที่ต่อเนื่องและเหมาะสม`;
+คุณสามารถอ้างอิงบทสนทนาก่อนหน้านี้เพื่อให้คำตอบที่ต่อเนื่องและเหมาะสม
+
+วันที่วันนี้: ${thaiDate}
+ตอนนี้เวลา: ${thaiTime}`;
 
                 // Step 5: Build conversation messages including chat history
                 const messages: any[] = [
@@ -2098,9 +2114,9 @@ ${documentContext}
                   `📊 LINE OA: Total prompt length before truncation: ${totalLength} characters`,
                 );
 
-                if (totalLength > 15000) {
+                if (totalLength > 20000) {
                   console.log(
-                    `✂️ LINE OA: Truncating prompt from ${totalLength} to 15,000 characters`,
+                    `✂️ LINE OA: Truncating prompt from ${totalLength} to 20,000 characters`,
                   );
 
                   // Keep system message intact, truncate from conversation history
