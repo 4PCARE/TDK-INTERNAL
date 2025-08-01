@@ -1161,6 +1161,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Category statistics endpoint
+  app.get("/api/stats/categories", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get category statistics from documents
+      const categoryStats = await db
+        .select({
+          category: sql<string>`COALESCE(${documents.aiCategory}, 'Uncategorized')`,
+          count: sql<number>`count(*)`
+        })
+        .from(documents)
+        .where(eq(documents.userId, userId))
+        .groupBy(sql`COALESCE(${documents.aiCategory}, 'Uncategorized')`)
+        .orderBy(sql`count(*) desc`);
+
+      console.log(`📊 Category stats for ${userId.substring(0, 8)}...:`, categoryStats);
+      res.json(categoryStats || []);
+    } catch (error) {
+      console.error("Error fetching category stats:", error);
+      // Return empty array on error instead of failing
+      res.json([]);
+    }
+  });
+
   // ============================
   // DOCUMENT PERMISSION ROUTES
   // ============================
