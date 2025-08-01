@@ -8,8 +8,37 @@ import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 import { setupMicrosoftAuth, isMicrosoftAuthenticated } from "./microsoftAuth";
 import { registerHrApiRoutes } from "./hrApi";
 import { handleLineWebhook, sendLineImageMessage } from "./lineOaWebhook";
-import { agentChatbots } from "@shared/schema";
 import { GuardrailsService } from "./services/guardrails";
+import { db, pool } from "./db";
+import { eq, sql, and, gte, getTableColumns } from "drizzle-orm";
+import {
+  insertCategorySchema,
+  insertDocumentSchema,
+  insertChatConversationSchema,
+  insertChatMessageSchema,
+  insertDataConnectionSchema,
+  updateDataConnectionSchema,
+  type Document as DocType,
+  users,
+  departments,
+  documentUserPermissions,
+  documentDepartmentPermissions,
+  documents,
+  categories,
+  auditLogs,
+  socialIntegrations,
+  agentChatbots,
+} from "@shared/schema";
+import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import fs from "fs/promises";
+import * as fsSync from "fs";
+import { processDocument, generateChatResponse } from "./services/openai";
+import { documentProcessor } from "./services/documentProcessor";
+import { vectorService } from "./services/vectorService";
+import { semanticSearchServiceV2 } from "./services/semanticSearchV2";
+import { documentNamePrioritySearchService } from "./services/documentNamePrioritySearch";
 
 // Initialize OpenAI for CSAT analysis
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -102,36 +131,6 @@ async function calculateCSATScore(userId: string, channelType: string, channelId
   }
 }
 
-import { db, pool } from "./db";
-import { eq, sql, and, gte, getTableColumns } from "drizzle-orm";
-import {
-  insertCategorySchema,
-  insertDocumentSchema,
-  insertChatConversationSchema,
-  insertChatMessageSchema,
-  insertDataConnectionSchema,
-  updateDataConnectionSchema,
-  type Document as DocType,
-  users,
-  departments,
-  documentUserPermissions,
-  documentDepartmentPermissions,
-  documents,
-  categories,
-  auditLogs,
-  socialIntegrations,
-} from "@shared/schema";
-import { z } from "zod";
-import multer from "multer";
-import path from "path";
-import fs from "fs/promises";
-import * as fsSync from "fs";
-import { processDocument, generateChatResponse } from "./services/openai";
-import { documentProcessor } from "./services/documentProcessor";
-import { vectorService } from "./services/vectorService";
-import { semanticSearchServiceV2 } from "./services/semanticSearchV2";
-import { documentNamePrioritySearchService } from "./services/documentNamePrioritySearch";
-
 // File upload configuration
 const uploadDir = path.join(process.cwd(), "uploads");
 
@@ -200,8 +199,6 @@ const upload = multer({
   },
 });
 
-// Using semanticSearchServiceV2 from import
-
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
@@ -224,7 +221,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register public HR API routes (no authentication required)
   registerHrApiRoutes(app);
 
-  // Audit & Monitoring routes
+  // ============================
+  // AUDIT & MONITORING ROUTES
+  // ============================
+  
   app.get("/api/audit/logs", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -246,14 +246,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } = req.query;
 
       const options: any = {};
-      if (limit) options.limit = parseInt(limit);
-      if (offset) options.offset = parseInt(offset);
+      if (limit) options.limit = parseInt(limit as string);
+      if (offset) options.offset = parseInt(offset as string);
       if (action && action !== "all") options.action = action;
       if (resourceType && resourceType !== "all")
         options.resourceType = resourceType;
       if (filterUserId && filterUserId !== "all") options.userId = filterUserId;
-      if (dateFrom) options.dateFrom = new Date(dateFrom);
-      if (dateTo) options.dateTo = new Date(dateTo);
+      if (dateFrom) options.dateFrom = new Date(dateFrom as string);
+      if (dateTo) options.dateTo = new Date(dateTo as string);
 
       const logs = await storage.getAuditLogs(userId, options);
       res.json(logs);
@@ -303,8 +303,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (resourceType && resourceType !== "all")
         options.resourceType = resourceType;
       if (filterUserId && filterUserId !== "all") options.userId = filterUserId;
-      if (dateFrom) options.dateFrom = new Date(dateFrom);
-      if (dateTo) options.dateTo = new Date(dateTo);
+      if (dateFrom) options.dateFrom = new Date(dateFrom as string);
+      if (dateTo) options.dateTo = new Date(dateTo as string);
 
       const auditLogs = await storage.getAuditLogs(userId, options);
 
@@ -351,8 +351,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get distinct values from audit logs
-      const { auditLogs, users } = await import("@shared/schema");
-
       const actions = await db
         .selectDistinct({ action: auditLogs.action })
         .from(auditLogs)
@@ -382,6 +380,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================
+  // WIDGET EMBED ROUTES
+  // ============================
+
   // Serve widget embed script
   app.get("/widget/:widgetKey/embed.js", async (req, res) => {
     try {
@@ -400,9 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Read and serve the embed script
-      const fs = await import("fs");
-      const path = await import("path");
-      const embedScript = fs.readFileSync(
+      const embedScript = fsSync.readFileSync(
         path.join(process.cwd(), "public", "widget", "embed.js"),
         "utf8",
       );
@@ -423,7 +423,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Agent chatbots routes
+  // ============================
+  // AGENT CHATBOT ROUTES
+  // ============================
+
   app.get("/api/agent-chatbots", (req: any, res: any, next: any) => {
     // Try Microsoft auth first, then fallback to Replit auth
     isMicrosoftAuthenticated(req, res, (err: any) => {
@@ -480,12 +483,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [agent] = await db
         .select()
         .from(agentChatbots)
-        .where(
-          and(
-            eq(agentChatbots.id, agentId),
-            eq(agentChatbots.userId, userId)
-          )
-        )
+        .where(and(
+          eq(agentChatbots.id, agentId),
+          eq(agentChatbots.userId, userId)
+        ))
         .limit(1);
 
       if (!agent) {
@@ -499,93 +500,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Agent chatbot documents routes
-  app.get("/api/agent-chatbots/:agentId/documents", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
+  // ============================
+  // ADMIN ROUTES
+  // ============================
+
+  // Admin User Management Routes
+  app.get("/api/admin/users", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const agentId = parseInt(req.params.agentId);
-
-      if (!userId || isNaN(agentId)) {
-        return res.status(400).json({ message: "Valid agent ID and user ID required" });
-      }
-
-      // Verify agent belongs to user
-      const [agent] = await db
-        .select()
-        .from(agentChatbots)
-        .where(
-          and(
-            eq(agentChatbots.id, agentId),
-            eq(agentChatbots.userId, userId)
-          )
-        )
-        .limit(1);
-
-      if (!agent) {
-        return res.status(404).json({ message: "Agent not found" });
-      }
-
-      // Get agent documents - fix the column name to match schema
-      const { agentChatbotDocuments } = await import("@shared/schema");
-      const agentDocs = await db
-        .select()
-        .from(agentChatbotDocuments)
-        .where(eq(agentChatbotDocuments.agentId, agentId));
-
-      res.json(agentDocs || []);
-    } catch (error) {
-      console.error("Error fetching agent documents:", error);
-      res.status(500).json({ message: "Failed to fetch agent documents" });
-    }
-  });
-
-  // Get authentication methods available
-  app.get("/api/auth/methods", async (req, res) => {
-    res.json({
-      methods: [
-        {
-          name: "replit",
-          displayName: "Login with Replit",
-          endpoint: "/api/login"
-        },
-        {
-          name: "microsoft",
-          displayName: "Login with Microsoft",
-          endpoint: "/api/auth/microsoft"
-        }
-      ]
-    });
-  });
-
-  // Auth routes - support both Replit and Microsoft authentication
-  app.get("/api/auth/user", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        // Microsoft auth succeeded
-        return next();
-      }
-      // Try Replit auth as fallback
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const userEmail = req.user.claims.email || req.user.claims.upn || req.user.claims.unique_name || req.user.claims.preferred_username;
-      const { users, departments } = await import("@shared/schema");
-
-      console.log("Getting user profile for:", { userId, userEmail });
-
-      // Fetch user with department information
-      const [userWithDept] = await db
+      const allUsers = await db
         .select({
           id: users.id,
           email: users.email,
@@ -596,426 +518,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           departmentId: users.departmentId,
           createdAt: users.createdAt,
           updatedAt: users.updatedAt,
-          departmentName: departments.name,
         })
         .from(users)
-        .leftJoin(departments, eq(users.departmentId, departments.id))
-        .where(eq(users.id, userId));
+        .leftJoin(departments, eq(users.departmentId, departments.id));
 
-      if (!userWithDept) {
-        console.log("User not found in database, returning user claims");
-        // Return user info from claims if not found in database
-        return res.json({
-          id: userId,
-          email: userEmail,
-          firstName: req.user.claims.given_name || req.user.claims.first_name || '',
-          lastName: req.user.claims.family_name || req.user.claims.last_name || '',
-          profileImageUrl: req.user.claims.profile_image_url || null,
-          role: 'user', // Default role
-          departmentId: null,
-          departmentName: null,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        });
-      }
-
-      res.json(userWithDept);
+      res.json(allUsers);
     } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
     }
   });
 
-  // Get user profile
-  app.get("/api/user/profile", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
+  app.get("/api/admin/departments", isAuthenticated, isAdmin, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const userEmail = req.user.claims.email || req.user.claims.upn || req.user.claims.unique_name || req.user.claims.preferred_username;
-      const { users, departments } = await import("@shared/schema");
-
-      console.log("Getting user profile for:", { userId, userEmail });
-
-      // Fetch user with department information
-      const [userWithDept] = await db
-        .select({
-          id: users.id,
-          email: users.email,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          profileImageUrl: users.profileImageUrl,
-          role: users.role,
-          departmentId: users.departmentId,
-          createdAt: users.createdAt,
-          updatedAt: users.updatedAt,
-          departmentName: departments.name,
-        })
-        .from(users)
-        .leftJoin(departments, eq(users.departmentId, departments.id))
-        .where(eq(users.id, userId));
-
-      if (!userWithDept) {
-        console.log("User not found in database, returning user claims");
-        // Return user info from claims if not found in database
-        const firstName = req.user.claims.given_name || req.user.claims.first_name || '';
-        const lastName = req.user.claims.family_name || req.user.claims.last_name || '';
-        const fullName = req.user.claims.name || `${firstName} ${lastName}`.trim();
-        const displayName = fullName || 
-                         req.user.claims.display_name || 
-                         req.user.claims.name || 
-                         userEmail;
-
-        return res.json({
-          id: userId,
-          email: userEmail,
-          name: displayName,
-          display_name: displayName,
-          firstName: firstName,
-          lastName: lastName,
-          profileImageUrl: req.user.claims.profile_image_url || null,
-          role: 'user',
-          department: null,
-          departmentId: null,
-          preferences: {
-            notifications: true,
-            emailUpdates: true,
-            theme: 'light'
-          }
-        });
-      }
-
-      // Construct display name from database fields first, then fallback to claims
-      let displayName = `${userWithDept.firstName || ''} ${userWithDept.lastName || ''}`.trim();
-
-      // If no name in database, try to get from claims and update
-      if (!displayName) {
-        displayName = req.user.claims.display_name || 
-                     req.user.claims.name || 
-                     userWithDept.email;
-
-        // If we have name from claims but not in database, extract and update
-        if (req.user.claims.name && !userWithDept.firstName && !userWithDept.lastName) {
-          const nameParts = req.user.claims.name.split(' ');
-          const firstName = nameParts[0] || '';
-          const lastName = nameParts.slice(1).join(' ') || '';
-
-          try {
-            // Update the database with extracted name parts
-            await db
-              .update(users)
-              .set({
-                firstName: firstName,
-                lastName: lastName,
-                updatedAt: new Date(),
-              })
-              .where(eq(users.id, userWithDept.id));
-
-            console.log(`Updated user ${userWithDept.id} with name: ${firstName} ${lastName}`);
-          } catch (error) {
-            console.error("Error updating user name:", error);
-          }
-        }
-      }
-
-      res.json({
-        id: userWithDept.id,
-        email: userWithDept.email,
-        name: displayName,
-        display_name: displayName,
-        firstName: userWithDept.firstName,
-        lastName: userWithDept.lastName,
-        profileImageUrl: userWithDept.profileImageUrl,
-        role: userWithDept.role,
-        department: userWithDept.departmentName,
-        departmentId: userWithDept.departmentId,
-        preferences: {
-          notifications: true,
-          emailUpdates: true,
-          theme: 'light'
-        }
-      });
-    } catch (error) {
-      console.error("Error fetching user profile:", error);
-      res.status(500).json({ message: "Failed to fetch user profile" });
-    }
-  });
-
-  // Update user profile
-  app.put("/api/user/profile", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { name, department, preferences } = req.body;
-
-      // For now, just return success since we don't have a full user management system
-      res.json({ 
-        success: true, 
-        message: "Profile updated successfully",
-        id: userId,
-        name: name,
-        department: department,
-        preferences: preferences
-      });
-    } catch (error) {
-      console.error("Error updating user profile:", error);
-      res.status(500).json({ message: "Failed to update user profile" });
-    }
-  });
-
-  // Update user profile
-  app.put("/api/users/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.params.id;
-      const { firstName, lastName, departmentId } = req.body;
-      const { users } = await import("@shared/schema");
-
-      const [updatedUser] = await db
-        .update(users)
-        .set({
-          firstName,
-          lastName,
-          departmentId: departmentId || null,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, userId))
-        .returning();
-
-      res.json(updatedUser);
-    } catch (error) {
-      console.error("Error updating user:", error);
-      res.status(500).json({ message: "Failed to update user" });
-    }
-  });
-
-  // User stats
-  app.get("/api/stats", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const stats = await storage.getUserStats(userId);
-      res.json(stats);
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-      res.status(500).json({ message: "Failed to fetch stats" });
-    }
-  });
-
-  // Category routes
-  app.get("/api/categories", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const categories = await storage.getCategories(userId);
-      res.json(categories);
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-      res.status(500).json({ message: "Failed to fetch categories" });
-    }
-  });
-
-  app.post("/api/categories", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const categoryData = insertCategorySchema.parse({ ...req.body, userId });
-      const category = await storage.createCategory(categoryData);
-      res.json(category);
-    } catch (error) {
-      console.error("Error creating category:", error);
-      res.status(500).json({ message: "Failed to create category" });
-    }
-  });
-
-  app.put("/api/categories/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const categoryData = insertCategorySchema.partial().parse(req.body);
-      const category = await storage.updateCategory(id, categoryData);
-      res.json(category);
-    } catch (error) {
-      console.error("Error updating category:", error);
-      res.status(500).json({ message: "Failed to update category" });
-    }
-  });
-
-  app.delete("/api/categories/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const id = parseInt(req.params.id);
-      await storage.deleteCategory(id, userId);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting category:", error);
-      res.status(500).json({ message: "Failed to delete category" });
-    }
-  });
-
-  // Category statistics endpoint
-  app.get("/api/stats/categories", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { documents } = await import("@shared/schema");
-      const { sql } = await import("drizzle-orm");
-
-      const categoryStats = await db
-        .select({
-          category: documents.aiCategory,
-          count: sql<number>`count(${documents.id})`,
-        })
-        .from(documents)
-        .where(eq(documents.userId, userId))
-        .groupBy(documents.aiCategory)
-        .orderBy(sql`count(${documents.id}) desc`);
-
-      res.json(categoryStats);
-    } catch (error) {
-      console.error("Error fetching category stats:", error);
-      res.status(500).json({ message: "Failed to fetch category stats" });
-    }
-  });
-
-  // Tag statistics endpoint
-  app.get("/api/stats/tags", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { documents } = await import("@shared/schema");
-      const { sql } = await import("drizzle-orm");
-
-      // Get all documents with their tags
-      const documentsWithTags = await db
-        .select({
-          tags: documents.tags,
-        })
-        .from(documents)
-        .where(eq(documents.userId, userId));
-
-      // Count occurrences of each tag
-      const tagCounts: { [key: string]: number } = {};
-
-      documentsWithTags.forEach((doc) => {
-        if (doc.tags && Array.isArray(doc.tags)) {
-          doc.tags.forEach((tag: string) => {
-            tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-          });
-        }
-      });
-
-      // Convert to array and sort by count
-      const tagStats = Object.entries(tagCounts)
-        .map(([tag, count]) => ({ tag, count }))
-        .sort((a, b) => b.count - a.count);
-
-      res.json(tagStats);
-    } catch (error) {
-      console.error("Error fetching tag stats:", error);
-      res.status(500).json({ message: "Failed to fetch tag stats" });
-    }
-  });
-
-  // Department management routes
-  app.get("/api/departments", isAuthenticated, async (req: any, res) => {
-    try {
-      const { departments } = await import("@shared/schema");
-      const allDepartments = await db
-        .select()
-        .from(departments)
-        .orderBy(departments.name);
+      const allDepartments = await db.select().from(departments);
       res.json(allDepartments);
     } catch (error) {
       console.error("Error fetching departments:", error);
       res.status(500).json({ message: "Failed to fetch departments" });
     }
   });
-
-  app.post("/api/departments", isAuthenticated, async (req: any, res) => {
-    try {
-      const { departments } = await import("@shared/schema");
-      const { name, description } = req.body;
-
-      const [department] = await db
-        .insert(departments)
-        .values({ name, description })
-        .returning();
-
-      res.json(department);
-    } catch (error) {
-      console.error("Error creating department:", error);
-      res.status(500).json({ message: "Failed to create department" });
-    }
-  });
-
-  // User management routes
-  // Admin User Management Routes
-  app.get(
-    "/api/admin/users",
-    isAuthenticated,
-    isAdmin,
-    async (req: any, res) => {
-      try {
-        const allUsers = await db
-          .select({
-            id: users.id,
-            email: users.email,
-            firstName: users.firstName,
-            lastName: users.lastName,
-            profileImageUrl: users          .profileImageUrl,
-            role: users.role,
-            departmentId: users.departmentId,
-            createdAt: users.createdAt,
-            updatedAt: users.updatedAt,
-          })
-          .from(users)
-          .leftJoin(departments, eq(users.departmentId, departments.id));
-
-        res.json(allUsers);
-      } catch (error) {
-        console.error("Error fetching users:", error);
-        res.status(500).json({ message: "Failed to fetch users" });
-      }
-    },
-  );
-
-  app.get(
-    "/api/admin/departments",
-    isAuthenticated,
-    isAdmin,
-    async (req: any, res) => {
-      try {
-        const allDepartments = await db.select().from(departments);
-        res.json(allDepartments);
-      } catch (error) {
-        console.error("Error fetching departments:", error);
-        res.status(500).json({ message: "Failed to fetch departments" });
-      }
-    },
-  );
 
   app.post("/api/admin/departments", isAuthenticated, async (req: any, res) => {
     try {
@@ -1040,35 +562,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put(
-    "/api/admin/users/:userId/department",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const { userId } = req.params;
-        const { departmentId } = req.body;
+  app.put("/api/admin/users/:userId/department", isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { departmentId } = req.body;
 
-        await db
-          .update(users)
-          .set({
-            departmentId: departmentId || null,
-            updatedAt: new Date(),
-          })
-          .where(eq(users.id, userId));
+      await db
+        .update(users)
+        .set({
+          departmentId: departmentId || null,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
 
-        res.json({ message: "User department updated successfully" });
-      } catch (error) {
-        console.error("Error updating user department:", error);
-        res.status(500).json({ message: "Failed to update user department" });
-      }
-    },
-  );
+      res.json({ message: "User department updated successfully" });
+    } catch (error) {
+      console.error("Error updating user department:", error);
+      res.status(500).json({ message: "Failed to update user department" });
+    }
+  });
 
   // Bootstrap admin endpoint - allows first user to become admin
   app.post("/api/bootstrap-admin", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { users } = await import("@shared/schema");
 
       // Check if any admin exists
       const [existingAdmin] = await db
@@ -1106,476 +623,305 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update user role
-  app.put(
-    "/api/admin/users/:userId/role",
-    (req: any, res: any, next: any) => {
-      // Try Microsoft auth first, then fallback to Replit auth
-      isMicrosoftAuthenticated(req, res, (err: any) => {
-        if (!err) {
-          return next();
-        }
-        isAuthenticated(req, res, next);
-      });
-    },
-    isAdmin,
-    async (req: any, res) => {
-      try {
-        const { userId } = req.params;
-        const { role } = req.body;
-        const adminUserId = req.user.claims.sub;
+  app.put("/api/admin/users/:userId/role", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, isAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { role } = req.body;
+      const adminUserId = req.user.claims.sub;
 
-        console.log(`Role update request from admin ${adminUserId}: userId=${userId}, newRole=${role}`);
-        console.log("Request body:", req.body);
+      if (!["admin", "user", "viewer"].includes(role)) {
+        return res.status(400).json({ message: "Invalid role" });
+      }
 
-        // Validate required fields
-        if (!userId) {
-          console.log("Missing userId in request params");
-          return res.status(400).json({
-            message: "User ID is required",
-          });
-        }
-
-        if (!role) {
-          console.log("Missing role in request body");
-          return res.status(400).json({
-            message: "Role is required",
-          });
-        }
-
-        // Validate role
-        if (!["admin", "user", "viewer"].includes(role)) {
-          console.log(`Invalid role provided: ${role}`);
-          return res.status(400).json({
-            message: "Invalid role. Must be 'admin', 'user', or 'viewer'",
-          });
-        }
-
-        // Check if user exists
-        const [existingUser] = await db
-          .select()
-          .from(users)
-          .where(eq(users.id, userId))
-          .limit(1);
-
-        if (!existingUser) {
-          console.log(`User not found: ${userId}`);
-          return res.status(404).json({
-            message: "User not found",
-          });
-        }
-
-        console.log(`Updating user ${userId} role from ${existingUser.role} to ${role}`);
-
-        // Update user role
-        const [updatedUser] = await db
-          .update(users)
-          .set({
-            role: role,
-            updatedAt: new Date(),
-          })
-          .where(eq(users.id, userId))
-          .returning();
-
-        if (!updatedUser) {
-          console.log(`Failed to update user ${userId}`);
-          return res.status(500).json({
-            message: "Failed to update user role",
-          });
-        }
-
-        console.log(`Successfully updated user ${userId} role to ${role}`);
-
-        // Log role change for audit
-        try {
-          await storage.createAuditLog({
-            userId: adminUserId,
-            action: "role_change",
-            resourceType: "user",
-            resourceId: userId,
-            ipAddress: req.ip || req.connection.remoteAddress || "unknown",
-            userAgent: req.headers["user-agent"] || "unknown",
-            success: true,
-            details: {
-              targetUser: userId,
-              oldRole: existingUser.role,
-              newRole: role,
-            },
-          });
-        } catch (auditError) {
-          console.error(
-            "Failed to create audit log for role change:",
-            auditError,
-          );
-        }
-
-        res.json({ 
-          message: "User role updated successfully",
-          user: {
-            id: updatedUser.id,
-            role: updatedUser.role,
-          }
-        });
-      } catch (error) {
-        console.error("Error updating user role:", error);
-        res.status(500).json({ 
-          message: "Failed to update user role",
-          error: error instanceof Error ? error.message : "Unknown error"
+      // Prevent admin from demoting themselves
+      if (userId === adminUserId && role !== "admin") {
+        return res.status(400).json({ 
+          message: "Cannot change your own admin role" 
         });
       }
-    },
-  );
 
-  app.get(
-    "/api/admin/permissions",
-    isAuthenticated,
-    isAdmin,
-    async (req: any, res) => {
-      try {
-        const userPermissions = await db
-          .select({
-            id: documentUserPermissions.id,
-            documentId: documentUserPermissions.documentId,
-            userId: documentUserPermissions.userId,
-            permissionType: documentUserPermissions.permissionType,
-            grantedAt: documentUserPermissions.grantedAt,
-          })
-          .from(documentUserPermissions);
-
-        const departmentPermissions = await db
-          .select({
-            id: documentDepartmentPermissions.id,
-            documentId: documentDepartmentPermissions.documentId,
-            departmentId: documentDepartmentPermissions.departmentId,
-            permissionType: documentDepartmentPermissions.permissionType,
-            grantedAt: documentDepartmentPermissions.grantedAt,
-          })
-          .from(documentDepartmentPermissions);
-
-        const allPermissions = [
-          ...userPermissions.map((p) => ({ ...p, type: "user" })),
-          ...departmentPermissions.map((p) => ({ ...p, type: "department" })),
-        ];
-
-        res.json(allPermissions);
-      } catch (error) {
-        console.error("Error fetching permissions:", error);
-        res.status(500).json({ message: "Failed to fetch permissions" });
-      }
-    },
-  );
-
-  app.post("/api/admin/permissions", isAuthenticated, async (req: any, res) => {
-    try {
-      const {
-        documentId,
-        userId,
-        departmentId,
-        permission = "read",
-      } = req.body;
-
-      if (!documentId) {
-        return res.status(400).json({ message: "Document ID is required" });
-      }
-
-      if (!userId && !departmentId) {
-        return res
-          .status(400)
-          .json({ message: "Either user ID or department ID is required" });
-      }
-
-      let result;
-      if (userId) {
-        // Check if permission already exists
-        const existing = await db
-          .select()
-          .from(documentUserPermissions)
-          .where(
-            and(
-              eq(documentUserPermissions.documentId, parseInt(documentId)),
-              eq(documentUserPermissions.userId, userId),
-            ),
-          );
-
-        if (existing.length > 0) {
-          return res
-            .status(400)
-            .json({ message: "Permission already exists for this user" });
-        }
-
-        [result] = await db
-          .insert(documentUserPermissions)
-          .values({
-            documentId: parseInt(documentId),
-            userId,
-            permissionType: permission,
-          })
-          .returning();
-      } else {
-        // Check if permission already exists
-        const existing = await db
-          .select()
-          .from(documentDepartmentPermissions)
-          .where(
-            and(
-              eq(
-                documentDepartmentPermissions.documentId,
-                parseInt(documentId),
-              ),
-              eq(
-                documentDepartmentPermissions.departmentId,
-                parseInt(departmentId),
-              ),
-            ),
-          );
-
-        if (existing.length > 0) {
-          return res
-            .status(400)
-            .json({ message: "Permission already exists for this department" });
-        }
-
-        [result] = await db
-          .insert(documentDepartmentPermissions)
-          .values({
-            documentId: parseInt(documentId),
-            departmentId: parseInt(departmentId),
-            permissionType: permission,
-          })
-          .returning();
-      }
-
-      res.status(201).json(result);
-    } catch (error) {
-      console.error("Error creating permission:", error);
-      res.status(500).json({ message: "Failed to create permission" });
-    }
-  });
-
-  app.delete(
-    "/api/admin/permissions/:permissionId",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const { permissionId } = req.params;
-        const { type } = req.query;
-
-        if (type === "department") {
-          await db
-            .delete(documentDepartmentPermissions)
-            .where(
-              eq(documentDepartmentPermissions.id, parseInt(permissionId)),
-            );
-        } else {
-          await db
-            .delete(documentUserPermissions)
-            .where(eq(documentUserPermissions.id, parseInt(permissionId)));
-        }
-
-        res.json({ message: "Permission deleted successfully" });
-      } catch (error) {
-        console.error("Error deleting permission:", error);
-        res.status(500).json({ message: "Failed to delete permission" });
-      }
-    },
-  );
-
-  app.get("/api/users", isAuthenticated, async (req: any, res) => {
-    try {
-      const allUsers = await db
-        .select({
-          id: users.id,
-          email: users.email,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          profileImageUrl: users.profileImageUrl,
-          departmentId: users.departmentId,
-          createdAt: users.createdAt,
-          updatedAt: users.updatedAt,
+      await db
+        .update(users)
+        .set({
+          role,
+          updatedAt: new Date(),
         })
-        .from(users)
-        .leftJoin(departments, eq(users.departmentId, departments.id));
+        .where(eq(users.id, userId));
 
-      res.json(allUsers);
+      res.json({ message: "User role updated successfully" });
     } catch (error) {
-      console.error("Error fetching users:", error);
-      res.status(500).json({ message: "Failed to fetch users" });
+      console.error("Error updating user role:", error);
+      res.status(500).json({ message: "Failed to update user role" });
     }
   });
 
-  app.put(
-    "/api/users/:id/department",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const { users } = await import("@shared/schema");
-        const userId = req.params.id;
-        const { departmentId } = req.body;
+  // ============================
+  // CATEGORY ROUTES
+  // ============================
 
-        const [updatedUser] = await db
-          .update(users)
-          .set({ departmentId, updatedAt: new Date() })
-          .where(eq(users.id, userId))
-          .returning();
-
-        res.json(updatedUser);
-      } catch (error) {
-        console.error("Error updating user department:", error);
-        res.status(500).json({ message: "Failed to update user department" });
+  app.get("/api/categories", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
       }
-    },
-  );
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const categories = await storage.getCategories(userId);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
 
-  // Document permissions routes (Many-to-Many)
-  app.get(
-    "/api/documents/:id/permissions",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const {
-          documentUserPermissions,
-          documentDepartmentPermissions,
-          users,
-          departments,
-        } = await import("@shared/schema");
-        const documentId = parseInt(req.params.id);
-
-        // Get user permissions
-        const userPermissions = await db
-          .select({
-            id: documentUserPermissions.id,
-            userId: documentUserPermissions.userId,
-            userName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
-            userEmail: users.email,
-            permissionType: documentUserPermissions.permissionType,
-            grantedAt: documentUserPermissions.grantedAt,
-            type: sql<string>`'user'`,
-          })
-          .from(documentUserPermissions)
-          .leftJoin(users, eq(documentUserPermissions.userId, users.id))
-          .where(eq(documentUserPermissions.documentId, documentId));
-
-        // Get department permissions
-        const departmentPermissions = await db
-          .select({
-            id: documentDepartmentPermissions.id,
-            departmentId: documentDepartmentPermissions.departmentId,
-            departmentName: departments.name,
-            permissionType: documentDepartmentPermissions.permissionType,
-            grantedAt: documentDepartmentPermissions.grantedAt,
-            type: sql<string>`'department'`,
-          })
-          .from(documentDepartmentPermissions)
-          .leftJoin(
-            departments,
-            eq(documentDepartmentPermissions.departmentId, departments.id),
-          )
-          .where(eq(documentDepartmentPermissions.documentId, documentId));
-
-        res.json({ userPermissions, departmentPermissions });
-      } catch (error) {
-        console.error("Error fetching document permissions:", error);
-        res
-          .status(500)
-          .json({ message: "Failed to fetch document permissions" });
+  app.post("/api/categories", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
       }
-    },
-  );
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const categoryData = insertCategorySchema.parse({
+        ...req.body,
+        userId,
+      });
 
-  app.post(
-    "/api/documents/:id/permissions/user",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const { documentUserPermissions } = await import("@shared/schema");
-        const documentId = parseInt(req.params.id);
-        const { userId, permissionType = "read" } = req.body;
-        const grantedBy = req.user.claims.sub;
-
-        const [permission] = await db
-          .insert(documentUserPermissions)
-          .values({ documentId, userId, permissionType, grantedBy })
-          .returning();
-
-        res.json(permission);
-      } catch (error) {
-        console.error("Error granting user permission:", error);
-        res.status(500).json({ message: "Failed to grant user permission" });
+      const category = await storage.createCategory(categoryData);
+      res.status(201).json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid category data",
+          errors: error.errors 
+        });
       }
-    },
-  );
+      console.error("Error creating category:", error);
+      res.status(500).json({ message: "Failed to create category" });
+    }
+  });
 
-  app.post(
-    "/api/documents/:id/permissions/department",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const { documentDepartmentPermissions } = await import(
-          "@shared/schema"
-        );
-        const documentId = parseInt(req.params.id);
-        const { departmentId, permissionType = "read" } = req.body;
-        const grantedBy = req.user.claims.sub;
-
-        const [permission] = await db
-          .insert(documentDepartmentPermissions)
-          .values({ documentId, departmentId, permissionType, grantedBy })
-          .returning();
-
-        res.json(permission);
-      } catch (error) {
-        console.error("Error granting department permission:", error);
-        res
-          .status(500)
-          .json({ message: "Failed to grant department permission" });
+  app.put("/api/categories/:id", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
       }
-    },
-  );
-
-  app.delete(
-    "/api/documents/permissions/user/:permissionId",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const { documentUserPermissions } = await import("@shared/schema");
-        const permissionId = parseInt(req.params.permissionId);
-
-        await db
-          .delete(documentUserPermissions)
-          .where(eq(documentUserPermissions.id, permissionId));
-
-        res.json({ success: true });
-      } catch (error) {
-        console.error("Error removing user permission:", error);
-        res.status(500).json({ message: "Failed to remove user permission" });
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const categoryId = parseInt(req.params.id);
+      
+      if (isNaN(categoryId)) {
+        return res.status(400).json({ message: "Invalid category ID" });
       }
-    },
-  );
 
-  app.delete(
-    "/api/documents/permissions/department/:permissionId",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const { documentDepartmentPermissions } = await import(
-          "@shared/schema"
-        );
-        const permissionId = parseInt(req.params.permissionId);
+      const updateData = {
+        name: req.body.name,
+        description: req.body.description,
+        color: req.body.color,
+      };
 
-        await db
-          .delete(documentDepartmentPermissions)
-          .where(eq(documentDepartmentPermissions.id, permissionId));
-
-        res.json({ success: true });
-      } catch (error) {
-        console.error("Error removing department permission:", error);
-        res
-          .status(500)
-          .json({ message: "Failed to remove department permission" });
+      const category = await storage.updateCategory(categoryId, userId, updateData);
+      
+      if (!category) {
+        return res.status(404).json({ message: "Category not found" });
       }
-    },
-  );
 
-  // Document routes
+      res.json(category);
+    } catch (error) {
+      console.error("Error updating category:", error);
+      res.status(500).json({ message: "Failed to update category" });
+    }
+  });
+
+  app.delete("/api/categories/:id", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const categoryId = parseInt(req.params.id);
+      
+      if (isNaN(categoryId)) {
+        return res.status(400).json({ message: "Invalid category ID" });
+      }
+
+      const success = await storage.deleteCategory(categoryId, userId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      res.status(500).json({ message: "Failed to delete category" });
+    }
+  });
+
+  // ============================
+  // STATS ROUTES
+  // ============================
+
+  app.get("/api/stats", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const stats = await storage.getStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // ============================
+  // DOCUMENT PERMISSION ROUTES
+  // ============================
+
+  app.get("/api/documents/:id/permissions", isAuthenticated, async (req: any, res) => {
+    try {
+      const documentId = parseInt(req.params.id);
+      if (isNaN(documentId)) {
+        return res.status(400).json({ message: "Invalid document ID" });
+      }
+
+      const userPermissions = await db
+        .select({
+          id: documentUserPermissions.id,
+          userId: documentUserPermissions.userId,
+          permissionType: documentUserPermissions.permissionType,
+          grantedBy: documentUserPermissions.grantedBy,
+          grantedAt: documentUserPermissions.grantedAt,
+          userEmail: users.email,
+        })
+        .from(documentUserPermissions)
+        .leftJoin(users, eq(documentUserPermissions.userId, users.id))
+        .where(eq(documentUserPermissions.documentId, documentId));
+
+      const departmentPermissions = await db
+        .select({
+          id: documentDepartmentPermissions.id,
+          departmentId: documentDepartmentPermissions.departmentId,
+          permissionType: documentDepartmentPermissions.permissionType,
+          grantedBy: documentDepartmentPermissions.grantedBy,
+          grantedAt: documentDepartmentPermissions.grantedAt,
+          departmentName: departments.name,
+        })
+        .from(documentDepartmentPermissions)
+        .leftJoin(departments, eq(documentDepartmentPermissions.departmentId, departments.id))
+        .where(eq(documentDepartmentPermissions.departmentId, documentId));
+
+      res.json({
+        userPermissions,
+        departmentPermissions,
+      });
+    } catch (error) {
+      console.error("Error fetching document permissions:", error);
+      res.status(500).json({ message: "Failed to fetch document permissions" });
+    }
+  });
+
+  app.post("/api/documents/:id/permissions/user", isAuthenticated, async (req: any, res) => {
+    try {
+      const documentId = parseInt(req.params.id);
+      const { userId, permissionType = "read" } = req.body;
+      const grantedBy = req.user.claims.sub;
+
+      const [permission] = await db
+        .insert(documentUserPermissions)
+        .values({ documentId, userId, permissionType, grantedBy })
+        .returning();
+
+      res.json(permission);
+    } catch (error) {
+      console.error("Error granting user permission:", error);
+      res.status(500).json({ message: "Failed to grant user permission" });
+    }
+  });
+
+  app.post("/api/documents/:id/permissions/department", isAuthenticated, async (req: any, res) => {
+    try {
+      const documentId = parseInt(req.params.id);
+      const { departmentId, permissionType = "read" } = req.body;
+      const grantedBy = req.user.claims.sub;
+
+      const [permission] = await db
+        .insert(documentDepartmentPermissions)
+        .values({ documentId, departmentId, permissionType, grantedBy })
+        .returning();
+
+      res.json(permission);
+    } catch (error) {
+      console.error("Error granting department permission:", error);
+      res.status(500).json({ message: "Failed to grant department permission" });
+    }
+  });
+
+  app.delete("/api/documents/permissions/user/:permissionId", isAuthenticated, async (req: any, res) => {
+    try {
+      const permissionId = parseInt(req.params.permissionId);
+
+      await db
+        .delete(documentUserPermissions)
+        .where(eq(documentUserPermissions.id, permissionId));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing user permission:", error);
+      res.status(500).json({ message: "Failed to remove user permission" });
+    }
+  });
+
+  app.delete("/api/documents/permissions/department/:permissionId", isAuthenticated, async (req: any, res) => {
+    try {
+      const permissionId = parseInt(req.params.permissionId);
+
+      await db
+        .delete(documentDepartmentPermissions)
+        .where(eq(documentDepartmentPermissions.id, permissionId));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing department permission:", error);
+      res.status(500).json({ message: "Failed to remove department permission" });
+    }
+  });
+
+  // ============================
+  // DOCUMENT ROUTES
+  // ============================
+
   app.get("/api/documents", (req: any, res: any, next: any) => {
     // Try Microsoft auth first, then fallback to Replit auth
     isMicrosoftAuthenticated(req, res, (err: any) => {
@@ -1624,88 +970,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("\n" + "=".repeat(80));
     console.log("🚨 SEARCH API ENDPOINT HIT!");
     console.log("=".repeat(80));
-    console.log(`⏰ TIME: ${new Date().toISOString()}`);
-    console.log(`🌐 METHOD: ${req.method}`);
-    console.log(`📍 URL: ${req.url}`);
-    console.log(`🔍 FULL QUERY:`, JSON.stringify(req.query, null, 2));
-    console.log(`👤 USER: ${req.user?.claims?.sub || 'UNKNOWN'}`);
-    console.log("=".repeat(80));
 
     try {
       const userId = req.user.claims.sub;
+      const query = (req.query.q as string) || "";
+      const type = (req.query.type as string) || "keyword-name-priority";
+      const massPercentage = parseFloat(req.query.massPercentage as string) || 0.5;
 
-      // Validate user ID first
-      if (!userId) {
-        console.log("❌ NO USER ID - UNAUTHORIZED");
-        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      // Extract search control parameters with proper defaults
+      const searchFileName = req.query.fileName !== "false" && req.query.fileName !== false;
+      const searchKeyword = req.query.keyword !== "false" && req.query.keyword !== false;
+      const searchMeaning = req.query.meaning === "true" || req.query.meaning === true;
+
+      console.log("📊 SEARCH PARAMETERS:");
+      console.log(`   🔍 Query: "${query}"`);
+      console.log(`   👤 User ID: ${userId}`);
+      console.log(`   🎯 Type: ${type}`);
+      console.log(`   📊 Mass Percentage: ${massPercentage}`);
+      console.log(`   📄 Search File Name: ${searchFileName}`);
+      console.log(`   🔤 Search Keyword: ${searchKeyword}`);
+      console.log(`   🧠 Search Meaning: ${searchMeaning}`);
+
+      if (!query.trim()) {
+        console.log("❌ EMPTY QUERY - RETURNING EMPTY RESULTS");
+        console.log("=".repeat(80) + "\n");
+        return res.json({ results: [], count: 0 });
       }
 
-      const { query, type = "document-priority", massSelectionPercentage = "0.3" } = req.query;
+      let results: any[] = [];
 
-      console.log(`\n🎯 EXTRACTED SEARCH PARAMETERS:`);
-      console.log(`   Query: "${query}"`);
-      console.log(`   Type: ${type}`);
-      console.log(`   Mass %: ${massSelectionPercentage}`);
-      console.log(`   User ID: ${userId}`);
-
-      console.log(`\n🔍 SEARCH REQUEST: "${query}" (${type}) for user ${userId}`);
-      console.log(`📋 SEARCH PARAMS:`, {
-        query: query,
-        type: type,
-        massSelectionPercentage: massSelectionPercentage,
-        userId: userId,
-        fullQuery: req.query
-      });
-
-      console.log(`\n🔍 QUERY VALIDATION:`);
-      console.log(`   Empty query check: ${!query || query.trim() === ""}`);
-      console.log(`   Query value: "${query}"`);
-      console.log(`   Query type: ${typeof query}`);
-      console.log(`   Query trimmed: "${query?.trim()}"`);
-
-      if (!query || query.trim() === "") {
-        console.log(`\n📂 NO SEARCH QUERY - RETURNING ALL DOCUMENTS`);
-
-        // Return all documents if no search query
-        const documents = await storage.getDocuments(userId, { limit: 1000 });
-        console.log(`📊 Retrieved ${documents.length} total documents`);
-
-        // Log first few documents to check their structure
-        if (documents.length > 0) {
-          console.log(`📄 SAMPLE DOCUMENT STRUCTURE:`, {
-            firstDoc: {
-              id: documents[0].id,
-              name: documents[0].name,
-              type: typeof documents[0].id,
-              hasValidId: documents[0].id && !isNaN(Number(documents[0].id))
-            }
-          });
-
-          // Log first 3 documents with full details
-          console.log(`📋 FIRST 3 DOCUMENTS:`);
-          documents.slice(0, 3).forEach((doc, idx) => {
-            console.log(`   ${idx + 1}. ID: ${doc.id}, Name: ${doc.name}, Valid: ${doc.id && !isNaN(Number(doc.id))}`);
-          });
-        }
-
-        console.log(`✅ RETURNING ALL DOCUMENTS: ${documents.length} results`);
-        return res.json({ results: documents, count: documents.length });
-      }
-
-      let results = [];
-      const massPercentage = parseFloat(massSelectionPercentage);
-
-      console.log(`🎯 SEARCH TYPE: ${type}, Mass Percentage: ${massPercentage}`);
-
+      // Determine search strategy
       switch (type) {
-        case "document-priority":
         case "keyword-name-priority":
-        case "filename-only":
-          // Enhanced search that prioritizes document names, then keywords, then semantic (when enabled)
-          const searchFileName = req.query.searchFileName === 'true';
-          const searchKeyword = req.query.searchKeyword === 'true'; 
-          const searchMeaning = req.query.searchMeaning === 'true';
-          const massPercentageOverride = parseFloat(req.query.massSelectionPercentage as string) || 0.6;
+          console.log(`🎯 DOCUMENT NAME PRIORITY SEARCH INITIATED`);
+          
+          // Calculate massSelectionPercentage based on mass percentage with minimum of 0.1
+          const massPercentageOverride = Math.max(0.1, massPercentage);
 
           console.log(`🔧 DOCUMENT PRIORITY SEARCH CONFIG:`, {
             searchFileName,
@@ -1714,7 +1014,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             massPercentageOverride
           });
 
-          const { documentNamePrioritySearchService } = await import('./services/documentNamePrioritySearch');
           results = await documentNamePrioritySearchService.searchDocuments(
             query,
             userId,
@@ -1758,10 +1057,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`\n✅ SEARCH EXECUTION COMPLETE!`);
-      console.log(`📊 RESULTS SUMMARY: ${results.length} results for "${query}"`);
 
-      // Log detailed result analysis
-      if (results.length > 0) {
+      if (results && results.length > 0) {
         console.log(`\n📊 DETAILED SEARCH RESULTS ANALYSIS:`);
         console.log(`   🔢 Total results: ${results.length}`);
 
@@ -1864,16 +1161,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Document not found" });
       }
 
-      console.log(`✅ Document found: ${document.name}`);
       res.json(document);
     } catch (error) {
-      console.error("Error fetching document details:", error);
-      res.status(500).json({ message: "Failed to fetch document details" });
+      console.error("Error fetching document:", error);
+      res.status(500).json({ message: "Failed to fetch document" });
     }
   });
 
-  // Chat conversation routes
-  app.get("/api/chat/conversations", (req: any, res: any, next: any) => {
+  // Document upload
+  app.post("/api/documents", (req: any, res: any, next: any) => {
     // Try Microsoft auth first, then fallback to Replit auth
     isMicrosoftAuthenticated(req, res, (err: any) => {
       if (!err) {
@@ -1881,263 +1177,176 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       isAuthenticated(req, res, next);
     });
-  }, async (req: any, res) => {
+  }, upload.single("file"), async (req: any, res) => {
     try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
       const userId = req.user.claims.sub;
-      const { chatConversations } = await import("@shared/schema");
+      
+      const documentData = {
+        name: req.body.name || req.file.originalname,
+        description: req.body.description || "",
+        fileName: req.file.originalname,
+        filePath: req.file.path,
+        fileSize: req.file.size,
+        mimeType: req.file.mimetype,
+        categoryId: req.body.categoryId ? parseInt(req.body.categoryId) : null,
+        userId,
+        isPublic: req.body.isPublic === "true",
+      };
 
-      const conversations = await db
-        .select({
-          id: chatConversations.id,
-          title: chatConversations.title,
-          createdAt: chatConversations.createdAt,
-        })
-        .from(chatConversations)
-        .where(eq(chatConversations.userId, userId))
-        .orderBy(sql`${chatConversations.createdAt} desc`)
-        .limit(50);
+      const document = await storage.createDocument(documentData);
 
-      res.json(conversations);
-    } catch (error) {
-      console.error("Error fetching conversations:", error);
-      res.status(500).json({ message: "Failed to fetch conversations" });
-    }
-  });
-
-  app.post("/api/chat/conversations", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { title } = req.body;
-      const { chatConversations } = await import("@shared/schema");
-
-      const [conversation] = await db
-        .insert(chatConversations)
-        .values({
-          userId,
-          title: title || `Chat ${new Date().toLocaleDateString()}`,
-        })
-        .returning();
-
-      res.json(conversation);
-    } catch (error) {
-      console.error("Error creating conversation:", error);
-      res.status(500).json({ message: "Failed to create conversation" });
-    }
-  });
-
-  app.get("/api/chat/conversations/:conversationId/messages", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const conversationId = parseInt(req.params.conversationId);
-      const { chatMessages, chatConversations } = await import("@shared/schema");
-
-      // Verify conversation belongs to user
-      const [conversation] = await db
-        .select()
-        .from(chatConversations)
-        .where(
-          and(
-            eq(chatConversations.id, conversationId),
-            eq(chatConversations.userId, userId)
-          )
-        )
-        .limit(1);
-
-      if (!conversation) {
-        return res.status(404).json({ message: "Conversation not found" });
-      }
-
-      const messages = await db
-        .select({
-          id: chatMessages.id,
-          role: chatMessages.role,
-          content: chatMessages.content,
-          createdAt: chatMessages.createdAt,
-        })
-        .from(chatMessages)
-        .where(eq(chatMessages.conversationId, conversationId))
-        .orderBy(chatMessages.createdAt);
-
-      res.json(messages);
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-      res.status(500).json({ message: "Failed to fetch messages" });
-    }
-  });
-
-  app.post("/api/chat/conversations/:conversationId/messages", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const conversationId = parseInt(req.params.conversationId);
-      const { role, content } = req.body;
-      const { chatMessages, chatConversations } = await import("@shared/schema");
-
-      // Verify conversation belongs to user
-      const [conversation] = await db
-        .select()
-        .from(chatConversations)
-        .where(
-          and(
-            eq(chatConversations.id, conversationId),
-            eq(chatConversations.userId, userId)
-          )
-        )
-        .limit(1);
-
-      if (!conversation) {
-        return res.status(404).json({ message: "Conversation not found" });
-      }
-
-      const [message] = await db
-        .insert(chatMessages)
-        .values({
-          conversationId,
-          role,
-          content,
-        })
-        .returning();
-
-      res.json(message);
-    } catch (error) {
-      console.error("Error creating message:", error);
-      res.status(500).json({ message: "Failed to create message" });
-    }
-  });
-
-  // Add the direct chat messages endpoint that frontend is calling
-  app.post("/api/chat/messages", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { message, conversationId } = req.body;
-
-      console.log("📨 Chat message request full payload:", { 
-        userId, 
-        conversationId, 
-        message: message,
-        messageType: typeof message,
-        messageLength: message?.length,
-        conversationIdType: typeof conversationId,
-        fullBody: req.body
-      });
-
-      // Enhanced validation with detailed error messages
-      if (!message || message.trim() === "") {
-        console.log("❌ Message validation failed:", { message, type: typeof message });
-        return res.status(400).json({ 
-          message: "Message is required and cannot be empty",
-          details: { message: message, messageType: typeof message }
-        });
-      }
-
-      if (!conversationId) {
-        console.log("❌ ConversationId validation failed:", { conversationId, type: typeof conversationId });
-        return res.status(400).json({ 
-          message: "Conversation ID is required",
-          details: { conversationId: conversationId, conversationIdType: typeof conversationId }
-        });
-      }
-
-      const { chatMessages, chatConversations } = await import("@shared/schema");
-
-      // Verify conversation belongs to user
-      const [conversation] = await db
-        .select()
-        .from(chatConversations)
-        .where(
-          and(
-            eq(chatConversations.id, conversationId),
-            eq(chatConversations.userId, userId)
-          )
-        )
-        .limit(1);
-
-      if (!conversation) {
-        return res.status(404).json({ message: "Conversation not found" });
-      }
-
-      // Add user message
-      const [userMessage] = await db
-        .insert(chatMessages)
-        .values({
-          conversationId,
-          role: "user",
-          content: message,
-        })
-        .returning();
-
-      // Generate AI response using existing chat functionality
-      try {
-        // Check if documentId is specified in request body
-        const { documentId } = req.body;
-        let userDocuments;
-        let specificDocumentId;
-
-        if (documentId) {
-          // If documentId specified, get only that document
-          console.log(`📄 Chat: Restricting to document ID ${documentId}`);
-          const singleDoc = await storage.getDocumentById(documentId, userId);
-          if (!singleDoc) {
-            return res.status(404).json({ message: "Document not found" });
-          }
-          userDocuments = [singleDoc];
-          specificDocumentId = documentId;
-        } else {
-          // Get all user's documents for context
-          console.log(`📄 Chat: Using all user documents`);
-          userDocuments = await storage.getDocuments(userId, { limit: 100 });
-          specificDocumentId = undefined;
+      // Process document in background
+      processDocument(document.id, document.filePath, document.mimeType).catch(
+        (error) => {
+          console.error(`Background processing failed for document ${document.id}:`, error);
         }
+      );
 
+      res.status(201).json(document);
+    } catch (error) {
+      // Clean up uploaded file if document creation fails
+      if (req.file) {
+        fsSync.unlink(req.file.path, (unlinkError) => {
+          if (unlinkError) {
+            console.error("Error cleaning up uploaded file:", unlinkError);
+          }
+        });
+      }
+
+      console.error("Error uploading document:", error);
+      res.status(500).json({ message: "Failed to upload document" });
+    }
+  });
+
+  // Update document
+  app.put("/api/documents/:id", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const documentId = parseInt(req.params.id);
+      
+      if (isNaN(documentId)) {
+        return res.status(400).json({ message: "Invalid document ID" });
+      }
+
+      const updateData = {
+        name: req.body.name,
+        description: req.body.description,
+        categoryId: req.body.categoryId ? parseInt(req.body.categoryId) : null,
+        isPublic: req.body.isPublic,
+        isFavorite: req.body.isFavorite,
+      };
+
+      const document = await storage.updateDocument(documentId, userId, updateData);
+      
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      res.json(document);
+    } catch (error) {
+      console.error("Error updating document:", error);
+      res.status(500).json({ message: "Failed to update document" });
+    }
+  });
+
+  // Delete document
+  app.delete("/api/documents/:id", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const documentId = parseInt(req.params.id);
+      
+      if (isNaN(documentId)) {
+        return res.status(400).json({ message: "Invalid document ID" });
+      }
+
+      const success = await storage.deleteDocument(documentId, userId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      res.status(500).json({ message: "Failed to delete document" });
+    }
+  });
+
+  // ============================
+  // CHAT ROUTES
+  // ============================
+
+  // Chat message endpoint
+  app.post("/api/chat/message", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { message, channelType = "web", channelId = "default", agentId } = req.body;
+
+      if (!message || !message.trim()) {
+        return res.status(400).json({ message: "Message content is required" });
+      }
+
+      // Store user message
+      const userMessageData = {
+        userId,
+        channelType,
+        channelId,
+        messageType: "user" as const,
+        content: message.trim(),
+        agentId: agentId ? parseInt(agentId) : undefined,
+      };
+
+      const userMessage = await storage.createChatMessage(userMessageData);
+
+      try {
+        // Generate AI response
         const aiResponse = await generateChatResponse(
-          message,
-          userDocuments,
-          specificDocumentId,  // Pass the specific document ID
-          'hybrid',            // Use hybrid search
-          0.4,                // keywordWeight
-          0.6                 // vectorWeight
+          message, 
+          userId, 
+          channelType, 
+          channelId,
+          agentId ? parseInt(agentId) : undefined
         );
 
-        // Add AI response
-        const [aiMessage] = await db
-          .insert(chatMessages)
-          .values({
-            conversationId,
-            role: "assistant", 
-            content: aiResponse,
-          })
-          .returning();
+        // Store AI message
+        const aiMessageData = {
+          userId,
+          channelType,
+          channelId,
+          messageType: "assistant" as const,
+          content: aiResponse,
+          agentId: agentId ? parseInt(agentId) : undefined,
+        };
+
+        const aiMessage = await storage.createChatMessage(aiMessageData);
 
         console.log("✅ Chat response generated successfully");
         res.json({ userMessage, aiMessage });
@@ -2152,7 +1361,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Agent Console Routes
+  // ============================
+  // AGENT CONSOLE ROUTES
+  // ============================
+
   app.get("/api/agent-console/users", (req: any, res: any, next: any) => {
     // Try Microsoft auth first, then fallback to Replit auth
     isMicrosoftAuthenticated(req, res, (err: any) => {
@@ -2200,7 +1412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json([]);
       }
 
-      const messages = await storage.getChatHistory(userId, channelType, channelId, agentId ? parseInt(agentId as string) : 0);
+      const messages = await storage.getChatHistory(userId as string, channelType as string, channelId as string, agentId ? parseInt(agentId as string) : 0);
 
       // Ensure we always return an array
       const messageArray = Array.isArray(messages) ? messages : [];
