@@ -7,7 +7,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect } from "react";
 import Sidebar from "@/components/Layout/Sidebar";
 import TopBar from "@/components/TopBar";
-import DocumentCard from "@/components/DocumentCard";
+import DocumentCard from "@/components/Documents/DocumentCard";
 import SearchBar from "@/components/SearchBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -187,7 +187,19 @@ export default function SearchPage() {
                     {/* Results */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {searchResults.results.map((doc: any) => (
-                        <DocumentCard key={doc.id} document={doc} />
+                        <DocumentCard 
+                          key={doc.id} 
+                          document={{
+                            id: doc.id,
+                            name: doc.name,
+                            description: doc.description,
+                            mimeType: doc.mimeType || 'application/octet-stream',
+                            fileSize: doc.fileSize || 0,
+                            tags: doc.tags || [],
+                            isFavorite: doc.isFavorite || false,
+                            createdAt: doc.createdAt || new Date().toISOString()
+                          }} 
+                        />
                       ))}
                     </div>
                   </div>
