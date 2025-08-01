@@ -46,9 +46,7 @@ export default function Documents() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchFileName, setSearchFileName] = useState(true);
-  const [searchKeyword, setSearchKeyword] = useState(true);
-  const [searchMeaning, setSearchMeaning] = useState(false); // Default unchecked for speed
+  const [searchType, setSearchType] = useState<"keyword" | "semantic" | "hybrid">("hybrid");
   const [sortBy, setSortBy] = useState("newest");
   const [filterCategories, setFilterCategories] = useState<string[]>([]);
   const [filterTags, setFilterTags] = useState<string[]>([]);
@@ -65,8 +63,6 @@ export default function Documents() {
     const searchParam = urlParams.get('search');
     if (searchParam) {
       setSearchQuery(searchParam);
-      setCurrentSearchQuery(searchParam);
-      setHasSearched(true);
     }
   }, []);
 
@@ -91,18 +87,12 @@ export default function Documents() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  const [hasSearched, setHasSearched] = useState(false);
-  const [currentSearchQuery, setCurrentSearchQuery] = useState("");
-  const [currentSearchFileName, setCurrentSearchFileName] = useState(true);
-  const [currentSearchKeyword, setCurrentSearchKeyword] = useState(true);
-  const [currentSearchMeaning, setCurrentSearchMeaning] = useState(false);
-
-  // Enhanced search with checkbox-based search types
+  // Enhanced search with semantic capabilities  
   const { data: documents, isLoading: documentsLoading, error: documentsError } = useQuery({
-    queryKey: ["/api/documents/search", currentSearchQuery, currentSearchFileName, currentSearchKeyword, currentSearchMeaning, hasSearched],
+    queryKey: ["/api/documents/search", searchQuery, searchType],
     queryFn: async () => {
       try {
-        if (!hasSearched || !currentSearchQuery.trim()) {
+        if (!searchQuery.trim()) {
           const response = await fetch("/api/documents");
           if (!response.ok) {
             throw new Error(`${response.status}: ${response.statusText}`);
@@ -110,84 +100,33 @@ export default function Documents() {
           return await response.json();
         }
 
-        // Determine search type based on checkbox combinations
-        let searchType = "keyword"; // Default fallback
-        if (currentSearchFileName && currentSearchKeyword && currentSearchMeaning) {
-          searchType = "document-priority"; // All three enabled
-        } else if (currentSearchFileName && currentSearchKeyword && !currentSearchMeaning) {
-          searchType = "keyword-name-priority"; // Name + keyword only (faster, no vector search)
-        } else if (currentSearchKeyword && currentSearchMeaning && !currentSearchFileName) {
-          searchType = "hybrid"; // Content search with both keyword and semantic
-        } else if (currentSearchMeaning && !currentSearchKeyword && !currentSearchFileName) {
-          searchType = "semantic"; // Semantic only
-        } else if (currentSearchKeyword && !currentSearchMeaning && !currentSearchFileName) {
-          searchType = "keyword"; // Keyword only
-        } else if (currentSearchFileName && !currentSearchKeyword && !currentSearchMeaning) {
-          searchType = "filename-only"; // File name only
-        }
-
         const params = new URLSearchParams({
-          query: currentSearchQuery,
+          query: searchQuery,
           type: searchType,
-          massSelectionPercentage: "0.6",
-          searchFileName: currentSearchFileName.toString(),
-          searchKeyword: currentSearchKeyword.toString(),
-          searchMeaning: currentSearchMeaning.toString()
+          massSelectionPercentage: "0.3"
         });
 
-        console.log(`Frontend search: "${currentSearchQuery}" with fileName:${currentSearchFileName}, keyword:${currentSearchKeyword}, meaning:${currentSearchMeaning} (type: ${searchType})`);
+        console.log(`Frontend search: "${searchQuery}" (${searchType}) with 30% mass selection`);
         const response = await fetch(`/api/documents/search?${params}`);
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Search API error:", response.status, errorText);
-          throw new Error(`Search failed: ${response.status} ${response.statusText}`);
+          throw new Error(`${response.status}: ${response.statusText}`);
         }
         const results = await response.json();
-        console.log(`Frontend received ${Array.isArray(results) ? results.length : 'non-array'} search results`);
-        
-        // Ensure we always return an array
-        return Array.isArray(results) ? results : [];
+        console.log(`Frontend received ${results.length} search results`);
+        return results;
       } catch (error) {
         console.error("Document query failed:", error);
         toast({
-          title: "Search Error",
-          description: error.message || "Failed to load documents. Please try again.",
+          title: "Error",
+          description: "Failed to load documents. Please try again.",
           variant: "destructive",
         });
-        // Return empty array instead of throwing to prevent UI crashes
-        return [];
+        throw error;
       }
     },
-    retry: (failureCount, error) => {
-      // Retry up to 2 times for network errors, but not for auth errors
-      return failureCount < 2 && !error.message?.includes('401');
-    },
+    retry: false,
     enabled: isAuthenticated,
   }) as { data: Array<any>; isLoading: boolean; error: any };
-
-  const handleSearch = () => {
-    // Validate that at least one search type is selected (filename is always enabled)
-    if (!searchKeyword && !searchMeaning) {
-      toast({
-        title: "Search Options Required",
-        description: "Please select at least one content search option: Content (keyword) or Content (meaning).",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setCurrentSearchQuery(searchQuery);
-    setCurrentSearchFileName(searchFileName);
-    setCurrentSearchKeyword(searchKeyword);
-    setCurrentSearchMeaning(searchMeaning);
-    setHasSearched(true);
-  };
-
-  const handleClearSearch = () => {
-    setSearchQuery("");
-    setCurrentSearchQuery("");
-    setHasSearched(false);
-  };
 
   const { data: categories } = useQuery({
     queryKey: ["/api/categories"],
@@ -221,12 +160,11 @@ export default function Documents() {
   }
 
   // Get unique AI categories and tags for filtering
-  const documentsArray = Array.isArray(documents) ? documents : [];
-  const aiCategories = documentsArray.length > 0 ? Array.from(new Set(documentsArray.map((doc: any) => doc.aiCategory).filter(Boolean))) : [];
-  const allTags = documentsArray.length > 0 ? Array.from(new Set(documentsArray.flatMap((doc: any) => doc.tags || []))) : [];
+  const aiCategories = documents ? Array.from(new Set(documents.map((doc: any) => doc.aiCategory).filter(Boolean))) : [];
+  const allTags = documents ? Array.from(new Set(documents.flatMap((doc: any) => doc.tags || []))) : [];
 
   // Filter and sort documents with multi-select support
-  const filteredDocuments = documentsArray.length > 0 ? documentsArray.filter((doc: any) => {
+  const filteredDocuments = documents ? documents.filter((doc: any) => {
     // Apply category filters
     const matchesCategory = filterCategories.length === 0 || 
                            filterCategories.includes(doc.aiCategory) ||
@@ -244,19 +182,6 @@ export default function Documents() {
 
     return matchesCategory && matchesTag && matchesFavorites;
   }).sort((a: any, b: any) => {
-    // For searches with file name enabled, preserve the backend ordering which prioritizes by score
-    if (hasSearched && currentSearchFileName) {
-      // If documents have equal importance (same search result position), sort by recency
-      const aIndex = documentsArray.indexOf(a);
-      const bIndex = documentsArray.indexOf(b);
-      if (aIndex !== bIndex) {
-        return aIndex - bIndex; // Preserve backend order
-      }
-      // If same position (shouldn't happen), fall back to recency
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    }
-
-    // For other search types or when no search is applied, use the selected sort option
     switch (sortBy) {
       case "newest":
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -270,18 +195,6 @@ export default function Documents() {
         return 0;
     }
   }) : [];
-
-  // Handle errors with user-friendly messages
-  useEffect(() => {
-    if (documentsError && !documentsLoading) {
-      console.error("Documents error:", documentsError);
-      toast({
-        title: "Failed to Load Documents",
-        description: "There was an issue loading your documents. Please refresh the page or try again later.",
-        variant: "destructive",
-      });
-    }
-  }, [documentsError, documentsLoading, toast]);
 
   return (
     <DashboardLayout>
@@ -306,68 +219,20 @@ export default function Documents() {
                         placeholder="Search documents, content, or tags..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                         className="pl-10"
                       />
                     </div>
 
-                    <Button 
-                      onClick={handleSearch}
-                      disabled={!searchQuery.trim()}
-                      className="bg-primary text-white hover:bg-blue-700"
-                    >
-                      <Search className="w-4 h-4 mr-2" />
-                      Search
-                    </Button>
-
-                    {hasSearched && (
-                      <Button 
-                        variant="outline"
-                        onClick={handleClearSearch}
-                      >
-                        Clear
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* Search Options Row */}
-                  <div className="flex items-center gap-6">
-                    <div className="text-sm font-medium text-slate-600">Search in:</div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="searchFileName"
-                        checked={searchFileName}
-                        onCheckedChange={setSearchFileName}
-                        disabled={true}
-                        className="opacity-50"
-                      />
-                      <label htmlFor="searchFileName" className="text-sm text-slate-500 cursor-not-allowed">
-                        File name (always enabled)
-                      </label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="searchKeyword"
-                        checked={searchKeyword}
-                        onCheckedChange={setSearchKeyword}
-                      />
-                      <label htmlFor="searchKeyword" className="text-sm text-slate-700 cursor-pointer">
-                        Content (keyword)
-                      </label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="searchMeaning"
-                        checked={searchMeaning}
-                        onCheckedChange={setSearchMeaning}
-                      />
-                      <label htmlFor="searchMeaning" className="text-sm text-slate-700 cursor-pointer">
-                        Content (meaning)
-                      </label>
-                      <span className="text-xs text-slate-500 ml-1">
-                        {searchMeaning ? "search by meaning enabled – may take longer" : "search by meaning disabled – faster"}
-                      </span>
-                    </div>
+                    <Select value={searchType} onValueChange={(value: "keyword" | "semantic" | "hybrid") => setSearchType(value)}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="keyword">Keyword Search</SelectItem>
+                        <SelectItem value="semantic">AI Semantic Search</SelectItem>
+                        <SelectItem value="hybrid">Hybrid Search</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Filters Row */}
@@ -559,14 +424,11 @@ export default function Documents() {
                   <div className="text-center py-16 text-slate-500">
                     <FileText className="w-16 h-16 mx-auto mb-4 text-slate-300" />
                     <h3 className="text-lg font-medium text-slate-800 mb-2">
-                      {hasSearched && currentSearchQuery ? "No documents found" : 
-                       filterCategories.length > 0 || filterTags.length > 0 || showFavoritesOnly ? "No documents found" : 
-                       "No documents yet"}
+                      {searchQuery || filterCategories.length > 0 || filterTags.length > 0 || showFavoritesOnly ? "No documents found" : "No documents yet"}
                     </h3>
                     <p className="text-sm text-slate-500 mb-6">
-                      {hasSearched && currentSearchQuery ? "Try adjusting your search terms or search type" :
-                       filterCategories.length > 0 || filterTags.length > 0 || showFavoritesOnly
-                        ? "Try adjusting your filter criteria"
+                      {searchQuery || filterCategories.length > 0 || filterTags.length > 0 || showFavoritesOnly
+                        ? "Try adjusting your search or filter criteria"
                         : "Upload your first document to get started with AI-powered knowledge management"
                       }
                     </p>
