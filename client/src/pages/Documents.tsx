@@ -231,14 +231,21 @@ export default function Documents() {
       }
     });
 
-    // Convert map to array and sort by similarity
-    const processedResults = Array.from(documentMap.values()).sort((a, b) => b.similarity - a.similarity);
+    // Convert map to array and sort by chunk count first (most chunks = higher rank), then by similarity
+    const processedResults = Array.from(documentMap.values()).sort((a, b) => {
+      // Primary sort: by number of chunks (more chunks = higher rank)
+      if (a.topChunks.length !== b.topChunks.length) {
+        return b.topChunks.length - a.topChunks.length;
+      }
+      // Secondary sort: by similarity (higher similarity = higher rank)
+      return b.similarity - a.similarity;
+    });
 
     console.log(`Post-processing: Consolidated ${rawSearchResults.results.length} chunks into ${processedResults.length} documents`);
 
-    // Debug: Log first few processed results
+    // Debug: Log first few processed results with chunk count ranking
     processedResults.slice(0, 3).forEach((doc, index) => {
-      console.log(`${index + 1}. Doc ${doc.id}: ${doc.name} (${doc.topChunks.length} chunks, best similarity: ${doc.similarity.toFixed(3)})`);
+      console.log(`${index + 1}. Doc ${doc.id}: ${doc.name} (${doc.topChunks.length} chunks, best similarity: ${doc.similarity.toFixed(3)}) - Rank by chunk count!`);
       console.log(`   Content preview: ${doc.content.substring(0, 150)}...`);
     });
 
