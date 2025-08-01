@@ -437,7 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
-      
+
       if (!userId) {
         return res.status(401).json({ message: "User ID required" });
       }
@@ -469,7 +469,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user?.claims?.sub;
       const agentId = parseInt(req.params.id);
-      
+
       if (!userId) {
         return res.status(401).json({ message: "User ID required" });
       }
@@ -1633,16 +1633,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`🔍 FULL QUERY:`, JSON.stringify(req.query, null, 2));
     console.log(`👤 USER: ${req.user?.claims?.sub || 'UNKNOWN'}`);
     console.log("=".repeat(80));
-    
+
     try {
       const userId = req.user.claims.sub;
-      
+
       // Validate user ID first
       if (!userId) {
         console.log("❌ NO USER ID - UNAUTHORIZED");
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
-      
+
       const { query, type = "document-priority", massSelectionPercentage = "0.3" } = req.query;
 
       console.log(`\n🎯 EXTRACTED SEARCH PARAMETERS:`);
@@ -1650,7 +1650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`   Type: ${type}`);
       console.log(`   Mass %: ${massSelectionPercentage}`);
       console.log(`   User ID: ${userId}`);
-      
+
       console.log(`\n🔍 SEARCH REQUEST: "${query}" (${type}) for user ${userId}`);
       console.log(`📋 SEARCH PARAMS:`, {
         query: query,
@@ -1668,11 +1668,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!query || query.trim() === "") {
         console.log(`\n📂 NO SEARCH QUERY - RETURNING ALL DOCUMENTS`);
-        
+
         // Return all documents if no search query
         const documents = await storage.getDocuments(userId, { limit: 1000 });
         console.log(`📊 Retrieved ${documents.length} total documents`);
-        
+
         // Log first few documents to check their structure
         if (documents.length > 0) {
           console.log(`📄 SAMPLE DOCUMENT STRUCTURE:`, {
@@ -1683,14 +1683,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               hasValidId: documents[0].id && !isNaN(Number(documents[0].id))
             }
           });
-          
+
           // Log first 3 documents with full details
           console.log(`📋 FIRST 3 DOCUMENTS:`);
           documents.slice(0, 3).forEach((doc, idx) => {
             console.log(`   ${idx + 1}. ID: ${doc.id}, Name: ${doc.name}, Valid: ${doc.id && !isNaN(Number(doc.id))}`);
           });
         }
-        
+
         console.log(`✅ RETURNING ALL DOCUMENTS: ${documents.length} results`);
         return res.json({ results: documents, count: documents.length });
       }
@@ -1771,19 +1771,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`\n✅ SEARCH EXECUTION COMPLETE!`);
       console.log(`📊 RESULTS SUMMARY: ${results.length} results for "${query}"`);
-      
+
       // Log detailed result analysis
       if (results.length > 0) {
         console.log(`\n📊 DETAILED SEARCH RESULTS ANALYSIS:`);
         console.log(`   🔢 Total results: ${results.length}`);
-        
+
         // Check for problematic document IDs
         const invalidResults = results.filter(r => !r.id || r.id === 'NaN' || isNaN(Number(r.id)));
         const validResults = results.filter(r => r.id && r.id !== 'NaN' && !isNaN(Number(r.id)));
-        
+
         console.log(`   ✅ Valid IDs: ${validResults.length}`);
         console.log(`   ❌ Invalid IDs: ${invalidResults.length}`);
-        
+
         if (invalidResults.length > 0) {
           console.log(`\n❌ INVALID DOCUMENT IDs FOUND:`);
           invalidResults.forEach((result, idx) => {
@@ -1791,32 +1791,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`      🔍 Full invalid result:`, JSON.stringify(result, null, 2));
           });
         }
-        
+
         if (validResults.length > 0) {
           console.log(`\n📄 SAMPLE VALID RESULTS (first 5):`);
           validResults.slice(0, 5).forEach((result, idx) => {
             console.log(`   ${idx + 1}. ID: ${result.id} (${typeof result.id}), Name: "${result.name}", Similarity: ${result.similarity || 'N/A'}`);
           });
         }
-        
+
         // Check if we're returning chunk data vs document data
         const hasChunkData = results.some(r => r.content && r.content.length < 5000 && (r.chunkIndex !== undefined || r.name?.includes('Chunk')));
         const hasDocumentData = results.some(r => !r.chunkIndex && r.name && !r.name.includes('Chunk'));
-        
+
         console.log(`\n🔍 RESULT TYPE ANALYSIS:`);
         console.log(`   📄 Has document-like data: ${hasDocumentData}`);
         console.log(`   🧩 Has chunk-like data: ${hasChunkData}`);
-        
+
         if (hasChunkData) {
           console.log(`   ⚠️  WARNING: Search results contain chunk data - this WILL cause frontend issues!`);
         }
-        
+
         // Log all result IDs for debugging
         console.log(`\n🆔 ALL RESULT IDs:`);
         results.forEach((result, idx) => {
           console.log(`   ${idx + 1}. "${result.id}" (${typeof result.id}) - Valid: ${result.id && result.id !== 'NaN' && !isNaN(Number(result.id))}`);
         });
-        
+
       } else {
         console.log(`\n📭 NO SEARCH RESULTS FOUND for query: "${query}"`);
         console.log(`   This could mean:`);
@@ -1824,13 +1824,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`   - Search service failed`);
         console.log(`   - Database connection issue`);
       }
-      
+
       console.log(`\n🚀 SENDING RESPONSE TO CLIENT`);
       console.log(`   Response structure: { results: Array(${results.length}), count: ${results.length} }`);
       console.log("=".repeat(80));
       console.log("🏁 SEARCH API ENDPOINT COMPLETE");
       console.log("=".repeat(80) + "\n");
-      
+
       res.json({ results: results, count: results.length });
     } catch (error) {
       console.log("\n" + "🚨".repeat(40));
@@ -1844,7 +1844,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🛠️  ERROR STACK:`);
       console.log(error.stack);
       console.log("🚨".repeat(40) + "\n");
-      
+
       res.status(500).json({ message: "Search failed", error: error.message });
     }
   });
@@ -1871,7 +1871,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const document = await storage.getDocumentById(documentId, userId);
-      
+
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
       }
@@ -1897,7 +1897,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { chatConversations } = await import("@shared/schema");
-      
+
       const conversations = await db
         .select({
           id: chatConversations.id,
@@ -2131,7 +2131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userDocuments = await storage.getDocuments(userId, { limit: 100 });
           specificDocumentId = undefined;
         }
-        
+
         const aiResponse = await generateChatResponse(
           message,
           userDocuments,
@@ -2140,7 +2140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           0.4,                // keywordWeight
           0.6                 // vectorWeight
         );
-        
+
         // Add AI response
         const [aiMessage] = await db
           .insert(chatMessages)
@@ -2160,7 +2160,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error("Error in chat message endpoint:", error);
+    </previous_generation>
+Continue generation, starting immediately with the first character that follows, do not add extra characters or extra new lines, do not wrap your generation in markdown ```.
+```text
       res.status(500).json({ message: "Failed to process chat message" });
+    }
+  });
+
+  // Agent Console Routes
+  app.get("/api/agent-console/users", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const { search, channelFilter } = req.query;
+      console.log("🔍 Agent Console: Fetching users with filters:", { search, channelFilter });
+
+      const chatUsers = await storage.getActiveAgentConsoleUsers(search, channelFilter);
+
+      // Ensure we always return an array
+      const userArray = Array.isArray(chatUsers) ? chatUsers : [];
+      console.log("📋 Agent Console: Returning", userArray.length, "users");
+
+      res.json(userArray);
+    } catch (error) {
+      console.error("❌ Error fetching agent console users:", error);
+      // Return empty array on error instead of error response
+      res.json([]);
+    }
+  });
+
+  // Get conversation messages
+  app.get("/api/agent-console/conversation", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const { userId, channelType, channelId, agentId } = req.query;
+      console.log("🔍 Agent Console: Fetching conversation for:", { userId, channelType, channelId, agentId });
+
+      if (!userId || !channelType || !channelId) {
+        console.log("❌ Missing required parameters");
+        return res.json([]);
+      }
+
+      const messages = await storage.getChatHistory(userId, channelType, channelId, parseInt(agentId) || undefined);
+
+      // Ensure we always return an array
+      const messageArray = Array.isArray(messages) ? messages : [];
+      console.log("📨 Agent Console: Returning", messageArray.length, "messages");
+
+      res.json(messageArray);
+    } catch (error) {
+      console.error("❌ Error fetching conversation:", error);
+      // Return empty array on error instead of error response
+      res.json([]);
     }
   });
 

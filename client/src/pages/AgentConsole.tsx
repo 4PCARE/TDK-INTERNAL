@@ -93,67 +93,132 @@ export default function AgentConsole() {
   ];
 
   // Fetch active users
-  const { data: users = [], refetch: refetchUsers } = useQuery({
+  const { data: users = [], refetch: refetchUsers, isLoading: usersLoading, error: usersError } = useQuery({
     queryKey: ["/api/agent-console/users", searchQuery, channelFilter],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (searchQuery) params.append("search", searchQuery);
-      if (channelFilter !== "all") params.append("channelFilter", channelFilter);
+      try {
+        const params = new URLSearchParams();
+        if (searchQuery) params.append("search", searchQuery);
+        if (channelFilter !== "all") params.append("channelFilter", channelFilter);
 
-      console.log("🔍 Agent Console: Fetching users with params:", Object.fromEntries(params));
-      const response = await fetch(`/api/agent-console/users?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch users");
-      const data = await response.json();
-      console.log("📋 Agent Console: Filtered users response:", data.length, "users");
-      return data;
+        console.log("🔍 Agent Console: Fetching users with params:", Object.fromEntries(params));
+        const response = await fetch(`/api/agent-console/users?${params}`, {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        if (!response.ok) {
+          console.error("❌ Agent Console: Users API failed:", response.status, response.statusText);
+          throw new Error(`Failed to fetch users: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Ensure we always return an array
+        if (!Array.isArray(data)) {
+          console.error("❌ Agent Console: Users API returned non-array:", data);
+          return [];
+        }
+        
+        console.log("📋 Agent Console: Filtered users response:", data.length, "users");
+        return data;
+      } catch (error) {
+        console.error("❌ Agent Console: Error fetching users:", error);
+        return [];
+      }
     },
     refetchInterval: 10000, // Refetch every 10 seconds
-  }) as { data: AgentUser[]; refetch: () => void };
+    retry: 3,
+    retryDelay: 1000,
+  }) as { data: AgentUser[]; refetch: () => void; isLoading: boolean; error: any };
 
   // Fetch conversation messages
-  const { data: messages = [], refetch: refetchMessages } = useQuery({
+  const { data: messages = [], refetch: refetchMessages, isLoading: messagesLoading, error: messagesError } = useQuery({
     queryKey: ["/api/agent-console/conversation", selectedUser?.userId, selectedUser?.channelId, selectedUser?.agentId],
     queryFn: async () => {
       if (!selectedUser) return [];
 
-      const params = new URLSearchParams({
-        userId: selectedUser.userId,
-        channelType: selectedUser.channelType,
-        channelId: selectedUser.channelId,
-        agentId: selectedUser.agentId.toString(),
-      });
+      try {
+        const params = new URLSearchParams({
+          userId: selectedUser.userId,
+          channelType: selectedUser.channelType,
+          channelId: selectedUser.channelId,
+          agentId: selectedUser.agentId.toString(),
+        });
 
-      console.log("🔍 Fetching conversation with params:", Object.fromEntries(params));
-      const response = await fetch(`/api/agent-console/conversation?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch conversation");
-      const data = await response.json();
-      console.log("📨 Conversation response:", data);
-      return data;
+        console.log("🔍 Fetching conversation with params:", Object.fromEntries(params));
+        const response = await fetch(`/api/agent-console/conversation?${params}`, {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        if (!response.ok) {
+          console.error("❌ Conversation API failed:", response.status, response.statusText);
+          throw new Error(`Failed to fetch conversation: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Ensure we always return an array
+        if (!Array.isArray(data)) {
+          console.error("❌ Conversation API returned non-array:", data);
+          return [];
+        }
+        
+        console.log("📨 Conversation response:", data);
+        return data;
+      } catch (error) {
+        console.error("❌ Error fetching conversation:", error);
+        return [];
+      }
     },
     enabled: !!selectedUser?.userId && !!selectedUser?.channelId,
-  }) as { data: Message[]; refetch: () => void };
+    retry: 3,
+    retryDelay: 1000,
+  }) as { data: Message[]; refetch: () => void; isLoading: boolean; error: any };
 
   // Fetch conversation summary
-  const { data: summary } = useQuery({
+  const { data: summary, isLoading: summaryLoading, error: summaryError } = useQuery({
     queryKey: ["/api/agent-console/summary", selectedUser?.userId, selectedUser?.channelId],
     queryFn: async () => {
       if (!selectedUser) return null;
 
-      const params = new URLSearchParams({
-        userId: selectedUser.userId,
-        channelType: selectedUser.channelType,
-        channelId: selectedUser.channelId,
-      });
+      try {
+        const params = new URLSearchParams({
+          userId: selectedUser.userId,
+          channelType: selectedUser.channelType,
+          channelId: selectedUser.channelId,
+        });
 
-      console.log("📊 Fetching summary with params:", Object.fromEntries(params));
-      const response = await fetch(`/api/agent-console/summary?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch summary");
-      const data = await response.json();
-      console.log("📊 Summary response:", data);
-      return data;
+        console.log("📊 Fetching summary with params:", Object.fromEntries(params));
+        const response = await fetch(`/api/agent-console/summary?${params}`, {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        if (!response.ok) {
+          console.error("❌ Summary API failed:", response.status, response.statusText);
+          return null; // Return null instead of throwing for summary
+        }
+        
+        const data = await response.json();
+        console.log("📊 Summary response:", data);
+        return data;
+      } catch (error) {
+        console.error("❌ Error fetching summary:", error);
+        return null;
+      }
     },
     enabled: !!selectedUser?.userId && !!selectedUser?.channelId,
-  }) as { data: ConversationSummary | null };
+    retry: 2,
+    retryDelay: 1000,
+  }) as { data: ConversationSummary | null; isLoading: boolean; error: any };
 
   // WebSocket connection for real-time updates
   useEffect(() => {
@@ -287,6 +352,47 @@ export default function AgentConsole() {
   const uniqueChannelTypes = allChannelTypes.filter(channelType => 
     users.some(u => u.channelType === channelType.id)
   );
+
+  // Show loading state
+  if (usersLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-120px)]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading Agent Console...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Show error state
+  if (usersError) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-120px)]">
+          <div className="text-center">
+            <div className="text-red-500 mb-4">
+              <MessageSquare className="w-16 h-16 mx-auto mb-2" />
+              <h2 className="text-xl font-semibold">Failed to Load Agent Console</h2>
+              <p className="text-gray-600 mt-2">
+                Unable to connect to the agent console service.
+              </p>
+            </div>
+            <div className="space-x-2">
+              <Button onClick={() => refetchUsers()}>
+                Retry
+              </Button>
+              <Button onClick={() => window.location.reload()} variant="outline">
+                Refresh Page
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -480,7 +586,20 @@ export default function AgentConsole() {
                 <div className="flex-1 flex flex-col min-h-0">
                   <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
                     <div className="space-y-4">
-                      {messages.length === 0 ? (
+                      {messagesLoading ? (
+                        <div className="text-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                          <p className="text-sm text-gray-500">Loading messages...</p>
+                        </div>
+                      ) : messagesError ? (
+                        <div className="text-center py-8">
+                          <MessageCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
+                          <p className="text-sm text-red-500">Failed to load messages</p>
+                          <Button onClick={() => refetchMessages()} size="sm" className="mt-2">
+                            Retry
+                          </Button>
+                        </div>
+                      ) : messages.length === 0 ? (
                         <div className="text-center py-8">
                           <MessageCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                           <p className="text-sm text-gray-500">No messages yet</p>
