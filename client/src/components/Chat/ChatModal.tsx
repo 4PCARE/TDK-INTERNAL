@@ -60,12 +60,10 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: async (messageContent: string) => {
-      if (!currentConversationId) throw new Error("No conversation");
-
+    mutationFn: async (content: string) => {
       const response = await apiRequest("POST", "/api/chat/messages", {
         conversationId: currentConversationId,
-        message: messageContent,
+        message: content, // ✅ Changed from 'content' to 'message'
       });
       return response.json();
     },

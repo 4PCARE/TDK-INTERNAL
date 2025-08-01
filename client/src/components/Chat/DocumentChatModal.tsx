@@ -76,7 +76,7 @@ export default function DocumentChatModal({
     mutationFn: async (content: string) => {
       const response = await apiRequest("POST", "/api/chat/messages", {
         conversationId: currentConversationId,
-        content,
+        message: content, // ✅ Changed from 'content' to 'message'
         documentId: documentId, // Pass the specific document ID
       });
       return response.json();
