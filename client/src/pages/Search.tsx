@@ -96,22 +96,16 @@ export default function SearchPage() {
           firstResult: data?.results?.[0]
         });
 
-        // Validate response format
-        if (Array.isArray(data)) {
-          // Direct array response
-          console.log(`✅ Setting ${data.length} search results (direct array)`);
-          setRawSearchResultsState(data);
-          return data;
-        } else if (data && Array.isArray(data.results)) {
-          // Object with results property
+        // API always returns { results: [...], count: number } format
+        if (data && Array.isArray(data.results)) {
           console.log(`✅ Setting search response with ${data.results.length} results`);
           console.log(`📋 Sample results:`, data.results.slice(0, 3));
           setRawSearchResultsState(data);
           return data;
         } else {
           console.error('Frontend received invalid search results format:', data);
-          setRawSearchResultsState([]);
-          return [];
+          setRawSearchResultsState({ results: [], count: 0 });
+          return { results: [], count: 0 };
         }
       } catch (error) {
         console.error("Search API error:", error);
@@ -134,22 +128,17 @@ export default function SearchPage() {
       hasRawResults: !!rawSearchResults,
       isArray: Array.isArray(rawSearchResults),
       hasResults: !!rawSearchResults?.results,
-      resultCount: Array.isArray(rawSearchResults) ? rawSearchResults.length : rawSearchResults?.results?.length || 0,
+      resultCount: rawSearchResults?.results?.length || 0,
       searchType: searchType
     });
 
-    // Handle both array and object formats
-    let resultsArray = [];
-    if (Array.isArray(rawSearchResults)) {
-      resultsArray = rawSearchResults;
-    } else if (rawSearchResults?.results && Array.isArray(rawSearchResults.results)) {
-      resultsArray = rawSearchResults.results;
-    }
-
-    if (!resultsArray || resultsArray.length === 0) {
-      console.log(`❌ NO RAW SEARCH RESULTS TO PROCESS`);
+    // The API always returns { results: [...], count: number } format
+    if (!rawSearchResults?.results || !Array.isArray(rawSearchResults.results)) {
+      console.log(`❌ NO VALID SEARCH RESULTS TO PROCESS`);
       return [];
     }
+
+    const resultsArray = rawSearchResults.results;
 
     console.log(`📊 RAW SEARCH RESULTS:`, {
       count: resultsArray.length,
@@ -164,13 +153,6 @@ export default function SearchPage() {
     if (searchType === "keyword") {
       // For keyword search, return results array directly
       console.log(`🔤 KEYWORD SEARCH: Returning results as-is`);
-
-      // Log any problematic IDs
-      const invalidIds = resultsArray.filter((r: any) => !r.id || r.id === 'NaN' || isNaN(Number(r.id)));
-      if (invalidIds.length > 0) {
-        console.log(`❌ FOUND ${invalidIds.length} INVALID IDs IN KEYWORD RESULTS:`, invalidIds.map((r: any) => ({ id: r.id, name: r.name })));
-      }
-
       return resultsArray;
     }
 
@@ -198,7 +180,6 @@ export default function SearchPage() {
       // Validate the extracted document ID
       if (!docId || docId === 'NaN' || isNaN(Number(docId))) {
         console.log(`❌ INVALID DOCUMENT ID EXTRACTED: ${docId} from original ID: ${result.id}`);
-        console.log(`   Result details:`, JSON.stringify(result, null, 2));
         return; // Skip this result
       }
 
@@ -209,12 +190,6 @@ export default function SearchPage() {
           id: docId, // Use document ID
           name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk label
         };
-
-        console.log(`   Setting document ${docId}:`, {
-          cleanedId: cleanResult.id,
-          cleanedName: cleanResult.name,
-          similarity: cleanResult.similarity
-        });
 
         documentMap.set(docId, cleanResult);
       }
@@ -227,12 +202,6 @@ export default function SearchPage() {
       processedCount: processedResults.length,
       documentMapSize: documentMap.size
     });
-
-    // Final validation of processed results
-    const finalInvalidIds = processedResults.filter((r: any) => !r.id || r.id === 'NaN' || isNaN(Number(r.id)));
-    if (finalInvalidIds.length > 0) {
-      console.log(`❌ FINAL RESULTS STILL CONTAIN ${finalInvalidIds.length} INVALID IDs:`, finalInvalidIds);
-    }
 
     return processedResults;
   }, [rawSearchResults, searchType]);
@@ -339,72 +308,21 @@ export default function SearchPage() {
 
                     {/* Results */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {(() => {
-                        console.log(`🎨 RENDERING SEARCH RESULTS:`, {
-                          totalResults: searchResults?.length || 0,
-                          searchType: searchType,
-                          query: searchQuery
-                        });
-
-                        if (!searchResults) {
-                          console.log(`❌ NO RESULTS TO RENDER`);
-                          return null;
-                        }
-
-                        // Log all results before filtering
-                        console.log(`📋 ALL RESULTS BEFORE FILTERING:`);
-                        searchResults.forEach((doc: any, index: number) => {
-                          console.log(`   ${index + 1}. ID: ${doc.id} (${typeof doc.id}), Name: ${doc.name}, Valid: ${doc.id && doc.id !== 'NaN' && !isNaN(Number(doc.id))}`);
-                        });
-
-                        const filteredResults = searchResults.filter((doc: any) => {
-                          const isValid = doc.id && doc.id !== 'NaN' && !isNaN(Number(doc.id));
-                          if (!isValid) {
-                            console.log(`❌ FILTERING OUT INVALID DOCUMENT:`, {
-                              id: doc.id,
-                              name: doc.name,
-                              type: typeof doc.id,
-                              reason: !doc.id ? 'no id' : doc.id === 'NaN' ? 'id is NaN string' : 'id is not a number'
-                            });
-                          }
-                          return isValid;
-                        });
-
-                        console.log(`✅ FILTERED RESULTS: ${filteredResults.length}/${searchResults.length} valid documents`);
-
-                        return filteredResults.map((doc: any) => {
-                          console.log(`🎯 RENDERING DOCUMENT CARD:`, {
-                            id: doc.id,
-                            name: doc.name,
-                            cardData: {
-                              id: doc.id,
-                              name: doc.name,
-                              description: doc.description,
-                              mimeType: doc.mimeType || 'application/octet-stream',
-                              fileSize: doc.fileSize || 0,
-                              tags: doc.tags || [],
-                              isFavorite: doc.isFavorite || false,
-                              createdAt: doc.createdAt || new Date().toISOString()
-                            }
-                          });
-
-                          return (
-                            <DocumentCard 
-                              key={doc.id} 
-                              document={{
-                                id: doc.id,
-                                name: doc.name,
-                                description: doc.description,
-                                mimeType: doc.mimeType || 'application/octet-stream',
-                                fileSize: doc.fileSize || 0,
-                                tags: doc.tags || [],
-                                isFavorite: doc.isFavorite || false,
-                                createdAt: doc.createdAt || new Date().toISOString()
-                              }} 
-                            />
-                          );
-                        });
-                      })()}
+                      {searchResults.map((doc: any) => (
+                      <DocumentCard 
+                        key={doc.id} 
+                        document={{
+                          id: doc.id,
+                          name: doc.name,
+                          description: doc.description || doc.summary,
+                          mimeType: doc.mimeType || 'application/octet-stream',
+                          fileSize: doc.fileSize || 0,
+                          tags: doc.tags || [],
+                          isFavorite: doc.isFavorite || false,
+                          createdAt: doc.createdAt || new Date().toISOString()
+                        }} 
+                      />
+                    ))}
                     </div>
                   </div>
                 ) : hasSearched ? (
