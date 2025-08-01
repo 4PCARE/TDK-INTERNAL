@@ -1534,7 +1534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { query, type = "document-priority", massSelectionPercentage = "0.3" } = req.query;
+      const { q: query, type = "document-priority", massSelectionPercentage = "0.3" } = req.query;
 
       console.log(`🔍 SEARCH REQUEST: "${query}" (${type}) for user ${userId}`);
 
@@ -1542,7 +1542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Return all documents if no search query
         const documents = await storage.getDocuments(userId, { limit: 1000 });
         console.log(`📂 No search query, returning ${documents.length} documents`);
-        return res.json(documents);
+        return res.json({ results: documents, count: documents.length });
       }
 
       let results = [];
@@ -1608,7 +1608,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`✅ SEARCH COMPLETE: Returning ${results.length} results for "${query}"`);
-      res.json(results);
+      res.json({ results: results, count: results.length });
     } catch (error) {
       console.error("Error in document search:", error);
       res.status(500).json({ message: "Search failed", error: error.message });
