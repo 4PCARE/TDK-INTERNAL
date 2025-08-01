@@ -24,31 +24,12 @@ interface DocumentCardProps {
 }
 
 export default function DocumentCard({ document }: DocumentCardProps) {
-  const [isOpen, setIsOpen] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showEndorsementDialog, setShowEndorsementDialog] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch document details when modal opens - with validation
-  const { data: documentDetails, isLoading: detailsLoading } = useQuery({
-    queryKey: [`/api/documents/${document.id}`],
-    queryFn: async () => {
-      // Validate document ID before making request
-      if (!document.id || document.id === 'NaN' || isNaN(Number(document.id))) {
-        throw new Error(`Invalid document ID: ${document.id}`);
-      }
-
-      console.log(`📄 Fetching document details for ID: ${document.id}, User: ${(window as any).currentUser?.id || 'unknown'}`);
-      const response = await fetch(`/api/documents/${document.id}`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch document details: ${response.status}`);
-      }
-      return response.json();
-    },
-    enabled: isOpen && !!document.id && document.id !== 'NaN' && !isNaN(Number(document.id)),
-    retry: false,
-  });
+  // No need to fetch document details - search results should already include all necessary data
 
   const toggleFavoriteMutation = useMutation({
     mutationFn: async () => {
@@ -130,39 +111,15 @@ export default function DocumentCard({ document }: DocumentCardProps) {
     toggleFavoriteMutation.mutate();
   };
 
-  const handleViewDetails = async (e: React.MouseEvent) => {
+  const handleViewDetails = (e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log(`🔍 Document Details clicked for document ID: ${document.id}`);
-    console.log(`📄 Document name: ${document.name}`);
-
-    // Validate document ID
-    if (!document.id || isNaN(Number(document.id))) {
-      console.error(`❌ Invalid document ID: ${document.id}`);
-      toast({
-        title: "Error",
-        description: "Invalid document ID",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      console.log(`🚀 Making API request to: /api/documents/${document.id}`);
-
-      // Use the apiRequest utility that other parts of the app use
-      const data = await apiRequest('GET', `/api/documents/${document.id}`);
-
-      console.log(`✅ Document details fetched successfully:`, data);
-      console.log(`📝 Document content preview:`, JSON.stringify(data, null, 2).substring(0, 200) + '...');
-
-    } catch (error) {
-      console.error(`❌ Error fetching document details:`, error);
-      toast({
-        title: "Error",
-        description: `Failed to load document details: ${error.message}`,
-        variant: "destructive",
-      });
-    }
+    console.log(`🔍 Document Details for: ${document.name}`);
+    console.log(`📄 Document data:`, JSON.stringify(document, null, 2));
+    
+    toast({
+      title: "Document Details",
+      description: `Viewing details for: ${document.name}`,
+    });
   };
 
   return (
