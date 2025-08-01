@@ -383,6 +383,12 @@ export async function generateChatResponse(
   massSelectionPercentage?: number
 ): Promise<string> {
   try {
+    // Defensive guard: ensure documents is always an array
+    if (!Array.isArray(documents)) {
+      console.warn(`⚠️ generateChatResponse: documents is not an array (type: ${typeof documents}), using empty array`);
+      documents = [];
+    }
+
     let relevantContent = "";
 
     // Use the same hybrid search system as Line OA bot
@@ -437,22 +443,33 @@ export async function generateChatResponse(
         console.log(`📄 DOCUMENT BOT: Used ${documentContents.length}/${searchResults.length} chunks (${totalChars} chars)`);
       } else {
         console.log("📄 DOCUMENT BOT: No hybrid search results found, using fallback document content");
+        if (Array.isArray(documents) && documents.length > 0) {
+          relevantContent = documents
+            .map(doc => doc.content || doc.summary || '')
+            .filter(content => content.length > 0)
+            .slice(0, 2)
+            .map(content => content.substring(0, 15000))
+            .join("\n\n");
+        } else {
+          console.log("📄 DOCUMENT BOT: No documents available for fallback content");
+          relevantContent = "";
+        }
+      }
+    } catch (searchError) {
+      console.error(`📄 DOCUMENT BOT: Smart hybrid search failed:`, searchError);
+      console.log("📄 DOCUMENT BOT: Falling back to document content");
+      
+      if (Array.isArray(documents) && documents.length > 0) {
         relevantContent = documents
           .map(doc => doc.content || doc.summary || '')
           .filter(content => content.length > 0)
           .slice(0, 2)
           .map(content => content.substring(0, 15000))
           .join("\n\n");
+      } else {
+        console.log("📄 DOCUMENT BOT: No valid documents array for fallback content");
+        relevantContent = "I don't have access to any documents to help answer your question.";
       }
-    } catch (searchError) {
-      console.error(`📄 DOCUMENT BOT: Smart hybrid search failed:`, searchError);
-      console.log("📄 DOCUMENT BOT: Falling back to document content");
-      relevantContent = documents
-        .map(doc => doc.content || doc.summary || '')
-        .filter(content => content.length > 0)
-        .slice(0, 2)
-        .map(content => content.substring(0, 15000))
-        .join("\n\n");
     }
 
     const systemMessage = `You are an AI assistant helping users with their document management system. You have access to the user's documents and can answer questions about them, help with searches, provide summaries, and assist with document organization.

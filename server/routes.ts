@@ -1987,7 +1987,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate AI response using existing chat functionality
       try {
-        const aiResponse = await generateChatResponse(message, userId);
+        // Get user's documents for context
+        const userDocuments = await storage.getDocuments(userId, { limit: 100 });
+        
+        const aiResponse = await generateChatResponse(
+          message,
+          userDocuments,  // Pass documents array instead of userId
+          undefined,      // No specific document ID
+          'hybrid',       // Use hybrid search
+          0.4,           // keywordWeight
+          0.6            // vectorWeight
+        );
         
         // Add AI response
         const [aiMessage] = await db
