@@ -1740,6 +1740,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Message content is required" });
       }
 
+      // Validate documentId - it should be a valid integer or null
+      let validDocumentId = null;
+      if (documentId) {
+        const parsedDocumentId = parseInt(documentId);
+        if (!isNaN(parsedDocumentId) && parsedDocumentId > 0) {
+          validDocumentId = parsedDocumentId;
+        }
+      }
+
       // Create user message
       const userMessage = {
         id: Date.now(),
@@ -1749,14 +1758,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       try {
-        // Generate AI response - pass documentId if provided for document-specific chat
+        // Generate AI response - pass validDocumentId if provided for document-specific chat
         const aiResponse = await generateChatResponse(
           message, 
           userId, 
           "web", 
           "default",
           undefined, // agentId
-          documentId // Pass documentId for context
+          validDocumentId // Pass validated documentId for context
         );
 
         // Create AI message
