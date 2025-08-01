@@ -24,9 +24,7 @@ interface ChatMessage {
 
 export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
   const [message, setMessage] = useState("");
-  const [currentConversationId, setCurrentConversationId] = useState<
-    number | null
-  >(null);
+  const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -69,7 +67,7 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
       return response.json();
     },
     onMutate: async (content: string) => {
-      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      // Cancel any outgoing refetches
       await queryClient.cancelQueries({
         queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
       });
@@ -81,9 +79,9 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
         "messages",
       ]);
 
-      // Optimistically update to the new value
+      // Optimistically update with user message
       const optimisticMessage: ChatMessage = {
-        id: Date.now(), // Temporary ID
+        id: Date.now(),
         role: "user",
         content: content,
         createdAt: new Date().toISOString(),
@@ -94,22 +92,16 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
         (old: ChatMessage[] | undefined) => [...(old || []), optimisticMessage]
       );
 
-      // Return a context with the previous and optimistic message
       return { previousMessages, optimisticMessage };
     },
     onSuccess: () => {
       setMessage("");
       queryClient.invalidateQueries({
-        queryKey: [
-          "/api/chat/conversations",
-          currentConversationId,
-          "messages",
-        ],
+        queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
       });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
     },
     onError: (error, content: string, context: any) => {
-      // Rollback on error
       if (context?.previousMessages) {
         queryClient.setQueryData(
           ["/api/chat/conversations", currentConversationId, "messages"],
@@ -161,21 +153,23 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
       minHeight={500}
       className="flex flex-col h-full"
     >
+      {/* Header */}
       <div className="flex items-center space-x-2 mb-4 flex-shrink-0">
         <Bot className="w-5 h-5 text-blue-600" />
         <span className="text-sm text-gray-600">พูดคุยกับ AI Assistant</span>
       </div>
 
-      {/* Chat Messages - Scrollable Container */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
-          <div className="space-y-4 py-4">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-              </div>
-            ) : messages.length === 0 ? (
-              <div className="flex flex-col space-y-2">
+      {/* Chat Container */}
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* Messages Area - Scrollable */}
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full px-4" ref={scrollAreaRef}>
+            <div className="space-y-4 py-4">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                </div>
+              ) : messages.length === 0 ? (
                 <div className="flex items-start space-x-3">
                   <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     <Bot className="w-5 h-5 text-blue-600" />
@@ -188,11 +182,9 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
                     <p className="text-xs text-gray-500 mt-1">Just now</p>
                   </div>
                 </div>
-              </div>
-            ) : (
-              messages.map((msg: ChatMessage) => (
-                <div key={msg.id} className="flex flex-col space-y-2">
-                  <div className="flex items-start space-x-3">
+              ) : (
+                messages.map((msg: ChatMessage) => (
+                  <div key={msg.id} className="flex items-start space-x-3">
                     <div
                       className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                         msg.role === "assistant" ? "bg-blue-100" : "bg-gray-100"
@@ -205,7 +197,7 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-gray-900 whitespace-pre-wrap leading-normal">
+                      <div className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
                         {msg.content}
                         {msg.role === "assistant" && (
                           <div className="mt-2">
@@ -239,11 +231,11 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
                       )}
                     </div>
                   </div>
-                </div>
-              ))
-            )}
-            {sendMessageMutation.isPending && (
-              <div className="flex flex-col space-y-2">
+                ))
+              )}
+              
+              {/* Loading indicator */}
+              {sendMessageMutation.isPending && (
                 <div className="flex items-start space-x-3">
                   <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     <Bot className="w-5 h-5 text-blue-600" />
@@ -262,18 +254,16 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        </ScrollArea>
+              )}
+              
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+        </div>
 
-        {/* Chat Input - Fixed at Bottom */}
+        {/* Input Area - Fixed at Bottom */}
         <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-white">
-          <form
-            onSubmit={handleSendMessage}
-            className="flex items-center space-x-3"
-          >
+          <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
             <Input
               type="text"
               placeholder="ถามคำถามเกี่ยวกับเอกสารของคุณ..."
