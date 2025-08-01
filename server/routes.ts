@@ -1760,6 +1760,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Chat conversation routes
+  app.get("/api/chat/conversations", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { chatConversations } = await import("@shared/schema");
+      
+      const conversations = await db
+        .select({
+          id: chatConversations.id,
+          title: chatConversations.title,
+          createdAt: chatConversations.createdAt,
+        })
+        .from(chatConversations)
+        .where(eq(chatConversations.userId, userId))
+        .orderBy(sql`${chatConversations.createdAt} desc`)
+        .limit(50);
+
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+      res.status(500).json({ message: "Failed to fetch conversations" });
+    }
+  });
+
+  app.post("/api/chat/conversations", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { title } = req.body;
+      const { chatConversations } = await import("@shared/schema");
+
+      const [conversation] = await db
+        .insert(chatConversations)
+        .values({
+          userId,
+          title: title || `Chat ${new Date().toLocaleDateString()}`,
+        })
+        .returning();
+
+      res.json(conversation);
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      res.status(500).json({ message: "Failed to create conversation" });
+    }
+  });
+
+  app.get("/api/chat/conversations/:conversationId/messages", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const conversationId = parseInt(req.params.conversationId);
+      const { chatMessages, chatConversations } = await import("@shared/schema");
+
+      // Verify conversation belongs to user
+      const [conversation] = await db
+        .select()
+        .from(chatConversations)
+        .where(
+          and(
+            eq(chatConversations.id, conversationId),
+            eq(chatConversations.userId, userId)
+          )
+        )
+        .limit(1);
+
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+
+      const messages = await db
+        .select({
+          id: chatMessages.id,
+          role: chatMessages.role,
+          content: chatMessages.content,
+          createdAt: chatMessages.createdAt,
+        })
+        .from(chatMessages)
+        .where(eq(chatMessages.conversationId, conversationId))
+        .orderBy(chatMessages.createdAt);
+
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  app.post("/api/chat/conversations/:conversationId/messages", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const conversationId = parseInt(req.params.conversationId);
+      const { role, content } = req.body;
+      const { chatMessages, chatConversations } = await import("@shared/schema");
+
+      // Verify conversation belongs to user
+      const [conversation] = await db
+        .select()
+        .from(chatConversations)
+        .where(
+          and(
+            eq(chatConversations.id, conversationId),
+            eq(chatConversations.userId, userId)
+          )
+        )
+        .limit(1);
+
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+
+      const [message] = await db
+        .insert(chatMessages)
+        .values({
+          conversationId,
+          role,
+          content,
+        })
+        .returning();
+
+      res.json(message);
+    } catch (error) {
+      console.error("Error creating message:", error);
+      res.status(500).json({ message: "Failed to create message" });
+    }
+  });
+
   // Create WebSocket server for real-time communication
   const server = createServer(app);
   return server;
