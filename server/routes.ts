@@ -1543,7 +1543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       let results = [];
-      const massPercentage = parseFloat(massSelectionPercentage);
+      const massPercentage = parseFloat(massSelectionPercentage as string) || 0.3;
 
       switch (type) {
         case "document-priority":
@@ -1557,7 +1557,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const { documentNamePrioritySearchService } = await import('./services/documentNamePrioritySearch');
           results = await documentNamePrioritySearchService.searchDocuments(
-            query,
+            query as string,
             userId,
             {
               limit: 100,
@@ -1571,7 +1571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         case "keyword":
           results = await semanticSearchServiceV2.searchDocuments(
-            query,
+            query as string,
             userId,
             Math.min(50, Math.floor(100 * massPercentage)),
             undefined,
@@ -1582,7 +1582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         case "semantic":
           results = await semanticSearchServiceV2.searchDocuments(
-            query,
+            query as string,
             userId,
             Math.min(50, Math.floor(100 * massPercentage)),
             undefined,
@@ -1594,7 +1594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         case "hybrid":
         default:
           results = await semanticSearchServiceV2.searchDocuments(
-            query,
+            query as string,
             userId,
             Math.min(50, Math.floor(100 * massPercentage)),
             undefined,
