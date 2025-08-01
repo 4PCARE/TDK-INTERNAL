@@ -112,6 +112,44 @@ export default function Documents() {
           return Array.isArray(data) ? data : [];
         }
 
+        // Build search URL with proper query parameters
+        const searchParams = new URLSearchParams({
+          q: currentSearchQuery.trim(),
+          type: "keyword-name-priority",
+          fileName: currentSearchFileName.toString(),
+          keyword: currentSearchKeyword.toString(),
+          meaning: currentSearchMeaning.toString()
+        });
+
+        console.log(`Frontend search: "${currentSearchQuery}" with fileName:${currentSearchFileName}, keyword:${currentSearchKeyword}, meaning:${currentSearchMeaning} (type: keyword-name-priority)`);
+
+        const response = await fetch(`/api/documents/search?${searchParams}`);
+        if (!response.ok) {
+          console.error("Search API error:", response.status, await response.text());
+          throw new Error(`${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log("Search response:", data);
+        
+        // Handle both old format {results: []} and new format []
+        if (data && typeof data === 'object' && Array.isArray(data.results)) {
+          return data.results;
+        } else if (Array.isArray(data)) {
+          return data;
+        } else {
+          console.warn("Frontend received non-array search results");
+          return [];
+        }
+      } catch (error) {
+        console.error("Document query failed:", error);
+        throw error;
+      }
+    },
+    enabled: isAuthenticated,
+    retry: false,
+  }) as { data: Array<any>; isLoading: boolean; error: any };
+
         // Determine search type based on checkbox combinations
         let searchType = "keyword"; // Default fallback
         if (currentSearchFileName && currentSearchKeyword && currentSearchMeaning) {
