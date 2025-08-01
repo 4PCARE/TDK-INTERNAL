@@ -1134,7 +1134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           gte(documents.createdAt, today)
         ));
 
-      // Calculate approximate storage used (sum of file sizes)
+      // Calculate storage used (sum of file sizes in bytes, convert to MB)
       const [storageResult] = await db
         .select({ 
           total: sql<number>`COALESCE(sum(${documents.fileSize}), 0)` 
@@ -1142,10 +1142,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(documents)
         .where(eq(documents.userId, userId));
 
+      // Get AI queries count from chat history (this week)
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      
+      const [aiQueriesResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(chatHistory)
+        .where(and(
+          eq(chatHistory.userId, userId),
+          eq(chatHistory.messageType, 'user'),
+          gte(chatHistory.createdAt, oneWeekAgo)
+        ));
+
+      // Convert storage from bytes to MB (divide by 1024 * 1024)
+      const storageInBytes = Number(storageResult?.total || 0);
+      const storageInMB = Math.round(storageInBytes / (1024 * 1024));
+
       const stats = {
         totalDocuments: Number(docCount?.count || 0),
         processedToday: Number(todayCount?.count || 0),
-        storageUsed: Number(storageResult?.total || 0)
+        storageUsed: storageInMB,
+        aiQueries: Number(aiQueriesResult?.count || 0)
       };
 
       console.log(`📊 User stats for ${userId.substring(0, 8)}...:`, stats);
@@ -1156,7 +1174,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         totalDocuments: 0,
         processedToday: 0,
-        storageUsed: 0
+        storageUsed: 0,
+        aiQueries: 0
       });
     }
   });
