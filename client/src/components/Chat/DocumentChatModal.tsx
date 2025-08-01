@@ -182,16 +182,16 @@ export default function DocumentChatModal({
         </span>
       </div>
 
-      {/* Chat Messages - Scrollable Container */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
-          <div className="space-y-4 py-4"></div>
+      {/* Chat Messages - Properly Scrollable Container */}
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-4 min-h-full flex flex-col">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
               </div>
             ) : messages.length === 0 ? (
-              <div className="flex flex-col space-y-2">
+              <div className="flex-1 flex flex-col justify-center space-y-6">
                 <div className="flex items-start space-x-3">
                   <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     <Bot className="w-5 h-5 text-green-600" />
@@ -208,11 +208,14 @@ export default function DocumentChatModal({
                     <p className="text-xs text-gray-500 mt-1">เมื่อสักครู่</p>
                   </div>
                 </div>
+                <div className="text-center py-4">
+                  <p className="text-xs text-gray-400">พิมพ์คำถามของคุณด้านล่าง...</p>
+                </div>
               </div>
             ) : (
-              messages.map((msg: ChatMessage) => (
-                <div key={msg.id} className="flex flex-col space-y-2">
-                  <div className="flex items-start space-x-3">
+              <>
+                {messages.map((msg: ChatMessage) => (
+                  <div key={msg.id} className="flex items-start space-x-3">
                     <div
                       className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                         msg.role === "assistant" ? "bg-green-100" : "bg-blue-100"
@@ -286,33 +289,36 @@ export default function DocumentChatModal({
                       )}
                     </div>
                   </div>
-                </div>
-              ))
-            )}
-            {sendMessageMutation.isPending && (
-              <div className="flex flex-col space-y-2">
-                <div className="flex items-start space-x-3">
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2">
-                      <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
-                      <div
-                        className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                        style={{ animationDelay: "0.1s" }}
-                      ></div>
-                      <div
-                        className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                        style={{ animationDelay: "0.2s" }}
-                      ></div>
+                ))}
+                
+                {/* Loading indicator */}
+                {sendMessageMutation.isPending && (
+                  <div className="flex items-start space-x-3">
+                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Bot className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
+                        <div
+                          className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
+                          style={{ animationDelay: "0.1s" }}
+                        ></div>
+                        <div
+                          className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
+                          style={{ animationDelay: "0.2s" }}
+                        ></div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                )}
+              </>
             )}
+            
             <div ref={messagesEndRef} />
-        </ScrollArea>
+          </div>
+        </div>
+      </div>
 
         {/* Chat Input - Fixed at Bottom */}
         <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-white">
