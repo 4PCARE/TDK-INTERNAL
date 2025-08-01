@@ -112,7 +112,7 @@ export default function Documents() {
   };
 
   // Enhanced search with semantic capabilities
-  const { data: documents, isLoading: documentsLoading, error: documentsError } = useQuery({
+  const { data: rawSearchResults, isLoading: documentsLoading, error: documentsError } = useQuery({
     queryKey: ["/api/documents/search", searchQuery, searchFileName, searchKeyword, searchMeaning],
     queryFn: async () => {
       try {
