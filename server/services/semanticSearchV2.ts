@@ -65,7 +65,9 @@ export class SemanticSearchServiceV2 {
     userId: string,
     options: Omit<SearchOptions, "searchType">
   ): Promise<SearchResult[]> {
-    const { limit = 20, threshold = this.similarityThreshold } = options;
+    // Use a more flexible threshold for semantic search - if we have results, use the best ones
+    const { limit = 20 } = options;
+    let threshold = options.threshold || this.similarityThreshold;
 
     try {
       // Use vector service for semantic search
@@ -83,6 +85,14 @@ export class SemanticSearchServiceV2 {
         return []; // Semantic search should return empty when no vector data
       }
 
+      // Adaptive threshold: if no results pass the default threshold, use a lower one
+      const maxSimilarity = vectorResults.length > 0 ? vectorResults[0].similarity : 0;
+      if (maxSimilarity < threshold && vectorResults.length > 0) {
+        // Use 60% of the max similarity or 0.15, whichever is higher
+        threshold = Math.max(maxSimilarity * 0.6, 0.15);
+        console.log(`SemanticSearchV2: Adapting threshold from ${this.similarityThreshold} to ${threshold.toFixed(3)} (max similarity: ${maxSimilarity.toFixed(3)})`);
+      }
+
       // Get document details from storage for metadata
       const uniqueDocIds = [...new Set(vectorResults.map(result => 
         parseInt(result.document.metadata.originalDocumentId || result.document.id)
@@ -98,12 +108,16 @@ export class SemanticSearchServiceV2 {
         const chunkIndex = vectorResult.document.chunkIndex ?? 0;
         const doc = docMap.get(docId);
 
-        if (doc && vectorResult.similarity >= threshold) {
-          // Apply filters
-          if (options.categoryFilter && options.categoryFilter !== "all" && 
-              doc.aiCategory !== options.categoryFilter) {
-            continue;
-          }
+        if (doc) {
+          console.log(`SemanticSearchV2: Doc ${docId} chunk ${chunkIndex} - similarity: ${vectorResult.similarity.toFixed(3)}, threshold: ${threshold.toFixed(3)}`);
+          
+          if (vectorResult.similarity >= threshold) {
+            // Apply filters
+            if (options.categoryFilter && options.categoryFilter !== "all" && 
+                doc.aiCategory !== options.categoryFilter) {
+              console.log(`SemanticSearchV2: Doc ${docId} filtered out by category filter`);
+              continue;
+            }
 
           if (options.dateRange) {
             const docDate = new Date(doc.createdAt);
@@ -143,6 +157,11 @@ export class SemanticSearchServiceV2 {
             updatedAt: doc.updatedAt?.toISOString() || null,
             userId: doc.userId
           });
+          } else {
+            console.log(`SemanticSearchV2: Doc ${docId} chunk ${chunkIndex} filtered out by similarity threshold (${vectorResult.similarity.toFixed(3)} < ${threshold.toFixed(3)})`);
+          }
+        } else {
+          console.log(`SemanticSearchV2: Doc ${docId} not found in document map`);
         }
       }
 
