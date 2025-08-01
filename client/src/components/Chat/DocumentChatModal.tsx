@@ -81,8 +81,38 @@ export default function DocumentChatModal({
       });
       return response.json();
     },
+    onMutate: async (content: string) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({
+        queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
+      });
+
+      // Snapshot the previous value
+      const previousMessages = queryClient.getQueryData([
+        "/api/chat/conversations",
+        currentConversationId,
+        "messages",
+      ]);
+
+      // Optimistically update to the new value
+      const optimisticMessage: ChatMessage = {
+        id: Date.now(), // Temporary ID
+        role: "user",
+        content: content,
+        createdAt: new Date().toISOString(),
+      };
+
+      queryClient.setQueryData(
+        ["/api/chat/conversations", currentConversationId, "messages"],
+        (old: ChatMessage[] | undefined) => [...(old || []), optimisticMessage]
+      );
+
+      // Return a context with the previous and optimistic message
+      return { previousMessages, optimisticMessage };
+    },
     onSuccess: () => {
       setMessage("");
+      // Refetch to get the actual server response
       queryClient.invalidateQueries({
         queryKey: [
           "/api/chat/conversations",
@@ -90,16 +120,15 @@ export default function DocumentChatModal({
           "messages",
         ],
       });
-      // Refetch messages immediately
-      queryClient.refetchQueries({
-        queryKey: [
-          "/api/chat/conversations",
-          currentConversationId,
-          "messages",
-        ],
-      });
     },
-    onError: (error: Error) => {
+    onError: (error: Error, content: string, context: any) => {
+      // Rollback on error
+      if (context?.previousMessages) {
+        queryClient.setQueryData(
+          ["/api/chat/conversations", currentConversationId, "messages"],
+          context.previousMessages
+        );
+      }
       toast({
         title: "Error",
         description: error.message || "Failed to send message.",
@@ -120,48 +149,12 @@ export default function DocumentChatModal({
     }
   }, [isOpen]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() || sendMessageMutation.isPending) return;
 
     const userMessage = message.trim();
-    console.log("Sending message:", { message: userMessage, conversationId: currentConversationId });
-
-    setMessage("");
-    //setIsSending(true);  The original code doesn't track "isSending" state at the component level
-
-    try {
-      // Send message to backend with proper validation
-      const payload = {
-        message: userMessage,
-        conversationId: currentConversationId,
-      };
-
-      console.log("Message payload:", payload);
-
-      //const response = await apiRequest("POST", "/api/chat/messages", payload);
-      sendMessageMutation.mutate(userMessage); // Use the existing mutation
-
-      //if (!response.ok) {
-      //  const errorData = await response.text();
-      //  console.error("API Error:", response.status, errorData);
-      //  throw new Error(`Failed to send message: ${errorData}`);
-      //}
-
-      // Refetch messages to get the AI response
-      //await queryClient.invalidateQueries({
-      //  queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
-      //});
-    } catch (error: any) {
-      console.error("Error sending message:", error);
-      toast({
-        title: "Error",
-        description: `Failed to send message: ${error.message}`,
-        variant: "destructive",
-      });
-    } finally {
-      //setIsSending(false);
-    }
+    sendMessageMutation.mutate(userMessage);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -189,165 +182,167 @@ export default function DocumentChatModal({
         </span>
       </div>
 
-      {/* Chat Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-        <div className="space-y-4 max-w-none">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex flex-col space-y-2 max-w-4xl">
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-5 h-5 text-green-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="p-3 rounded-lg bg-green-50 border border-green-200">
-                    <p className="text-sm text-gray-900 leading-normal">
-                      สวัสดีครับ! ผมสามารถช่วยวิเคราะห์และตอบคำถามเกี่ยวกับเอกสาร
-                      "{documentName}" โดยเฉพาะได้
-                      คุณต้องการทราบอะไรเกี่ยวกับเอกสารนี้บ้างครับ?
-                      ผมจะตอบโดยอิงจากเนื้อหาในเอกสารนี้เท่านั้น
-                    </p>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">เมื่อสักครู่</p>
-                </div>
+      {/* Chat Messages - Scrollable Container */}
+      <div className="flex-1 flex flex-col min-h-0">
+        <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
+          <div className="space-y-4 py-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
               </div>
-            </div>
-          ) : (
-            messages.map((msg: ChatMessage) => (
-              <div key={msg.id} className="flex flex-col space-y-2 max-w-4xl">
+            ) : messages.length === 0 ? (
+              <div className="flex flex-col space-y-2">
                 <div className="flex items-start space-x-3">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      msg.role === "assistant" ? "bg-green-100" : "bg-blue-100"
-                    }`}
-                  >
-                    {msg.role === "assistant" ? (
-                      <Bot className="w-5 h-5 text-green-600" />
-                    ) : (
-                      <User className="w-5 h-5 text-blue-600" />
-                    )}
+                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Bot className="w-5 h-5 text-green-600" />
                   </div>
                   <div className="flex-1 min-w-0">
+                    <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                      <p className="text-sm text-gray-900 leading-normal">
+                        สวัสดีครับ! ผมสามารถช่วยวิเคราะห์และตอบคำถามเกี่ยวกับเอกสาร
+                        "{documentName}" โดยเฉพาะได้
+                        คุณต้องการทราบอะไรเกี่ยวกับเอกสารนี้บ้างครับ?
+                        ผมจะตอบโดยอิงจากเนื้อหาในเอกสารนี้เท่านั้น
+                      </p>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">เมื่อสักครู่</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              messages.map((msg: ChatMessage) => (
+                <div key={msg.id} className="flex flex-col space-y-2">
+                  <div className="flex items-start space-x-3">
                     <div
-                      className={`p-3 rounded-lg ${
-                        msg.role === "assistant"
-                          ? "bg-green-50 border border-green-200"
-                          : "bg-blue-50 border border-blue-200"
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        msg.role === "assistant" ? "bg-green-100" : "bg-blue-100"
                       }`}
                     >
-                      <div className="text-sm text-gray-900 leading-normal markdown-compact">
-                        <ReactMarkdown
-                          components={{
-                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                            ul: ({ children }) => <ul className="mb-2 last:mb-0 ml-4 list-disc">{children}</ul>,
-                            ol: ({ children }) => <ol className="mb-2 last:mb-0 ml-4 list-decimal">{children}</ol>,
-                            li: ({ children }) => <li className="mb-1">{children}</li>,
-                            h1: ({ children }) => <h1 className="text-lg font-semibold mb-2">{children}</h1>,
-                            h2: ({ children }) => <h2 className="text-base font-semibold mb-2">{children}</h2>,
-                            h3: ({ children }) => <h3 className="text-sm font-semibold mb-1">{children}</h3>,
-                            blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-3 mb-2">{children}</blockquote>,
-                            code: ({ children }) => <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">{children}</code>,
-                            pre: ({ children }) => <pre className="bg-gray-100 p-2 rounded mb-2 overflow-x-auto text-xs">{children}</pre>,
-                          }}
-                        >
-                          {msg.content && msg.content.trim()
-                            ? msg.content
-                            : "ข้อความว่างเปล่า"}
-                        </ReactMarkdown>
-                      </div>
+                      {msg.role === "assistant" ? (
+                        <Bot className="w-5 h-5 text-green-600" />
+                      ) : (
+                        <User className="w-5 h-5 text-blue-600" />
+                      )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(msg.createdAt).toLocaleDateString("th-TH", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}{" "}
-                      เวลา{" "}
-                      {new Date(msg.createdAt).toLocaleTimeString("th-TH", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: false,
-                      })}{" "}
-                      น.
-                    </p>
-                    {msg.role === "assistant" && (
-                      <div className="mt-2">
-                        <FeedbackButtons
-                          messageId={msg.id}
-                          userQuery={
-                            messages[
-                              messages.findIndex(
-                                (m: ChatMessage) => m.id === msg.id,
-                              ) - 1
-                            ]?.content || ""
-                          }
-                          assistantResponse={msg.content}
-                          conversationId={currentConversationId!}
-                          documentContext={{ documentId, documentName }}
-                        />
+                    <div className="flex-1 min-w-0">
+                      <div
+                        className={`p-3 rounded-lg ${
+                          msg.role === "assistant"
+                            ? "bg-green-50 border border-green-200"
+                            : "bg-blue-50 border border-blue-200"
+                        }`}
+                      >
+                        <div className="text-sm text-gray-900 leading-normal markdown-compact">
+                          <ReactMarkdown
+                            components={{
+                              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                              ul: ({ children }) => <ul className="mb-2 last:mb-0 ml-4 list-disc">{children}</ul>,
+                              ol: ({ children }) => <ol className="mb-2 last:mb-0 ml-4 list-decimal">{children}</ol>,
+                              li: ({ children }) => <li className="mb-1">{children}</li>,
+                              h1: ({ children }) => <h1 className="text-lg font-semibold mb-2">{children}</h1>,
+                              h2: ({ children }) => <h2 className="text-base font-semibold mb-2">{children}</h2>,
+                              h3: ({ children }) => <h3 className="text-sm font-semibold mb-1">{children}</h3>,
+                              blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-3 mb-2">{children}</blockquote>,
+                              code: ({ children }) => <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">{children}</code>,
+                              pre: ({ children }) => <pre className="bg-gray-100 p-2 rounded mb-2 overflow-x-auto text-xs">{children}</pre>,
+                            }}
+                          >
+                            {msg.content && msg.content.trim()
+                              ? msg.content
+                              : "ข้อความว่างเปล่า"}
+                          </ReactMarkdown>
+                        </div>
                       </div>
-                    )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(msg.createdAt).toLocaleDateString("th-TH", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}{" "}
+                        เวลา{" "}
+                        {new Date(msg.createdAt).toLocaleTimeString("th-TH", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: false,
+                        })}{" "}
+                        น.
+                      </p>
+                      {msg.role === "assistant" && (
+                        <div className="mt-2">
+                          <FeedbackButtons
+                            messageId={msg.id}
+                            userQuery={
+                              messages[
+                                messages.findIndex(
+                                  (m: ChatMessage) => m.id === msg.id,
+                                ) - 1
+                              ]?.content || ""
+                            }
+                            assistantResponse={msg.content}
+                            conversationId={currentConversationId!}
+                            documentContext={{ documentId, documentName }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+            {sendMessageMutation.isPending && (
+              <div className="flex flex-col space-y-2">
+                <div className="flex items-start space-x-3">
+                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Bot className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
+                      <div
+                        className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
+                        style={{ animationDelay: "0.1s" }}
+                      ></div>
+                      <div
+                        className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
+                        style={{ animationDelay: "0.2s" }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
               </div>
-            ))
-          )}
-          {sendMessageMutation.isPending && (
-            <div className="flex flex-col space-y-2 max-w-4xl">
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-5 h-5 text-green-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-2">
-                    <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
-                    <div
-                      className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                      style={{ animationDelay: "0.1s" }}
-                    ></div>
-                    <div
-                      className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                      style={{ animationDelay: "0.2s" }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-      </ScrollArea>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        </ScrollArea>
 
-      {/* Chat Input */}
-      <div className="flex-shrink-0 p-4 border-t border-gray-200">
-        <form
-          onSubmit={handleSendMessage}
-          className="flex items-center space-x-3"
-        >
-          <Input
-            type="text"
-            placeholder={`ถามเกี่ยวกับ "${documentName}"...`}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            disabled={sendMessageMutation.isPending || !currentConversationId}
-            className="flex-1"
-          />
-          <Button
-            type="submit"
-            disabled={
-              !message.trim() ||
-              sendMessageMutation.isPending ||
-              !currentConversationId
-            }
-            className="bg-green-500 hover:bg-green-600"
+        {/* Chat Input - Fixed at Bottom */}
+        <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-white">
+          <form
+            onSubmit={handleSendMessage}
+            className="flex items-center space-x-3"
           >
-            <Send className="w-4 h-4" />
-          </Button>
-        </form>
+            <Input
+              type="text"
+              placeholder={`ถามเกี่ยวกับ "${documentName}"...`}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={sendMessageMutation.isPending || !currentConversationId}
+              className="flex-1"
+            />
+            <Button
+              type="submit"
+              disabled={
+                !message.trim() ||
+                sendMessageMutation.isPending ||
+                !currentConversationId
+              }
+              className="bg-green-500 hover:bg-green-600"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </form>
+        </div>
       </div>
     </ResizableDialog>
   );
