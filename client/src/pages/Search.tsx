@@ -123,7 +123,7 @@ export default function SearchPage() {
   });
 
   // Process search results to show only the most similar chunk per document
-  const searchResults = React.useMemo(() => {
+  const processedSearchResults = React.useMemo(() => {
     console.log(`🔄 PROCESSING SEARCH RESULTS:`, {
       hasRawResults: !!rawSearchResults,
       isArray: Array.isArray(rawSearchResults),
@@ -263,9 +263,9 @@ export default function SearchPage() {
                     <Badge variant={searchType === "keyword" ? "default" : "secondary"}>
                       {searchType === "keyword" ? "Keyword" : "Semantic"}
                     </Badge>
-                    {searchResults && (
+                    {processedSearchResults && (
                       <Badge variant="outline">
-                        {searchResults.length} results
+                        {processedSearchResults.length} results
                       </Badge>
                     )}
                   </div>
@@ -286,7 +286,7 @@ export default function SearchPage() {
                       </span>
                     </div>
                   </div>
-                ) : searchResults && searchResults.length > 0 ? (
+                ) : processedSearchResults && processedSearchResults.length > 0 ? (
                   <div className="space-y-4">
                     {/* Search Info */}
                     <div className="flex items-center space-x-4 text-sm text-slate-500 pb-4 border-b border-slate-200">
@@ -308,7 +308,7 @@ export default function SearchPage() {
 
                     {/* Results */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {searchResults.map((doc: any) => (
+                      {processedSearchResults.map((doc: any) => (
                       <DocumentCard 
                         key={doc.id} 
                         document={{
