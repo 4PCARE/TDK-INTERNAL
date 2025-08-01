@@ -184,137 +184,140 @@ export default function DocumentChatModal({
 
       {/* Chat Messages - Properly Scrollable Container */}
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex-1 overflow-y-auto px-4 py-2">
-          <div className="space-y-4">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex-1 flex flex-col justify-center px-4 py-4">
+            <div className="space-y-4 max-w-2xl mx-auto">
+              <div className="flex items-start space-x-3">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Bot className="w-5 h-5 text-green-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                    <p className="text-sm text-gray-900 leading-normal">
+                      สวัสดีครับ! ผมสามารถช่วยวิเคราะห์และตอบคำถามเกี่ยวกับเอกสาร
+                      "{documentName}" โดยเฉพาะได้
+                      คุณต้องการทราบอะไรเกี่ยวกับเอกสารนี้บ้างครับ?
+                      ผมจะตอบโดยอิงจากเนื้อหาในเอกสารนี้เท่านั้น
+                    </p>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">เมื่อสักครู่</p>
+                </div>
               </div>
-            ) : messages.length === 0 ? (
-              <div className="space-y-4">
+              <div className="text-center py-4">
+                <p className="text-xs text-gray-400">พิมพ์คำถามของคุณด้านล่าง...</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto px-4 py-2">
+            <div className="space-y-4">
+              {messages.map((msg: ChatMessage) => (
+              <div key={msg.id} className="flex items-start space-x-3">
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      msg.role === "assistant" ? "bg-green-100" : "bg-blue-100"
+                    }`}
+                  >
+                    {msg.role === "assistant" ? (
+                      <Bot className="w-5 h-5 text-green-600" />
+                    ) : (
+                      <User className="w-5 h-5 text-blue-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className={`p-3 rounded-lg ${
+                        msg.role === "assistant"
+                          ? "bg-green-50 border border-green-200"
+                          : "bg-blue-50 border border-blue-200"
+                      }`}
+                    >
+                      <div className="text-sm text-gray-900 leading-normal markdown-compact">
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                            ul: ({ children }) => <ul className="mb-2 last:mb-0 ml-4 list-disc">{children}</ul>,
+                            ol: ({ children }) => <ol className="mb-2 last:mb-0 ml-4 list-decimal">{children}</ol>,
+                            li: ({ children }) => <li className="mb-1">{children}</li>,
+                            h1: ({ children }) => <h1 className="text-lg font-semibold mb-2">{children}</h1>,
+                            h2: ({ children }) => <h2 className="text-base font-semibold mb-2">{children}</h2>,
+                            h3: ({ children }) => <h3 className="text-sm font-semibold mb-1">{children}</h3>,
+                            blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-3 mb-2">{children}</blockquote>,
+                            code: ({ children }) => <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">{children}</code>,
+                            pre: ({ children }) => <pre className="bg-gray-100 p-2 rounded mb-2 overflow-x-auto text-xs">{children}</pre>,
+                          }}
+                        >
+                          {msg.content && msg.content.trim()
+                            ? msg.content
+                            : "ข้อความว่างเปล่า"}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(msg.createdAt).toLocaleDateString("th-TH", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}{" "}
+                      เวลา{" "}
+                      {new Date(msg.createdAt).toLocaleTimeString("th-TH", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      })}{" "}
+                      น.
+                    </p>
+                    {msg.role === "assistant" && (
+                      <div className="mt-2">
+                        <FeedbackButtons
+                          messageId={msg.id}
+                          userQuery={
+                            messages[
+                              messages.findIndex(
+                                (m: ChatMessage) => m.id === msg.id,
+                              ) - 1
+                            ]?.content || ""
+                          }
+                          assistantResponse={msg.content}
+                          conversationId={currentConversationId!}
+                          documentContext={{ documentId, documentName }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              
+              {/* Loading indicator */}
+              {sendMessageMutation.isPending && (
                 <div className="flex items-start space-x-3">
                   <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     <Bot className="w-5 h-5 text-green-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="p-3 rounded-lg bg-green-50 border border-green-200">
-                      <p className="text-sm text-gray-900 leading-normal">
-                        สวัสดีครับ! ผมสามารถช่วยวิเคราะห์และตอบคำถามเกี่ยวกับเอกสาร
-                        "{documentName}" โดยเฉพาะได้
-                        คุณต้องการทราบอะไรเกี่ยวกับเอกสารนี้บ้างครับ?
-                        ผมจะตอบโดยอิงจากเนื้อหาในเอกสารนี้เท่านั้น
-                      </p>
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
+                      <div
+                        className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
+                        style={{ animationDelay: "0.1s" }}
+                      ></div>
+                      <div
+                        className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
+                        style={{ animationDelay: "0.2s" }}
+                      ></div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">เมื่อสักครู่</p>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <>
-                {messages.map((msg: ChatMessage) => (
-                  <div key={msg.id} className="flex items-start space-x-3">
-                    <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        msg.role === "assistant" ? "bg-green-100" : "bg-blue-100"
-                      }`}
-                    >
-                      {msg.role === "assistant" ? (
-                        <Bot className="w-5 h-5 text-green-600" />
-                      ) : (
-                        <User className="w-5 h-5 text-blue-600" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div
-                        className={`p-3 rounded-lg ${
-                          msg.role === "assistant"
-                            ? "bg-green-50 border border-green-200"
-                            : "bg-blue-50 border border-blue-200"
-                        }`}
-                      >
-                        <div className="text-sm text-gray-900 leading-normal markdown-compact">
-                          <ReactMarkdown
-                            components={{
-                              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                              ul: ({ children }) => <ul className="mb-2 last:mb-0 ml-4 list-disc">{children}</ul>,
-                              ol: ({ children }) => <ol className="mb-2 last:mb-0 ml-4 list-decimal">{children}</ol>,
-                              li: ({ children }) => <li className="mb-1">{children}</li>,
-                              h1: ({ children }) => <h1 className="text-lg font-semibold mb-2">{children}</h1>,
-                              h2: ({ children }) => <h2 className="text-base font-semibold mb-2">{children}</h2>,
-                              h3: ({ children }) => <h3 className="text-sm font-semibold mb-1">{children}</h3>,
-                              blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-3 mb-2">{children}</blockquote>,
-                              code: ({ children }) => <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">{children}</code>,
-                              pre: ({ children }) => <pre className="bg-gray-100 p-2 rounded mb-2 overflow-x-auto text-xs">{children}</pre>,
-                            }}
-                          >
-                            {msg.content && msg.content.trim()
-                              ? msg.content
-                              : "ข้อความว่างเปล่า"}
-                          </ReactMarkdown>
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {new Date(msg.createdAt).toLocaleDateString("th-TH", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })}{" "}
-                        เวลา{" "}
-                        {new Date(msg.createdAt).toLocaleTimeString("th-TH", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: false,
-                        })}{" "}
-                        น.
-                      </p>
-                      {msg.role === "assistant" && (
-                        <div className="mt-2">
-                          <FeedbackButtons
-                            messageId={msg.id}
-                            userQuery={
-                              messages[
-                                messages.findIndex(
-                                  (m: ChatMessage) => m.id === msg.id,
-                                ) - 1
-                              ]?.content || ""
-                            }
-                            assistantResponse={msg.content}
-                            conversationId={currentConversationId!}
-                            documentContext={{ documentId, documentName }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                
-                {/* Loading indicator */}
-                {sendMessageMutation.isPending && (
-                  <div className="flex items-start space-x-3">
-                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Bot className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2">
-                        <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
-                        <div
-                          className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                          style={{ animationDelay: "0.1s" }}
-                        ></div>
-                        <div
-                          className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                          style={{ animationDelay: "0.2s" }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-            
-            <div ref={messagesEndRef} />
+              )}
+              
+              <div ref={messagesEndRef} />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Chat Input - Fixed at Bottom */}
