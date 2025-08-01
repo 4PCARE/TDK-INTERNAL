@@ -10,7 +10,7 @@ import { registerHrApiRoutes } from "./hrApi";
 import { handleLineWebhook, sendLineImageMessage } from "./lineOaWebhook";
 import { GuardrailsService } from "./services/guardrails";
 import { db, pool } from "./db";
-import { eq, sql, and, gte, getTableColumns } from "drizzle-orm";
+import { eq, sql, and, gte, getTableColumns, or, ilike } from "drizzle-orm";
 import {
   insertCategorySchema,
   insertDocumentSchema,
@@ -29,6 +29,7 @@ import {
   socialIntegrations,
   agentChatbots,
   agentChatbotDocuments,
+  chatHistory,
 } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
@@ -1502,14 +1503,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { search, channelFilter } = req.query;
       console.log("🔍 Agent Console: Fetching users with filters:", { search, channelFilter });
 
-      // Return empty array as this functionality is not available in current storage
-      const chatUsers: any[] = [];
+      // Build base query  
+      let baseQuery = db
+        .select({
+          userId: chatHistory.userId,
+          channelType: chatHistory.channelType,
+          channelId: chatHistory.channelId,
+          messageCount: sql<number>`count(*)`,
+          lastMessageAt: sql<Date>`max(${chatHistory.createdAt})`,
+          lastMessage: sql<string>`(
+            array_agg(${chatHistory.content} ORDER BY ${chatHistory.createdAt} DESC)
+          )[1]`,
+        })
+        .from(chatHistory);
 
-      // Ensure we always return an array
-      const userArray = Array.isArray(chatUsers) ? chatUsers : [];
-      console.log("📋 Agent Console: Returning", userArray.length, "users");
+      // Apply filters
+      let whereConditions = [];
+      if (channelFilter && channelFilter !== 'all') {
+        whereConditions.push(eq(chatHistory.channelType, channelFilter));
+      }
+      if (search) {
+        whereConditions.push(
+          or(
+            ilike(chatHistory.userId, `%${search}%`),
+            ilike(chatHistory.content, `%${search}%`)
+          )
+        );
+      }
 
-      res.json(userArray);
+      // Complete query building
+      if (whereConditions.length > 0) {
+        baseQuery = baseQuery.where(and(...whereConditions));
+      }
+
+      const chatUsers = await baseQuery
+        .groupBy(chatHistory.userId, chatHistory.channelType, chatHistory.channelId)
+        .orderBy(sql`max(${chatHistory.createdAt}) desc`)
+        .limit(100);
+
+      // Format users for the agent console
+      const formattedUsers = chatUsers.map(user => ({
+        id: user.userId,
+        userId: user.userId,
+        channelType: user.channelType,
+        channelId: user.channelId,
+        messageCount: Number(user.messageCount),
+        lastMessageAt: user.lastMessageAt,
+        lastMessage: user.lastMessage || 'No message',
+        displayName: user.userId.startsWith('U') ? `Line User ${user.userId.slice(-6)}` : user.userId,
+      }));
+
+      console.log("📋 Agent Console: Returning", formattedUsers.length, "users");
+      res.json(formattedUsers);
     } catch (error) {
       console.error("❌ Error fetching agent console users:", error);
       // Return empty array on error instead of error response
