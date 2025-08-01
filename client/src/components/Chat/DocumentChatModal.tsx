@@ -312,7 +312,6 @@ export default function DocumentChatModal({
               </div>
             )}
             <div ref={messagesEndRef} />
-          </div>
         </ScrollArea>
 
         {/* Chat Input - Fixed at Bottom */}
