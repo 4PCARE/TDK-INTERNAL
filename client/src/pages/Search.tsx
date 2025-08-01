@@ -28,6 +28,7 @@ export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState<"keyword" | "semantic">("keyword");
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -71,41 +72,43 @@ export default function SearchPage() {
       });
 
       console.log(`🌐 MAKING FETCH REQUEST...`);
-      const response = await fetch(url);
-
-      console.log(`📊 RESPONSE RECEIVED:`);
-      console.log(`   Status: ${response.status}`);
-      console.log(`   Status Text: ${response.statusText}`);
-      console.log(`   Headers:`, Object.fromEntries(response.headers.entries()));
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.log(`❌ SEARCH FAILED!`);
-        console.log(`   Status: ${response.status}`);
-        console.log(`   Error Text: ${errorText}`);
-        console.log("🌟".repeat(50) + "\n");
-        throw new Error(`Search failed: ${response.status} - ${errorText}`);
+        throw new Error(`Search failed: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log(`✅ SEARCH RESPONSE PARSED:`);
-      console.log(`   Type: ${typeof data}`);
-      console.log(`   Has results: ${!!data?.results}`);
-      console.log(`   Results count: ${data?.results?.length || 0}`);
-      console.log(`   Full response structure:`, Object.keys(data || {}));
-      
-      if (data?.results && data.results.length > 0) {
-        console.log(`📄 FIRST 3 RESULTS:`);
-        data.results.slice(0, 3).forEach((result, idx) => {
-          console.log(`   ${idx + 1}. ID: ${result.id}, Name: "${result.name}", Type: ${typeof result.id}`);
-        });
+      console.log(`📊 Search response received:`, data);
+
+      // Handle both array and object response formats
+      let results = [];
+      if (Array.isArray(data)) {
+        results = data;
+      } else if (data && Array.isArray(data.results)) {
+        results = data.results;
+      } else {
+        console.error('Frontend received invalid search results format:', data);
+        setSearchResults([]);
+        return;
       }
-      
-      console.log("🌟".repeat(50));
-      console.log("✅ FRONTEND SEARCH COMPLETE");
-      console.log("🌟".repeat(50) + "\n");
-      
-      return data;
+
+      console.log(`✅ Setting ${results.length} search results`);
+      setSearchResults(results);
+    } catch (error) {
+      console.error("Search API error:", error);
+      toast({
+        title: "Search Error",
+        description: "Failed to retrieve search results.",
+        variant: "destructive",
+      });
+      setSearchResults([]);
+    }
     },
     enabled: !!searchQuery && hasSearched && searchQuery.trim().length > 0,
     retry: false,
@@ -138,13 +141,13 @@ export default function SearchPage() {
     if (searchType === "keyword") {
       // For keyword search, return as-is (no chunk processing needed)
       console.log(`🔤 KEYWORD SEARCH: Returning results as-is`);
-      
+
       // Log any problematic IDs
       const invalidIds = rawSearchResults.results.filter((r: any) => !r.id || r.id === 'NaN' || isNaN(Number(r.id)));
       if (invalidIds.length > 0) {
         console.log(`❌ FOUND ${invalidIds.length} INVALID IDs IN KEYWORD RESULTS:`, invalidIds.map((r: any) => ({ id: r.id, name: r.name })));
       }
-      
+
       return rawSearchResults;
     }
 
@@ -162,7 +165,7 @@ export default function SearchPage() {
 
       // Extract document ID from chunk ID (format: "docId-chunkIndex")
       let docId = result.id;
-      
+
       // Check if this looks like a chunk ID
       if (typeof result.id === 'string' && result.id.includes('-')) {
         docId = result.id.split('-')[0];
@@ -183,19 +186,19 @@ export default function SearchPage() {
           id: docId, // Use document ID
           name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk label
         };
-        
+
         console.log(`   Setting document ${docId}:`, {
           cleanedId: cleanResult.id,
           cleanedName: cleanResult.name,
           similarity: cleanResult.similarity
         });
-        
+
         documentMap.set(docId, cleanResult);
       }
     });
 
     const processedResults = Array.from(documentMap.values());
-    
+
     console.log(`✅ SEMANTIC PROCESSING COMPLETE:`, {
       originalCount: rawSearchResults.results.length,
       processedCount: processedResults.length,
@@ -274,7 +277,7 @@ export default function SearchPage() {
                     </Badge>
                     {searchResults && (
                       <Badge variant="outline">
-                        {searchResults.count} results
+                        {searchResults.length} results
                       </Badge>
                     )}
                   </div>
@@ -295,7 +298,7 @@ export default function SearchPage() {
                       </span>
                     </div>
                   </div>
-                ) : searchResults && searchResults.results && searchResults.results.length > 0 ? (
+                ) : searchResults && searchResults.length > 0 ? (
                   <div className="space-y-4">
                     {/* Search Info */}
                     <div className="flex items-center space-x-4 text-sm text-slate-500 pb-4 border-b border-slate-200">
@@ -319,23 +322,23 @@ export default function SearchPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {(() => {
                         console.log(`🎨 RENDERING SEARCH RESULTS:`, {
-                          totalResults: searchResults.results?.length || 0,
+                          totalResults: searchResults?.length || 0,
                           searchType: searchType,
                           query: searchQuery
                         });
 
-                        if (!searchResults.results) {
+                        if (!searchResults) {
                           console.log(`❌ NO RESULTS TO RENDER`);
                           return null;
                         }
 
                         // Log all results before filtering
                         console.log(`📋 ALL RESULTS BEFORE FILTERING:`);
-                        searchResults.results.forEach((doc: any, index: number) => {
+                        searchResults.forEach((doc: any, index: number) => {
                           console.log(`   ${index + 1}. ID: ${doc.id} (${typeof doc.id}), Name: ${doc.name}, Valid: ${doc.id && doc.id !== 'NaN' && !isNaN(Number(doc.id))}`);
                         });
 
-                        const filteredResults = searchResults.results.filter((doc: any) => {
+                        const filteredResults = searchResults.filter((doc: any) => {
                           const isValid = doc.id && doc.id !== 'NaN' && !isNaN(Number(doc.id));
                           if (!isValid) {
                             console.log(`❌ FILTERING OUT INVALID DOCUMENT:`, {
@@ -348,7 +351,7 @@ export default function SearchPage() {
                           return isValid;
                         });
 
-                        console.log(`✅ FILTERED RESULTS: ${filteredResults.length}/${searchResults.results.length} valid documents`);
+                        console.log(`✅ FILTERED RESULTS: ${filteredResults.length}/${searchResults.length} valid documents`);
 
                         return filteredResults.map((doc: any) => {
                           console.log(`🎯 RENDERING DOCUMENT CARD:`, {
