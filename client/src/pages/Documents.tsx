@@ -227,6 +227,12 @@ export default function Documents() {
 
   // Filter and sort documents with multi-select support
   const filteredDocuments = documentsArray.length > 0 ? documentsArray.filter((doc: any) => {
+    // Ensure document has required properties
+    if (!doc || !doc.id) {
+      console.warn('Document missing ID:', doc);
+      return false;
+    }
+
     // Apply category filters
     const matchesCategory = filterCategories.length === 0 || 
                            filterCategories.includes(doc.aiCategory) ||
@@ -237,10 +243,10 @@ export default function Documents() {
 
     // Apply tag filters  
     const matchesTag = filterTags.length === 0 || 
-                      (doc.tags && filterTags.some((tag: string) => doc.tags.includes(tag)));
+                      (doc.tags && Array.isArray(doc.tags) && filterTags.some((tag: string) => doc.tags.includes(tag)));
 
     // Apply favorites filter
-    const matchesFavorites = !showFavoritesOnly || doc.isFavorite;
+    const matchesFavorites = !showFavoritesOnly || Boolean(doc.isFavorite);
 
     return matchesCategory && matchesTag && matchesFavorites;
   }).sort((a: any, b: any) => {
@@ -253,19 +259,29 @@ export default function Documents() {
         return aIndex - bIndex; // Preserve backend order
       }
       // If same position (shouldn't happen), fall back to recency
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      const aCreatedAt = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bCreatedAt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bCreatedAt - aCreatedAt;
     }
 
     // For other search types or when no search is applied, use the selected sort option
     switch (sortBy) {
       case "newest":
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        const aCreatedAt = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bCreatedAt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bCreatedAt - aCreatedAt;
       case "oldest":
-        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        const aCreatedAtOld = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bCreatedAtOld = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return aCreatedAtOld - bCreatedAtOld;
       case "name":
-        return (a.name || a.originalName).localeCompare(b.name || b.originalName);
+        const aName = a.name || a.originalName || `Document ${a.id}`;
+        const bName = b.name || b.originalName || `Document ${b.id}`;
+        return aName.localeCompare(bName);
       case "size":
-        return b.fileSize - a.fileSize;
+        const aSize = typeof a.fileSize === 'number' ? a.fileSize : 0;
+        const bSize = typeof b.fileSize === 'number' ? b.fileSize : 0;
+        return bSize - aSize;
       default:
         return 0;
     }
