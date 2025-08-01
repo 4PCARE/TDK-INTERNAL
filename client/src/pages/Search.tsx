@@ -47,21 +47,38 @@ export default function SearchPage() {
   const { data: rawSearchResults, isLoading: searchLoading, error } = useQuery({
     queryKey: ["search", searchQuery, searchType],
     queryFn: async () => {
-      if (!searchQuery) return null;
+      if (!searchQuery || !searchQuery.trim()) return null;
+      
+      console.log(`🔍 Search triggered with query: "${searchQuery}", type: "${searchType}"`);
       
       const params = new URLSearchParams({
-        q: searchQuery,
+        q: searchQuery.trim(),
         type: searchType
       });
       
-      const response = await fetch(`/api/documents/search?${params}`);
+      const url = `/api/documents/search?${params}`;
+      console.log(`🚀 Making search request to: ${url}`);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log(`📊 Search response status: ${response.status}`);
+      
       if (!response.ok) {
-        throw new Error(`Search failed: ${response.status}`);
+        const errorText = await response.text();
+        console.error(`❌ Search failed with status ${response.status}:`, errorText);
+        throw new Error(`Search failed: ${response.status} - ${errorText}`);
       }
       
-      return response.json();
+      const data = await response.json();
+      console.log(`✅ Search completed, got ${data?.length || 0} results`);
+      return data;
     },
-    enabled: !!searchQuery && hasSearched,
+    enabled: !!searchQuery && hasSearched && searchQuery.trim().length > 0,
     retry: false,
   });
 
