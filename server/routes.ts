@@ -1488,6 +1488,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get individual document details
+  app.get("/api/documents/:id", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const documentId = parseInt(req.params.id);
+      
+      if (isNaN(documentId)) {
+        return res.status(400).json({ message: "Invalid document ID" });
+      }
+
+      const document = await storage.getDocument(documentId, userId);
+      
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      res.json(document);
+    } catch (error) {
+      console.error("Error fetching document:", error);
+      res.status(500).json({ message: "Failed to fetch document" });
+    }
+  });
+
   // Enhanced document search with semantic capabilities and document name priority
   app.get("/api/documents/search", (req: any, res: any, next: any) => {
     // Try Microsoft auth first, then fallback to Replit auth

@@ -289,6 +289,49 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Document operations
+  async getDocument(documentId: number, userId: string): Promise<any | null> {
+    try {
+      const { documents, users, departments, categories } = await import("@shared/schema");
+
+      const [document] = await db
+        .select({
+          id: documents.id,
+          name: documents.name,
+          originalName: documents.originalName,
+          fileName: documents.fileName,
+          description: documents.description,
+          summary: documents.summary,
+          content: documents.content,
+          mimeType: documents.mimeType,
+          fileType: documents.fileType,
+          fileSize: documents.fileSize,
+          tags: documents.tags,
+          isFavorite: documents.isFavorite,
+          isEndorsed: documents.isEndorsed,
+          createdAt: documents.createdAt,
+          updatedAt: documents.updatedAt,
+          status: documents.status,
+          uploaderName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
+          uploaderEmail: users.email,
+          uploaderRole: users.role,
+          departmentName: departments.name,
+          categoryName: categories.name,
+          aiCategory: documents.aiCategory,
+        })
+        .from(documents)
+        .leftJoin(users, eq(documents.userId, users.id))
+        .leftJoin(departments, eq(users.departmentId, departments.id))
+        .leftJoin(categories, eq(documents.categoryId, categories.id))
+        .where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
+        .limit(1);
+
+      return document || null;
+    } catch (error) {
+      console.error("Error fetching document:", error);
+      return null;
+    }
+  }
+
   async getDocuments(userId: string, options: { categoryId?: number; limit?: number; offset?: number } = {}): Promise<Document[]> {
     const { categoryId, limit = 1000, offset = 0 } = options;
 
@@ -426,54 +469,6 @@ export class DatabaseStorage implements IStorage {
       .slice(offset, offset + limit);
 
     return sortedDocuments;
-  }
-
-  async getDocument(id: number, userId: string): Promise<Document | undefined> {
-    // First try to get the document if user owns it
-    const [ownedDocument] = await db
-      .select()
-      .from(documents)
-      .where(and(eq(documents.id, id), eq(documents.userId, userId)));
-
-    if (ownedDocument) {
-      return ownedDocument;
-    }
-
-    // Check if document is shared directly with user
-    const [userSharedDocument] = await db
-      .select()
-      .from(documents)
-      .innerJoin(documentUserPermissions, eq(documents.id, documentUserPermissions.documentId))
-      .where(and(
-        eq(documents.id, id),
-        eq(documentUserPermissions.userId, userId)
-      ));
-
-    if (userSharedDocument) {
-      return userSharedDocument.documents;
-    }
-
-    // Check if document is shared with user's department
-    const [currentUser] = await db.select({ departmentId: users.departmentId })
-      .from(users)
-      .where(eq(users.id, userId));
-
-    if (currentUser?.departmentId) {
-      const [deptSharedDocument] = await db
-        .select()
-        .from(documents)
-        .innerJoin(documentDepartmentPermissions, eq(documents.id, documentDepartmentPermissions.documentId))
-        .where(and(
-          eq(documents.id, id),
-          eq(documentDepartmentPermissions.departmentId, currentUser.departmentId)
-        ));
-
-      if (deptSharedDocument) {
-        return deptSharedDocument.documents;
-      }
-    }
-
-    return undefined;
   }
 
   async getDocumentForWidget(id: number): Promise<Document | undefined> {
@@ -1764,7 +1759,7 @@ export class DatabaseStorage implements IStorage {
     if (integration.channelId !== undefined) updateData.channel_id = integration.channelId;
     if (integration.channelSecret !== undefined) updateData.channel_secret = integration.channelSecret;
     if (integration.channelAccessToken !== undefined) updateData.channel_access_token = integration.channelAccessToken;
-    if (integration.agentId !== undefined) updateData.agent_id = integration.agentId;
+    if (integration.agentId !== undefined)updateData.agent_id = integration.agentId;
     if (integration.isActive !== undefined) updateData.is_active = integration.isActive;
     if (integration.isVerified !== undefined) updateData.is_verified = integration.isVerified;
 

@@ -51,22 +51,19 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
 
   // Fetch document details when dialog opens
   const { data: documentDetails, isLoading: detailsLoading } = useQuery({
-    queryKey: [`/api/documents/${doc.id}`, showDetails],
+    queryKey: [`/api/documents/${doc.id}`],
     queryFn: async () => {
-      if (!showDetails) return null;
       try {
-        const response = await fetch(`/api/documents/${doc.id}`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch document details: ${response.status}`);
-        }
-        return await response.json();
+        const response = await apiRequest('GET', `/api/documents/${doc.id}`);
+        return response;
       } catch (error) {
         console.error("Error fetching document details:", error);
         throw error;
       }
     },
     enabled: showDetails,
-    retry: 1,
+    retry: 2,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const toggleFavoriteMutation = useMutation({
