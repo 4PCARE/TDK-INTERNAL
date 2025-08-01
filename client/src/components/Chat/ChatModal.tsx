@@ -168,7 +168,7 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
         {/* Chat Messages - Scrollable Container */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
-            <div className="space-y-4 py-4"></div>
+            <div className="space-y-4 py-4">
               {isLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
@@ -264,7 +264,6 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
                 </div>
               )}
               <div ref={messagesEndRef} />
-            </div>
           </ScrollArea>
 
           {/* Chat Input - Fixed at Bottom */}
