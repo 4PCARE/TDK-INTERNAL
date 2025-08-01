@@ -170,34 +170,66 @@ export default function Documents() {
                   
                   // Convert chunk result back to document format
                   const cleanName = result.name.replace(/ \(Chunk \d+\)$/, '');
+                  
+                  // Create a complete document structure with all required properties
                   const documentResult = {
-                    ...result,
-                    id: parseInt(documentId), // Convert back to document ID
+                    // Core document identification
+                    id: parseInt(documentId),
                     name: cleanName,
-                    originalName: cleanName, // Use cleaned name as originalName
-                    fileName: cleanName, // Ensure fileName exists for DocumentCard
-                    content: result.content, // Keep original content
-                    summary: result.summary, // Keep summary if available
-                    // Ensure essential document properties exist with proper types
-                    status: result.status || 'processed',
+                    originalName: cleanName,
+                    fileName: cleanName,
+                    
+                    // File metadata - essential for DocumentCard
+                    mimeType: result.mimeType || result.fileType || 'application/octet-stream',
+                    fileType: result.fileType || result.mimeType?.split('/')[1] || 'unknown',
                     fileSize: typeof result.fileSize === 'number' ? result.fileSize : 0,
+                    
+                    // Content and processing status
+                    content: result.content || '',
+                    summary: result.summary || '',
+                    description: result.description || result.summary || '',
+                    status: result.status || 'processed',
+                    
+                    // Timestamps
                     createdAt: result.createdAt || new Date().toISOString(),
+                    updatedAt: result.updatedAt || result.createdAt || new Date().toISOString(),
+                    
+                    // Categorization
                     categoryId: result.categoryId || null,
                     category: result.category || null,
+                    categoryName: result.categoryName || result.category || null,
                     aiCategory: result.aiCategory || 'General',
-                    tags: Array.isArray(result.tags) ? result.tags : [],
+                    aiCategoryColor: result.aiCategoryColor || '#6B7280',
+                    
+                    // User interaction flags
                     isFavorite: Boolean(result.isFavorite),
                     isEndorsed: Boolean(result.isEndorsed),
                     isInVectorDb: result.isInVectorDb !== undefined ? Boolean(result.isInVectorDb) : true,
+                    
+                    // User metadata
                     uploaderEmail: result.uploaderEmail || null,
                     uploaderRole: result.uploaderRole || null,
-                    // Ensure mimeType exists for DocumentCard
-                    mimeType: result.mimeType || 'application/octet-stream',
-                    fileType: result.fileType || 'unknown',
-                    // Remove chunk-specific properties that might interfere
+                    uploaderName: result.uploaderName || result.uploaderEmail || 'Unknown',
+                    
+                    // Department/organization
+                    departmentId: result.departmentId || null,
+                    departmentName: result.departmentName || null,
+                    
+                    // Tags and metadata
+                    tags: Array.isArray(result.tags) ? result.tags : [],
+                    
+                    // Endorsement metadata
+                    endorsedAt: result.endorsedAt || null,
+                    effectiveStartDate: result.effectiveStartDate || null,
+                    effectiveEndDate: result.effectiveEndDate || null,
+                    
+                    // Remove chunk-specific properties that might interfere with DocumentCard
+                    // These are intentionally set to undefined to clean the object
                     similarity: undefined,
                     matchedTerms: undefined,
                     matchDetails: undefined,
+                    chunkIndex: undefined,
+                    chunkId: undefined,
                   };
                   
                   documentMap.set(documentId, documentResult);
