@@ -2160,9 +2160,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error("Error in chat message endpoint:", error);
-    </previous_generation>
-Continue generation, starting immediately with the first character that follows, do not add extra characters or extra new lines, do not wrap your generation in markdown ```.
-```text
       res.status(500).json({ message: "Failed to process chat message" });
     }
   });
