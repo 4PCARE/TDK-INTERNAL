@@ -125,8 +125,24 @@ export class WidgetChatService {
       // Fallback to agent's system prompt if no documents or hybrid search failed
       console.log(`⚠️ Widget Chat: Falling back to system prompt conversation`);
 
+      // Get current date and time in Thai format
+      const now = new Date();
+      const thaiDate = now.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long'
+      });
+      const thaiTime = now.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+
       // Build conversation messages
       const systemPrompt = `${agent.systemPrompt}
+
+📅 วันที่และเวลาปัจจุบัน: ${thaiDate} เวลา ${thaiTime} น.
 
 ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
 ตอบอย่างเป็นมิตรและช่วยเหลือ
