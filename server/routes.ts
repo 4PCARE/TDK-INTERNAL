@@ -1916,6 +1916,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add the direct chat messages endpoint that frontend is calling
+  app.post("/api/chat/messages", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { message, conversationId } = req.body;
+
+      console.log("📨 Chat message request:", { userId, conversationId, message: message?.substring(0, 50) + "..." });
+
+      // Validate required fields
+      if (!message || !conversationId) {
+        return res.status(400).json({ message: "Message and conversation ID are required" });
+      }
+
+      const { chatMessages, chatConversations } = await import("@shared/schema");
+
+      // Verify conversation belongs to user
+      const [conversation] = await db
+        .select()
+        .from(chatConversations)
+        .where(
+          and(
+            eq(chatConversations.id, conversationId),
+            eq(chatConversations.userId, userId)
+          )
+        )
+        .limit(1);
+
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+
+      // Add user message
+      const [userMessage] = await db
+        .insert(chatMessages)
+        .values({
+          conversationId,
+          role: "user",
+          content: message,
+        })
+        .returning();
+
+      // Generate AI response using existing chat functionality
+      try {
+        const aiResponse = await generateChatResponse(message, userId);
+        
+        // Add AI response
+        const [aiMessage] = await db
+          .insert(chatMessages)
+          .values({
+            conversationId,
+            role: "assistant", 
+            content: aiResponse,
+          })
+          .returning();
+
+        console.log("✅ Chat response generated successfully");
+        res.json({ userMessage, aiMessage });
+      } catch (aiError) {
+        console.error("Error generating AI response:", aiError);
+        // Still return the user message even if AI response fails
+        res.json({ userMessage, error: "Failed to generate AI response" });
+      }
+    } catch (error) {
+      console.error("Error in chat message endpoint:", error);
+      res.status(500).json({ message: "Failed to process chat message" });
+    }
+  });
+
   // Create WebSocket server for real-time communication
   const server = createServer(app);
   return server;
