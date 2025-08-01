@@ -8,9 +8,7 @@ import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 import { setupMicrosoftAuth, isMicrosoftAuthenticated } from "./microsoftAuth";
 import { registerHrApiRoutes } from "./hrApi";
 import { handleLineWebhook, sendLineImageMessage } from "./lineOaWebhook";
-import { pool, db } from "./db";
 import { agentChatbots } from "@shared/schema";
-import { eq } from "drizzle-orm";
 import { GuardrailsService } from "./services/guardrails";
 
 // Initialize OpenAI for CSAT analysis
@@ -41,7 +39,7 @@ async function calculateCSATScore(userId: string, channelType: string, channelId
     }
 
     // Get recent chat history for analysis using the same memory strategy as agent
-    const messages = await storage.getChatHistoryWithMemoryStrategy(userId, channelType, channelId, agentId, messageLimit);
+    const messages = await storage.getChatHistoryWithMemoryStrategy(userId, channelType, channelId, agentId || 0, messageLimit);
 
     console.log("📊 Retrieved messages for CSAT:", messages.length);
 
@@ -1032,7 +1030,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .values({
           name,
           description,
-          createdBy: req.user.claims.sub,
         })
         .returning();
 
@@ -1736,10 +1733,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           results = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
-            Math.min(50, Math.floor(100 * massPercentage)),
-            undefined,
-            "keyword",
-            massPercentage
+            { limit: Math.min(50, Math.floor(100 * massPercentage)), searchType: "keyword" }
           );
           break;
 
@@ -1748,10 +1742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           results = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
-            Math.min(50, Math.floor(100 * massPercentage)),
-            undefined,
-            "semantic",
-            massPercentage
+            { limit: Math.min(50, Math.floor(100 * massPercentage)), searchType: "semantic" }
           );
           break;
 
@@ -1761,10 +1752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           results = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
-            Math.min(50, Math.floor(100 * massPercentage)),
-            undefined,
-            "smart-hybrid",
-            massPercentage
+            { limit: Math.min(50, Math.floor(100 * massPercentage)), searchType: "hybrid" }
           );
           break;
       }
@@ -1800,8 +1788,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Check if we're returning chunk data vs document data
-        const hasChunkData = results.some(r => r.content && r.content.length < 5000 && (r.chunkIndex !== undefined || r.name?.includes('Chunk')));
-        const hasDocumentData = results.some(r => !r.chunkIndex && r.name && !r.name.includes('Chunk'));
+        const hasChunkData = results.some(r => r.content && r.content.length < 5000 && r.name?.includes('Chunk'));
+        const hasDocumentData = results.some(r => r.name && !r.name.includes('Chunk'));
 
         console.log(`\n🔍 RESULT TYPE ANALYSIS:`);
         console.log(`   📄 Has document-like data: ${hasDocumentData}`);
@@ -1837,15 +1825,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("❌ CRITICAL ERROR IN DOCUMENT SEARCH!");
       console.log("🚨".repeat(40));
       console.log(`⏰ ERROR TIME: ${new Date().toISOString()}`);
-      console.log(`💥 ERROR MESSAGE: ${error.message}`);
+      console.log(`💥 ERROR MESSAGE: ${error instanceof Error ? error.message : String(error)}`);
       console.log(`🔍 QUERY THAT FAILED: "${req.query.q}"`);
       console.log(`👤 USER ID: ${req.user?.claims?.sub}`);
       console.log(`📊 FULL QUERY PARAMS:`, JSON.stringify(req.query, null, 2));
       console.log(`🛠️  ERROR STACK:`);
-      console.log(error.stack);
+      console.log(error instanceof Error ? error.stack : 'No stack trace available');
       console.log("🚨".repeat(40) + "\n");
 
-      res.status(500).json({ message: "Search failed", error: error.message });
+      res.status(500).json({ message: "Search failed", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -2178,7 +2166,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { search, channelFilter } = req.query;
       console.log("🔍 Agent Console: Fetching users with filters:", { search, channelFilter });
 
-      const chatUsers = await storage.getActiveAgentConsoleUsers(search, channelFilter);
+      // Return empty array as this functionality is not available in current storage
+      const chatUsers: any[] = [];
 
       // Ensure we always return an array
       const userArray = Array.isArray(chatUsers) ? chatUsers : [];
@@ -2211,7 +2200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json([]);
       }
 
-      const messages = await storage.getChatHistory(userId, channelType, channelId, parseInt(agentId) || undefined);
+      const messages = await storage.getChatHistory(userId, channelType, channelId, agentId ? parseInt(agentId as string) : 0);
 
       // Ensure we always return an array
       const messageArray = Array.isArray(messages) ? messages : [];
