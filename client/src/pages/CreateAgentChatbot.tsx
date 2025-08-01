@@ -237,7 +237,7 @@ export default function CreateAgentChatbot() {
       const agent = existingAgent as any;
       console.log("Loading existing agent data:", JSON.stringify(agent, null, 2));
       console.log("Agent guardrails config from DB:", agent.guardrailsConfig);
-      
+
       form.reset({
         name: agent.name || "",
         description: agent.description || "",
@@ -375,14 +375,14 @@ export default function CreateAgentChatbot() {
     },
     onSuccess: (data) => {
       console.log("Test agent response received:", data);
-      
+
       if (isTestChatMode) {
         // Add user message and AI response to chat history
         const userMessage = { role: "user" as const, content: testMessage, timestamp: new Date() };
         const assistantMessage = { role: "assistant" as const, content: data.response, timestamp: new Date() };
         setTestChatHistory(prev => [...prev, userMessage, assistantMessage]);
         setTestMessage(""); // Clear input for next message
-        
+
         // Auto-scroll to bottom after response
         setTimeout(() => {
           if (chatHistoryRef.current) {
@@ -392,7 +392,7 @@ export default function CreateAgentChatbot() {
       } else {
         setTestResponse(data.response || "No response received");
       }
-      
+
       setIsTestingAgent(false);
     },
     onError: (error) => {
@@ -442,10 +442,10 @@ export default function CreateAgentChatbot() {
       // Clear form and navigate back
       form.reset();
       setSelectedDocuments([]);
-      
+
       // Invalidate comprehensive cache keys to ensure frontend updates
       queryClient.invalidateQueries({ queryKey: ["/api/agent-chatbots"] });
-      
+
       // If editing, also invalidate the specific agent's cache
       if (isEditing && editAgentId) {
         queryClient.invalidateQueries({ 
@@ -455,7 +455,7 @@ export default function CreateAgentChatbot() {
           queryKey: [`/api/agent-chatbots/${editAgentId}/documents`] 
         });
       }
-      
+
       // Invalidate all agent-related cache to ensure complete refresh
       queryClient.invalidateQueries({ 
         predicate: (query) => {
@@ -463,7 +463,7 @@ export default function CreateAgentChatbot() {
           return typeof queryKey === "string" && queryKey.includes("/api/agent-chatbots");
         }
       });
-      
+
       window.history.back();
     },
     onError: (error) => {
@@ -491,17 +491,17 @@ export default function CreateAgentChatbot() {
   const onSubmit = (data: CreateAgentForm) => {
     // Build the guardrails configuration object
     const guardrailsConfig = data.guardrailsEnabled ? data.guardrailsConfig : null;
-    
+
     const finalData = {
       ...data,
       documentIds: selectedDocuments,
       guardrailsConfig,
     };
-    
+
     console.log("Form submission data:", JSON.stringify(finalData, null, 2));
     console.log("Guardrails enabled:", data.guardrailsEnabled);
     console.log("Guardrails config:", data.guardrailsConfig);
-    
+
     saveAgentMutation.mutate(finalData);
   };
 
@@ -516,7 +516,7 @@ export default function CreateAgentChatbot() {
     }
 
     const currentFormData = form.getValues();
-    
+
     // Basic validation for required fields
     if (!currentFormData.name || !currentFormData.personality || !currentFormData.profession || !currentFormData.responseStyle) {
       toast({
@@ -529,7 +529,7 @@ export default function CreateAgentChatbot() {
 
     // Build guardrails configuration for testing (same as deployment)
     const guardrailsConfig = currentFormData.guardrailsEnabled ? currentFormData.guardrailsConfig : null;
-    
+
     const testConfigData = {
       ...currentFormData,
       guardrailsConfig: guardrailsConfig, // Include guardrails config for testing
@@ -538,20 +538,20 @@ export default function CreateAgentChatbot() {
     console.log("Starting test agent with:", { message: testMessage, config: testConfigData, documents: selectedDocuments });
     console.log("Guardrails enabled for test:", currentFormData.guardrailsEnabled);
     console.log("Guardrails config for test:", guardrailsConfig);
-    
+
     setIsTestingAgent(true);
-    
+
     if (!isTestChatMode) {
       setTestResponse("");
     }
-    
+
     // Prepare chat history for API call (respecting memory limit)
     const memoryLimit = currentFormData.memoryLimit || 10;
     const recentHistory = testChatHistory.slice(-memoryLimit).map(msg => ({
       role: msg.role,
       content: msg.content
     }));
-    
+
     testAgentMutation.mutate({
       message: testMessage,
       agentConfig: testConfigData,
@@ -608,7 +608,7 @@ export default function CreateAgentChatbot() {
 
   const toggleDocument = (documentId: number) => {
     const isSelected = selectedDocuments.includes(documentId);
-    
+
     if (isEditing && editAgentId) {
       // For editing mode, use API calls for real-time updates
       if (isSelected) {
@@ -617,7 +617,7 @@ export default function CreateAgentChatbot() {
         addDocumentMutation.mutate(documentId);
       }
     }
-    
+
     // Update local state immediately for UI responsiveness
     setSelectedDocuments((prev) =>
       prev.includes(documentId)
@@ -794,11 +794,18 @@ export default function CreateAgentChatbot() {
     "Competitor Information",
   ];
 
-  if (isLoading) {
+  if (isLoading || (isEditing && isLoadingAgent)) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
+      <DashboardLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">
+              {isEditing ? "Loading agent configuration..." : "Loading form..."}
+            </p>
+          </div>
+        </div>
+      </DashboardLayout>
     );
   }
 
@@ -944,8 +951,7 @@ export default function CreateAgentChatbot() {
                                           key={personality.id}
                                           className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
                                             field.value === personality.id
-                                              ? "border-blue-500 bg-blue-50"
-                                              : "border-gray-200 hover:border-gray-300"
+                                              ? "border-blue-500 bg-blue-50"                                              : "border-gray-200 hover:border-gray-300"
                                           }`}
                                           onClick={() =>
                                             field.onChange(personality.id)
@@ -1932,8 +1938,7 @@ export default function CreateAgentChatbot() {
                                           <FormControl>
                                             <Checkbox
                                               checked={field.value}
-                                              onCheckedChange={field.onChange}
-                                            />
+                                              onCheckedChange={field.onChange}/>
                                           </FormControl>
                                           <FormLabel className="text-sm">Stay On Brand</FormLabel>
                                         </FormItem>

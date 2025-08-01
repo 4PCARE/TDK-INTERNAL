@@ -138,7 +138,7 @@ export default function AgentChatbots() {
     // Also fetch document details with better error handling
     const { data: allDocuments = [], error: documentsError } = useQuery({
       queryKey: ["/api/documents"],
-      enabled: isAuthenticated,
+      enabled: isAuthenticated && Array.isArray(agentDocuments) && agentDocuments.length > 0,
       retry: 1,
       staleTime: 30000,
       onError: (error) => {
@@ -164,7 +164,7 @@ export default function AgentChatbots() {
       );
     }
 
-    if (!agentDocuments || agentDocuments.length === 0) {
+    if (!Array.isArray(agentDocuments) || agentDocuments.length === 0) {
       return (
         <div className="flex items-center space-x-1 text-xs text-slate-500">
           <FileText className="w-3 h-3" />
@@ -173,10 +173,12 @@ export default function AgentChatbots() {
       );
     }
 
-    // Get document names
+    // Get document names with better validation
     const documentNames = agentDocuments
+      .filter((agentDoc) => agentDoc && agentDoc.documentId && !isNaN(Number(agentDoc.documentId)))
       .map((agentDoc) => {
-        const doc = allDocuments.find((d) => d.id === agentDoc.documentId);
+        if (!Array.isArray(allDocuments)) return `Document ${agentDoc.documentId}`;
+        const doc = allDocuments.find((d) => d && d.id && Number(d.id) === Number(agentDoc.documentId));
         return doc ? doc.name : `Document ${agentDoc.documentId}`;
       })
       .filter(Boolean);
