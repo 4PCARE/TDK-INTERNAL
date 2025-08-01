@@ -490,12 +490,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Agent not found" });
       }
 
-      // Get agent documents
+      // Get agent documents - fix the column name to match schema
       const { agentChatbotDocuments } = await import("@shared/schema");
       const agentDocs = await db
         .select()
         .from(agentChatbotDocuments)
-        .where(eq(agentChatbotDocuments.agentChatbotId, agentId));
+        .where(eq(agentChatbotDocuments.agentId, agentId));
 
       res.json(agentDocs || []);
     } catch (error) {
