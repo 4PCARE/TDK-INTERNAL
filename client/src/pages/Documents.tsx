@@ -107,7 +107,22 @@ export default function Documents() {
           if (!response.ok) {
             throw new Error(`${response.status}: ${response.statusText}`);
           }
-          return await response.json();
+          const allDocs = await response.json();
+          
+          // Debug: Log the structure of regular document results
+          if (Array.isArray(allDocs) && allDocs.length > 0) {
+            console.log('🔍 FRONTEND: Regular documents fields:', Object.keys(allDocs[0]));
+            console.log('🔍 FRONTEND: Regular documents sample:', {
+              id: allDocs[0].id,
+              name: allDocs[0].name,
+              aiCategory: allDocs[0].aiCategory,
+              hasContent: !!allDocs[0].content,
+              hasSummary: !!allDocs[0].summary,
+              fieldCount: Object.keys(allDocs[0]).length
+            });
+          }
+          
+          return allDocs;
         }
 
         // Determine search type based on checkbox combinations
@@ -144,6 +159,40 @@ export default function Documents() {
         }
         const results = await response.json();
         console.log(`Frontend received ${Array.isArray(results) ? results.length : 'non-array'} search results`);
+        
+        // Debug: Log the structure of search results
+        if (Array.isArray(results) && results.length > 0) {
+          console.log('🔍 FRONTEND: First search result fields:', Object.keys(results[0]));
+          console.log('🔍 FRONTEND: First search result sample:', {
+            id: results[0].id,
+            name: results[0].name,
+            similarity: results[0].similarity,
+            aiCategory: results[0].aiCategory,
+            content: results[0].content ? `${results[0].content.substring(0, 100)}...` : 'No content',
+            summary: results[0].summary ? `${results[0].summary.substring(0, 100)}...` : 'No summary',
+            fieldCount: Object.keys(results[0]).length
+          });
+          
+          // Check for DocumentCard interface compliance
+          const requiredFields = ['id', 'name', 'mimeType', 'fileSize', 'createdAt', 'isFavorite'];
+          const missingFields = requiredFields.filter(field => !(field in results[0]));
+          if (missingFields.length > 0) {
+            console.warn('🔍 FRONTEND: Missing required fields for DocumentCard:', missingFields);
+          }
+          
+          // Log all results structure summary
+          console.log('🔍 FRONTEND: All results summary:', results.map((result, index) => ({
+            index,
+            id: result.id,
+            name: result.name,
+            hasContent: !!result.content,
+            hasSummary: !!result.summary,
+            similarity: result.similarity,
+            fieldCount: Object.keys(result).length
+          })));
+        } else if (!Array.isArray(results)) {
+          console.error('🔍 FRONTEND: Results is not an array:', typeof results, results);
+        }
         
         // Ensure we always return an array
         return Array.isArray(results) ? results : [];
