@@ -150,71 +150,13 @@ export default function Documents() {
     retry: false,
   }) as { data: Array<any>; isLoading: boolean; error: any };
 
-        // Determine search type based on checkbox combinations
-        let searchType = "keyword"; // Default fallback
-        if (currentSearchFileName && currentSearchKeyword && currentSearchMeaning) {
-          searchType = "document-priority"; // All three enabled
-        } else if (currentSearchFileName && currentSearchKeyword && !currentSearchMeaning) {
-          searchType = "keyword-name-priority"; // Name + keyword only (faster, no vector search)
-        } else if (currentSearchKeyword && currentSearchMeaning && !currentSearchFileName) {
-          searchType = "hybrid"; // Content search with both keyword and semantic
-        } else if (currentSearchMeaning && !currentSearchKeyword && !currentSearchFileName) {
-          searchType = "semantic"; // Semantic only
-        } else if (currentSearchKeyword && !currentSearchMeaning && !currentSearchFileName) {
-          searchType = "keyword"; // Keyword only
-        } else if (currentSearchFileName && !currentSearchKeyword && !currentSearchMeaning) {
-          searchType = "filename-only"; // File name only
-        }
-
-        const params = new URLSearchParams({
-          query: currentSearchQuery,
-          type: searchType,
-          massSelectionPercentage: "0.6",
-          searchFileName: currentSearchFileName.toString(),
-          searchKeyword: currentSearchKeyword.toString(),
-          searchMeaning: currentSearchMeaning.toString()
-        });
-
-        console.log(`Frontend search: "${currentSearchQuery}" with fileName:${currentSearchFileName}, keyword:${currentSearchKeyword}, meaning:${currentSearchMeaning} (type: ${searchType})`);
-        const response = await fetch(`/api/documents/search?${params}`);
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Search API error:", response.status, errorText);
-          throw new Error(`Search failed: ${response.status} ${response.statusText}`);
-        }
-        const results = await response.json();
-        console.log(`Frontend received search response:`, results);
-        
-        // Handle the API response format { results: [...], count: number }
-        if (results && Array.isArray(results.results)) {
-          console.log(`Frontend received ${results.results.length} search results`);
-          return results.results;
-        }
-        
-        // Fallback for direct array response (backwards compatibility)
-        if (Array.isArray(results)) {
-          console.log(`Frontend received ${results.length} direct array results`);
-          return results;
-        }
-        
-        console.log('Frontend received invalid search results format');
-        return [];
-      } catch (error) {
+        } catch (error) {
         console.error("Document query failed:", error);
-        toast({
-          title: "Search Error",
-          description: error.message || "Failed to load documents. Please try again.",
-          variant: "destructive",
-        });
-        // Return empty array instead of throwing to prevent UI crashes
-        return [];
+        throw error;
       }
     },
-    retry: (failureCount, error) => {
-      // Retry up to 2 times for network errors, but not for auth errors
-      return failureCount < 2 && !error.message?.includes('401');
-    },
     enabled: isAuthenticated,
+    retry: false,
   }) as { data: Array<any>; isLoading: boolean; error: any };
 
   const handleSearch = () => {
