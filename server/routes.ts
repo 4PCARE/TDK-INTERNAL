@@ -425,6 +425,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Agent chatbots routes
+  app.get("/api/agent-chatbots", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      if (!userId) {
+        return res.status(401).json({ message: "User ID required" });
+      }
+
+      // Get agent chatbots from database
+      const agents = await db
+        .select()
+        .from(agentChatbots)
+        .where(eq(agentChatbots.userId, userId))
+        .orderBy(sql`${agentChatbots.createdAt} desc`);
+
+      res.json(agents || []);
+    } catch (error) {
+      console.error("Error fetching agent chatbots:", error);
+      res.status(500).json({ message: "Failed to fetch agent chatbots" });
+    }
+  });
+
+  // Agent chatbot documents routes
+  app.get("/api/agent-chatbots/:agentId/documents", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const agentId = parseInt(req.params.agentId);
+
+      if (!userId || isNaN(agentId)) {
+        return res.status(400).json({ message: "Valid agent ID and user ID required" });
+      }
+
+      // Verify agent belongs to user
+      const [agent] = await db
+        .select()
+        .from(agentChatbots)
+        .where(
+          and(
+            eq(agentChatbots.id, agentId),
+            eq(agentChatbots.userId, userId)
+          )
+        )
+        .limit(1);
+
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      // Get agent documents
+      const { agentChatbotDocuments } = await import("@shared/schema");
+      const agentDocs = await db
+        .select()
+        .from(agentChatbotDocuments)
+        .where(eq(agentChatbotDocuments.agentChatbotId, agentId));
+
+      res.json(agentDocs || []);
+    } catch (error) {
+      console.error("Error fetching agent documents:", error);
+      res.status(500).json({ message: "Failed to fetch agent documents" });
+    }
+  });
+
   // Get authentication methods available
   app.get("/api/auth/methods", async (req, res) => {
     res.json({

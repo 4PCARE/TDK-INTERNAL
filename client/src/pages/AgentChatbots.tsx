@@ -81,15 +81,23 @@ export default function AgentChatbots() {
   }, [isAuthenticated, isLoading, toast]);
 
   // Fetch agent chatbots
-  const { data: agents = [], isLoading: isLoadingAgents } = useQuery({
+  const { data: agents = [], isLoading: isLoadingAgents, error: agentsError } = useQuery({
     queryKey: ["/api/agent-chatbots"],
     enabled: isAuthenticated,
-    retry: false,
-    refetchInterval: 60000, // Refresh every 60 seconds for real-time updates
+    retry: 1,
+    refetchInterval: 30000, // Refresh every 30 seconds
     refetchIntervalInBackground: true,
-    refetchOnWindowFocus: true, // Refresh when user comes back to this page
+    refetchOnWindowFocus: true,
     refetchOnMount: true,
-  }) as { data: AgentChatbot[]; isLoading: boolean };
+    onError: (error) => {
+      console.error("Failed to fetch agents:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load agent chatbots",
+        variant: "destructive",
+      });
+    },
+  }) as { data: AgentChatbot[]; isLoading: boolean; error: any };
 
   // Add manual refresh functionality
   useEffect(() => {
@@ -113,23 +121,30 @@ export default function AgentChatbots() {
 
   // Component to display agent document list
   const AgentDocumentList = ({ agentId }: { agentId: number }) => {
-    const { data: agentDocuments = [], isLoading } = useQuery({
+    const { data: agentDocuments = [], isLoading, error } = useQuery({
       queryKey: [`/api/agent-chatbots/${agentId}/documents`],
-      enabled: isAuthenticated && !!agentId,
-      retry: false,
-      refetchInterval: 120000, // Refresh every 120 seconds
+      enabled: isAuthenticated && !!agentId && !isNaN(agentId),
+      retry: 1,
+      refetchInterval: 60000, // Refresh every 60 seconds
       refetchIntervalInBackground: true,
       refetchOnWindowFocus: true,
       refetchOnMount: true,
-      staleTime: 0, // Always consider data stale for immediate refresh
-    }) as { data: any[]; isLoading: boolean };
+      staleTime: 5000,
+      onError: (error) => {
+        console.error(`Failed to fetch documents for agent ${agentId}:`, error);
+      },
+    }) as { data: any[]; isLoading: boolean; error: any };
 
-    // Also fetch document details
-    const { data: allDocuments = [] } = useQuery({
+    // Also fetch document details with better error handling
+    const { data: allDocuments = [], error: documentsError } = useQuery({
       queryKey: ["/api/documents"],
       enabled: isAuthenticated,
-      retry: false,
-    }) as { data: any[]; isLoading: boolean };
+      retry: 1,
+      staleTime: 30000,
+      onError: (error) => {
+        console.error("Failed to fetch all documents:", error);
+      },
+    }) as { data: any[]; isLoading: boolean; error: any };
 
     if (isLoading) {
       return (
@@ -140,7 +155,16 @@ export default function AgentChatbots() {
       );
     }
 
-    if (agentDocuments.length === 0) {
+    if (error || documentsError) {
+      return (
+        <div className="flex items-center space-x-1 text-xs text-red-500">
+          <FileText className="w-3 h-3" />
+          <span>Error loading documents</span>
+        </div>
+      );
+    }
+
+    if (!agentDocuments || agentDocuments.length === 0) {
       return (
         <div className="flex items-center space-x-1 text-xs text-slate-500">
           <FileText className="w-3 h-3" />
@@ -297,9 +321,36 @@ export default function AgentChatbots() {
 
   if (isLoading || isLoadingAgents) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
+      <DashboardLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading agent chatbots...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (agentsError) {
+    return (
+      <DashboardLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-red-500 mb-4">
+              <Bot className="w-16 h-16 mx-auto mb-2" />
+              <h2 className="text-xl font-semibold">Failed to Load Agent Chatbots</h2>
+              <p className="text-gray-600 mt-2">Please refresh the page or contact support if the issue persists.</p>
+            </div>
+            <Button 
+              onClick={() => window.location.reload()} 
+              className="mt-4"
+            >
+              Refresh Page
+            </Button>
+          </div>
+        </div>
+      </DashboardLayout>
     );
   }
 
