@@ -124,8 +124,6 @@ export default function Documents() {
           searchType = "keyword"; // Keyword only
         } else if (currentSearchFileName && !currentSearchKeyword && !currentSearchMeaning) {
           searchType = "filename-only"; // File name only
-        } else if (!currentSearchFileName && !currentSearchKeyword && !currentSearchMeaning) {
-          searchType = "filename-only"; // Default to filename-only when all are disabled
         }
 
         const params = new URLSearchParams({
@@ -146,106 +144,6 @@ export default function Documents() {
         }
         const results = await response.json();
         console.log(`Frontend received ${Array.isArray(results) ? results.length : 'non-array'} search results`);
-        
-        // Post-process semantic search results to show best chunk per document
-        if (Array.isArray(results) && results.length > 0) {
-          // Check if these are chunk-based results (from semantic search)
-          const hasChunkIds = results.some(result => 
-            typeof result.id === 'string' && result.id.includes('-')
-          );
-          
-          if (hasChunkIds) {
-            console.log('Post-processing chunk-based search results...');
-            
-            // Group chunks by document ID and select best chunk per document
-            const documentMap = new Map();
-            
-            results.forEach(result => {
-              if (typeof result.id === 'string' && result.id.includes('-')) {
-                const documentId = result.id.split('-')[0];
-                
-                // Keep the chunk with highest similarity for each document
-                if (!documentMap.has(documentId) || 
-                    (result.similarity || 0) > (documentMap.get(documentId).similarity || 0)) {
-                  
-                  // Convert chunk result back to document format
-                  const cleanName = result.name.replace(/ \(Chunk \d+\)$/, '');
-                  
-                  // Create a complete document structure with all required properties
-                  const documentResult = {
-                    // Core document identification
-                    id: parseInt(documentId),
-                    name: cleanName,
-                    originalName: cleanName,
-                    fileName: cleanName,
-                    
-                    // File metadata - essential for DocumentCard
-                    mimeType: result.mimeType || result.fileType || 'application/octet-stream',
-                    fileType: result.fileType || result.mimeType?.split('/')[1] || 'unknown',
-                    fileSize: typeof result.fileSize === 'number' ? result.fileSize : 0,
-                    
-                    // Content and processing status
-                    content: result.content || '',
-                    summary: result.summary || '',
-                    description: result.description || result.summary || '',
-                    status: result.status || 'processed',
-                    
-                    // Timestamps
-                    createdAt: result.createdAt || new Date().toISOString(),
-                    updatedAt: result.updatedAt || result.createdAt || new Date().toISOString(),
-                    
-                    // Categorization
-                    categoryId: result.categoryId || null,
-                    category: result.category || null,
-                    categoryName: result.categoryName || result.category || null,
-                    aiCategory: result.aiCategory || 'General',
-                    aiCategoryColor: result.aiCategoryColor || '#6B7280',
-                    
-                    // User interaction flags
-                    isFavorite: Boolean(result.isFavorite),
-                    isEndorsed: Boolean(result.isEndorsed),
-                    isInVectorDb: result.isInVectorDb !== undefined ? Boolean(result.isInVectorDb) : true,
-                    
-                    // User metadata
-                    uploaderEmail: result.uploaderEmail || null,
-                    uploaderRole: result.uploaderRole || null,
-                    uploaderName: result.uploaderName || result.uploaderEmail || 'Unknown',
-                    
-                    // Department/organization
-                    departmentId: result.departmentId || null,
-                    departmentName: result.departmentName || null,
-                    
-                    // Tags and metadata
-                    tags: Array.isArray(result.tags) ? result.tags : [],
-                    
-                    // Endorsement metadata
-                    endorsedAt: result.endorsedAt || null,
-                    effectiveStartDate: result.effectiveStartDate || null,
-                    effectiveEndDate: result.effectiveEndDate || null,
-                    
-                    // Remove chunk-specific properties that might interfere with DocumentCard
-                    // These are intentionally set to undefined to clean the object
-                    similarity: undefined,
-                    matchedTerms: undefined,
-                    matchDetails: undefined,
-                    chunkIndex: undefined,
-                    chunkId: undefined,
-                  };
-                  
-                  documentMap.set(documentId, documentResult);
-                }
-              } else {
-                // Non-chunk result, keep as is
-                documentMap.set(result.id.toString(), result);
-              }
-            });
-            
-            const processedResults = Array.from(documentMap.values());
-            console.log(`Post-processing: ${results.length} chunks → ${processedResults.length} documents`);
-            
-            return processedResults;
-          }
-        }
         
         // Ensure we always return an array
         return Array.isArray(results) ? results : [];
@@ -268,6 +166,16 @@ export default function Documents() {
   }) as { data: Array<any>; isLoading: boolean; error: any };
 
   const handleSearch = () => {
+    // Validate that at least one search type is selected (filename is always enabled)
+    if (!searchKeyword && !searchMeaning) {
+      toast({
+        title: "Search Options Required",
+        description: "Please select at least one content search option: Content (keyword) or Content (meaning).",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setCurrentSearchQuery(searchQuery);
     setCurrentSearchFileName(searchFileName);
     setCurrentSearchKeyword(searchKeyword);

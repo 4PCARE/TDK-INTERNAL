@@ -1488,37 +1488,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get individual document details
-  app.get("/api/documents/:id", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const documentId = parseInt(req.params.id);
-      
-      if (isNaN(documentId)) {
-        return res.status(400).json({ message: "Invalid document ID" });
-      }
-
-      const document = await storage.getDocument(documentId, userId);
-      
-      if (!document) {
-        return res.status(404).json({ message: "Document not found" });
-      }
-
-      res.json(document);
-    } catch (error) {
-      console.error("Error fetching document:", error);
-      res.status(500).json({ message: "Failed to fetch document" });
-    }
-  });
-
   // Enhanced document search with semantic capabilities and document name priority
   app.get("/api/documents/search", (req: any, res: any, next: any) => {
     // Try Microsoft auth first, then fallback to Replit auth
@@ -1535,16 +1504,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`🔍 SEARCH REQUEST: "${query}" (${type}) for user ${userId}`);
 
-      // Handle empty or missing query by returning all documents
-      if (!query || typeof query !== 'string' || query.trim() === "") {
-        console.log(`📂 No search query provided, returning all documents`);
+      if (!query || query.trim() === "") {
+        // Return all documents if no search query
         const documents = await storage.getDocuments(userId, { limit: 1000 });
-        console.log(`📂 Returning ${documents.length} documents without search`);
+        console.log(`📂 No search query, returning ${documents.length} documents`);
         return res.json(documents);
       }
 
       let results = [];
-      const massPercentage = parseFloat(massSelectionPercentage as string) || 0.3;
+      const massPercentage = parseFloat(massSelectionPercentage);
 
       switch (type) {
         case "document-priority":
@@ -1574,12 +1542,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           results = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
-            {
-              searchType: "keyword",
-              limit: Math.min(50, Math.floor(100 * massPercentage)),
-              threshold: 0.3,
-              massSelectionPercentage: massPercentage
-            }
+            Math.min(50, Math.floor(100 * massPercentage)),
+            undefined,
+            "keyword",
+            massPercentage
           );
           break;
 
@@ -1587,12 +1553,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           results = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
-            {
-              searchType: "semantic",
-              limit: Math.min(50, Math.floor(100 * massPercentage)),
-              threshold: 0.3,
-              massSelectionPercentage: massPercentage
-            }
+            Math.min(50, Math.floor(100 * massPercentage)),
+            undefined,
+            "semantic",
+            massPercentage
           );
           break;
 
@@ -1601,50 +1565,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           results = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
-            {
-              searchType: "hybrid",
-              limit: Math.min(50, Math.floor(100 * massPercentage)),
-              threshold: 0.3,
-              massSelectionPercentage: massPercentage
-            }
+            Math.min(50, Math.floor(100 * massPercentage)),
+            undefined,
+            "smart-hybrid",
+            massPercentage
           );
           break;
       }
 
       console.log(`✅ SEARCH COMPLETE: Returning ${results.length} results for "${query}"`);
-      
-      // POST-PROCESS: Handle chunk results that may have document-chunk IDs
-      const processedResults = results.map(result => {
-        // Check if this is a chunk result (ID format: "documentId-chunkIndex")
-        if (typeof result.id === 'string' && result.id.includes('-')) {
-          const parts = result.id.split('-');
-          if (parts.length === 2 && !isNaN(parseInt(parts[0])) && !isNaN(parseInt(parts[1]))) {
-            // This is a chunk result, ensure it's properly formatted
-            const documentId = parseInt(parts[0]);
-            const chunkIndex = parseInt(parts[1]);
-            
-            console.log(`📝 POST-PROCESS: Converting chunk result ${result.id} to proper format`);
-            
-            return {
-              ...result,
-              id: result.id, // Keep the chunk ID format for frontend
-              documentId: documentId, // Add separate documentId field
-              chunkIndex: chunkIndex, // Add chunkIndex for reference
-              isChunk: true // Flag to identify chunk results
-            };
-          }
-        }
-        
-        // Regular document result, ensure ID is number
-        return {
-          ...result,
-          id: typeof result.id === 'string' ? parseInt(result.id) : result.id,
-          isChunk: false
-        };
-      });
-      
-      console.log(`📝 POST-PROCESS: Processed ${processedResults.length} results (chunks converted to proper format)`);
-      res.json(processedResults);
+      res.json(results);
     } catch (error) {
       console.error("Error in document search:", error);
       res.status(500).json({ message: "Search failed", error: error.message });

@@ -289,121 +289,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Document operations
-  async getDocument(documentId: number, userId: string): Promise<any | null> {
-    try {
-      console.log(`Storage getDocument called for ID: ${documentId}, userId: ${userId}`);
-
-      // First check if document exists and user has access
-      const [document] = await db
-        .select()
-        .from(documents)
-        .where(eq(documents.id, documentId))
-        .limit(1);
-
-      if (!document) {
-        console.log(`Document ${documentId} not found`);
-        return null;
-      }
-
-      // Check if user owns the document or has permission to access it
-      let hasAccess = false;
-
-      // Check ownership
-      if (document.userId === userId) {
-        hasAccess = true;
-      } else {
-        // Check user permissions
-        const userPermission = await db
-          .select()
-          .from(documentUserPermissions)
-          .where(and(
-            eq(documentUserPermissions.documentId, documentId),
-            eq(documentUserPermissions.userId, userId)
-          ))
-          .limit(1);
-
-        if (userPermission.length > 0) {
-          hasAccess = true;
-        } else {
-          // Check department permissions
-          const [currentUser] = await db
-            .select({ departmentId: users.departmentId })
-            .from(users)
-            .where(eq(users.id, userId))
-            .limit(1);
-
-          if (currentUser?.departmentId) {
-            const departmentPermission = await db
-              .select()
-              .from(documentDepartmentPermissions)
-              .where(and(
-                eq(documentDepartmentPermissions.documentId, documentId),
-                eq(documentDepartmentPermissions.departmentId, currentUser.departmentId)
-              ))
-              .limit(1);
-
-            if (departmentPermission.length > 0) {
-              hasAccess = true;
-            }
-          }
-        }
-      }
-
-      if (!hasAccess) {
-        console.log(`User ${userId} does not have access to document ${documentId}`);
-        return null;
-      }
-
-      // Get additional user and department info
-      const [uploaderUser] = await db
-        .select({
-          firstName: users.firstName,
-          lastName: users.lastName,
-          email: users.email,
-          role: users.role,
-          departmentId: users.departmentId,
-        })
-        .from(users)
-        .where(eq(users.id, document.userId))
-        .limit(1);
-
-      let departmentName = null;
-      if (uploaderUser?.departmentId) {
-        const [department] = await db
-          .select({ name: departments.name })
-          .from(departments)
-          .where(eq(departments.id, uploaderUser.departmentId))
-          .limit(1);
-        departmentName = department?.name || null;
-      }
-
-      let categoryName = null;
-      if (document.categoryId) {
-        const [category] = await db
-          .select({ name: categories.name })
-          .from(categories)
-          .where(eq(categories.id, document.categoryId))
-          .limit(1);
-        categoryName = category?.name || null;
-      }
-
-      const result = {
-        ...document,
-        uploaderName: uploaderUser ? `${uploaderUser.firstName || ''} ${uploaderUser.lastName || ''}`.trim() : 'Unknown User',
-        uploaderEmail: uploaderUser?.email || null,
-        uploaderRole: uploaderUser?.role || null,
-        departmentName: departmentName,
-        categoryName: categoryName,
-      };
-
-      console.log(`Successfully retrieved document ${documentId}`);
-      return result;
-    } catch (error) {
-      console.error("Error fetching document:", error);
-      return null;
-    }
-  }
-
   async getDocuments(userId: string, options: { categoryId?: number; limit?: number; offset?: number } = {}): Promise<Document[]> {
     const { categoryId, limit = 1000, offset = 0 } = options;
 
@@ -541,6 +426,54 @@ export class DatabaseStorage implements IStorage {
       .slice(offset, offset + limit);
 
     return sortedDocuments;
+  }
+
+  async getDocument(id: number, userId: string): Promise<Document | undefined> {
+    // First try to get the document if user owns it
+    const [ownedDocument] = await db
+      .select()
+      .from(documents)
+      .where(and(eq(documents.id, id), eq(documents.userId, userId)));
+
+    if (ownedDocument) {
+      return ownedDocument;
+    }
+
+    // Check if document is shared directly with user
+    const [userSharedDocument] = await db
+      .select()
+      .from(documents)
+      .innerJoin(documentUserPermissions, eq(documents.id, documentUserPermissions.documentId))
+      .where(and(
+        eq(documents.id, id),
+        eq(documentUserPermissions.userId, userId)
+      ));
+
+    if (userSharedDocument) {
+      return userSharedDocument.documents;
+    }
+
+    // Check if document is shared with user's department
+    const [currentUser] = await db.select({ departmentId: users.departmentId })
+      .from(users)
+      .where(eq(users.id, userId));
+
+    if (currentUser?.departmentId) {
+      const [deptSharedDocument] = await db
+        .select()
+        .from(documents)
+        .innerJoin(documentDepartmentPermissions, eq(documents.id, documentDepartmentPermissions.documentId))
+        .where(and(
+          eq(documents.id, id),
+          eq(documentDepartmentPermissions.departmentId, currentUser.departmentId)
+        ));
+
+      if (deptSharedDocument) {
+        return deptSharedDocument.documents;
+      }
+    }
+
+    return undefined;
   }
 
   async getDocumentForWidget(id: number): Promise<Document | undefined> {
@@ -1831,7 +1764,7 @@ export class DatabaseStorage implements IStorage {
     if (integration.channelId !== undefined) updateData.channel_id = integration.channelId;
     if (integration.channelSecret !== undefined) updateData.channel_secret = integration.channelSecret;
     if (integration.channelAccessToken !== undefined) updateData.channel_access_token = integration.channelAccessToken;
-    if (integration.agentId !== undefined)updateData.agent_id = integration.agentId;
+    if (integration.agentId !== undefined) updateData.agent_id = integration.agentId;
     if (integration.isActive !== undefined) updateData.is_active = integration.isActive;
     if (integration.isVerified !== undefined) updateData.is_verified = integration.isVerified;
 
