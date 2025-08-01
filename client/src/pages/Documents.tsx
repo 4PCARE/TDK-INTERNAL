@@ -111,8 +111,8 @@ export default function Documents() {
     }
   };
 
-  // Enhanced search with semantic capabilities  
-  const { data: rawSearchResults, isLoading: documentsLoading, error: documentsError } = useQuery({
+  // Enhanced search with semantic capabilities
+  const { data: documents, isLoading: documentsLoading, error: documentsError } = useQuery({
     queryKey: ["/api/documents/search", searchQuery, searchFileName, searchKeyword, searchMeaning],
     queryFn: async () => {
       try {
@@ -124,7 +124,16 @@ export default function Documents() {
           return await response.json();
         }
 
-        const searchType = determineSearchType();
+        // Determine search type based on selected checkboxes
+        let searchType = "keyword-name-priority";
+        if (searchMeaning && !searchKeyword && !searchFileName) {
+          searchType = "semantic";
+        } else if (searchKeyword && !searchMeaning && !searchFileName) {
+          searchType = "keyword";
+        } else if (searchFileName && !searchKeyword && !searchMeaning) {
+          searchType = "filename";
+        }
+
         const params = new URLSearchParams({
           query: searchQuery,
           type: searchType,
