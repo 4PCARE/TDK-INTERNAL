@@ -291,41 +291,113 @@ export class DatabaseStorage implements IStorage {
   // Document operations
   async getDocument(documentId: number, userId: string): Promise<any | null> {
     try {
-      const { documents, users, departments, categories } = await import("@shared/schema");
+      console.log(`Storage getDocument called for ID: ${documentId}, userId: ${userId}`);
 
+      // First check if document exists and user has access
       const [document] = await db
-        .select({
-          id: documents.id,
-          name: documents.name,
-          originalName: documents.originalName,
-          fileName: documents.fileName,
-          description: documents.description,
-          summary: documents.summary,
-          content: documents.content,
-          mimeType: documents.mimeType,
-          fileType: documents.fileType,
-          fileSize: documents.fileSize,
-          tags: documents.tags,
-          isFavorite: documents.isFavorite,
-          isEndorsed: documents.isEndorsed,
-          createdAt: documents.createdAt,
-          updatedAt: documents.updatedAt,
-          status: documents.status,
-          uploaderName: sql<string>`CONCAT(${users.firstName}, ' ', ${users.lastName})`,
-          uploaderEmail: users.email,
-          uploaderRole: users.role,
-          departmentName: departments.name,
-          categoryName: categories.name,
-          aiCategory: documents.aiCategory,
-        })
+        .select()
         .from(documents)
-        .leftJoin(users, eq(documents.userId, users.id))
-        .leftJoin(departments, eq(users.departmentId, departments.id))
-        .leftJoin(categories, eq(documents.categoryId, categories.id))
-        .where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
+        .where(eq(documents.id, documentId))
         .limit(1);
 
-      return document || null;
+      if (!document) {
+        console.log(`Document ${documentId} not found`);
+        return null;
+      }
+
+      // Check if user owns the document or has permission to access it
+      let hasAccess = false;
+
+      // Check ownership
+      if (document.userId === userId) {
+        hasAccess = true;
+      } else {
+        // Check user permissions
+        const userPermission = await db
+          .select()
+          .from(documentUserPermissions)
+          .where(and(
+            eq(documentUserPermissions.documentId, documentId),
+            eq(documentUserPermissions.userId, userId)
+          ))
+          .limit(1);
+
+        if (userPermission.length > 0) {
+          hasAccess = true;
+        } else {
+          // Check department permissions
+          const [currentUser] = await db
+            .select({ departmentId: users.departmentId })
+            .from(users)
+            .where(eq(users.id, userId))
+            .limit(1);
+
+          if (currentUser?.departmentId) {
+            const departmentPermission = await db
+              .select()
+              .from(documentDepartmentPermissions)
+              .where(and(
+                eq(documentDepartmentPermissions.documentId, documentId),
+                eq(documentDepartmentPermissions.departmentId, currentUser.departmentId)
+              ))
+              .limit(1);
+
+            if (departmentPermission.length > 0) {
+              hasAccess = true;
+            }
+          }
+        }
+      }
+
+      if (!hasAccess) {
+        console.log(`User ${userId} does not have access to document ${documentId}`);
+        return null;
+      }
+
+      // Get additional user and department info
+      const [uploaderUser] = await db
+        .select({
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+          role: users.role,
+          departmentId: users.departmentId,
+        })
+        .from(users)
+        .where(eq(users.id, document.userId))
+        .limit(1);
+
+      let departmentName = null;
+      if (uploaderUser?.departmentId) {
+        const [department] = await db
+          .select({ name: departments.name })
+          .from(departments)
+          .where(eq(departments.id, uploaderUser.departmentId))
+          .limit(1);
+        departmentName = department?.name || null;
+      }
+
+      let categoryName = null;
+      if (document.categoryId) {
+        const [category] = await db
+          .select({ name: categories.name })
+          .from(categories)
+          .where(eq(categories.id, document.categoryId))
+          .limit(1);
+        categoryName = category?.name || null;
+      }
+
+      const result = {
+        ...document,
+        uploaderName: uploaderUser ? `${uploaderUser.firstName || ''} ${uploaderUser.lastName || ''}`.trim() : 'Unknown User',
+        uploaderEmail: uploaderUser?.email || null,
+        uploaderRole: uploaderUser?.role || null,
+        departmentName: departmentName,
+        categoryName: categoryName,
+      };
+
+      console.log(`Successfully retrieved document ${documentId}`);
+      return result;
     } catch (error) {
       console.error("Error fetching document:", error);
       return null;
