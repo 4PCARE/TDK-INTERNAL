@@ -45,7 +45,22 @@ export default function SearchPage() {
   }, [isAuthenticated, isLoading, toast]);
 
   const { data: rawSearchResults, isLoading: searchLoading, error } = useQuery({
-    queryKey: ["/api/documents/search", { q: searchQuery, type: searchType }],
+    queryKey: ["search", searchQuery, searchType],
+    queryFn: async () => {
+      if (!searchQuery) return null;
+      
+      const params = new URLSearchParams({
+        q: searchQuery,
+        type: searchType
+      });
+      
+      const response = await fetch(`/api/documents/search?${params}`);
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.status}`);
+      }
+      
+      return response.json();
+    },
     enabled: !!searchQuery && hasSearched,
     retry: false,
   });
