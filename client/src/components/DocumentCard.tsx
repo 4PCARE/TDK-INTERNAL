@@ -94,10 +94,10 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
   // Use doc.isFavorite directly instead of local state to prevent sync issues
   const isFavorite = doc.isFavorite || false;
 
-  // Fetch document details when needed - but not during search operations
+  // Fetch document details when needed
   const { data: documentDetails, isLoading: detailsLoading } = useQuery({
     queryKey: [`/api/documents/${doc.id}`],
-    enabled: showDetails && doc.id && !isNaN(Number(doc.id)),
+    enabled: showDetails,
     retry: false,
   });
 

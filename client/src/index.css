@@ -2,51 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Compact markdown styles for chat messages */
-.markdown-compact p {
-  margin-bottom: 0.5rem;
-}
-
-.markdown-compact p:last-child {
-  margin-bottom: 0;
-}
-
-.markdown-compact ul,
-.markdown-compact ol {
-  margin-bottom: 0.5rem;
-  margin-top: 0;
-}
-
-.markdown-compact li {
-  margin-bottom: 0.25rem;
-}
-
-.markdown-compact li:last-child {
-  margin-bottom: 0;
-}
-
-.markdown-compact h1,
-.markdown-compact h2,
-.markdown-compact h3,
-.markdown-compact h4,
-.markdown-compact h5,
-.markdown-compact h6 {
-  margin-top: 0;
-  margin-bottom: 0.5rem;
-}
-
-.markdown-compact blockquote {
-  margin: 0.5rem 0;
-}
-
-.markdown-compact pre {
-  margin: 0.5rem 0;
-}
-
-.markdown-compact code {
-  margin: 0;
-}
-
 @layer utilities {
   .scrollbar-hide {
     -ms-overflow-style: none;  /* Internet Explorer 10+ */

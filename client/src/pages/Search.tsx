@@ -7,7 +7,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect } from "react";
 import Sidebar from "@/components/Layout/Sidebar";
 import TopBar from "@/components/TopBar";
-import DocumentCard from "@/components/Documents/DocumentCard";
+import DocumentCard from "@/components/DocumentCard";
 import SearchBar from "@/components/SearchBar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,6 @@ export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState<"keyword" | "semantic">("keyword");
   const [hasSearched, setHasSearched] = useState(false);
-  const [rawSearchResultsState, setRawSearchResultsState] = useState<any[]>([]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -46,143 +45,27 @@ export default function SearchPage() {
   }, [isAuthenticated, isLoading, toast]);
 
   const { data: rawSearchResults, isLoading: searchLoading, error } = useQuery({
-    queryKey: ["search", searchQuery, searchType],
-    queryFn: async () => {
-      if (!searchQuery || !searchQuery.trim()) return null;
-
-      try {
-        console.log("\n" + "🌟".repeat(50));
-        console.log("🔍 FRONTEND SEARCH INITIATED");
-        console.log("🌟".repeat(50));
-        console.log(`⏰ TIME: ${new Date().toISOString()}`);
-        console.log(`🔤 QUERY: "${searchQuery}"`);
-        console.log(`🏷️  TYPE: ${searchType}`);
-        console.log(`📏 QUERY LENGTH: ${searchQuery.length}`);
-        console.log(`🧹 TRIMMED QUERY: "${searchQuery.trim()}"`);
-
-        const params = new URLSearchParams({
-          q: searchQuery.trim(),
-          type: searchType
-        });
-
-        const url = `/api/documents/search?${params}`;
-        console.log(`🚀 FULL REQUEST URL: ${url}`);
-        console.log(`📋 URL PARAMS:`, {
-          q: searchQuery.trim(),
-          type: searchType
-        });
-
-        console.log(`🌐 MAKING FETCH REQUEST...`);
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Search failed: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log(`📊 Search response received:`, data);
-        console.log(`📊 Response structure analysis:`, {
-          isArray: Array.isArray(data),
-          hasResults: !!data?.results,
-          resultsIsArray: Array.isArray(data?.results),
-          resultsLength: data?.results?.length,
-          hasCount: !!data?.count,
-          countValue: data?.count,
-          firstResult: data?.results?.[0]
-        });
-
-        // API always returns { results: [...], count: number } format
-        if (data && Array.isArray(data.results)) {
-          console.log(`✅ Setting search response with ${data.results.length} results`);
-          console.log(`📋 Sample results:`, data.results.slice(0, 3));
-          setRawSearchResultsState(data);
-          return data;
-        } else {
-          console.error('Frontend received invalid search results format:', data);
-          setRawSearchResultsState({ results: [], count: 0 });
-          return { results: [], count: 0 };
-        }
-      } catch (error) {
-        console.error("Search API error:", error);
-        toast({
-          title: "Search Error",
-          description: "Failed to retrieve search results.",
-          variant: "destructive",
-        });
-        setRawSearchResultsState([]);
-        throw error;
-      }
-    },
-    enabled: !!searchQuery && hasSearched && searchQuery.trim().length > 0,
+    queryKey: ["/api/search", { q: searchQuery, type: searchType }],
+    enabled: !!searchQuery && hasSearched,
     retry: false,
   });
 
   // Process search results to show only the most similar chunk per document
-  const processedSearchResults = React.useMemo(() => {
-    console.log(`🔄 PROCESSING SEARCH RESULTS:`, {
-      hasRawResults: !!rawSearchResults,
-      isArray: Array.isArray(rawSearchResults),
-      hasResults: !!rawSearchResults?.results,
-      resultCount: rawSearchResults?.results?.length || 0,
-      searchType: searchType
-    });
-
-    // The API always returns { results: [...], count: number } format
-    if (!rawSearchResults?.results || !Array.isArray(rawSearchResults.results)) {
-      console.log(`❌ NO VALID SEARCH RESULTS TO PROCESS`);
-      return [];
-    }
-
-    const resultsArray = rawSearchResults.results;
-
-    console.log(`📊 RAW SEARCH RESULTS:`, {
-      count: resultsArray.length,
-      firstResult: resultsArray[0] ? {
-        id: resultsArray[0].id,
-        name: resultsArray[0].name,
-        hasContent: !!resultsArray[0].content,
-        contentLength: resultsArray[0].content?.length || 0
-      } : null
-    });
+  const searchResults = React.useMemo(() => {
+    if (!rawSearchResults?.results) return rawSearchResults;
 
     if (searchType === "keyword") {
-      // For keyword search, return results array directly
-      console.log(`🔤 KEYWORD SEARCH: Returning results as-is`);
-      return resultsArray;
+      // For keyword search, return as-is (no chunk processing needed)
+      return rawSearchResults;
     }
 
     // For semantic search, group by document and keep only the most similar chunk
-    console.log(`🧠 SEMANTIC SEARCH: Processing chunks by document`);
     const documentMap = new Map();
-
-    resultsArray.forEach((result: any, index: number) => {
-      console.log(`   Processing result ${index + 1}:`, {
-        originalId: result.id,
-        name: result.name,
-        similarity: result.similarity,
-        hasChunkInfo: result.id?.includes('-') || result.name?.includes('Chunk')
-      });
-
+    
+    rawSearchResults.results.forEach((result: any) => {
       // Extract document ID from chunk ID (format: "docId-chunkIndex")
-      let docId = result.id;
-
-      // Check if this looks like a chunk ID
-      if (typeof result.id === 'string' && result.id.includes('-')) {
-        docId = result.id.split('-')[0];
-        console.log(`   Extracted document ID: ${docId} from chunk ID: ${result.id}`);
-      }
-
-      // Validate the extracted document ID
-      if (!docId || docId === 'NaN' || isNaN(Number(docId))) {
-        console.log(`❌ INVALID DOCUMENT ID EXTRACTED: ${docId} from original ID: ${result.id}`);
-        return; // Skip this result
-      }
-
+      const docId = result.id.split('-')[0];
+      
       if (!documentMap.has(docId) || result.similarity > documentMap.get(docId).similarity) {
         // Create a cleaned result without chunk information
         const cleanResult = {
@@ -190,20 +73,15 @@ export default function SearchPage() {
           id: docId, // Use document ID
           name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk label
         };
-
         documentMap.set(docId, cleanResult);
       }
     });
 
-    const processedResults = Array.from(documentMap.values());
-
-    console.log(`✅ SEMANTIC PROCESSING COMPLETE:`, {
-      originalCount: resultsArray.length,
-      processedCount: processedResults.length,
-      documentMapSize: documentMap.size
-    });
-
-    return processedResults;
+    return {
+      ...rawSearchResults,
+      results: Array.from(documentMap.values()),
+      count: documentMap.size
+    };
   }, [rawSearchResults, searchType]);
 
   const handleSearch = (query: string, type: "keyword" | "semantic") => {
@@ -263,9 +141,9 @@ export default function SearchPage() {
                     <Badge variant={searchType === "keyword" ? "default" : "secondary"}>
                       {searchType === "keyword" ? "Keyword" : "Semantic"}
                     </Badge>
-                    {processedSearchResults && (
+                    {searchResults && (
                       <Badge variant="outline">
-                        {processedSearchResults.length} results
+                        {searchResults.count} results
                       </Badge>
                     )}
                   </div>
@@ -286,7 +164,7 @@ export default function SearchPage() {
                       </span>
                     </div>
                   </div>
-                ) : processedSearchResults && processedSearchResults.length > 0 ? (
+                ) : searchResults && searchResults.results && searchResults.results.length > 0 ? (
                   <div className="space-y-4">
                     {/* Search Info */}
                     <div className="flex items-center space-x-4 text-sm text-slate-500 pb-4 border-b border-slate-200">
@@ -308,21 +186,9 @@ export default function SearchPage() {
 
                     {/* Results */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {processedSearchResults.map((doc: any) => (
-                      <DocumentCard 
-                        key={doc.id} 
-                        document={{
-                          id: doc.id,
-                          name: doc.name,
-                          description: doc.description || doc.summary,
-                          mimeType: doc.mimeType || 'application/octet-stream',
-                          fileSize: doc.fileSize || 0,
-                          tags: doc.tags || [],
-                          isFavorite: doc.isFavorite || false,
-                          createdAt: doc.createdAt || new Date().toISOString()
-                        }} 
-                      />
-                    ))}
+                      {searchResults.results.map((doc: any) => (
+                        <DocumentCard key={doc.id} document={doc} />
+                      ))}
                     </div>
                   </div>
                 ) : hasSearched ? (

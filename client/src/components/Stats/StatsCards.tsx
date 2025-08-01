@@ -2,19 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { FileText, CheckCircle, HardDrive, Bot, TrendingUp } from "lucide-react";
 
-// Helper function to format storage size
-const formatStorageSize = (sizeInMB: number): string => {
-  if (sizeInMB === 0) return "0 MB";
-  if (sizeInMB < 1024) return `${sizeInMB} MB`;
-
-  const sizeInGB = (sizeInMB / 1024).toFixed(1);
-  return `${sizeInGB} GB`;
-};
-
 export default function StatsCards() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ["/api/stats"],
-  }) as { data: { totalDocuments: number; processedToday: number; storageUsed: number; aiQueries?: number } | undefined };
+  });
 
   if (isLoading) {
     return (
@@ -49,7 +40,7 @@ export default function StatsCards() {
     },
     {
       label: "Storage Used",
-      value: formatStorageSize(stats?.storageUsed || 0),
+      value: `${stats?.storageUsed || 0}MB`,
       change: "of 10GB available",
       icon: HardDrive,
       iconBg: "bg-blue-100",

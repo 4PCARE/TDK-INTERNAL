@@ -375,34 +375,40 @@ Format your response in a clear, conversational way that helps the user understa
 
 export async function generateChatResponse(
   userMessage: string,
-  userId: string,
-  channelType: string = "web",
-  channelId: string = "default",
-  agentId?: number,
-  specificDocumentId?: number
+  documents: any[],
+  specificDocumentId?: number,
+  searchType: 'hybrid' | 'semantic' | 'keyword' = 'hybrid',
+  keywordWeight: number = 0.95,
+  vectorWeight: number = 0.05,
+  massSelectionPercentage?: number
 ): Promise<string> {
   try {
     let relevantContent = "";
 
-    // If we have a specific document ID, get documents for that user and search within them
-    if (specificDocumentId) {
-      try {
-        console.log(`📄 DOCUMENT BOT: Performing smart hybrid search for query: "${userMessage}"`);
-        console.log(`📄 DOCUMENT BOT: Restricting search to document ID: ${specificDocumentId}`);
+    // Use the same hybrid search system as Line OA bot
+    try {
+      console.log(`📄 DOCUMENT BOT: Performing smart hybrid search for query: "${userMessage}"`);
 
-        // Use the same search method as Line OA bot with document-specific configuration
-        const { searchSmartHybridDebug } = await import('./newSearch');
-        const searchResults = await searchSmartHybridDebug(
-          userMessage,
-          userId,
-          {
-            keywordWeight: 0.95, // High keyword weight for document bots
-            vectorWeight: 0.05,
-            specificDocumentIds: [specificDocumentId],
-            massSelectionPercentage: 0.6, // 60% mass selection for document bots
-            limit: 16 // Max 16 chunks for document bots
-          }
-        );
+      // Get document IDs to filter search scope
+      const documentIds = specificDocumentId 
+        ? [specificDocumentId] 
+        : documents.map(doc => doc.id).filter(id => id !== undefined);
+      
+      console.log(`📄 DOCUMENT BOT: Restricting search to ${documentIds.length} documents: [${documentIds.join(', ')}]`);
+
+      // Use the same search method as Line OA bot with document-specific configuration
+      const { searchSmartHybridDebug } = await import('./newSearch');
+      const searchResults = await searchSmartHybridDebug(
+        userMessage,
+        documents[0]?.userId,
+        {
+          keywordWeight: 0.95, // High keyword weight for document bots
+          vectorWeight: 0.05,
+          specificDocumentIds: documentIds,
+          massSelectionPercentage: 0.6, // 60% mass selection for document bots
+          limit: 16 // Max 16 chunks for document bots
+        }
+      );
 
       if (searchResults.length > 0) {
         console.log(`📄 DOCUMENT BOT: Smart hybrid search found ${searchResults.length} relevant chunks from document(s)`);
@@ -430,17 +436,23 @@ export async function generateChatResponse(
         relevantContent = documentContents.join('\n');
         console.log(`📄 DOCUMENT BOT: Used ${documentContents.length}/${searchResults.length} chunks (${totalChars} chars)`);
       } else {
-          console.log("📄 DOCUMENT BOT: No hybrid search results found for specific document");
-          relevantContent = "I couldn't find relevant information in the specified document.";
-        }
-      } catch (searchError) {
-        console.error(`📄 DOCUMENT BOT: Smart hybrid search failed:`, searchError);
-        relevantContent = "I'm having trouble accessing the document content right now.";
+        console.log("📄 DOCUMENT BOT: No hybrid search results found, using fallback document content");
+        relevantContent = documents
+          .map(doc => doc.content || doc.summary || '')
+          .filter(content => content.length > 0)
+          .slice(0, 2)
+          .map(content => content.substring(0, 15000))
+          .join("\n\n");
       }
-    } else {
-      // No specific document ID, perform general search or provide general assistance
-      console.log("📄 DOCUMENT BOT: No specific document ID provided, providing general assistance");
-      relevantContent = "I'm ready to help you with your questions. Feel free to ask about any documents or topics.";
+    } catch (searchError) {
+      console.error(`📄 DOCUMENT BOT: Smart hybrid search failed:`, searchError);
+      console.log("📄 DOCUMENT BOT: Falling back to document content");
+      relevantContent = documents
+        .map(doc => doc.content || doc.summary || '')
+        .filter(content => content.length > 0)
+        .slice(0, 2)
+        .map(content => content.substring(0, 15000))
+        .join("\n\n");
     }
 
     const systemMessage = `You are an AI assistant helping users with their document management system. You have access to the user's documents and can answer questions about them, help with searches, provide summaries, and assist with document organization.

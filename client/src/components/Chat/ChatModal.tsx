@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +23,11 @@ interface ChatMessage {
 
 export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
   const [message, setMessage] = useState("");
-  const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
+  const [currentConversationId, setCurrentConversationId] = useState<
+    number | null
+  >(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -59,54 +61,26 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
+      if (!currentConversationId) throw new Error("No conversation");
+
       const response = await apiRequest("POST", "/api/chat/messages", {
         conversationId: currentConversationId,
-        message: content,
+        content,
       });
       return response.json();
     },
-    onMutate: async (content: string) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({
-        queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
-      });
-
-      // Snapshot the previous value
-      const previousMessages = queryClient.getQueryData([
-        "/api/chat/conversations",
-        currentConversationId,
-        "messages",
-      ]);
-
-      // Optimistically update with user message
-      const optimisticMessage: ChatMessage = {
-        id: Date.now(),
-        role: "user",
-        content: content,
-        createdAt: new Date().toISOString(),
-      };
-
-      queryClient.setQueryData(
-        ["/api/chat/conversations", currentConversationId, "messages"],
-        (old: ChatMessage[] | undefined) => [...(old || []), optimisticMessage]
-      );
-
-      return { previousMessages, optimisticMessage };
-    },
     onSuccess: () => {
-      setMessage("");
       queryClient.invalidateQueries({
-        queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
+        queryKey: [
+          "/api/chat/conversations",
+          currentConversationId,
+          "messages",
+        ],
       });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      setMessage("");
     },
-    onError: (error, content: string, context: any) => {
-      if (context?.previousMessages) {
-        queryClient.setQueryData(
-          ["/api/chat/conversations", currentConversationId, "messages"],
-          context.previousMessages
-        );
-      }
+    onError: (error) => {
       toast({
         title: "Error sending message",
         description: error.message,
@@ -150,123 +124,112 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
       defaultHeight="70%"
       minWidth={600}
       minHeight={500}
+      className="flex flex-col"
     >
-      <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="flex items-center space-x-2 p-4 border-b border-gray-200 flex-shrink-0">
-          <Bot className="w-5 h-5 text-blue-600" />
-          <span className="text-sm text-gray-600">พูดคุยกับ AI Assistant</span>
-        </div>
+      <div className="flex items-center space-x-2 mb-4">
+        <Bot className="w-5 h-5 text-blue-600" />
+        <span className="text-sm text-gray-600">พูดคุยกับ AI Assistant</span>
+      </div>
 
-        {/* Messages Area - Properly Scrollable */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="space-y-4 min-h-full flex flex-col">
-              {isLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+        {/* Chat Messages */}
+        <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+          <div className="space-y-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="flex items-start space-x-3">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Bot className="w-5 h-5 text-blue-600" />
                 </div>
-              ) : messages.length === 0 ? (
-                <div className="flex-1 flex flex-col justify-center space-y-6">
-                  <div className="flex items-start space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-900">
+                    Hello! I can help you search and analyze your documents.
+                    What would you like to know?
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Just now</p>
+                </div>
+              </div>
+            ) : (
+              messages.map((msg: ChatMessage) => (
+                <div key={msg.id} className="flex items-start space-x-3">
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      msg.role === "assistant" ? "bg-blue-100" : "bg-gray-100"
+                    }`}
+                  >
+                    {msg.role === "assistant" ? (
                       <Bot className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-900">
-                        สวัสดีครับ! ผมสามารถช่วยวิเคราะห์และตอบคำถามเกี่ยวกับเอกสารได้ โดยเฉพาะได้ คุณต้องการทราบอะไรเกี่ยวกับเอกสารนี้บ้างครับ? ผมจะตอบโดยอ้างอิงเนื้อหาในเอกสารนี้เท่านั้น
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">เมื่อกี้นี้</p>
-                    </div>
+                    ) : (
+                      <User className="w-5 h-5 text-gray-600" />
+                    )}
                   </div>
-                  <div className="text-center py-4">
-                    <p className="text-xs text-gray-400">พิมพ์คำถามของคุณด้านล่าง...</p>
+                  <div className="flex-1">
+                    <div className="text-sm text-gray-900 whitespace-pre-wrap">
+                      {msg.content}
+                      {msg.role === "assistant" && (
+                        <div className="mt-3">
+                          <p className="text-xs text-gray-500 italic">
+                            Is there anything else you'd like me to help with?
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(msg.createdAt).toLocaleDateString('th-TH', {
+                        year: 'numeric',
+                        month: 'long', 
+                        day: 'numeric'
+                      })} เวลา {new Date(msg.createdAt).toLocaleTimeString('th-TH', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                      })} น.
+                    </p>
+                    {msg.role === 'assistant' && (
+                      <FeedbackButtons
+                        messageId={msg.id}
+                        userQuery={messages[messages.findIndex(m => m.id === msg.id) - 1]?.content || ''}
+                        assistantResponse={msg.content}
+                        conversationId={currentConversationId!}
+                        documentContext={{ mode: 'documents' }}
+                      />
+                    )}
                   </div>
                 </div>
-              ) : (
-                <>
-                  {messages.map((msg: ChatMessage) => (
-                    <div key={msg.id} className="flex items-start space-x-3">
-                      <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          msg.role === "assistant" ? "bg-blue-100" : "bg-gray-100"
-                        }`}
-                      >
-                        {msg.role === "assistant" ? (
-                          <Bot className="w-5 h-5 text-blue-600" />
-                        ) : (
-                          <User className="w-5 h-5 text-gray-600" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
-                          {msg.content}
-                          {msg.role === "assistant" && (
-                            <div className="mt-2">
-                              <p className="text-xs text-gray-500 italic">
-                                Is there anything else you'd like me to help with?
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {new Date(msg.createdAt).toLocaleDateString('th-TH', {
-                            year: 'numeric',
-                            month: 'long', 
-                            day: 'numeric'
-                          })} เวลา {new Date(msg.createdAt).toLocaleTimeString('th-TH', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false
-                          })} น.
-                        </p>
-                        {msg.role === 'assistant' && (
-                          <div className="mt-2">
-                            <FeedbackButtons
-                              messageId={msg.id}
-                              userQuery={messages[messages.findIndex(m => m.id === msg.id) - 1]?.content || ''}
-                              assistantResponse={msg.content}
-                              conversationId={currentConversationId!}
-                              documentContext={{ mode: 'documents' }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Loading indicator */}
-                  {sendMessageMutation.isPending && (
-                    <div className="flex items-start space-x-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Bot className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2">
-                          <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
-                          <div
-                            className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                            style={{ animationDelay: "0.1s" }}
-                          ></div>
-                          <div
-                            className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                            style={{ animationDelay: "0.2s" }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-              
-              <div ref={messagesEndRef} />
-            </div>
+              ))
+            )}
+            {sendMessageMutation.isPending && (
+              <div className="flex items-start space-x-3">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Bot className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <div
+                      className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
+                      style={{ animationDelay: "0.1s" }}
+                    ></div>
+                    <div
+                      className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
+                      style={{ animationDelay: "0.2s" }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
           </div>
-        </div>
+        </ScrollArea>
 
-        {/* Input Area - Fixed at Bottom */}
-        <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-white">
-          <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
+        {/* Chat Input */}
+        <div className="flex-shrink-0 p-4 border-t border-gray-200">
+          <form
+            onSubmit={handleSendMessage}
+            className="flex items-center space-x-3"
+          >
             <Input
               type="text"
               placeholder="ถามคำถามเกี่ยวกับเอกสารของคุณ..."
@@ -289,7 +252,6 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
             </Button>
           </form>
         </div>
-      </div>
     </ResizableDialog>
   );
 }

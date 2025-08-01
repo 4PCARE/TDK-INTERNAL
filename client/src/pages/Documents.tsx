@@ -107,47 +107,62 @@ export default function Documents() {
           if (!response.ok) {
             throw new Error(`${response.status}: ${response.statusText}`);
           }
-          const data = await response.json();
-          // /api/documents returns a plain array, not an object with results property
-          return Array.isArray(data) ? data : [];
+          return await response.json();
         }
 
-        // Build search URL with proper query parameters
-        const searchParams = new URLSearchParams({
-          q: currentSearchQuery.trim(),
-          type: "keyword-name-priority",
-          fileName: currentSearchFileName.toString(),
-          keyword: currentSearchKeyword.toString(),
-          meaning: currentSearchMeaning.toString()
+        // Determine search type based on checkbox combinations
+        let searchType = "keyword"; // Default fallback
+        if (currentSearchFileName && currentSearchKeyword && currentSearchMeaning) {
+          searchType = "document-priority"; // All three enabled
+        } else if (currentSearchFileName && currentSearchKeyword && !currentSearchMeaning) {
+          searchType = "keyword-name-priority"; // Name + keyword only (faster, no vector search)
+        } else if (currentSearchKeyword && currentSearchMeaning && !currentSearchFileName) {
+          searchType = "hybrid"; // Content search with both keyword and semantic
+        } else if (currentSearchMeaning && !currentSearchKeyword && !currentSearchFileName) {
+          searchType = "semantic"; // Semantic only
+        } else if (currentSearchKeyword && !currentSearchMeaning && !currentSearchFileName) {
+          searchType = "keyword"; // Keyword only
+        } else if (currentSearchFileName && !currentSearchKeyword && !currentSearchMeaning) {
+          searchType = "filename-only"; // File name only
+        }
+
+        const params = new URLSearchParams({
+          query: currentSearchQuery,
+          type: searchType,
+          massSelectionPercentage: "0.6",
+          searchFileName: currentSearchFileName.toString(),
+          searchKeyword: currentSearchKeyword.toString(),
+          searchMeaning: currentSearchMeaning.toString()
         });
 
-        console.log(`Frontend search: "${currentSearchQuery}" with fileName:${currentSearchFileName}, keyword:${currentSearchKeyword}, meaning:${currentSearchMeaning} (type: keyword-name-priority)`);
-
-        const response = await fetch(`/api/documents/search?${searchParams}`);
+        console.log(`Frontend search: "${currentSearchQuery}" with fileName:${currentSearchFileName}, keyword:${currentSearchKeyword}, meaning:${currentSearchMeaning} (type: ${searchType})`);
+        const response = await fetch(`/api/documents/search?${params}`);
         if (!response.ok) {
-          console.error("Search API error:", response.status, await response.text());
-          throw new Error(`${response.status}: ${response.statusText}`);
+          const errorText = await response.text();
+          console.error("Search API error:", response.status, errorText);
+          throw new Error(`Search failed: ${response.status} ${response.statusText}`);
         }
+        const results = await response.json();
+        console.log(`Frontend received ${Array.isArray(results) ? results.length : 'non-array'} search results`);
         
-        const data = await response.json();
-        console.log("Search response:", data);
-        
-        // Handle both old format {results: []} and new format []
-        if (data && typeof data === 'object' && Array.isArray(data.results)) {
-          return data.results;
-        } else if (Array.isArray(data)) {
-          return data;
-        } else {
-          console.warn("Frontend received non-array search results");
-          return [];
-        }
+        // Ensure we always return an array
+        return Array.isArray(results) ? results : [];
       } catch (error) {
         console.error("Document query failed:", error);
-        throw error;
+        toast({
+          title: "Search Error",
+          description: error.message || "Failed to load documents. Please try again.",
+          variant: "destructive",
+        });
+        // Return empty array instead of throwing to prevent UI crashes
+        return [];
       }
     },
+    retry: (failureCount, error) => {
+      // Retry up to 2 times for network errors, but not for auth errors
+      return failureCount < 2 && !error.message?.includes('401');
+    },
     enabled: isAuthenticated,
-    retry: false,
   }) as { data: Array<any>; isLoading: boolean; error: any };
 
   const handleSearch = () => {

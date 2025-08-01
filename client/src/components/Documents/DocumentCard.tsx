@@ -8,7 +8,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Eye } from "lucide-react";
 
 interface DocumentCardProps {
   document: {
@@ -24,12 +23,8 @@ interface DocumentCardProps {
 }
 
 export default function DocumentCard({ document }: DocumentCardProps) {
-  const [showShareDialog, setShowShareDialog] = useState(false);
-  const [showEndorsementDialog, setShowEndorsementDialog] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  // No need to fetch document details - search results should already include all necessary data
 
   const toggleFavoriteMutation = useMutation({
     mutationFn: async () => {
@@ -111,17 +106,6 @@ export default function DocumentCard({ document }: DocumentCardProps) {
     toggleFavoriteMutation.mutate();
   };
 
-  const handleViewDetails = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    console.log(`🔍 Document Details for: ${document.name}`);
-    console.log(`📄 Document data:`, JSON.stringify(document, null, 2));
-    
-    toast({
-      title: "Document Details",
-      description: `Viewing details for: ${document.name}`,
-    });
-  };
-
   return (
     <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
       <CardContent className="p-4">
@@ -153,10 +137,6 @@ export default function DocumentCard({ document }: DocumentCardProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onClick={handleViewDetails}>
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Details
-                </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="text-red-600"
                   onClick={(e) => {
