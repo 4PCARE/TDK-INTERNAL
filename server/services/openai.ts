@@ -330,6 +330,7 @@ Columns: ${table.columns.map((col: any) => `${col.name} (${col.type})`).join(", 
   
   // Get current date and time in Thai format
   const now = new Date();
+  now.setHours(now.getHours() + 7)
   const thaiDate = now.toLocaleDateString('th-TH', {
     year: 'numeric',
     month: 'long', 
