@@ -78,7 +78,7 @@ export default function Sidebar({
     {
       label: "Manage Documents",
       items: [
-        { name: "All Documents", href: "/documents", icon: Library },
+        { name: "All Documents", href: "/documents", icon: FileText },
         { name: "Upload", href: "/upload", icon: Upload },
         { name: "Categories", href: "/categories", icon: Tag },
         { name: "Meeting Notes", href: "/meeting-notes", icon: Calendar },
@@ -128,7 +128,7 @@ export default function Sidebar({
   // Filter navigation groups based on user role
   const navigationGroups = allNavigationGroups.filter(group => {
     // If group requires admin access and user is not admin, exclude it
-    if (group.adminOnly && user?.role !== 'admin') {
+    if (group.adminOnly && (user as any)?.role !== 'admin') {
       return false;
     }
     return true;

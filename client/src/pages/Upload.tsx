@@ -17,7 +17,8 @@ import {
   XCircle, 
   Clock,
   AlertCircle,
-  Upload as UploadIcon
+  Upload as UploadIcon,
+  X
 } from "lucide-react";
 
 interface UploadFile {
@@ -210,10 +211,74 @@ export default function UploadPage() {
         </div>
 
         <Card>
-          <CardContent>
+          <CardContent className="p-6">
             <FileUpload onFilesSelected={handleFilesSelected} />
           </CardContent>
         </Card>
+
+        {/* Upload Queue */}
+        {uploadFiles.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-slate-800">Upload Queue</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {uploadFiles.map((uploadFile) => (
+                  <div key={uploadFile.id} className="flex items-center space-x-4 p-4 bg-slate-50 rounded-lg">
+                    <div className="flex-shrink-0">
+                      {getStatusIcon(uploadFile.status)}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">
+                        {uploadFile.file.name}
+                      </p>
+                      <div className="flex items-center space-x-2 mt-1">
+                        {getStatusBadge(uploadFile.status)}
+                        {uploadFile.status === 'uploading' && (
+                          <Progress value={uploadFile.progress} className="w-32" />
+                        )}
+                      </div>
+                      {uploadFile.error && (
+                        <p className="text-xs text-red-600 mt-1">{uploadFile.error}</p>
+                      )}
+                    </div>
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveFile(uploadFile.id)}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                
+                <div className="flex justify-between items-center pt-4 border-t border-slate-200">
+                  <div className="text-sm text-slate-500">
+                    {successFiles.length} uploaded, {errorFiles.length} failed, {pendingFiles.length} pending
+                  </div>
+                  <div className="space-x-2">
+                    <Button variant="outline" onClick={handleClearAll}>
+                      Clear All
+                    </Button>
+                    {pendingFiles.length > 0 && (
+                      <Button 
+                        onClick={handleUpload}
+                        disabled={uploadMutation.isPending}
+                        className="bg-primary text-white hover:bg-blue-700"
+                      >
+                        {uploadMutation.isPending ? 'Uploading...' : `Upload ${pendingFiles.length} Files`}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );

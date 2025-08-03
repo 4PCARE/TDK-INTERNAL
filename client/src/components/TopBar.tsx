@@ -84,8 +84,19 @@ export default function TopBar({ isSidebarCollapsed = false, onMobileMenuToggle 
               placeholder="Search documents, tags, or content..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent flex-1 text-sm text-slate-700 placeholder-slate-400 focus:outline-none"
+              className="bg-transparent flex-1 text-sm text-slate-700 placeholder-slate-400 focus:outline-none transition-all duration-200"
+              autoComplete="off"
+              spellCheck={false}
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                ×
+              </button>
+            )}
             <kbd className="px-1.5 py-0.5 text-xs text-slate-400 bg-slate-200 rounded">
               ⌘K
             </kbd>
@@ -112,22 +123,22 @@ export default function TopBar({ isSidebarCollapsed = false, onMobileMenuToggle 
               >
                 <Avatar className="w-8 h-8">
                   <AvatarImage
-                    src={user?.profileImageUrl}
-                    alt={user?.name || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || 'User'}
+                    src={(user as any)?.profileImageUrl}
+                    alt={(user as any)?.name || `${(user as any)?.firstName || ''} ${(user as any)?.lastName || ''}`.trim() || (user as any)?.email || 'User'}
                     className="object-cover"
                   />
                   <AvatarFallback className="text-sm">
-                    {(user?.firstName || user?.name || user?.email || 'U')?.[0]}
-                    {(user?.lastName || user?.name?.split(' ')[1] || '')?.[0]}
+                    {((user as any)?.firstName || (user as any)?.name || (user as any)?.email || 'U')?.[0]}
+                    {((user as any)?.lastName || (user as any)?.name?.split(' ')[1] || '')?.[0]}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0 text-left hidden sm:block">
                   <p className="text-sm font-medium text-slate-800 truncate">
-                    {user?.name || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || 'User'}
+                    {(user as any)?.name || `${(user as any)?.firstName || ''} ${(user as any)?.lastName || ''}`.trim() || (user as any)?.email || 'User'}
                   </p>
                   <div className="flex items-center space-x-2">
                     <p className="text-xs text-slate-500 capitalize">
-                      {user?.role || "User"}
+                      {(user as any)?.role || "User"}
                     </p>
                     {(user as any)?.departmentName && (
                       <Badge variant="outline" className="text-xs">
@@ -143,10 +154,10 @@ export default function TopBar({ isSidebarCollapsed = false, onMobileMenuToggle 
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">
-                    {user?.name || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.email || 'User'}
+                    {(user as any)?.name || `${(user as any)?.firstName || ''} ${(user as any)?.lastName || ''}`.trim() || (user as any)?.email || 'User'}
                   </p>
                   <p className="text-xs leading-none text-muted-foreground">
-                    {user?.email}
+                    {(user as any)?.email}
                   </p>
                 </div>
               </DropdownMenuLabel>

@@ -55,29 +55,40 @@ export default function AIAssistant() {
 
   const sendMessageMutation = useMutation({
     mutationFn: async (message: string) => {
-      const response = await fetch("/api/ai-assistant/chat", {
+      const response = await fetch("/api/chat/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ 
+          message,
+          conversationId: null,
+          documentId: null
+        }),
       });
 
-      if (!response.ok) throw new Error("Failed to send message");
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Unauthorized - Please log in again");
+        }
+        const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
+        throw new Error(errorData.message || "Failed to send message");
+      }
       return response.json();
     },
     onSuccess: (data) => {
       const assistantMessage: ChatMessage = {
         id: Date.now().toString() + "-assistant",
         role: 'assistant',
-        content: data.response,
+        content: data.response || data.message || "No response received",
         timestamp: new Date().toISOString(),
       };
       setMessages(prev => [...prev, assistantMessage]);
       setIsLoading(false);
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Chat error:", error);
       toast({
-        title: "Message Failed",
-        description: "Failed to send message to AI assistant.",
+        title: "Message Failed", 
+        description: error.message || "Failed to send message to AI assistant.",
         variant: "destructive",
       });
       setIsLoading(false);

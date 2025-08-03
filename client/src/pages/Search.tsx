@@ -44,8 +44,26 @@ export default function SearchPage() {
   }, [isAuthenticated, isLoading, toast]);
 
   const { data: rawSearchResults, isLoading: searchLoading, error } = useQuery({
-    queryKey: ["/api/search", { q: searchQuery, type: searchType }],
+    queryKey: ["/api/documents/search", { query: searchQuery, type: searchType }],
     enabled: !!searchQuery && hasSearched,
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        query: searchQuery,
+        type: searchType,
+        fileName: 'true',
+        keyword: searchType === 'keyword' ? 'true' : 'false',
+        meaning: searchType === 'semantic' ? 'true' : 'false'
+      });
+      
+      const response = await fetch(`/api/documents/search?${params}`);
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Unauthorized');
+        }
+        throw new Error(`Search failed: ${response.statusText}`);
+      }
+      return response.json();
+    },
     retry: (failureCount, error) => {
       // Retry up to 2 times for network errors, but not for auth errors
       if (failureCount < 2 && !isUnauthorizedError(error)) {
@@ -60,13 +78,13 @@ export default function SearchPage() {
   const searchResults = useMemo(() => {
     if (!rawSearchResults) return null;
     
-    if (!rawSearchResults.results || !Array.isArray(rawSearchResults.results)) {
+    if (!(rawSearchResults as any).results || !Array.isArray((rawSearchResults as any).results)) {
       return rawSearchResults;
     }
 
     const documentMap = new Map();
     
-    rawSearchResults.results.forEach((result: any) => {
+    (rawSearchResults as any).results.forEach((result: any) => {
       // Extract original document ID from chunk ID (format: "docId-chunkIndex")
       const originalDocId = result.id.toString().includes('-') ? result.id.toString().split('-')[0] : result.id.toString();
       
@@ -158,7 +176,7 @@ export default function SearchPage() {
                     </Badge>
                     {searchResults && (
                       <Badge variant="outline">
-                        {searchResults.count} results
+                        {(searchResults as any).count} results
                       </Badge>
                     )}
                   </div>
@@ -216,7 +234,7 @@ export default function SearchPage() {
                       </div>
                     </div>
                   </div>
-                ) : searchResults && searchResults.results && searchResults.results.length > 0 ? (
+                ) : searchResults && (searchResults as any).results && (searchResults as any).results.length > 0 ? (
                   <div className="space-y-4">
                     {/* Search Info */}
                     <div className="flex items-center space-x-4 text-sm text-slate-500 pb-4 border-b border-slate-200">
@@ -238,7 +256,7 @@ export default function SearchPage() {
 
                     {/* Results */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {searchResults.results.map((doc: any) => (
+                      {(searchResults as any).results.map((doc: any) => (
                         <DocumentCard key={doc.id} document={doc} />
                       ))}
                     </div>

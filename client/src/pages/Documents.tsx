@@ -186,10 +186,10 @@ export default function Documents() {
     }
 
     // If it's a search result object with results array
-    if (rawSearchResults?.results && Array.isArray(rawSearchResults.results)) {
+    if ((rawSearchResults as any)?.results && Array.isArray((rawSearchResults as any).results)) {
       const documentMap = new Map();
 
-      rawSearchResults.results.forEach((result: any) => {
+      (rawSearchResults as any).results.forEach((result: any) => {
         // Extract original document ID from chunk ID (format: "docId-chunkIndex")
         const originalDocId = result.id.toString().includes('-') ? result.id.toString().split('-')[0] : result.id.toString();
 
@@ -565,7 +565,11 @@ export default function Documents() {
                       : "space-y-2"
                   }>
                     {filteredDocuments.map((doc: any) => (
-                      <DocumentCard key={doc.id} document={doc} viewMode={viewMode} categories={categories} />
+                      <DocumentCard key={doc.id} document={doc} viewMode={viewMode} categories={categories?.map(cat => ({
+                        ...cat,
+                        color: (cat as any).color || '#3B82F6',
+                        icon: (cat as any).icon || 'folder'
+                      }))} />
                     ))}
                   </div>
                 ) : (
