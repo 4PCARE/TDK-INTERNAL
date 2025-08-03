@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { useEffect } from "react";
+import { apiRequest } from "@/lib/queryClient";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
 import FileUpload from "@/components/FileUpload";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
