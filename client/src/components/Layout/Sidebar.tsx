@@ -7,11 +7,11 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { 
-  Home, 
-  FileText, 
-  Upload, 
-  Search, 
-  Tag, 
+  LayoutDashboard,
+  FileText,
+  Upload,
+  Search,
+  Tag,
   Calendar,
   Bot,
   MessageSquare,
@@ -31,7 +31,8 @@ import {
   TrendingUp,
   Star,
   FileBarChart,
-  Activity
+  Activity,
+  Library
 } from "lucide-react";
 
 import kingpowerLogo from "@assets/kingpower_1750867302870.webp";
@@ -70,14 +71,14 @@ export default function Sidebar({
     {
       label: "Main",
       items: [
-        { name: "Home", href: "/", icon: Home },
+        { name: "Home", href: "/", icon: LayoutDashboard },
         { name: "Settings", href: "/settings", icon: Settings },
       ]
     },
     {
       label: "Manage Documents",
       items: [
-        { name: "All Documents", href: "/documents", icon: FileText },
+        { name: "All Documents", href: "/documents", icon: Library },
         { name: "Upload", href: "/upload", icon: Upload },
         { name: "Categories", href: "/categories", icon: Tag },
         { name: "Meeting Notes", href: "/meeting-notes", icon: Calendar },

@@ -46,7 +46,14 @@ export default function SearchPage() {
   const { data: rawSearchResults, isLoading: searchLoading, error } = useQuery({
     queryKey: ["/api/search", { q: searchQuery, type: searchType }],
     enabled: !!searchQuery && hasSearched,
-    retry: false,
+    retry: (failureCount, error) => {
+      // Retry up to 2 times for network errors, but not for auth errors
+      if (failureCount < 2 && !isUnauthorizedError(error)) {
+        return true;
+      }
+      return false;
+    },
+    retryDelay: 1000,
   });
 
   // Post-process search results to deduplicate documents
@@ -165,11 +172,48 @@ export default function SearchPage() {
               <CardContent>
                 {searchLoading ? (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                      <span className="ml-2 text-sm text-slate-500">
-                        {searchType === "semantic" ? "Analyzing semantic meaning..." : "Searching..."}
-                      </span>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        <span className="ml-2 text-sm text-slate-500">
+                          {searchType === "semantic" ? "Analyzing semantic meaning..." : "Searching documents..."}
+                        </span>
+                      </div>
+                      <div className="text-center text-xs text-slate-400">
+                        This may take a few seconds
+                      </div>
+                    </div>
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-16">
+                    <div className="text-red-500 mb-4">
+                      <Search className="w-16 h-16 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-slate-800 mb-2">
+                        Search Error
+                      </h3>
+                      <p className="text-sm text-slate-500 mb-6">
+                        {isUnauthorizedError(error) 
+                          ? "Your session has expired. Please log in again."
+                          : "There was an error performing your search. Please try again."
+                        }
+                      </p>
+                      <div className="flex items-center justify-center space-x-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setSearchQuery("");
+                            setHasSearched(false);
+                          }}
+                        >
+                          Clear Search
+                        </Button>
+                        <Button
+                          onClick={() => handleSearch(searchQuery, searchType)}
+                          className="bg-primary text-white hover:bg-blue-700"
+                        >
+                          Try Again
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ) : searchResults && searchResults.results && searchResults.results.length > 0 ? (

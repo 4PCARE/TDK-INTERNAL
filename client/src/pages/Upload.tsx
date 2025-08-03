@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect } from "react";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
 import FileUpload from "@/components/FileUpload";
@@ -30,12 +29,13 @@ interface UploadFile {
   documentId?: number;
 }
 
-export default function Upload() {
+export default function UploadPage() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {

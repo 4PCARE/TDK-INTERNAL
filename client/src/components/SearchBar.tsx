@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,18 +21,18 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] = useState<"keyword" | "semantic">("keyword");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
       onSearch(query.trim(), searchType);
     }
-  };
+  }, [query, searchType, onSearch]);
 
-  const handleQuickSearch = (quickQuery: string, type: "keyword" | "semantic") => {
+  const handleQuickSearch = useCallback((quickQuery: string, type: "keyword" | "semantic") => {
     setQuery(quickQuery);
     setSearchType(type);
     onSearch(quickQuery, type);
-  };
+  }, [onSearch]);
 
   const keywordExamples = [
     "financial report 2024",
