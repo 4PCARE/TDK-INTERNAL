@@ -127,6 +127,16 @@ export class VectorService {
           }
 
           if (preserveExistingEmbeddings) {
+            // Check if this chunk already exists
+            const [existingChunk] = await db.select()
+              .from(documentVectors)
+              .where(
+                and(
+                  eq(documentVectors.documentId, parseInt(id)),
+                  eq(documentVectors.chunkIndex, i)
+                )
+              );
+
             if (existingChunk) {
               try {
                 // Update existing chunk while preserving existing embeddings
@@ -210,14 +220,28 @@ export class VectorService {
             }
           } else {
             try {
-              // Original behavior - insert new chunk
+              // Original behavior - insert new chunk with correct provider labeling
+              const config = await llmRouter.loadUserConfig(metadata.userId);
+              const provider = config.embeddingProvider;
+
+              let multiEmbedding;
+              if (provider === "Gemini") {
+                multiEmbedding = {
+                  gemini: embedding
+                };
+              } else {
+                multiEmbedding = {
+                  openai: embedding
+                };
+              }
+
               await db.insert(documentVectors).values({
                 documentId: parseInt(id),
                 chunkIndex: i,
                 totalChunks: chunks.length,
                 content: chunk, // This is the Thai-segmented chunk content
                 embedding: embedding, // Keep original format for production compatibility
-                embeddingMulti: { openai: embedding }, // Store in new multi-provider column
+                embeddingMulti: multiEmbedding, // Store with correct provider label
                 userId: metadata.userId
               });
 
