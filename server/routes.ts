@@ -2178,6 +2178,81 @@ ${document.summary}`;
     },
   );
 
+  // Revert vectorization endpoint
+  app.post(
+    "/api/documents/revert-vectorization",
+    (req: any, res: any, next: any) => {
+      // Try Microsoft auth first, then fallback to Replit auth
+      isMicrosoftAuthenticated(req, res, (err: any) => {
+        if (!err) {
+          return next();
+        }
+        isAuthenticated(req, res, next);
+      });
+    },
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        
+        console.log(`Starting revert vectorization for user ${userId}`);
+        
+        // Get all document vectors for this user that have multi-provider embeddings
+        const { documentVectors } = await import("@shared/schema");
+        const { eq, and, isNotNull } = await import("drizzle-orm");
+        
+        const vectorsToRevert = await db.select()
+          .from(documentVectors)
+          .where(
+            and(
+              eq(documentVectors.userId, userId),
+              isNotNull(documentVectors.embeddingMulti)
+            )
+          );
+        
+        let revertedCount = 0;
+        
+        for (const vector of vectorsToRevert) {
+          try {
+            const embeddingMulti = vector.embeddingMulti as { openai?: number[]; gemini?: number[] };
+            
+            // If we have a previous embedding to revert to
+            if (embeddingMulti && (embeddingMulti.gemini || embeddingMulti.openai)) {
+              // Prefer reverting to OpenAI embedding if available, otherwise use Gemini
+              const revertToEmbedding = embeddingMulti.openai || embeddingMulti.gemini;
+              
+              // Update the main embedding column and clear the multi-provider column
+              await db.update(documentVectors)
+                .set({
+                  embedding: revertToEmbedding,
+                  embeddingMulti: null // Clear the multi-provider column
+                })
+                .where(eq(documentVectors.id, vector.id));
+              
+              revertedCount++;
+            }
+          } catch (error) {
+            console.error(`Failed to revert vector ${vector.id}:`, error);
+          }
+        }
+        
+        console.log(`Revert complete: ${revertedCount} vectors reverted`);
+        
+        res.json({
+          success: true,
+          message: `Successfully reverted ${revertedCount} document embeddings`,
+          revertedCount
+        });
+        
+      } catch (error) {
+        console.error("Error reverting vectorization:", error);
+        res.status(500).json({ 
+          message: "Failed to revert vectorization",
+          error: error.message 
+        });
+      }
+    },
+  );
+
   // Document endorsement endpoint
   app.post("/api/documents/:id/endorse", isAuthenticated, async (req: any, res) => {
     try {
