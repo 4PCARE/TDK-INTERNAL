@@ -355,13 +355,15 @@ export const isMicrosoftAuthenticated: RequestHandler = async (req, res, next) =
   
   if (!req.isAuthenticated() && !sessionUser) {
     console.log("Microsoft auth failed - not authenticated and no session user");
-    return res.status(401).json({ message: "Unauthorized" });
+    const error = new Error("Not authenticated with Microsoft");
+    return next(error);
   }
 
   const user = req.user as any || sessionUser;
   if (!user || !user.claims?.sub) {
     console.log("Microsoft auth failed - no user claims or sub");
-    return res.status(401).json({ message: "Unauthorized" });
+    const error = new Error("No Microsoft user claims");
+    return next(error);
   }
 
   // Check if token is still valid (with 1 hour buffer for refresh)
