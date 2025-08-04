@@ -98,10 +98,11 @@ export const documentVectors = pgTable("document_vectors", {
   chunkIndex: integer("chunk_index").notNull(),
   totalChunks: integer("total_chunks").notNull(),
   content: text("content").notNull(),
-  embedding: jsonb("embedding").$type<{
+  embedding: real("embedding").array().notNull(), // Keep original column for production stability
+  embeddingMulti: jsonb("embedding_multi").$type<{
     openai?: number[];
     gemini?: number[];
-  }>().notNull(),
+  }>(), // New multi-provider column (nullable for gradual migration)
   userId: varchar("user_id").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });

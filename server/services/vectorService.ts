@@ -118,7 +118,8 @@ export class VectorService {
             chunkIndex: i,
             totalChunks: chunks.length,
             content: chunk, // This is the Thai-segmented chunk content
-            embedding: { openai: embedding }, // Store as JSON with provider key
+            embedding: embedding, // Keep original format for production compatibility
+            embeddingMulti: { openai: embedding }, // Store in new multi-provider column
             userId: metadata.userId
           });
 
@@ -223,9 +224,15 @@ export class VectorService {
             console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has ${dbVector.content.length} chars - suspiciously large for a chunk!`);
           }
 
-          // Extract the appropriate embedding based on current provider
-          const embeddingJson = dbVector.embedding as { openai?: number[]; gemini?: number[] };
-          const currentEmbedding = embeddingJson.openai || embeddingJson.gemini || [];
+          // Extract embedding - prefer new multi-provider column, fallback to original
+          let currentEmbedding: number[] = [];
+          if (dbVector.embeddingMulti) {
+            const embeddingJson = dbVector.embeddingMulti as { openai?: number[]; gemini?: number[] };
+            currentEmbedding = embeddingJson.openai || embeddingJson.gemini || [];
+          } else if (dbVector.embedding) {
+            // Fallback to original embedding column for backward compatibility
+            currentEmbedding = Array.isArray(dbVector.embedding) ? dbVector.embedding : [];
+          }
 
           const vectorDoc: VectorDocument = {
             id: `${dbVector.documentId}_chunk_${dbVector.chunkIndex}`,

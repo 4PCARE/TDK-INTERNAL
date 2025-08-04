@@ -308,20 +308,21 @@ export class LLMRouter {
         );
 
       if (existingVector) {
-        const currentEmbedding = existingVector.embedding as { openai?: number[]; gemini?: number[] };
+        // Use embeddingMulti column, initialize if null
+        const currentEmbedding = (existingVector.embeddingMulti as { openai?: number[]; gemini?: number[] }) || {};
         const updatedEmbedding = {
           ...currentEmbedding,
           [provider.toLowerCase()]: newEmbedding
         };
 
         await db.update(documentVectors)
-          .set({ embedding: updatedEmbedding })
+          .set({ embeddingMulti: updatedEmbedding })
           .where(eq(documentVectors.id, existingVector.id));
 
-        console.log(`✅ Updated embedding for doc ${documentId} chunk ${chunkIndex} with ${provider} data`);
+        console.log(`✅ Updated multi-embedding for doc ${documentId} chunk ${chunkIndex} with ${provider} data`);
       }
     } catch (error) {
-      console.error(`Error updating embedding for doc ${documentId} chunk ${chunkIndex}:`, error);
+      console.error(`Error updating multi-embedding for doc ${documentId} chunk ${chunkIndex}:`, error);
     }
   }
 
