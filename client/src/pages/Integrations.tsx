@@ -130,7 +130,7 @@ export default function Integrations() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
-  
+
 
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
   const [lineOaDialogOpen, setLineOaDialogOpen] = useState(false);
@@ -149,11 +149,17 @@ export default function Integrations() {
   });
 
   // Fetch social integrations
-  const { data: integrations = [], isLoading: integrationsLoading } = useQuery({
-    queryKey: ['/api/social-integrations'],
-    enabled: isAuthenticated,
-    retry: false,
-  }) as { data: SocialIntegration[], isLoading: boolean };
+  const { data: integrations = [], isLoading: integrationsLoading, error: integrationsError } = useQuery({
+    queryKey: ["/api/social-integrations"],
+    retry: (failureCount, error: any) => {
+      // Don't retry on auth errors
+      if (error?.status === 401) {
+        return false;
+      }
+      return failureCount < 3;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   // Fetch agent chatbots for selection
   const { data: agents = [] } = useQuery({
@@ -368,6 +374,26 @@ export default function Integrations() {
   ];
 
   const lineOaIntegrations = integrations.filter(int => int.type === 'lineoa');
+
+    // Early return for error state
+  if (integrationsError) {
+    const isAuthError = (integrationsError as any)?.status === 401;
+
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <p className="text-destructive mb-4">
+              {isAuthError ? "Authentication required. Please refresh the page." : "Error loading data"}
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              {isAuthError ? "Refresh Page" : "Retry"}
+            </Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
