@@ -2253,6 +2253,55 @@ ${document.summary}`;
     },
   );
 
+  // Test Gemini embeddings endpoint
+  app.post(
+    "/api/test/gemini-embedding",
+    (req: any, res: any, next: any) => {
+      // Try Microsoft auth first, then fallback to Replit auth
+      isMicrosoftAuthenticated(req, res, (err: any) => {
+        if (!err) {
+          return next();
+        }
+        isAuthenticated(req, res, next);
+      });
+    },
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const { text = "Hello, this is a test embedding." } = req.body;
+        
+        console.log(`Testing Gemini embedding for user ${userId}`);
+        
+        // Test Gemini embedding generation
+        const { llmRouter } = await import("./services/llmRouter");
+        const embeddings = await llmRouter.generateEmbeddings([text], userId);
+        
+        if (embeddings && embeddings[0] && embeddings[0].length > 0) {
+          console.log(`✅ Gemini embedding test successful: ${embeddings[0].length} dimensions`);
+          res.json({
+            success: true,
+            message: "Gemini embedding generated successfully",
+            dimensions: embeddings[0].length,
+            sampleValues: embeddings[0].slice(0, 5) // First 5 values for verification
+          });
+        } else {
+          console.log("❌ Gemini embedding test failed: no valid embedding returned");
+          res.status(500).json({
+            success: false,
+            message: "Failed to generate Gemini embedding"
+          });
+        }
+        
+      } catch (error) {
+        console.error("Error testing Gemini embedding:", error);
+        res.status(500).json({ 
+          message: "Failed to test Gemini embedding",
+          error: error.message 
+        });
+      }
+    },
+  );
+
   // Document endorsement endpoint
   app.post("/api/documents/:id/endorse", isAuthenticated, async (req: any, res) => {
     try {

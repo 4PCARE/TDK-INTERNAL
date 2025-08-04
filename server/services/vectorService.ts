@@ -3,6 +3,7 @@ import { Document, documentVectors, InsertDocumentVector } from "@shared/schema"
 import { db } from '../db';
 import { eq, and, or, sql, inArray } from "drizzle-orm";
 import { thaiTextProcessor } from './thaiTextProcessor';
+import { llmRouter } from "./llmRouter";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ 
@@ -117,24 +118,27 @@ export class VectorService {
           }
 
           if (preserveExistingEmbeddings) {
-            // Check if chunk already exists
-            const [existingChunk] = await db.select()
-              .from(documentVectors)
-              .where(
-                and(
-                  eq(documentVectors.documentId, parseInt(id)),
-                  eq(documentVectors.chunkIndex, i)
-                )
-              );
-
             if (existingChunk) {
               try {
                 // Update existing chunk while preserving existing embeddings
                 const currentMultiEmbedding = (existingChunk.embeddingMulti as { openai?: number[]; gemini?: number[] }) || {};
-                const updatedMultiEmbedding = {
-                  ...currentMultiEmbedding,
-                  openai: embedding // Update/add OpenAI embedding
-                };
+
+                // Determine provider based on user config
+                const config = await llmRouter.loadUserConfig(metadata.userId);
+                const provider = config.embeddingProvider;
+
+                let updatedMultiEmbedding;
+                if (provider === "Gemini") {
+                  updatedMultiEmbedding = {
+                    ...currentMultiEmbedding,
+                    gemini: embedding // Update/add Gemini embedding
+                  };
+                } else {
+                  updatedMultiEmbedding = {
+                    ...currentMultiEmbedding,
+                    openai: embedding // Update/add OpenAI embedding
+                  };
+                }
 
                 await db.update(documentVectors)
                   .set({
@@ -146,37 +150,40 @@ export class VectorService {
                   })
                   .where(eq(documentVectors.id, existingChunk.id));
 
+                console.log(`Updated existing chunk ${i} for document ${id} with ${provider} embedding`);
                 updatedChunks++;
-                console.log(`Updated existing chunk ${i} for doc ${id} while preserving other embeddings`);
               } catch (error) {
-                // Fallback if embeddingMulti column doesn't exist
-                console.log(`Fallback: updating chunk ${i} for doc ${id} without embeddingMulti column`);
-                await db.update(documentVectors)
-                  .set({
-                    content: chunk,
-                    embedding: embedding,
-                    totalChunks: chunks.length,
-                    userId: metadata.userId
-                  })
-                  .where(eq(documentVectors.id, existingChunk.id));
-
-                updatedChunks++;
+                console.error(`Error updating chunk ${i} for document ${id}:`, error);
               }
             } else {
               try {
-                // Insert new chunk
+                // Create new chunk with multi-provider embedding support
+                const config = await llmRouter.loadUserConfig(metadata.userId);
+                const provider = config.embeddingProvider;
+
+                let multiEmbedding;
+                if (provider === "Gemini") {
+                  multiEmbedding = {
+                    gemini: embedding
+                  };
+                } else {
+                  multiEmbedding = {
+                    openai: embedding
+                  };
+                }
+
                 await db.insert(documentVectors).values({
                   documentId: parseInt(id),
                   chunkIndex: i,
                   totalChunks: chunks.length,
                   content: chunk,
-                  embedding: embedding,
-                  embeddingMulti: { openai: embedding },
+                  embedding: embedding, // Keep for backward compatibility
+                  embeddingMulti: multiEmbedding,
                   userId: metadata.userId
                 });
 
+                console.log(`Added new chunk ${i} for document ${id} with ${provider} embedding`);
                 addedChunks++;
-                console.log(`Added new chunk ${i} for doc ${id}`);
               } catch (error) {
                 // Fallback if embeddingMulti column doesn't exist
                 console.log(`Fallback: inserting chunk ${i} for doc ${id} without embeddingMulti column`);

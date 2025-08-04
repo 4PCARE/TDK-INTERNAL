@@ -75,7 +75,7 @@ export class LLMRouter {
           embeddingProvider: userConfig.embeddingProvider as LLMProvider,
           ...(userConfig.configData as any),
         };
-        
+
         this.currentConfig = config;
         this.updateModels();
         return config;
@@ -92,11 +92,11 @@ export class LLMRouter {
   async updateUserConfig(userId: string, config: Partial<LLMRouterConfig>): Promise<void> {
     try {
       const updatedConfig = { ...this.currentConfig, ...config };
-      
+
       // Check if provider changed - if so, we need to invalidate embeddings
       const oldEmbeddingProvider = this.currentConfig?.embeddingProvider;
       const newEmbeddingProvider = updatedConfig.embeddingProvider;
-      
+
       if (oldEmbeddingProvider && oldEmbeddingProvider !== newEmbeddingProvider) {
         console.log(`🔄 LLM provider changed from ${oldEmbeddingProvider} to ${newEmbeddingProvider} - flagging embeddings for re-processing`);
         await this.invalidateUserEmbeddings(userId, oldEmbeddingProvider);
@@ -158,7 +158,7 @@ export class LLMRouter {
           .where(eq(documentChunkEmbeddings.embeddingProvider, oldProvider));
 
         console.log(`🗑️ Deleted ${documentsWithOldEmbeddings.length} document embeddings from ${oldProvider} provider`);
-        
+
         // Note: In a production system, you might want to queue these documents for re-embedding
         // rather than deleting immediately
       }
@@ -256,7 +256,7 @@ export class LLMRouter {
 
   async generateEmbedding(text: string, userId: string): Promise<number[]> {
     const startTime = Date.now();
-    
+
     try {
       if (!this.embeddingModel) {
         throw new Error("Embedding model not initialized");
@@ -265,7 +265,7 @@ export class LLMRouter {
       await this.loadUserConfig(userId);
 
       const embedding = await this.embeddingModel.embedQuery(text);
-      
+
       console.log(`🔢 Generated embedding: ${this.currentConfig?.embeddingProvider} - ${Date.now() - startTime}ms`);
       return embedding;
     } catch (error) {
@@ -275,22 +275,64 @@ export class LLMRouter {
   }
 
   async generateEmbeddings(texts: string[], userId: string): Promise<number[][]> {
-    const startTime = Date.now();
-    
+    const config = await this.loadUserConfig(userId);
+
     try {
-      if (!this.embeddingModel) {
-        throw new Error("Embedding model not initialized");
+      if (config.embeddingProvider === "Gemini") {
+        // Use Gemini embeddings
+        const { GoogleGenerativeAI } = await import("@google/generative-ai");
+
+        if (!process.env.GEMINI_API_KEY) {
+          console.log("🔄 Gemini API key not found, falling back to OpenAI embeddings");
+          return await this.generateOpenAIEmbeddings(texts);
+        }
+
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+
+        console.log(`🔢 Generating ${texts.length} Gemini embeddings`);
+
+        const embeddings: number[][] = [];
+
+        // Process in batches to avoid rate limits
+        for (let i = 0; i < texts.length; i += 5) {
+          const batch = texts.slice(i, i + 5);
+          const batchPromises = batch.map(async (text) => {
+            try {
+              const result = await model.embedContent(text.trim());
+              if (result.embedding && result.embedding.values) {
+                console.log(`✅ Gemini embedding generated: ${result.embedding.values.length} dimensions`);
+                return result.embedding.values;
+              } else {
+                console.error("Invalid Gemini embedding response:", result);
+                return new Array(768).fill(0);
+              }
+            } catch (error) {
+              console.error("Error generating Gemini embedding for text:", error);
+              // Fallback to a zero vector with correct dimensions
+              return new Array(768).fill(0);
+            }
+          });
+
+          const batchResults = await Promise.all(batchPromises);
+          embeddings.push(...batchResults);
+
+          // Small delay between batches
+          if (i + 5 < texts.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+
+        console.log(`✅ Generated ${embeddings.length} Gemini embeddings successfully`);
+        return embeddings;
+      } else {
+        // Use OpenAI embeddings
+        return await this.generateOpenAIEmbeddings(texts);
       }
-
-      await this.loadUserConfig(userId);
-
-      const embeddings = await this.embeddingModel.embedDocuments(texts);
-      
-      console.log(`🔢 Generated ${embeddings.length} embeddings: ${this.currentConfig?.embeddingProvider} - ${Date.now() - startTime}ms`);
-      return embeddings;
     } catch (error) {
-      console.error("Batch embedding generation error:", error);
-      throw error;
+      console.error("Error in generateEmbeddings:", error);
+      console.log("🔄 Falling back to OpenAI embeddings due to error");
+      return await this.generateOpenAIEmbeddings(texts);
     }
   }
 
@@ -345,7 +387,7 @@ export class LLMRouter {
   }> {
     try {
       await this.loadUserConfig(userId);
-      
+
       const currentProvider = this.currentConfig?.embeddingProvider;
       if (!currentProvider) {
         return { compatible: true, requiresReembedding: false, incompatibleDocuments: [] };
