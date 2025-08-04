@@ -87,13 +87,22 @@ export class VectorService {
         const chunk = chunks[i];
 
         try {
-          // Generate embedding for this chunk
-          const response = await openai.embeddings.create({
-            model: "text-embedding-3-small",
-            input: chunk,
-          });
-
-          const embedding = response.data[0].embedding;
+          // Generate embedding for this chunk using llmRouter
+          let embedding: number[];
+          
+          try {
+            // Try to use the configured LLM router for embeddings
+            embedding = await llmRouter.generateEmbedding(chunk, metadata.userId);
+            console.log(`✅ Generated embedding using ${await llmRouter.getCurrentConfig()?.embeddingProvider || 'default'} provider`);
+          } catch (llmError) {
+            console.log(`⚠️ LLM router failed, falling back to OpenAI: ${llmError.message}`);
+            // Fallback to OpenAI if llmRouter fails
+            const response = await openai.embeddings.create({
+              model: "text-embedding-3-small",
+              input: chunk,
+            });
+            embedding = response.data[0].embedding;
+          }
 
           // Create vector document for this chunk
           const vectorDoc: VectorDocument = {

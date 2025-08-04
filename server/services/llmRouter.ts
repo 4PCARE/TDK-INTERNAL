@@ -336,6 +336,58 @@ export class LLMRouter {
     }
   }
 
+  // Helper method for OpenAI embeddings generation
+  private async generateOpenAIEmbeddings(texts: string[]): Promise<number[][]> {
+    try {
+      const { OpenAI } = await import("openai");
+      
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error("OPENAI_API_KEY is required for OpenAI embeddings");
+      }
+
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      console.log(`🔢 Generating ${texts.length} OpenAI embeddings`);
+
+      const embeddings: number[][] = [];
+
+      // Process in batches to avoid rate limits
+      for (let i = 0; i < texts.length; i += 100) {
+        const batch = texts.slice(i, i + 100);
+        
+        try {
+          const response = await openai.embeddings.create({
+            model: "text-embedding-3-small",
+            input: batch,
+          });
+
+          const batchEmbeddings = response.data.map(item => item.embedding);
+          embeddings.push(...batchEmbeddings);
+
+          console.log(`✅ OpenAI batch ${Math.floor(i/100) + 1} completed: ${batchEmbeddings.length} embeddings`);
+
+          // Small delay between batches
+          if (i + 100 < texts.length) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+        } catch (error) {
+          console.error(`Error in OpenAI embedding batch ${Math.floor(i/100) + 1}:`, error);
+          // Add zero vectors for failed batch
+          const fallbackEmbeddings = batch.map(() => new Array(1536).fill(0));
+          embeddings.push(...fallbackEmbeddings);
+        }
+      }
+
+      console.log(`✅ Generated ${embeddings.length} OpenAI embeddings successfully`);
+      return embeddings;
+    } catch (error) {
+      console.error("Error generating OpenAI embeddings:", error);
+      throw error;
+    }
+  }
+
   // Helper method to update existing embeddings with new provider data
   async updateEmbeddingWithProvider(documentId: number, chunkIndex: number, newEmbedding: number[], provider: string): Promise<void> {
     try {
