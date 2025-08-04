@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 
 interface UserProfile {
   id: string;
@@ -86,6 +87,11 @@ export default function Settings() {
     queryKey: ["/api/llm/config"],
     enabled: !!user,
   }) as { data: LLMConfig | undefined; isLoading: boolean };
+
+  const { data: documents } = useQuery({
+    queryKey: ["/api/documents"],
+    enabled: !!user,
+  });
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: Partial<UserProfile>) => {
@@ -147,8 +153,13 @@ export default function Settings() {
     },
   });
 
+  const [revectorizeProgress, setRevectorizeProgress] = useState({ current: 0, total: 0, percentage: 0 });
+
   const revectorizeAllMutation = useMutation({
     mutationFn: async ({ preserveExistingEmbeddings }: { preserveExistingEmbeddings: boolean }) => {
+      // Reset progress
+      setRevectorizeProgress({ current: 0, total: 0, percentage: 0 });
+
       const response = await fetch("/api/documents/vectorize-all", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -158,12 +169,14 @@ export default function Settings() {
       return response.json();
     },
     onSuccess: (data) => {
+      setRevectorizeProgress({ current: data.vectorizedCount, total: data.vectorizedCount, percentage: 100 });
       toast({
         title: "Re-vectorization Complete",
         description: `Successfully processed ${data.vectorizedCount} documents with the new embedding provider.`,
       });
     },
     onError: (error: any) => {
+      setRevectorizeProgress({ current: 0, total: 0, percentage: 0 });
       toast({
         title: "Re-vectorization Failed",
         description: error.message || "Failed to re-vectorize documents",
@@ -171,6 +184,36 @@ export default function Settings() {
       });
     },
   });
+
+  // Simulate progress tracking during re-vectorization
+  useEffect(() => {
+    if (revectorizeAllMutation.isPending) {
+      // Get estimated total documents for progress calculation
+      const estimatedTotal = (documents as any)?.length || 100;
+      setRevectorizeProgress(prev => ({ ...prev, total: estimatedTotal }));
+
+      // Simulate progress updates every 500ms
+      const progressInterval = setInterval(() => {
+        setRevectorizeProgress(prev => {
+          if (prev.current >= prev.total) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          
+          const newCurrent = Math.min(prev.current + 1, prev.total);
+          const newPercentage = Math.round((newCurrent / prev.total) * 100);
+          
+          return {
+            current: newCurrent,
+            total: prev.total,
+            percentage: newPercentage
+          };
+        });
+      }, 500);
+
+      return () => clearInterval(progressInterval);
+    }
+  }, [revectorizeAllMutation.isPending, documents]);
 
   const updateLlmMutation = useMutation({
     mutationFn: async (config: any) => {
@@ -711,18 +754,44 @@ export default function Settings() {
                     </p>
                   </div>
 
+                  {/* Progress Bar for Re-vectorization */}
+                  {revectorizeAllMutation.isPending && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-blue-800">Re-vectorizing Documents</h4>
+                        <span className="text-sm text-blue-600 font-medium">
+                          {revectorizeProgress.percentage}%
+                        </span>
+                      </div>
+                      <Progress value={revectorizeProgress.percentage} className="h-3" />
+                      <p className="text-sm text-blue-700">
+                        Processing {revectorizeProgress.current} of {revectorizeProgress.total} documents with new embedding provider...
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex justify-end">
                     <Button 
                       type="submit" 
-                      disabled={updateLlmMutation.isPending}
+                      disabled={updateLlmMutation.isPending || revectorizeAllMutation.isPending}
                       className="flex items-center space-x-2"
                     >
                       {updateLlmMutation.isPending ? (
-                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Saving Configuration...</span>
+                        </>
+                      ) : revectorizeAllMutation.isPending ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Re-vectorizing Documents...</span>
+                        </>
                       ) : (
-                        <Save className="w-4 h-4" />
+                        <>
+                          <Save className="w-4 h-4" />
+                          <span>Save Configuration</span>
+                        </>
                       )}
-                      <span>Save Configuration</span>
                     </Button>
                   </div>
                 </form>
