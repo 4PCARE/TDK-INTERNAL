@@ -1,7 +1,4 @@
-The code changes add a "Data Connections" link to the sidebar navigation with a database icon and also imports the Database icon from lucide-react.
-```
 
-```replit_final_file
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -28,7 +25,7 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,  // <-- Make sure this is imported!
+  ChevronDown,
   Menu,
   X,
   BarChart3,
@@ -37,7 +34,7 @@ import {
   FileBarChart,
   Activity,
   Library,
-  Database //Imported Database Icon
+  Database
 } from "lucide-react";
 
 import kingpowerLogo from "@assets/kingpower_1750867302870.webp";
@@ -96,6 +93,7 @@ export default function Sidebar({
         { name: "Agent Console", href: "/agent-console", icon: MessageSquare },
         { name: "App Widget", href: "/live-chat-widget", icon: MessageCircle },
         { name: "Platform Integrations", href: "/integrations", icon: Share2 },
+        { name: "Data Connections", href: "/data-connections", icon: Database },
         { name: "AI Assistant", href: "/ai-assistant", icon: Brain },
       ]
     },
@@ -346,7 +344,6 @@ export default function Sidebar({
                 </div>
               ))}
             </nav>
-            {/* ...other sidebar content */}
           </div>
         </div>
       </aside>
