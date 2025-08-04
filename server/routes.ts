@@ -2067,7 +2067,15 @@ ${document.summary}`;
 
   app.post(
     "/api/documents/:id/vectorize",
-    isAuthenticated,
+    (req: any, res: any, next: any) => {
+      // Try Microsoft auth first, then fallback to Replit auth
+      isMicrosoftAuthenticated(req, res, (err: any) => {
+        if (!err) {
+          return next();
+        }
+        isAuthenticated(req, res, next);
+      });
+    },
     async (req: any, res) => {
       try {
         const userId = req.user.claims.sub;
@@ -2110,7 +2118,15 @@ ${document.summary}`;
 
   app.post(
     "/api/documents/vectorize-all",
-    isAuthenticated,
+    (req: any, res: any, next: any) => {
+      // Try Microsoft auth first, then fallback to Replit auth
+      isMicrosoftAuthenticated(req, res, (err: any) => {
+        if (!err) {
+          return next();
+        }
+        isAuthenticated(req, res, next);
+      });
+    },
     async (req: any, res) => {
       try {
         const userId = req.user.claims.sub;
@@ -2533,7 +2549,15 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
   // Re-vectorize all documents endpoint
   app.post(
     "/api/vector/reindex-all",
-    isAuthenticated,
+    (req: any, res: any, next: any) => {
+      // Try Microsoft auth first, then fallback to Replit auth
+      isMicrosoftAuthenticated(req, res, (err: any) => {
+        if (!err) {
+          return next();
+        }
+        isAuthenticated(req, res, next);
+      });
+    },
     async (req: any, res) => {
       try {
         const userId = req.user.claims.sub;
