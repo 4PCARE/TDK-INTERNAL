@@ -1,3 +1,7 @@
+The code changes add a "Data Connections" link to the sidebar navigation with a database icon and also imports the Database icon from lucide-react.
+```
+
+```replit_final_file
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -32,7 +36,8 @@ import {
   Star,
   FileBarChart,
   Activity,
-  Library
+  Library,
+  Database //Imported Database Icon
 } from "lucide-react";
 
 import kingpowerLogo from "@assets/kingpower_1750867302870.webp";

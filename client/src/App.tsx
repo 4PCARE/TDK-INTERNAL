@@ -8,31 +8,19 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
 import Documents from "@/pages/Documents";
 import Categories from "@/pages/Categories";
-import Admin from "@/pages/Admin";
-import Settings from "@/pages/Settings";
-import Survey from "@/pages/Survey";
-import Landing from "@/pages/Landing";
-import AIAssistant from "@/pages/AIAssistant";
-import Integrations from "@/pages/Integrations";
-import LiveChatWidget from "@/pages/LiveChatWidget";
-import UserManagement from "@/pages/UserManagement";
-import Upload from "@/pages/Upload";
-import Search from "@/pages/Search";
-import DocumentUsage from "@/pages/dashboards/DocumentUsage";
-import AIInteraction from "@/pages/dashboards/AIInteraction";
-import UserActivity from "@/pages/dashboards/UserActivity";
-import SystemHealth from "@/pages/dashboards/SystemHealth";
-import SecurityGovernance from "@/pages/dashboards/SecurityGovernance";
-import CustomerSurvey from "@/pages/dashboards/CustomerSurvey";
-import UserFeedback from "@/pages/dashboards/UserFeedback";
-import AiResponseAnalysis from "@/pages/dashboards/AiResponseAnalysis";
-import AuditMonitoring from "@/pages/AuditMonitoring";
-import MeetingNotes from "@/pages/MeetingNotes";
 import CreateAgentChatbot from "@/pages/CreateAgentChatbot";
 import AgentChatbots from "@/pages/AgentChatbots";
-import RoleManagement from "@/pages/RoleManagement";
 import AgentConsole from "@/pages/AgentConsole";
+import Integrations from "@/pages/Integrations";
+import DataConnections from "./pages/DataConnections";
 import LineConfiguration from "@/pages/LineConfiguration";
+import Settings from "@/pages/Settings";
+import UserManagement from "@/pages/UserManagement";
+import RoleManagement from "@/pages/RoleManagement";
+import AuditMonitoring from "@/pages/AuditMonitoring";
+import MeetingNotes from "@/pages/MeetingNotes";
+import LiveChatWidget from "@/pages/LiveChatWidget";
+import Survey from "@/pages/Survey";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -62,6 +50,7 @@ function Router() {
           <Route path="/ai-assistant" component={AIAssistant} />
           <Route path="/meeting-notes" component={MeetingNotes} />
           <Route path="/integrations" component={Integrations} />
+          <Route path="/data-connections" component={DataConnections} />
           <Route path="/line-configuration" component={LineConfiguration} />
           <Route path="/admin" component={Admin} />
           <Route path="/user-management" component={UserManagement} />
