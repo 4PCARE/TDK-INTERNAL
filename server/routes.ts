@@ -6,6 +6,7 @@ import OpenAI from "openai";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 import { setupMicrosoftAuth, isMicrosoftAuthenticated } from "./microsoftAuth";
+import { smartAuth } from "./smartAuth";
 import { registerHrApiRoutes } from "./hrApi";
 import { handleLineWebhook, sendLineImageMessage } from "./lineOaWebhook";
 import { pool, db } from "./db";
@@ -443,17 +444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Auth routes - support both Replit and Microsoft authentication
-  app.get("/api/auth/user", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        // Microsoft auth succeeded
-        return next();
-      }
-      // Try Replit auth as fallback
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
+  app.get("/api/auth/user", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const userEmail = req.user.claims.email || req.user.claims.upn || req.user.claims.unique_name || req.user.claims.preferred_username;
@@ -504,15 +495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user profile
-  app.get("/api/user/profile", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
+  app.get("/api/user/profile", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const userEmail = req.user.claims.email || req.user.claims.upn || req.user.claims.unique_name || req.user.claims.preferred_username;
@@ -625,15 +608,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update user profile
-  app.put("/api/user/profile", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
+  app.put("/api/user/profile", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { name, department, preferences } = req.body;
@@ -679,15 +654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User stats
-  app.get("/api/stats", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
+  app.get("/api/stats", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const stats = await storage.getUserStats(userId);
@@ -1454,15 +1421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   // Document routes
-  app.get("/api/documents", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
+  app.get("/api/documents", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const categoryId = req.query.categoryId

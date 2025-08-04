@@ -31,15 +31,16 @@ export const sessions = pgTable(
 // User storage table.
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().notNull(),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role").default("user").notNull(), // admin, user, viewer
-  departmentId: integer("department_id"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  profileImageUrl: text("profile_image_url"),
+  role: text("role").notNull().default("user"),
+  departmentId: integer("department_id").references(() => departments.id),
+  loginMethod: text("login_method").notNull().default("replit"), // 'replit' or 'microsoft'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Document categories
@@ -142,7 +143,7 @@ export const dataConnections = pgTable("data_connections", {
   name: varchar("name").notNull(),
   description: text("description"),
   type: varchar("type").notNull(), // 'database', 'api', or 'enterprise'
-  
+
   // Database connection fields
   dbType: varchar("db_type"), // 'postgresql', 'mysql', 'sqlserver', 'oracle', 'redshift', 'snowflake', 'tidb'
   host: varchar("host"),
@@ -151,7 +152,7 @@ export const dataConnections = pgTable("data_connections", {
   username: varchar("username"),
   password: varchar("password"), // encrypted
   connectionString: text("connection_string"), // encrypted
-  
+
   // API connection fields
   apiUrl: text("api_url"),
   method: varchar("method"), // 'GET', 'POST', 'PUT', 'DELETE'
@@ -159,13 +160,13 @@ export const dataConnections = pgTable("data_connections", {
   body: text("body"),
   authType: varchar("auth_type"), // 'none', 'basic', 'bearer', 'api_key'
   authConfig: jsonb("auth_config"), // stores auth credentials
-  
+
   // Enterprise system fields
   enterpriseType: varchar("enterprise_type"), // 'salesforce', 'sap', 'oracle_erp', 'microsoft_dynamics'
   instanceUrl: varchar("instance_url"), // For Salesforce, SAP, etc.
   clientId: varchar("client_id"),
   clientSecret: varchar("client_secret"),
-  
+
   isActive: boolean("is_active").default(true),
   lastTested: timestamp("last_tested"),
   testStatus: varchar("test_status"), // 'success', 'failed', 'pending'
@@ -266,23 +267,23 @@ export const chatWidgets = pgTable("chat_widgets", {
   name: varchar("name").notNull(),
   widgetKey: varchar("widget_key").notNull().unique(),
   isActive: boolean("is_active").default(true),
-  
+
   // AI Agent integration
   agentId: integer("agent_id").references(() => agentChatbots.id),
-  
+
   // Widget styling
   primaryColor: varchar("primary_color").default("#2563eb"),
   textColor: varchar("text_color").default("#ffffff"),
   position: varchar("position").default("bottom-right"), // 'bottom-right', 'bottom-left'
-  
+
   // Widget settings
   welcomeMessage: text("welcome_message").default("Hi! How can I help you today?"),
   offlineMessage: text("offline_message").default("We're currently offline. Please leave a message."),
-  
+
   // HR API integration
   enableHrLookup: boolean("enable_hr_lookup").default(false),
   hrApiEndpoint: varchar("hr_api_endpoint"),
-  
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -606,13 +607,13 @@ export const agentChatbots = pgTable("agent_chatbots", {
   userId: varchar("user_id").references(() => users.id).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   channels: jsonb("channels").$type<string[]>().default([]).notNull(), // ['lineoa', 'facebook', 'tiktok']
-  
+
   // New personality and capabilities fields
   personality: varchar("personality"), // 'friendly', 'professional', 'energetic', etc.
   profession: varchar("profession"), // 'sales', 'hr', 'it', etc.
   responseStyle: varchar("response_style"), // 'concise', 'detailed', 'conversational', 'educational'
   specialSkills: jsonb("special_skills").$type<string[]>().default([]),
-  
+
   // Guardrails configuration
   contentFiltering: boolean("content_filtering").default(true),
   toxicityPrevention: boolean("toxicity_prevention").default(true),
@@ -621,10 +622,10 @@ export const agentChatbots = pgTable("agent_chatbots", {
   responseLength: varchar("response_length").default("medium"), // 'short', 'medium', 'long'
   allowedTopics: jsonb("allowed_topics").$type<string[]>().default([]),
   blockedTopics: jsonb("blocked_topics").$type<string[]>().default([]),
-  
+
   // Memory configuration for chat history
   memoryEnabled: boolean("memory_enabled").default(true),
-  
+
   // Advanced guardrails configuration
   guardrailsConfig: jsonb("guardrails_config").$type<{
     contentFiltering?: {
@@ -672,7 +673,7 @@ export const agentChatbots = pgTable("agent_chatbots", {
     };
   }>(),
   memoryLimit: integer("memory_limit").default(10), // Number of previous messages to remember
-  
+
   lineOaConfig: jsonb("lineoa_config").$type<{
     lineOaId?: string;
     lineOaName?: string;

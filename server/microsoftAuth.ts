@@ -88,7 +88,8 @@ export async function setupMicrosoftAuth(app: Express) {
         email: email,
         firstName: firstName,
         lastName: lastName,
-        profileImageUrl: null // Microsoft Graph API would be needed for profile picture
+        profileImageUrl: null, // Microsoft Graph API would be needed for profile picture
+        loginMethod: "microsoft"
       };
 
       console.log("Microsoft profile data:", {
@@ -215,7 +216,8 @@ export async function setupMicrosoftAuth(app: Express) {
           email: email,
           firstName: firstName,
           lastName: lastName,
-          profileImageUrl: null
+          profileImageUrl: null,
+          loginMethod: "microsoft"
         };
 
         console.log("Microsoft profile data (dynamic):", {
