@@ -102,7 +102,7 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // const port = process.env.NODE_ENV === 'production' ? 80 : 5000;
   const port = process.env.PORT || 5000;
-  server.listen(
+  const httpServer = server.listen(
     {
       port,
       host: "0.0.0.0",
@@ -112,4 +112,30 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
     },
   );
+
+  // Handle graceful shutdown
+  const gracefulShutdown = (signal: string) => {
+    log(`Received ${signal}. Starting graceful shutdown...`);
+    
+    httpServer.close((err) => {
+      if (err) {
+        console.error('Error during server shutdown:', err);
+        process.exit(1);
+      }
+      
+      log('Server closed successfully');
+      process.exit(0);
+    });
+    
+    // Force close after 10 seconds
+    setTimeout(() => {
+      console.error('Forced shutdown after timeout');
+      process.exit(1);
+    }, 10000);
+  };
+
+  // Listen for termination signals
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+  process.on('SIGQUIT', () => gracefulShutdown('SIGQUIT'));
 })();
