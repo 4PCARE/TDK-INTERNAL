@@ -33,6 +33,7 @@ import SecurityGovernance from "@/pages/dashboards/SecurityGovernance";
 import CustomerSurvey from "@/pages/dashboards/CustomerSurvey";
 import UserFeedback from "@/pages/dashboards/UserFeedback";
 import AiResponseAnalysis from "@/pages/dashboards/AiResponseAnalysis";
+import AIAssistant from "@/pages/AIAssistant";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
