@@ -57,11 +57,14 @@ export class VectorService {
       mimeType: string;
       tags: string[];
     },
-    fileType?: string
+    fileType?: string,
+    preserveExistingEmbeddings: boolean = false
   ): Promise<string> {
     try {
-      // Remove existing document chunks if they exist from database
-      await db.delete(documentVectors).where(eq(documentVectors.documentId, parseInt(id)));
+      if (!preserveExistingEmbeddings) {
+        // Remove existing document chunks if they exist from database (original behavior)
+        await db.delete(documentVectors).where(eq(documentVectors.documentId, parseInt(id)));
+      }
 
       if (!content || content.trim().length === 0) {
         throw new Error("Document content is empty");
@@ -76,6 +79,7 @@ export class VectorService {
       console.log(`Document ${id}: Split into ${chunks.length} chunks for vector processing`);
 
       let addedChunks = 0;
+      let updatedChunks = 0;
 
       // Process each chunk
       for (let i = 0; i < chunks.length; i++) {
@@ -112,18 +116,66 @@ export class VectorService {
             console.warn(`⚠️  CHUNK TOO LARGE: Doc ${id} chunk ${i} has ${chunk.length} chars - might be storing full document instead of chunk!`);
           }
 
-          // Save vector to database with processed content
-          await db.insert(documentVectors).values({
-            documentId: parseInt(id),
-            chunkIndex: i,
-            totalChunks: chunks.length,
-            content: chunk, // This is the Thai-segmented chunk content
-            embedding: embedding, // Keep original format for production compatibility
-            embeddingMulti: { openai: embedding }, // Store in new multi-provider column
-            userId: metadata.userId
-          });
+          if (preserveExistingEmbeddings) {
+            // Check if chunk already exists
+            const [existingChunk] = await db.select()
+              .from(documentVectors)
+              .where(
+                and(
+                  eq(documentVectors.documentId, parseInt(id)),
+                  eq(documentVectors.chunkIndex, i)
+                )
+              );
 
-          addedChunks++;
+            if (existingChunk) {
+              // Update existing chunk while preserving existing embeddings
+              const currentMultiEmbedding = (existingChunk.embeddingMulti as { openai?: number[]; gemini?: number[] }) || {};
+              const updatedMultiEmbedding = {
+                ...currentMultiEmbedding,
+                openai: embedding // Update/add OpenAI embedding
+              };
+
+              await db.update(documentVectors)
+                .set({
+                  content: chunk,
+                  embedding: embedding, // Keep for backward compatibility
+                  embeddingMulti: updatedMultiEmbedding,
+                  totalChunks: chunks.length,
+                  userId: metadata.userId
+                })
+                .where(eq(documentVectors.id, existingChunk.id));
+
+              updatedChunks++;
+              console.log(`Updated existing chunk ${i} for doc ${id} while preserving other embeddings`);
+            } else {
+              // Insert new chunk
+              await db.insert(documentVectors).values({
+                documentId: parseInt(id),
+                chunkIndex: i,
+                totalChunks: chunks.length,
+                content: chunk,
+                embedding: embedding,
+                embeddingMulti: { openai: embedding },
+                userId: metadata.userId
+              });
+
+              addedChunks++;
+              console.log(`Added new chunk ${i} for doc ${id}`);
+            }
+          } else {
+            // Original behavior - insert new chunk
+            await db.insert(documentVectors).values({
+              documentId: parseInt(id),
+              chunkIndex: i,
+              totalChunks: chunks.length,
+              content: chunk, // This is the Thai-segmented chunk content
+              embedding: embedding, // Keep original format for production compatibility
+              embeddingMulti: { openai: embedding }, // Store in new multi-provider column
+              userId: metadata.userId
+            });
+
+            addedChunks++;
+          }
 
           // Add a small delay to avoid rate limiting
           if (i < chunks.length - 1) {
@@ -136,8 +188,13 @@ export class VectorService {
         }
       }
 
-      console.log(`Document ${id}: Successfully added ${addedChunks}/${chunks.length} chunks to vector database`);
-      return `Document ${id} added to vector database with ${addedChunks} chunks`;
+      if (preserveExistingEmbeddings) {
+        console.log(`Document ${id}: Successfully processed ${addedChunks + updatedChunks}/${chunks.length} chunks (${addedChunks} new, ${updatedChunks} updated) while preserving existing embeddings`);
+        return `Document ${id} re-vectorized with ${addedChunks + updatedChunks} chunks (${addedChunks} new, ${updatedChunks} updated) while preserving existing embeddings`;
+      } else {
+        console.log(`Document ${id}: Successfully added ${addedChunks}/${chunks.length} chunks to vector database`);
+        return `Document ${id} added to vector database with ${addedChunks} chunks`;
+      }
     } catch (error) {
       console.error("Error adding document to vector database:", error);
       throw new Error("Failed to add document to vector database");

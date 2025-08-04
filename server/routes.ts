@@ -2072,6 +2072,7 @@ ${document.summary}`;
       try {
         const userId = req.user.claims.sub;
         const id = parseInt(req.params.id);
+        const { preserveExistingEmbeddings = false } = req.body;
         const document = await storage.getDocument(id, userId);
 
         if (!document) {
@@ -2079,18 +2080,19 @@ ${document.summary}`;
         }
 
         if (document.content && document.content.trim().length > 0) {
-          await vectorService.addDocument(id.toString(), document.content, {
+          const result = await vectorService.addDocument(id.toString(), document.content, {
             userId,
             documentName: document.name,
             mimeType: document.mimeType,
             tags: document.tags || [],
             originalDocumentId: id.toString(),
-          });
+          }, document.mimeType, preserveExistingEmbeddings);
 
-          console.log(`Document ${id} manually vectorized successfully`);
+          console.log(`Document ${id} manually vectorized successfully with preserve mode: ${preserveExistingEmbeddings}`);
           res.json({
             success: true,
-            message: "Document added to vector database",
+            message: result,
+            preservedExistingEmbeddings: preserveExistingEmbeddings
           });
         } else {
           res.status(400).json({
@@ -2112,13 +2114,14 @@ ${document.summary}`;
     async (req: any, res) => {
       try {
         const userId = req.user.claims.sub;
+        const { preserveExistingEmbeddings = false } = req.body;
         const documents = await storage.getDocuments(userId);
 
         let vectorizedCount = 0;
         let skippedCount = 0;
 
         console.log(
-          `Starting to vectorize ${documents.length} documents for user ${userId}`,
+          `Starting to vectorize ${documents.length} documents for user ${userId} with preserve mode: ${preserveExistingEmbeddings}`,
         );
 
         for (const doc of documents) {
@@ -2130,7 +2133,7 @@ ${document.summary}`;
                 mimeType: doc.mimeType,
                 tags: doc.tags || [],
                 originalDocumentId: doc.id.toString(),
-              });
+              }, doc.mimeType, preserveExistingEmbeddings);
               vectorizedCount++;
               console.log(`Vectorized document ${doc.id}: ${doc.name}`);
             } catch (error) {
@@ -2147,9 +2150,10 @@ ${document.summary}`;
         );
         res.json({
           success: true,
-          message: `Vectorized ${vectorizedCount} documents, skipped ${skippedCount}`,
+          message: `${preserveExistingEmbeddings ? 'Re-vectorized' : 'Vectorized'} ${vectorizedCount} documents, skipped ${skippedCount}`,
           vectorizedCount,
           skippedCount,
+          preservedExistingEmbeddings: preserveExistingEmbeddings
         });
       } catch (error) {
         console.error("Error vectorizing all documents:", error);
@@ -2533,16 +2537,19 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     async (req: any, res) => {
       try {
         const userId = req.user.claims.sub;
+        const { preserveExistingEmbeddings = true } = req.body; // Default to preserving for re-indexing
         const documents = await storage.getDocuments(userId);
 
         let processedCount = 0;
         let errorCount = 0;
         const results: any[] = [];
 
+        console.log(`Re-indexing ${documents.length} documents with preserve mode: ${preserveExistingEmbeddings}`);
+
         for (const document of documents) {
           if (document.content && document.content.trim().length > 0) {
             try {
-              await vectorService.addDocument(
+              const result = await vectorService.addDocument(
                 document.id.toString(),
                 document.content,
                 {
@@ -2551,6 +2558,8 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
                   mimeType: document.mimeType,
                   tags: document.tags || [],
                 },
+                document.mimeType,
+                preserveExistingEmbeddings
               );
 
               processedCount++;
@@ -2558,6 +2567,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
                 id: document.id,
                 name: document.name,
                 status: "success",
+                result: result
               });
 
               // Add delay to avoid rate limiting
@@ -2587,10 +2597,11 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
 
         res.json({
           success: true,
-          message: `Re-indexing completed. Processed: ${processedCount}, Errors: ${errorCount}`,
+          message: `Re-indexing completed. Processed: ${processedCount}, Errors: ${errorCount}${preserveExistingEmbeddings ? ' (preserved existing embeddings)' : ''}`,
           processed: processedCount,
           errors: errorCount,
           total: documents.length,
+          preservedExistingEmbeddings: preserveExistingEmbeddings,
           results,
         });
       } catch (error) {
