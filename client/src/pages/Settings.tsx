@@ -356,7 +356,7 @@ export default function Settings() {
           <TabButton
             id="llm"
             icon={Bot}
-            label="AI Provider"
+            label="LLM Provider"
             isActive={activeTab === 'llm'}
             onClick={() => setActiveTab('llm')}
           />
@@ -593,10 +593,10 @@ export default function Settings() {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Bot className="w-5 h-5" />
-                <span>AI Provider Configuration</span>
+                <span>LLM Provider Configuration</span>
               </CardTitle>
               <p className="text-sm text-gray-600 mt-2">
-                Configure which AI provider to use for chat and document embeddings. 
+                Configure which LLM provider to use for chat and document embeddings. 
                 Changing providers will require re-embedding all documents.
               </p>
             </CardHeader>
@@ -748,9 +748,13 @@ export default function Settings() {
 
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <h4 className="font-medium text-yellow-800 mb-2">Important Notice</h4>
-                    <p className="text-sm text-yellow-700">
+                    <p className="text-sm text-yellow-700 mb-2">
                       Changing the embedding provider will invalidate existing document embeddings. 
                       All documents will need to be re-embedded with the new provider for search to work properly.
+                    </p>
+                    <p className="text-sm text-yellow-700">
+                      Use the "Force Re-vectorize All" button to immediately re-process all documents with the current embedding provider, 
+                      replacing all existing embeddings.
                     </p>
                   </div>
 
@@ -770,7 +774,27 @@ export default function Settings() {
                     </div>
                   )}
 
-                  <div className="flex justify-end">
+                  <div className="flex justify-between">
+                    <Button 
+                      type="button"
+                      variant="outline"
+                      onClick={() => revectorizeAllMutation.mutate({ preserveExistingEmbeddings: false })}
+                      disabled={updateLlmMutation.isPending || revectorizeAllMutation.isPending}
+                      className="flex items-center space-x-2 text-orange-600 border-orange-300 hover:bg-orange-50"
+                    >
+                      {revectorizeAllMutation.isPending ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Force Re-vectorizing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-4 h-4" />
+                          <span>Force Re-vectorize All</span>
+                        </>
+                      )}
+                    </Button>
+
                     <Button 
                       type="submit" 
                       disabled={updateLlmMutation.isPending || revectorizeAllMutation.isPending}
