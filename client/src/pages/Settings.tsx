@@ -147,31 +147,67 @@ export default function Settings() {
     },
   });
 
+  const revectorizeAllMutation = useMutation({
+    mutationFn: async ({ preserveExistingEmbeddings }: { preserveExistingEmbeddings: boolean }) => {
+      const response = await fetch("/api/documents/vectorize-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preserveExistingEmbeddings }),
+      });
+      if (!response.ok) throw new Error("Failed to re-vectorize documents");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Re-vectorization Complete",
+        description: `Successfully processed ${data.vectorizedCount} documents with the new embedding provider.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Re-vectorization Failed",
+        description: error.message || "Failed to re-vectorize documents",
+        variant: "destructive",
+      });
+    },
+  });
+
   const updateLlmMutation = useMutation({
-    mutationFn: async (data: Partial<LLMConfig>) => {
+    mutationFn: async (config: any) => {
       const response = await fetch("/api/llm/config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(config),
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to update LLM configuration");
-      }
-
+      if (!response.ok) throw new Error("Failed to update LLM configuration");
       return response.json();
     },
-    onSuccess: () => {
-      toast({
-        title: "LLM Configuration Updated",
-        description: "Your AI provider settings have been successfully updated.",
-      });
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/llm/config"] });
+
+      // Check if embedding provider changed
+      const currentEmbeddingProvider = llmConfig?.embeddingProvider;
+      const newEmbeddingProvider = variables.embeddingProvider;
+
+      if (currentEmbeddingProvider && currentEmbeddingProvider !== newEmbeddingProvider) {
+        toast({
+          title: "Configuration Updated",
+          description: "LLM configuration saved. Starting re-vectorization with new embedding provider...",
+        });
+
+        // Automatically trigger re-vectorization with preserve mode
+        revectorizeAllMutation.mutate({ preserveExistingEmbeddings: true });
+      } else {
+        toast({
+          title: "Configuration Updated",
+          description: "LLM configuration has been saved successfully.",
+        });
+      }
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
-        title: "Update Failed",
-        description: "Failed to update LLM configuration. Please try again.",
+        title: "Error",
+        description: error.message || "Failed to update LLM configuration",
         variant: "destructive",
       });
     },
