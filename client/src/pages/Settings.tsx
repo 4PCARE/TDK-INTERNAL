@@ -154,22 +154,30 @@ export default function Settings() {
   });
 
   const [revectorizeProgress, setRevectorizeProgress] = useState({ current: 0, total: 0, percentage: 0 });
+  const [revectorizeController, setRevectorizeController] = useState<AbortController | null>(null);
+  const [isReverting, setIsReverting] = useState(false);
 
   const revectorizeAllMutation = useMutation({
     mutationFn: async ({ preserveExistingEmbeddings }: { preserveExistingEmbeddings: boolean }) => {
       // Reset progress
       setRevectorizeProgress({ current: 0, total: 0, percentage: 0 });
+      
+      // Create abort controller for cancellation
+      const controller = new AbortController();
+      setRevectorizeController(controller);
 
       const response = await fetch("/api/documents/vectorize-all", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ preserveExistingEmbeddings }),
+        signal: controller.signal,
       });
       if (!response.ok) throw new Error("Failed to re-vectorize documents");
       return response.json();
     },
     onSuccess: (data) => {
       setRevectorizeProgress({ current: data.vectorizedCount, total: data.vectorizedCount, percentage: 100 });
+      setRevectorizeController(null);
       toast({
         title: "Re-vectorization Complete",
         description: `Successfully processed ${data.vectorizedCount} documents with the new embedding provider.`,
@@ -177,9 +185,55 @@ export default function Settings() {
     },
     onError: (error: any) => {
       setRevectorizeProgress({ current: 0, total: 0, percentage: 0 });
+      setRevectorizeController(null);
+      
+      if (error.name === 'AbortError') {
+        toast({
+          title: "Re-vectorization Cancelled",
+          description: "Process was stopped by user. Use 'Revert Changes' to restore previous embeddings.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Re-vectorization Failed",
+          description: error.message || "Failed to re-vectorize documents",
+          variant: "destructive",
+        });
+      }
+    },
+  });
+
+  const stopRevectorization = () => {
+    if (revectorizeController) {
+      revectorizeController.abort();
+      setRevectorizeController(null);
+      revectorizeAllMutation.reset();
+    }
+  };
+
+  const revertChangesMutation = useMutation({
+    mutationFn: async () => {
+      setIsReverting(true);
+      const response = await fetch("/api/documents/revert-vectorization", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) throw new Error("Failed to revert changes");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setIsReverting(false);
       toast({
-        title: "Re-vectorization Failed",
-        description: error.message || "Failed to re-vectorize documents",
+        title: "Changes Reverted",
+        description: `Successfully restored previous embeddings for ${data.revertedCount} documents.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/llm/config"] });
+    },
+    onError: (error: any) => {
+      setIsReverting(false);
+      toast({
+        title: "Revert Failed",
+        description: error.message || "Failed to revert changes",
         variant: "destructive",
       });
     },
@@ -763,9 +817,20 @@ export default function Settings() {
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="font-medium text-blue-800">Re-vectorizing Documents</h4>
-                        <span className="text-sm text-blue-600 font-medium">
-                          {revectorizeProgress.percentage}%
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-blue-600 font-medium">
+                            {revectorizeProgress.percentage}%
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={stopRevectorization}
+                            className="text-red-600 border-red-300 hover:bg-red-50"
+                          >
+                            Stop
+                          </Button>
+                        </div>
                       </div>
                       <Progress value={revectorizeProgress.percentage} className="h-3" />
                       <p className="text-sm text-blue-700">
@@ -774,12 +839,45 @@ export default function Settings() {
                     </div>
                   )}
 
+                  {/* Revert Changes Section */}
+                  {!revectorizeAllMutation.isPending && revectorizeController === null && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium text-orange-800 mb-1">Revert Changes</h4>
+                          <p className="text-sm text-orange-700">
+                            If re-vectorization was incomplete or caused issues, you can revert to previous embeddings.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => revertChangesMutation.mutate()}
+                          disabled={isReverting}
+                          className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                        >
+                          {isReverting ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                              <span>Reverting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                              <span>Revert Changes</span>
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex justify-between">
                     <Button 
                       type="button"
                       variant="outline"
                       onClick={() => revectorizeAllMutation.mutate({ preserveExistingEmbeddings: false })}
-                      disabled={updateLlmMutation.isPending || revectorizeAllMutation.isPending}
+                      disabled={updateLlmMutation.isPending || revectorizeAllMutation.isPending || isReverting}
                       className="flex items-center space-x-2 text-orange-600 border-orange-300 hover:bg-orange-50"
                     >
                       {revectorizeAllMutation.isPending ? (
@@ -797,7 +895,7 @@ export default function Settings() {
 
                     <Button 
                       type="submit" 
-                      disabled={updateLlmMutation.isPending || revectorizeAllMutation.isPending}
+                      disabled={updateLlmMutation.isPending || revectorizeAllMutation.isPending || isReverting}
                       className="flex items-center space-x-2"
                     >
                       {updateLlmMutation.isPending ? (
@@ -809,6 +907,11 @@ export default function Settings() {
                         <>
                           <RefreshCw className="w-4 h-4 animate-spin" />
                           <span>Re-vectorizing Documents...</span>
+                        </>
+                      ) : isReverting ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Reverting Changes...</span>
                         </>
                       ) : (
                         <>
