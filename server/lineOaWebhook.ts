@@ -420,6 +420,11 @@ function extractIntentFromQuery(userQuery: string): string[] {
     "notebook",
   ];
 
+  const krapraoKeywords = [
+    "กระเพราไก่",
+
+  ];
+
   // Check each category
   if (beautyKeywords.some((keyword) => query.includes(keyword))) {
     intents.push("beauty", "cosmetics");
@@ -443,6 +448,10 @@ function extractIntentFromQuery(userQuery: string): string[] {
 
   if (electronicKeywords.some((keyword) => query.includes(keyword))) {
     intents.push("electronics", "gadgets", "notebook", "computer");
+  }
+
+  if (krapraoKeywords.some((keyword) => query.includes(keyword))) {
+    intents.push("กระเพราไก่");
   }
 
   // Remove duplicates
