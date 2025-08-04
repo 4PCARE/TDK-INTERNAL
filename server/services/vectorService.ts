@@ -128,53 +128,98 @@ export class VectorService {
               );
 
             if (existingChunk) {
-              // Update existing chunk while preserving existing embeddings
-              const currentMultiEmbedding = (existingChunk.embeddingMulti as { openai?: number[]; gemini?: number[] }) || {};
-              const updatedMultiEmbedding = {
-                ...currentMultiEmbedding,
-                openai: embedding // Update/add OpenAI embedding
-              };
+              try {
+                // Update existing chunk while preserving existing embeddings
+                const currentMultiEmbedding = (existingChunk.embeddingMulti as { openai?: number[]; gemini?: number[] }) || {};
+                const updatedMultiEmbedding = {
+                  ...currentMultiEmbedding,
+                  openai: embedding // Update/add OpenAI embedding
+                };
 
-              await db.update(documentVectors)
-                .set({
-                  content: chunk,
-                  embedding: embedding, // Keep for backward compatibility
-                  embeddingMulti: updatedMultiEmbedding,
-                  totalChunks: chunks.length,
-                  userId: metadata.userId
-                })
-                .where(eq(documentVectors.id, existingChunk.id));
+                await db.update(documentVectors)
+                  .set({
+                    content: chunk,
+                    embedding: embedding, // Keep for backward compatibility
+                    embeddingMulti: updatedMultiEmbedding,
+                    totalChunks: chunks.length,
+                    userId: metadata.userId
+                  })
+                  .where(eq(documentVectors.id, existingChunk.id));
 
-              updatedChunks++;
-              console.log(`Updated existing chunk ${i} for doc ${id} while preserving other embeddings`);
+                updatedChunks++;
+                console.log(`Updated existing chunk ${i} for doc ${id} while preserving other embeddings`);
+              } catch (error) {
+                // Fallback if embeddingMulti column doesn't exist
+                console.log(`Fallback: updating chunk ${i} for doc ${id} without embeddingMulti column`);
+                await db.update(documentVectors)
+                  .set({
+                    content: chunk,
+                    embedding: embedding,
+                    totalChunks: chunks.length,
+                    userId: metadata.userId
+                  })
+                  .where(eq(documentVectors.id, existingChunk.id));
+
+                updatedChunks++;
+              }
             } else {
-              // Insert new chunk
+              try {
+                // Insert new chunk
+                await db.insert(documentVectors).values({
+                  documentId: parseInt(id),
+                  chunkIndex: i,
+                  totalChunks: chunks.length,
+                  content: chunk,
+                  embedding: embedding,
+                  embeddingMulti: { openai: embedding },
+                  userId: metadata.userId
+                });
+
+                addedChunks++;
+                console.log(`Added new chunk ${i} for doc ${id}`);
+              } catch (error) {
+                // Fallback if embeddingMulti column doesn't exist
+                console.log(`Fallback: inserting chunk ${i} for doc ${id} without embeddingMulti column`);
+                await db.insert(documentVectors).values({
+                  documentId: parseInt(id),
+                  chunkIndex: i,
+                  totalChunks: chunks.length,
+                  content: chunk,
+                  embedding: embedding,
+                  userId: metadata.userId
+                });
+
+                addedChunks++;
+              }
+            }
+          } else {
+            try {
+              // Original behavior - insert new chunk
+              await db.insert(documentVectors).values({
+                documentId: parseInt(id),
+                chunkIndex: i,
+                totalChunks: chunks.length,
+                content: chunk, // This is the Thai-segmented chunk content
+                embedding: embedding, // Keep original format for production compatibility
+                embeddingMulti: { openai: embedding }, // Store in new multi-provider column
+                userId: metadata.userId
+              });
+
+              addedChunks++;
+            } catch (error) {
+              // Fallback if embeddingMulti column doesn't exist
+              console.log(`Fallback: inserting chunk ${i} for doc ${id} without embeddingMulti column`);
               await db.insert(documentVectors).values({
                 documentId: parseInt(id),
                 chunkIndex: i,
                 totalChunks: chunks.length,
                 content: chunk,
                 embedding: embedding,
-                embeddingMulti: { openai: embedding },
                 userId: metadata.userId
               });
 
               addedChunks++;
-              console.log(`Added new chunk ${i} for doc ${id}`);
             }
-          } else {
-            // Original behavior - insert new chunk
-            await db.insert(documentVectors).values({
-              documentId: parseInt(id),
-              chunkIndex: i,
-              totalChunks: chunks.length,
-              content: chunk, // This is the Thai-segmented chunk content
-              embedding: embedding, // Keep original format for production compatibility
-              embeddingMulti: { openai: embedding }, // Store in new multi-provider column
-              userId: metadata.userId
-            });
-
-            addedChunks++;
           }
 
           // Add a small delay to avoid rate limiting
