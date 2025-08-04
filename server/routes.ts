@@ -5695,7 +5695,15 @@ Memory management: Keep track of conversation context within the last ${agentCon
   });
 
   // LLM Configuration API routes
-  app.get("/api/llm/config", isAuthenticated, async (req: any, res) => {
+  app.get("/api/llm/config", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       
@@ -5751,7 +5759,15 @@ Memory management: Keep track of conversation context within the last ${agentCon
     }
   });
 
-  app.put("/api/llm/config", isAuthenticated, async (req: any, res) => {
+  app.put("/api/llm/config", (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+  }, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { 
