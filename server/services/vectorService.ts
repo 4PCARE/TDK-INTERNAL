@@ -118,7 +118,7 @@ export class VectorService {
             chunkIndex: i,
             totalChunks: chunks.length,
             content: chunk, // This is the Thai-segmented chunk content
-            embedding,
+            embedding: { openai: embedding }, // Store as JSON with provider key
             userId: metadata.userId
           });
 
@@ -223,10 +223,14 @@ export class VectorService {
             console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has ${dbVector.content.length} chars - suspiciously large for a chunk!`);
           }
 
+          // Extract the appropriate embedding based on current provider
+          const embeddingJson = dbVector.embedding as { openai?: number[]; gemini?: number[] };
+          const currentEmbedding = embeddingJson.openai || embeddingJson.gemini || [];
+
           const vectorDoc: VectorDocument = {
             id: `${dbVector.documentId}_chunk_${dbVector.chunkIndex}`,
             content: dbVector.content, // This should be chunk content from document_vectors table
-            embedding: dbVector.embedding,
+            embedding: currentEmbedding,
             metadata: {
               originalDocumentId: dbVector.documentId.toString(),
               userId: dbVector.userId,
@@ -239,7 +243,7 @@ export class VectorService {
 
           return {
             document: vectorDoc,
-            similarity: this.cosineSimilarity(queryEmbedding, dbVector.embedding)
+            similarity: this.cosineSimilarity(queryEmbedding, currentEmbedding)
           };
         })
         .filter(result => {

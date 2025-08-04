@@ -294,6 +294,37 @@ export class LLMRouter {
     }
   }
 
+  // Helper method to update existing embeddings with new provider data
+  async updateEmbeddingWithProvider(documentId: number, chunkIndex: number, newEmbedding: number[], provider: string): Promise<void> {
+    try {
+      // Get existing embedding JSON
+      const [existingVector] = await db.select()
+        .from(documentVectors)
+        .where(
+          and(
+            eq(documentVectors.documentId, documentId),
+            eq(documentVectors.chunkIndex, chunkIndex)
+          )
+        );
+
+      if (existingVector) {
+        const currentEmbedding = existingVector.embedding as { openai?: number[]; gemini?: number[] };
+        const updatedEmbedding = {
+          ...currentEmbedding,
+          [provider.toLowerCase()]: newEmbedding
+        };
+
+        await db.update(documentVectors)
+          .set({ embedding: updatedEmbedding })
+          .where(eq(documentVectors.id, existingVector.id));
+
+        console.log(`✅ Updated embedding for doc ${documentId} chunk ${chunkIndex} with ${provider} data`);
+      }
+    } catch (error) {
+      console.error(`Error updating embedding for doc ${documentId} chunk ${chunkIndex}:`, error);
+    }
+  }
+
   getCurrentConfig(): LLMRouterConfig | null {
     return this.currentConfig;
   }

@@ -98,7 +98,10 @@ export const documentVectors = pgTable("document_vectors", {
   chunkIndex: integer("chunk_index").notNull(),
   totalChunks: integer("total_chunks").notNull(),
   content: text("content").notNull(),
-  embedding: real("embedding").array().notNull(),
+  embedding: jsonb("embedding").$type<{
+    openai?: number[];
+    gemini?: number[];
+  }>().notNull(),
   userId: varchar("user_id").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
