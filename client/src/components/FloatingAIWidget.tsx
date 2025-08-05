@@ -153,9 +153,12 @@ export default function FloatingAIWidget() {
 
   const startNewConversation = async () => {
     try {
+      setCurrentConversationId(null); // Clear current conversation first
       await createConversationMutation.mutateAsync();
     } catch (error) {
       console.error("Failed to create new conversation:", error);
+      // Show user-friendly error message
+      alert("Failed to create new conversation. Please try again.");
     }
   };
 
@@ -165,7 +168,15 @@ export default function FloatingAIWidget() {
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'Just now';
+    
     const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'Just now';
+    }
+    
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());

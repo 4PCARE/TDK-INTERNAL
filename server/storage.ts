@@ -798,7 +798,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createChatConversation(conversation: InsertChatConversation): Promise<ChatConversation> {
-    const [newConversation] = await db.insert(chatConversations).values(conversation).returning();
+    console.log("Creating conversation with data:", conversation);
+    const [newConversation] = await db.insert(chatConversations).values({
+      userId: conversation.userId,
+      title: conversation.title,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).returning();
+    console.log("Created conversation:", newConversation);
     return newConversation;
   }
 

@@ -22,7 +22,14 @@ export function registerChatRoutes(app: Express) {
     try {
       const userId = req.user.claims.sub;
       const { title } = req.body;
-      const conversation = await storage.createChatConversation(userId, title || "New Conversation");
+      const conversationTitle = title || `New Chat ${new Date().toLocaleTimeString()}`;
+      
+      const conversation = await storage.createChatConversation({
+        userId: userId,
+        title: conversationTitle,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
       res.json(conversation);
     } catch (error) {
       console.error("Error creating conversation:", error);
@@ -63,6 +70,58 @@ export function registerChatRoutes(app: Express) {
       await storage.saveChatMessage(conversationId, userId, aiResponse, "assistant");
 
       res.json({ response: aiResponse });
+    } catch (error) {
+      console.error("Error processing chat message:", error);
+      res.status(500).json({ message: "Failed to process message" });
+    }
+  });
+
+  // Send message (for FloatingAIWidget)
+  app.post("/api/chat/send", smartAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { message, conversationId, source } = req.body;
+
+      let targetConversationId = conversationId;
+
+      // If no conversation ID provided, create a new conversation
+      if (!targetConversationId) {
+        const newConversation = await storage.createChatConversation({
+          userId: userId,
+          title: `Chat ${new Date().toLocaleTimeString()}`,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+        targetConversationId = newConversation.id;
+      }
+
+      // Save user message
+      await storage.createChatMessage({
+        conversationId: targetConversationId,
+        role: "user",
+        content: message,
+        createdAt: new Date()
+      });
+
+      // Get user's documents for context
+      const documents = await storage.getDocuments(userId);
+
+      // Generate AI response
+      const { generateChatResponse } = await import("../services/openai");
+      const aiResponse = await generateChatResponse(message, documents);
+
+      // Save AI response
+      await storage.createChatMessage({
+        conversationId: targetConversationId,
+        role: "assistant", 
+        content: aiResponse,
+        createdAt: new Date()
+      });
+
+      res.json({ 
+        response: aiResponse,
+        conversationId: targetConversationId
+      });
     } catch (error) {
       console.error("Error processing chat message:", error);
       res.status(500).json({ message: "Failed to process message" });
