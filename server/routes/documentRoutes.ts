@@ -193,7 +193,10 @@ export function registerDocumentRoutes(app: Express) {
           const semanticDocs = await semanticSearchServiceV2.searchDocuments(
             query,
             userId,
-            { searchType: "semantic" },
+            { 
+              searchType: "semantic",
+              massSelectionPercentage: 0.6
+            },
           );
           
           semanticResults = semanticDocs.map(doc => ({

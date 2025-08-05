@@ -8,7 +8,7 @@ const openai = new OpenAI({
 });
 
 // Configuration: Mass selection percentage for smart selection algorithm
-const MASS_SELECTION_PERCENTAGE = 0.3; // 30% - adjust this value to change selection criteria
+const MASS_SELECTION_PERCENTAGE = 0.6; // 60% - adjust this value to change selection criteria
 
 export interface SearchResult {
   id: string;
