@@ -497,12 +497,60 @@ ${document.summary}`;
             // Find metadata for this file
             const fileMetadata = metadataArray.find(meta => meta.fileName === file.originalname);
             
+            // Helper function to ensure correct file extension
+            const ensureCorrectExtension = (inputName: string, originalFileName: string, mimeType: string): string => {
+              // Get the correct extension based on mime type
+              const getCorrectExtension = (mime: string): string => {
+                const mimeToExt: Record<string, string> = {
+                  'application/pdf': '.pdf',
+                  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+                  'application/msword': '.doc',
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+                  'application/vnd.ms-excel': '.xls',
+                  'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+                  'application/vnd.ms-powerpoint': '.ppt',
+                  'text/plain': '.txt',
+                  'text/csv': '.csv',
+                  'application/json': '.json',
+                  'image/jpeg': '.jpg',
+                  'image/jpg': '.jpg',
+                  'image/png': '.png',
+                  'image/gif': '.gif',
+                  'image/webp': '.webp',
+                };
+                return mimeToExt[mime] || '';
+              };
+              
+              const correctExtension = getCorrectExtension(mimeType);
+              if (!correctExtension) {
+                return inputName; // No known extension for this mime type
+              }
+              
+              // Check if the input already has the correct extension
+              if (inputName.toLowerCase().endsWith(correctExtension.toLowerCase())) {
+                return inputName;
+              }
+              
+              // Check if the input has no extension
+              const lastDotIndex = inputName.lastIndexOf('.');
+              if (lastDotIndex === -1) {
+                return inputName + correctExtension;
+              }
+              
+              // Input has a different extension, append the correct one
+              return inputName + correctExtension;
+            };
+            
             // Process the document with enhanced AI classification
             const { content, summary, tags, category, categoryColor } =
               await processDocument(file.path, file.mimetype);
 
+            // Ensure the document name has the correct file extension
+            let finalDocumentName = fileMetadata?.name || correctedFileName;
+            finalDocumentName = ensureCorrectExtension(finalDocumentName, correctedFileName, file.mimetype);
+
             const documentData = {
-              name: fileMetadata?.name || correctedFileName,
+              name: finalDocumentName,
               fileName: file.filename,
               filePath: file.path,
               fileSize: file.size,
@@ -569,8 +617,15 @@ ${document.summary}`;
 
             console.error(`Error processing file ${correctedFileName}:`, error);
             // Still create document without AI processing
+            let fallbackName = correctedFileName;
+            try {
+              fallbackName = ensureCorrectExtension(correctedFileName, correctedFileName, file.mimetype);
+            } catch (extError) {
+              console.warn("Failed to apply extension correction to fallback name:", extError);
+            }
+            
             const documentData = {
-              name: correctedFileName,
+              name: fallbackName,
               fileName: file.filename,
               filePath: file.path,
               fileSize: file.size,
