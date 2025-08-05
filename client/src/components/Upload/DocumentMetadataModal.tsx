@@ -133,6 +133,9 @@ export default function DocumentMetadataModal({
       // Ensure correct file extension
       finalName = ensureCorrectExtension(finalName, fileName);
 
+      // Update the name state to the final processed name to prevent flash
+      setName(finalName);
+
       onSubmit({
         name: finalName,
         effectiveStartDate: startDate,
@@ -153,6 +156,9 @@ export default function DocumentMetadataModal({
   const handleSkip = () => {
     // Ensure correct file extension even when skipping
     const finalName = ensureCorrectExtension(fileName, fileName);
+
+    // Update the name state to prevent any visual flash
+    setName(finalName);
 
     onSubmit({
       name: finalName,
