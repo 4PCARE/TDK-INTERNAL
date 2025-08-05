@@ -131,9 +131,10 @@ async def get_documents(current_user: dict = Depends(get_current_user)):
         user_id = current_user.get("sub") or current_user.get("user_id")
         
         # Access documents directly from the database
-        from database import get_user_documents
+        from database import DatabaseService
         
-        documents = await get_user_documents(user_id)
+        db_service = DatabaseService()
+        documents = await db_service.get_user_documents(user_id)
         
         # Convert to Python backend format
         formatted_docs = []
