@@ -133,13 +133,15 @@ export default function DocumentMetadataModal({
       // Ensure correct file extension
       finalName = ensureCorrectExtension(finalName, fileName);
 
-      // Immediately call onSubmit and close without updating state
+      // Close modal immediately before any other operations
+      onClose();
+
+      // Then call onSubmit
       onSubmit({
         name: finalName,
         effectiveStartDate: startDate,
         effectiveEndDate: endDate,
       });
-      handleClose();
     }
   };
 
@@ -155,11 +157,13 @@ export default function DocumentMetadataModal({
     // Ensure correct file extension even when skipping
     const finalName = ensureCorrectExtension(fileName, fileName);
 
-    // Immediately call onSubmit and close without updating state
+    // Close modal immediately before any other operations
+    onClose();
+
+    // Then call onSubmit
     onSubmit({
       name: finalName,
     });
-    handleClose();
   };
 
   return (
