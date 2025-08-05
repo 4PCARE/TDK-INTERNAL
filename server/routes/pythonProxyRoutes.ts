@@ -3,6 +3,7 @@ import { smartAuth } from "../smartAuth";
 import axios from "axios";
 import multer from "multer";
 import fs from 'fs'; // Import fs module
+import { upload } from "../services/fileUpload";
 
 const PYTHON_BACKEND_URL = "http://0.0.0.0:8000";
 
