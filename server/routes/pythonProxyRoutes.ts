@@ -81,111 +81,131 @@ export function registerPythonProxyRoutes(app: Express) {
   // Python chat service
   app.post("/api/python/chat", smartAuth, async (req: any, res) => {
     try {
-      const token = req.headers.authorization;
+      const authHeader = req.headers.authorization;
 
       const response = await axios.post(
         `${PYTHON_BACKEND_URL}/api/python/chat`,
         req.body,
         {
           headers: {
-            'Authorization': token,
-            'Content-Type': 'application/json'
-          }
+            'Content-Type': 'application/json',
+            'Authorization': authHeader || `Bearer ${req.user?.access_token || 'demo-token'}`,
+          },
+          timeout: 30000
         }
       );
 
       res.json(response.data);
-    } catch (error) {
-      console.error("Python chat proxy error:", error);
-      res.status(500).json({ error: "Chat failed via Python backend" });
+    } catch (error: any) {
+      console.error("Python chat proxy error:", error.response?.data || error.message);
+      res.status(error.response?.status || 500).json({
+        error: "Chat failed via Python backend",
+        details: error.response?.data || error.message
+      });
     }
   });
 
   // Python search service
   app.post("/api/python/search", smartAuth, async (req: any, res) => {
     try {
-      const token = req.headers.authorization;
+      const authHeader = req.headers.authorization;
 
       const response = await axios.post(
         `${PYTHON_BACKEND_URL}/api/python/search`,
         req.body,
         {
           headers: {
-            'Authorization': token,
-            'Content-Type': 'application/json'
-          }
+            'Content-Type': 'application/json',
+            'Authorization': authHeader || `Bearer ${req.user?.access_token || 'demo-token'}`,
+          },
+          timeout: 30000
         }
       );
 
       res.json(response.data);
-    } catch (error) {
-      console.error("Python search proxy error:", error);
-      res.status(500).json({ error: "Search failed via Python backend" });
+    } catch (error: any) {
+      console.error("Python search proxy error:", error.response?.data || error.message);
+      res.status(error.response?.status || 500).json({
+        error: "Search failed via Python backend",
+        details: error.response?.data || error.message
+      });
     }
   });
 
   // Python documents list
   app.get("/api/python/documents", smartAuth, async (req: any, res) => {
     try {
-      const token = req.headers.authorization;
+      const authHeader = req.headers.authorization;
 
       const response = await axios.get(
         `${PYTHON_BACKEND_URL}/api/python/documents`,
         {
           headers: {
-            'Authorization': token
-          }
+            'Authorization': authHeader || `Bearer ${req.user?.access_token || 'demo-token'}`,
+          },
+          timeout: 10000
         }
       );
 
       res.json(response.data);
-    } catch (error) {
-      console.error("Python documents proxy error:", error);
-      res.status(500).json({ error: "Documents fetch failed via Python backend" });
+    } catch (error: any) {
+      console.error("Python documents proxy error:", error.response?.data || error.message);
+      res.status(error.response?.status || 500).json({
+        error: "Documents fetch failed via Python backend",
+        details: error.response?.data || error.message
+      });
     }
   });
 
   // Python document chat
   app.post("/api/python/documents/chat", smartAuth, async (req: any, res) => {
     try {
-      const token = req.headers.authorization;
+      const authHeader = req.headers.authorization;
 
       const response = await axios.post(
         `${PYTHON_BACKEND_URL}/api/python/documents/chat`,
         req.body,
         {
           headers: {
-            'Authorization': token,
-            'Content-Type': 'application/json'
-          }
+            'Content-Type': 'application/json',
+            'Authorization': authHeader || `Bearer ${req.user?.access_token || 'demo-token'}`,
+          },
+          timeout: 30000
         }
       );
 
       res.json(response.data);
-    } catch (error) {
-      console.error("Python document chat proxy error:", error);
-      res.status(500).json({ error: "Document chat failed via Python backend" });
+    } catch (error: any) {
+      console.error("Python document chat proxy error:", error.response?.data || error.message);
+      res.status(error.response?.status || 500).json({
+        error: "Document chat failed via Python backend",
+        details: error.response?.data || error.message
+      });
     }
   });
 
   // Python stats
   app.get("/api/python/stats", smartAuth, async (req: any, res) => {
     try {
-      const token = req.headers.authorization;
+      const authHeader = req.headers.authorization;
 
       const response = await axios.get(
         `${PYTHON_BACKEND_URL}/api/python/stats`,
         {
           headers: {
-            'Authorization': token
-          }
+            'Authorization': authHeader || `Bearer ${req.user?.access_token || 'demo-token'}`,
+          },
+          timeout: 10000
         }
       );
 
       res.json(response.data);
-    } catch (error) {
-      console.error("Python stats proxy error:", error);
-      res.status(500).json({ error: "Stats fetch failed via Python backend" });
+    } catch (error: any) {
+      console.error("Python stats proxy error:", error.response?.data || error.message);
+      res.status(error.response?.status || 500).json({
+        error: "Stats fetch failed via Python backend",
+        details: error.response?.data || error.message
+      });
     }
   });
 

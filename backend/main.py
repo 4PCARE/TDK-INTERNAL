@@ -93,13 +93,14 @@ async def health_check():
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Extract user from token - simplified for demo"""
     # In production, verify JWT token properly
-    token = credentials.credentials
-    if not token:
-        raise HTTPException(status_code=403, detail="No authentication token provided")
-    
-    # For development, accept any reasonable token format
     try:
-        # Accept tokens from Node.js proxy or direct frontend requests
+        token = credentials.credentials if credentials else None
+        
+        if not token:
+            print("Python backend: No authentication token provided")
+            raise HTTPException(status_code=403, detail="No authentication token provided")
+        
+        # For development, accept any reasonable token format
         if token and len(token) > 5:  # Basic length check
             # Try to extract user info from token if it's a JWT-like structure
             # For development, create a consistent user object
@@ -110,14 +111,18 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
                 "email": "demo@example.com"
             }
             
-            print(f"Python backend: Authenticated user with token: {token[:20]}...")
+            print(f"Python backend: Successfully authenticated user with token: {token[:20]}...")
             return user_info
         else:
             print(f"Python backend: Invalid token format, length: {len(token) if token else 0}")
-            raise HTTPException(status_code=403, detail="Invalid token format")
+            raise HTTPException(status_code=403, detail="Invalid token format - token too short")
+            
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
-        print(f"Python backend: Authentication error: {str(e)}")
-        raise HTTPException(status_code=403, detail="Authentication failed")
+        print(f"Python backend: Unexpected authentication error: {str(e)}")
+        raise HTTPException(status_code=403, detail=f"Authentication failed: {str(e)}")
 
 @app.get("/api/python/documents")
 async def get_documents(current_user: dict = Depends(get_current_user)):
