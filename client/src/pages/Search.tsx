@@ -54,8 +54,9 @@ export default function SearchPage() {
         keyword: searchType === 'keyword' ? 'true' : 'false',
         meaning: searchType === 'semantic' ? 'true' : 'false'
       });
-      
-      const response = await fetch(`/api/documents/search?${params}`);
+
+      const response = await fetch(`/api/python/search?${params}`, {
+      });
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error('Unauthorized');
@@ -77,17 +78,17 @@ export default function SearchPage() {
   // Post-process search results to deduplicate documents
   const searchResults = useMemo(() => {
     if (!rawSearchResults) return null;
-    
+
     if (!(rawSearchResults as any).results || !Array.isArray((rawSearchResults as any).results)) {
       return rawSearchResults;
     }
 
     const documentMap = new Map();
-    
+
     (rawSearchResults as any).results.forEach((result: any) => {
       // Extract original document ID from chunk ID (format: "docId-chunkIndex")
       const originalDocId = result.id.toString().includes('-') ? result.id.toString().split('-')[0] : result.id.toString();
-      
+
       if (!documentMap.has(originalDocId)) {
         // First chunk for this document - use it as the main result
         documentMap.set(originalDocId, {

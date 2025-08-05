@@ -38,7 +38,7 @@ interface UploadFile {
 }
 
 export default function Dashboard() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, getToken } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
@@ -47,13 +47,31 @@ export default function Dashboard() {
 
   const { data: documents = [] } = useQuery({
     queryKey: ["/api/documents"],
+    queryFn: async () => {
+      const response = await fetch("/api/python/documents", {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch documents");
+      return response.json();
+    },
     enabled: isAuthenticated,
   }) as { data: Array<any> };
 
   const { data: stats } = useQuery({
-    queryKey: ["/api/stats"],
+    queryKey: ["stats"],
+    queryFn: async () => {
+      const response = await fetch("/api/python/stats", {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch stats");
+      return response.json();
+    },
     enabled: isAuthenticated,
-  }) as { data: { totalDocuments: number } | undefined };
+  });
 
   // Upload mutation with progress tracking
   const uploadMutation = useMutation({
@@ -88,9 +106,12 @@ export default function Dashboard() {
         }, 500);
       });
 
-      const response = await fetch("/api/documents/upload", {
+      const response = await fetch("/api/python/documents/upload", {
         method: "POST",
         body: formData,
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
       });
 
       // Mark as completed
@@ -103,7 +124,7 @@ export default function Dashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
       toast({
         title: "Upload successful",
         description: "Documents have been uploaded and processed with AI classification.",
@@ -122,7 +143,12 @@ export default function Dashboard() {
   // Content summary mutation
   const summaryMutation = useMutation({
     mutationFn: async (documentId: number) => {
-      const response = await fetch(`/api/documents/${documentId}/summary`);
+      const response = await fetch(`/api/python/documents/${documentId}/summary`, {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch summary");
       const data = await response.json();
       return data;
     },
@@ -173,7 +199,8 @@ export default function Dashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-            <StatsCards />
+            {/* Render StatsCards component */}
+            {stats && <StatsCards stats={stats} />}
 
             {/* Upload and Category Stats Section */}
             <div className="grid lg:grid-cols-2 gap-6">
@@ -185,7 +212,7 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto">
-                  <UploadZone onUploadComplete={() => {}} />
+                  <UploadZone onUploadComplete={() => {}} onFilesSelected={(files) => uploadMutation.mutate(files)} />
 
                   {/* Upload Progress */}
                   {uploadFiles.length > 0 && (
@@ -266,16 +293,14 @@ export default function Dashboard() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
 
-                              <DropdownMenuItem onClick={() => window.open(`/api/documents/${doc.id}/download`, '_blank')}>
+                              <DropdownMenuItem onClick={() => window.open(`/api/python/documents/${doc.id}/download`, '_blank')}>
                                 <Download className="w-4 h-4 mr-2" />
                                 Download
                               </DropdownMenuItem>
-                              {doc.summary && (
-                                <DropdownMenuItem onClick={() => setSelectedDocumentSummary(doc.summary)}>
-                                  <FileText className="w-4 h-4 mr-2" />
-                                  Content Summary
-                                </DropdownMenuItem>
-                              )}
+                              <DropdownMenuItem onClick={() => summaryMutation.mutate(doc.id)}>
+                                <FileText className="w-4 h-4 mr-2" />
+                                Content Summary
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>

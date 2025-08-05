@@ -121,7 +121,7 @@ export default function Documents() {
     queryFn: async () => {
       try {
         if (!searchQuery.trim()) {
-          const response = await fetch("/api/documents");
+          const response = await fetch("/api/python/documents");
           if (!response.ok) {
             throw new Error(`${response.status}: ${response.statusText}`);
           }
@@ -153,7 +153,7 @@ export default function Documents() {
         ].filter(Boolean).join(", ");
 
         console.log(`Frontend search: "${searchQuery}" with ${searchTypeDescription}:${searchFileName}, keyword:${searchKeyword}, meaning:${searchMeaning} (type: ${searchType})`);
-        const response = await fetch(`/api/documents/search?${params}`);
+        const response = await fetch(`/api/python/documents/search?${params}`);
         if (!response.ok) {
           throw new Error(`${response.status}: ${response.statusText}`);
         }
@@ -322,14 +322,14 @@ export default function Documents() {
     }
 
     const documentsToDelete = [...selectedDocuments];
-    
+
     // Clear selection immediately
     setSelectedDocuments([]);
 
     try {
       console.log(`Attempting to delete ${documentsToDelete.length} documents:`, documentsToDelete);
 
-      const response = await fetch('/api/documents/bulk', {
+      const response = await fetch('/api/python/documents/bulk', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -341,7 +341,7 @@ export default function Documents() {
       });
 
       console.log('Delete response status:', response.status);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Delete response error:', errorText);
@@ -359,13 +359,13 @@ export default function Documents() {
       // Force complete refresh of all document queries
       await queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
-      
+
       // Force refetch to ensure UI updates
       window.location.reload();
 
     } catch (error) {
       console.error('Bulk deletion error:', error);
-      
+
       // Restore selection on error
       setSelectedDocuments(documentsToDelete);
 
@@ -384,7 +384,7 @@ export default function Documents() {
     try {
       await Promise.all(
         selectedDocuments.map(id => 
-          fetch(`/api/documents/${id}/endorse`, { 
+          fetch(`/api/python/documents/${id}/endorse`, { 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ endorsed: true })
@@ -414,7 +414,7 @@ export default function Documents() {
     try {
       await Promise.all(
         selectedDocuments.map(id => 
-          fetch(`/api/documents/${id}/dates`, { 
+          fetch(`/api/python/documents/${id}/dates`, { 
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ validStartDate: startDate, validEndDate: endDate })
