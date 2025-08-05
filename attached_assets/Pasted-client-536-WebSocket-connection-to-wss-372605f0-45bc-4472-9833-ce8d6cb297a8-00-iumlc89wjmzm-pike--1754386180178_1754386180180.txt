@@ -1,0 +1,334 @@
+client:536 WebSocket connection to 'wss://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/?token=wnHkviUTQI75' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531
+client:536 Uncaught (in promise) SyntaxError: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=wnHkviUTQI75' is invalid.
+    at setupWebSocket (client:536:19)
+    at fallback (client:509:16)
+    at WebSocket.<anonymous> (client:555:7)
+setupWebSocket @ client:536
+fallback @ client:509
+(anonymous) @ client:555
+chunk-RPCDYKBN.js?v=ebccb105:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+FloatingAIWidget.tsx:46 Warning: React has detected a change in the order of Hooks called by FloatingAIWidget. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://reactjs.org/link/rules-of-hooks
+
+   Previous render            Next render
+   ------------------------------------------------------
+1. useState                   useState
+2. useState                   useState
+3. useState                   useState
+4. useState                   useState
+5. useRef                     useRef
+6. useState                   useState
+7. useEffect                  useEffect
+8. useContext                 useContext
+9. useContext                 useContext
+10. useContext                useContext
+11. useContext                useContext
+12. useEffect                 useEffect
+13. useState                  useState
+14. useCallback               useCallback
+15. useSyncExternalStore      useSyncExternalStore
+16. useEffect                 useEffect
+17. undefined                 useContext
+   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    at FloatingAIWidget (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/components/FloatingAIWidget.tsx:40:31)
+    at QueryClientProvider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=ebccb105:2805:3)
+    at App
+printWarning @ chunk-RPCDYKBN.js?v=ebccb105:521
+error @ chunk-RPCDYKBN.js?v=ebccb105:505
+warnOnHookMismatchInDev @ chunk-RPCDYKBN.js?v=ebccb105:11495
+updateHookTypesDev @ chunk-RPCDYKBN.js?v=ebccb105:11465
+useContext @ chunk-RPCDYKBN.js?v=ebccb105:12697
+useContext @ chunk-QCHXOAYK.js?v=ebccb105:1062
+useQueryClient @ @tanstack_react-query.js?v=ebccb105:2795
+useMutation @ @tanstack_react-query.js?v=ebccb105:3275
+FloatingAIWidget @ FloatingAIWidget.tsx:46
+renderWithHooks @ chunk-RPCDYKBN.js?v=ebccb105:11548
+updateFunctionComponent @ chunk-RPCDYKBN.js?v=ebccb105:14582
+beginWork @ chunk-RPCDYKBN.js?v=ebccb105:15924
+beginWork$1 @ chunk-RPCDYKBN.js?v=ebccb105:19753
+performUnitOfWork @ chunk-RPCDYKBN.js?v=ebccb105:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=ebccb105:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=ebccb105:19116
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=ebccb105:18874
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=ebccb105:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=ebccb105:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=ebccb105:555
+flush @ @tanstack_react-query.js?v=ebccb105:569
+batch @ @tanstack_react-query.js?v=ebccb105:587
+dispatch_fn @ @tanstack_react-query.js?v=ebccb105:996
+setData @ @tanstack_react-query.js?v=ebccb105:696
+onSuccess @ @tanstack_react-query.js?v=ebccb105:897
+resolve @ @tanstack_react-query.js?v=ebccb105:456
+Promise.then
+run @ @tanstack_react-query.js?v=ebccb105:498
+start @ @tanstack_react-query.js?v=ebccb105:536
+fetch @ @tanstack_react-query.js?v=ebccb105:926
+executeFetch_fn @ @tanstack_react-query.js?v=ebccb105:2211
+onSubscribe @ @tanstack_react-query.js?v=ebccb105:1898
+subscribe @ @tanstack_react-query.js?v=ebccb105:24
+(anonymous) @ @tanstack_react-query.js?v=ebccb105:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=ebccb105:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=ebccb105:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=ebccb105:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=ebccb105:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=ebccb105:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=ebccb105:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=ebccb105:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=ebccb105:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=ebccb105:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=ebccb105:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=ebccb105:19432
+commitRoot @ chunk-RPCDYKBN.js?v=ebccb105:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=ebccb105:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=ebccb105:18718
+workLoop @ chunk-RPCDYKBN.js?v=ebccb105:197
+flushWork @ chunk-RPCDYKBN.js?v=ebccb105:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=ebccb105:384
+chunk-RPCDYKBN.js?v=ebccb105:11678 Uncaught Error: Rendered more hooks than during the previous render.
+    at updateWorkInProgressHook (chunk-RPCDYKBN.js?v=ebccb105:11678:21)
+    at updateReducer (chunk-RPCDYKBN.js?v=ebccb105:11727:22)
+    at updateState (chunk-RPCDYKBN.js?v=ebccb105:12021:18)
+    at Object.useState (chunk-RPCDYKBN.js?v=ebccb105:12753:24)
+    at Object.useState (chunk-QCHXOAYK.js?v=ebccb105:1066:29)
+    at useMutation (@tanstack_react-query.js?v=ebccb105:3276:30)
+    at FloatingAIWidget (FloatingAIWidget.tsx:46:38)
+    at renderWithHooks (chunk-RPCDYKBN.js?v=ebccb105:11548:26)
+    at updateFunctionComponent (chunk-RPCDYKBN.js?v=ebccb105:14582:28)
+    at beginWork (chunk-RPCDYKBN.js?v=ebccb105:15924:22)
+updateWorkInProgressHook @ chunk-RPCDYKBN.js?v=ebccb105:11678
+updateReducer @ chunk-RPCDYKBN.js?v=ebccb105:11727
+updateState @ chunk-RPCDYKBN.js?v=ebccb105:12021
+useState @ chunk-RPCDYKBN.js?v=ebccb105:12753
+useState @ chunk-QCHXOAYK.js?v=ebccb105:1066
+useMutation @ @tanstack_react-query.js?v=ebccb105:3276
+FloatingAIWidget @ FloatingAIWidget.tsx:46
+renderWithHooks @ chunk-RPCDYKBN.js?v=ebccb105:11548
+updateFunctionComponent @ chunk-RPCDYKBN.js?v=ebccb105:14582
+beginWork @ chunk-RPCDYKBN.js?v=ebccb105:15924
+callCallback2 @ chunk-RPCDYKBN.js?v=ebccb105:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=ebccb105:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=ebccb105:3733
+beginWork$1 @ chunk-RPCDYKBN.js?v=ebccb105:19765
+performUnitOfWork @ chunk-RPCDYKBN.js?v=ebccb105:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=ebccb105:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=ebccb105:19116
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=ebccb105:18874
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=ebccb105:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=ebccb105:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=ebccb105:555
+flush @ @tanstack_react-query.js?v=ebccb105:569
+batch @ @tanstack_react-query.js?v=ebccb105:587
+dispatch_fn @ @tanstack_react-query.js?v=ebccb105:996
+setData @ @tanstack_react-query.js?v=ebccb105:696
+onSuccess @ @tanstack_react-query.js?v=ebccb105:897
+resolve @ @tanstack_react-query.js?v=ebccb105:456
+Promise.then
+run @ @tanstack_react-query.js?v=ebccb105:498
+start @ @tanstack_react-query.js?v=ebccb105:536
+fetch @ @tanstack_react-query.js?v=ebccb105:926
+executeFetch_fn @ @tanstack_react-query.js?v=ebccb105:2211
+onSubscribe @ @tanstack_react-query.js?v=ebccb105:1898
+subscribe @ @tanstack_react-query.js?v=ebccb105:24
+(anonymous) @ @tanstack_react-query.js?v=ebccb105:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=ebccb105:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=ebccb105:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=ebccb105:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=ebccb105:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=ebccb105:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=ebccb105:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=ebccb105:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=ebccb105:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=ebccb105:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=ebccb105:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=ebccb105:19432
+commitRoot @ chunk-RPCDYKBN.js?v=ebccb105:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=ebccb105:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=ebccb105:18718
+workLoop @ chunk-RPCDYKBN.js?v=ebccb105:197
+flushWork @ chunk-RPCDYKBN.js?v=ebccb105:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=ebccb105:384
+chunk-RPCDYKBN.js?v=ebccb105:11678 Uncaught Error: Rendered more hooks than during the previous render.
+    at updateWorkInProgressHook (chunk-RPCDYKBN.js?v=ebccb105:11678:21)
+    at updateReducer (chunk-RPCDYKBN.js?v=ebccb105:11727:22)
+    at updateState (chunk-RPCDYKBN.js?v=ebccb105:12021:18)
+    at Object.useState (chunk-RPCDYKBN.js?v=ebccb105:12753:24)
+    at Object.useState (chunk-QCHXOAYK.js?v=ebccb105:1066:29)
+    at useMutation (@tanstack_react-query.js?v=ebccb105:3276:30)
+    at FloatingAIWidget (FloatingAIWidget.tsx:46:38)
+    at renderWithHooks (chunk-RPCDYKBN.js?v=ebccb105:11548:26)
+    at updateFunctionComponent (chunk-RPCDYKBN.js?v=ebccb105:14582:28)
+    at beginWork (chunk-RPCDYKBN.js?v=ebccb105:15924:22)
+updateWorkInProgressHook @ chunk-RPCDYKBN.js?v=ebccb105:11678
+updateReducer @ chunk-RPCDYKBN.js?v=ebccb105:11727
+updateState @ chunk-RPCDYKBN.js?v=ebccb105:12021
+useState @ chunk-RPCDYKBN.js?v=ebccb105:12753
+useState @ chunk-QCHXOAYK.js?v=ebccb105:1066
+useMutation @ @tanstack_react-query.js?v=ebccb105:3276
+FloatingAIWidget @ FloatingAIWidget.tsx:46
+renderWithHooks @ chunk-RPCDYKBN.js?v=ebccb105:11548
+updateFunctionComponent @ chunk-RPCDYKBN.js?v=ebccb105:14582
+beginWork @ chunk-RPCDYKBN.js?v=ebccb105:15924
+callCallback2 @ chunk-RPCDYKBN.js?v=ebccb105:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=ebccb105:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=ebccb105:3733
+beginWork$1 @ chunk-RPCDYKBN.js?v=ebccb105:19765
+performUnitOfWork @ chunk-RPCDYKBN.js?v=ebccb105:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=ebccb105:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=ebccb105:19116
+recoverFromConcurrentError @ chunk-RPCDYKBN.js?v=ebccb105:18736
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=ebccb105:18879
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=ebccb105:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=ebccb105:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=ebccb105:555
+flush @ @tanstack_react-query.js?v=ebccb105:569
+batch @ @tanstack_react-query.js?v=ebccb105:587
+dispatch_fn @ @tanstack_react-query.js?v=ebccb105:996
+setData @ @tanstack_react-query.js?v=ebccb105:696
+onSuccess @ @tanstack_react-query.js?v=ebccb105:897
+resolve @ @tanstack_react-query.js?v=ebccb105:456
+Promise.then
+run @ @tanstack_react-query.js?v=ebccb105:498
+start @ @tanstack_react-query.js?v=ebccb105:536
+fetch @ @tanstack_react-query.js?v=ebccb105:926
+executeFetch_fn @ @tanstack_react-query.js?v=ebccb105:2211
+onSubscribe @ @tanstack_react-query.js?v=ebccb105:1898
+subscribe @ @tanstack_react-query.js?v=ebccb105:24
+(anonymous) @ @tanstack_react-query.js?v=ebccb105:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=ebccb105:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=ebccb105:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=ebccb105:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=ebccb105:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=ebccb105:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=ebccb105:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=ebccb105:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=ebccb105:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=ebccb105:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=ebccb105:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=ebccb105:19432
+commitRoot @ chunk-RPCDYKBN.js?v=ebccb105:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=ebccb105:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=ebccb105:18718
+workLoop @ chunk-RPCDYKBN.js?v=ebccb105:197
+flushWork @ chunk-RPCDYKBN.js?v=ebccb105:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=ebccb105:384
+chunk-RPCDYKBN.js?v=ebccb105:14032 The above error occurred in the <FloatingAIWidget> component:
+
+    at FloatingAIWidget (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/components/FloatingAIWidget.tsx:40:31)
+    at QueryClientProvider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=ebccb105:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+logCapturedError @ chunk-RPCDYKBN.js?v=ebccb105:14032
+update.callback @ chunk-RPCDYKBN.js?v=ebccb105:14052
+callCallback @ chunk-RPCDYKBN.js?v=ebccb105:11248
+commitUpdateQueue @ chunk-RPCDYKBN.js?v=ebccb105:11265
+commitLayoutEffectOnFiber @ chunk-RPCDYKBN.js?v=ebccb105:17093
+commitLayoutMountEffects_complete @ chunk-RPCDYKBN.js?v=ebccb105:17980
+commitLayoutEffects_begin @ chunk-RPCDYKBN.js?v=ebccb105:17969
+commitLayoutEffects @ chunk-RPCDYKBN.js?v=ebccb105:17920
+commitRootImpl @ chunk-RPCDYKBN.js?v=ebccb105:19353
+commitRoot @ chunk-RPCDYKBN.js?v=ebccb105:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=ebccb105:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=ebccb105:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=ebccb105:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=ebccb105:555
+flush @ @tanstack_react-query.js?v=ebccb105:569
+batch @ @tanstack_react-query.js?v=ebccb105:587
+dispatch_fn @ @tanstack_react-query.js?v=ebccb105:996
+setData @ @tanstack_react-query.js?v=ebccb105:696
+onSuccess @ @tanstack_react-query.js?v=ebccb105:897
+resolve @ @tanstack_react-query.js?v=ebccb105:456
+Promise.then
+run @ @tanstack_react-query.js?v=ebccb105:498
+start @ @tanstack_react-query.js?v=ebccb105:536
+fetch @ @tanstack_react-query.js?v=ebccb105:926
+executeFetch_fn @ @tanstack_react-query.js?v=ebccb105:2211
+onSubscribe @ @tanstack_react-query.js?v=ebccb105:1898
+subscribe @ @tanstack_react-query.js?v=ebccb105:24
+(anonymous) @ @tanstack_react-query.js?v=ebccb105:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=ebccb105:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=ebccb105:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=ebccb105:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=ebccb105:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=ebccb105:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=ebccb105:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=ebccb105:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=ebccb105:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=ebccb105:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=ebccb105:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=ebccb105:19432
+commitRoot @ chunk-RPCDYKBN.js?v=ebccb105:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=ebccb105:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=ebccb105:18718
+workLoop @ chunk-RPCDYKBN.js?v=ebccb105:197
+flushWork @ chunk-RPCDYKBN.js?v=ebccb105:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=ebccb105:384
+chunk-RPCDYKBN.js?v=ebccb105:11678 Uncaught Error: Rendered more hooks than during the previous render.
+    at updateWorkInProgressHook (chunk-RPCDYKBN.js?v=ebccb105:11678:21)
+    at updateReducer (chunk-RPCDYKBN.js?v=ebccb105:11727:22)
+    at updateState (chunk-RPCDYKBN.js?v=ebccb105:12021:18)
+    at Object.useState (chunk-RPCDYKBN.js?v=ebccb105:12753:24)
+    at Object.useState (chunk-QCHXOAYK.js?v=ebccb105:1066:29)
+    at useMutation (@tanstack_react-query.js?v=ebccb105:3276:30)
+    at FloatingAIWidget (FloatingAIWidget.tsx:46:38)
+    at renderWithHooks (chunk-RPCDYKBN.js?v=ebccb105:11548:26)
+    at updateFunctionComponent (chunk-RPCDYKBN.js?v=ebccb105:14582:28)
+    at beginWork (chunk-RPCDYKBN.js?v=ebccb105:15924:22)
+updateWorkInProgressHook @ chunk-RPCDYKBN.js?v=ebccb105:11678
+updateReducer @ chunk-RPCDYKBN.js?v=ebccb105:11727
+updateState @ chunk-RPCDYKBN.js?v=ebccb105:12021
+useState @ chunk-RPCDYKBN.js?v=ebccb105:12753
+useState @ chunk-QCHXOAYK.js?v=ebccb105:1066
+useMutation @ @tanstack_react-query.js?v=ebccb105:3276
+FloatingAIWidget @ FloatingAIWidget.tsx:46
+renderWithHooks @ chunk-RPCDYKBN.js?v=ebccb105:11548
+updateFunctionComponent @ chunk-RPCDYKBN.js?v=ebccb105:14582
+beginWork @ chunk-RPCDYKBN.js?v=ebccb105:15924
+beginWork$1 @ chunk-RPCDYKBN.js?v=ebccb105:19753
+performUnitOfWork @ chunk-RPCDYKBN.js?v=ebccb105:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=ebccb105:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=ebccb105:19116
+recoverFromConcurrentError @ chunk-RPCDYKBN.js?v=ebccb105:18736
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=ebccb105:18879
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=ebccb105:9119
+(anonymous) @ chunk-RPCDYKBN.js?v=ebccb105:18627
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=ebccb105:555
+flush @ @tanstack_react-query.js?v=ebccb105:569
+batch @ @tanstack_react-query.js?v=ebccb105:587
+dispatch_fn @ @tanstack_react-query.js?v=ebccb105:996
+setData @ @tanstack_react-query.js?v=ebccb105:696
+onSuccess @ @tanstack_react-query.js?v=ebccb105:897
+resolve @ @tanstack_react-query.js?v=ebccb105:456
+Promise.then
+run @ @tanstack_react-query.js?v=ebccb105:498
+start @ @tanstack_react-query.js?v=ebccb105:536
+fetch @ @tanstack_react-query.js?v=ebccb105:926
+executeFetch_fn @ @tanstack_react-query.js?v=ebccb105:2211
+onSubscribe @ @tanstack_react-query.js?v=ebccb105:1898
+subscribe @ @tanstack_react-query.js?v=ebccb105:24
+(anonymous) @ @tanstack_react-query.js?v=ebccb105:3022
+subscribeToStore @ chunk-RPCDYKBN.js?v=ebccb105:11984
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=ebccb105:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=ebccb105:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=ebccb105:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=ebccb105:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=ebccb105:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=ebccb105:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=ebccb105:19447
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=ebccb105:18868
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=ebccb105:9119
+commitRootImpl @ chunk-RPCDYKBN.js?v=ebccb105:19432
+commitRoot @ chunk-RPCDYKBN.js?v=ebccb105:19277
+finishConcurrentRender @ chunk-RPCDYKBN.js?v=ebccb105:18805
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=ebccb105:18718
+workLoop @ chunk-RPCDYKBN.js?v=ebccb105:197
+flushWork @ chunk-RPCDYKBN.js?v=ebccb105:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=ebccb105:384
