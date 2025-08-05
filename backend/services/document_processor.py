@@ -1,6 +1,6 @@
 import os
 import tempfile
-from typing import Dict, Any
+from typing import Dict, Any, List
 from fastapi import UploadFile
 import openai
 from pathlib import Path
@@ -8,6 +8,7 @@ import PyPDF2
 import docx
 import pandas as pd
 import json
+import re
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -75,16 +76,67 @@ class DocumentProcessor:
             return f"File type {mime_type} not supported for content extraction"
 
     def _extract_pdf(self, file_path: str) -> str:
-        """Extract text from PDF"""
+        """Extract text from PDF with enhanced processing"""
         try:
             with open(file_path, 'rb') as file:
                 reader = PyPDF2.PdfReader(file)
                 text = ""
-                for page in reader.pages:
-                    text += page.extract_text()
+                for page_num, page in enumerate(reader.pages):
+                    page_text = page.extract_text()
+                    # Clean and normalize text
+                    page_text = self._clean_extracted_text(page_text)
+                    text += f"\n--- Page {page_num + 1} ---\n{page_text}\n"
                 return text
         except Exception as e:
             return f"Error extracting PDF: {str(e)}"
+    
+    def _clean_extracted_text(self, text: str) -> str:
+        """Clean and normalize extracted text"""
+        if not text:
+            return text
+        
+        # Remove excessive whitespace
+        text = re.sub(r'\s+', ' ', text)
+        # Remove special characters that might interfere
+        text = re.sub(r'[^\w\s\u0E00-\u0E7F.,!?;:()\-"\']+', ' ', text)
+        # Normalize line breaks
+        text = re.sub(r'\n\s*\n', '\n\n', text)
+        
+        return text.strip()
+    
+    def split_into_chunks(self, text: str, chunk_size: int = 1000, overlap: int = 100) -> List[Dict[str, Any]]:
+        """Split text into overlapping chunks for better processing"""
+        if not text or len(text) < chunk_size:
+            return [{"content": text, "index": 0, "start": 0, "end": len(text)}] if text else []
+
+        chunks = []
+        start = 0
+        chunk_index = 0
+        
+        while start < len(text):
+            end = min(start + chunk_size, len(text))
+            
+            # Try to break at sentence boundary
+            if end < len(text):
+                for i in range(end, max(start + chunk_size//2, end - 200), -1):
+                    if text[i] in '.!?\n':
+                        end = i + 1
+                        break
+            
+            chunk_content = text[start:end].strip()
+            if chunk_content:
+                chunks.append({
+                    "content": chunk_content,
+                    "index": chunk_index,
+                    "start": start,
+                    "end": end,
+                    "length": len(chunk_content)
+                })
+                chunk_index += 1
+            
+            start = end - overlap if end < len(text) else end
+            
+        return chunks
 
     def _extract_docx(self, file_path: str) -> str:
         """Extract text from DOCX"""

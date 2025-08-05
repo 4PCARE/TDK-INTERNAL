@@ -4,18 +4,59 @@ import math
 from collections import Counter, defaultdict
 from typing import List, Dict, Any, Optional, Tuple
 from .vector_service import VectorService
+import unicodedata
 
 class SearchService:
     def __init__(self):
         self.vector_service = VectorService()
         print("Search service initialized with hybrid search capabilities")
 
+    def _normalize_thai_text(self, text: str) -> str:
+        """Normalize Thai text for better matching"""
+        if not text:
+            return text
+        
+        # Unicode normalization
+        text = unicodedata.normalize('NFC', text)
+        
+        # Remove tone marks for better matching (optional)
+        tone_marks = ['่', '้', '๊', '๋']
+        for mark in tone_marks:
+            text = text.replace(mark, '')
+        
+        return text
+    
     def _tokenize(self, text: str) -> List[str]:
-        """Tokenize text into words"""
-        # Simple tokenization - can be enhanced for Thai text
+        """Enhanced tokenize text with Thai support"""
+        if not text:
+            return []
+        
         text = text.lower()
-        tokens = re.findall(r'\b\w+\b', text)
-        return [token for token in tokens if len(token) > 1]
+        text = self._normalize_thai_text(text)
+        
+        # Combined regex for Thai and English words
+        thai_pattern = r'[\u0E00-\u0E7F]+'
+        english_pattern = r'\b[a-zA-Z]+\b'
+        number_pattern = r'\b\d+\b'
+        
+        tokens = []
+        
+        # Extract Thai words
+        thai_matches = re.findall(thai_pattern, text)
+        for match in thai_matches:
+            # Simple Thai word segmentation (can be enhanced with pythainlp)
+            if len(match) > 1:
+                tokens.append(match)
+        
+        # Extract English words
+        english_matches = re.findall(english_pattern, text)
+        tokens.extend([token for token in english_matches if len(token) > 1])
+        
+        # Extract numbers
+        number_matches = re.findall(number_pattern, text)
+        tokens.extend(number_matches)
+        
+        return list(set(tokens))  # Remove duplicates
 
     def _calculate_tf(self, term: str, document: str) -> float:
         """Calculate term frequency"""
@@ -196,6 +237,114 @@ class SearchService:
             print(f"Error performing hybrid search: {e}")
             return []
 
+    def _calculate_mass_selection_threshold(self, scores: List[float]) -> float:
+        """Calculate dynamic threshold for mass selection (60% rule)"""
+        if not scores:
+            return 0.0
+        
+        sorted_scores = sorted(scores, reverse=True)
+        if len(sorted_scores) == 1:
+            return sorted_scores[0] * 0.6
+        
+        # Find the point where quality drops significantly
+        max_score = sorted_scores[0]
+        threshold = max_score * 0.6
+        
+        # Ensure we don't select too many low-quality results
+        for i, score in enumerate(sorted_scores):
+            if score < threshold:
+                # If more than 70% of results are below threshold, raise it
+                if i / len(sorted_scores) > 0.7:
+                    threshold = max_score * 0.7
+                break
+        
+        return threshold
+    
+    def _apply_mass_selection(self, results: List[Dict[str, Any]], threshold_factor: float = 0.6) -> List[Dict[str, Any]]:
+        """Apply mass selection logic similar to Node.js implementation"""
+        if not results:
+            return results
+        
+        scores = [result.get('score', 0.0) for result in results]
+        threshold = self._calculate_mass_selection_threshold(scores)
+        
+        # Filter results based on dynamic threshold
+        filtered_results = [
+            result for result in results 
+            if result.get('score', 0.0) >= threshold
+        ]
+        
+        print(f"Mass selection: {len(filtered_results)}/{len(results)} results above threshold {threshold:.3f}")
+        return filtered_results
+    
+    async def new_search(
+        self,
+        query: str,
+        user_id: str,
+        search_type: str = "smart_hybrid",
+        limit: int = 10,
+        **kwargs
+    ) -> Dict[str, Any]:
+        """Enhanced search mirroring Node.js newSearch functionality"""
+        try:
+            # Query preprocessing
+            processed_query = self._preprocess_query(query)
+            
+            # Perform search based on type
+            if search_type == "smart_hybrid":
+                results = await self.hybrid_search(
+                    processed_query, user_id, None, limit * 2, **kwargs
+                )
+            elif search_type == "keyword":
+                results = await self.keyword_search(processed_query, [], limit * 2)
+            elif search_type == "semantic":
+                results = await self.semantic_search(processed_query, user_id, limit * 2)
+            else:
+                results = await self.hybrid_search(
+                    processed_query, user_id, None, limit * 2, **kwargs
+                )
+            
+            # Apply mass selection
+            selected_results = self._apply_mass_selection(results)
+            
+            # Limit final results
+            final_results = selected_results[:limit]
+            
+            return {
+                "results": final_results,
+                "total_found": len(results),
+                "selected_count": len(selected_results),
+                "final_count": len(final_results),
+                "query": query,
+                "processed_query": processed_query,
+                "search_type": search_type
+            }
+            
+        except Exception as e:
+            print(f"Error in new_search: {e}")
+            return {
+                "results": [],
+                "total_found": 0,
+                "selected_count": 0,
+                "final_count": 0,
+                "query": query,
+                "error": str(e)
+            }
+    
+    def _preprocess_query(self, query: str) -> str:
+        """Preprocess query for better search results"""
+        if not query:
+            return query
+        
+        # Basic query cleaning
+        query = query.strip()
+        query = self._normalize_thai_text(query)
+        
+        # Remove excessive punctuation
+        query = re.sub(r'[?!.]{2,}', '', query)
+        
+        return query
+    
     async def smart_search(
         self,
         query: str,
@@ -207,12 +356,6 @@ class SearchService:
     ) -> List[Dict[str, Any]]:
         """Smart search router - mirrors Node.js newSearch functionality"""
         
-        if search_type == "keyword":
-            return await self.keyword_search(query, documents or [], limit)
-        elif search_type == "semantic":
-            return await self.semantic_search(query, user_id, limit)
-        elif search_type == "hybrid":
-            return await self.hybrid_search(query, user_id, documents, limit, **kwargs)
-        else:
-            # Default to hybrid search
-            return await self.hybrid_search(query, user_id, documents, limit, **kwargs)
+        # Use new_search for enhanced functionality
+        search_result = await self.new_search(query, user_id, search_type, limit, **kwargs)
+        return search_result.get("results", [])

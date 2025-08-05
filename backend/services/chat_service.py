@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from .llm_service import LLMService
 from .search_service import SearchService
 from .document_processor import DocumentProcessor
+from .thai_text_processor import ThaiTextProcessor
 import json
 
 class ChatService:
@@ -10,7 +11,8 @@ class ChatService:
         self.llm_service = LLMService()
         self.search_service = SearchService()
         self.document_processor = DocumentProcessor()
-        print("Chat service initialized")
+        self.thai_processor = ThaiTextProcessor()
+        print("Chat service initialized with Thai text support")
 
     async def process_message(
         self,
@@ -35,14 +37,27 @@ class ChatService:
             relevant_docs = []
             if search_documents:
                 try:
-                    search_results = await self.search_service.smart_search(
-                        query=message,
+                    # Enhanced query preprocessing
+                    enhanced_query = self.thai_processor.enhance_query(message)
+                    
+                    search_results = await self.search_service.new_search(
+                        query=enhanced_query,
                         user_id=user_id,
-                        search_type="hybrid",
+                        search_type="smart_hybrid",
                         limit=max_context_docs
                     )
                     
-                    relevant_docs = search_results
+                    # Handle enhanced search results
+                    if isinstance(search_results, dict):
+                        relevant_docs = search_results.get('results', [])
+                        response_data['search_stats'] = {
+                            'total_found': search_results.get('total_found', 0),
+                            'selected_count': search_results.get('selected_count', 0),
+                            'final_count': search_results.get('final_count', 0)
+                        }
+                    else:
+                        relevant_docs = search_results
+                    
                     response_data['search_performed'] = True
                     response_data['documents_found'] = len(relevant_docs)
                     response_data['sources'] = [
@@ -90,27 +105,62 @@ class ChatService:
             }
 
     def _build_system_prompt(self, context_docs: List[Dict[str, Any]]) -> str:
-        """Build system prompt based on available context"""
+        """Build enhanced system prompt based on available context"""
         
-        base_prompt = """You are a helpful AI assistant for a knowledge management system. 
-You help users find information from their documents and answer questions accurately."""
+        base_prompt = """You are an intelligent AI assistant for a knowledge management system. 
+You help users find information from their documents and provide accurate, contextual answers.
+
+Guidelines:
+- Provide specific, actionable answers when possible
+- Reference source documents when citing information
+- If information is incomplete, clearly state what's missing
+- Use Thai language naturally when responding to Thai queries
+- Be concise but comprehensive"""
 
         if context_docs:
+            # Build context summary
+            doc_summaries = []
+            for i, doc in enumerate(context_docs[:5]):  # Limit to top 5 for prompt efficiency
+                title = doc.get('title', f"Document {i+1}")
+                content_preview = doc.get('content', '')[:200] + "..." if len(doc.get('content', '')) > 200 else doc.get('content', '')
+                score = doc.get('score', 0.0)
+                
+                doc_summaries.append(f"[Document {i+1}: {title} (relevance: {score:.2f})]")
+                doc_summaries.append(f"Content preview: {content_preview}")
+                doc_summaries.append("")
+            
             base_prompt += f"""
 
-You have access to {len(context_docs)} relevant documents from the user's knowledge base. 
-Use this information to provide accurate, specific answers. If the information needed 
-to answer a question is not in the provided documents, clearly state that.
+AVAILABLE CONTEXT ({len(context_docs)} documents found):
 
-When referencing information from documents, be specific about which document you're citing."""
+{chr(10).join(doc_summaries)}
+
+Instructions:
+- Use the above context to answer the user's question
+- Reference specific documents when citing information
+- If the context doesn't contain enough information, state this clearly
+- Provide document titles/numbers when referencing sources"""
 
         else:
             base_prompt += """
 
-No specific documents were found for this query. Provide general helpful responses 
-and suggest that the user might want to upload relevant documents to get more specific answers."""
+No relevant documents were found in the knowledge base for this query.
+- Provide general guidance if possible
+- Suggest uploading relevant documents for more specific answers
+- Ask clarifying questions if the query is unclear"""
 
         return base_prompt
+    
+    async def _enhance_query(self, message: str) -> str:
+        """Enhance user query for better search results"""
+        # Simple query enhancement - can be expanded
+        enhanced = message.strip()
+        
+        # Add common search terms for better matching
+        if any(keyword in enhanced.lower() for keyword in ['ค้นหา', 'หา', 'search', 'find']):
+            return enhanced
+        
+        return enhanced
 
     async def chat_with_documents(
         self,

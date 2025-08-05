@@ -146,8 +146,44 @@ class VectorService:
             return []
 
     async def add_document(self, document_id: str, content: str, metadata: Dict[str, Any] = None) -> bool:
-        """Add document to vector store"""
-        return await self.generate_embeddings(document_id, content)
+        """Add document to vector store with metadata support"""
+        success = await self.generate_embeddings(document_id, content)
+        
+        if success and metadata:
+            # Store metadata alongside embeddings
+            if document_id in self.vector_store:
+                self.vector_store[document_id]['metadata'] = metadata
+        
+        return success
+    
+    def get_document_metadata(self, document_id: str) -> Dict[str, Any]:
+        """Get document metadata"""
+        if document_id in self.vector_store:
+            return self.vector_store[document_id].get('metadata', {})
+        return {}
+    
+    async def search_by_metadata(self, filters: Dict[str, Any], limit: int = 10) -> List[Dict[str, Any]]:
+        """Search documents by metadata filters"""
+        results = []
+        
+        for doc_id, doc_data in self.vector_store.items():
+            metadata = doc_data.get('metadata', {})
+            
+            # Check if document matches all filters
+            matches = True
+            for key, value in filters.items():
+                if key not in metadata or metadata[key] != value:
+                    matches = False
+                    break
+            
+            if matches:
+                results.append({
+                    'document_id': doc_id,
+                    'metadata': metadata,
+                    'chunks_count': len(doc_data.get('chunks', []))
+                })
+        
+        return results[:limit]
 
     async def remove_document(self, document_id: str) -> bool:
         """Remove document from vector store"""
