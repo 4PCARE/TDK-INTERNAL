@@ -4,6 +4,7 @@ import axios from "axios";
 import multer from "multer";
 import fs from 'fs'; // Import fs module
 import { upload } from "../services/fileUpload";
+import FormData from 'form-data';
 
 const PYTHON_BACKEND_URL = "http://0.0.0.0:8000";
 
@@ -35,7 +36,6 @@ export function registerPythonProxyRoutes(app: Express) {
       const file = files[0];
       
       // Create FormData for Python backend using form-data package
-      const FormData = require('form-data');
       const formData = new FormData();
       const fileStream = fs.createReadStream(file.path);
 
