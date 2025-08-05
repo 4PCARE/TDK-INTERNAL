@@ -39,6 +39,15 @@ export const smartAuth: RequestHandler = async (req, res, next) => {
       }
     }
 
+    // Check session for Replit user as fallback
+    const sessionUser = (req.session as any)?.user;
+    if (sessionUser && sessionUser.claims?.sub) {
+      console.log(`Smart auth: User ${sessionUser.claims.sub} uses replit session authentication`);
+      req.user = sessionUser; // Set user on request
+      authCheckCache.set(sessionId, now);
+      return next();
+    }
+
     // Only check Microsoft authentication if Replit auth failed
     try {
       await new Promise<void>((resolve, reject) => {
