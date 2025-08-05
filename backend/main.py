@@ -94,12 +94,19 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     """Extract user from token - simplified for demo"""
     # In production, verify JWT token properly
     token = credentials.credentials
-    if not token or token == "dummy-token-for-testing":
-        raise HTTPException(status_code=403, detail="Invalid authentication")
+    if not token:
+        raise HTTPException(status_code=403, detail="No authentication token provided")
     
-    # Extract user ID from token (simplified)
-    # In production, decode JWT properly
-    return {"user_id": "demo_user", "token": token}
+    # For now, accept any non-empty token and extract user info
+    # In production, decode JWT properly and validate
+    try:
+        # Simple token validation - accept any Bearer token for development
+        if token and len(token) > 10:  # Basic length check
+            return {"user_id": "demo_user", "token": token, "sub": "demo_user"}
+        else:
+            raise HTTPException(status_code=403, detail="Invalid token format")
+    except Exception as e:
+        raise HTTPException(status_code=403, detail="Authentication failed")
 
 @app.get("/api/python/documents")
 async def get_documents(current_user: dict = Depends(get_current_user)):
