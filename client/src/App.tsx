@@ -108,10 +108,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider />
+      <TooltipProvider>
+        <Router />
         <FloatingAIWidget />
         <Toaster />
-      </QueryClientProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }
 

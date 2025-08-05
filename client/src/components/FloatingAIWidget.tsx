@@ -94,7 +94,10 @@ export default function FloatingAIWidget() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ title: "New Chat" }),
+        body: JSON.stringify({ 
+          title: `Chat ${new Date().toLocaleTimeString()}`,
+          userId: "current" 
+        }),
       });
       if (!response.ok) throw new Error("Failed to create conversation");
       return response.json();
