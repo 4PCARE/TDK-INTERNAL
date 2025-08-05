@@ -60,25 +60,15 @@ export default function DocumentCard({
 
   const deleteDocumentMutation = useMutation({
     mutationFn: async () => {
-      console.log(`Attempting to delete document ${document.id}`);
       const response = await fetch(`/api/documents/${document.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
+        method: 'DELETE'
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Delete response error:', errorText);
-        throw new Error(`Failed to delete document: ${response.status} - ${errorText}`);
+        throw new Error(`Failed to delete document: ${response.status}`);
       }
       
-      const result = await response.json();
-      console.log('Delete result:', result);
-      return result;
+      return await response.json();
     },
     onSuccess: () => {
       toast({
@@ -86,17 +76,17 @@ export default function DocumentCard({
         description: "Document has been successfully deleted.",
       });
       
-      // Force complete refresh with error handling
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] }).catch(console.error);
-      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] }).catch(console.error);
+      // Safely refresh queries
+      Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: ["/api/documents"] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] })
+      ]).catch(console.warn);
       
-      // Force page reload to ensure UI consistency
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
+      // Reload page after delay
+      setTimeout(() => window.location.reload(), 1000);
     },
     onError: (error: Error) => {
-      console.error('Document deletion error:', error);
+      console.warn('Document deletion error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to delete document.",

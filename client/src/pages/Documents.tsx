@@ -123,11 +123,17 @@ export default function Documents() {
     queryFn: async () => {
       try {
         if (!searchQuery.trim()) {
-          const response = await fetch("/api/python/documents");
+          const response = await fetch("/api/python/documents", {
+            headers: {
+              'Cache-Control': 'no-cache'
+            }
+          });
           if (!response.ok) {
-            throw new Error(`${response.status}: ${response.statusText}`);
+            console.warn(`Failed to fetch documents: ${response.status}`);
+            return [];
           }
-          return await response.json();
+          const data = await response.json();
+          return Array.isArray(data) ? data : [];
         }
 
         // Determine search type based on selected checkboxes
@@ -148,87 +154,75 @@ export default function Documents() {
           meaning: searchMeaning.toString()
         });
 
-        const searchTypeDescription = [
-          searchFileName && "fileName",
-          searchKeyword && "keyword", 
-          searchMeaning && "meaning"
-        ].filter(Boolean).join(", ");
-
-        console.log(`Frontend search: "${searchQuery}" with ${searchTypeDescription}:${searchFileName}, keyword:${searchKeyword}, meaning:${searchMeaning} (type: ${searchType})`);
-        const response = await fetch(`/api/python/documents/search?${params}`);
+        console.log(`Frontend search: "${searchQuery}" (type: ${searchType})`);
+        const response = await fetch(`/api/python/documents/search?${params}`, {
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
         if (!response.ok) {
-          throw new Error(`${response.status}: ${response.statusText}`);
-        }
-        const results = await response.json();
-
-        if (!Array.isArray(results)) {
-          console.log("Frontend received non-array search results");
+          console.warn(`Search failed: ${response.status}`);
           return [];
         }
-
-        console.log(`Frontend received ${results.length} search results`);
-        return results;
+        
+        const results = await response.json();
+        return Array.isArray(results) ? results : [];
       } catch (error) {
-        console.error("Document query failed:", error);
-        // Don't throw error to prevent unhandled rejection
+        console.warn("Document query failed:", error);
         return [];
       }
     },
-    retry: false,
-    enabled: isAuthenticated,
+    retry: 1,
+    retryDelay: 1000,
+    enabled: isAuthenticated && !isLoading,
     refetchOnWindowFocus: false,
-    staleTime: 30000, // Cache for 30 seconds to prevent excessive requests
-  }) as { data: Array<any>; isLoading: boolean; error: any };
+    staleTime: 60000,
+    gcTime: 300000,
+  });
 
   // Post-process search results to deduplicate documents
   const documents = useMemo(() => {
-    if (!rawSearchResults) return [];
-
-    // If it's already an array (non-search results), return as-is
-    if (Array.isArray(rawSearchResults)) {
-      return rawSearchResults;
+    if (!rawSearchResults || !Array.isArray(rawSearchResults)) {
+      return [];
     }
 
-    // If it's a search result object with results array
-    if ((rawSearchResults as any)?.results && Array.isArray((rawSearchResults as any).results)) {
-      const documentMap = new Map();
-
-      (rawSearchResults as any).results.forEach((result: any) => {
-        // Extract original document ID from chunk ID (format: "docId-chunkIndex")
-        const originalDocId = result.id.toString().includes('-') ? result.id.toString().split('-')[0] : result.id.toString();
-
-        if (!documentMap.has(originalDocId)) {
-          // First chunk for this document - use it as the main result
-          documentMap.set(originalDocId, {
-            ...result,
-            id: parseInt(originalDocId), // Use original document ID
-            name: result.name.replace(/ \(Chunk \d+\)$/, ''), // Remove chunk suffix
-            content: result.summary || result.content, // Use summary if available
-            isChunkResult: false
-          });
-        } else {
-          // Additional chunk for existing document - keep highest similarity
-          const existing = documentMap.get(originalDocId);
-          if (result.similarity > existing.similarity) {
-            documentMap.set(originalDocId, {
-              ...existing,
-              similarity: result.similarity,
-              content: result.summary || result.content
-            });
-          }
-        }
-      });
-
-      return Array.from(documentMap.values());
+    try {
+      // Simple processing for array results
+      return rawSearchResults.map((doc: any) => ({
+        ...doc,
+        id: typeof doc.id === 'string' ? parseInt(doc.id) : doc.id,
+        name: doc.name || doc.originalName || 'Untitled',
+        content: doc.content || doc.description || doc.summary || '',
+        tags: Array.isArray(doc.tags) ? doc.tags : [],
+        createdAt: doc.createdAt || new Date().toISOString(),
+        fileSize: doc.fileSize || 0,
+        mimeType: doc.mimeType || 'application/octet-stream'
+      }));
+    } catch (error) {
+      console.warn("Error processing documents:", error);
+      return [];
     }
-
-    // Fallback to empty array
-    return [];
   }, [rawSearchResults]);
 
   const { data: categories } = useQuery({
     queryKey: ["/api/categories"],
+    queryFn: async () => {
+      try {
+        const response = await fetch("/api/categories", {
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        if (!response.ok) return [];
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.warn("Failed to fetch categories:", error);
+        return [];
+      }
+    },
     retry: false,
+    enabled: isAuthenticated && !isLoading,
+    staleTime: 300000,
   }) as { data: Array<{ id: number; name: string }> | undefined };
 
   // Show loading state instead of null
@@ -322,56 +316,43 @@ export default function Documents() {
     }
 
     const documentsToDelete = [...selectedDocuments];
-
-    // Clear selection immediately
     setSelectedDocuments([]);
 
     try {
-      console.log(`Attempting to delete ${documentsToDelete.length} documents:`, documentsToDelete);
-
       const response = await fetch('/api/python/documents/bulk', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
         },
         body: JSON.stringify({ documentIds: documentsToDelete })
       });
 
-      console.log('Delete response status:', response.status);
-
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Delete response error:', errorText);
-        throw new Error(`Bulk deletion failed: ${response.status} - ${errorText}`);
+        throw new Error(`Deletion failed: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log('Delete result:', result);
-
       toast({
         title: "Success",
         description: `${result.deletedCount || documentsToDelete.length} document(s) deleted successfully`,
       });
 
-      // Force complete refresh of all document queries
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] }).catch(console.error);
-      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] }).catch(console.error);
+      // Safely invalidate queries
+      try {
+        await queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+        await queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
+      } catch (queryError) {
+        console.warn("Query invalidation failed:", queryError);
+      }
 
-      // Force refetch to ensure UI updates
-      setTimeout(() => window.location.reload(), 500);
+      // Reload after a short delay
+      setTimeout(() => window.location.reload(), 1000);
 
     } catch (error) {
-      console.error('Bulk deletion error:', error);
-
-      // Restore selection on error
       setSelectedDocuments(documentsToDelete);
-
       toast({
         title: "Error", 
-        description: error instanceof Error ? error.message : "Failed to delete documents. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to delete documents.",
         variant: "destructive",
       });
     }
@@ -400,9 +381,16 @@ export default function Documents() {
       });
 
       setSelectedDocuments([]);
-      setTimeout(() => window.location.reload(), 500);
+      
+      // Safely refresh
+      try {
+        await queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      } catch (queryError) {
+        console.warn("Query refresh failed:", queryError);
+      }
+      
     } catch (error) {
-      console.error('Bulk endorsement error:', error);
+      console.warn('Bulk endorsement error:', error);
       toast({
         title: "Error",
         description: "Failed to endorse some documents",
@@ -433,9 +421,16 @@ export default function Documents() {
       });
 
       setSelectedDocuments([]);
-      setTimeout(() => window.location.reload(), 500);
+      
+      // Safely refresh
+      try {
+        await queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      } catch (queryError) {
+        console.warn("Query refresh failed:", queryError);
+      }
+      
     } catch (error) {
-      console.error('Bulk date update error:', error);
+      console.warn('Bulk date update error:', error);
       toast({
         title: "Error",
         description: "Failed to update dates for some documents",
