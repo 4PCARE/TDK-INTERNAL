@@ -6,6 +6,7 @@ import asyncio
 
 # LangChain imports
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.schema import Document
@@ -13,15 +14,21 @@ from langchain.schema import Document
 load_dotenv()
 
 class LLMService:
-    def __init__(self):
+    def __init__(self, provider="OpenAI"):
         self.enabled = False
         self.chat_model = None
         self.embeddings_model = None
+        self.provider = provider
         
+        if provider == "Gemini":
+            self._init_gemini()
+        else:
+            self._init_openai()
+
+    def _init_openai(self):
         api_key = os.getenv("OPENAI_API_KEY")
         if api_key:
             try:
-                # Initialize LangChain models
                 self.chat_model = ChatOpenAI(
                     api_key=api_key,
                     model="gpt-4o",
@@ -37,10 +44,37 @@ class LLMService:
                 self.enabled = True
                 print("LLM Service initialized with LangChain (OpenAI)")
             except Exception as e:
-                print(f"Failed to initialize LangChain LLM service: {e}")
+                print(f"Failed to initialize OpenAI LLM service: {e}")
                 self.enabled = False
         else:
-            print("No OpenAI API key found - LLM service disabled")
+            print("No OpenAI API key found - trying Gemini fallback")
+            self._init_gemini()
+
+    def _init_gemini(self):
+        api_key = os.getenv("GEMINI_API_KEY")
+        if api_key:
+            try:
+                self.chat_model = ChatGoogleGenerativeAI(
+                    google_api_key=api_key,
+                    model="gemini-2.5-flash",
+                    temperature=0.7,
+                    max_output_tokens=1000
+                )
+                
+                self.embeddings_model = GoogleGenerativeAIEmbeddings(
+                    google_api_key=api_key,
+                    model="text-embedding-004"
+                )
+                
+                self.enabled = True
+                self.provider = "Gemini"
+                print("LLM Service initialized with LangChain (Gemini)")
+            except Exception as e:
+                print(f"Failed to initialize Gemini LLM service: {e}")
+                # Fallback to OpenAI if Gemini fails
+                if self.provider == "Gemini":
+                    print("Falling back to OpenAI...")
+                    self._init_openai()
 
     async def generate_embedding(self, text: str) -> List[float]:
         """Generate embedding using LangChain OpenAI embeddings"""

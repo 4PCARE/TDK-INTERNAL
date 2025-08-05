@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { smartAuth } from "../smartAuth";
 import { storage } from "../storage";
-import { llmRouter } from "../llmRouter";
+import { llmRouter } from "../services/llmRouter";
 
 export function registerChatRoutes(app: Express) {
   // Get chat conversations
