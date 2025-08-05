@@ -56,7 +56,7 @@ export default function FloatingAIWidget() {
   });
 
   // Get messages for current conversation
-  const { data: messages = [], isLoading } = useQuery({
+  const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
     queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
     queryFn: async () => {
       if (!currentConversationId) return [];
@@ -186,7 +186,7 @@ export default function FloatingAIWidget() {
             {/* Messages */}
             <ScrollArea className="flex-1 p-4">
               <div className="space-y-4">
-                {isLoading ? (
+                {isLoadingMessages ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
                   </div>
