@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -5,7 +6,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { Badge } from "./ui/badge";
-import { MessageSquare, X, Send, Loader2, Bot, User, Minimize2, Maximize2 } from "lucide-react";
+import { MessageSquare, X, Send, Loader2, Bot, User, Minimize2, Maximize2, Menu, ArrowLeft, Clock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 interface Message {
@@ -27,6 +28,8 @@ export default function FloatingAIWidget() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showConversations, setShowConversations] = useState(false);
   const [inputMessage, setInputMessage] = useState("");
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -104,6 +107,7 @@ export default function FloatingAIWidget() {
     },
     onSuccess: (data) => {
       setCurrentConversationId(data.id);
+      setShowConversations(false);
       queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations"] });
     },
   });
@@ -146,10 +150,51 @@ export default function FloatingAIWidget() {
     createConversationMutation.mutate();
   };
 
+  const selectConversation = (conversationId: string) => {
+    setCurrentConversationId(conversationId);
+    setShowConversations(false);
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    
+    if (messageDate.getTime() === today.getTime()) {
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  };
+
   // Don't render anything if not authenticated or still loading
   if (!isAuthenticated || authLoading) {
     return null;
   }
+
+  // Get widget dimensions and positioning
+  const getWidgetStyles = () => {
+    if (isFullscreen) {
+      return {
+        position: 'fixed' as const,
+        top: '0',
+        right: '0',
+        width: '50vw',
+        height: '100vh',
+        zIndex: 50,
+        borderRadius: '0',
+      };
+    }
+    return {
+      position: 'fixed' as const,
+      bottom: '24px',
+      right: '24px',
+      width: '400px',
+      height: '600px',
+      zIndex: 50,
+    };
+  };
 
   return (
     <>
@@ -166,21 +211,55 @@ export default function FloatingAIWidget() {
 
       {/* Widget */}
       {isOpen && (
-        <Card className="fixed bottom-6 right-6 w-96 h-[500px] shadow-xl z-50 flex flex-col">
+        <Card className="shadow-xl flex flex-col" style={getWidgetStyles()}>
           {/* Header */}
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 bg-purple-600 text-white rounded-t-lg">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 bg-purple-600 text-white" style={{ borderRadius: isFullscreen ? '0' : '8px 8px 0 0' }}>
             <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <Bot className="w-5 h-5" />
-              AI Assistant
+              {showConversations ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowConversations(false)}
+                    className="h-8 w-8 text-white hover:bg-purple-700 mr-1"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <span>Chat History</span>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowConversations(true)}
+                    className="h-8 w-8 text-white hover:bg-purple-700 mr-1"
+                  >
+                    <Menu className="h-4 w-4" />
+                  </Button>
+                  <Bot className="w-5 h-5" />
+                  <span>AI Assistant</span>
+                </>
+              )}
             </CardTitle>
             <div className="flex items-center gap-1">
+              {!isFullscreen && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsMinimized(!isMinimized)}
+                  className="h-8 w-8 text-white hover:bg-purple-700"
+                >
+                  {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsMinimized(!isMinimized)}
+                onClick={() => setIsFullscreen(!isFullscreen)}
                 className="h-8 w-8 text-white hover:bg-purple-700"
               >
-                {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+                <Maximize2 className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost"
@@ -194,91 +273,161 @@ export default function FloatingAIWidget() {
           </CardHeader>
 
           {!isMinimized && (
-            <CardContent className="flex-1 flex flex-col p-0">
-              {/* Conversation Controls */}
-              <div className="p-3 border-b bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-xs">
-                    {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
-                  </Badge>
-                  <Button
-                    onClick={startNewConversation}
-                    size="sm"
-                    variant="outline"
-                    className="text-xs"
-                  >
-                    New Chat
-                  </Button>
-                </div>
-              </div>
-
-              {/* Messages */}
-              <ScrollArea className="flex-1 p-4">
-                <div className="space-y-4">
-                  {isLoadingMessages ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
-                    </div>
-                  ) : messages.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <Bot className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                      <p className="text-sm">Start a conversation with the AI assistant</p>
-                    </div>
-                  ) : (
-                    messages.map((message: Message) => (
-                      <div
-                        key={message.id}
-                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            <CardContent className="flex-1 flex flex-col p-0 min-h-0">
+              {showConversations ? (
+                /* Conversations List View */
+                <div className="flex-1 flex flex-col">
+                  <div className="p-4 border-b bg-gray-50">
+                    <div className="flex items-center justify-between mb-3">
+                      <Badge variant="outline" className="text-sm">
+                        {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
+                      </Badge>
+                      <Button
+                        onClick={startNewConversation}
+                        size="sm"
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
                       >
+                        New Chat
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <ScrollArea className="flex-1">
+                    <div className="p-4 space-y-2">
+                      {conversations.map((conversation: Conversation) => (
                         <div
-                          className={`max-w-[80%] rounded-lg px-3 py-2 ${
-                            message.role === 'user'
-                              ? 'bg-purple-600 text-white'
-                              : 'bg-gray-100 text-gray-900'
+                          key={conversation.id}
+                          onClick={() => selectConversation(conversation.id)}
+                          className={`p-3 rounded-lg cursor-pointer border transition-colors hover:bg-gray-50 ${
+                            currentConversationId === conversation.id ? 'bg-purple-50 border-purple-200' : 'bg-white border-gray-200'
                           }`}
                         >
-                          <div className="flex items-start gap-2">
-                            {message.role === 'assistant' && (
-                              <Bot className="w-4 h-4 mt-1 flex-shrink-0" />
-                            )}
-                            {message.role === 'user' && (
-                              <User className="w-4 h-4 mt-1 flex-shrink-0" />
-                            )}
-                            <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate text-gray-900">
+                                {conversation.title}
+                              </p>
+                              {conversation.lastMessage && (
+                                <p className="text-xs text-gray-500 mt-1 truncate">
+                                  {conversation.lastMessage}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center text-xs text-gray-400 ml-2">
+                              <Clock className="w-3 h-3 mr-1" />
+                              {formatDate(conversation.updatedAt)}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
-                  )}
-                  <div ref={messagesEndRef} />
+                      ))}
+                      
+                      {conversations.length === 0 && (
+                        <div className="text-center py-8 text-gray-500">
+                          <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                          <p className="text-sm">No conversations yet</p>
+                          <p className="text-xs mt-1">Start a new chat to begin</p>
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
                 </div>
-              </ScrollArea>
+              ) : (
+                /* Chat View */
+                <>
+                  <div className="p-3 border-b bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline" className="text-xs">
+                        {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
+                      </Badge>
+                      <Button
+                        onClick={startNewConversation}
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-7"
+                      >
+                        New Chat
+                      </Button>
+                    </div>
+                  </div>
 
-              {/* Input */}
-              <div className="p-3 border-t">
-                <div className="flex gap-2">
-                  <Input
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Ask me anything..."
-                    className="flex-1"
-                    disabled={sendMessageMutation.isPending}
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!inputMessage.trim() || sendMessageMutation.isPending}
-                    size="icon"
-                    className="bg-purple-600 hover:bg-purple-700"
-                  >
-                    {sendMessageMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
+                  <ScrollArea className="flex-1 p-4">
+                    <div className="space-y-4">
+                      {isLoadingMessages ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+                        </div>
+                      ) : messages.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <Bot className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                          <p className="text-sm">Start a conversation with the AI assistant</p>
+                          <div className="mt-4 space-y-2">
+                            <div className="text-xs text-gray-400">Try asking:</div>
+                            <div className="space-y-1 text-xs">
+                              <div className="bg-gray-100 rounded px-2 py-1">"Help me find information about..."</div>
+                              <div className="bg-gray-100 rounded px-2 py-1">"What documents do you have on..."</div>
+                              <div className="bg-gray-100 rounded px-2 py-1">"Can you summarize..."</div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        messages.map((message: Message) => (
+                          <div
+                            key={message.id}
+                            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div
+                              className={`max-w-[85%] rounded-lg px-3 py-2 ${
+                                message.role === 'user'
+                                  ? 'bg-purple-600 text-white'
+                                  : 'bg-gray-100 text-gray-900'
+                              }`}
+                            >
+                              <div className="flex items-start gap-2">
+                                {message.role === 'assistant' && (
+                                  <Bot className="w-4 h-4 mt-1 flex-shrink-0" />
+                                )}
+                                {message.role === 'user' && (
+                                  <User className="w-4 h-4 mt-1 flex-shrink-0" />
+                                )}
+                                <div className="text-sm whitespace-pre-wrap break-words">{message.content}</div>
+                              </div>
+                              <div className={`text-xs mt-1 ${message.role === 'user' ? 'text-purple-200' : 'text-gray-500'}`}>
+                                {formatDate(message.timestamp)}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                      <div ref={messagesEndRef} />
+                    </div>
+                  </ScrollArea>
+
+                  <div className="p-3 border-t bg-white">
+                    <div className="flex gap-2">
+                      <Input
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        placeholder="Ask me anything..."
+                        className="flex-1"
+                        disabled={sendMessageMutation.isPending}
+                      />
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={!inputMessage.trim() || sendMessageMutation.isPending}
+                        size="icon"
+                        className="bg-purple-600 hover:bg-purple-700 flex-shrink-0"
+                      >
+                        {sendMessageMutation.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           )}
         </Card>
