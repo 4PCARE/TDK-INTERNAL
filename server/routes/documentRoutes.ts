@@ -996,7 +996,7 @@ ${document.summary}`;
         // First, delete related records from document_access table
         await trx.delete(documentAccess)
           .where(inArray(documentAccess.documentId, documentIds));
-        
+
         // Then delete the documents
         await trx.delete(documents)
           .where(and(eq(documents.userId, userId), inArray(documents.id, documentIds)));
@@ -1047,6 +1047,84 @@ ${document.summary}`;
     } catch (error) {
       console.error("Error during bulk deletion:", error);
       res.status(500).json({ message: "Failed to perform bulk deletion", error: error.message });
+    }
+  });
+
+  // Added route for single document deletion
+  app.delete("/api/documents/:id", smartAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const id = parseInt(req.params.id);
+      const document = await storage.getDocument(id, userId);
+
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      // Delete physical file first
+      if (document.filePath) {
+        try {
+          await fs.unlink(document.filePath);
+          console.log(`Successfully deleted file for document ${id}: ${document.filePath}`);
+        } catch (error) {
+          console.error(`Error deleting file for document ${id}:`, error);
+          // Continue to database deletion even if file deletion fails
+        }
+      }
+
+      // Delete from database with all related records
+      await db.transaction(async (trx) => {
+        // Delete related records first
+        await trx.delete(documentAccess).where(eq(documentAccess.documentId, id));
+
+        // Delete the document
+        await trx.delete(documents)
+          .where(and(eq(documents.id, id), eq(documents.userId, userId)));
+      });
+
+      // Clean up vector embeddings
+      try {
+        const { vectorService } = await import('../services/vectorService');
+        await vectorService.removeDocument(id.toString());
+      } catch (vectorError) {
+        console.error("Failed to clean up vector embeddings:", vectorError);
+      }
+
+      // Log the deletion action for audit
+      try {
+        await storage.createAuditLog({
+          userId,
+          action: "delete",
+          resourceType: "document",
+          resourceId: id.toString(),
+          ipAddress: req.ip || req.connection.remoteAddress || "unknown",
+          userAgent: req.headers["user-agent"] || "unknown",
+          success: true,
+          details: {
+            documentName: document.name,
+            fileSize: document.fileSize,
+          },
+        });
+      } catch (auditError) {
+        console.error("Failed to create audit log:", auditError);
+      }
+
+      // Set cache control headers to prevent caching
+      res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Document deleted successfully",
+        deletedId: id,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      res.status(500).json({ message: "Failed to delete document" });
     }
   });
 

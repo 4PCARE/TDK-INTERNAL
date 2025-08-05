@@ -608,25 +608,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteDocument(id: number, userId: string): Promise<void> {
-    // Delete related records first to avoid foreign key constraint violations
+    // Use a transaction to ensure all deletions succeed or fail together
+    await db.transaction(async (trx) => {
+      // Delete related records first to avoid foreign key constraint violations
 
-    // Delete document access records
-    await db.delete(documentAccess).where(eq(documentAccess.documentId, id));
+      // Delete document access records
+      await trx.delete(documentAccess).where(eq(documentAccess.documentId, id));
 
-    // Delete user favorites
-    await db.delete(userFavorites).where(eq(userFavorites.documentId, id));
+      // Delete user favorites
+      await trx.delete(userFavorites).where(eq(userFavorites.documentId, id));
 
-    // Delete user permissions
-    await db.delete(documentUserPermissions).where(eq(documentUserPermissions.documentId, id));
+      // Delete user permissions
+      await trx.delete(documentUserPermissions).where(eq(documentUserPermissions.documentId, id));
 
-    // Delete department permissions
-    await db.delete(documentDepartmentPermissions).where(eq(documentDepartmentPermissions.documentId, id));
+      // Delete department permissions
+      await trx.delete(documentDepartmentPermissions).where(eq(documentDepartmentPermissions.documentId, id));
 
-    // Delete agent chatbot document associations
-    await db.delete(agentChatbotDocuments).where(eq(agentChatbotDocuments.documentId, id));
+      // Delete agent chatbot document associations
+      await trx.delete(agentChatbotDocuments).where(eq(agentChatbotDocuments.documentId, id));
 
-    // Finally delete the document itself
-    await db.delete(documents).where(and(eq(documents.id, id), eq(documents.userId, userId)));
+      // Finally delete the document itself
+      const result = await trx.delete(documents)
+        .where(and(eq(documents.id, id), eq(documents.userId, userId)));
+
+      console.log(`Document ${id} deletion completed for user ${userId}`);
+    });
   }
 
   async searchDocuments(userId: string, query: string, specificDocumentIds?: number[]): Promise<Document[]> {

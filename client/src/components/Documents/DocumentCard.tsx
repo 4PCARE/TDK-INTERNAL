@@ -62,63 +62,23 @@ export default function DocumentCard({
     mutationFn: async () => {
       return await apiRequest("DELETE", `/api/documents/${document.id}`);
     },
-    onMutate: async () => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["/api/documents"] });
-      await queryClient.cancelQueries({ queryKey: ["/api/documents/search"] });
-
-      // Snapshot the previous value
-      const previousDocuments = queryClient.getQueryData(["/api/documents"]);
-      const previousSearchResults = queryClient.getQueryData(["/api/documents/search"]);
-
-      // Optimistically remove the document
-      queryClient.setQueryData(["/api/documents"], (old: any) => {
-        if (!old) return old;
-        return Array.isArray(old) ? old.filter((doc: any) => doc.id !== document.id) : old;
-      });
-
-      queryClient.setQueryData(["/api/documents/search"], (old: any) => {
-        if (!old) return old;
-        if (Array.isArray(old)) {
-          return old.filter((doc: any) => doc.id !== document.id);
-        }
-        if (old.results && Array.isArray(old.results)) {
-          return {
-            ...old,
-            results: old.results.filter((doc: any) => doc.id !== document.id)
-          };
-        }
-        return old;
-      });
-
-      // Return a context object with the snapshotted value
-      return { previousDocuments, previousSearchResults };
-    },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Document deleted",
         description: "Document has been successfully deleted.",
       });
-    },
-    onError: (error: Error, variables, context) => {
-      // If the mutation fails, use the context returned from onMutate to roll back
-      if (context?.previousDocuments) {
-        queryClient.setQueryData(["/api/documents"], context.previousDocuments);
-      }
-      if (context?.previousSearchResults) {
-        queryClient.setQueryData(["/api/documents/search"], context.previousSearchResults);
-      }
       
+      // Force immediate refresh of all document queries
+      await queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/documents"] });
+    },
+    onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message || "Failed to delete document.",
         variant: "destructive",
       });
-    },
-    onSettled: () => {
-      // Always refetch after error or success to ensure consistency
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
     },
   });
 

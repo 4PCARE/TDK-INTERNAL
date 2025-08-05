@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -46,6 +46,7 @@ import VectorizeAllButton from "@/components/VectorizeAllButton";
 export default function Documents() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
+  const queryClient = useQueryClient(); // Initialize queryClient
   const [searchQuery, setSearchQuery] = useState("");
   const [pendingSearchQuery, setPendingSearchQuery] = useState("");
   const [searchFileName, setSearchFileName] = useState(true);
@@ -310,37 +311,23 @@ export default function Documents() {
     );
   };
 
-  const handleBulkDelete = async () => {
-    if (!selectedDocuments.length) return;
-
-    if (!confirm(`Are you sure you want to delete ${selectedDocuments.length} document(s)?`)) {
+  const handleBulkDeletion = async () => {
+    if (!selectedDocuments.length) {
+      toast({
+        title: "No Selection",
+        description: "Please select documents to delete.",
+        variant: "destructive",
+      });
       return;
     }
 
-    // Optimistic update: immediately remove documents from UI
-    const documentsToDelete = selectedDocuments;
-    setSelectedDocuments([]);
-    
-    // Show optimistic success message
-    toast({
-      title: "Deleting...",
-      description: `Removing ${documentsToDelete.length} document(s)...`,
-    });
+    const documentsToDelete = [...selectedDocuments];
 
     try {
-      // Optimistically invalidate queries to remove documents from UI immediately
-      queryClient.setQueryData(["/api/documents/search", searchQuery, searchFileName, searchKeyword, searchMeaning], (oldData: any) => {
-        if (!oldData) return oldData;
-        if (Array.isArray(oldData)) {
-          return oldData.filter(doc => !documentsToDelete.includes(doc.id));
-        }
-        if (oldData.results && Array.isArray(oldData.results)) {
-          return {
-            ...oldData,
-            results: oldData.results.filter((doc: any) => !documentsToDelete.includes(doc.id))
-          };
-        }
-        return oldData;
+      // Show loading state
+      toast({
+        title: "Deleting...",
+        description: `Removing ${documentsToDelete.length} document(s)...`,
       });
 
       const response = await fetch('/api/documents/bulk', {
@@ -361,30 +348,34 @@ export default function Documents() {
 
       const result = await response.json();
 
-      // Confirm success
+      // Clear selection and show success
+      setSelectedDocuments([]);
+
       toast({
         title: "Success",
         description: `${result.deletedCount || documentsToDelete.length} document(s) deleted successfully`,
       });
 
-      // Invalidate and refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
+      // Force refresh all queries to ensure UI consistency
+      await queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/documents"] });
 
     } catch (error) {
       console.error('Bulk deletion error:', error);
-      
-      // Revert optimistic update on error
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
-      
+
       toast({
         title: "Error",
         description: "Failed to delete documents. Please try again.",
         variant: "destructive",
       });
+
+      // Force refresh to ensure UI consistency even on error
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
     }
   };
+
 
   const handleBulkEndorsement = async () => {
     if (!selectedDocuments.length) return;
@@ -754,7 +745,7 @@ export default function Documents() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={handleBulkDelete}
+                        onClick={handleBulkDeletion}
                         className="text-red-600 border-red-300 hover:bg-red-50"
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
