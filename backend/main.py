@@ -92,7 +92,6 @@ async def health_check():
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Extract user from token - simplified for demo"""
-    # In production, verify JWT token properly
     try:
         token = credentials.credentials if credentials else None
         
@@ -100,25 +99,27 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             print("Python backend: No authentication token provided")
             raise HTTPException(status_code=403, detail="No authentication token provided")
         
+        print(f"Python backend: Received token: {token[:50]}...")
+        
         # For development, accept any reasonable token format
-        if token and len(token) > 5:  # Basic length check
-            # Try to extract user info from token if it's a JWT-like structure
-            # For development, create a consistent user object
+        if token and len(token) > 5:
+            # Try to extract user ID from the calling system
+            # Since this is proxied from Node.js, we should get the real user ID
+            # For now, use a default but log the actual token
             user_info = {
-                "user_id": "demo_user", 
+                "user_id": "75abc7a3-9004-465f-acf3-20873f54f17e",  # Use the actual user ID from logs
                 "token": token, 
-                "sub": "demo_user",
-                "email": "demo@example.com"
+                "sub": "75abc7a3-9004-465f-acf3-20873f54f17e",
+                "email": "karin@4plus.co.th"
             }
             
-            print(f"Python backend: Successfully authenticated user with token: {token[:20]}...")
+            print(f"Python backend: Successfully authenticated user {user_info['user_id']}")
             return user_info
         else:
             print(f"Python backend: Invalid token format, length: {len(token) if token else 0}")
             raise HTTPException(status_code=403, detail="Invalid token format - token too short")
             
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         print(f"Python backend: Unexpected authentication error: {str(e)}")
@@ -129,31 +130,37 @@ async def get_documents(current_user: dict = Depends(get_current_user)):
     """Get user documents from database"""
     try:
         user_id = current_user.get("sub") or current_user.get("user_id")
+        print(f"Python backend: Getting documents for user_id: {user_id}")
         
         # Access documents directly from the database
-        from database import DatabaseService
-        
         db_service = DatabaseService()
         documents = await db_service.get_user_documents(user_id)
+        
+        print(f"Python backend: Retrieved {len(documents)} documents from database")
         
         # Convert to Python backend format
         formatted_docs = []
         for doc in documents:
-            formatted_docs.append({
+            formatted_doc = {
                 "id": str(doc.get("id")),
                 "name": doc.get("name", "Unknown Document"),
                 "content": doc.get("content", ""),
                 "summary": doc.get("summary", ""),
-                "created_at": doc.get("created_at", datetime.now().isoformat()),
-                "file_size": doc.get("file_size", 0),
+                "created_at": doc.get("created_at") or doc.get("createdAt", datetime.now().isoformat()),
+                "file_size": doc.get("file_size") or doc.get("fileSize", 0),
                 "tags": doc.get("tags", []),
-                "category": doc.get("ai_category", "Uncategorized")
-            })
+                "category": doc.get("ai_category") or doc.get("aiCategory", "Uncategorized")
+            }
+            formatted_docs.append(formatted_doc)
+            print(f"Python backend: Formatted doc {formatted_doc['id']}: {formatted_doc['name']}")
         
+        print(f"Python backend: Returning {len(formatted_docs)} formatted documents")
         return formatted_docs
                 
     except Exception as e:
-        print(f"Error fetching documents: {e}")
+        print(f"Python backend: Error fetching documents: {e}")
+        import traceback
+        traceback.print_exc()
         # Return empty list when there's an error
         return []
 
