@@ -148,10 +148,14 @@ export async function documentSearch({
 
     const totalDuration = Date.now() - startTime;
     console.log(`[LangChain Tool] ✅ COMPLETED: Total execution time ${totalDuration}ms`);
-    console.log(`[LangChain Tool] 📤 Returning formatted response (${responseText.length} characters)`);
+    console.log(`[LangChain Tool] 📤 FINAL RETURN: Response length ${responseText.length} characters`);
+    console.log(`[LangChain Tool] 📤 FINAL RETURN: Response type: ${typeof responseText}`);
+    console.log(`[LangChain Tool] 📤 FINAL RETURN: Is string: ${typeof responseText === 'string'}`);
+    console.log(`[LangChain Tool] 📤 FINAL RETURN: Is empty: ${!responseText || responseText.length === 0}`);
     
     // Log response preview
     console.log(`[LangChain Tool] 📄 Response preview:`, responseText.substring(0, 200) + '...');
+    console.log(`[LangChain Tool] === DOCUMENT SEARCH TOOL RETURNING TO LANGCHAIN ===`);
 
     return responseText;
 

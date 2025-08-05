@@ -543,11 +543,19 @@ async function createAgentWithTools(userId: string) {
       "system",
       `You are an AI assistant for a Knowledge Management System. You help users find information from their document collection and answer questions based on the available knowledge base.
 
-When users ask questions that might be answered by documents in their knowledge base, use the document_search tool to find relevant information. Always search with appropriate keywords and provide helpful, accurate responses based on the found documents.
+CRITICAL INSTRUCTIONS:
+1. When users ask questions about documents or content, ALWAYS use the document_search tool first
+2. ALWAYS provide a response to the user based on the tool results - NEVER return empty responses
+3. If the tool finds documents, summarize the key information and cite the document names
+4. If the tool finds no documents, inform the user and suggest they upload relevant documents
+5. ALWAYS generate a helpful response based on what the tools return
 
-If you find relevant documents, cite them in your response and provide specific information from the content. If no relevant documents are found, let the user know and suggest they might need to upload relevant documents or refine their search.
+Your response flow should be:
+1. Use document_search tool with relevant keywords
+2. Analyze the tool results
+3. Generate a comprehensive response for the user based on the findings
 
-Be helpful, accurate, and always prioritize information from the user's actual documents over general knowledge.`
+Be helpful, accurate, and always prioritize information from the user's actual documents over general knowledge. Never leave the user without a response.`
     ],
     ["human", "{input}"],
     new MessagesPlaceholder("agent_scratchpad"),
@@ -566,9 +574,17 @@ Be helpful, accurate, and always prioritize information from the user's actual d
     tools,
     verbose: true,
     returnIntermediateSteps: true, // This helps with debugging
+    maxIterations: 3, // Limit iterations to prevent infinite loops
+    earlyStoppingMethod: "generate", // Ensure we get a final response
   });
 
   console.log(`🤖 [Agent Setup] Agent executor created successfully`);
+  console.log(`🤖 [Agent Setup] Executor configuration:`, {
+    verbose: true,
+    returnIntermediateSteps: true,
+    maxIterations: 3,
+    earlyStoppingMethod: "generate"
+  });
   return executor;
 }
 
@@ -576,14 +592,50 @@ export async function generateChatResponse(userMessage: string, documents: Docum
   try {
     // If userId is provided, use LangChain agent with tools
     if (userId) {
-      console.log(`🤖 Using LangChain agent with tools for user ${userId}`);
+      console.log(`🤖 [Agent Chat] === STARTING LANGCHAIN AGENT FLOW ===`);
+      console.log(`🤖 [Agent Chat] User ID: ${userId}`);
+      console.log(`🤖 [Agent Chat] User message: "${userMessage}"`);
+      console.log(`🤖 [Agent Chat] Timestamp: ${new Date().toISOString()}`);
+      
       const agentExecutor = await createAgentWithTools(userId);
+      console.log(`🤖 [Agent Chat] Agent executor created successfully`);
 
+      console.log(`🤖 [Agent Chat] === INVOKING AGENT EXECUTOR ===`);
+      const invokeStartTime = Date.now();
+      
       const result = await agentExecutor.invoke({
         input: userMessage,
       });
+      
+      const invokeDuration = Date.now() - invokeStartTime;
+      console.log(`🤖 [Agent Chat] === AGENT EXECUTOR COMPLETED ===`);
+      console.log(`🤖 [Agent Chat] Execution time: ${invokeDuration}ms`);
+      console.log(`🤖 [Agent Chat] Result object:`, {
+        type: typeof result,
+        keys: Object.keys(result || {}),
+        output: result?.output,
+        outputType: typeof result?.output,
+        outputLength: result?.output?.length || 0,
+        hasIntermediateSteps: !!result?.intermediateSteps,
+        intermediateStepsLength: result?.intermediateSteps?.length || 0
+      });
 
-      return result.output || "I couldn't generate a response. Please try again.";
+      if (result?.intermediateSteps && result.intermediateSteps.length > 0) {
+        console.log(`🤖 [Agent Chat] === INTERMEDIATE STEPS DEBUG ===`);
+        result.intermediateSteps.forEach((step: any, index: number) => {
+          console.log(`🤖 [Agent Chat] Step ${index + 1}:`, {
+            action: step?.action,
+            observation: step?.observation?.substring(0, 200) + '...'
+          });
+        });
+      }
+
+      const finalOutput = result.output || "I couldn't generate a response. Please try again.";
+      console.log(`🤖 [Agent Chat] === FINAL OUTPUT ===`);
+      console.log(`🤖 [Agent Chat] Final output: "${finalOutput}"`);
+      console.log(`🤖 [Agent Chat] Output length: ${finalOutput.length} characters`);
+
+      return finalOutput;
     }
 
     // Fallback to traditional approach if no userId
