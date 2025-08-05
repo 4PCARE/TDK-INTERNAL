@@ -1,13 +1,10 @@
-
 import type { Express } from "express";
-import { isAuthenticated } from "../replitAuth";
-import { isMicrosoftAuthenticated } from "../microsoftAuth";
 import { smartAuth } from "../smartAuth";
 import { storage } from "../storage";
 import { insertCategorySchema } from "@shared/schema";
 
 export function registerCategoryRoutes(app: Express) {
-  app.get("/api/categories", smartAuth, async (req: any, res) => {
+  app.get("/api/stats/categories", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const categories = await storage.getCategories(userId);
@@ -18,7 +15,7 @@ export function registerCategoryRoutes(app: Express) {
     }
   });
 
-  app.post("/api/categories", isAuthenticated, async (req: any, res) => {
+  app.post("/api/categories", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const categoryData = insertCategorySchema.parse({ ...req.body, userId });
@@ -30,7 +27,7 @@ export function registerCategoryRoutes(app: Express) {
     }
   });
 
-  app.put("/api/categories/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/categories/:id", smartAuth, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       const categoryData = insertCategorySchema.partial().parse(req.body);
@@ -42,7 +39,7 @@ export function registerCategoryRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/categories/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/categories/:id", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
