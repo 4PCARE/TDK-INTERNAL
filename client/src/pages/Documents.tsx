@@ -28,7 +28,8 @@ import {
   Clock,
   FileType,
   Users,
-  Upload
+  Upload,
+  Star
 } from "lucide-react";
 import DocumentCard from "@/components/DocumentCard";
 import ShareDocumentDialog from "@/components/ShareDocumentDialog";
@@ -59,6 +60,8 @@ export default function Documents() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showUploadZone, setShowUploadZone] = useState(false);
+  const [selectedDocuments, setSelectedDocuments] = useState<number[]>([]);
+  const [showBulkActions, setShowBulkActions] = useState(false);
 
   // Parse search query from URL
   useEffect(() => {
@@ -290,6 +293,113 @@ export default function Documents() {
     }
   }) : [];
 
+  // Bulk action handlers
+  const handleSelectAll = () => {
+    if (selectedDocuments.length === filteredDocuments.length) {
+      setSelectedDocuments([]);
+    } else {
+      setSelectedDocuments(filteredDocuments.map(doc => doc.id));
+    }
+  };
+
+  const handleSelectDocument = (documentId: number) => {
+    setSelectedDocuments(prev => 
+      prev.includes(documentId) 
+        ? prev.filter(id => id !== documentId)
+        : [...prev, documentId]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedDocuments.length) return;
+    
+    if (!confirm(`Are you sure you want to delete ${selectedDocuments.length} document(s)?`)) {
+      return;
+    }
+
+    try {
+      await Promise.all(
+        selectedDocuments.map(id => 
+          fetch(`/api/documents/${id}`, { method: 'DELETE' })
+        )
+      );
+      
+      toast({
+        title: "Success",
+        description: `${selectedDocuments.length} document(s) deleted successfully`,
+      });
+      
+      setSelectedDocuments([]);
+      window.location.reload();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete some documents",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkEndorsement = async () => {
+    if (!selectedDocuments.length) return;
+    
+    try {
+      await Promise.all(
+        selectedDocuments.map(id => 
+          fetch(`/api/documents/${id}/endorse`, { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endorsed: true })
+          })
+        )
+      );
+      
+      toast({
+        title: "Success",
+        description: `${selectedDocuments.length} document(s) endorsed successfully`,
+      });
+      
+      setSelectedDocuments([]);
+      window.location.reload();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to endorse some documents",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBulkDateUpdate = async (startDate: string, endDate: string) => {
+    if (!selectedDocuments.length) return;
+    
+    try {
+      await Promise.all(
+        selectedDocuments.map(id => 
+          fetch(`/api/documents/${id}/dates`, { 
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ validStartDate: startDate, validEndDate: endDate })
+          })
+        )
+      );
+      
+      toast({
+        title: "Success",
+        description: `Valid dates updated for ${selectedDocuments.length} document(s)`,
+      });
+      
+      setSelectedDocuments([]);
+      window.location.reload();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update dates for some documents",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -517,13 +627,115 @@ export default function Documents() {
               </CardContent>
             </Card>
 
+            {/* Bulk Actions Toolbar */}
+            {selectedDocuments.length > 0 && (
+              <Card className="border border-blue-200 bg-blue-50 mb-4">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <span className="text-sm font-medium text-blue-800">
+                        {selectedDocuments.length} document(s) selected
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedDocuments([])}
+                        className="text-blue-600 border-blue-300"
+                      >
+                        Clear Selection
+                      </Button>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {/* Bulk Endorsement (Admin only) */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleBulkEndorsement}
+                        className="text-green-600 border-green-300 hover:bg-green-50"
+                      >
+                        <Star className="w-4 h-4 mr-2" />
+                        Endorse All
+                      </Button>
+                      
+                      {/* Bulk Date Update */}
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                          >
+                            <Calendar className="w-4 h-4 mr-2" />
+                            Set Dates
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80">
+                          <div className="space-y-4">
+                            <h4 className="font-medium">Set Valid Date Range</h4>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Start Date</label>
+                              <Input
+                                type="date"
+                                id="bulk-start-date"
+                                className="w-full"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">End Date</label>
+                              <Input
+                                type="date"
+                                id="bulk-end-date"
+                                className="w-full"
+                              />
+                            </div>
+                            <Button
+                              onClick={() => {
+                                const startDate = (document.getElementById('bulk-start-date') as HTMLInputElement)?.value;
+                                const endDate = (document.getElementById('bulk-end-date') as HTMLInputElement)?.value;
+                                if (startDate && endDate) {
+                                  handleBulkDateUpdate(startDate, endDate);
+                                }
+                              }}
+                              className="w-full"
+                            >
+                              Update Dates
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+
+                      {/* Bulk Delete */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleBulkDelete}
+                        className="text-red-600 border-red-300 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete All
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Documents Grid/List */}
             <Card className="border border-slate-200">
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-semibold text-slate-800">
-                    Documents ({filteredDocuments?.length || 0})
-                  </CardTitle>
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        checked={filteredDocuments.length > 0 && selectedDocuments.length === filteredDocuments.length}
+                        onCheckedChange={handleSelectAll}
+                        className="data-[state=checked]:bg-blue-600"
+                      />
+                      <CardTitle className="text-lg font-semibold text-slate-800">
+                        Documents ({filteredDocuments?.length || 0})
+                      </CardTitle>
+                    </div>
+                  </div></old_str>
                   <div className="flex items-center space-x-2">
                     <VectorizeAllButton />
                     <Button 
@@ -565,11 +777,19 @@ export default function Documents() {
                       : "space-y-2"
                   }>
                     {filteredDocuments.map((doc: any) => (
-                      <DocumentCard key={doc.id} document={doc} viewMode={viewMode} categories={categories?.map(cat => ({
-                        ...cat,
-                        color: (cat as any).color || '#3B82F6',
-                        icon: (cat as any).icon || 'folder'
-                      }))} />
+                      <DocumentCard 
+                        key={doc.id} 
+                        document={doc} 
+                        viewMode={viewMode} 
+                        categories={categories?.map(cat => ({
+                          ...cat,
+                          color: (cat as any).color || '#3B82F6',
+                          icon: (cat as any).icon || 'folder'
+                        }))}
+                        isSelected={selectedDocuments.includes(doc.id)}
+                        onSelectChange={handleSelectDocument}
+                        showSelection={true}
+                      />
                     ))}
                   </div>
                 ) : (

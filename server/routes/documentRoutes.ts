@@ -1,4 +1,3 @@
-
 import type { Express } from "express";
 import { smartAuth } from "../smartAuth";
 import { storage } from "../storage";
@@ -158,7 +157,7 @@ export function registerDocumentRoutes(app: Express) {
         try {
           const { advancedKeywordSearchService } = await import('../services/advancedKeywordSearch');
           const advancedResults = await advancedKeywordSearchService.searchDocuments(query, userId, 50);
-          
+
           keywordResults = advancedResults.map(result => ({
             id: result.id,
             name: result.name,
@@ -173,7 +172,7 @@ export function registerDocumentRoutes(app: Express) {
             searchScore: 50 + (result.similarity * 30), // Medium priority with similarity boost
             searchType: "keyword"
           }));
-          
+
           console.log(`Keyword search returned ${keywordResults.length} results`);
         } catch (error) {
           console.error("Keyword search failed, falling back to basic:", error);
@@ -198,13 +197,13 @@ export function registerDocumentRoutes(app: Express) {
               massSelectionPercentage: 0.6
             },
           );
-          
+
           semanticResults = semanticDocs.map(doc => ({
             ...doc,
             searchScore: 20 + (doc.similarity || 0) * 25, // Lower priority but similarity-based
             searchType: "semantic"
           }));
-          
+
           console.log(`Semantic search returned ${semanticResults.length} results`);
         } catch (error) {
           console.error("Semantic search failed:", error);
@@ -214,7 +213,7 @@ export function registerDocumentRoutes(app: Express) {
       // Merge and deduplicate results
       const allResults = [...filenameResults, ...keywordResults, ...semanticResults];
       const deduplicatedResults = new Map();
-      
+
       // Keep the highest scoring result for each document
       allResults.forEach(result => {
         const docId = result.id;
@@ -223,7 +222,7 @@ export function registerDocumentRoutes(app: Express) {
           deduplicatedResults.set(docId, result);
         }
       });
-      
+
       // Sort by search score (highest first) then by relevance
       results = Array.from(deduplicatedResults.values())
         .sort((a, b) => {
@@ -449,7 +448,7 @@ ${document.summary}`;
       try {
         const userId = req.user.claims.sub;
         const files = req.files as Express.Multer.File[];
-        
+
         // Parse metadata if provided
         let metadataArray: any[] = [];
         try {
@@ -499,7 +498,7 @@ ${document.summary}`;
 
             // Find metadata for this file
             const fileMetadata = metadataArray.find(meta => meta.fileName === file.originalname);
-            
+
             // Helper function to ensure correct file extension
             const ensureCorrectExtension = (inputName: string, originalFileName: string, mimeType: string): string => {
               // Get the correct extension based on mime type
@@ -523,27 +522,27 @@ ${document.summary}`;
                 };
                 return mimeToExt[mime] || '';
               };
-              
+
               const correctExtension = getCorrectExtension(mimeType);
               if (!correctExtension) {
                 return inputName; // No known extension for this mime type
               }
-              
+
               // Check if the input already has the correct extension
               if (inputName.toLowerCase().endsWith(correctExtension.toLowerCase())) {
                 return inputName;
               }
-              
+
               // Check if the input has no extension
               const lastDotIndex = inputName.lastIndexOf('.');
               if (lastDotIndex === -1) {
                 return inputName + correctExtension;
               }
-              
+
               // Input has a different extension, append the correct one
               return inputName + correctExtension;
             };
-            
+
             // Process the document with enhanced AI classification
             const { content, summary, tags, category, categoryColor } =
               await processDocument(file.path, file.mimetype);
@@ -626,7 +625,7 @@ ${document.summary}`;
             } catch (extError) {
               console.warn("Failed to apply extension correction to fallback name:", extError);
             }
-            
+
             const documentData = {
               name: fallbackName,
               fileName: file.filename,
@@ -816,66 +815,216 @@ ${document.summary}`;
     }
   });
 
-  app.delete("/api/documents/:id", smartAuth, async (req: any, res) => {
+  // Bulk endorse documents
+  app.post("/api/documents/bulk/endorse", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const id = parseInt(req.params.id);
+      const { documentIds, effectiveStartDate, effectiveEndDate } = req.body;
 
-      console.log(`Delete request for document ${id} by user ${userId}`);
-
-      // Get document to verify ownership and get file path
-      const document = await storage.getDocument(id, userId);
-      if (!document) {
-        console.log(`Document ${id} not found for user ${userId}`);
-        return res.status(404).json({ message: "Document not found" });
+      if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
+        return res.status(400).json({ message: "No document IDs provided" });
       }
 
-      console.log(
-        `Found document: ${document.name}, filePath: ${document.filePath}`,
-      );
-
-      // Delete physical file first
-      if (document.filePath) {
-        try {
-          await fs.unlink(document.filePath);
-          console.log(`Successfully deleted file: ${document.filePath}`);
-        } catch (error) {
-          console.error("Error deleting file:", error);
-          // Continue with database deletion even if file deletion fails
+      // Validate dates
+      if (!effectiveStartDate) {
+        return res.status(400).json({ message: "Effective start date is required" });
+      }
+      const startDate = new Date(effectiveStartDate);
+      if (isNaN(startDate.getTime())) {
+        return res.status(400).json({ message: "Invalid effective start date format" });
+      }
+      if (effectiveEndDate) {
+        const endDate = new Date(effectiveEndDate);
+        if (isNaN(endDate.getTime())) {
+          return res.status(400).json({ message: "Invalid effective end date format" });
+        }
+        if (endDate <= startDate) {
+          return res.status(400).json({ message: "End date must be after start date" });
         }
       }
 
-      // Delete from database
-      await storage.deleteDocument(id, userId);
-      console.log(`Successfully deleted document ${id} from database`);
+      // Perform bulk update
+      await db.transaction(async (trx) => {
+        for (const docId of documentIds) {
+          await trx.update(documents)
+            .set({
+              endorsed: true,
+              endorsedAt: new Date(),
+              endorsedBy: userId,
+              validStartDate: startDate,
+              validEndDate: endDate || null,
+            })
+            .where(eq(documents.id, docId));
+        }
+      });
 
-      // Log document deletion for audit
+      // Log the bulk endorsement action for audit
       try {
         await storage.createAuditLog({
           userId,
-          action: "delete",
+          action: "bulk_endorse",
           resourceType: "document",
-          resourceId: id.toString(),
           ipAddress: req.ip || req.connection.remoteAddress || "unknown",
           userAgent: req.headers["user-agent"] || "unknown",
           success: true,
           details: {
-            documentName: document.name,
-            fileSize: document.fileSize,
+            documentIds: documentIds,
+            effectiveStartDate,
+            effectiveEndDate: effectiveEndDate || null,
+            count: documentIds.length,
           },
         });
       } catch (auditError) {
-        console.error("Failed to create audit log for delete:", auditError);
+        console.error("Failed to create audit log for bulk endorsement:", auditError);
       }
 
-      res.json({ success: true, message: "Document deleted successfully" });
+      res.json({ success: true, message: "Documents endorsed successfully" });
     } catch (error) {
-      console.error("Error deleting document:", error);
-      res
-        .status(500)
-        .json({ message: "Failed to delete document", error: error.message });
+      console.error("Error during bulk endorsement:", error);
+      res.status(500).json({ message: "Failed to perform bulk endorsement", error: error.message });
     }
   });
+
+  // Bulk update document valid dates
+  app.put("/api/documents/bulk/dates", smartAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { documentIds, validStartDate, validEndDate } = req.body;
+
+      if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
+        return res.status(400).json({ message: "No document IDs provided" });
+      }
+
+      // Validate dates
+      let startDate = null;
+      if (validStartDate) {
+        startDate = new Date(validStartDate);
+        if (isNaN(startDate.getTime())) {
+          return res.status(400).json({ message: "Invalid valid start date format" });
+        }
+      }
+      let endDate = null;
+      if (validEndDate) {
+        endDate = new Date(validEndDate);
+        if (isNaN(endDate.getTime())) {
+          return res.status(400).json({ message: "Invalid valid end date format" });
+        }
+      }
+      if (startDate && endDate && endDate <= startDate) {
+        return res.status(400).json({ message: "End date must be after start date" });
+      }
+
+      // Perform bulk update
+      await db.transaction(async (trx) => {
+        for (const docId of documentIds) {
+          await trx.update(documents)
+            .set({
+              validStartDate: startDate,
+              validEndDate: endDate,
+            })
+            .where(eq(documents.id, docId));
+        }
+      });
+
+      // Log the bulk date update action for audit
+      try {
+        await storage.createAuditLog({
+          userId,
+          action: "bulk_update_dates",
+          resourceType: "document",
+          ipAddress: req.ip || req.connection.remoteAddress || "unknown",
+          userAgent: req.headers["user-agent"] || "unknown",
+          success: true,
+          details: {
+            documentIds: documentIds,
+            validStartDate,
+            validEndDate,
+            count: documentIds.length,
+          },
+        });
+      } catch (auditError) {
+        console.error("Failed to create audit log for bulk date update:", auditError);
+      }
+
+      res.json({ success: true, message: "Document dates updated successfully" });
+    } catch (error) {
+      console.error("Error during bulk date update:", error);
+      res.status(500).json({ message: "Failed to update document dates", error: error.message });
+    }
+  });
+
+  // Bulk delete documents
+  app.delete("/api/documents/bulk", smartAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { documentIds } = req.body;
+
+      if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
+        return res.status(400).json({ message: "No document IDs provided" });
+      }
+
+      // Fetch documents to get file paths before deletion
+      const documentsToDelete = await db.query.documents.findMany({
+        where: (doc, { eq, inL }) => eq(doc.userId, userId) && inL(doc.id, documentIds),
+        columns: {
+          id: true,
+          filePath: true,
+          name: true,
+        },
+      });
+
+      if (documentsToDelete.length === 0) {
+        return res.status(404).json({ message: "No documents found for deletion" });
+      }
+
+      // Delete physical files
+      const deleteFilePromises = documentsToDelete.map(async (doc) => {
+        if (doc.filePath) {
+          try {
+            await fs.unlink(doc.filePath);
+            console.log(`Successfully deleted file for document ${doc.id}: ${doc.filePath}`);
+          } catch (error) {
+            console.error(`Error deleting file for document ${doc.id}:`, error);
+            // Log and continue to database deletion
+          }
+        }
+      });
+      await Promise.all(deleteFilePromises);
+
+      // Delete from database
+      await db.transaction(async (trx) => {
+        await trx.delete(documents)
+          .where(
+            (doc, { eq, inL }) => eq(doc.userId, userId) && inL(doc.id, documentIds)
+          );
+      });
+
+      // Log the bulk deletion action for audit
+      try {
+        await storage.createAuditLog({
+          userId,
+          action: "bulk_delete",
+          resourceType: "document",
+          ipAddress: req.ip || req.connection.remoteAddress || "unknown",
+          userAgent: req.headers["user-agent"] || "unknown",
+          success: true,
+          details: {
+            documentIds: documentIds,
+            count: documentIds.length,
+            deletedFileCount: documentsToDelete.filter(d => d.filePath).length,
+          },
+        });
+      } catch (auditError) {
+        console.error("Failed to create audit log for bulk deletion:", auditError);
+      }
+
+      res.json({ success: true, message: "Documents deleted successfully" });
+    } catch (error) {
+      console.error("Error during bulk deletion:", error);
+      res.status(500).json({ message: "Failed to perform bulk deletion", error: error.message });
+    }
+  });
+
 
   // Category statistics endpoint
   app.get("/api/stats/categories", smartAuth, async (req: any, res) => {

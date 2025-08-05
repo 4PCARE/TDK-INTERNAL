@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Star, MoreHorizontal, FileText, File, Image, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -23,9 +24,17 @@ interface DocumentCardProps {
     content?: string;
     isChunkResult?: boolean;
   };
+  isSelected?: boolean;
+  onSelectChange?: (documentId: number) => void;
+  showSelection?: boolean;
 }
 
-export default function DocumentCard({ document }: DocumentCardProps) {
+export default function DocumentCard({ 
+  document, 
+  isSelected = false,
+  onSelectChange,
+  showSelection = false
+}: DocumentCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -114,8 +123,18 @@ export default function DocumentCard({ document }: DocumentCardProps) {
       <CardContent className="p-4">
         {/* Document Type Icon */}
         <div className="flex items-center justify-between mb-3">
-          <div className={`w-10 h-10 ${getFileIconBg()} rounded-lg flex items-center justify-center`}>
-            {getFileIcon()}
+          <div className="flex items-center space-x-3">
+            {showSelection && (
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={() => onSelectChange?.(document.id)}
+                className="data-[state=checked]:bg-blue-600"
+                onClick={(e) => e.stopPropagation()}
+              />
+            )}
+            <div className={`w-10 h-10 ${getFileIconBg()} rounded-lg flex items-center justify-center`}>
+              {getFileIcon()}
+            </div>
           </div>
           <div className="flex items-center space-x-1">
             <Button 
