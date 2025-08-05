@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Folder, TrendingUp, BarChart3 } from "lucide-react";
+import { useAuth } from "@clerk/clerk-react";
 
 interface CategoryStat {
   category: string;
@@ -47,9 +48,35 @@ const getCategoryColor = (category: string) => {
 };
 
 export default function CategoryStatsCards() {
-  const { data: categoryStats = [], isLoading } = useQuery({
+  const { isLoaded, userId, isSignedIn } = useAuth();
+
+  const { data: categoryStats = [], isLoading: isLoadingCategories } = useQuery({
     queryKey: ["/api/stats/categories"],
-  });
+    enabled: isSignedIn && isLoaded,
+  }) as { data: Array<{ category: string; count: number }> };
+
+  const { data: documents = [], isLoading: isLoadingDocuments } = useQuery({
+    queryKey: ["/api/documents"],
+    enabled: isSignedIn && isLoaded,
+  }) as { data: Array<any> };
+
+  // Generate AI category stats from documents if no manual categories exist
+  const aiCategoryStats = documents.reduce((acc: { [key: string]: number }, doc: any) => {
+    if (doc.aiCategory) {
+      acc[doc.aiCategory] = (acc[doc.aiCategory] || 0) + 1;
+    }
+    return acc;
+  }, {});
+
+  const aiCategoryArray = Object.entries(aiCategoryStats).map(([category, count]) => ({
+    category,
+    count: count as number
+  }));
+
+  // Use AI categories if no manual categories exist
+  const displayStats = categoryStats.length > 0 ? categoryStats : aiCategoryArray;
+
+  const isLoading = isLoadingCategories || isLoadingDocuments;
 
   if (isLoading) {
     return (
@@ -81,7 +108,7 @@ export default function CategoryStatsCards() {
   }
 
   // แก้ไขการคำนวณ totalDocuments โดยแปลง count เป็น number ก่อน
-  const totalDocuments = categoryStats.reduce(
+  const totalDocuments = displayStats.reduce(
     (sum: number, stat: CategoryStat) => {
       return sum + Number(stat.count);
     },
@@ -97,7 +124,7 @@ export default function CategoryStatsCards() {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden">
-        {categoryStats.length === 0 ? (
+        {displayStats.length === 0 ? (
           <div className="text-center py-8">
             <Folder className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-500">No documents categorized yet</p>
@@ -107,7 +134,7 @@ export default function CategoryStatsCards() {
           </div>
         ) : (
           <div className="h-full overflow-y-auto space-y-3 pr-2">
-            {categoryStats.map((stat: CategoryStat) => (
+            {displayStats.map((stat: CategoryStat) => (
               <div
                 key={stat.category}
                 className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
