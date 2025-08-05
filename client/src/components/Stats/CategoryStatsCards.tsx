@@ -100,7 +100,7 @@ export default function CategoryStatsCards() {
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
               <div
-                key={`loading-${i}`}
+                key={`loading-skeleton-${i}`}
                 className="flex items-center justify-between p-3 bg-gray-50 rounded-lg animate-pulse"
               >
                 <div className="flex items-center space-x-3">
@@ -147,7 +147,7 @@ export default function CategoryStatsCards() {
 
               return (
                 <div
-                  key={`category-stat-${category}-${index}-${count}`}
+                  key={`category-${category}-${index}`}
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-center space-x-3">
@@ -164,9 +164,9 @@ export default function CategoryStatsCards() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="font-semibold">{count.toString()}</span>
+                    <span className="font-semibold">{isNaN(count) ? '0' : count.toString()}</span>
                     <span className="text-sm text-gray-500 ml-2">
-                      ({percentage.toString()}%)
+                      ({isNaN(percentage) ? '0' : percentage.toString()}%)
                     </span>
                   </div>
                 </div>
