@@ -3,7 +3,7 @@ import { smartAuth } from "../smartAuth";
 import { storage } from "../storage";
 import { db } from "../db";
 import { eq, sql, and, inArray } from "drizzle-orm";
-import { documents, users, departments } from "@shared/schema";
+import { documents, users, departments, documentAccess } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
@@ -991,8 +991,13 @@ ${document.summary}`;
       });
       await Promise.all(deleteFilePromises);
 
-      // Delete from database
+      // Delete from database - clean up related records first
       await db.transaction(async (trx) => {
+        // First, delete related records from document_access table
+        await trx.delete(documentAccess)
+          .where(inArray(documentAccess.documentId, documentIds));
+        
+        // Then delete the documents
         await trx.delete(documents)
           .where(and(eq(documents.userId, userId), inArray(documents.id, documentIds)));
       });
