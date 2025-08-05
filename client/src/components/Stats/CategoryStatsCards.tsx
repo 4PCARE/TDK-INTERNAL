@@ -254,19 +254,19 @@ export default function CategoryStatsCards() {
               
               return (
                 <div
-                  key={`${stat.category}-${index}`}
+                  key={`category-${stat.category || 'unknown'}-${index}-${count}`}
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-center space-x-3">
                     <span className="text-xl">
-                      {getCategoryIcon(stat.category)}
+                      {getCategoryIcon(stat.category || 'unknown')}
                     </span>
                     <div>
                       <Badge
                         variant="outline"
-                        className={getCategoryColor(stat.category)}
+                        className={getCategoryColor(stat.category || 'unknown')}
                       >
-                        {stat.category}
+                        {stat.category || 'Unknown'}
                       </Badge>
                     </div>
                   </div>
