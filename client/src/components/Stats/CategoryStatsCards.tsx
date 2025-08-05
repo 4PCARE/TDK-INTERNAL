@@ -1,8 +1,7 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, Folder } from "lucide-react";
+import { BarChart3, Folder, FileText } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const getCategoryIcon = (category: string) => {
@@ -145,7 +144,7 @@ export default function CategoryStatsCards() {
               const count = Number(stat.count) || 0;
               const category = String(stat.category || 'Unknown');
               const percentage = totalDocuments > 0 ? Math.round((count / totalDocuments) * 100) : 0;
-              
+
               return (
                 <div
                   key={`category-stat-${category}-${index}`}

@@ -45,13 +45,25 @@ export default function FloatingAIWidget() {
   // Create initial conversation when widget opens
   const createConversationMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/chat/conversations", {
-        title: `Widget Chat ${new Date().toLocaleDateString()}`,
-      });
-      return response.json();
+      try {
+        const response = await apiRequest("POST", "/api/chat/conversations", {
+          title: `Widget Chat ${new Date().toLocaleDateString()}`,
+        });
+        return response.json();
+      } catch (error) {
+        console.error("Error creating conversation:", error);
+        throw error;
+      }
     },
     onSuccess: (conversation) => {
       setCurrentConversationId(conversation.id);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error creating conversation",
+        description: "Failed to start chat session",
+        variant: "destructive",
+      });
     },
   });
 
@@ -60,14 +72,20 @@ export default function FloatingAIWidget() {
     queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
     queryFn: async () => {
       if (!currentConversationId) return [];
-      const response = await apiRequest(
-        "GET",
-        `/api/chat/conversations/${currentConversationId}/messages`,
-      );
-      return await response.json();
+      try {
+        const response = await apiRequest(
+          "GET",
+          `/api/chat/conversations/${currentConversationId}/messages`,
+        );
+        return await response.json();
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+        return [];
+      }
     },
     enabled: !!currentConversationId && isOpen,
     refetchInterval: isOpen ? 3000 : false, // Auto-refresh when open
+    retry: 1,
   });
 
   // Send message mutation
@@ -75,11 +93,16 @@ export default function FloatingAIWidget() {
     mutationFn: async (content: string) => {
       if (!currentConversationId) throw new Error("No conversation");
 
-      const response = await apiRequest("POST", "/api/chat/messages", {
-        conversationId: currentConversationId,
-        content,
-      });
-      return response.json();
+      try {
+        const response = await apiRequest("POST", "/api/chat/messages", {
+          conversationId: currentConversationId,
+          content,
+        });
+        return response.json();
+      } catch (error) {
+        console.error("Error sending message:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -88,9 +111,10 @@ export default function FloatingAIWidget() {
       setMessage("");
     },
     onError: (error) => {
+      console.error("Send message error:", error);
       toast({
         title: "Error sending message",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Failed to send message",
         variant: "destructive",
       });
     },
@@ -103,10 +127,14 @@ export default function FloatingAIWidget() {
 
   // Create conversation when widget opens for the first time
   useEffect(() => {
-    if (isOpen && !isMinimized && !currentConversationId) {
-      createConversationMutation.mutate();
+    if (isOpen && !isMinimized && !currentConversationId && !createConversationMutation.isPending) {
+      try {
+        createConversationMutation.mutate();
+      } catch (error) {
+        console.error("Error creating conversation in useEffect:", error);
+      }
     }
-  }, [isOpen, isMinimized]);
+  }, [isOpen, isMinimized, currentConversationId, createConversationMutation.isPending]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
