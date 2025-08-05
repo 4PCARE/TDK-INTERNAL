@@ -163,15 +163,10 @@ export class AdvancedKeywordSearchService {
   private calculateChunkScores(chunks: any[], searchTerms: SearchTerm[]): ChunkScore[] {
     const chunkScores: ChunkScore[] = [];
 
-    console.log(`🔍 VERBOSE: Starting chunk scoring for ${chunks.length} chunks with terms: [${searchTerms.map(t => t.term).join(', ')}]`);
-
     // Calculate IDF for each search term across all chunks
     const termIDF = this.calculateIDF(chunks, searchTerms);
 
-    console.log(`🔍 VERBOSE: IDF calculated:`, Array.from(termIDF.entries()).map(([term, idf]) => `${term}:${idf.toFixed(3)}`));
-
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
+    for (const chunk of chunks) {
       const chunkText = chunk.content.toLowerCase();
       const chunkTokens = this.tokenizeText(chunkText);
 
@@ -184,10 +179,6 @@ export class AdvancedKeywordSearchService {
         matchDetails: []
       };
 
-      console.log(`🔍 VERBOSE: Processing chunk ${i + 1}/${chunks.length} (doc ${chunk.documentId}, chunk ${chunk.chunkIndex})`);
-      console.log(`🔍 VERBOSE: Chunk preview: "${chunkText.substring(0, 100)}..."`);
-      console.log(`🔍 VERBOSE: Chunk tokens (first 10): [${chunkTokens.slice(0, 10).join(', ')}]`);
-
       // Calculate TF-IDF score for each search term
       for (const searchTerm of searchTerms) {
         const termScore = this.calculateTermScore(
@@ -197,11 +188,8 @@ export class AdvancedKeywordSearchService {
           termIDF.get(searchTerm.term) || 1.0
         );
 
-        console.log(`🔍 VERBOSE: Term "${searchTerm.term}" in chunk ${i + 1}: score=${termScore.score.toFixed(4)}, positions=${termScore.positions.length}, fuzzy=${termScore.fuzzyMatch || false}`);
-
         if (termScore.score > 0) {
-          const weightedScore = termScore.score * searchTerm.weight;
-          chunkScore.score += weightedScore;
+          chunkScore.score += termScore.score * searchTerm.weight;
           chunkScore.matchedTerms.push(searchTerm.term);
           chunkScore.matchDetails.push({
             term: searchTerm.term,
@@ -209,27 +197,17 @@ export class AdvancedKeywordSearchService {
             positions: termScore.positions,
             fuzzyMatch: termScore.fuzzyMatch
           });
-          console.log(`🔍 VERBOSE: ✅ Term "${searchTerm.term}" matched! Raw score: ${termScore.score.toFixed(4)}, weighted: ${weightedScore.toFixed(4)}`);
-        } else {
-          console.log(`🔍 VERBOSE: ❌ Term "${searchTerm.term}" no match in chunk ${i + 1}`);
         }
       }
 
       // Apply chunk-level boosters
-      const originalScore = chunkScore.score;
       chunkScore.score = this.applyChunkBoosters(chunk, chunkScore.score, searchTerms);
-
-      console.log(`🔍 VERBOSE: Chunk ${i + 1} final score: ${originalScore.toFixed(4)} → ${chunkScore.score.toFixed(4)} (after boosters)`);
 
       if (chunkScore.score > 0) {
         chunkScores.push(chunkScore);
-        console.log(`🔍 VERBOSE: ✅ Chunk ${i + 1} added to results with score ${chunkScore.score.toFixed(4)}`);
-      } else {
-        console.log(`🔍 VERBOSE: ❌ Chunk ${i + 1} discarded (score = 0)`);
       }
     }
 
-    console.log(`🔍 VERBOSE: Final result: ${chunkScores.length} chunks with scores > 0 out of ${chunks.length} total chunks`);
     return chunkScores;
   }
 
@@ -273,9 +251,6 @@ export class AdvancedKeywordSearchService {
     let fuzzyMatches = 0;
     let partialMatches = 0;
 
-    console.log(`🔍 VERBOSE: Calculating term score for "${term}" (IDF: ${idf.toFixed(3)})`);
-    console.log(`🔍 VERBOSE: Chunk tokens count: ${chunkTokens.length}, chunk text length: ${chunkText.length}`);
-
     // Check for exact matches first
     let index = 0;
     while ((index = chunkText.indexOf(term, index)) !== -1) {
@@ -283,8 +258,6 @@ export class AdvancedKeywordSearchService {
       exactMatches++;
       index += term.length;
     }
-
-    console.log(`🔍 VERBOSE: Exact matches for "${term}": ${exactMatches}`);
 
     let fuzzyMatch = false;
 
@@ -320,40 +293,27 @@ export class AdvancedKeywordSearchService {
     const totalMatches = exactMatches + (fuzzyMatches * 0.8) + (partialMatches * 0.5);
     const tf = totalMatches / Math.max(chunkTokens.length, 1);
 
-    console.log(`🔍 VERBOSE: Total matches for "${term}": exact=${exactMatches}, fuzzy=${fuzzyMatches}, partial=${partialMatches}`);
-    console.log(`🔍 VERBOSE: TF calculation: ${totalMatches}/${chunkTokens.length} = ${tf.toFixed(4)}`);
-
     // Boost score for exact matches
     let score = tf * idf;
     if (exactMatches > 0) {
       score *= 1.2; // 20% boost for exact matches
-      console.log(`🔍 VERBOSE: Applied exact match boost: ${score.toFixed(4)}`);
     }
 
-    console.log(`🔍 VERBOSE: Final term score for "${term}": ${score.toFixed(4)}`);
     return { score, positions, fuzzyMatch };
   }
 
   private termExistsInText(term: string, text: string, fuzzy?: boolean): boolean {
-    const lowerTerm = term.toLowerCase();
-    
     // Check exact match first
-    if (text.includes(lowerTerm)) {
-      console.log(`🔍 VERBOSE: Term "${term}" found exact match in text`);
+    if (text.includes(term.toLowerCase())) {
       return true;
     }
 
     // Check fuzzy match if enabled
     if (fuzzy) {
       const tokens = this.tokenizeText(text);
-      const fuzzyMatch = tokens.some(token => this.isFuzzyMatch(lowerTerm, token));
-      if (fuzzyMatch) {
-        console.log(`🔍 VERBOSE: Term "${term}" found fuzzy match in text`);
-        return true;
-      }
+      return tokens.some(token => this.isFuzzyMatch(term, token));
     }
 
-    console.log(`🔍 VERBOSE: Term "${term}" NOT found in text (exact: ${text.includes(lowerTerm)}, fuzzy: ${fuzzy || false})`);
     return false;
   }
 
