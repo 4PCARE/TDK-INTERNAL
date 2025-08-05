@@ -1,7 +1,6 @@
 
 import requests
 import json
-import time
 
 def test_python_backend():
     base_url = "http://0.0.0.0:8000"
@@ -70,8 +69,8 @@ def test_python_backend():
     print("   - Other endpoints should fail gracefully without valid JWT")
     print("   - All endpoints are accessible and responding")
     print("\n💡 To test with real authentication:")
-    print("   1. Get a JWT token from your Node.js auth system")
-    print("   2. Replace 'dummy-token-for-testing' with real token")
+    print("   1. Get a valid JWT token from your main app")
+    print("   2. Replace 'dummy-token-for-testing' with the real token")
     print("   3. Re-run the tests")
 
 if __name__ == "__main__":

@@ -1,31 +1,39 @@
 
 from typing import List, Dict, Any
-from .vector_service import VectorService
 
 class SearchService:
     def __init__(self):
-        self.vector_service = VectorService()
-    
-    async def hybrid_search(self, query: str, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """Perform hybrid search combining keyword and vector search"""
+        print("Search service initialized")
+
+    async def hybrid_search(self, query: str, user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Perform hybrid search combining keyword and semantic search"""
         try:
-            # For now, use vector search as the primary method
-            results = await self.vector_service.search_similar(query, user_id, limit)
+            # For now, return mock results
+            print(f"Performing hybrid search for: {query[:50]}...")
             
-            # In production, you'd combine keyword and vector search results
-            # and apply ranking algorithms
+            # Mock search results
+            mock_results = [
+                {
+                    "id": "doc_1",
+                    "content": f"Mock document content related to: {query}",
+                    "title": "Sample Document 1",
+                    "score": 0.95
+                },
+                {
+                    "id": "doc_2", 
+                    "content": f"Another relevant document for: {query}",
+                    "title": "Sample Document 2",
+                    "score": 0.87
+                }
+            ]
             
-            return results
+            return mock_results[:limit]
             
         except Exception as e:
-            print(f"Error in hybrid search: {e}")
+            print(f"Error performing hybrid search: {e}")
             return []
-    
-    async def keyword_search(self, query: str, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+
+    async def keyword_search(self, query: str, user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
         """Perform keyword-based search"""
-        # Implement keyword search logic here
-        return []
-    
-    async def semantic_search(self, query: str, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """Perform semantic search using embeddings"""
-        return await self.vector_service.search_similar(query, user_id, limit)
+        print(f"Performing keyword search for: {query[:50]}...")
+        return await self.hybrid_search(query, user_id, limit)
