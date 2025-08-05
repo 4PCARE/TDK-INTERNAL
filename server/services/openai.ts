@@ -3,6 +3,7 @@ import mammoth from "mammoth";
 import XLSX from "xlsx";
 import textract from "textract";
 import { LlamaParseReader } from "@llamaindex/cloud";
+import fs from 'fs'; // Make sure fs is imported
 
 // Import LangChain components for agent and tools
 import { ChatOpenAI } from "@langchain/openai";
@@ -424,7 +425,7 @@ function createDocumentSearchTool(userId: string) {
       console.log(`🔍 [Tool Entry] Raw input type: ${typeof input}`);
       console.log(`🔍 [Tool Entry] Raw input value:`, input);
       console.log(`🔍 [Tool Entry] User ID: ${userId}`);
-      
+
       try {
         // Parse input - handle both string and object formats
         let query: string;
@@ -432,49 +433,67 @@ function createDocumentSearchTool(userId: string) {
         let limit = 5;
         let threshold = 0.3;
 
-        console.log(`🔍 [Tool Parsing] Starting input parsing...`);
+        if (typeof input === 'object' && input !== null) {
+          console.log(`🔍 [Tool Parsing] Processing object input`);
 
-        // Handle different input formats with better error handling
-        try {
-          if (typeof input === 'object' && input !== null) {
-            console.log(`🔍 [Tool Parsing] Detected object input format`);
-            const params = input as any;
-            console.log(`🔍 [Tool Parsing] Object params:`, params);
-            query = params.input || params.query || JSON.stringify(input);
-            searchType = params.searchType || 'smart_hybrid';
-            limit = params.limit || 5;
-            threshold = params.threshold || 0.3;
-            console.log(`🔍 [Tool Parsing] Object parsing successful`);
-          } else if (typeof input === 'string' && input.trim().startsWith('{')) {
-            console.log(`🔍 [Tool Parsing] Detected JSON string input format`);
-            try {
-              const params = JSON.parse(input);
-              console.log(`🔍 [Tool Parsing] Parsed JSON:`, params);
-              query = params.input || params.query || input;
-              searchType = params.searchType || 'smart_hybrid';
-              limit = params.limit || 5;
-              threshold = params.threshold || 0.3;
-              console.log(`🔍 [Tool Parsing] JSON parsing successful`);
-            } catch (parseError) {
-              console.log(`🔍 [Tool Parsing] JSON parse failed, using input as string:`, parseError);
+          // Handle different object structures
+          if ('input' in input && typeof input.input === 'string') {
+            // LangChain-style input: { input: "search query" }
+            query = input.input;
+            console.log(`🔍 [Tool Parsing] Extracted query from input.input: "${query}"`);
+          } else if ('query' in input && typeof input.query === 'string') {
+            // Direct parameters: { query: "search", searchType: "vector", ... }
+            query = input.query;
+            searchType = input.searchType || searchType;
+            limit = input.limit || limit;
+            threshold = input.threshold || threshold;
+            console.log(`🔍 [Tool Parsing] Extracted structured parameters`);
+            console.log(`🔍 [Tool Parsing] - query: "${query}"`);
+            console.log(`🔍 [Tool Parsing] - searchType: ${searchType}`);
+            console.log(`🔍 [Tool Parsing] - limit: ${limit}`);
+            console.log(`🔍 [Tool Parsing] - threshold: ${threshold}`);
+          } else {
+            // Fallback - try to convert object to string
+            console.log(`🔍 [Tool Parsing] Unknown object structure, converting to string`);
+            query = JSON.stringify(input);
+          }
+        } else if (typeof input === 'string') {
+          console.log(`🔍 [Tool Parsing] Processing string input`);
+
+          // Try to parse as JSON first
+          try {
+            const parsed = JSON.parse(input);
+            if (parsed && typeof parsed === 'object') {
+              console.log(`🔍 [Tool Parsing] Successfully parsed JSON string`);
+              if (parsed.input) {
+                query = parsed.input;
+              } else if (parsed.query) {
+                query = parsed.query;
+                searchType = parsed.searchType || searchType;
+                limit = parsed.limit || limit;
+                threshold = parsed.threshold || threshold;
+              } else {
+                query = input;
+              }
+            } else {
               query = input;
             }
-          } else {
-            console.log(`🔍 [Tool Parsing] Using direct string input`);
-            // Direct string input
-            query = String(input);
+          } catch (e) {
+            console.log(`🔍 [Tool Parsing] Not JSON, using as direct string query`);
+            query = input;
           }
-        } catch (parsingError) {
-          console.error(`🚨 [Tool Parsing] Critical parsing error:`, parsingError);
+        } else {
+          console.log(`🔍 [Tool Parsing] Unexpected input type, converting to string`);
           query = String(input || "");
         }
 
-        console.log(`🔍 [Tool Processing] === PARSED PARAMETERS ===`);
-        console.log(`🔍 [Tool Processing] Final query: "${query}"`);
-        console.log(`🔍 [Tool Processing] Search type: ${searchType}`);
-        console.log(`🔍 [Tool Processing] Limit: ${limit}`);
-        console.log(`🔍 [Tool Processing] Threshold: ${threshold}`);
-        console.log(`🔍 [Tool Processing] User ID: ${userId}`);
+        // Ensure we have proper defaults when LLM sends simple string
+        console.log(`🔍 [Tool Parsing] === FINAL PARSED PARAMETERS ===`);
+        console.log(`🔍 [Tool Parsing] Final query: "${query}"`);
+        console.log(`🔍 [Tool Parsing] Final searchType: ${searchType}`);
+        console.log(`🔍 [Tool Parsing] Final limit: ${limit}`);
+        console.log(`🔍 [Tool Parsing] Final threshold: ${threshold}`);
+        console.log(`🔍 [Tool Parsing] User ID: ${userId}`);
 
         if (!query || query.trim().length === 0) {
           const emptyQueryMessage = "Please provide a search query to find documents.";
@@ -491,48 +510,43 @@ function createDocumentSearchTool(userId: string) {
         console.log(`🔍 [Tool Calling] - searchType: ${searchType}`);
         console.log(`🔍 [Tool Calling] - limit: ${limit}`);
         console.log(`🔍 [Tool Calling] - threshold: ${threshold}`);
+        console.log(`🔍 [Tool Calling] - specificDocumentIds: undefined (not provided by LLM)`);
 
-        const functionCallStartTime = Date.now();
-        let responseText: string;
-        
-        try {
-          responseText = await documentSearch({
-            query: query.trim(),
-            userId: userId,
-            searchType: searchType as any,
-            limit: limit,
-            threshold: threshold
-          });
-          
-          // Ensure we always have a string response
-          if (typeof responseText !== 'string') {
-            console.warn(`🚨 [Tool Warning] documentSearch returned non-string:`, typeof responseText);
-            responseText = String(responseText || "No results found");
-          }
-          
-          if (!responseText || responseText.trim().length === 0) {
-            responseText = "No documents found matching your search criteria.";
-          }
-          
-        } catch (searchError) {
-          console.error(`🚨 [Tool Error] documentSearch function failed:`, searchError);
-          responseText = `Search error: ${searchError?.message || 'Unknown error occurred'}`;
+        const searchStartTime = Date.now();
+        const responseText = await documentSearch({
+          query: query.trim(),
+          userId: userId,
+          searchType: searchType,
+          limit: limit,
+          threshold: threshold,
+          specificDocumentIds: undefined // Explicitly set to undefined
+        });
+        const searchDuration = Date.now() - searchStartTime;
+
+        // Ensure we always have a string response
+        if (typeof responseText !== 'string') {
+          console.warn(`🚨 [Tool Warning] documentSearch returned non-string:`, typeof responseText);
+          responseText = String(responseText || "No results found");
         }
-        
-        const functionCallDuration = Date.now() - functionCallStartTime;
+
+        if (!responseText || responseText.trim().length === 0) {
+          responseText = "No documents found matching your search criteria.";
+        }
+
+        const functionCallDuration = Date.now() - searchStartTime;
 
         console.log(`📄 [Tool Results] === DOCUMENT SEARCH COMPLETED ===`);
         console.log(`📄 [Tool Results] Function call duration: ${functionCallDuration}ms`);
         console.log(`📄 [Tool Results] Response type: ${typeof responseText}`);
         console.log(`📄 [Tool Results] Response length: ${responseText?.length || 0} characters`);
         console.log(`📄 [Tool Results] Response preview: ${responseText?.substring(0, 100)}...`);
-        
+
         const totalToolDuration = Date.now() - toolStartTime;
         console.log(`📄 [Tool Return] === RETURNING RESPONSE ===`);
         console.log(`📄 [Tool Return] Total tool execution time: ${totalToolDuration}ms`);
         console.log(`📄 [Tool Return] Final response text: "${responseText}"`);
         console.log(`🔍 [Tool Entry] === DOCUMENT SEARCH TOOL COMPLETED (SUCCESS) ===`);
-        
+
         return responseText;
 
       } catch (error) {
@@ -543,29 +557,29 @@ function createDocumentSearchTool(userId: string) {
         console.error("🚨 [Tool Error] Error message:", error?.message || 'No message');
         console.error("🚨 [Tool Error] Full error object:", error);
         console.error("🚨 [Tool Error] Stack trace:", error?.stack);
-        
+
         // Always return a proper error message string
         const errorMessage = `I encountered an error while searching your documents: ${error?.message || 'unknown error occurred'}. Please try rephrasing your search query.`;
         console.log(`🚨 [Tool Return] Returning error message: ${errorMessage}`);
         console.log(`🔍 [Tool Entry] === DOCUMENT SEARCH TOOL COMPLETED (ERROR) ===`);
-        
+
         // Make sure we return a string, never throw
         return errorMessage;
       }
     },
   });
-  
+
   console.log(`🛠️ [Tool Creation] Document search tool created successfully for user: ${userId}`);
   console.log(`🛠️ [Tool Creation] Tool name: ${tool.name}`);
   console.log(`🛠️ [Tool Creation] Tool description length: ${tool.description.length} characters`);
-  
+
   return tool;
 }
 
 // Create agent with tools
 async function createAgentWithTools(userId: string) {
   console.log(`🤖 [Agent Setup] Creating agent with tools for user: ${userId}`);
-  
+
   const documentSearchTool = createDocumentSearchTool(userId);
   const tools = [documentSearchTool];
 
@@ -632,17 +646,17 @@ export async function generateChatResponse(userMessage: string, documents: Docum
       console.log(`🤖 [Agent Chat] User ID: ${userId}`);
       console.log(`🤖 [Agent Chat] User message: "${userMessage}"`);
       console.log(`🤖 [Agent Chat] Timestamp: ${new Date().toISOString()}`);
-      
+
       const agentExecutor = await createAgentWithTools(userId);
       console.log(`🤖 [Agent Chat] Agent executor created successfully`);
 
       console.log(`🤖 [Agent Chat] === INVOKING AGENT EXECUTOR ===`);
       const invokeStartTime = Date.now();
-      
+
       const result = await agentExecutor.invoke({
         input: userMessage,
       });
-      
+
       const invokeDuration = Date.now() - invokeStartTime;
       console.log(`🤖 [Agent Chat] === AGENT EXECUTOR COMPLETED ===`);
       console.log(`🤖 [Agent Chat] Execution time: ${invokeDuration}ms`);
