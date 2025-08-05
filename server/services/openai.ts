@@ -413,24 +413,54 @@ function createDocumentSearchTool(userId: string) {
     description: `Search through documents in the knowledge management system. Use this tool when users ask questions about documents, need information from their knowledge base, or want to find specific content.
 
     Parameters:
-    - query: The search query string to find relevant documents
-    - searchType: Type of search ('semantic', 'keyword', 'hybrid', or 'smart_hybrid') - default: 'smart_hybrid'
-    - limit: Maximum number of results to return (default: 10, max: 50)
-    - threshold: Minimum similarity threshold for results (default: 0.3)
+    - input: The search query string to find relevant documents
 
     Returns: Array of search results with document content, names, and similarity scores`,
     func: async (input: string) => {
       try {
-        const params = JSON.parse(input);
+        // Parse input - it might be JSON or just a string
+        let query: string;
+        let searchType = 'smart_hybrid';
+        let limit = 10;
+        let threshold = 0.3;
+
+        try {
+          const params = JSON.parse(input);
+          query = params.input || params.query || input;
+          searchType = params.searchType || 'smart_hybrid';
+          limit = params.limit || 10;
+          threshold = params.threshold || 0.3;
+        } catch {
+          // If parsing fails, treat the entire input as the query
+          query = input;
+        }
+
+        console.log(`🔍 Document search tool called with query: "${query}"`);
+
         const results = await documentSearch({
-          query: params.query,
+          query: query,
           userId: userId,
-          searchType: params.searchType || 'smart_hybrid',
-          limit: params.limit || 10,
-          threshold: params.threshold || 0.3
+          searchType: searchType,
+          limit: limit,
+          threshold: threshold
         });
 
-        return JSON.stringify(results, null, 2);
+        console.log(`📄 Document search tool found ${results.length} results`);
+
+        if (results.length === 0) {
+          return "No documents found matching your search query. You may need to upload relevant documents or try different search terms.";
+        }
+
+        // Format results for better AI understanding
+        const formattedResults = results.map((result, index) => ({
+          rank: index + 1,
+          name: result.name,
+          similarity: result.similarity,
+          content: result.content.substring(0, 500) + (result.content.length > 500 ? '...' : ''),
+          summary: result.summary
+        }));
+
+        return JSON.stringify(formattedResults, null, 2);
       } catch (error) {
         console.error("Document search tool error:", error);
         return `Error searching documents: ${error.message}`;
