@@ -17,24 +17,28 @@ export function registerPythonProxyRoutes(app: Express) {
     }
   });
 
-  // Python document processing
-  app.post("/api/python/documents/upload", smartAuth, async (req: any, res) => {
+  // Python document processing with multer middleware
+  const multer = require('multer');
+  const upload = multer({ storage: multer.memoryStorage() });
+  
+  app.post("/api/python/documents/upload", smartAuth, upload.single('file'), async (req: any, res) => {
     try {
       const token = req.headers.authorization;
+      
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
       
       // Handle file upload forwarding using form-data
       const FormData = (await import('form-data')).default;
       const formData = new FormData();
       
-      // Handle file upload forwarding
-      if (req.files && req.files.length > 0) {
-        for (const file of req.files) {
-          formData.append('file', file.buffer, {
-            filename: file.originalname,
-            contentType: file.mimetype
-          });
-        }
-      }
+      // Properly append the file buffer with correct options
+      formData.append('file', req.file.buffer, {
+        filename: req.file.originalname,
+        contentType: req.file.mimetype,
+        knownLength: req.file.size
+      });
 
       const response = await axios.post(
         `${PYTHON_BACKEND_URL}/api/python/documents/upload`,
@@ -43,14 +47,21 @@ export function registerPythonProxyRoutes(app: Express) {
           headers: {
             'Authorization': token,
             ...formData.getHeaders()
-          }
+          },
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity
         }
       );
 
       res.json(response.data);
     } catch (error) {
       console.error("Python upload proxy error:", error);
-      res.status(500).json({ error: "Upload failed via Python backend" });
+      if (error.response) {
+        console.error("Python backend response:", error.response.data);
+        res.status(error.response.status).json(error.response.data);
+      } else {
+        res.status(500).json({ error: "Upload failed via Python backend" });
+      }
     }
   });
 
