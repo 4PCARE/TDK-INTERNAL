@@ -20,17 +20,20 @@ export function registerPythonProxyRoutes(app: Express) {
   });
 
   // Python document upload service
-  app.post("/api/python/documents/upload", smartAuth, upload.single("file"), async (req: any, res) => {
+  app.post("/api/python/documents/upload", smartAuth, upload.array("files", 10), async (req: any, res) => {
     try {
       const token = req.headers.authorization;
-      const file = req.file;
+      const files = req.files as Express.Multer.File[];
 
-      if (!file) {
-        return res.status(400).json({ error: "No file uploaded" });
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: "No files uploaded" });
       }
 
-      console.log("Python upload proxy: Processing file", file.originalname);
+      console.log("Python upload proxy: Processing", files.length, "files");
 
+      // Process first file only for now (Python backend expects single file)
+      const file = files[0];
+      
       // Create FormData for Python backend
       const formData = new FormData();
       const fileStream = fs.createReadStream(file.path);
