@@ -408,7 +408,8 @@ Current time: ${thaiTime}`;
 
 // Create document search tool for LangChain
 function createDocumentSearchTool(userId: string) {
-  return new DynamicTool({
+  console.log(`🛠️ [Tool Creation] Creating document_search tool for user: ${userId}`);
+  const tool = new DynamicTool({
     name: "document_search",
     description: `Search through documents in the knowledge management system. Use this tool when users ask questions about documents, need information from their knowledge base, or want to find specific content.
 
@@ -417,7 +418,13 @@ function createDocumentSearchTool(userId: string) {
 
     Returns: String with search results containing document content, names, and similarity scores`,
     func: async (input: string): Promise<string> => {
-      console.log(`🔍 [Tool Entry] Document search tool called with input: "${input}"`);
+      const toolStartTime = Date.now();
+      console.log(`🔍 [Tool Entry] === DOCUMENT SEARCH TOOL CALLED ===`);
+      console.log(`🔍 [Tool Entry] Timestamp: ${new Date().toISOString()}`);
+      console.log(`🔍 [Tool Entry] Raw input type: ${typeof input}`);
+      console.log(`🔍 [Tool Entry] Raw input value: "${input}"`);
+      console.log(`🔍 [Tool Entry] Input length: ${input?.length || 0}`);
+      console.log(`🔍 [Tool Entry] User ID: ${userId}`);
       
       try {
         // Parse input - handle both string and JSON object formats
@@ -426,33 +433,53 @@ function createDocumentSearchTool(userId: string) {
         let limit = 5;
         let threshold = 0.3;
 
+        console.log(`🔍 [Tool Parsing] Starting input parsing...`);
+
         // Handle the case where LLM sends JSON like {"input": "เดอะมอลล์"}
         if (input.trim().startsWith('{')) {
+          console.log(`🔍 [Tool Parsing] Detected JSON input format`);
           try {
             const params = JSON.parse(input);
+            console.log(`🔍 [Tool Parsing] Parsed JSON:`, params);
             query = params.input || params.query || input;
             searchType = params.searchType || 'smart_hybrid';
             limit = params.limit || 5;
             threshold = params.threshold || 0.3;
+            console.log(`🔍 [Tool Parsing] JSON parsing successful`);
           } catch (parseError) {
-            console.log(`🔍 [Tool] JSON parse failed, using input as string:`, parseError);
+            console.log(`🔍 [Tool Parsing] JSON parse failed, using input as string:`, parseError);
             query = input;
           }
         } else {
+          console.log(`🔍 [Tool Parsing] Using direct string input`);
           // Direct string input
           query = input;
         }
 
-        console.log(`🔍 [Tool Processing] Parsed query: "${query}", searchType: ${searchType}, userId: ${userId}`);
+        console.log(`🔍 [Tool Processing] === PARSED PARAMETERS ===`);
+        console.log(`🔍 [Tool Processing] Final query: "${query}"`);
+        console.log(`🔍 [Tool Processing] Search type: ${searchType}`);
+        console.log(`🔍 [Tool Processing] Limit: ${limit}`);
+        console.log(`🔍 [Tool Processing] Threshold: ${threshold}`);
+        console.log(`🔍 [Tool Processing] User ID: ${userId}`);
 
         if (!query || query.trim().length === 0) {
           const emptyQueryMessage = "Please provide a search query to find documents.";
-          console.log(`🔍 [Tool Return] Empty query: ${emptyQueryMessage}`);
+          console.log(`🔍 [Tool Return] Empty query detected: ${emptyQueryMessage}`);
+          console.log(`🔍 [Tool Entry] === DOCUMENT SEARCH TOOL COMPLETED (EMPTY QUERY) ===`);
           return emptyQueryMessage;
         }
 
         // Call the document search function - it now returns a string directly
-        console.log(`🔍 [Tool Calling] documentSearch function...`);
+        console.log(`🔍 [Tool Calling] === CALLING documentSearch FUNCTION ===`);
+        console.log(`🔍 [Tool Calling] About to call documentSearch with parameters:`);
+        console.log(`🔍 [Tool Calling] - query: "${query.trim()}"`);
+        console.log(`🔍 [Tool Calling] - userId: ${userId}`);
+        console.log(`🔍 [Tool Calling] - searchType: ${searchType}`);
+        console.log(`🔍 [Tool Calling] - limit: ${limit}`);
+        console.log(`🔍 [Tool Calling] - threshold: ${threshold}`);
+
+        const functionCallStartTime = Date.now();
         const responseText = await documentSearch({
           query: query.trim(),
           userId: userId,
@@ -460,21 +487,43 @@ function createDocumentSearchTool(userId: string) {
           limit: limit,
           threshold: threshold
         });
+        const functionCallDuration = Date.now() - functionCallStartTime;
 
-        console.log(`📄 [Tool Results] Document search completed. Response length: ${responseText.length} characters`);
-        console.log(`📄 [Tool Return] Returning response from documentSearch function`);
+        console.log(`📄 [Tool Results] === DOCUMENT SEARCH COMPLETED ===`);
+        console.log(`📄 [Tool Results] Function call duration: ${functionCallDuration}ms`);
+        console.log(`📄 [Tool Results] Response type: ${typeof responseText}`);
+        console.log(`📄 [Tool Results] Response length: ${responseText?.length || 0} characters`);
+        console.log(`📄 [Tool Results] Response preview: ${responseText?.substring(0, 100)}...`);
+        
+        const totalToolDuration = Date.now() - toolStartTime;
+        console.log(`📄 [Tool Return] === RETURNING RESPONSE ===`);
+        console.log(`📄 [Tool Return] Total tool execution time: ${totalToolDuration}ms`);
+        console.log(`🔍 [Tool Entry] === DOCUMENT SEARCH TOOL COMPLETED (SUCCESS) ===`);
         
         return responseText;
 
       } catch (error) {
-        console.error("🚨 [Tool Error] Document search tool failed:", error);
+        const totalToolDuration = Date.now() - toolStartTime;
+        console.error("🚨 [Tool Error] === DOCUMENT SEARCH TOOL ERROR ===");
+        console.error("🚨 [Tool Error] Total execution time before error:", totalToolDuration + "ms");
+        console.error("🚨 [Tool Error] Error type:", error?.constructor?.name || 'Unknown');
+        console.error("🚨 [Tool Error] Error message:", error?.message || 'No message');
+        console.error("🚨 [Tool Error] Full error object:", error);
         console.error("🚨 [Tool Error] Stack trace:", error?.stack);
+        
         const errorMessage = `ERROR: ${error?.message || 'unknown error occurred during document search'}`;
-        console.log(`🚨 [Tool Return] Error message: ${errorMessage}`);
+        console.log(`🚨 [Tool Return] Returning error message: ${errorMessage}`);
+        console.log(`🔍 [Tool Entry] === DOCUMENT SEARCH TOOL COMPLETED (ERROR) ===`);
         return errorMessage;
       }
     },
   });
+  
+  console.log(`🛠️ [Tool Creation] Document search tool created successfully for user: ${userId}`);
+  console.log(`🛠️ [Tool Creation] Tool name: ${tool.name}`);
+  console.log(`🛠️ [Tool Creation] Tool description length: ${tool.description.length} characters`);
+  
+  return tool;
 }
 
 // Create agent with tools
