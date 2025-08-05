@@ -877,8 +877,8 @@ ${document.summary}`;
     }
   });
 
-  // Category statistics endpoint
-  app.get("/api/stats/categories", smartAuth, async (req: any, res) => {
+  // AI Category statistics endpoint
+  app.get("/api/stats/ai-categories", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { sql } = await import("drizzle-orm");
@@ -895,8 +895,8 @@ ${document.summary}`;
 
       res.json(categoryStats);
     } catch (error) {
-      console.error("Error fetching category stats:", error);
-      res.status(500).json({ message: "Failed to fetch category stats" });
+      console.error("Error fetching AI category stats:", error);
+      res.status(500).json({ message: "Failed to fetch AI category stats" });
     }
   });
 
