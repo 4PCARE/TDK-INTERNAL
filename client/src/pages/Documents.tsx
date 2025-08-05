@@ -318,23 +318,35 @@ export default function Documents() {
     }
 
     try {
-      await Promise.all(
-        selectedDocuments.map(id => 
-          fetch(`/api/documents/${id}`, { method: 'DELETE' })
-        )
-      );
+      const response = await fetch('/api/documents/bulk', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
+        body: JSON.stringify({ documentIds: selectedDocuments })
+      });
+
+      if (!response.ok) {
+        throw new Error('Bulk deletion failed');
+      }
+
+      const result = await response.json();
 
       toast({
         title: "Success",
-        description: `${selectedDocuments.length} document(s) deleted successfully`,
+        description: `${result.deletedCount || selectedDocuments.length} document(s) deleted successfully`,
       });
 
       setSelectedDocuments([]);
+      
+      // Force cache invalidation and reload
       window.location.reload();
     } catch (error) {
+      console.error('Bulk deletion error:', error);
       toast({
         title: "Error",
-        description: "Failed to delete some documents",
+        description: "Failed to delete documents",
         variant: "destructive",
       });
     }

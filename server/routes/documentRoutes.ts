@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { smartAuth } from "../smartAuth";
 import { storage } from "../storage";
 import { db } from "../db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, inArray } from "drizzle-orm";
 import { documents, users, departments } from "@shared/schema";
 import multer from "multer";
 import path from "path";
@@ -965,7 +965,7 @@ ${document.summary}`;
 
       // Fetch documents to get file paths before deletion
       const documentsToDelete = await db.query.documents.findMany({
-        where: (doc, { eq, inL }) => eq(doc.userId, userId) && inL(doc.id, documentIds),
+        where: (doc, { eq, inArray }) => and(eq(doc.userId, userId), inArray(doc.id, documentIds)),
         columns: {
           id: true,
           filePath: true,
@@ -994,10 +994,18 @@ ${document.summary}`;
       // Delete from database
       await db.transaction(async (trx) => {
         await trx.delete(documents)
-          .where(
-            (doc, { eq, inL }) => eq(doc.userId, userId) && inL(doc.id, documentIds)
-          );
+          .where(and(eq(documents.userId, userId), inArray(documents.id, documentIds)));
       });
+
+      // Also clean up vector embeddings for deleted documents
+      try {
+        const { vectorService } = await import('../services/vectorService');
+        await Promise.all(
+          documentIds.map(id => vectorService.removeDocument(id.toString()))
+        );
+      } catch (vectorError) {
+        console.error("Failed to clean up vector embeddings:", vectorError);
+      }
 
       // Log the bulk deletion action for audit
       try {
@@ -1018,7 +1026,19 @@ ${document.summary}`;
         console.error("Failed to create audit log for bulk deletion:", auditError);
       }
 
-      res.json({ success: true, message: "Documents deleted successfully" });
+      // Set cache control headers to prevent caching
+      res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Documents deleted successfully",
+        deletedCount: documentsToDelete.length,
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
       console.error("Error during bulk deletion:", error);
       res.status(500).json({ message: "Failed to perform bulk deletion", error: error.message });
