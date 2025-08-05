@@ -110,6 +110,9 @@ class SearchService:
         limit: int = 10
     ) -> List[Dict[str, Any]]:
         """Perform BM25-based keyword search"""
+        if not documents:
+            return []
+            
         query_terms = self._tokenize(query)
         if not query_terms:
             return []

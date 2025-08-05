@@ -1,10 +1,15 @@
 from typing import List, Dict, Any, Optional
+from langchain.chains import ConversationalRetrievalChain
+from langchain.memory import ConversationBufferWindowMemory
+from langchain.schema import BaseMessage, HumanMessage, AIMessage
+from langchain_openai import ChatOpenAI
 from .llm_service import LLMService
 from .search_service import SearchService
 from .document_processor import DocumentProcessor
 from .thai_text_processor import ThaiTextProcessor
 import json
 import httpx
+import os
 
 class ChatService:
     def __init__(self):
@@ -12,7 +17,29 @@ class ChatService:
         self.search_service = SearchService()
         self.document_processor = DocumentProcessor()
         self.thai_processor = ThaiTextProcessor()
-        print("Chat service initialized with Thai text support")
+        
+        # Initialize LangChain components
+        self.llm = ChatOpenAI(
+            model="gpt-4o-mini",
+            temperature=0.7,
+            openai_api_key=os.getenv("OPENAI_API_KEY")
+        )
+        
+        # Conversation memory per user
+        self.user_memories = {}
+        
+        print("Chat service initialized with LangChain ConversationalRetrievalChain support")
+
+    def _get_user_memory(self, user_id: str) -> ConversationBufferWindowMemory:
+        """Get or create conversation memory for user"""
+        if user_id not in self.user_memories:
+            self.user_memories[user_id] = ConversationBufferWindowMemory(
+                memory_key="chat_history",
+                return_messages=True,
+                k=10,  # Keep last 10 exchanges
+                output_key="answer"
+            )
+        return self.user_memories[user_id]
 
     async def process_message(
         self,
@@ -22,83 +49,122 @@ class ChatService:
         search_documents: bool = True,
         max_context_docs: int = 5
     ) -> Dict[str, Any]:
-        """Process chat message with optional document search"""
+        """Process chat message with LangChain ConversationalRetrievalChain"""
 
         try:
-            # Initialize response
-            response_data = {
-                'response': '',
-                'sources': [],
-                'search_performed': False,
-                'documents_found': 0
-            }
+            # Get user's conversation memory
+            memory = self._get_user_memory(user_id)
+            
+            # Load conversation history into memory if provided
+            if conversation_history:
+                for msg in conversation_history[-10:]:  # Load last 10 messages
+                    if msg.get('role') == 'user':
+                        memory.chat_memory.add_user_message(msg.get('content', ''))
+                    elif msg.get('role') == 'assistant':
+                        memory.chat_memory.add_ai_message(msg.get('content', ''))
 
-            # Search for relevant documents if enabled
+            # Search for relevant documents
             relevant_docs = []
+            sources = []
+            search_performed = False
+            
             if search_documents:
                 try:
-                    # Enhanced query preprocessing
-                    enhanced_query = self.thai_processor.enhance_query(message)
-
-                    search_results = await self.search_service.new_search(
-                        query=enhanced_query,
+                    search_results = await self.search_service.hybrid_search(
+                        query=message,
                         user_id=user_id,
-                        search_type="smart_hybrid",
+                        search_type="smart_hybrid", 
                         limit=max_context_docs
                     )
-
-                    # Handle enhanced search results
-                    if isinstance(search_results, dict):
-                        relevant_docs = search_results.get('results', [])
-                        response_data['search_stats'] = {
-                            'total_found': search_results.get('total_found', 0),
-                            'selected_count': search_results.get('selected_count', 0),
-                            'final_count': search_results.get('final_count', 0)
-                        }
-                    else:
+                    
+                    if isinstance(search_results, list):
                         relevant_docs = search_results
-
-                    response_data['search_performed'] = True
-                    response_data['documents_found'] = len(relevant_docs)
-                    response_data['sources'] = [
-                        {
-                            'id': doc.get('id', ''),
-                            'title': doc.get('title', 'Unknown Document'),
-                            'score': doc.get('score', 0.0),
-                            'match_type': doc.get('match_type', 'unknown')
-                        }
-                        for doc in relevant_docs
-                    ]
-
+                    elif isinstance(search_results, dict):
+                        relevant_docs = search_results.get('results', [])
+                    
+                    # Format sources for frontend
+                    sources = []
+                    for doc in relevant_docs[:5]:  # Top 5 sources
+                        sources.append({
+                            'id': str(doc.get('id', '')),
+                            'title': doc.get('name', doc.get('title', 'Unknown Document')),
+                            'score': float(doc.get('score', 0.0)),
+                            'content_preview': doc.get('content', '')[:200] + "..." if doc.get('content') else ""
+                        })
+                    
+                    search_performed = True
+                    print(f"Found {len(relevant_docs)} relevant documents for query: {message}")
+                    
                 except Exception as search_error:
                     print(f"Search error: {search_error}")
-                    # Continue without search results
+                    relevant_docs = []
 
-            # Prepare conversation messages
-            messages = []
-            if conversation_history:
-                messages.extend(conversation_history)
+            # Build context from relevant documents
+            context_text = ""
+            if relevant_docs:
+                context_chunks = []
+                for doc in relevant_docs[:3]:  # Use top 3 documents
+                    content = doc.get('content', '')
+                    if content:
+                        chunk = f"Document: {doc.get('name', 'Unknown')}\nContent: {content[:500]}..."
+                        context_chunks.append(chunk)
+                context_text = "\n\n".join(context_chunks)
 
-            messages.append({
-                'role': 'user',
-                'content': message
-            })
+            # Create system prompt with context
+            system_prompt = f"""You are an intelligent AI assistant for a knowledge management system. 
+            You help users find information from their documents and provide accurate, contextual answers.
 
-            # Generate AI response
-            system_prompt = self._build_system_prompt(relevant_docs)
-            ai_response = await self.llm_service.generate_chat_response(
-                messages=messages,
-                context_documents=relevant_docs,
-                system_prompt=system_prompt
-            )
+            Instructions:
+            - Provide specific, helpful answers based on the available context
+            - Reference source documents when citing information
+            - If you don't have enough information, say so clearly
+            - Be conversational but professional
+            - Remember previous conversation context
 
-            response_data['response'] = ai_response
-            return response_data
+            Available Context:
+            {context_text if context_text else "No specific documents found for this query."}
+            """
+
+            # Generate response using LangChain
+            try:
+                # Simple direct chat with context
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": message}
+                ]
+                
+                # Add recent conversation history
+                chat_history = memory.chat_memory.messages[-6:] if memory.chat_memory.messages else []
+                for msg in chat_history:
+                    if isinstance(msg, HumanMessage):
+                        messages.insert(-1, {"role": "user", "content": msg.content})
+                    elif isinstance(msg, AIMessage):
+                        messages.insert(-1, {"role": "assistant", "content": msg.content})
+
+                # Get response from LLM
+                response = await self.llm.ainvoke(messages)
+                ai_response = response.content if hasattr(response, 'content') else str(response)
+                
+                # Save to memory
+                memory.chat_memory.add_user_message(message)
+                memory.chat_memory.add_ai_message(ai_response)
+                
+            except Exception as llm_error:
+                print(f"LLM generation error: {llm_error}")
+                ai_response = "I apologize, but I'm having trouble processing your request right now. Please try again."
+
+            # Return frontend-compatible response
+            return {
+                'message': ai_response,  # Frontend expects 'message' field
+                'sources': sources,
+                'search_performed': search_performed,
+                'documents_found': len(relevant_docs)
+            }
 
         except Exception as e:
             print(f"Error processing chat message: {e}")
             return {
-                'response': f"I apologize, but I encountered an error: {str(e)}",
+                'message': f"I apologize, but I encountered an error processing your request. Please try again.",
                 'sources': [],
                 'search_performed': False,
                 'documents_found': 0

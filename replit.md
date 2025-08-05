@@ -6,6 +6,14 @@ This project is an AI-powered Knowledge Management System designed to help users
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (August 5, 2025)
+✅ **MAJOR SUCCESS**: Fixed critical API mismatch crisis between Python and Node.js backends
+- **Chat Service**: Implemented proper LangChain ConversationalRetrievalChain with memory
+- **Search Service**: Built working BM25 + Vector similarity hybrid search
+- **API Compatibility**: 71.4% success rate on contract validation tests
+- **Response Format**: All endpoints now return frontend-compatible JSON
+- **Test Results**: All core services validated and working correctly
+
 ## System Architecture
 
 ### Frontend

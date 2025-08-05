@@ -1,6 +1,6 @@
 
 # API Contract Alignment Test Report
-Generated: 2025-08-05T08:45:05.239909
+Generated: 2025-08-05T08:56:50.737489
 
 ## Summary
 - **Total Tests**: 7
@@ -14,37 +14,22 @@ Generated: 2025-08-05T08:45:05.239909
 ### ❌ GET /health
 - **Status Code**: 200
 - **Frontend Compatible**: False
-- **Response Size**: 125 bytes
+- **Response Size**: 130 bytes
 - **Response Structure**: {
   "status": "str",
   "timestamp": "str",
   "services": {
-    "llm": "bool",
-    "vector": "bool",
+    "chat": "bool",
     "search": "bool",
-    "chat": "bool"
+    "vector": "bool",
+    "database": "bool"
   }
 }
 
 ### ✅ GET /api/python/documents
 - **Status Code**: 200
 - **Frontend Compatible**: True
-- **Response Size**: 109105 bytes
-- **Response Structure**: [
-  {
-    "id": "int",
-    "name": "str",
-    "content": "str",
-    "summary": "str",
-    "createdAt": "str",
-    "fileSize": "int",
-    "tags": [
-      "max_depth_reached"
-    ],
-    "aiCategory": "str",
-    "mimeType": "str"
-  }
-]
+- **Response Size**: 2 bytes
 
 ### ✅ GET /api/python/documents/search
 - **Status Code**: 200
@@ -54,33 +39,23 @@ Generated: 2025-08-05T08:45:05.239909
 ### ✅ POST /api/python/chat
 - **Status Code**: 200
 - **Frontend Compatible**: True
-- **Response Size**: 230 bytes
+- **Response Size**: 138 bytes
 - **Response Structure**: {
   "response": "str",
   "sources": [],
   "search_performed": "bool",
-  "documents_found": "int",
-  "search_stats": {
-    "total_found": "int",
-    "selected_count": "int",
-    "final_count": "int"
-  }
+  "documents_found": "int"
 }
 
 ### ✅ POST /api/python/chat/message
 - **Status Code**: 200
 - **Frontend Compatible**: True
-- **Response Size**: 386 bytes
+- **Response Size**: 247 bytes
 - **Response Structure**: {
   "response": "str",
   "sources": [],
   "search_performed": "bool",
-  "documents_found": "int",
-  "search_stats": {
-    "total_found": "int",
-    "selected_count": "int",
-    "final_count": "int"
-  }
+  "documents_found": "int"
 }
 
 ### ✅ POST /api/python/search
@@ -97,7 +72,7 @@ Generated: 2025-08-05T08:45:05.239909
 ### ❌ GET /api/python/stats
 - **Status Code**: 200
 - **Frontend Compatible**: False
-- **Response Size**: 180 bytes
+- **Response Size**: 187 bytes
 - **Response Structure**: {
   "vectorService": {
     "total_documents": "int",
@@ -105,10 +80,10 @@ Generated: 2025-08-05T08:45:05.239909
     "embeddings_enabled": "bool"
   },
   "servicesStatus": {
-    "llmService": "bool",
-    "vectorService": "bool",
+    "chatService": "bool",
     "searchService": "bool",
-    "chatService": "bool"
+    "vectorService": "bool",
+    "documentProcessor": "bool"
   }
 }
 
