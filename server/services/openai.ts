@@ -434,34 +434,39 @@ function createDocumentSearchTool(userId: string) {
 
         console.log(`🔍 [Tool Parsing] Starting input parsing...`);
 
-        // Handle different input formats
-        if (typeof input === 'object' && input !== null) {
-          console.log(`🔍 [Tool Parsing] Detected object input format`);
-          const params = input as any;
-          console.log(`🔍 [Tool Parsing] Object params:`, params);
-          query = params.input || params.query || JSON.stringify(input);
-          searchType = params.searchType || 'smart_hybrid';
-          limit = params.limit || 5;
-          threshold = params.threshold || 0.3;
-          console.log(`🔍 [Tool Parsing] Object parsing successful`);
-        } else if (typeof input === 'string' && input.trim().startsWith('{')) {
-          console.log(`🔍 [Tool Parsing] Detected JSON string input format`);
-          try {
-            const params = JSON.parse(input);
-            console.log(`🔍 [Tool Parsing] Parsed JSON:`, params);
-            query = params.input || params.query || input;
+        // Handle different input formats with better error handling
+        try {
+          if (typeof input === 'object' && input !== null) {
+            console.log(`🔍 [Tool Parsing] Detected object input format`);
+            const params = input as any;
+            console.log(`🔍 [Tool Parsing] Object params:`, params);
+            query = params.input || params.query || JSON.stringify(input);
             searchType = params.searchType || 'smart_hybrid';
             limit = params.limit || 5;
             threshold = params.threshold || 0.3;
-            console.log(`🔍 [Tool Parsing] JSON parsing successful`);
-          } catch (parseError) {
-            console.log(`🔍 [Tool Parsing] JSON parse failed, using input as string:`, parseError);
-            query = input;
+            console.log(`🔍 [Tool Parsing] Object parsing successful`);
+          } else if (typeof input === 'string' && input.trim().startsWith('{')) {
+            console.log(`🔍 [Tool Parsing] Detected JSON string input format`);
+            try {
+              const params = JSON.parse(input);
+              console.log(`🔍 [Tool Parsing] Parsed JSON:`, params);
+              query = params.input || params.query || input;
+              searchType = params.searchType || 'smart_hybrid';
+              limit = params.limit || 5;
+              threshold = params.threshold || 0.3;
+              console.log(`🔍 [Tool Parsing] JSON parsing successful`);
+            } catch (parseError) {
+              console.log(`🔍 [Tool Parsing] JSON parse failed, using input as string:`, parseError);
+              query = input;
+            }
+          } else {
+            console.log(`🔍 [Tool Parsing] Using direct string input`);
+            // Direct string input
+            query = String(input);
           }
-        } else {
-          console.log(`🔍 [Tool Parsing] Using direct string input`);
-          // Direct string input
-          query = String(input);
+        } catch (parsingError) {
+          console.error(`🚨 [Tool Parsing] Critical parsing error:`, parsingError);
+          query = String(input || "");
         }
 
         console.log(`🔍 [Tool Processing] === PARSED PARAMETERS ===`);
@@ -488,13 +493,32 @@ function createDocumentSearchTool(userId: string) {
         console.log(`🔍 [Tool Calling] - threshold: ${threshold}`);
 
         const functionCallStartTime = Date.now();
-        const responseText = await documentSearch({
-          query: query.trim(),
-          userId: userId,
-          searchType: searchType as any,
-          limit: limit,
-          threshold: threshold
-        });
+        let responseText: string;
+        
+        try {
+          responseText = await documentSearch({
+            query: query.trim(),
+            userId: userId,
+            searchType: searchType as any,
+            limit: limit,
+            threshold: threshold
+          });
+          
+          // Ensure we always have a string response
+          if (typeof responseText !== 'string') {
+            console.warn(`🚨 [Tool Warning] documentSearch returned non-string:`, typeof responseText);
+            responseText = String(responseText || "No results found");
+          }
+          
+          if (!responseText || responseText.trim().length === 0) {
+            responseText = "No documents found matching your search criteria.";
+          }
+          
+        } catch (searchError) {
+          console.error(`🚨 [Tool Error] documentSearch function failed:`, searchError);
+          responseText = `Search error: ${searchError?.message || 'Unknown error occurred'}`;
+        }
+        
         const functionCallDuration = Date.now() - functionCallStartTime;
 
         console.log(`📄 [Tool Results] === DOCUMENT SEARCH COMPLETED ===`);
@@ -506,6 +530,7 @@ function createDocumentSearchTool(userId: string) {
         const totalToolDuration = Date.now() - toolStartTime;
         console.log(`📄 [Tool Return] === RETURNING RESPONSE ===`);
         console.log(`📄 [Tool Return] Total tool execution time: ${totalToolDuration}ms`);
+        console.log(`📄 [Tool Return] Final response text: "${responseText}"`);
         console.log(`🔍 [Tool Entry] === DOCUMENT SEARCH TOOL COMPLETED (SUCCESS) ===`);
         
         return responseText;
@@ -519,9 +544,12 @@ function createDocumentSearchTool(userId: string) {
         console.error("🚨 [Tool Error] Full error object:", error);
         console.error("🚨 [Tool Error] Stack trace:", error?.stack);
         
-        const errorMessage = `ERROR: ${error?.message || 'unknown error occurred during document search'}`;
+        // Always return a proper error message string
+        const errorMessage = `I encountered an error while searching your documents: ${error?.message || 'unknown error occurred'}. Please try rephrasing your search query.`;
         console.log(`🚨 [Tool Return] Returning error message: ${errorMessage}`);
         console.log(`🔍 [Tool Entry] === DOCUMENT SEARCH TOOL COMPLETED (ERROR) ===`);
+        
+        // Make sure we return a string, never throw
         return errorMessage;
       }
     },
