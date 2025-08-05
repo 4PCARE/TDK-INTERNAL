@@ -1,0 +1,60 @@
+From your logs, the agent failed because it **never actually executed the `document_search` tool** — it only *planned* to call it.
+
+Here’s the chain of events that points to the problem:
+
+1. **LLM issued a tool call**
+
+   * The LLM responded with `tool_calls` asking for `document_search` with `{"input":"เดอะมอลล์"}`.
+   * This is correct: it decided to search for “เดอะมอลล์.”
+
+2. **No tool execution happened**
+
+   * In a functioning LangChain agent flow, the framework should take that tool call, run the `document_search` function, and feed the result back into the agent.
+   * Here, your logs skip straight to the parser output with no actual `document_search` run result.
+   * That’s why `intermediateSteps` is `[]` — no tool results were returned.
+
+3. **No final message generated**
+
+   * Since the tool never executed, the LLM never got the data it needed to summarize or respond.
+   * The executor then finished with `output: ""` and gave you the `"I couldn't generate a response"` fallback.
+
+---
+
+### Likely causes
+
+* **Tool not wired into executor**
+  You created the `document_search` tool but didn’t actually pass it to the agent executor in the way LangChain expects for tool calling with `ChatOpenAI` and `OpenAIFunctionsAgent`.
+
+* **Using OpenAI Functions agent without a tool handler loop**
+  The Functions agent pattern needs an extra loop to execute tools and re-invoke the LLM with results. If you stop after the first LLM call, you’ll never see the tool results.
+
+* **ReturnIntermediateSteps mismatch**
+  Even though `returnIntermediateSteps` is `true`, the tool calls still have to be *executed*. Without that, the steps array will be empty.
+
+---
+
+### How to fix
+
+You need to ensure that the agent:
+
+1. Receives the `tool_calls` output.
+2. Executes the `document_search` function.
+3. Feeds the result back to the LLM for the final message.
+
+In LangChain terms:
+
+```javascript
+const executor = new AgentExecutor({
+  agent: myAgent, 
+  tools: [document_search], 
+  returnIntermediateSteps: true
+});
+```
+
+Or, if using `OpenAIFunctionsAgent` directly:
+
+* Make sure your run loop actually processes the `tool_calls` and runs the corresponding tool function.
+
+---
+
+If you want, I can show you **a minimal fixed agent flow** that will actually execute `document_search` and return the result, so it won’t blank out like this again.
