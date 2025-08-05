@@ -1,4 +1,3 @@
-
 import os
 import tempfile
 from typing import Dict, Any
@@ -15,23 +14,22 @@ class DocumentProcessor:
         self.openai_client = openai.OpenAI(
             api_key=os.getenv("OPENAI_API_KEY")
         )
-    
+
     async def process_file(self, file: UploadFile, user_id: str) -> Dict[str, Any]:
         """Process uploaded file and extract content"""
-        
-        # Save file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
-            content = await file.read()
-            temp_file.write(content)
-            temp_path = temp_file.name
-        
         try:
+            # Save file temporarily
+            with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as temp_file:
+                content = await file.read()
+                temp_file.write(content)
+                temp_path = temp_file.name
+
             # Extract content based on file type
             extracted_content = await self._extract_content(temp_path, file.content_type)
-            
+
             # Analyze with AI
             analysis = await self._analyze_content(extracted_content)
-            
+
             return {
                 "name": file.filename,
                 "content": extracted_content,
@@ -40,15 +38,15 @@ class DocumentProcessor:
                 "file_path": temp_path,
                 **analysis
             }
-        
+
         finally:
             # Clean up temp file
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
-    
+
     async def _extract_content(self, file_path: str, mime_type: str) -> str:
         """Extract text content from file"""
-        
+
         if mime_type == "application/pdf":
             return self._extract_pdf(file_path)
         elif mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
@@ -64,7 +62,7 @@ class DocumentProcessor:
                 return json.dumps(data, indent=2, ensure_ascii=False)
         else:
             return f"File type {mime_type} not supported for content extraction"
-    
+
     def _extract_pdf(self, file_path: str) -> str:
         """Extract text from PDF"""
         try:
@@ -76,7 +74,7 @@ class DocumentProcessor:
                 return text
         except Exception as e:
             return f"Error extracting PDF: {str(e)}"
-    
+
     def _extract_docx(self, file_path: str) -> str:
         """Extract text from DOCX"""
         try:
@@ -87,7 +85,7 @@ class DocumentProcessor:
             return text
         except Exception as e:
             return f"Error extracting DOCX: {str(e)}"
-    
+
     def _extract_excel(self, file_path: str) -> str:
         """Extract text from Excel"""
         try:
@@ -95,7 +93,7 @@ class DocumentProcessor:
             return df.to_string()
         except Exception as e:
             return f"Error extracting Excel: {str(e)}"
-    
+
     async def _analyze_content(self, content: str) -> Dict[str, Any]:
         """Analyze content with OpenAI"""
         try:
@@ -123,10 +121,10 @@ Respond in JSON format:
                 ],
                 response_format={"type": "json_object"}
             )
-            
+
             analysis = json.loads(response.choices[0].message.content)
             return analysis
-        
+
         except Exception as e:
             return {
                 "summary": "Document processed successfully",
