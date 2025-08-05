@@ -28,6 +28,9 @@ def test_python_backend():
     # Test 3: Documents endpoint (with dummy token - should fail gracefully)
     print("\n3. Testing Documents Endpoint (dummy auth)...")
     headers = {"Authorization": "Bearer dummy-token-for-testing"}
+    
+    # For real testing, replace with actual JWT token from your main app
+    # real_headers = {"Authorization": "Bearer YOUR_ACTUAL_JWT_TOKEN_HERE"}
     try:
         response = requests.get(f"{base_url}/api/python/documents", headers=headers)
         print(f"   📄 Documents (dummy auth): {response.status_code}")
