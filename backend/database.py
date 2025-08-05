@@ -4,6 +4,8 @@ from typing import List, Dict, Any, Optional
 import json
 from datetime import datetime
 import asyncio
+import os
+import asyncpg
 
 class DatabaseService:
     def __init__(self):
@@ -12,21 +14,46 @@ class DatabaseService:
         self.users = {}
 
     async def get_user_documents(self, user_id: str) -> List[Dict[str, Any]]:
-        """Get all documents for a user"""
-        # Mock implementation
-        return [
-            {
-                "id": "1",
-                "name": "Sample Document.pdf",
-                "content": "This is a sample document content.",
-                "file_size": 1024,
-                "file_type": "application/pdf",
-                "summary": "A sample document for testing",
-                "tags": ["sample", "test"],
-                "category": "Technical",
-                "created_at": "2024-01-01T00:00:00Z"
-            }
-        ]
+        """Get documents for a specific user"""
+        try:
+            DATABASE_URL = os.getenv("DATABASE_URL")
+            if not DATABASE_URL:
+                print("DATABASE_URL not found")
+                return []
+
+            conn = await asyncpg.connect(DATABASE_URL)
+
+            query = """
+                SELECT id, name, content, summary, "createdAt" as created_at, 
+                       "fileSize" as file_size, tags, "aiCategory" as ai_category
+                FROM documents 
+                WHERE "userId" = $1 
+                ORDER BY "createdAt" DESC
+            """
+
+            rows = await conn.fetch(query, user_id)
+            await conn.close()
+
+            documents = []
+            for row in rows:
+                doc = dict(row)
+                # Convert tags from JSON string if needed
+                if isinstance(doc.get('tags'), str):
+                    import json
+                    try:
+                        doc['tags'] = json.loads(doc['tags'])
+                    except:
+                        doc['tags'] = []
+                elif doc.get('tags') is None:
+                    doc['tags'] = []
+
+                documents.append(doc)
+
+            return documents
+
+        except Exception as e:
+            print(f"Database error in get_user_documents: {e}")
+            return []
 
     async def store_document(self, document_data: Dict[str, Any], user_id: str) -> str:
         """Store a document in the database"""

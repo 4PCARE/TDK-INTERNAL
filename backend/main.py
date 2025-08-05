@@ -126,42 +126,34 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 @app.get("/api/python/documents")
 async def get_documents(current_user: dict = Depends(get_current_user)):
-    """Get user documents from main database"""
+    """Get user documents from database"""
     try:
         user_id = current_user.get("sub") or current_user.get("user_id")
         
-        # Fetch documents from main Node.js API
-        import httpx
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "http://localhost:5000/api/documents",
-                headers={"Authorization": f"Bearer {current_user.get('token', 'dummy-token')}"},
-                timeout=10.0
-            )
-            
-            if response.status_code == 200:
-                documents = response.json()
-                # Convert to Python backend format
-                formatted_docs = []
-                for doc in documents:
-                    formatted_docs.append({
-                        "id": str(doc.get("id")),
-                        "name": doc.get("name", "Unknown Document"),
-                        "content": doc.get("content", ""),
-                        "summary": doc.get("summary", ""),
-                        "created_at": doc.get("createdAt", datetime.now().isoformat()),
-                        "file_size": doc.get("fileSize", 0),
-                        "tags": doc.get("tags", []),
-                        "category": doc.get("aiCategory", "Uncategorized")
-                    })
-                return formatted_docs
-            else:
-                print(f"Failed to fetch documents from main API: {response.status_code}")
-                return []
+        # Access documents directly from the database
+        from database import get_user_documents
+        
+        documents = await get_user_documents(user_id)
+        
+        # Convert to Python backend format
+        formatted_docs = []
+        for doc in documents:
+            formatted_docs.append({
+                "id": str(doc.get("id")),
+                "name": doc.get("name", "Unknown Document"),
+                "content": doc.get("content", ""),
+                "summary": doc.get("summary", ""),
+                "created_at": doc.get("created_at", datetime.now().isoformat()),
+                "file_size": doc.get("file_size", 0),
+                "tags": doc.get("tags", []),
+                "category": doc.get("ai_category", "Uncategorized")
+            })
+        
+        return formatted_docs
                 
     except Exception as e:
         print(f"Error fetching documents: {e}")
-        # Return empty list instead of sample data when there's an error
+        # Return empty list when there's an error
         return []
 
 @app.post("/api/python/documents/upload")
