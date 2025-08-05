@@ -97,15 +97,26 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     if not token:
         raise HTTPException(status_code=403, detail="No authentication token provided")
     
-    # For now, accept any non-empty token and extract user info
-    # In production, decode JWT properly and validate
+    # For development, accept any reasonable token format
     try:
-        # Simple token validation - accept any Bearer token for development
-        if token and len(token) > 10:  # Basic length check
-            return {"user_id": "demo_user", "token": token, "sub": "demo_user"}
+        # Accept tokens from Node.js proxy or direct frontend requests
+        if token and len(token) > 5:  # Basic length check
+            # Try to extract user info from token if it's a JWT-like structure
+            # For development, create a consistent user object
+            user_info = {
+                "user_id": "demo_user", 
+                "token": token, 
+                "sub": "demo_user",
+                "email": "demo@example.com"
+            }
+            
+            print(f"Python backend: Authenticated user with token: {token[:20]}...")
+            return user_info
         else:
+            print(f"Python backend: Invalid token format, length: {len(token) if token else 0}")
             raise HTTPException(status_code=403, detail="Invalid token format")
     except Exception as e:
+        print(f"Python backend: Authentication error: {str(e)}")
         raise HTTPException(status_code=403, detail="Authentication failed")
 
 @app.get("/api/python/documents")

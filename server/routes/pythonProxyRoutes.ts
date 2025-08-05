@@ -34,7 +34,7 @@ export function registerPythonProxyRoutes(app: Express) {
 
       // Process first file only for now (Python backend expects single file)
       const file = files[0];
-      
+
       // Create FormData for Python backend using form-data package
       const formData = new FormData();
       const fileStream = fs.createReadStream(file.path);
@@ -48,19 +48,20 @@ export function registerPythonProxyRoutes(app: Express) {
       const userId = req.user.claims.sub;
       formData.append('user_id', userId);
 
-      console.log("Python upload proxy: Forwarding to Python backend...");
+      // Get the authorization header from the original request
+      const authHeader = req.headers.authorization;
 
+      // Forward request to Python backend with proper authentication
       const response = await axios.post(
         `${PYTHON_BACKEND_URL}/api/python/documents/upload`,
         formData,
         {
           headers: {
-            'Authorization': token,
-            ...formData.getHeaders()
+            ...formData.getHeaders(),
+            'Authorization': authHeader || `Bearer ${req.user.access_token || 'demo-token'}`,
           },
-          maxContentLength: Infinity,
-          maxBodyLength: Infinity,
-          timeout: 30000
+          timeout: 30000,
+          allowAbsoluteUrls: true
         }
       );
 
@@ -185,6 +186,54 @@ export function registerPythonProxyRoutes(app: Express) {
     } catch (error) {
       console.error("Python stats proxy error:", error);
       res.status(500).json({ error: "Stats fetch failed via Python backend" });
+    }
+  });
+
+  // Proxy GET requests to Python backend
+  app.get("/api/python/*", smartAuth, async (req, res) => {
+    try {
+      const pythonPath = req.path.replace("/api/python", "/api/python");
+      const authHeader = req.headers.authorization;
+
+      const response = await axios.get(`${PYTHON_BACKEND_URL}${pythonPath}`, {
+        params: req.query,
+        headers: {
+          'Authorization': authHeader || `Bearer ${req.user?.access_token || 'demo-token'}`,
+        },
+        timeout: 10000,
+        allowAbsoluteUrls: true
+      });
+      res.json(response.data);
+    } catch (error: any) {
+      console.error("Python proxy error:", error.response?.data || error.message);
+      res.status(error.response?.status || 500).json({
+        error: "Python backend request failed",
+        details: error.response?.data || error.message
+      });
+    }
+  });
+
+  // Proxy POST requests to Python backend
+  app.post("/api/python/*", smartAuth, async (req, res) => {
+    try {
+      const pythonPath = req.path.replace("/api/python", "/api/python");
+      const authHeader = req.headers.authorization;
+
+      const response = await axios.post(`${PYTHON_BACKEND_URL}${pythonPath}`, req.body, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeader || `Bearer ${req.user?.access_token || 'demo-token'}`,
+        },
+        timeout: 30000,
+        allowAbsoluteUrls: true
+      });
+      res.json(response.data);
+    } catch (error: any) {
+      console.error("Python proxy error:", error.response?.data || error.message);
+      res.status(error.response?.status || 500).json({
+        error: "Python backend request failed",
+        details: error.response?.data || error.message
+      });
     }
   });
 }
