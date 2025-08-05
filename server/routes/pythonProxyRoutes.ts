@@ -36,12 +36,10 @@ export function registerPythonProxyRoutes(app: Express) {
       
       // Create FormData for Python backend
       const formData = new FormData();
-      const fileStream = fs.createReadStream(file.path);
+      const fileBuffer = fs.readFileSync(file.path);
+      const blob = new Blob([fileBuffer], { type: file.mimetype });
 
-      formData.append('file', fileStream, {
-        filename: file.originalname,
-        contentType: file.mimetype
-      });
+      formData.append('file', blob, file.originalname);
 
       // Add user ID to FormData
       const userId = req.user.claims.sub;
