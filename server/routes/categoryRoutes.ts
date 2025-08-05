@@ -1,19 +1,13 @@
 
 import type { Express } from "express";
-import { isAuthenticated, isMicrosoftAuthenticated } from "../replitAuth";
+import { isAuthenticated } from "../replitAuth";
+import { isMicrosoftAuthenticated } from "../microsoftAuth";
+import { smartAuth } from "../smartAuth";
 import { storage } from "../storage";
 import { insertCategorySchema } from "@shared/schema";
 
 export function registerCategoryRoutes(app: Express) {
-  app.get("/api/categories", (req: any, res: any, next: any) => {
-    // Try Microsoft auth first, then fallback to Replit auth
-    isMicrosoftAuthenticated(req, res, (err: any) => {
-      if (!err) {
-        return next();
-      }
-      isAuthenticated(req, res, next);
-    });
-  }, async (req: any, res) => {
+  app.get("/api/categories", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const categories = await storage.getCategories(userId);
