@@ -1,0 +1,69 @@
+Fix the LangChain Functions-agent so the document_search tool actually executes.
+
+Current issue: The agent emits a document_search tool call, but the tool is never run. intermediateSteps is always empty and output is blank.
+
+Steps to fix:
+
+Pin compatible LangChain package versions in package.json:
+
+perl
+Copy
+Edit
+"@langchain/core": "0.2.x",
+"langchain": "0.2.x",
+"@langchain/openai": "0.2.x",
+"zod": "3.x"
+Use only v0.2+ style imports:
+
+javascript
+Copy
+Edit
+import { createOpenAIFunctionsAgent, AgentExecutor } from "langchain/agents";
+import { ChatOpenAI } from "@langchain/openai";
+import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
+import { DynamicStructuredTool } from "@langchain/core/tools";
+import { z } from "zod";
+Remove all legacy langchain/tools imports.
+
+Change createDocumentSearchTool to return a DynamicStructuredTool instead of DynamicTool. Give it a Zod schema with input as a required string, plus optional searchType, limit, and threshold. Remove complex JSON parsing; accept structured args directly. Always return a string (or JSON.stringify non-string outputs).
+
+Pass the exact same document_search tool instance to both createOpenAIFunctionsAgent({ tools }) and new AgentExecutor({ tools }). The tool name must exactly match "document_search".
+
+Add callbacks to confirm execution:
+
+javascript
+Copy
+Edit
+const callbacks = [{
+  handleToolStart(t, i) { console.log("TOOL START:", t.name, i); },
+  handleToolEnd(o) { console.log("TOOL END:", String(o).slice(0, 200)); },
+  handleToolError(e) { console.error("TOOL ERROR:", e); },
+}];
+Create a scripts/smoke-agent.ts that:
+
+Builds the tool and agent executor
+
+Calls executor.invoke({ input: "มีไฟล์เดอะมอลล์ไหม" }, { callbacks })
+
+Logs final output and intermediateSteps
+Pass if:
+
+At least one TOOL START: document_search appears
+
+intermediateSteps contains the tool’s output
+
+res.output is non-empty and summarizes the search result
+
+Log package versions, tool names registered, and model name before running.
+
+Do not change the internal logic of documentSearch, only its wrapping and imports.
+
+Definition of Done:
+
+Tool execution confirmed in logs
+
+intermediateSteps contains the document_search action and its observation
+
+res.output is a valid answer based on tool results
+
+Imports and versions are consistent with LangChain v0.2+
