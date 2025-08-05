@@ -90,7 +90,7 @@ export default function Documents() {
       const timeoutId = setTimeout(() => {
         window.location.href = "/api/login";
       }, 500);
-      
+
       // Cleanup timeout on unmount
       return () => clearTimeout(timeoutId);
     }
@@ -148,24 +148,23 @@ export default function Documents() {
 
         const params = new URLSearchParams({
           query: searchQuery,
-          type: searchType,
-          fileName: searchFileName.toString(),
-          keyword: searchKeyword.toString(),
-          meaning: searchMeaning.toString()
+          fileName: "true",
+          keyword: "true", 
+          meaning: "true"
         });
 
-        console.log(`Frontend search: "${searchQuery}" (type: ${searchType})`);
-        const response = await fetch(`/api/python/documents/search?${params}`, {
+        console.log(`Frontend search: "${searchQuery}" (using Node.js backend)`);
+        const response = await fetch(`/api/documents/search?${params}`, {
           headers: {
             'Cache-Control': 'no-cache'
           }
         });
-        
+
         if (!response.ok) {
           console.warn(`Search failed: ${response.status}`);
           return [];
         }
-        
+
         const results = await response.json();
         return Array.isArray(results) ? results : [];
       } catch (error) {
@@ -381,14 +380,14 @@ export default function Documents() {
       });
 
       setSelectedDocuments([]);
-      
+
       // Safely refresh
       try {
         await queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       } catch (queryError) {
         console.warn("Query refresh failed:", queryError);
       }
-      
+
     } catch (error) {
       console.warn('Bulk endorsement error:', error);
       toast({
@@ -421,14 +420,14 @@ export default function Documents() {
       });
 
       setSelectedDocuments([]);
-      
+
       // Safely refresh
       try {
         await queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       } catch (queryError) {
         console.warn("Query refresh failed:", queryError);
       }
-      
+
     } catch (error) {
       console.warn('Bulk date update error:', error);
       toast({
