@@ -417,17 +417,16 @@ function createDocumentSearchTool(userId: string) {
     - input: The search query string to find relevant documents
 
     Returns: String with search results containing document content, names, and similarity scores`,
-    func: async (input: string): Promise<string> => {
+    func: async (input: string | object): Promise<string> => {
       const toolStartTime = Date.now();
       console.log(`🔍 [Tool Entry] === DOCUMENT SEARCH TOOL CALLED ===`);
       console.log(`🔍 [Tool Entry] Timestamp: ${new Date().toISOString()}`);
       console.log(`🔍 [Tool Entry] Raw input type: ${typeof input}`);
-      console.log(`🔍 [Tool Entry] Raw input value: "${input}"`);
-      console.log(`🔍 [Tool Entry] Input length: ${input?.length || 0}`);
+      console.log(`🔍 [Tool Entry] Raw input value:`, input);
       console.log(`🔍 [Tool Entry] User ID: ${userId}`);
       
       try {
-        // Parse input - handle both string and JSON object formats
+        // Parse input - handle both string and object formats
         let query: string;
         let searchType = 'smart_hybrid';
         let limit = 5;
@@ -435,9 +434,18 @@ function createDocumentSearchTool(userId: string) {
 
         console.log(`🔍 [Tool Parsing] Starting input parsing...`);
 
-        // Handle the case where LLM sends JSON like {"input": "เดอะมอลล์"}
-        if (input.trim().startsWith('{')) {
-          console.log(`🔍 [Tool Parsing] Detected JSON input format`);
+        // Handle different input formats
+        if (typeof input === 'object' && input !== null) {
+          console.log(`🔍 [Tool Parsing] Detected object input format`);
+          const params = input as any;
+          console.log(`🔍 [Tool Parsing] Object params:`, params);
+          query = params.input || params.query || JSON.stringify(input);
+          searchType = params.searchType || 'smart_hybrid';
+          limit = params.limit || 5;
+          threshold = params.threshold || 0.3;
+          console.log(`🔍 [Tool Parsing] Object parsing successful`);
+        } else if (typeof input === 'string' && input.trim().startsWith('{')) {
+          console.log(`🔍 [Tool Parsing] Detected JSON string input format`);
           try {
             const params = JSON.parse(input);
             console.log(`🔍 [Tool Parsing] Parsed JSON:`, params);
@@ -453,7 +461,7 @@ function createDocumentSearchTool(userId: string) {
         } else {
           console.log(`🔍 [Tool Parsing] Using direct string input`);
           // Direct string input
-          query = input;
+          query = String(input);
         }
 
         console.log(`🔍 [Tool Processing] === PARSED PARAMETERS ===`);
