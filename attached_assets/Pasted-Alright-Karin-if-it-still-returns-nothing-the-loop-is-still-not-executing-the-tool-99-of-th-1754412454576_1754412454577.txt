@@ -1,0 +1,128 @@
+Alright Karin — if it still returns **nothing**, the loop is still not executing the tool. 99% of the time it’s one of these:
+
+---
+
+## The usual culprits
+
+1. **You passed tools to the *agent* prompt but not to the *executor***
+   The LLM will emit `tool_calls`, but without `tools` on the `AgentExecutor`, nothing runs → `intermediateSteps: []`.
+
+2. **Your “tool” isn’t a LangChain `Tool`**
+   A plain function won’t execute. It must be a `Tool` (e.g., `DynamicStructuredTool`) with a `name` that matches the LLM’s call (`"document_search"`).
+
+3. **Version/API mismatch (LangChain JS v0.2 vs earlier)**
+   In v0.2 you should use `createOpenAIFunctionsAgent` + `AgentExecutor` from `langchain/agents` and `DynamicStructuredTool` from `@langchain/core/tools`. Mixing old/new imports silently breaks tool execution.
+
+4. **Return value is not serializable**
+   If the tool returns something like a class instance/BigInt, it can silently fail. Return a **string or plain object**.
+
+5. **You’re invoking the agent, not the executor**
+   Calling `agent.invoke(...)` won’t run tools. You must `await executor.invoke({ input })`.
+
+---
+
+## Minimal working smoke test (LC JS v0.2+)
+
+Drop this in a single file and run. If this works but your app doesn’t, it’s wiring.
+
+```ts
+import { z } from "zod";
+import { ChatOpenAI } from "@langchain/openai";
+import { DynamicStructuredTool } from "@langchain/core/tools";
+import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
+import { createOpenAIFunctionsAgent, AgentExecutor } from "langchain/agents";
+
+// 1) Define a real Tool (NOT just a function)
+const document_search = new DynamicStructuredTool({
+  name: "document_search",
+  description: "Search user's KMS for documents. Return a summary list.",
+  schema: z.object({ input: z.string().describe("query to search") }),
+  func: async ({ input }) => {
+    // Replace with your real search; keep return JSON-string or text
+    const fakeResults = [
+      { doc: "เดอะมอลล์_สัญญาเช่า.pdf", score: 0.91 },
+      { doc: "เดอะมอลล์_บันทึกประชุม_2024-11-02.docx", score: 0.86 },
+    ];
+    return JSON.stringify({ query: input, results: fakeResults }, null, 2);
+  },
+});
+
+// 2) LLM
+const llm = new ChatOpenAI({
+  model: "gpt-4o-2024-08-06",
+  temperature: 0,
+});
+
+// 3) Prompt (Functions agent needs the scratchpad placeholder)
+const prompt = ChatPromptTemplate.fromMessages([
+  ["system", "You are a KMS assistant. Always use the tool first."],
+  ["human", "{input}"],
+  new MessagesPlaceholder("agent_scratchpad"),
+]);
+
+// 4) Create agent + executor WITH tools
+const agent = await createOpenAIFunctionsAgent({
+  llm,
+  tools: [document_search],
+  prompt,
+});
+
+const executor = new AgentExecutor({
+  agent,
+  tools: [document_search],            // <-- must be here too
+  returnIntermediateSteps: true,
+  maxIterations: 5,
+  earlyStoppingMethod: "force",
+  handleParsingErrors: true,
+});
+
+// 5) Invoke executor (not agent)
+const res = await executor.invoke({ input: "มีไฟล์เดอะมอลล์ไหม" });
+console.log("FINAL OUTPUT:\n", res.output);
+console.log("\nINTERMEDIATE STEPS:\n", JSON.stringify(res.intermediateSteps, null, 2));
+```
+
+**What you should see in logs**
+
+* `intermediateSteps` contains an entry with `tool: "document_search"` and a `toolOutput` (your JSON).
+* `res.output` is a natural-language answer summarizing those results.
+
+---
+
+## Quick wiring checklist (apply to your app)
+
+* [ ] `document_search` is a `Tool`/`DynamicStructuredTool`, not a bare function.
+* [ ] Tool **name** is exactly `"document_search"` (matches the LLM call).
+* [ ] You pass **the same tool instance** to both `createOpenAIFunctionsAgent({ tools })` **and** `new AgentExecutor({ tools })`.
+* [ ] You call `await executor.invoke({ input })` (not `agent.invoke`).
+* [ ] Tool returns JSON/text (no BigInt, class instances, Streams).
+* [ ] LangChain packages are compatible (pin versions together, e.g. `@langchain/core`, `langchain`, `@langchain/openai`).
+* [ ] Add a callback to verify tool actually runs:
+
+  ```ts
+  const callbacks = [{
+    handleToolStart(t) { console.log("TOOL START:", t.name); },
+    handleToolEnd(o) { console.log("TOOL END:", o?.slice?.(0, 200)); },
+    handleToolError(e) { console.error("TOOL ERROR:", e); },
+  }];
+  await executor.invoke({ input, callbacks });
+  ```
+
+---
+
+## If it’s *still* blank
+
+* **Sanity test** with the smoke file above.
+* If smoke file works → compare diffs: imports, tool wrapping, executor call site.
+* If smoke file also fails → version mismatch or environment issue. Pin versions and clear build cache. Example:
+
+  ```
+  "langchain": "0.2.10",
+  "@langchain/core": "0.2.21",
+  "@langchain/openai": "0.2.7"
+  ```
+* Turn off any custom streaming or middleware around the LLM call that might swallow tool execution.
+
+---
+
+If you paste your actual `document_search` definition + executor setup, I’ll diff it against the template and point at the exact line that’s ghosting your tool call. (No more silent treatments from the agent — we make it *execute* or we make it *confess* 😅)
