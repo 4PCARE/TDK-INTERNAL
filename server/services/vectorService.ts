@@ -22,31 +22,90 @@ interface VectorDocument {
 export class VectorService {
 
   // Split text into chunks of approximately 3000 characters with 300 character overlap
-  private splitTextIntoChunks(text: string, maxChunkSize: number = 3000, overlap: number = 300): string[] {
+  private splitTextIntoChunks(text: string, fileType?: string): string[] {
+    if (!text || text.trim().length === 0) {
+      return [];
+    }
+
+    const trimmedText = text.trim();
+
+    // For very small documents (less than 50 characters), return as single chunk
+    if (trimmedText.length < 50) {
+      console.log(`Small document (${trimmedText.length} chars): Creating single chunk`);
+      return [trimmedText];
+    }
+
+    // For Thai text, use smaller chunks due to word segmentation creating longer text
+    const chunkSize = text.includes('ก') || text.includes('ข') || text.includes('ค') ? 800 : 1000;
+    const overlap = Math.floor(chunkSize * 0.1); // 10% overlap
+
     const chunks: string[] = [];
-    let start = 0;
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
 
-    while (start < text.length) {
-      let end = start + maxChunkSize;
+    // If we don't have proper sentences, split by newlines or paragraphs
+    if (sentences.length <= 1) {
+      const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+      if (paragraphs.length > 1) {
+        // Use paragraphs as chunks if available
+        for (const paragraph of paragraphs) {
+          const trimmed = paragraph.trim();
+          if (trimmed.length > 0) {
+            chunks.push(trimmed);
+          }
+        }
+      } else {
+        // For very simple text without sentences or paragraphs, create chunks by character count
+        let currentChunk = '';
+        const words = text.split(/\s+/).filter(w => w.trim().length > 0);
 
-      // Try to break at a sentence or paragraph boundary
-      if (end < text.length) {
-        const lastPeriod = text.lastIndexOf('.', end);
-        const lastNewline = text.lastIndexOf('\n', end);
-        const lastBreak = Math.max(lastPeriod, lastNewline);
+        for (const word of words) {
+          if (currentChunk.length + word.length + 1 > chunkSize && currentChunk.length > 0) {
+            chunks.push(currentChunk.trim());
+            currentChunk = word;
+          } else {
+            currentChunk += (currentChunk.length > 0 ? ' ' : '') + word;
+          }
+        }
 
-        if (lastBreak > start + maxChunkSize * 0.5) {
-          end = lastBreak + 1;
+        if (currentChunk.trim().length > 0) {
+          chunks.push(currentChunk.trim());
+        }
+      }
+    } else {
+      // Original sentence-based chunking
+      let currentChunk = '';
+
+      for (const sentence of sentences) {
+        const trimmedSentence = sentence.trim();
+        if (!trimmedSentence) continue;
+
+        // If adding this sentence would exceed chunk size, save current chunk and start new one
+        if (currentChunk.length + trimmedSentence.length > chunkSize && currentChunk.length > 0) {
+          chunks.push(currentChunk.trim());
+
+          // Start new chunk with overlap from previous chunk
+          const words = currentChunk.split(' ');
+          const overlapWords = words.slice(-Math.floor(overlap / 10)); // Approximate word overlap
+          currentChunk = overlapWords.join(' ') + ' ' + trimmedSentence;
+        } else {
+          currentChunk += (currentChunk.length > 0 ? ' ' : '') + trimmedSentence;
         }
       }
 
-      chunks.push(text.slice(start, end).trim());
-      start = end - overlap;
-
-      if (start >= text.length) break;
+      // Add the final chunk if it has content
+      if (currentChunk.trim().length > 0) {
+        chunks.push(currentChunk.trim());
+      }
     }
 
-    return chunks.filter(chunk => chunk.length > 50); // Filter out very small chunks
+    // Ensure we always have at least one chunk for non-empty documents
+    if (chunks.length === 0 && trimmedText.length > 0) {
+      console.log(`Fallback: Creating single chunk for ${trimmedText.length} character document`);
+      chunks.push(trimmedText);
+    }
+
+    console.log(`Chunking completed: ${chunks.length} chunks created from ${text.length} characters`);
+    return chunks;
   }
 
   async addDocument(
@@ -89,7 +148,7 @@ export class VectorService {
         try {
           // Generate embedding for this chunk using llmRouter
           let embedding: number[];
-          
+
           try {
             // Try to use the configured LLM router for embeddings
             embedding = await llmRouter.generateEmbedding(chunk, metadata.userId);
