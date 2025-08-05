@@ -39,20 +39,30 @@ export const smartAuth: RequestHandler = async (req, res, next) => {
       }
     }
 
-    // Check Microsoft authentication
-    const result = await new Promise<void>((resolve, reject) => {
-      isMicrosoftAuthenticated(req, res, (err) => {
-        if (err) reject(err);
-        else {
-          authCheckCache.set(sessionId, now);
-          resolve();
-        }
+    // Only check Microsoft authentication if Replit auth failed
+    try {
+      await new Promise<void>((resolve, reject) => {
+        isMicrosoftAuthenticated(req, res, (err) => {
+          if (err) reject(err);
+          else {
+            authCheckCache.set(sessionId, now);
+            resolve();
+          }
+        });
       });
-    });
-
-    return next();
+      return next();
+    } catch (microsoftError) {
+      console.log("Smart auth: Neither Replit nor Microsoft authentication succeeded");
+      return res.status(401).json({ 
+        message: "Authentication required", 
+        error: "Not authenticated with either Replit or Microsoft" 
+      });
+    }
   } catch (error) {
     console.error("Smart auth error:", error);
-    return next(error);
+    return res.status(500).json({ 
+      message: "Authentication error", 
+      error: error.message 
+    });
   }
 };
