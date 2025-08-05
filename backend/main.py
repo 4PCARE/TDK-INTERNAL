@@ -18,6 +18,13 @@ from services.llm_service import LLMService
 from services.vector_service import VectorService
 from services.search_service import SearchService
 from services.chat_service import ChatService
+from api_contract_validation import (
+    normalize_chat_response, 
+    normalize_document_response, 
+    sanitize_langchain_response,
+    safe_serialize
+)
+from openapi_schema import generate_openapi_schema
 
 app = FastAPI(title="AI-KMS Python Backend", version="1.0.0")
 
@@ -130,6 +137,9 @@ async def get_documents(current_user: dict = Depends(get_current_user)):
     """Get user documents from database"""
     try:
         user_id = current_user.get("sub") or current_user.get("user_id")
+        if not user_id:
+            raise HTTPException(status_code=400, detail="User ID not found")
+            
         print(f"Python backend: Getting documents for user_id: {user_id}")
         
         # Access documents directly from the database
@@ -138,21 +148,12 @@ async def get_documents(current_user: dict = Depends(get_current_user)):
         
         print(f"Python backend: Retrieved {len(documents)} documents from database")
         
-        # Convert to Python backend format
+        # Convert to frontend-compatible format using normalization
         formatted_docs = []
         for doc in documents:
-            formatted_doc = {
-                "id": str(doc.get("id")),
-                "name": doc.get("name", "Unknown Document"),
-                "content": doc.get("content", ""),
-                "summary": doc.get("summary", ""),
-                "created_at": doc.get("created_at") or doc.get("createdAt", datetime.now().isoformat()),
-                "file_size": doc.get("file_size") or doc.get("fileSize", 0),
-                "tags": doc.get("tags", []),
-                "category": doc.get("ai_category") or doc.get("aiCategory", "Uncategorized")
-            }
-            formatted_docs.append(formatted_doc)
-            print(f"Python backend: Formatted doc {formatted_doc['id']}: {formatted_doc['name']}")
+            normalized_doc = normalize_document_response(doc)
+            formatted_docs.append(normalized_doc.dict())
+            print(f"Python backend: Formatted doc {normalized_doc.id}: {normalized_doc.name}")
         
         print(f"Python backend: Returning {len(formatted_docs)} formatted documents")
         return formatted_docs
@@ -216,16 +217,49 @@ async def chat_with_ai(
 ):
     """Chat with AI assistant"""
     try:
-        user_id = current_user["user_id"]
+        user_id = current_user.get("user_id") or current_user.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=400, detail="User ID not found")
         
         response = await chat_service.process_message(
             message=chat_data.message,
             user_id=user_id,
-            conversation_history=chat_data.conversation_history,
+            conversation_history=chat_data.conversation_history or [],
             search_documents=chat_data.search_documents
         )
         
-        return response
+        # Normalize response for frontend compatibility
+        normalized_response = normalize_chat_response(response)
+        return normalized_response.dict()
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+
+@app.post("/api/python/chat/message")
+async def chat_message_endpoint(
+    request: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Alternative chat endpoint expected by frontend"""
+    try:
+        user_id = current_user.get("user_id") or current_user.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=400, detail="User ID not found")
+        
+        message = request.get("message", "")
+        if not message:
+            raise HTTPException(status_code=400, detail="Message is required")
+            
+        response = await chat_service.process_message(
+            message=message,
+            user_id=user_id,
+            conversation_history=[],
+            search_documents=True
+        )
+        
+        # Normalize response for frontend compatibility
+        normalized_response = normalize_chat_response(response)
+        return normalized_response.dict()
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
@@ -265,13 +299,15 @@ async def chat_with_documents(
 ):
     """Chat about specific documents"""
     try:
-        user_id = current_user["user_id"]
+        user_id = current_user.get("user_id") or current_user.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=400, detail="User ID not found")
         
         response = await chat_service.chat_with_documents(
             message=chat_data.message,
             user_id=user_id,
-            document_ids=chat_data.document_ids,
-            conversation_history=chat_data.conversation_history
+            document_ids=chat_data.document_ids or [],
+            conversation_history=chat_data.conversation_history or []
         )
         
         return response
@@ -279,19 +315,61 @@ async def chat_with_documents(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Document chat failed: {str(e)}")
 
+@app.get("/api/python/documents/search")  
+async def search_documents_get(
+    query: str,
+    type: str = "hybrid", 
+    limit: int = 10,
+    current_user: dict = Depends(get_current_user)
+):
+    """Search documents using GET request (frontend compatible)"""
+    try:
+        user_id = current_user.get("user_id") or current_user.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=400, detail="User ID not found")
+        
+        results = await search_service.smart_search(
+            query=query,
+            user_id=user_id,
+            search_type=type,
+            limit=limit,
+            keyword_weight=0.4,
+            vector_weight=0.6
+        )
+        
+        # Return array format expected by frontend, normalized for compatibility
+        if isinstance(results, list):
+            normalized_results = []
+            for result in results:
+                normalized_doc = normalize_document_response(result)
+                normalized_results.append(normalized_doc.dict())
+            return normalized_results
+        elif isinstance(results, dict) and "results" in results:
+            normalized_results = []
+            for result in results["results"]:
+                normalized_doc = normalize_document_response(result)
+                normalized_results.append(normalized_doc.dict())
+            return normalized_results
+        else:
+            return []
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
 @app.get("/api/python/stats")
 async def get_stats(current_user: dict = Depends(get_current_user)):
     """Get system statistics"""
     try:
         vector_stats = vector_service.get_document_stats()
         
+        # Frontend-compatible response structure
         return {
-            "vector_service": vector_stats,
-            "services_status": {
-                "llm_service": llm_service.enabled,
-                "vector_service": vector_service.embeddings_enabled,
-                "search_service": True,
-                "chat_service": True
+            "vectorService": vector_stats,  # camelCase for frontend
+            "servicesStatus": {  # camelCase for frontend
+                "llmService": llm_service.enabled,
+                "vectorService": vector_service.embeddings_enabled,
+                "searchService": True,
+                "chatService": True
             }
         }
         
