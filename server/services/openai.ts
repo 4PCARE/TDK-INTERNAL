@@ -5,7 +5,7 @@ import textract from "textract";
 import { LlamaParseReader } from "@llamaindex/cloud";
 import fs from 'fs'; // Make sure fs is imported
 
-// Import LangChain components for agent and tools
+// Import LangChain components for agent and tools (v0.2+ format)
 import { ChatOpenAI } from "@langchain/openai";
 import { createOpenAIFunctionsAgent, AgentExecutor } from "langchain/agents";
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
@@ -415,9 +415,17 @@ function createDocumentSearchTool(userId: string) {
     name: "document_search",
     description: "Search through documents in the knowledge management system. Use this tool when users ask questions about documents, need information from their knowledge base, or want to find specific content.",
     schema: z.object({
-      input: z.string().describe("The search query string to find relevant documents")
+      input: z.string().describe("The search query string to find relevant documents"),
+      searchType: z.string().optional().describe("Type of search: semantic, keyword, hybrid, or smart_hybrid"),
+      limit: z.number().int().optional().describe("Maximum number of results to return"),
+      threshold: z.number().optional().describe("Minimum similarity threshold for results")
     }),
-    func: async ({ input }: { input: string }): Promise<string> => {
+    func: async ({ input, searchType = "smart_hybrid", limit = 5, threshold = 0.3 }: { 
+      input: string; 
+      searchType?: string; 
+      limit?: number; 
+      threshold?: number; 
+    }): Promise<string> => {
       const toolStartTime = Date.now();
       console.log(`🔍 [Tool Entry] === DOCUMENT SEARCH TOOL CALLED ===`);
       console.log(`🔍 [Tool Entry] Timestamp: ${new Date().toISOString()}`);
@@ -426,23 +434,17 @@ function createDocumentSearchTool(userId: string) {
       console.log(`🔍 [Tool Entry] User ID: ${userId}`);
 
       try {
-        // With DynamicStructuredTool, input is already validated and structured
-        const query = input;
-        const searchType = 'smart_hybrid';
-        const limit = 5;
-        const threshold = 0.3;
-
+        // With DynamicStructuredTool, parameters are already validated and typed
         console.log(`🔍 [Tool Parsing] === PARSED PARAMETERS ===`);
-        console.log(`🔍 [Tool Parsing] Query: "${query}"`);
+        console.log(`🔍 [Tool Parsing] Query: "${input}"`);
         console.log(`🔍 [Tool Parsing] SearchType: ${searchType}`);
         console.log(`🔍 [Tool Parsing] Limit: ${limit}`);
         console.log(`🔍 [Tool Parsing] Threshold: ${threshold}`);
         console.log(`🔍 [Tool Parsing] User ID: ${userId}`);
 
-        if (!query || query.trim().length === 0) {
+        if (!input || input.trim().length === 0) {
           const emptyQueryMessage = "Please provide a search query to find documents.";
           console.log(`🔍 [Tool Return] Empty query detected: ${emptyQueryMessage}`);
-          console.log(`🔍 [Tool Entry] === DOCUMENT SEARCH TOOL COMPLETED (EMPTY QUERY) ===`);
           return emptyQueryMessage;
         }
 
@@ -466,12 +468,12 @@ function createDocumentSearchTool(userId: string) {
         let responseText: string;
         try {
           responseText = await documentSearch({
-            query: query.trim(),
+            query: input.trim(),
             userId: userId,
-            searchType: searchType,
+            searchType: searchType as any,
             limit: limit,
             threshold: threshold,
-            specificDocumentIds: undefined // Explicitly set to undefined
+            specificDocumentIds: undefined
           });
           console.log(`🔍 [Tool Calling] documentSearch executed successfully`);
         } catch (searchError) {
@@ -582,9 +584,9 @@ Be helpful, accurate, and always prioritize information from the user's actual d
     tools,
     verbose: true,
     returnIntermediateSteps: true,
-    maxIterations: 5, // Increased to allow for tool execution + response generation
-    earlyStoppingMethod: "force", // Changed to force to ensure completion
-    handleParsingErrors: true, // Add error handling
+    maxIterations: 3, // Reduced back to reasonable number
+    earlyStoppingMethod: "generate", // Changed back to generate for better responses
+    handleParsingErrors: true,
   });
 
   console.log(`🤖 [Agent Setup] Agent executor created successfully`);
@@ -613,23 +615,29 @@ export async function generateChatResponse(userMessage: string, documents: Docum
       console.log(`🤖 [Agent Chat] === INVOKING AGENT EXECUTOR ===`);
       const invokeStartTime = Date.now();
 
-      // Add callbacks to track tool execution
+      // Add comprehensive callbacks to track tool execution
       const callbacks = [{
-        handleToolStart(tool: any) { 
-          console.log(`🔧 [CALLBACK] TOOL START: ${tool.name}`); 
+        handleToolStart(tool: any, input: any) { 
+          console.log(`🔧 [CALLBACK] TOOL START: ${tool.name}`, input); 
         },
-        handleToolEnd(output: any) { 
+        handleToolEnd(output: any, runId: any) { 
           console.log(`🔧 [CALLBACK] TOOL END: ${String(output)?.slice?.(0, 200)}...`); 
         },
-        handleToolError(error: any) { 
+        handleToolError(error: any, runId: any) { 
           console.error(`🔧 [CALLBACK] TOOL ERROR:`, error); 
         },
+        handleAgentAction(action: any) {
+          console.log(`🔧 [CALLBACK] AGENT ACTION:`, action.tool, action.toolInput);
+        },
+        handleAgentEnd(action: any) {
+          console.log(`🔧 [CALLBACK] AGENT END:`, action);
+        }
       }];
 
-      const result = await agentExecutor.invoke({
-        input: userMessage,
-        callbacks
-      });
+      const result = await agentExecutor.invoke(
+        { input: userMessage },
+        { callbacks }
+      );
 
       const invokeDuration = Date.now() - invokeStartTime;
       console.log(`🤖 [Agent Chat] === AGENT EXECUTOR COMPLETED ===`);
