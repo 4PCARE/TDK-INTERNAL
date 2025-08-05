@@ -518,14 +518,28 @@ function createDocumentSearchTool(userId: string) {
         console.log(`🔍 [Tool Calling] - specificDocumentIds: undefined (not provided by LLM)`);
 
         const searchStartTime = Date.now();
-        const responseText = await documentSearch({
-          query: query.trim(),
-          userId: userId,
-          searchType: searchType,
-          limit: limit,
-          threshold: threshold,
-          specificDocumentIds: undefined // Explicitly set to undefined
-        });
+        
+        // Ensure documentSearch is available and callable
+        if (typeof documentSearch !== 'function') {
+          throw new Error('documentSearch function is not available or not a function');
+        }
+
+        let responseText: string;
+        try {
+          responseText = await documentSearch({
+            query: query.trim(),
+            userId: userId,
+            searchType: searchType,
+            limit: limit,
+            threshold: threshold,
+            specificDocumentIds: undefined // Explicitly set to undefined
+          });
+          console.log(`🔍 [Tool Calling] documentSearch executed successfully`);
+        } catch (searchError) {
+          console.error(`🚨 [Tool Error] documentSearch function failed:`, searchError);
+          throw new Error(`Document search failed: ${searchError.message}`);
+        }
+        
         const searchDuration = Date.now() - searchStartTime;
 
         // Ensure we always have a string response
@@ -628,17 +642,19 @@ Be helpful, accurate, and always prioritize information from the user's actual d
     agent,
     tools,
     verbose: true,
-    returnIntermediateSteps: true, // This helps with debugging
-    maxIterations: 3, // Limit iterations to prevent infinite loops
-    earlyStoppingMethod: "generate", // Ensure we get a final response
+    returnIntermediateSteps: true,
+    maxIterations: 5, // Increased to allow for tool execution + response generation
+    earlyStoppingMethod: "force", // Changed to force to ensure completion
+    handleParsingErrors: true, // Add error handling
   });
 
   console.log(`🤖 [Agent Setup] Agent executor created successfully`);
   console.log(`🤖 [Agent Setup] Executor configuration:`, {
     verbose: true,
     returnIntermediateSteps: true,
-    maxIterations: 3,
-    earlyStoppingMethod: "generate"
+    maxIterations: 5,
+    earlyStoppingMethod: "force",
+    handleParsingErrors: true
   });
   return executor;
 }
