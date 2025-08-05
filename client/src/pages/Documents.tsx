@@ -37,7 +37,7 @@ import DocumentEndorsementDialog from "@/components/DocumentEndorsementDialog";
 import ContentSummaryModal from "@/components/ContentSummaryModal";
 import DocumentChatModal from "@/components/Chat/DocumentChatModal";
 import UploadZone from "@/components/Upload/UploadZone";
-import { ChevronDown, Star, Grid3X3, List as ListIcon, SortAsc, SortDesc } from "lucide-react";
+import { ChevronDown, Grid3X3, List as ListIcon, SortAsc, SortDesc } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
