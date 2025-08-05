@@ -418,6 +418,8 @@ function createDocumentSearchTool(userId: string) {
     Returns: Array of search results with document content, names, and similarity scores`,
     func: async (input: string) => {
       try {
+        console.log(`🔍 [Tool Start] Document search tool called with input: "${input}"`);
+        
         // Parse input - it might be JSON or just a string
         let query: string;
         let searchType = 'smart_hybrid';
@@ -435,7 +437,7 @@ function createDocumentSearchTool(userId: string) {
           query = input;
         }
 
-        console.log(`🔍 Document search tool called with query: "${query}"`);
+        console.log(`🔍 [Tool] Parsed query: "${query}", searchType: ${searchType}`);
 
         const results = await documentSearch({
           query: query,
@@ -445,25 +447,35 @@ function createDocumentSearchTool(userId: string) {
           threshold: threshold
         });
 
-        console.log(`📄 Document search tool found ${results.length} results`);
+        console.log(`📄 [Tool] Document search completed. Found ${results?.length || 0} results`);
 
-        if (results.length === 0) {
-          return "No documents found matching your search query. You may need to upload relevant documents or try different search terms.";
+        if (!results || results.length === 0) {
+          const noResultsMessage = `No documents found matching "${query}". You may need to upload relevant documents or try different search terms like synonyms or related keywords.`;
+          console.log(`📄 [Tool] Returning no results message: ${noResultsMessage}`);
+          return noResultsMessage;
         }
 
         // Format results for better AI understanding
         const formattedResults = results.map((result, index) => ({
           rank: index + 1,
-          name: result.name,
-          similarity: result.similarity,
-          content: result.content.substring(0, 500) + (result.content.length > 500 ? '...' : ''),
-          summary: result.summary
+          document_name: result.name,
+          similarity_score: result.similarity.toFixed(3),
+          content_preview: result.content.substring(0, 800) + (result.content.length > 800 ? '...' : ''),
+          document_summary: result.summary || 'No summary available',
+          category: result.aiCategory || 'Uncategorized',
+          created_date: result.createdAt
         }));
 
-        return JSON.stringify(formattedResults, null, 2);
+        const responseText = `Found ${results.length} relevant documents for "${query}":\n\n${JSON.stringify(formattedResults, null, 2)}`;
+        console.log(`📄 [Tool] Returning formatted results (${responseText.length} chars)`);
+        
+        return responseText;
       } catch (error) {
-        console.error("Document search tool error:", error);
-        return `Error searching documents: ${error.message}`;
+        console.error("🚨 [Tool Error] Document search tool failed:", error);
+        console.error("🚨 [Tool Error] Stack trace:", error.stack);
+        const errorMessage = `Error searching documents for "${input}": ${error.message}. Please try a different search query.`;
+        console.log(`🚨 [Tool] Returning error message: ${errorMessage}`);
+        return errorMessage;
       }
     },
   });
