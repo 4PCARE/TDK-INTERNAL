@@ -451,9 +451,9 @@ function createDocumentSearchTool(userId: string) {
           return emptyQueryMessage;
         }
 
-        // Call the document search function with proper parameters
+        // Call the document search function - it now returns a string directly
         console.log(`🔍 [Tool Calling] documentSearch function...`);
-        const results = await documentSearch({
+        const responseText = await documentSearch({
           query: query.trim(),
           userId: userId,
           searchType: searchType as any,
@@ -461,34 +461,9 @@ function createDocumentSearchTool(userId: string) {
           threshold: threshold
         });
 
-        console.log(`📄 [Tool Results] Document search completed. Found ${results?.length || 0} results`);
-
-        // Always return a string, never undefined or array
-        if (!results || results.length === 0) {
-          const noResultsMessage = `No documents found matching "${query}". The knowledge base may not contain relevant documents for this query. Try using different keywords or upload relevant documents first.`;
-          console.log(`📄 [Tool Return] No results: ${noResultsMessage}`);
-          return noResultsMessage;
-        }
-
-        // Format results as a structured string for the AI to understand
-        const formattedResults = results.slice(0, 5).map((result, index) => ({
-          rank: index + 1,
-          document_name: result.name || 'Unknown Document',
-          similarity_score: (result.similarity || 0).toFixed(3),
-          content_preview: (result.content || '').substring(0, 400) + ((result.content || '').length > 400 ? '...' : ''),
-          document_summary: result.summary || 'No summary available',
-          category: result.aiCategory || 'Uncategorized',
-          created_date: result.createdAt || 'Unknown date'
-        }));
-
-        const responseText = `Found ${results.length} relevant documents for "${query}":\n\n${formattedResults.map(result => 
-          `${result.rank}. **${result.document_name}** (Similarity: ${result.similarity_score})\n` +
-          `   Category: ${result.category}\n` +
-          `   Summary: ${result.document_summary}\n` +
-          `   Content Preview: ${result.content_preview}\n`
-        ).join('\n')}`;
-
-        console.log(`📄 [Tool Return] Returning formatted string results (${responseText.length} characters)`);
+        console.log(`📄 [Tool Results] Document search completed. Response length: ${responseText.length} characters`);
+        console.log(`📄 [Tool Return] Returning response from documentSearch function`);
+        
         return responseText;
 
       } catch (error) {

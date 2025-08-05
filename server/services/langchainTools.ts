@@ -51,7 +51,7 @@ export async function documentSearch({
   mimeType?: string;
 }>> {
   console.log(`[LangChain Tool] ⚡ ENTRY: documentSearch called with query: "${query}", userId: ${userId}`);
-  
+
   try {
     // Validate inputs
     if (!query || !userId) {
@@ -109,7 +109,7 @@ export async function documentSearch({
         contentLength: result.content?.length || 0,
         similarity: result.similarity
       });
-      
+
       return {
         id: String(result.id) || 'unknown',
         name: result.name || 'Untitled Document',
@@ -125,7 +125,7 @@ export async function documentSearch({
     });
 
     console.log(`[LangChain Tool] ✅ COMPLETED: Returning ${formattedResults.length} formatted results`);
-    
+
     // Log detailed info about first result
     if (formattedResults.length > 0) {
       const firstResult = formattedResults[0];
@@ -145,7 +145,7 @@ export async function documentSearch({
     console.error('[LangChain Tool] 🚨 Error type:', error.constructor.name);
     console.error('[LangChain Tool] 🚨 Error message:', error.message);
     console.error('[LangChain Tool] 🚨 Error stack:', error.stack);
-    
+
     // Return empty array instead of throwing to prevent agent from failing
     console.log('[LangChain Tool] 🔄 Returning empty array due to error');
     return [];
