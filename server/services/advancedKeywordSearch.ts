@@ -90,7 +90,7 @@ export class AdvancedKeywordSearchService {
       const documentResults = new Map<number, any>();
 
       topChunks
-        .filter(chunk => chunk.score > 0.05) // Lower minimum relevance threshold for more results
+        .filter(chunk => chunk.score > 0.001) // Much lower minimum relevance threshold for more results
         .forEach(chunkScore => {
           const document = docMap.get(chunkScore.documentId);
           if (!document) return;
@@ -517,7 +517,7 @@ export class AdvancedKeywordSearchService {
       const documentResults = new Map<number, any>();
 
       topChunks
-        .filter(chunk => chunk.score > 0.05) // Lower minimum relevance threshold for more results
+        .filter(chunk => chunk.score > 0.001) // Much lower minimum relevance threshold for more results
         .forEach(chunkScore => {
           const document = docMap.get(chunkScore.documentId);
           if (!document) return;
