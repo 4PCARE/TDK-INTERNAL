@@ -17,7 +17,11 @@ class DocumentProcessor:
     def __init__(self):
         api_key = os.getenv("OPENAI_API_KEY")
         if api_key:
-            self.openai_client = openai.OpenAI(api_key=api_key)
+            try:
+                self.openai_client = openai.OpenAI(api_key=api_key)
+            except Exception as e:
+                print(f"Error initializing OpenAI client: {e}")
+                self.openai_client = None
         else:
             self.openai_client = None
             print("Warning: OPENAI_API_KEY not set. AI analysis will be disabled.")
