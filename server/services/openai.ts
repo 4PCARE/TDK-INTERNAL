@@ -5,6 +5,7 @@ import mammoth from "mammoth";
 import XLSX from "xlsx";
 import textract from "textract";
 import { LlamaParseReader } from "@llamaindex/cloud";
+import { llmRouter } from "./llmRouter"; // Assuming llmRouter is exported from './llmRouter'
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({
@@ -327,13 +328,13 @@ Columns: ${table.columns.map((col: any) => `${col.name} (${col.type})`).join(", 
   `,
     )
     .join("\n\n");
-  
+
   // Get current date and time in Thai format
   const now = new Date();
   now.setHours(now.getHours() + 7)
   const thaiDate = now.toLocaleDateString('th-TH', {
     year: 'numeric',
-    month: 'long', 
+    month: 'long',
     day: 'numeric',
     weekday: 'long'
   });
@@ -408,10 +409,10 @@ export async function generateChatResponse(
       console.log(`📄 DOCUMENT BOT: Performing smart hybrid search for query: "${userMessage}"`);
 
       // Get document IDs to filter search scope
-      const documentIds = specificDocumentId 
-        ? [specificDocumentId] 
+      const documentIds = specificDocumentId
+        ? [specificDocumentId]
         : documents.map(doc => doc.id).filter(id => id !== undefined);
-      
+
       console.log(`📄 DOCUMENT BOT: Restricting search to ${documentIds.length} documents: [${documentIds.join(', ')}]`);
 
       // Use the same search method as Line OA bot with document-specific configuration
@@ -430,17 +431,17 @@ export async function generateChatResponse(
 
       if (searchResults.length > 0) {
         console.log(`📄 DOCUMENT BOT: Smart hybrid search found ${searchResults.length} relevant chunks from document(s)`);
-        
+
         // Build document context from search results
         console.log(`📄 DOCUMENT BOT: Building document context from search results:`);
         const documentContents = [];
         let totalChars = 0;
         const maxChars = 15000; // Same limit as Line OA bot
-        
+
         for (let i = 0; i < Math.min(searchResults.length, 16); i++) {
           const result = searchResults[i];
           const chunkContent = `=== ${result.name} ===\n${result.content}\n`;
-          
+
           if (totalChars + chunkContent.length <= maxChars) {
             documentContents.push(chunkContent);
             totalChars += chunkContent.length;
@@ -450,7 +451,7 @@ export async function generateChatResponse(
             break;
           }
         }
-        
+
         relevantContent = documentContents.join('\n');
         console.log(`📄 DOCUMENT BOT: Used ${documentContents.length}/${searchResults.length} chunks (${totalChars} chars)`);
       } else {
@@ -479,10 +480,6 @@ Available documents:
 ${relevantContent}
 `;
 
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -505,5 +502,44 @@ ${relevantContent}
   } catch (error) {
     console.error("Error generating chat response:", error);
     return "I'm experiencing some technical difficulties. Please try again later.";
+  }
+}
+
+export async function analyzeDocument(content: string): Promise<{
+  summary: string;
+  tags: string[];
+  category: string;
+}> {
+  try {
+    const prompt = `Analyze this document and provide:
+1. A concise summary (2-3 sentences)
+2. 3-5 relevant tags
+3. Category classification (HR, Finance, Legal, Marketing, Technical, Operations, Research, Personal, Administrative, Data, Uncategorized)
+
+Document content: ${content.substring(0, 4000)}
+
+Respond in JSON format:
+{
+  "summary": "document summary",
+  "tags": ["tag1", "tag2", "tag3"],
+  "category": "category_name"
+}`;
+
+    const chatModel = await llmRouter.getChatModel();
+    const response = await chatModel.invoke([{ role: "user", content: prompt }]);
+
+    const analysis = JSON.parse(response.content as string || "{}");
+    return {
+      summary: analysis.summary || "Document processed successfully",
+      tags: analysis.tags || ["document"],
+      category: analysis.category || "Uncategorized"
+    };
+  } catch (error) {
+    console.error("Error analyzing document:", error);
+    return {
+      summary: "Document processed successfully",
+      tags: ["document"],
+      category: "Uncategorized"
+    };
   }
 }

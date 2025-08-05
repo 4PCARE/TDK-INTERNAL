@@ -6,8 +6,8 @@ import { thaiTextProcessor } from './thaiTextProcessor';
 import { llmRouter } from "./llmRouter";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY 
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 interface VectorDocument {
@@ -358,8 +358,8 @@ export class VectorService {
   }
 
   async searchDocuments(
-    query: string, 
-    userId: string, 
+    query: string,
+    userId: string,
     limit: number = 10,
     specificDocumentIds?: number[]
   ): Promise<Array<{ document: VectorDocument; similarity: number }>> {
@@ -390,7 +390,7 @@ export class VectorService {
       // Additional filtering at database level to ensure we only get proper chunks
       const validChunks = dbVectors.filter(dbVector => {
         const isValidChunk = (
-          dbVector.chunkIndex !== null && 
+          dbVector.chunkIndex !== null &&
           dbVector.chunkIndex !== undefined &&
           dbVector.content.length <= 4000 // Reasonable chunk size limit
         );
@@ -410,12 +410,22 @@ export class VectorService {
       }
 
       // Generate embedding for the search query
-      const response = await openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: query,
-      });
+      // Generate embedding for this chunk using llmRouter
+      let queryEmbedding: number[];
 
-      const queryEmbedding = response.data[0].embedding;
+      try {
+        queryEmbedding = await llmRouter.generateEmbedding(query, userId);
+        console.log(`✅ Generated query embedding using ${await llmRouter.getCurrentConfig()?.embeddingProvider || 'default'} provider`);
+      } catch (llmError) {
+        console.log(`⚠️ LLM router failed for query embedding, falling back to OpenAI: ${llmError.message}`);
+        // Fallback to OpenAI if llmRouter fails
+        const response = await openai.embeddings.create({
+          model: "text-embedding-3-small",
+          input: query,
+        });
+        queryEmbedding = response.data[0].embedding;
+      }
+
 
       // Calculate similarities for all chunks
       const allResults = validChunks
@@ -457,7 +467,7 @@ export class VectorService {
         .filter(result => {
           // Guard against full documents masquerading as chunks
           if (
-            result.document.chunkIndex === undefined || 
+            result.document.chunkIndex === undefined ||
             result.document.content.length > 5000
           ) {
             console.warn(`⚠️ VECTOR SERVICE: Skipping full document result - not a proper chunk. Doc ${result.document.metadata.originalDocumentId}, length: ${result.document.content.length}`);

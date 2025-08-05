@@ -1,6 +1,4 @@
-import OpenAI from 'openai';
-
-// Initialize OpenAI client
+import { llmRouter } from './llmRouter';
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
