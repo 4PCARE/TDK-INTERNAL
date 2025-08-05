@@ -674,7 +674,7 @@ export async function searchSmartHybridDebug(
     const totalScore = scoredChunks.reduce((sum, c) => sum + c.finalScore, 0);
     const avgScore = totalScore / scoredChunks.length;
 
-    if (avgScore > 0.001) { // Much lower threshold to allow more results through
+    if (avgScore > 0.0001) { // Even lower threshold to allow more results through
       // Use configurable mass selection - keep adding chunks until we reach the target percentage of total score mass
       const scoreTarget = totalScore * massSelectionPercentage;
       let accScore = 0;
@@ -707,6 +707,12 @@ export async function searchSmartHybridDebug(
       // If scores are very low, take top chunks as fallback with any positive score
       selectedChunks = scoredChunks.filter(chunk => chunk.finalScore > 0).slice(0, Math.min(8, scoredChunks.length));
       console.log(`📊 FALLBACK: Using ${selectedChunks.length} chunks with any positive score due to low average score (${avgScore.toFixed(4)})`);
+      
+      // If still no results, take any chunks that had keyword matches regardless of score
+      if (selectedChunks.length === 0) {
+        selectedChunks = scoredChunks.filter(chunk => chunk.keywordScore > 0).slice(0, Math.min(5, scoredChunks.length));
+        console.log(`📊 EMERGENCY FALLBACK: Using ${selectedChunks.length} chunks with any keyword matches`);
+      }
     }
 
     // Calculate selected chunks total score
