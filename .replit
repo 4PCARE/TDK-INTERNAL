@@ -97,5 +97,18 @@ args = "npm run dev"
 task = "shell.exec"
 args = "cd backend && python main.py"
 
+[[workflows.workflow]]
+name = "Full Stack with Python"
+author = 43981095
+mode = "parallel"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd backend && python main.py"
+
 [agent]
 integrations = ["javascript_database==1.0.0", "javascript_gemini==1.0.0", "javascript_openai==1.0.0"]
