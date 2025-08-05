@@ -1,4 +1,3 @@
-
 import { semanticSearchServiceV2 } from './semanticSearchV2';
 import { storage } from '../storage';
 import type { SearchOptions } from './newSearch';
@@ -152,7 +151,7 @@ export async function getDocumentById({
     console.log(`[LangChain Tool] Retrieving document ${docId} for user ${userId}`);
 
     const document = await storage.getDocument(docId, userId);
-    
+
     if (!document) {
       throw new Error(`Document with ID ${docId} not found or access denied`);
     }
