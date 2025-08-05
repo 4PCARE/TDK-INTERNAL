@@ -415,25 +415,31 @@ function createDocumentSearchTool(userId: string) {
     Parameters:
     - input: The search query string to find relevant documents
 
-    Returns: Array of search results with document content, names, and similarity scores`,
+    Returns: String with search results containing document content, names, and similarity scores`,
     func: async (input: string): Promise<string> => {
       console.log(`🔍 [Tool Entry] Document search tool called with input: "${input}"`);
       
       try {
-        // Parse input - it might be JSON or just a string
+        // Parse input - handle both string and JSON object formats
         let query: string;
         let searchType = 'smart_hybrid';
-        let limit = 10;
+        let limit = 5;
         let threshold = 0.3;
 
-        try {
-          const params = JSON.parse(input);
-          query = params.input || params.query || input;
-          searchType = params.searchType || 'smart_hybrid';
-          limit = params.limit || 10;
-          threshold = params.threshold || 0.3;
-        } catch {
-          // If parsing fails, treat the entire input as the query
+        // Handle the case where LLM sends JSON like {"input": "เดอะมอลล์"}
+        if (input.trim().startsWith('{')) {
+          try {
+            const params = JSON.parse(input);
+            query = params.input || params.query || input;
+            searchType = params.searchType || 'smart_hybrid';
+            limit = params.limit || 5;
+            threshold = params.threshold || 0.3;
+          } catch (parseError) {
+            console.log(`🔍 [Tool] JSON parse failed, using input as string:`, parseError);
+            query = input;
+          }
+        } else {
+          // Direct string input
           query = input;
         }
 
@@ -445,7 +451,7 @@ function createDocumentSearchTool(userId: string) {
           return emptyQueryMessage;
         }
 
-        // Call the document search function
+        // Call the document search function with proper parameters
         console.log(`🔍 [Tool Calling] documentSearch function...`);
         const results = await documentSearch({
           query: query.trim(),
@@ -457,18 +463,19 @@ function createDocumentSearchTool(userId: string) {
 
         console.log(`📄 [Tool Results] Document search completed. Found ${results?.length || 0} results`);
 
+        // Always return a string, never undefined or array
         if (!results || results.length === 0) {
           const noResultsMessage = `No documents found matching "${query}". The knowledge base may not contain relevant documents for this query. Try using different keywords or upload relevant documents first.`;
           console.log(`📄 [Tool Return] No results: ${noResultsMessage}`);
           return noResultsMessage;
         }
 
-        // Format results for better AI understanding
-        const formattedResults = results.map((result, index) => ({
+        // Format results as a structured string for the AI to understand
+        const formattedResults = results.slice(0, 5).map((result, index) => ({
           rank: index + 1,
           document_name: result.name || 'Unknown Document',
           similarity_score: (result.similarity || 0).toFixed(3),
-          content_preview: (result.content || '').substring(0, 600) + ((result.content || '').length > 600 ? '...' : ''),
+          content_preview: (result.content || '').substring(0, 400) + ((result.content || '').length > 400 ? '...' : ''),
           document_summary: result.summary || 'No summary available',
           category: result.aiCategory || 'Uncategorized',
           created_date: result.createdAt || 'Unknown date'
@@ -481,13 +488,13 @@ function createDocumentSearchTool(userId: string) {
           `   Content Preview: ${result.content_preview}\n`
         ).join('\n')}`;
 
-        console.log(`📄 [Tool Return] Formatted results (${responseText.length} chars)`);
+        console.log(`📄 [Tool Return] Returning formatted string results (${responseText.length} characters)`);
         return responseText;
 
       } catch (error) {
         console.error("🚨 [Tool Error] Document search tool failed:", error);
-        console.error("🚨 [Tool Error] Stack trace:", error.stack);
-        const errorMessage = `Error occurred while searching documents for "${input}": ${error.message || 'Unknown error'}. Please try again with a different search query.`;
+        console.error("🚨 [Tool Error] Stack trace:", error?.stack);
+        const errorMessage = `ERROR: ${error?.message || 'unknown error occurred during document search'}`;
         console.log(`🚨 [Tool Return] Error message: ${errorMessage}`);
         return errorMessage;
       }
