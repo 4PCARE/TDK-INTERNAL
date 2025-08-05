@@ -9,7 +9,8 @@ import fs from 'fs'; // Make sure fs is imported
 import { ChatOpenAI } from "@langchain/openai";
 import { createOpenAIFunctionsAgent, AgentExecutor } from "langchain/agents";
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
-import { DynamicTool } from "@langchain/core/tools";
+import { DynamicStructuredTool } from "@langchain/core/tools";
+import { z } from "zod";
 import { documentSearch } from "./langchainTools";
 
 // Import local Document type
@@ -410,15 +411,13 @@ Current time: ${thaiTime}`;
 // Create document search tool for LangChain
 function createDocumentSearchTool(userId: string) {
   console.log(`🛠️ [Tool Creation] Creating document_search tool for user: ${userId}`);
-  const tool = new DynamicTool({
+  const tool = new DynamicStructuredTool({
     name: "document_search",
-    description: `Search through documents in the knowledge management system. Use this tool when users ask questions about documents, need information from their knowledge base, or want to find specific content.
-
-    Parameters:
-    - input: The search query string to find relevant documents
-
-    Returns: String with search results containing document content, names, and similarity scores`,
-    func: async (input: string | object): Promise<string> => {
+    description: "Search through documents in the knowledge management system. Use this tool when users ask questions about documents, need information from their knowledge base, or want to find specific content.",
+    schema: z.object({
+      input: z.string().describe("The search query string to find relevant documents")
+    }),
+    func: async ({ input }: { input: string }): Promise<string> => {
       const toolStartTime = Date.now();
       console.log(`🔍 [Tool Entry] === DOCUMENT SEARCH TOOL CALLED ===`);
       console.log(`🔍 [Tool Entry] Timestamp: ${new Date().toISOString()}`);
@@ -427,77 +426,17 @@ function createDocumentSearchTool(userId: string) {
       console.log(`🔍 [Tool Entry] User ID: ${userId}`);
 
       try {
-        // Parse input - handle both string and object formats
-        let query: string;
-        let searchType = 'smart_hybrid';
-        let limit = 5;
-        let threshold = 0.3;
+        // With DynamicStructuredTool, input is already validated and structured
+        const query = input;
+        const searchType = 'smart_hybrid';
+        const limit = 5;
+        const threshold = 0.3;
 
-        if (typeof input === 'object' && input !== null) {
-          console.log(`🔍 [Tool Parsing] Processing object input`);
-
-          // Handle different object structures
-          if ('input' in input && typeof (input as any).input === 'string') {
-            // LangChain-style input: { input: "search query" }
-            query = (input as any).input;
-            console.log(`🔍 [Tool Parsing] Extracted query from input.input: "${query}"`);
-          } else if ('query' in input && typeof (input as any).query === 'string') {
-            // Direct parameters: { query: "search", searchType: "vector", ... }
-            const inputObj = input as any;
-            query = inputObj.query;
-            searchType = inputObj.searchType || searchType;
-            limit = inputObj.limit || limit;
-            threshold = inputObj.threshold || threshold;
-            console.log(`🔍 [Tool Parsing] Extracted structured parameters`);
-            console.log(`🔍 [Tool Parsing] - query: "${query}"`);
-            console.log(`🔍 [Tool Parsing] - searchType: ${searchType}`);
-            console.log(`🔍 [Tool Parsing] - limit: ${limit}`);
-            console.log(`🔍 [Tool Parsing] - threshold: ${threshold}`);
-          } else {
-            // Fallback - try to convert object to string
-            console.log(`🔍 [Tool Parsing] Unknown object structure, converting to string`);
-            query = JSON.stringify(input);
-          }
-        } else if (typeof input === 'string') {
-          console.log(`🔍 [Tool Parsing] Processing string input`);
-
-          // Try to parse as JSON first
-          try {
-            const parsed = JSON.parse(input);
-            if (parsed && typeof parsed === 'object') {
-              console.log(`🔍 [Tool Parsing] Successfully parsed JSON string`);
-              if (parsed.input && typeof parsed.input === 'string') {
-                query = parsed.input;
-                console.log(`🔍 [Tool Parsing] Extracted query from parsed.input: "${query}"`);
-              } else if (parsed.query && typeof parsed.query === 'string') {
-                query = parsed.query;
-                searchType = parsed.searchType || searchType;
-                limit = parsed.limit || limit;
-                threshold = parsed.threshold || threshold;
-                console.log(`🔍 [Tool Parsing] Extracted structured parameters from JSON`);
-              } else {
-                query = input;
-                console.log(`🔍 [Tool Parsing] No recognized properties, using original string`);
-              }
-            } else {
-              query = input;
-              console.log(`🔍 [Tool Parsing] Parsed result not object, using original string`);
-            }
-          } catch (e) {
-            console.log(`🔍 [Tool Parsing] Not JSON, using as direct string query`);
-            query = input;
-          }
-        } else {
-          console.log(`🔍 [Tool Parsing] Unexpected input type, converting to string`);
-          query = String(input || "");
-        }
-
-        // Ensure we have proper defaults when LLM sends simple string
-        console.log(`🔍 [Tool Parsing] === FINAL PARSED PARAMETERS ===`);
-        console.log(`🔍 [Tool Parsing] Final query: "${query}"`);
-        console.log(`🔍 [Tool Parsing] Final searchType: ${searchType}`);
-        console.log(`🔍 [Tool Parsing] Final limit: ${limit}`);
-        console.log(`🔍 [Tool Parsing] Final threshold: ${threshold}`);
+        console.log(`🔍 [Tool Parsing] === PARSED PARAMETERS ===`);
+        console.log(`🔍 [Tool Parsing] Query: "${query}"`);
+        console.log(`🔍 [Tool Parsing] SearchType: ${searchType}`);
+        console.log(`🔍 [Tool Parsing] Limit: ${limit}`);
+        console.log(`🔍 [Tool Parsing] Threshold: ${threshold}`);
         console.log(`🔍 [Tool Parsing] User ID: ${userId}`);
 
         if (!query || query.trim().length === 0) {
@@ -674,8 +613,22 @@ export async function generateChatResponse(userMessage: string, documents: Docum
       console.log(`🤖 [Agent Chat] === INVOKING AGENT EXECUTOR ===`);
       const invokeStartTime = Date.now();
 
+      // Add callbacks to track tool execution
+      const callbacks = [{
+        handleToolStart(tool: any) { 
+          console.log(`🔧 [CALLBACK] TOOL START: ${tool.name}`); 
+        },
+        handleToolEnd(output: any) { 
+          console.log(`🔧 [CALLBACK] TOOL END: ${String(output)?.slice?.(0, 200)}...`); 
+        },
+        handleToolError(error: any) { 
+          console.error(`🔧 [CALLBACK] TOOL ERROR:`, error); 
+        },
+      }];
+
       const result = await agentExecutor.invoke({
         input: userMessage,
+        callbacks
       });
 
       const invokeDuration = Date.now() - invokeStartTime;
