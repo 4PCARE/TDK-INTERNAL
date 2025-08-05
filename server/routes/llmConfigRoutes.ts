@@ -1,6 +1,7 @@
 
 import type { Express } from "express";
-import { smartAuth, isAdmin } from "../smartAuth";
+import { smartAuth } from "../smartAuth";
+import { isAdmin } from "../replitAuth";
 import { storage } from "../storage";
 
 export function registerLlmConfigRoutes(app: Express) {
