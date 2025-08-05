@@ -437,16 +437,17 @@ function createDocumentSearchTool(userId: string) {
           console.log(`🔍 [Tool Parsing] Processing object input`);
 
           // Handle different object structures
-          if ('input' in input && typeof input.input === 'string') {
+          if ('input' in input && typeof (input as any).input === 'string') {
             // LangChain-style input: { input: "search query" }
-            query = input.input;
+            query = (input as any).input;
             console.log(`🔍 [Tool Parsing] Extracted query from input.input: "${query}"`);
-          } else if ('query' in input && typeof input.query === 'string') {
+          } else if ('query' in input && typeof (input as any).query === 'string') {
             // Direct parameters: { query: "search", searchType: "vector", ... }
-            query = input.query;
-            searchType = input.searchType || searchType;
-            limit = input.limit || limit;
-            threshold = input.threshold || threshold;
+            const inputObj = input as any;
+            query = inputObj.query;
+            searchType = inputObj.searchType || searchType;
+            limit = inputObj.limit || limit;
+            threshold = inputObj.threshold || threshold;
             console.log(`🔍 [Tool Parsing] Extracted structured parameters`);
             console.log(`🔍 [Tool Parsing] - query: "${query}"`);
             console.log(`🔍 [Tool Parsing] - searchType: ${searchType}`);
@@ -465,18 +466,22 @@ function createDocumentSearchTool(userId: string) {
             const parsed = JSON.parse(input);
             if (parsed && typeof parsed === 'object') {
               console.log(`🔍 [Tool Parsing] Successfully parsed JSON string`);
-              if (parsed.input) {
+              if (parsed.input && typeof parsed.input === 'string') {
                 query = parsed.input;
-              } else if (parsed.query) {
+                console.log(`🔍 [Tool Parsing] Extracted query from parsed.input: "${query}"`);
+              } else if (parsed.query && typeof parsed.query === 'string') {
                 query = parsed.query;
                 searchType = parsed.searchType || searchType;
                 limit = parsed.limit || limit;
                 threshold = parsed.threshold || threshold;
+                console.log(`🔍 [Tool Parsing] Extracted structured parameters from JSON`);
               } else {
                 query = input;
+                console.log(`🔍 [Tool Parsing] No recognized properties, using original string`);
               }
             } else {
               query = input;
+              console.log(`🔍 [Tool Parsing] Parsed result not object, using original string`);
             }
           } catch (e) {
             console.log(`🔍 [Tool Parsing] Not JSON, using as direct string query`);
