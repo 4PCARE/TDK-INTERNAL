@@ -1,7 +1,6 @@
 import { semanticSearchServiceV2 } from './semanticSearchV2';
-import { newSearchService } from './newSearch';
+import { searchSmartHybridDebug, type SearchOptions } from './newSearch';
 import { storage } from '../storage';
-import type { SearchOptions } from './newSearch';
 
 /**
  * Document Search Tool for LangChain
@@ -74,8 +73,8 @@ export async function documentSearch({
 
     console.log(`[LangChain Tool] Document search initiated: "${query}" for user ${userId}`);
 
-    // Execute search using the new search service
-    const searchResults = await newSearchService.searchDocuments(
+    // Execute search using the smart hybrid search function
+    const searchResults = await searchSmartHybridDebug(
       query,
       userId,
       searchOptions
