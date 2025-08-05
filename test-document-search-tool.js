@@ -1,5 +1,5 @@
 
-const { documentSearch } = require('./server/services/langchainTools');
+import { documentSearch } from './server/services/langchainTools.js';
 
 async function testDocumentSearchTool() {
   console.log('🧪 Testing document_search tool with LangChain-style input...');
@@ -80,12 +80,6 @@ async function testDocumentSearchTool() {
 // Also test the tool function directly as LangChain would call it
 async function testToolFunctionDirectly() {
   console.log('\n🔧 Testing tool function directly (as LangChain calls it)...');
-  
-  // Import the tool creation function
-  const { createDocumentSearchTool } = require('./server/services/openai');
-  
-  // This won't work directly since createDocumentSearchTool is not exported
-  // Let's simulate the tool call instead
   
   console.log('Simulating LangChain tool call...');
   
