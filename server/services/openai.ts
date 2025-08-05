@@ -1,17 +1,32 @@
 import OpenAI from "openai";
-import fs from "fs";
-import { Document } from "@shared/schema";
 import mammoth from "mammoth";
 import XLSX from "xlsx";
 import textract from "textract";
 import { LlamaParseReader } from "@llamaindex/cloud";
 
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+// Import LangChain components for agent and tools
+import { ChatOpenAI } from "@langchain/openai";
+import { createOpenAIFunctionsAgent, AgentExecutor } from "langchain/agents";
+import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
+import { DynamicTool } from "@langchain/core/tools";
+import { documentSearch } from "./langchainTools";
+
+// Import local Document type
+import type { Document } from "../storage"; // Assuming Document type is exported from ../storage
+
+// Initialize OpenAI client for legacy features or other OpenAI API calls
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || (() => {
     console.error("OPENAI_API_KEY not found in environment variables");
     throw new Error("OpenAI API key is required");
   })(),
+});
+
+// Initialize LangChain ChatOpenAI model for tool binding
+const chatModel = new ChatOpenAI({
+  model: "gpt-4o",
+  temperature: 0.7,
+  openAIApiKey: process.env.OPENAI_API_KEY,
 });
 
 export async function processDocument(
@@ -327,13 +342,13 @@ Columns: ${table.columns.map((col: any) => `${col.name} (${col.type})`).join(", 
   `,
     )
     .join("\n\n");
-  
+
   // Get current date and time in Thai format
   const now = new Date();
   now.setHours(now.getHours() + 7)
   const thaiDate = now.toLocaleDateString('th-TH', {
     year: 'numeric',
-    month: 'long', 
+    month: 'long',
     day: 'numeric',
     weekday: 'long'
   });
@@ -391,119 +406,118 @@ Current time: ${thaiTime}`;
   }
 }
 
-export async function generateChatResponse(
-  userMessage: string,
-  documents: any[],
-  specificDocumentId?: number,
-  searchType: 'hybrid' | 'semantic' | 'keyword' = 'hybrid',
-  keywordWeight: number = 0.95,
-  vectorWeight: number = 0.05,
-  massSelectionPercentage?: number
-): Promise<string> {
-  try {
-    let relevantContent = "";
+// Create document search tool for LangChain
+function createDocumentSearchTool(userId: string) {
+  return new DynamicTool({
+    name: "document_search",
+    description: `Search through documents in the knowledge management system. Use this tool when users ask questions about documents, need information from their knowledge base, or want to find specific content.
 
-    // Use the same hybrid search system as Line OA bot
-    try {
-      console.log(`📄 DOCUMENT BOT: Performing smart hybrid search for query: "${userMessage}"`);
+    Parameters:
+    - query: The search query string to find relevant documents
+    - searchType: Type of search ('semantic', 'keyword', 'hybrid', or 'smart_hybrid') - default: 'smart_hybrid'
+    - limit: Maximum number of results to return (default: 10, max: 50)
+    - threshold: Minimum similarity threshold for results (default: 0.3)
 
-      // Get document IDs to filter search scope
-      const documentIds = specificDocumentId 
-        ? [specificDocumentId] 
-        : documents.map(doc => doc.id).filter(id => id !== undefined);
-      
-      console.log(`📄 DOCUMENT BOT: Restricting search to ${documentIds.length} documents: [${documentIds.join(', ')}]`);
+    Returns: Array of search results with document content, names, and similarity scores`,
+    func: async (input: string) => {
+      try {
+        const params = JSON.parse(input);
+        const results = await documentSearch({
+          query: params.query,
+          userId: userId,
+          searchType: params.searchType || 'smart_hybrid',
+          limit: params.limit || 10,
+          threshold: params.threshold || 0.3
+        });
 
-      // Use the same search method as Line OA bot with document-specific configuration
-      const { searchSmartHybridDebug } = await import('./newSearch');
-      const searchResults = await searchSmartHybridDebug(
-        userMessage,
-        documents[0]?.userId,
-        {
-          keywordWeight: 0.95, // High keyword weight for document bots
-          vectorWeight: 0.05,
-          specificDocumentIds: documentIds,
-          massSelectionPercentage: 0.6, // 60% mass selection for document bots
-          limit: 16 // Max 16 chunks for document bots
-        }
-      );
-
-      if (searchResults.length > 0) {
-        console.log(`📄 DOCUMENT BOT: Smart hybrid search found ${searchResults.length} relevant chunks from document(s)`);
-        
-        // Build document context from search results
-        console.log(`📄 DOCUMENT BOT: Building document context from search results:`);
-        const documentContents = [];
-        let totalChars = 0;
-        const maxChars = 15000; // Same limit as Line OA bot
-        
-        for (let i = 0; i < Math.min(searchResults.length, 16); i++) {
-          const result = searchResults[i];
-          const chunkContent = `=== ${result.name} ===\n${result.content}\n`;
-          
-          if (totalChars + chunkContent.length <= maxChars) {
-            documentContents.push(chunkContent);
-            totalChars += chunkContent.length;
-            console.log(`  ${i + 1}. ${result.name} - Similarity: ${result.similarity.toFixed(4)}`);
-            console.log(`      Content preview: ${result.content.substring(0, 100)}...`);
-          } else {
-            break;
-          }
-        }
-        
-        relevantContent = documentContents.join('\n');
-        console.log(`📄 DOCUMENT BOT: Used ${documentContents.length}/${searchResults.length} chunks (${totalChars} chars)`);
-      } else {
-        console.log("📄 DOCUMENT BOT: No hybrid search results found, using fallback document content");
-        relevantContent = documents
-          .map(doc => doc.content || doc.summary || '')
-          .filter(content => content.length > 0)
-          .slice(0, 2)
-          .map(content => content.substring(0, 15000))
-          .join("\n\n");
+        return JSON.stringify(results, null, 2);
+      } catch (error) {
+        console.error("Document search tool error:", error);
+        return `Error searching documents: ${error.message}`;
       }
-    } catch (searchError) {
-      console.error(`📄 DOCUMENT BOT: Smart hybrid search failed:`, searchError);
-      console.log("📄 DOCUMENT BOT: Falling back to document content");
-      relevantContent = documents
-        .map(doc => doc.content || doc.summary || '')
-        .filter(content => content.length > 0)
-        .slice(0, 2)
-        .map(content => content.substring(0, 15000))
-        .join("\n\n");
+    },
+  });
+}
+
+// Create agent with tools
+async function createAgentWithTools(userId: string) {
+  const tools = [createDocumentSearchTool(userId)];
+
+  const prompt = ChatPromptTemplate.fromMessages([
+    [
+      "system",
+      `You are an AI assistant for a Knowledge Management System. You help users find information from their document collection and answer questions based on the available knowledge base.
+
+When users ask questions that might be answered by documents in their knowledge base, use the document_search tool to find relevant information. Always search with appropriate keywords and provide helpful, accurate responses based on the found documents.
+
+If you find relevant documents, cite them in your response and provide specific information from the content. If no relevant documents are found, let the user know and suggest they might need to upload relevant documents or refine their search.
+
+Be helpful, accurate, and always prioritize information from the user's actual documents over general knowledge.`
+    ],
+    ["human", "{input}"],
+    new MessagesPlaceholder("agent_scratchpad"),
+  ]);
+
+  const agent = await createOpenAIFunctionsAgent({
+    llm: chatModel,
+    tools,
+    prompt,
+  });
+
+  return new AgentExecutor({
+    agent,
+    tools,
+    verbose: true,
+  });
+}
+
+export async function generateChatResponse(userMessage: string, documents: Document[], userId?: string): Promise<string> {
+  try {
+    // If userId is provided, use LangChain agent with tools
+    if (userId) {
+      console.log(`🤖 Using LangChain agent with tools for user ${userId}`);
+      const agentExecutor = await createAgentWithTools(userId);
+
+      const result = await agentExecutor.invoke({
+        input: userMessage,
+      });
+
+      return result.output || "I couldn't generate a response. Please try again.";
     }
 
-    const systemMessage = `You are an AI assistant helping users with their document management system. You have access to the user's documents and can answer questions about them, help with searches, provide summaries, and assist with document organization.
+    // Fallback to traditional approach if no userId
+    console.log("🔄 Using traditional chat approach (no tools)");
 
-Available documents:
-${relevantContent}
-`;
-
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    // Create context from documents
+    const context = documents
+      .slice(0, 10) // Limit to first 10 documents to avoid token limits
+      .map(doc => `Document: ${doc.name}\nContent: ${doc.content || doc.summary || 'No content available'}\n`)
+      .join('\n---\n');
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: systemMessage,
+          content: `You are an AI assistant helping users with their knowledge management system. Use the provided document context to answer questions accurately. If the information isn't in the provided documents, say so clearly.
+
+Available documents context:
+${context}
+
+Always be helpful and provide specific references to the documents when answering questions.`
         },
         {
           role: "user",
-          content: userMessage,
-        },
+          content: userMessage
+        }
       ],
-      max_tokens: 700,
+      max_tokens: 1000,
+      temperature: 0.7,
     });
 
-    return (
-      response.choices[0].message.content ||
-      "I'm sorry, I couldn't generate a response at this time."
-    );
+    return response.choices[0]?.message?.content || "I couldn't generate a response. Please try again.";
   } catch (error) {
     console.error("Error generating chat response:", error);
-    return "I'm experiencing some technical difficulties. Please try again later.";
+    throw new Error("Failed to generate response");
   }
 }

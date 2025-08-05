@@ -63,8 +63,8 @@ export function registerChatRoutes(app: Express) {
       // Get user's documents for context
       const documents = await storage.getDocuments(userId);
 
-      // Generate AI response
-      const aiResponse = await generateChatResponse(message, documents);
+      // Generate AI response with userId for tool binding
+      const aiResponse = await generateChatResponse(message, documents, userId);
 
       // Save AI response
       await storage.saveChatMessage(conversationId, userId, aiResponse, "assistant");
@@ -106,9 +106,9 @@ export function registerChatRoutes(app: Express) {
       // Get user's documents for context
       const documents = await storage.getDocuments(userId);
 
-      // Generate AI response
+      // Generate AI response with userId for tool binding
       const { generateChatResponse } = await import("../services/openai");
-      const aiResponse = await generateChatResponse(message, documents);
+      const aiResponse = await generateChatResponse(message, documents, userId);
 
       // Save AI response
       await storage.createChatMessage({
