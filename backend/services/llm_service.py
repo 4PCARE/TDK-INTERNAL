@@ -11,7 +11,7 @@ class LLMService:
         api_key = os.getenv("OPENAI_API_KEY")
         if api_key:
             try:
-                self.openai_client = openai.OpenAI(api_key=api_key)
+                self.openai_client = openai.AsyncOpenAI(api_key=api_key)
                 self.enabled = True
                 print("LLM Service initialized with OpenAI")
             except Exception as e:
