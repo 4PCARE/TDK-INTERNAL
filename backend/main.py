@@ -60,6 +60,23 @@ class DocumentChat(BaseModel):
     document_ids: Optional[List[str]] = None
     conversation_history: Optional[List[Dict[str, str]]] = None
 
+@app.get("/")
+async def root():
+    return {
+        "message": "AI-KMS Python Backend API",
+        "version": "1.0.0",
+        "status": "running",
+        "endpoints": {
+            "health": "/health",
+            "documents": "/api/python/documents",
+            "upload": "/api/python/documents/upload",
+            "chat": "/api/python/chat",
+            "search": "/api/python/search",
+            "document_chat": "/api/python/documents/chat",
+            "stats": "/api/python/stats"
+        }
+    }
+
 @app.get("/health")
 async def health_check():
     return {
