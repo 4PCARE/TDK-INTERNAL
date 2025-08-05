@@ -1,5 +1,5 @@
 
-import { documentSearch } from './server/services/langchainTools.js';
+import { documentSearch } from './server/services/langchainTools.ts';
 
 async function testDocumentSearchTool() {
   console.log('🧪 Testing document_search tool with LangChain-style input...');
