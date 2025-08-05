@@ -8,9 +8,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
 import Documents from "@/pages/Documents";
 import Categories from "@/pages/Categories";
-import Upload from "./pages/Upload";
-import Settings from "./pages/Settings";
-import PythonBackendTest from "./components/PythonBackendTest";
+import Upload from "@/pages/Upload";
 import Search from "@/pages/Search";
 import Landing from "@/pages/Landing";
 import Admin from "@/pages/Admin";
@@ -20,6 +18,7 @@ import AgentConsole from "@/pages/AgentConsole";
 import Integrations from "@/pages/Integrations";
 import DataConnections from "./pages/DataConnections";
 import LineConfiguration from "@/pages/LineConfiguration";
+import Settings from "@/pages/Settings";
 import UserManagement from "@/pages/UserManagement";
 import RoleManagement from "@/pages/RoleManagement";
 import AuditMonitoring from "@/pages/AuditMonitoring";
@@ -97,7 +96,6 @@ function Router() {
           <Route path="/user-activity" component={UserActivity} />
           <Route path="/survey" component={Survey} />
           <Route path="/audit-monitoring" component={AuditMonitoring} />
-          <Route path="/python-test" element={<PythonBackendTest />} />
           <Route path="/not-found" component={NotFound} />
           <Route component={NotFound} />
         </Switch>

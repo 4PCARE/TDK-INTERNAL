@@ -26,7 +26,6 @@ import { registerAiFeedbackRoutes } from "./routes/aiFeedbackRoutes";
 import { registerAiResponseAnalysisRoutes } from "./routes/aiResponseAnalysisRoutes";
 import { registerLlmConfigRoutes } from "./routes/llmConfigRoutes";
 import { registerLineTemplateRoutes } from "./routes/lineTemplateRoutes";
-import { registerPythonProxyRoutes } from "./routes/pythonProxyRoutes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -67,7 +66,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerAiResponseAnalysisRoutes(app);
   registerLlmConfigRoutes(app);
   registerLineTemplateRoutes(app);
-  registerPythonProxyRoutes(app);
 
   // Line OA Webhook endpoint (no authentication required)
   app.post("/api/line/webhook", handleLineWebhook);

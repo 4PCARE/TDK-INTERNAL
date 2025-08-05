@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Star, MoreHorizontal, FileText, File, Image, Trash2 } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -24,17 +23,9 @@ interface DocumentCardProps {
     content?: string;
     isChunkResult?: boolean;
   };
-  isSelected?: boolean;
-  onSelectChange?: (documentId: number) => void;
-  showSelection?: boolean;
 }
 
-export default function DocumentCard({ 
-  document, 
-  isSelected = false,
-  onSelectChange,
-  showSelection = false
-}: DocumentCardProps) {
+export default function DocumentCard({ document }: DocumentCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -60,33 +51,17 @@ export default function DocumentCard({
 
   const deleteDocumentMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/documents/${document.id}`, {
-        method: 'DELETE'
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to delete document: ${response.status}`);
-      }
-      
-      return await response.json();
+      return await apiRequest("DELETE", `/api/documents/${document.id}`);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
       toast({
         title: "Document deleted",
         description: "Document has been successfully deleted.",
       });
-      
-      // Safely refresh queries
-      Promise.allSettled([
-        queryClient.invalidateQueries({ queryKey: ["/api/documents"] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] })
-      ]).catch(console.warn);
-      
-      // Reload page after delay
-      setTimeout(() => window.location.reload(), 1000);
     },
     onError: (error: Error) => {
-      console.warn('Document deletion error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to delete document.",
@@ -100,10 +75,8 @@ export default function DocumentCard({
       return <FileText className="w-6 h-6 text-red-600" />;
     } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       return <FileText className="w-6 h-6 text-blue-600" />;
-    } else if (document.mimeType === 'text/plain' || document.mimeType === 'text/csv') {
+    } else if (document.mimeType === 'text/plain') {
       return <File className="w-6 h-6 text-green-600" />;
-    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || document.mimeType === 'application/vnd.ms-excel') {
-      return <FileText className="w-6 h-6 text-emerald-600" />;
     } else if (document.mimeType.startsWith('image/')) {
       return <Image className="w-6 h-6 text-purple-600" />;
     }
@@ -115,10 +88,8 @@ export default function DocumentCard({
       return 'bg-red-100';
     } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       return 'bg-blue-100';
-    } else if (document.mimeType === 'text/plain' || document.mimeType === 'text/csv') {
+    } else if (document.mimeType === 'text/plain') {
       return 'bg-green-100';
-    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || document.mimeType === 'application/vnd.ms-excel') {
-      return 'bg-emerald-100';
     } else if (document.mimeType.startsWith('image/')) {
       return 'bg-purple-100';
     }
@@ -141,20 +112,10 @@ export default function DocumentCard({
   return (
     <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
       <CardContent className="p-4">
-        {/* Document Type Icon and Header */}
+        {/* Document Type Icon */}
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center space-x-3">
-            {showSelection && (
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={() => onSelectChange?.(document.id)}
-                className="data-[state=checked]:bg-blue-600"
-                onClick={(e) => e.stopPropagation()}
-              />
-            )}
-            <div className={`w-10 h-10 ${getFileIconBg()} rounded-lg flex items-center justify-center`}>
-              {getFileIcon()}
-            </div>
+          <div className={`w-10 h-10 ${getFileIconBg()} rounded-lg flex items-center justify-center`}>
+            {getFileIcon()}
           </div>
           <div className="flex items-center space-x-1">
             <Button 

@@ -429,13 +429,7 @@ export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type Category = typeof categories.$inferSelect & { documentCount?: number };
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
-export type Document = typeof documents.$inferSelect & {
-  endorsed?: boolean;
-  endorsedAt?: Date;
-  endorsedBy?: string;
-  validStartDate?: Date;
-  validEndDate?: Date;
-};
+export type Document = typeof documents.$inferSelect;
 export type InsertDocument = z.infer<typeof insertDocumentSchema>;
 export type UpdateDocument = z.infer<typeof updateDocumentSchema>;
 export type ChatConversation = typeof chatConversations.$inferSelect;

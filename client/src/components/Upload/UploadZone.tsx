@@ -27,18 +27,18 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
       // Create abort controller for this upload
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
-
+      
       // Check if upload was stopped before starting
       if (isStopped) {
         throw new Error('Upload was cancelled');
       }
-
+      
       const formData = new FormData();
-
+      
       payload.files.forEach(file => {
         formData.append('files', file);
       });
-
+      
       // Add metadata for each file
       const metadataArray = payload.files.map(file => {
         const metadata = payload.metadataMap.get(file.name);
@@ -49,10 +49,10 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
           effectiveEndDate: metadata?.effectiveEndDate?.toISOString() || null,
         };
       });
-
+      
       formData.append('metadata', JSON.stringify(metadataArray));
-
-      const response = await apiRequest('POST', '/api/python/documents/upload', formData, {
+      
+      const response = await apiRequest('POST', '/api/documents/upload', formData, {
         signal: abortController.signal
       });
       return response.json();
@@ -63,7 +63,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
           title: "Upload successful",
           description: `${data.length} document(s) uploaded successfully`,
         });
-
+        
         // Invalidate all document-related queries to ensure fresh data
         queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
         queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
@@ -72,7 +72,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
         queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
         onUploadComplete();
       }
-
+      
       // Reset state
       resetUploadState();
     },
@@ -89,7 +89,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
           variant: "destructive",
         });
       }
-
+      
       // Reset state on error
       resetUploadState();
     },
@@ -126,7 +126,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
 
   const handleMetadataSubmit = (metadata: DocumentMetadata) => {
     if (isStopped) return;
-
+    
     const currentFile = pendingFiles[currentFileIndex];
     if (currentFile) {
       const newMetadataMap = new Map(fileMetadataMap);
@@ -160,7 +160,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
         errors: errors.map((e: any) => e.code) 
       }))
     });
-
+    
     if (rejectedFiles.length > 0) {
       rejectedFiles.forEach(({ file, errors }) => {
         errors.forEach((error: any) => {
@@ -169,7 +169,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
             : error.code === 'file-too-large'
             ? `${file.name}: File too large`
             : `${file.name}: ${error.message}`;
-
+          
           toast({
             title: "File rejected",
             description: message,
@@ -178,7 +178,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
         });
       });
     }
-
+    
     if (acceptedFiles.length > 0) {
       // Start metadata collection process
       setPendingFiles(acceptedFiles);
@@ -223,29 +223,29 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
         } ${uploadMutation.isPending ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}
       >
         <input {...getInputProps()} disabled={uploadMutation.isPending} />
-
+        
         <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <CloudUpload className="w-8 h-8 text-blue-600" />
         </div>
-
+        
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           {uploadMutation.isPending ? 'Uploading...' : 'Upload Documents'}
         </h3>
-
+        
         <p className="text-gray-600 mb-4">
           {isDragActive 
             ? 'Drop files here...' 
             : 'Drag and drop files here, or click to select files'
           }
         </p>
-
+        
         <p className="text-sm text-gray-500">
           Supports PDF, DOCX, XLSX, PPTX, TXT, CSV, JSON, and image files up to 25MB each
         </p>
         <p className="text-xs text-gray-400 mt-1">
           Files are automatically classified and tagged using AI
         </p>
-
+        
         {uploadMutation.isPending && (
           <div className="mt-4 space-y-3 pointer-events-auto">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>

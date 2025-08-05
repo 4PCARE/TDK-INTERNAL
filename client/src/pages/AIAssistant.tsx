@@ -8,12 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
-import {
-  Brain,
-  Send,
-  User,
-  Bot,
-  Copy,
+import { 
+  Brain, 
+  Send, 
+  User, 
+  Bot, 
+  Copy, 
   RefreshCw,
   ThumbsUp,
   ThumbsDown,
@@ -47,7 +47,7 @@ export default function AIAssistant() {
   const { data: quickPrompts = [] } = useQuery({
     queryKey: ["/api/ai-assistant/prompts"],
     queryFn: async () => {
-      const response = await fetch("/api/python/ai-assistant/prompts");
+      const response = await fetch("/api/ai-assistant/prompts");
       if (!response.ok) throw new Error("Failed to fetch quick prompts");
       return response.json();
     },
@@ -55,10 +55,10 @@ export default function AIAssistant() {
 
   const sendMessageMutation = useMutation({
     mutationFn: async (message: string) => {
-      const response = await fetch("/api/python/chat/message", {
+      const response = await fetch("/api/chat/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify({ 
           message,
           conversationId: null,
           documentId: null
@@ -87,7 +87,7 @@ export default function AIAssistant() {
     onError: (error: any) => {
       console.error("Chat error:", error);
       toast({
-        title: "Message Failed",
+        title: "Message Failed", 
         description: error.message || "Failed to send message to AI assistant.",
         variant: "destructive",
       });
@@ -116,14 +116,14 @@ export default function AIAssistant() {
   };
 
   const handleFeedback = (messageId: string, feedback: 'positive' | 'negative') => {
-    setMessages(prev =>
-      prev.map(msg =>
+    setMessages(prev => 
+      prev.map(msg => 
         msg.id === messageId ? { ...msg, feedback } : msg
       )
     );
 
     // Send feedback to backend
-    fetch("/api/python/ai-assistant/feedback", {
+    fetch("/api/ai-assistant/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messageId, feedback }),

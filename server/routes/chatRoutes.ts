@@ -1,7 +1,8 @@
+
 import type { Express } from "express";
 import { smartAuth } from "../smartAuth";
+import { generateChatResponse } from "../services/openai";
 import { storage } from "../storage";
-import { llmRouter } from "../services/llmRouter";
 
 export function registerChatRoutes(app: Express) {
   // Get chat conversations
@@ -52,32 +53,11 @@ export function registerChatRoutes(app: Express) {
       // Save user message
       await storage.saveChatMessage(conversationId, userId, message, "user");
 
-      // Get user's documents for context and conversation history
+      // Get user's documents for context
       const documents = await storage.getDocuments(userId);
-      const conversationHistory = await storage.getChatMessages(conversationId, userId);
-      const systemMessage = `You are a helpful assistant. You have access to the following documents: ${documents.map(d => d.content).join('\n')}`;
 
-
-      // Generate AI response using LLM Router
-      const chatModel = await llmRouter.getChatModel();
-
-      const messages = [
-        {
-          role: "system" as const,
-          content: systemMessage
-        },
-        ...conversationHistory.map(msg => ({
-          role: msg.role as "user" | "assistant",
-          content: msg.content
-        })),
-        {
-          role: "user" as const,
-          content: message
-        }
-      ];
-
-      const response = await chatModel.invoke(messages);
-      const aiResponse = response.content as string;
+      // Generate AI response
+      const aiResponse = await generateChatResponse(message, documents);
 
       // Save AI response
       await storage.saveChatMessage(conversationId, userId, aiResponse, "assistant");

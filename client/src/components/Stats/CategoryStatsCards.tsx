@@ -109,61 +109,7 @@ export default function CategoryStatsCards() {
 
   // แก้ไขการคำนวณ totalDocuments โดยแปลง count เป็น number ก่อน
   const totalDocuments = displayStats.reduce(
-    (sum: number, stat: any) => sum + (Number(stat.count) || 0),
-    0
-  );
-
-  return (
-    <Card className="h-[400px] flex flex-col">
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <BarChart3 className="w-5 h-5" />
-          <span>Documents by Category</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex-1 overflow-y-auto">
-        {displayStats.length === 0 ? (
-          <div className="text-center py-8">
-            <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500">No categories yet</p>
-            <p className="text-sm text-gray-400 mt-1">Categories will appear as documents are processed</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {displayStats.map((stat: any, index: number) => {
-              const percentage = totalDocuments > 0 ? (Number(stat.count) || 0) / totalDocuments * 100 : 0;
-              return (
-                <div
-                  key={stat.name || `category-${index}`}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center text-sm">
-                      {getCategoryIcon(stat.name)}
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-900">
-                        {stat.name || 'Unknown Category'}
-                      </h4>
-                      <p className="text-sm text-gray-500">
-                        {Math.round(percentage)}% of documents
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-semibold text-gray-900">
-                      {Number(stat.count) || 0}
-                    </div>
-                    <div className="text-xs text-gray-500">documents</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );t: CategoryStat) => {
+    (sum: number, stat: CategoryStat) => {
       return sum + Number(stat.count);
     },
     0,
