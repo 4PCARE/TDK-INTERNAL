@@ -317,7 +317,32 @@ export default function Documents() {
       return;
     }
 
+    // Optimistic update: immediately remove documents from UI
+    const documentsToDelete = selectedDocuments;
+    setSelectedDocuments([]);
+    
+    // Show optimistic success message
+    toast({
+      title: "Deleting...",
+      description: `Removing ${documentsToDelete.length} document(s)...`,
+    });
+
     try {
+      // Optimistically invalidate queries to remove documents from UI immediately
+      queryClient.setQueryData(["/api/documents/search", searchQuery, searchFileName, searchKeyword, searchMeaning], (oldData: any) => {
+        if (!oldData) return oldData;
+        if (Array.isArray(oldData)) {
+          return oldData.filter(doc => !documentsToDelete.includes(doc.id));
+        }
+        if (oldData.results && Array.isArray(oldData.results)) {
+          return {
+            ...oldData,
+            results: oldData.results.filter((doc: any) => !documentsToDelete.includes(doc.id))
+          };
+        }
+        return oldData;
+      });
+
       const response = await fetch('/api/documents/bulk', {
         method: 'DELETE',
         headers: {
@@ -326,7 +351,7 @@ export default function Documents() {
           'Pragma': 'no-cache',
           'Expires': '0'
         },
-        body: JSON.stringify({ documentIds: selectedDocuments })
+        body: JSON.stringify({ documentIds: documentsToDelete })
       });
 
       if (!response.ok) {
@@ -336,21 +361,23 @@ export default function Documents() {
 
       const result = await response.json();
 
+      // Confirm success
       toast({
         title: "Success",
-        description: `${result.deletedCount || selectedDocuments.length} document(s) deleted successfully`,
+        description: `${result.deletedCount || documentsToDelete.length} document(s) deleted successfully`,
       });
 
-      setSelectedDocuments([]);
-      
-      // Clear search query to force fresh data fetch
-      setSearchQuery("");
-      setPendingSearchQuery("");
-      
-      // Force hard reload with cache bypass
-      window.location.href = window.location.href.split('?')[0] + '?t=' + Date.now();
+      // Invalidate and refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
+
     } catch (error) {
       console.error('Bulk deletion error:', error);
+      
+      // Revert optimistic update on error
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
+      
       toast({
         title: "Error",
         description: "Failed to delete documents. Please try again.",
