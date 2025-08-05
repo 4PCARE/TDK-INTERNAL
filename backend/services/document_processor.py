@@ -11,9 +11,12 @@ import json
 
 class DocumentProcessor:
     def __init__(self):
-        self.openai_client = openai.OpenAI(
-            api_key=os.getenv("OPENAI_API_KEY")
-        )
+        api_key = os.getenv("OPENAI_API_KEY")
+        if api_key:
+            self.openai_client = openai.OpenAI(api_key=api_key)
+        else:
+            self.openai_client = None
+            print("Warning: OPENAI_API_KEY not set. AI analysis will be disabled.")
 
     async def process_file(self, file: UploadFile, user_id: str) -> Dict[str, Any]:
         """Process uploaded file and extract content"""
@@ -96,6 +99,13 @@ class DocumentProcessor:
 
     async def _analyze_content(self, content: str) -> Dict[str, Any]:
         """Analyze content with OpenAI"""
+        if not self.openai_client:
+            return {
+                "summary": "Document processed successfully (AI analysis disabled - no API key)",
+                "tags": ["document"],
+                "category": "Uncategorized"
+            }
+        
         try:
             response = await self.openai_client.chat.completions.acreate(
                 model="gpt-4o",
