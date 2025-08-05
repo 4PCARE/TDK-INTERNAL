@@ -167,7 +167,7 @@ class DocumentProcessor:
             }
         
         try:
-            response = await self.openai_client.chat.completions.acreate(
+            response = await self.openai_client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {

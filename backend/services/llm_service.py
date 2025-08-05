@@ -1,4 +1,3 @@
-
 import os
 import openai
 from typing import List, Dict, Any, Optional
@@ -25,8 +24,8 @@ class LLMService:
             print("Warning: OPENAI_API_KEY not set. LLM services will be disabled.")
 
     async def generate_chat_response(
-        self, 
-        messages: List[Dict[str, str]], 
+        self,
+        messages: List[Dict[str, str]],
         context_documents: List[Dict[str, Any]] = None,
         system_prompt: str = None
     ) -> str:
@@ -45,13 +44,13 @@ class LLMService:
 
             # Build messages for OpenAI
             openai_messages = []
-            
+
             # System prompt
             if system_prompt:
                 openai_messages.append({"role": "system", "content": system_prompt})
             elif context_documents:
                 openai_messages.append({
-                    "role": "system", 
+                    "role": "system",
                     "content": "You are a helpful AI assistant. Use the provided documents to answer questions accurately. If the information is not in the documents, say so."
                 })
 
@@ -59,11 +58,11 @@ class LLMService:
             for message in messages:
                 role = message.get('role', 'user')
                 content = message.get('content', '')
-                
+
                 # Add context to the last user message
                 if role == 'user' and message == messages[-1] and context_text:
                     content += context_text
-                
+
                 openai_messages.append({"role": role, "content": content})
 
             response = await self.openai_client.chat.completions.acreate(
@@ -85,9 +84,9 @@ class LLMService:
             return []
 
         try:
-            response = await self.openai_client.embeddings.acreate(
+            response = await self.openai_client.embeddings.create(
                 model="text-embedding-3-small",
-                input=text
+                input=text.strip()
             )
             return response.data[0].embedding
         except Exception as e:
@@ -151,7 +150,7 @@ Respond in JSON format:
                 messages=[
                     {
                         "role": "system",
-                        "content": """Generate 3-5 alternative search terms for the given query. 
+                        "content": """Generate 3-5 alternative search terms for the given query.
 Include synonyms, related terms, and different ways to express the same concept.
 Respond with a JSON array of strings.
 Example: ["original term", "synonym1", "related term", "alternative phrase"]"""
