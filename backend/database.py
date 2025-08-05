@@ -24,8 +24,8 @@ class DatabaseService:
             conn = await asyncpg.connect(DATABASE_URL)
 
             query = """
-                SELECT id, name, content, summary, "createdAt" as created_at, 
-                       "fileSize" as file_size, tags, "aiCategory" as ai_category
+                SELECT id, name, content, summary, "createdAt", 
+                       "fileSize", tags, "aiCategory", "userId"
                 FROM documents 
                 WHERE "userId" = $1 
                 ORDER BY "createdAt" DESC
@@ -46,6 +46,14 @@ class DatabaseService:
                         doc['tags'] = []
                 elif doc.get('tags') is None:
                     doc['tags'] = []
+                
+                # Ensure consistent naming for frontend
+                if 'createdAt' in doc:
+                    doc['created_at'] = doc['createdAt']
+                if 'fileSize' in doc:
+                    doc['file_size'] = doc['fileSize']
+                if 'aiCategory' in doc:
+                    doc['ai_category'] = doc['aiCategory']
 
                 documents.append(doc)
 
