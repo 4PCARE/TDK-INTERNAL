@@ -62,7 +62,7 @@ export default function Dashboard() {
   const { data: stats } = useQuery({
     queryKey: ["stats"],
     queryFn: async () => {
-      const response = await fetch("/api/python/stats", {
+      const response = await fetch("/api/stats", {
         headers: {
           Authorization: `Bearer ${getToken()}`,
         },
@@ -71,6 +71,7 @@ export default function Dashboard() {
       return response.json();
     },
     enabled: isAuthenticated,
+    retry: 1,
   });
 
   // Upload mutation with progress tracking
