@@ -2,6 +2,7 @@
 import type { Express } from "express";
 import { smartAuth } from "../smartAuth";
 import axios from "axios";
+import multer from "multer";
 
 const PYTHON_BACKEND_URL = "http://0.0.0.0:8000";
 
@@ -18,7 +19,6 @@ export function registerPythonProxyRoutes(app: Express) {
   });
 
   // Python document processing with multer middleware
-  const multer = require('multer');
   const upload = multer({ storage: multer.memoryStorage() });
   
   app.post("/api/python/documents/upload", smartAuth, upload.single('file'), async (req: any, res) => {
