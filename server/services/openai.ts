@@ -416,10 +416,10 @@ function createDocumentSearchTool(userId: string) {
     - input: The search query string to find relevant documents
 
     Returns: Array of search results with document content, names, and similarity scores`,
-    func: async (input: string) => {
+    func: async (input: string): Promise<string> => {
+      console.log(`🔍 [Tool Entry] Document search tool called with input: "${input}"`);
+      
       try {
-        console.log(`🔍 [Tool Start] Document search tool called with input: "${input}"`);
-        
         // Parse input - it might be JSON or just a string
         let query: string;
         let searchType = 'smart_hybrid';
@@ -437,44 +437,58 @@ function createDocumentSearchTool(userId: string) {
           query = input;
         }
 
-        console.log(`🔍 [Tool] Parsed query: "${query}", searchType: ${searchType}`);
+        console.log(`🔍 [Tool Processing] Parsed query: "${query}", searchType: ${searchType}, userId: ${userId}`);
 
+        if (!query || query.trim().length === 0) {
+          const emptyQueryMessage = "Please provide a search query to find documents.";
+          console.log(`🔍 [Tool Return] Empty query: ${emptyQueryMessage}`);
+          return emptyQueryMessage;
+        }
+
+        // Call the document search function
+        console.log(`🔍 [Tool Calling] documentSearch function...`);
         const results = await documentSearch({
-          query: query,
+          query: query.trim(),
           userId: userId,
-          searchType: searchType,
+          searchType: searchType as any,
           limit: limit,
           threshold: threshold
         });
 
-        console.log(`📄 [Tool] Document search completed. Found ${results?.length || 0} results`);
+        console.log(`📄 [Tool Results] Document search completed. Found ${results?.length || 0} results`);
 
         if (!results || results.length === 0) {
-          const noResultsMessage = `No documents found matching "${query}". You may need to upload relevant documents or try different search terms like synonyms or related keywords.`;
-          console.log(`📄 [Tool] Returning no results message: ${noResultsMessage}`);
+          const noResultsMessage = `No documents found matching "${query}". The knowledge base may not contain relevant documents for this query. Try using different keywords or upload relevant documents first.`;
+          console.log(`📄 [Tool Return] No results: ${noResultsMessage}`);
           return noResultsMessage;
         }
 
         // Format results for better AI understanding
         const formattedResults = results.map((result, index) => ({
           rank: index + 1,
-          document_name: result.name,
-          similarity_score: result.similarity.toFixed(3),
-          content_preview: result.content.substring(0, 800) + (result.content.length > 800 ? '...' : ''),
+          document_name: result.name || 'Unknown Document',
+          similarity_score: (result.similarity || 0).toFixed(3),
+          content_preview: (result.content || '').substring(0, 600) + ((result.content || '').length > 600 ? '...' : ''),
           document_summary: result.summary || 'No summary available',
           category: result.aiCategory || 'Uncategorized',
-          created_date: result.createdAt
+          created_date: result.createdAt || 'Unknown date'
         }));
 
-        const responseText = `Found ${results.length} relevant documents for "${query}":\n\n${JSON.stringify(formattedResults, null, 2)}`;
-        console.log(`📄 [Tool] Returning formatted results (${responseText.length} chars)`);
-        
+        const responseText = `Found ${results.length} relevant documents for "${query}":\n\n${formattedResults.map(result => 
+          `${result.rank}. **${result.document_name}** (Similarity: ${result.similarity_score})\n` +
+          `   Category: ${result.category}\n` +
+          `   Summary: ${result.document_summary}\n` +
+          `   Content Preview: ${result.content_preview}\n`
+        ).join('\n')}`;
+
+        console.log(`📄 [Tool Return] Formatted results (${responseText.length} chars)`);
         return responseText;
+
       } catch (error) {
         console.error("🚨 [Tool Error] Document search tool failed:", error);
         console.error("🚨 [Tool Error] Stack trace:", error.stack);
-        const errorMessage = `Error searching documents for "${input}": ${error.message}. Please try a different search query.`;
-        console.log(`🚨 [Tool] Returning error message: ${errorMessage}`);
+        const errorMessage = `Error occurred while searching documents for "${input}": ${error.message || 'Unknown error'}. Please try again with a different search query.`;
+        console.log(`🚨 [Tool Return] Error message: ${errorMessage}`);
         return errorMessage;
       }
     },
@@ -483,7 +497,15 @@ function createDocumentSearchTool(userId: string) {
 
 // Create agent with tools
 async function createAgentWithTools(userId: string) {
-  const tools = [createDocumentSearchTool(userId)];
+  console.log(`🤖 [Agent Setup] Creating agent with tools for user: ${userId}`);
+  
+  const documentSearchTool = createDocumentSearchTool(userId);
+  const tools = [documentSearchTool];
+
+  console.log(`🤖 [Agent Setup] Tools created:`, tools.map(tool => ({
+    name: tool.name,
+    description: tool.description.substring(0, 100) + '...'
+  })));
 
   const prompt = ChatPromptTemplate.fromMessages([
     [
@@ -500,17 +522,23 @@ Be helpful, accurate, and always prioritize information from the user's actual d
     new MessagesPlaceholder("agent_scratchpad"),
   ]);
 
+  console.log(`🤖 [Agent Setup] Creating OpenAI Functions Agent...`);
   const agent = await createOpenAIFunctionsAgent({
     llm: chatModel,
     tools,
     prompt,
   });
 
-  return new AgentExecutor({
+  console.log(`🤖 [Agent Setup] Creating Agent Executor...`);
+  const executor = new AgentExecutor({
     agent,
     tools,
     verbose: true,
+    returnIntermediateSteps: true, // This helps with debugging
   });
+
+  console.log(`🤖 [Agent Setup] Agent executor created successfully`);
+  return executor;
 }
 
 export async function generateChatResponse(userMessage: string, documents: Document[], userId?: string): Promise<string> {

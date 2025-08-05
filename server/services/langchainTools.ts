@@ -50,12 +50,12 @@ export async function documentSearch({
   fileSize?: number;
   mimeType?: string;
 }>> {
+  console.log(`[LangChain Tool] ⚡ ENTRY: documentSearch called with query: "${query}", userId: ${userId}`);
+  
   try {
-    console.log(`[LangChain Tool] STARTING document search for query: "${query}", userId: ${userId}`);
-    
     // Validate inputs
     if (!query || !userId) {
-      console.error('[LangChain Tool] Missing required parameters:', { query, userId });
+      console.error('[LangChain Tool] ❌ Missing required parameters:', { query, userId });
       throw new Error('Query and userId are required parameters');
     }
 
@@ -74,56 +74,80 @@ export async function documentSearch({
       massSelectionPercentage: 0.6 // Use 60% mass selection for comprehensive results
     };
 
-    console.log(`[LangChain Tool] Search options:`, searchOptions);
+    console.log(`[LangChain Tool] 🔧 Search options prepared:`, searchOptions);
 
     // Execute search using the smart hybrid search function
-    console.log(`[LangChain Tool] Calling searchSmartHybridDebug...`);
+    console.log(`[LangChain Tool] 🔍 Calling searchSmartHybridDebug...`);
     const searchResults = await searchSmartHybridDebug(
       query,
       userId,
       searchOptions
     );
 
-    console.log(`[LangChain Tool] Raw search results:`, searchResults?.length || 0, 'items');
+    console.log(`[LangChain Tool] 📊 Raw search results received:`, {
+      type: typeof searchResults,
+      isArray: Array.isArray(searchResults),
+      length: searchResults?.length || 0
+    });
 
     // Ensure we have an array
     if (!Array.isArray(searchResults)) {
-      console.error('[LangChain Tool] searchSmartHybridDebug returned non-array:', typeof searchResults);
+      console.error('[LangChain Tool] ❌ searchSmartHybridDebug returned non-array:', typeof searchResults, searchResults);
+      return [];
+    }
+
+    if (searchResults.length === 0) {
+      console.log(`[LangChain Tool] 📭 No results found for query: "${query}"`);
       return [];
     }
 
     // Format results for LangChain consumption
-    const formattedResults = searchResults.map(result => ({
-      id: result.id || 'unknown',
-      name: result.name || 'Untitled Document',
-      content: result.content || '',
-      summary: result.summary || undefined,
-      similarity: Math.round((result.similarity || 0) * 1000) / 1000, // Round to 3 decimal places
-      aiCategory: result.aiCategory || undefined,
-      tags: result.tags || undefined,
-      createdAt: result.createdAt || new Date().toISOString(),
-      fileSize: result.fileSize || undefined,
-      mimeType: result.mimeType || undefined
-    }));
+    const formattedResults = searchResults.map((result, index) => {
+      console.log(`[LangChain Tool] 🔧 Formatting result ${index + 1}:`, {
+        id: result.id,
+        name: result.name,
+        contentLength: result.content?.length || 0,
+        similarity: result.similarity
+      });
+      
+      return {
+        id: String(result.id) || 'unknown',
+        name: result.name || 'Untitled Document',
+        content: result.content || '',
+        summary: result.summary || undefined,
+        similarity: Math.round((result.similarity || 0) * 1000) / 1000, // Round to 3 decimal places
+        aiCategory: result.aiCategory || undefined,
+        tags: result.tags || undefined,
+        createdAt: result.createdAt || new Date().toISOString(),
+        fileSize: result.fileSize || undefined,
+        mimeType: result.mimeType || undefined
+      };
+    });
 
-    console.log(`[LangChain Tool] COMPLETED: Found ${formattedResults.length} formatted results`);
+    console.log(`[LangChain Tool] ✅ COMPLETED: Returning ${formattedResults.length} formatted results`);
     
-    // Log first result for debugging
+    // Log detailed info about first result
     if (formattedResults.length > 0) {
-      console.log(`[LangChain Tool] First result sample:`, {
-        id: formattedResults[0].id,
-        name: formattedResults[0].name,
-        contentLength: formattedResults[0].content.length,
-        similarity: formattedResults[0].similarity
+      const firstResult = formattedResults[0];
+      console.log(`[LangChain Tool] 📄 First result details:`, {
+        id: firstResult.id,
+        name: firstResult.name,
+        contentLength: firstResult.content.length,
+        similarity: firstResult.similarity,
+        hasContent: !!firstResult.content
       });
     }
 
     return formattedResults;
 
   } catch (error) {
-    console.error('[LangChain Tool] Document search error:', error);
-    console.error('[LangChain Tool] Error stack:', error.stack);
+    console.error('[LangChain Tool] 🚨 Document search error:', error);
+    console.error('[LangChain Tool] 🚨 Error type:', error.constructor.name);
+    console.error('[LangChain Tool] 🚨 Error message:', error.message);
+    console.error('[LangChain Tool] 🚨 Error stack:', error.stack);
+    
     // Return empty array instead of throwing to prevent agent from failing
+    console.log('[LangChain Tool] 🔄 Returning empty array due to error');
     return [];
   }
 }
