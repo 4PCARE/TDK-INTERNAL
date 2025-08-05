@@ -1,4 +1,5 @@
 import { semanticSearchServiceV2 } from './semanticSearchV2';
+import { newSearchService } from './newSearch';
 import { storage } from '../storage';
 import type { SearchOptions } from './newSearch';
 
@@ -73,8 +74,8 @@ export async function documentSearch({
 
     console.log(`[LangChain Tool] Document search initiated: "${query}" for user ${userId}`);
 
-    // Execute search using the existing semantic search service
-    const searchResults = await semanticSearchServiceV2.searchDocuments(
+    // Execute search using the new search service
+    const searchResults = await newSearchService.searchDocuments(
       query,
       userId,
       searchOptions
