@@ -98,8 +98,7 @@ export default function FloatingAIWidget() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ 
-          title: `Chat ${new Date().toLocaleTimeString()}`,
-          userId: "current" 
+          title: `New Chat ${new Date().toLocaleTimeString()}`,
         }),
       });
       if (!response.ok) throw new Error("Failed to create conversation");
@@ -109,6 +108,9 @@ export default function FloatingAIWidget() {
       setCurrentConversationId(data.id);
       setShowConversations(false);
       queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations"] });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/chat/conversations", data.id, "messages"] 
+      });
     },
   });
 
@@ -126,13 +128,16 @@ export default function FloatingAIWidget() {
     if (!inputMessage.trim() || !isAuthenticated) return;
 
     try {
-      if (!currentConversationId) {
-        await createConversationMutation.mutateAsync();
+      let conversationId = currentConversationId;
+      
+      if (!conversationId) {
+        const newConversation = await createConversationMutation.mutateAsync();
+        conversationId = newConversation.id;
       }
 
       await sendMessageMutation.mutateAsync({
         message: inputMessage,
-        conversationId: currentConversationId || undefined,
+        conversationId: conversationId,
       });
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -146,8 +151,12 @@ export default function FloatingAIWidget() {
     }
   };
 
-  const startNewConversation = () => {
-    createConversationMutation.mutate();
+  const startNewConversation = async () => {
+    try {
+      await createConversationMutation.mutateAsync();
+    } catch (error) {
+      console.error("Failed to create new conversation:", error);
+    }
   };
 
   const selectConversation = (conversationId: string) => {
