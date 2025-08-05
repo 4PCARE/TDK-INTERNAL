@@ -1,10 +1,10 @@
-
 from typing import List, Dict, Any, Optional
 from .llm_service import LLMService
 from .search_service import SearchService
 from .document_processor import DocumentProcessor
 from .thai_text_processor import ThaiTextProcessor
 import json
+import httpx
 
 class ChatService:
     def __init__(self):
@@ -23,7 +23,7 @@ class ChatService:
         max_context_docs: int = 5
     ) -> Dict[str, Any]:
         """Process chat message with optional document search"""
-        
+
         try:
             # Initialize response
             response_data = {
@@ -39,14 +39,14 @@ class ChatService:
                 try:
                     # Enhanced query preprocessing
                     enhanced_query = self.thai_processor.enhance_query(message)
-                    
+
                     search_results = await self.search_service.new_search(
                         query=enhanced_query,
                         user_id=user_id,
                         search_type="smart_hybrid",
                         limit=max_context_docs
                     )
-                    
+
                     # Handle enhanced search results
                     if isinstance(search_results, dict):
                         relevant_docs = search_results.get('results', [])
@@ -57,7 +57,7 @@ class ChatService:
                         }
                     else:
                         relevant_docs = search_results
-                    
+
                     response_data['search_performed'] = True
                     response_data['documents_found'] = len(relevant_docs)
                     response_data['sources'] = [
@@ -69,7 +69,7 @@ class ChatService:
                         }
                         for doc in relevant_docs
                     ]
-                    
+
                 except Exception as search_error:
                     print(f"Search error: {search_error}")
                     # Continue without search results
@@ -78,7 +78,7 @@ class ChatService:
             messages = []
             if conversation_history:
                 messages.extend(conversation_history)
-            
+
             messages.append({
                 'role': 'user',
                 'content': message
@@ -106,7 +106,7 @@ class ChatService:
 
     def _build_system_prompt(self, context_docs: List[Dict[str, Any]]) -> str:
         """Build enhanced system prompt based on available context"""
-        
+
         base_prompt = """You are an intelligent AI assistant for a knowledge management system. 
 You help users find information from their documents and provide accurate, contextual answers.
 
@@ -124,11 +124,11 @@ Guidelines:
                 title = doc.get('title', f"Document {i+1}")
                 content_preview = doc.get('content', '')[:200] + "..." if len(doc.get('content', '')) > 200 else doc.get('content', '')
                 score = doc.get('score', 0.0)
-                
+
                 doc_summaries.append(f"[Document {i+1}: {title} (relevance: {score:.2f})]")
                 doc_summaries.append(f"Content preview: {content_preview}")
                 doc_summaries.append("")
-            
+
             base_prompt += f"""
 
 AVAILABLE CONTEXT ({len(context_docs)} documents found):
@@ -150,16 +150,16 @@ No relevant documents were found in the knowledge base for this query.
 - Ask clarifying questions if the query is unclear"""
 
         return base_prompt
-    
+
     async def _enhance_query(self, message: str) -> str:
         """Enhance user query for better search results"""
         # Simple query enhancement - can be expanded
         enhanced = message.strip()
-        
+
         # Add common search terms for better matching
         if any(keyword in enhanced.lower() for keyword in ['ค้นหา', 'หา', 'search', 'find']):
             return enhanced
-        
+
         return enhanced
 
     async def chat_with_documents(
@@ -170,7 +170,7 @@ No relevant documents were found in the knowledge base for this query.
         conversation_history: List[Dict[str, str]] = None
     ) -> Dict[str, Any]:
         """Chat specifically about provided documents"""
-        
+
         try:
             # If specific document IDs provided, search within those
             search_results = []
@@ -214,7 +214,7 @@ No relevant documents were found in the knowledge base for this query.
         context: str = "general"
     ) -> Dict[str, Any]:
         """Answer questions about user's document collection"""
-        
+
         # Common document-related queries
         if "how many documents" in question.lower():
             stats = self.search_service.vector_service.get_document_stats()
@@ -224,6 +224,53 @@ No relevant documents were found in the knowledge base for this query.
                 'search_performed': False,
                 'documents_found': 0
             }
-        
+
         # Default to regular search-based response
         return await self.process_message(question, user_id)
+
+    async def search_documents(self, query: str, user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Search for relevant documents based on query"""
+        try:
+            # Search through main system's documents using the search API
+            
+            async with httpx.AsyncClient() as client:
+                # Try semantic search first
+                search_params = {
+                    "query": query,
+                    "type": "semantic",
+                    "fileName": "false",
+                    "keyword": "false", 
+                    "meaning": "true"
+                }
+
+                response = await client.get(
+                    "http://localhost:5000/api/documents/search",
+                    params=search_params,
+                    headers={"Authorization": f"Bearer dummy-token-{user_id}"},
+                    timeout=15.0
+                )
+
+                if response.status_code == 200:
+                    search_results = response.json()
+
+                    # Convert to chat service format
+                    formatted_results = []
+                    for doc in search_results[:limit]:
+                        formatted_results.append({
+                            "id": str(doc.get("id")),
+                            "name": doc.get("name", "Unknown Document"),
+                            "content": doc.get("content", ""),
+                            "summary": doc.get("summary", ""),
+                            "similarity": doc.get("similarity", 0.0),
+                            "relevant_chunk": doc.get("content", "")[:500] + "..." if len(doc.get("content", "")) > 500 else doc.get("content", "")
+                        })
+
+                    print(f"Found {len(formatted_results)} documents for query: {query}")
+                    return formatted_results
+                else:
+                    print(f"Search API returned status {response.status_code}")
+                    return []
+
+        except Exception as e:
+            print(f"Error searching documents: {e}")
+            return []
