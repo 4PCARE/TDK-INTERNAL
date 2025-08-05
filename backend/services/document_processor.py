@@ -8,6 +8,10 @@ import PyPDF2
 import docx
 import pandas as pd
 import json
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class DocumentProcessor:
     def __init__(self):
