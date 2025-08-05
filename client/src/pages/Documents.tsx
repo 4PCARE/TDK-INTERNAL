@@ -322,13 +322,12 @@ export default function Documents() {
     }
 
     const documentsToDelete = [...selectedDocuments];
+    
+    // Clear selection immediately
+    setSelectedDocuments([]);
 
     try {
-      // Show loading state
-      toast({
-        title: "Deleting...",
-        description: `Removing ${documentsToDelete.length} document(s)...`,
-      });
+      console.log(`Attempting to delete ${documentsToDelete.length} documents:`, documentsToDelete);
 
       const response = await fetch('/api/documents/bulk', {
         method: 'DELETE',
@@ -341,38 +340,40 @@ export default function Documents() {
         body: JSON.stringify({ documentIds: documentsToDelete })
       });
 
+      console.log('Delete response status:', response.status);
+      
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Bulk deletion failed: ${errorText}`);
+        console.error('Delete response error:', errorText);
+        throw new Error(`Bulk deletion failed: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
-
-      // Clear selection and show success
-      setSelectedDocuments([]);
+      console.log('Delete result:', result);
 
       toast({
         title: "Success",
         description: `${result.deletedCount || documentsToDelete.length} document(s) deleted successfully`,
       });
 
-      // Force refresh all queries to ensure UI consistency
+      // Force complete refresh of all document queries
       await queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/documents"] });
+      
+      // Force refetch to ensure UI updates
+      window.location.reload();
 
     } catch (error) {
       console.error('Bulk deletion error:', error);
+      
+      // Restore selection on error
+      setSelectedDocuments(documentsToDelete);
 
       toast({
-        title: "Error",
-        description: "Failed to delete documents. Please try again.",
+        title: "Error", 
+        description: error.message || "Failed to delete documents. Please try again.",
         variant: "destructive",
       });
-
-      // Force refresh to ensure UI consistency even on error
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
     }
   };
 

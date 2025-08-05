@@ -60,20 +60,43 @@ export default function DocumentCard({
 
   const deleteDocumentMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("DELETE", `/api/documents/${document.id}`);
+      console.log(`Attempting to delete document ${document.id}`);
+      const response = await fetch(`/api/documents/${document.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Delete response error:', errorText);
+        throw new Error(`Failed to delete document: ${response.status} - ${errorText}`);
+      }
+      
+      const result = await response.json();
+      console.log('Delete result:', result);
+      return result;
     },
-    onSuccess: async () => {
+    onSuccess: () => {
       toast({
         title: "Document deleted",
         description: "Document has been successfully deleted.",
       });
       
-      // Force immediate refresh of all document queries
-      await queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/documents"] });
+      // Force complete refresh
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
+      
+      // Force page reload to ensure UI consistency
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     },
     onError: (error: Error) => {
+      console.error('Document deletion error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to delete document.",

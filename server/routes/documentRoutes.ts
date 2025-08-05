@@ -959,7 +959,10 @@ ${document.summary}`;
       const userId = req.user.claims.sub;
       const { documentIds } = req.body;
 
+      console.log(`🗑️ Bulk deletion request from user ${userId} for documents:`, documentIds);
+
       if (!documentIds || !Array.isArray(documentIds) || documentIds.length === 0) {
+        console.log("❌ No document IDs provided");
         return res.status(400).json({ message: "No document IDs provided" });
       }
 
@@ -973,18 +976,22 @@ ${document.summary}`;
         },
       });
 
+      console.log(`📄 Found ${documentsToDelete.length} documents to delete:`, documentsToDelete.map(d => ({ id: d.id, name: d.name })));
+
       if (documentsToDelete.length === 0) {
+        console.log("❌ No documents found for deletion");
         return res.status(404).json({ message: "No documents found for deletion" });
       }
 
       // Delete physical files
+      console.log("🗂️ Deleting physical files...");
       const deleteFilePromises = documentsToDelete.map(async (doc) => {
         if (doc.filePath) {
           try {
             await fs.unlink(doc.filePath);
-            console.log(`Successfully deleted file for document ${doc.id}: ${doc.filePath}`);
+            console.log(`✅ Successfully deleted file for document ${doc.id}: ${doc.filePath}`);
           } catch (error) {
-            console.error(`Error deleting file for document ${doc.id}:`, error);
+            console.error(`⚠️ Error deleting file for document ${doc.id}:`, error);
             // Log and continue to database deletion
           }
         }
@@ -992,24 +999,32 @@ ${document.summary}`;
       await Promise.all(deleteFilePromises);
 
       // Delete from database - clean up related records first
+      console.log("🗃️ Deleting from database...");
+      let deletedCount = 0;
       await db.transaction(async (trx) => {
         // First, delete related records from document_access table
         await trx.delete(documentAccess)
           .where(inArray(documentAccess.documentId, documentIds));
+        console.log("✅ Deleted document access records");
 
         // Then delete the documents
-        await trx.delete(documents)
+        const deleteResult = await trx.delete(documents)
           .where(and(eq(documents.userId, userId), inArray(documents.id, documentIds)));
+        
+        deletedCount = documentsToDelete.length; // Use the count of found documents
+        console.log(`✅ Deleted ${deletedCount} documents from database`);
       });
 
       // Also clean up vector embeddings for deleted documents
+      console.log("🔍 Cleaning up vector embeddings...");
       try {
         const { vectorService } = await import('../services/vectorService');
         await Promise.all(
           documentIds.map(id => vectorService.removeDocument(id.toString()))
         );
+        console.log("✅ Vector embeddings cleaned up");
       } catch (vectorError) {
-        console.error("Failed to clean up vector embeddings:", vectorError);
+        console.error("⚠️ Failed to clean up vector embeddings:", vectorError);
       }
 
       // Log the bulk deletion action for audit
@@ -1023,12 +1038,13 @@ ${document.summary}`;
           success: true,
           details: {
             documentIds: documentIds,
-            count: documentIds.length,
+            count: deletedCount,
             deletedFileCount: documentsToDelete.filter(d => d.filePath).length,
           },
         });
+        console.log("✅ Audit log created");
       } catch (auditError) {
-        console.error("Failed to create audit log for bulk deletion:", auditError);
+        console.error("⚠️ Failed to create audit log for bulk deletion:", auditError);
       }
 
       // Set cache control headers to prevent caching
@@ -1038,14 +1054,17 @@ ${document.summary}`;
         'Expires': '0'
       });
 
+      console.log(`🎉 Bulk deletion completed successfully - deleted ${deletedCount} documents`);
+
       res.json({ 
         success: true, 
         message: "Documents deleted successfully",
-        deletedCount: documentsToDelete.length,
+        deletedCount: deletedCount,
+        deletedDocuments: documentsToDelete.map(d => ({ id: d.id, name: d.name })),
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error("Error during bulk deletion:", error);
+      console.error("💥 Error during bulk deletion:", error);
       res.status(500).json({ message: "Failed to perform bulk deletion", error: error.message });
     }
   });
@@ -1055,39 +1074,50 @@ ${document.summary}`;
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
+      
+      console.log(`🗑️ Single document deletion request from user ${userId} for document ${id}`);
+      
       const document = await storage.getDocument(id, userId);
 
       if (!document) {
+        console.log(`❌ Document ${id} not found for user ${userId}`);
         return res.status(404).json({ message: "Document not found" });
       }
+
+      console.log(`📄 Found document to delete: ${document.name}`);
 
       // Delete physical file first
       if (document.filePath) {
         try {
           await fs.unlink(document.filePath);
-          console.log(`Successfully deleted file for document ${id}: ${document.filePath}`);
+          console.log(`✅ Successfully deleted file for document ${id}: ${document.filePath}`);
         } catch (error) {
-          console.error(`Error deleting file for document ${id}:`, error);
+          console.error(`⚠️ Error deleting file for document ${id}:`, error);
           // Continue to database deletion even if file deletion fails
         }
       }
 
       // Delete from database with all related records
+      console.log("🗃️ Deleting from database...");
       await db.transaction(async (trx) => {
         // Delete related records first
         await trx.delete(documentAccess).where(eq(documentAccess.documentId, id));
+        console.log("✅ Deleted document access records");
 
         // Delete the document
         await trx.delete(documents)
           .where(and(eq(documents.id, id), eq(documents.userId, userId)));
+        console.log("✅ Deleted document from database");
       });
 
       // Clean up vector embeddings
+      console.log("🔍 Cleaning up vector embeddings...");
       try {
         const { vectorService } = await import('../services/vectorService');
         await vectorService.removeDocument(id.toString());
+        console.log("✅ Vector embeddings cleaned up");
       } catch (vectorError) {
-        console.error("Failed to clean up vector embeddings:", vectorError);
+        console.error("⚠️ Failed to clean up vector embeddings:", vectorError);
       }
 
       // Log the deletion action for audit
@@ -1105,8 +1135,9 @@ ${document.summary}`;
             fileSize: document.fileSize,
           },
         });
+        console.log("✅ Audit log created");
       } catch (auditError) {
-        console.error("Failed to create audit log:", auditError);
+        console.error("⚠️ Failed to create audit log:", auditError);
       }
 
       // Set cache control headers to prevent caching
@@ -1116,15 +1147,18 @@ ${document.summary}`;
         'Expires': '0'
       });
 
+      console.log(`🎉 Document ${id} deleted successfully`);
+
       res.json({ 
         success: true, 
         message: "Document deleted successfully",
         deletedId: id,
+        deletedDocument: { id: document.id, name: document.name },
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error("Error deleting document:", error);
-      res.status(500).json({ message: "Failed to delete document" });
+      console.error("💥 Error deleting document:", error);
+      res.status(500).json({ message: "Failed to delete document", error: error.message });
     }
   });
 
