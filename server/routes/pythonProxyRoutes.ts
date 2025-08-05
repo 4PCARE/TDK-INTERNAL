@@ -22,14 +22,17 @@ export function registerPythonProxyRoutes(app: Express) {
     try {
       const token = req.headers.authorization;
       
-      // Forward the request to Python backend
+      // Handle file upload forwarding using form-data
+      const FormData = (await import('form-data')).default;
       const formData = new FormData();
       
       // Handle file upload forwarding
       if (req.files && req.files.length > 0) {
         for (const file of req.files) {
-          const fileBlob = new Blob([file.buffer], { type: file.mimetype });
-          formData.append('file', fileBlob, file.originalname);
+          formData.append('file', file.buffer, {
+            filename: file.originalname,
+            contentType: file.mimetype
+          });
         }
       }
 
@@ -39,7 +42,7 @@ export function registerPythonProxyRoutes(app: Express) {
         {
           headers: {
             'Authorization': token,
-            'Content-Type': 'multipart/form-data'
+            ...formData.getHeaders()
           }
         }
       );
