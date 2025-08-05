@@ -65,7 +65,7 @@ class LLMService:
 
                 openai_messages.append({"role": role, "content": content})
 
-            response = await self.openai_client.chat.completions.acreate(
+            response = await self.openai_client.chat.completions.create(
                 model="gpt-4o",
                 messages=openai_messages,
                 max_tokens=1000,
@@ -103,7 +103,7 @@ class LLMService:
             }
 
         try:
-            response = await self.openai_client.chat.completions.acreate(
+            response = await self.openai_client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {
@@ -145,7 +145,7 @@ Respond in JSON format:
             return [query]
 
         try:
-            response = await self.openai_client.chat.completions.acreate(
+            response = await self.openai_client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {
