@@ -322,13 +322,16 @@ export default function Documents() {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache'
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         },
         body: JSON.stringify({ documentIds: selectedDocuments })
       });
 
       if (!response.ok) {
-        throw new Error('Bulk deletion failed');
+        const errorText = await response.text();
+        throw new Error(`Bulk deletion failed: ${errorText}`);
       }
 
       const result = await response.json();
@@ -340,13 +343,17 @@ export default function Documents() {
 
       setSelectedDocuments([]);
       
-      // Force cache invalidation and reload
-      window.location.reload();
+      // Clear search query to force fresh data fetch
+      setSearchQuery("");
+      setPendingSearchQuery("");
+      
+      // Force hard reload with cache bypass
+      window.location.href = window.location.href.split('?')[0] + '?t=' + Date.now();
     } catch (error) {
       console.error('Bulk deletion error:', error);
       toast({
         title: "Error",
-        description: "Failed to delete documents",
+        description: "Failed to delete documents. Please try again.",
         variant: "destructive",
       });
     }
