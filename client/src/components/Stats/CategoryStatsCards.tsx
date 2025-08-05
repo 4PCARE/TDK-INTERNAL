@@ -141,13 +141,13 @@ export default function CategoryStatsCards() {
         ) : (
           <div className="h-full overflow-y-auto space-y-3 pr-2">
             {displayStats.map((stat: any, index: number) => {
-              const count = Number(stat.count) || 0;
-              const category = String(stat.category || 'Unknown');
+              const count = Math.max(0, Number(stat.count) || 0);
+              const category = String(stat.category || 'Unknown').trim() || 'Unknown';
               const percentage = totalDocuments > 0 ? Math.round((count / totalDocuments) * 100) : 0;
 
               return (
                 <div
-                  key={`category-stat-${category}-${index}`}
+                  key={`category-stat-${category}-${index}-${count}`}
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-center space-x-3">
@@ -164,9 +164,9 @@ export default function CategoryStatsCards() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="font-semibold">{count}</span>
+                    <span className="font-semibold">{count.toString()}</span>
                     <span className="text-sm text-gray-500 ml-2">
-                      ({percentage}%)
+                      ({percentage.toString()}%)
                     </span>
                   </div>
                 </div>

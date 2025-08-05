@@ -1,332 +1,285 @@
-
-import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { 
-  MessageSquare, 
-  Send, 
-  Bot, 
-  User, 
-  Minimize2,
-  Maximize2,
-  X,
-  Loader2
-} from "lucide-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import React, { useState, useEffect, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { ScrollArea } from "./ui/scroll-area";
+import { Badge } from "./ui/badge";
+import { MessageSquare, X, Send, Loader2, Bot, User, Minimize2, Maximize2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
-interface ChatMessage {
-  id: number;
-  role: "user" | "assistant";
+interface Message {
+  id: string;
   content: string;
-  createdAt: string;
+  role: 'user' | 'assistant';
+  timestamp: string;
+}
+
+interface Conversation {
+  id: string;
+  title: string;
+  lastMessage?: string;
+  updatedAt: string;
 }
 
 export default function FloatingAIWidget() {
+  // Always call all hooks in the same order
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [message, setMessage] = useState("");
-  const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
+  const [inputMessage, setInputMessage] = useState("");
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
+
   const queryClient = useQueryClient();
-  const { isAuthenticated, isLoading } = useAuth();
 
-  // Don't render widget if user is not authenticated or still loading
-  if (isLoading || !isAuthenticated) {
-    return null;
-  }
-
-  // Create initial conversation when widget opens
-  const createConversationMutation = useMutation({
-    mutationFn: async () => {
-      try {
-        const response = await apiRequest("POST", "/api/chat/conversations", {
-          title: `Widget Chat ${new Date().toLocaleDateString()}`,
-        });
-        return response.json();
-      } catch (error) {
-        console.error("Error creating conversation:", error);
-        throw error;
-      }
-    },
-    onSuccess: (conversation) => {
-      setCurrentConversationId(conversation.id);
-    },
-    onError: (error) => {
-      toast({
-        title: "Error creating conversation",
-        description: "Failed to start chat session",
-        variant: "destructive",
+  // Always call useQuery hooks
+  const { data: conversations = [] } = useQuery({
+    queryKey: ["/api/chat/conversations"],
+    queryFn: async () => {
+      if (!isAuthenticated) return [];
+      const response = await fetch("/api/chat/conversations", {
+        credentials: "include",
       });
+      if (!response.ok) throw new Error("Failed to fetch conversations");
+      return response.json();
     },
+    enabled: isAuthenticated,
   });
 
-  // Get messages for current conversation
   const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
     queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
     queryFn: async () => {
       if (!currentConversationId) return [];
-      try {
-        const response = await apiRequest(
-          "GET",
-          `/api/chat/conversations/${currentConversationId}/messages`,
-        );
-        return await response.json();
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-        return [];
-      }
+      const response = await fetch(`/api/chat/conversations/${currentConversationId}/messages`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch messages");
+      return response.json();
     },
-    enabled: !!currentConversationId && isOpen,
-    refetchInterval: isOpen ? 3000 : false, // Auto-refresh when open
-    retry: 1,
+    enabled: isAuthenticated && !!currentConversationId,
   });
 
-  // Send message mutation
+  // Always call useMutation hooks
   const sendMessageMutation = useMutation({
-    mutationFn: async (content: string) => {
-      if (!currentConversationId) throw new Error("No conversation");
-
-      try {
-        const response = await apiRequest("POST", "/api/chat/messages", {
-          conversationId: currentConversationId,
-          content,
+    mutationFn: async ({ message, conversationId }: { message: string; conversationId?: string }) => {
+      const response = await fetch("/api/chat/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          message,
+          conversationId,
+          source: "floating-widget"
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to send message");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.conversationId) {
+        setCurrentConversationId(data.conversationId);
+        queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations"] });
+        queryClient.invalidateQueries({ 
+          queryKey: ["/api/chat/conversations", data.conversationId, "messages"] 
         });
-        return response.json();
-      } catch (error) {
-        console.error("Error sending message:", error);
-        throw error;
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
-      });
-      setMessage("");
-    },
-    onError: (error) => {
-      console.error("Send message error:", error);
-      toast({
-        title: "Error sending message",
-        description: error instanceof Error ? error.message : "Failed to send message",
-        variant: "destructive",
-      });
+      setInputMessage("");
     },
   });
 
-  // Auto-scroll to bottom when new messages arrive
+  const createConversationMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/chat/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ title: "New Chat" }),
+      });
+      if (!response.ok) throw new Error("Failed to create conversation");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setCurrentConversationId(data.id);
+      queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations"] });
+    },
+  });
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Create conversation when widget opens for the first time
   useEffect(() => {
-    if (isOpen && !isMinimized && !currentConversationId && !createConversationMutation.isPending) {
-      try {
-        createConversationMutation.mutate();
-      } catch (error) {
-        console.error("Error creating conversation in useEffect:", error);
-      }
+    if (conversations.length > 0 && !currentConversationId) {
+      setCurrentConversationId(conversations[0].id);
     }
-  }, [isOpen, isMinimized, currentConversationId, createConversationMutation.isPending]);
+  }, [conversations, currentConversationId]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!message.trim() || sendMessageMutation.isPending) return;
-    sendMessageMutation.mutate(message.trim());
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || !isAuthenticated) return;
+
+    try {
+      if (!currentConversationId) {
+        await createConversationMutation.mutateAsync();
+      }
+
+      await sendMessageMutation.mutateAsync({
+        message: inputMessage,
+        conversationId: currentConversationId || undefined,
+      });
+    } catch (error) {
+      console.error("Failed to send message:", error);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage(e);
+      handleSendMessage();
     }
   };
 
-  const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const startNewConversation = () => {
+    createConversationMutation.mutate();
   };
 
-  if (!isOpen) {
-    return (
-      <div className="fixed bottom-6 right-6 z-50">
-        <Button
-          onClick={() => setIsOpen(true)}
-          className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-200"
-        >
-          <MessageSquare className="w-6 h-6 text-white" />
-        </Button>
-      </div>
-    );
+  // Don't render anything if not authenticated or still loading
+  if (!isAuthenticated || authLoading) {
+    return null;
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
-      <Card className={`transition-all duration-300 ease-in-out shadow-2xl border-0 ${
-        isMinimized ? "w-80 h-16" : "w-96 h-[500px]"
-      }`}>
-        {/* Header */}
-        <CardHeader className="pb-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-t-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                <Bot className="w-4 h-4" />
-              </div>
-              <div>
-                <CardTitle className="text-sm font-semibold">AI Assistant</CardTitle>
-                {!isMinimized && (
-                  <p className="text-xs opacity-90">Ask me anything about your documents</p>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center space-x-1">
+    <>
+      {/* Floating Button */}
+      {!isOpen && (
+        <Button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-purple-600 hover:bg-purple-700 shadow-lg z-50"
+          size="icon"
+        >
+          <MessageSquare className="h-6 w-6 text-white" />
+        </Button>
+      )}
+
+      {/* Widget */}
+      {isOpen && (
+        <Card className="fixed bottom-6 right-6 w-96 h-[500px] shadow-xl z-50 flex flex-col">
+          {/* Header */}
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 bg-purple-600 text-white rounded-t-lg">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <Bot className="w-5 h-5" />
+              AI Assistant
+            </CardTitle>
+            <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={() => setIsMinimized(!isMinimized)}
-                className="text-white hover:bg-white/20 h-8 w-8 p-0"
+                className="h-8 w-8 text-white hover:bg-purple-700"
               >
-                {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+                {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
               </Button>
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={() => setIsOpen(false)}
-                className="text-white hover:bg-white/20 h-8 w-8 p-0"
+                className="h-8 w-8 text-white hover:bg-purple-700"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </Button>
             </div>
-          </div>
-        </CardHeader>
+          </CardHeader>
 
-        {!isMinimized && (
-          <CardContent className="flex flex-col h-[420px] p-0">
-            {/* Messages */}
-            <ScrollArea className="flex-1 p-4">
-              <div className="space-y-4">
-                {isLoadingMessages ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
-                  </div>
-                ) : messages.length === 0 ? (
-                  <div className="flex items-start space-x-3">
-                    <Avatar className="w-8 h-8 bg-purple-100">
-                      <AvatarFallback>
-                        <Bot className="w-4 h-4 text-purple-600" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="bg-gray-100 rounded-lg rounded-tl-none p-3">
-                        <p className="text-sm text-gray-900">
-                          Hello! I'm your AI assistant. I can help you search through your documents, answer questions, and provide insights. What would you like to know?
-                        </p>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">Just now</p>
-                    </div>
-                  </div>
-                ) : (
-                  messages.map((msg: ChatMessage) => (
-                    <div key={msg.id} className={`flex items-start space-x-3 ${
-                      msg.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-                    }`}>
-                      <Avatar className={`w-8 h-8 ${
-                        msg.role === 'assistant' ? 'bg-purple-100' : 'bg-blue-100'
-                      }`}>
-                        <AvatarFallback>
-                          {msg.role === 'assistant' ? (
-                            <Bot className="w-4 h-4 text-purple-600" />
-                          ) : (
-                            <User className="w-4 h-4 text-blue-600" />
-                          )}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 max-w-[280px]">
-                        <div className={`rounded-lg p-3 ${
-                          msg.role === 'user'
-                            ? 'bg-blue-500 text-white rounded-tr-none'
-                            : 'bg-gray-100 text-gray-900 rounded-tl-none'
-                        }`}>
-                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                        </div>
-                        <p className={`text-xs text-gray-500 mt-1 ${
-                          msg.role === 'user' ? 'text-right' : 'text-left'
-                        }`}>
-                          {formatTime(msg.createdAt)}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
-                {sendMessageMutation.isPending && (
-                  <div className="flex items-start space-x-3">
-                    <Avatar className="w-8 h-8 bg-purple-100">
-                      <AvatarFallback>
-                        <Bot className="w-4 h-4 text-purple-600" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="bg-gray-100 rounded-lg rounded-tl-none p-3">
-                        <div className="flex items-center space-x-2">
-                          <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
-                          <div
-                            className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                            style={{ animationDelay: "0.1s" }}
-                          ></div>
-                          <div
-                            className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                            style={{ animationDelay: "0.2s" }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
+          {!isMinimized && (
+            <CardContent className="flex-1 flex flex-col p-0">
+              {/* Conversation Controls */}
+              <div className="p-3 border-b bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className="text-xs">
+                    {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
+                  </Badge>
+                  <Button
+                    onClick={startNewConversation}
+                    size="sm"
+                    variant="outline"
+                    className="text-xs"
+                  >
+                    New Chat
+                  </Button>
+                </div>
               </div>
-            </ScrollArea>
 
-            {/* Input */}
-            <div className="border-t border-gray-200 p-4">
-              <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
-                <Input
-                  type="text"
-                  placeholder="Ask me anything..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  disabled={sendMessageMutation.isPending || !currentConversationId}
-                  className="flex-1"
-                />
-                <Button
-                  type="submit"
-                  disabled={
-                    !message.trim() ||
-                    sendMessageMutation.isPending ||
-                    !currentConversationId
-                  }
-                  className="bg-purple-500 hover:bg-purple-600"
-                >
-                  {sendMessageMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+              {/* Messages */}
+              <ScrollArea className="flex-1 p-4">
+                <div className="space-y-4">
+                  {isLoadingMessages ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <Bot className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                      <p className="text-sm">Start a conversation with the AI assistant</p>
+                    </div>
                   ) : (
-                    <Send className="w-4 h-4" />
+                    messages.map((message: Message) => (
+                      <div
+                        key={message.id}
+                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[80%] rounded-lg px-3 py-2 ${
+                            message.role === 'user'
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-gray-100 text-gray-900'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            {message.role === 'assistant' && (
+                              <Bot className="w-4 h-4 mt-1 flex-shrink-0" />
+                            )}
+                            {message.role === 'user' && (
+                              <User className="w-4 h-4 mt-1 flex-shrink-0" />
+                            )}
+                            <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
                   )}
-                </Button>
-              </form>
-            </div>
-          </CardContent>
-        )}
-      </Card>
-    </div>
+                  <div ref={messagesEndRef} />
+                </div>
+              </ScrollArea>
+
+              {/* Input */}
+              <div className="p-3 border-t">
+                <div className="flex gap-2">
+                  <Input
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Ask me anything..."
+                    className="flex-1"
+                    disabled={sendMessageMutation.isPending}
+                  />
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={!inputMessage.trim() || sendMessageMutation.isPending}
+                    size="icon"
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    {sendMessageMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
+    </>
   );
 }
