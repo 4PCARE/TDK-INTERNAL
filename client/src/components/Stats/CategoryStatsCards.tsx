@@ -123,7 +123,7 @@ export default function CategoryStatsCards() {
           <span>Documents by Category</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 overflow-hidden">
+      <CardContent className="flex-1 overflow-y-auto">
         {displayStats.length === 0 ? (
           <div className="text-center py-8">
             <Folder className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -133,39 +133,37 @@ export default function CategoryStatsCards() {
             </p>
           </div>
         ) : (
-          <div className="h-full overflow-y-auto space-y-3 pr-2">
-            {displayStats.map((stat: CategoryStat) => (
-              <div
-                key={stat.category}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-center space-x-3">
-                  <span className="text-xl">
-                    {getCategoryIcon(stat.category)}
-                  </span>
-                  <div>
-                    <Badge
-                      variant="outline"
-                      className={getCategoryColor(stat.category)}
-                    >
-                      {stat.category || "Uncategorized"}
-                    </Badge>
+          <div className="space-y-3">
+            {displayStats.map((stat: CategoryStat) => {
+              const documentCount = Number(stat.count) || 0;
+              const totalDocs = Number(totalDocuments) || 0;
+              const percentage = totalDocs > 0 ? (documentCount / totalDocs) * 100 : 0;
+              return (
+                <div key={stat.category} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-xl">
+                      {getCategoryIcon(stat.category)}
+                    </span>
+                    <div>
+                      <Badge
+                        variant="outline"
+                        className={getCategoryColor(stat.category)}
+                      >
+                        {stat.category || "Uncategorized"}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm font-semibold text-gray-700">
+                      {documentCount}
+                    </span>
+                    <div className="text-xs text-gray-500">
+                      ({percentage.toFixed(1)}%)
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm font-semibold text-gray-700">
-                    {Number(stat.count)}
-                  </span>
-                  <div className="text-xs text-gray-500">
-                    (
-                    {totalDocuments > 0
-                      ? Math.round((Number(stat.count) / totalDocuments) * 100)
-                      : 0}
-                    %)
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
 
             <div className="mt-4 pt-3 border-t border-gray-200">
               <div className="flex items-center justify-between text-sm">
