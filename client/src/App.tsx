@@ -34,6 +34,7 @@ import CustomerSurvey from "@/pages/dashboards/CustomerSurvey";
 import UserFeedback from "@/pages/dashboards/UserFeedback";
 import AiResponseAnalysis from "@/pages/dashboards/AiResponseAnalysis";
 import AIAssistant from "@/pages/AIAssistant";
+import FloatingAIWidget from "@/components/FloatingAIWidget";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -107,11 +108,10 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
+      <TooltipProvider />
+        <FloatingAIWidget />
         <Toaster />
-        <Router />
-      </TooltipProvider>
-    </QueryClientProvider>
+      </QueryClientProvider>
   );
 }
 
