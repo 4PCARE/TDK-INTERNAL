@@ -86,9 +86,9 @@ export default function DocumentCard({
         description: "Document has been successfully deleted.",
       });
       
-      // Force complete refresh
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
+      // Force complete refresh with error handling
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] }).catch(console.error);
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] }).catch(console.error);
       
       // Force page reload to ensure UI consistency
       setTimeout(() => {

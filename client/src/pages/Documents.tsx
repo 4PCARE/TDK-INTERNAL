@@ -87,12 +87,14 @@ export default function Documents() {
         description: "You are logged out. Logging in again...",
         variant: "destructive",
       });
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         window.location.href = "/api/login";
       }, 500);
-      return;
+      
+      // Cleanup timeout on unmount
+      return () => clearTimeout(timeoutId);
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [isAuthenticated, isLoading]); // Remove toast from dependencies
 
   // Determine search type based on checkboxes
   const determineSearchType = () => {
@@ -168,16 +170,14 @@ export default function Documents() {
         return results;
       } catch (error) {
         console.error("Document query failed:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load documents. Please try again.",
-          variant: "destructive",
-        });
-        throw error;
+        // Don't throw error to prevent unhandled rejection
+        return [];
       }
     },
     retry: false,
     enabled: isAuthenticated,
+    refetchOnWindowFocus: false,
+    staleTime: 30000, // Cache for 30 seconds to prevent excessive requests
   }) as { data: Array<any>; isLoading: boolean; error: any };
 
   // Post-process search results to deduplicate documents
@@ -357,11 +357,11 @@ export default function Documents() {
       });
 
       // Force complete refresh of all document queries
-      await queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] }).catch(console.error);
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] }).catch(console.error);
 
       // Force refetch to ensure UI updates
-      window.location.reload();
+      setTimeout(() => window.location.reload(), 500);
 
     } catch (error) {
       console.error('Bulk deletion error:', error);
@@ -371,7 +371,7 @@ export default function Documents() {
 
       toast({
         title: "Error", 
-        description: error.message || "Failed to delete documents. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to delete documents. Please try again.",
         variant: "destructive",
       });
     }
@@ -382,7 +382,7 @@ export default function Documents() {
     if (!selectedDocuments.length) return;
 
     try {
-      await Promise.all(
+      const responses = await Promise.allSettled(
         selectedDocuments.map(id => 
           fetch(`/api/python/documents/${id}/endorse`, { 
             method: 'POST',
@@ -392,14 +392,17 @@ export default function Documents() {
         )
       );
 
+      const successCount = responses.filter(r => r.status === 'fulfilled').length;
+
       toast({
         title: "Success",
-        description: `${selectedDocuments.length} document(s) endorsed successfully`,
+        description: `${successCount} document(s) endorsed successfully`,
       });
 
       setSelectedDocuments([]);
-      window.location.reload();
+      setTimeout(() => window.location.reload(), 500);
     } catch (error) {
+      console.error('Bulk endorsement error:', error);
       toast({
         title: "Error",
         description: "Failed to endorse some documents",
@@ -412,7 +415,7 @@ export default function Documents() {
     if (!selectedDocuments.length) return;
 
     try {
-      await Promise.all(
+      const responses = await Promise.allSettled(
         selectedDocuments.map(id => 
           fetch(`/api/python/documents/${id}/dates`, { 
             method: 'PUT',
@@ -422,14 +425,17 @@ export default function Documents() {
         )
       );
 
+      const successCount = responses.filter(r => r.status === 'fulfilled').length;
+
       toast({
         title: "Success",
-        description: `Valid dates updated for ${selectedDocuments.length} document(s)`,
+        description: `Valid dates updated for ${successCount} document(s)`,
       });
 
       setSelectedDocuments([]);
-      window.location.reload();
+      setTimeout(() => window.location.reload(), 500);
     } catch (error) {
+      console.error('Bulk date update error:', error);
       toast({
         title: "Error",
         description: "Failed to update dates for some documents",
