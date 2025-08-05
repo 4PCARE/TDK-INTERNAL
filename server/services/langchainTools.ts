@@ -38,29 +38,34 @@ export async function documentSearch({
   limit?: number;
   threshold?: number;
   specificDocumentIds?: number[];
-}): Promise<Array<{
-  id: string;
-  name: string;
-  content: string;
-  summary?: string;
-  similarity: number;
-  aiCategory?: string;
-  tags?: string[];
-  createdAt: string;
-  fileSize?: number;
-  mimeType?: string;
-}>> {
-  console.log(`[LangChain Tool] ⚡ ENTRY: documentSearch called with query: "${query}", userId: ${userId}`);
+}): Promise<string> {
+  const startTime = Date.now();
+  console.log(`[LangChain Tool] ⚡ ENTRY: documentSearch called at ${new Date().toISOString()}`);
+  console.log(`[LangChain Tool] 📋 Input Parameters:`, {
+    query: `"${query}"`,
+    userId,
+    searchType,
+    limit,
+    threshold,
+    specificDocumentIds: specificDocumentIds ? `[${specificDocumentIds.join(', ')}]` : 'undefined'
+  });
 
   try {
     // Validate inputs
     if (!query || !userId) {
-      console.error('[LangChain Tool] ❌ Missing required parameters:', { query, userId });
-      throw new Error('Query and userId are required parameters');
+      const errorMsg = `Missing required parameters: query=${!!query}, userId=${!!userId}`;
+      console.error(`[LangChain Tool] ❌ ${errorMsg}`);
+      return `Error: ${errorMsg}. Please provide both a search query and user ID.`;
+    }
+
+    if (query.trim().length === 0) {
+      console.log(`[LangChain Tool] ⚠️ Empty query provided`);
+      return "Please provide a search query to find documents.";
     }
 
     if (limit > 50) {
-      limit = 50; // Cap at 50 for performance
+      console.log(`[LangChain Tool] ⚠️ Limit capped from ${limit} to 50 for performance`);
+      limit = 50;
     }
 
     // Prepare search options
@@ -71,84 +76,103 @@ export async function documentSearch({
       specificDocumentIds,
       keywordWeight: searchType === 'keyword' ? 1.0 : 0.5,
       vectorWeight: searchType === 'semantic' ? 1.0 : 0.5,
-      massSelectionPercentage: 0.6 // Use 60% mass selection for comprehensive results
+      massSelectionPercentage: 0.6
     };
 
     console.log(`[LangChain Tool] 🔧 Search options prepared:`, searchOptions);
 
     // Execute search using the smart hybrid search function
-    console.log(`[LangChain Tool] 🔍 Calling searchSmartHybridDebug...`);
+    console.log(`[LangChain Tool] 🔍 Calling searchSmartHybridDebug with trimmed query: "${query.trim()}"`);
+    const searchStartTime = Date.now();
+    
     const searchResults = await searchSmartHybridDebug(
-      query,
+      query.trim(),
       userId,
       searchOptions
     );
 
+    const searchDuration = Date.now() - searchStartTime;
+    console.log(`[LangChain Tool] ⏱️ Search completed in ${searchDuration}ms`);
+
     console.log(`[LangChain Tool] 📊 Raw search results received:`, {
       type: typeof searchResults,
       isArray: Array.isArray(searchResults),
-      length: searchResults?.length || 0
+      length: searchResults?.length || 0,
+      firstResultType: searchResults?.[0] ? typeof searchResults[0] : 'N/A'
     });
 
     // Ensure we have an array
     if (!Array.isArray(searchResults)) {
-      console.error('[LangChain Tool] ❌ searchSmartHybridDebug returned non-array:', typeof searchResults, searchResults);
-      return [];
+      const errorMsg = `searchSmartHybridDebug returned ${typeof searchResults} instead of array`;
+      console.error(`[LangChain Tool] ❌ ${errorMsg}:`, searchResults);
+      return `Error: Search function returned invalid data type. Expected array but got ${typeof searchResults}.`;
     }
 
     if (searchResults.length === 0) {
       console.log(`[LangChain Tool] 📭 No results found for query: "${query}"`);
-      return [];
+      return `No documents found matching "${query}". The knowledge base may not contain relevant documents for this query. Try using different keywords or upload relevant documents first.`;
     }
 
-    // Format results for LangChain consumption
-    const formattedResults = searchResults.map((result, index) => {
+    // Format results for LangChain consumption and create response text
+    console.log(`[LangChain Tool] 🔧 Formatting ${searchResults.length} results...`);
+    
+    const formattedResults = searchResults.slice(0, 5).map((result, index) => {
       console.log(`[LangChain Tool] 🔧 Formatting result ${index + 1}:`, {
         id: result.id,
         name: result.name,
         contentLength: result.content?.length || 0,
-        similarity: result.similarity
+        similarity: result.similarity,
+        hasContent: !!result.content,
+        hasSummary: !!result.summary
       });
 
       return {
-        id: String(result.id) || 'unknown',
-        name: result.name || 'Untitled Document',
-        content: result.content || '',
-        summary: result.summary || undefined,
-        similarity: Math.round((result.similarity || 0) * 1000) / 1000, // Round to 3 decimal places
-        aiCategory: result.aiCategory || undefined,
-        tags: result.tags || undefined,
-        createdAt: result.createdAt || new Date().toISOString(),
-        fileSize: result.fileSize || undefined,
-        mimeType: result.mimeType || undefined
+        rank: index + 1,
+        document_name: result.name || 'Unknown Document',
+        similarity_score: (result.similarity || 0).toFixed(3),
+        content_preview: (result.content || '').substring(0, 400) + ((result.content || '').length > 400 ? '...' : ''),
+        document_summary: result.summary || 'No summary available',
+        category: result.aiCategory || 'Uncategorized',
+        created_date: result.createdAt || 'Unknown date',
+        document_id: String(result.id)
       };
     });
 
-    console.log(`[LangChain Tool] ✅ COMPLETED: Returning ${formattedResults.length} formatted results`);
+    // Create structured response text
+    const responseText = `Found ${searchResults.length} relevant documents for "${query}":\n\n${formattedResults.map(result => 
+      `${result.rank}. **${result.document_name}** (Similarity: ${result.similarity_score})\n` +
+      `   Category: ${result.category}\n` +
+      `   Summary: ${result.document_summary}\n` +
+      `   Content Preview: ${result.content_preview}\n`
+    ).join('\n')}`;
 
-    // Log detailed info about first result
-    if (formattedResults.length > 0) {
-      const firstResult = formattedResults[0];
-      console.log(`[LangChain Tool] 📄 First result details:`, {
-        id: firstResult.id,
-        name: firstResult.name,
-        contentLength: firstResult.content.length,
-        similarity: firstResult.similarity,
-        hasContent: !!firstResult.content
-      });
-    }
+    const totalDuration = Date.now() - startTime;
+    console.log(`[LangChain Tool] ✅ COMPLETED: Total execution time ${totalDuration}ms`);
+    console.log(`[LangChain Tool] 📤 Returning formatted response (${responseText.length} characters)`);
+    
+    // Log response preview
+    console.log(`[LangChain Tool] 📄 Response preview:`, responseText.substring(0, 200) + '...');
 
-    return formattedResults;
+    return responseText;
 
   } catch (error) {
-    console.error('[LangChain Tool] 🚨 Document search error:', error);
-    console.error('[LangChain Tool] 🚨 Error type:', error.constructor.name);
-    console.error('[LangChain Tool] 🚨 Error message:', error.message);
-    console.error('[LangChain Tool] 🚨 Error stack:', error.stack);
+    const totalDuration = Date.now() - startTime;
+    console.error(`[LangChain Tool] 🚨 Document search error after ${totalDuration}ms:`, error);
+    console.error('[LangChain Tool] 🚨 Error details:', {
+      type: error?.constructor?.name || 'Unknown',
+      message: error?.message || 'No message',
+      query: `"${query}"`,
+      userId,
+      searchType,
+      limit,
+      threshold
+    });
+    console.error('[LangChain Tool] 🚨 Error stack:', error?.stack);
 
-    // Return empty array instead of throwing to prevent agent from failing
-    console.log('[LangChain Tool] 🔄 Returning empty array due to error');
-    return [];
+    // Return descriptive error message instead of empty result
+    const errorMessage = `ERROR: Document search failed - ${error?.message || 'unknown error occurred'}. Please try again or contact support if the issue persists.`;
+    console.log(`[LangChain Tool] 🔄 Returning error message: ${errorMessage}`);
+    return errorMessage;
   }
 }
 
