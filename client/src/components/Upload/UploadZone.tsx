@@ -216,13 +216,13 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
     <>
       <div 
         {...getRootProps()} 
-        className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+        className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
           isDragActive 
             ? 'border-blue-400 bg-blue-50' 
             : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
-        } ${uploadMutation.isPending ? 'opacity-50 pointer-events-none' : ''}`}
+        } ${uploadMutation.isPending ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}
       >
-        <input {...getInputProps()} />
+        <input {...getInputProps()} disabled={uploadMutation.isPending} />
         
         <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <CloudUpload className="w-8 h-8 text-blue-600" />
@@ -247,13 +247,16 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
         </p>
         
         {uploadMutation.isPending && (
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 space-y-3 pointer-events-auto">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
             <div className="flex justify-center space-x-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handlePauseUpload}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePauseUpload();
+                }}
                 className="flex items-center space-x-1"
               >
                 {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
@@ -262,7 +265,10 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={handleStopUpload}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleStopUpload();
+                }}
                 className="flex items-center space-x-1"
               >
                 <Square className="w-4 h-4" />
