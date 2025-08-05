@@ -1,0 +1,131 @@
+Got you. I see a few red flags in this setup that can cause **“tool call emitted but never executed”** or **silent no-op** behavior.
+
+---
+
+## 1) Use `DynamicStructuredTool` (not `DynamicTool`)
+
+With the OpenAI **Functions** agent, tools work best (and most reliably) when they expose a **schema**. `DynamicTool` is the “string-in” legacy helper; it often works, but it’s brittle with functions agents. Switch to `DynamicStructuredTool` and give it a Zod schema.
+
+**Fix:**
+
+```ts
+import { z } from "zod";
+import { DynamicStructuredTool } from "@langchain/core/tools"; // <- not "langchain/tools"
+
+function createDocumentSearchTool(userId: string) {
+  return new DynamicStructuredTool({
+    name: "document_search",
+    description: "Search user's KMS. Always return a JSON string of results.",
+    schema: z.object({
+      input: z.string().describe("The user's search query."),
+      searchType: z.string().optional().describe("semantic|keyword|hybrid|smart_hybrid"),
+      limit: z.number().int().optional(),
+      threshold: z.number().optional(),
+    }),
+    func: async ({ input, searchType = "smart_hybrid", limit = 5, threshold = 0.3 }) => {
+      // no JSON parsing gymnastics needed now
+      if (!input?.trim()) return "Please provide a search query to find documents.";
+      if (typeof documentSearch !== "function") {
+        return "Document search is unavailable. Please try again later.";
+      }
+      const res = await documentSearch({
+        query: input.trim(),
+        userId,
+        searchType,
+        limit,
+        threshold,
+        specificDocumentIds: undefined,
+      });
+      return typeof res === "string" ? res : JSON.stringify(res);
+    },
+  });
+}
+```
+
+**Why:** The Functions agent advertises your tool to the model using the schema. With `DynamicStructuredTool`, the call is unambiguous and LangChain’s executor reliably routes and executes it.
+
+---
+
+## 2) Verify imports & versions (common silent break)
+
+Mixing old and new packages causes tools not to execute even though the LLM emits `tool_calls`.
+
+* Use **v0.2+** line consistently:
+
+  ```json
+  "@langchain/core": "0.2.x",
+  "langchain": "0.2.x",
+  "@langchain/openai": "0.2.x"
+  ```
+* **Imports (JS/TS v0.2)**:
+
+  ```ts
+  import { createOpenAIFunctionsAgent, AgentExecutor } from "langchain/agents";
+  import { ChatOpenAI } from "@langchain/openai";
+  import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
+  import { DynamicStructuredTool } from "@langchain/core/tools";
+  ```
+
+If you import `DynamicTool` from `"langchain/tools"` (old path) while using `createOpenAIFunctionsAgent` from the new API, the executor may never actually run your tool.
+
+---
+
+## 3) Make sure you’re invoking the **executor**, not the agent
+
+You are doing this right in the snippet (`agentExecutor.invoke({ input })`). Keep it that way. Calling `agent.invoke()` would skip tool execution.
+
+---
+
+## 4) Reduce your tool’s input parsing complexity
+
+Right now you accept `string | object` and do JSON heuristics. That’s fragile. With `DynamicStructuredTool`, LangChain will **always** pass a well-typed object to `func`. You can delete \~80% of that parsing code and avoid edge-case bugs.
+
+---
+
+## 5) Add callbacks to confirm tool run
+
+This proves whether execution is wired.
+
+```ts
+const callbacks = [{
+  handleToolStart(tool, input) {
+    console.log("TOOL START:", tool.name, input);
+  },
+  handleToolEnd(output) {
+    console.log("TOOL END (first 200):", String(output).slice(0,200));
+  },
+  handleToolError(err) {
+    console.error("TOOL ERROR:", err);
+  },
+}];
+
+const result = await agentExecutor.invoke({ input: userMessage }, { callbacks });
+```
+
+If you **don’t** see `TOOL START: document_search`, the executor still isn’t bound correctly (imports/versions/name mismatch).
+
+---
+
+## 6) Sanity smoke test file
+
+Before plugging back into your app, run a minimal v0.2 smoke test (I can send one if you want). If the smoke test runs the tool (you’ll see `TOOL START/END`), the issue is in app wiring. If it doesn’t, it’s versions/imports.
+
+---
+
+## 7) Other small checks
+
+* **Tool name** must exactly match (`"document_search"`). Your logs show the LLM uses that.
+* **Model** must support function calling (your logs show `gpt-4o-2024-08-06`, fine).
+* **Return types** from tool should be strings or plain JSON; you already coerce to string—good.
+* **Early stopping**: `earlyStoppingMethod: "force"` is fine; it won’t fix wiring, but it prevents early bailouts.
+
+---
+
+### TL;DR
+
+* Replace `DynamicTool` → `DynamicStructuredTool` with a Zod schema.
+* Ensure **imports and versions** are all v0.2+ and consistent.
+* Add **callbacks** to verify tool execution.
+* Strip the custom JSON parsing inside the tool; accept structured args.
+
+If you paste your **imports** and **package versions** (and where `chatModel` comes from), I’ll pinpoint the exact mismatch.
