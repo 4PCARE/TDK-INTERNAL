@@ -1,6 +1,5 @@
 
 import type { Express } from "express";
-import { isAuthenticated, isMicrosoftAuthenticated } from "../replitAuth";
 import { smartAuth } from "../smartAuth";
 import { storage } from "../storage";
 import { db } from "../db";
@@ -112,7 +111,7 @@ export function registerDocumentRoutes(app: Express) {
     }
   });
 
-  app.get("/api/documents/search", isAuthenticated, async (req: any, res) => {
+  app.get("/api/documents/search", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const query = req.query.query as string;
@@ -259,7 +258,7 @@ export function registerDocumentRoutes(app: Express) {
     }
   });
 
-  app.get("/api/documents/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/documents/:id", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
@@ -306,7 +305,7 @@ export function registerDocumentRoutes(app: Express) {
 
   app.get(
     "/api/documents/:id/summary",
-    isAuthenticated,
+    smartAuth,
     async (req: any, res) => {
       try {
         const userId = req.user.claims.sub;
@@ -335,7 +334,7 @@ export function registerDocumentRoutes(app: Express) {
   // Translation API endpoint with database caching
   app.post(
     "/api/documents/:id/translate",
-    isAuthenticated,
+    smartAuth,
     async (req: any, res) => {
       try {
         const userId = req.user.claims.sub;
@@ -441,7 +440,7 @@ ${document.summary}`;
 
   app.post(
     "/api/documents/upload",
-    isAuthenticated,
+    smartAuth,
     upload.array("files", 10),
     async (req: any, res) => {
       try {
@@ -613,7 +612,7 @@ ${document.summary}`;
 
   app.get(
     "/api/documents/:id/download",
-    isAuthenticated,
+    smartAuth,
     async (req: any, res) => {
       try {
         const userId = req.user.claims.sub;
@@ -669,7 +668,7 @@ ${document.summary}`;
 
   app.post(
     "/api/documents/:id/favorite",
-    isAuthenticated,
+    smartAuth,
     async (req: any, res) => {
       try {
         const userId = req.user.claims.sub;
@@ -684,7 +683,7 @@ ${document.summary}`;
   );
 
   // Document endorsement endpoint
-  app.post("/api/documents/:id/endorse", isAuthenticated, async (req: any, res) => {
+  app.post("/api/documents/:id/endorse", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const documentId = parseInt(req.params.id);
@@ -759,7 +758,7 @@ ${document.summary}`;
     }
   });
 
-  app.delete("/api/documents/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/documents/:id", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
@@ -821,7 +820,7 @@ ${document.summary}`;
   });
 
   // Category statistics endpoint
-  app.get("/api/stats/categories", isAuthenticated, async (req: any, res) => {
+  app.get("/api/stats/categories", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { sql } = await import("drizzle-orm");
@@ -844,7 +843,7 @@ ${document.summary}`;
   });
 
   // Tag statistics endpoint
-  app.get("/api/stats/tags", isAuthenticated, async (req: any, res) => {
+  app.get("/api/stats/tags", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
 
@@ -882,7 +881,7 @@ ${document.summary}`;
   // Document Demand Insights API
   app.get(
     "/api/analytics/document-demand",
-    isAuthenticated,
+    smartAuth,
     async (req: any, res) => {
       try {
         const userId = req.user.claims.sub;
@@ -897,7 +896,7 @@ ${document.summary}`;
 
   app.get(
     "/api/documents/:id/feedback",
-    isAuthenticated,
+    smartAuth,
     async (req: any, res) => {
       try {
         const userId = req.user.claims.sub;
