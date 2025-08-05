@@ -144,32 +144,46 @@ async def get_documents(current_user: dict = Depends(get_current_user)):
 @app.post("/api/python/documents/upload")
 async def upload_document(
     file: UploadFile = File(...),
+    user_id: str = Form(...),
     current_user: dict = Depends(get_current_user)
 ):
     """Upload and process document"""
     try:
-        user_id = current_user["user_id"]
+        print(f"Python backend: Processing upload for user {user_id}, file: {file.filename}")
         
         # Process the uploaded file
         result = await document_processor.process_file(file, user_id)
         
-        # Generate embeddings for the document
-        if result.get("content"):
-            await vector_service.add_document(
-                document_id=str(result.get("document_id", "temp")),
-                content=result["content"]
-            )
+        print(f"Python backend: File processed successfully, got {len(result.get('content', ''))} chars of content")
         
-        return {
+        # Generate embeddings for the document if content exists
+        if result.get("content"):
+            try:
+                await vector_service.add_document(
+                    document_id=str(result.get("document_id", "temp")),
+                    content=result["content"]
+                )
+                print("Python backend: Vector embeddings generated successfully")
+            except Exception as vector_error:
+                print(f"Python backend: Vector embedding failed: {vector_error}")
+        
+        response_data = {
             "success": True,
             "document_id": result.get("document_id", "temp"),
             "message": "Document uploaded and processed successfully",
             "summary": result.get("summary", ""),
             "tags": result.get("tags", []),
-            "category": result.get("category", "")
+            "category": result.get("category", ""),
+            "name": result.get("name", file.filename),
+            "file_size": result.get("file_size", 0),
+            "content_length": len(result.get("content", ""))
         }
         
+        print(f"Python backend: Returning response: {response_data}")
+        return response_data
+        
     except Exception as e:
+        print(f"Python backend upload error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 @app.post("/api/python/chat")

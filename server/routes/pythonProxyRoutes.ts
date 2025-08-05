@@ -1,8 +1,8 @@
-
 import type { Express } from "express";
 import { smartAuth } from "../smartAuth";
 import axios from "axios";
 import multer from "multer";
+import fs from 'fs'; // Import fs module
 
 const PYTHON_BACKEND_URL = "http://0.0.0.0:8000";
 
@@ -18,27 +18,32 @@ export function registerPythonProxyRoutes(app: Express) {
     }
   });
 
-  // Python document processing with multer middleware
-  const upload = multer({ storage: multer.memoryStorage() });
-  
-  app.post("/api/python/documents/upload", smartAuth, upload.single('file'), async (req: any, res) => {
+  // Python document upload service
+  app.post("/api/python/documents/upload", smartAuth, upload.single("file"), async (req: any, res) => {
     try {
       const token = req.headers.authorization;
-      
-      if (!req.file) {
+      const file = req.file;
+
+      if (!file) {
         return res.status(400).json({ error: "No file uploaded" });
       }
-      
-      // Handle file upload forwarding using form-data
-      const FormData = (await import('form-data')).default;
+
+      console.log("Python upload proxy: Processing file", file.originalname);
+
+      // Create FormData for Python backend
       const formData = new FormData();
-      
-      // Properly append the file buffer with correct options
-      formData.append('file', req.file.buffer, {
-        filename: req.file.originalname,
-        contentType: req.file.mimetype,
-        knownLength: req.file.size
+      const fileStream = fs.createReadStream(file.path);
+
+      formData.append('file', fileStream, {
+        filename: file.originalname,
+        contentType: file.mimetype
       });
+
+      // Add user ID to FormData
+      const userId = req.user.claims.sub;
+      formData.append('user_id', userId);
+
+      console.log("Python upload proxy: Forwarding to Python backend...");
 
       const response = await axios.post(
         `${PYTHON_BACKEND_URL}/api/python/documents/upload`,
@@ -49,14 +54,16 @@ export function registerPythonProxyRoutes(app: Express) {
             ...formData.getHeaders()
           },
           maxContentLength: Infinity,
-          maxBodyLength: Infinity
+          maxBodyLength: Infinity,
+          timeout: 30000
         }
       );
 
+      console.log("Python upload proxy: Success, got response from Python backend");
       res.json(response.data);
     } catch (error) {
       console.error("Python upload proxy error:", error);
-      if (error.response) {
+      if (axios.isAxiosError(error) && error.response) {
         console.error("Python backend response:", error.response.data);
         res.status(error.response.status).json(error.response.data);
       } else {
@@ -69,7 +76,7 @@ export function registerPythonProxyRoutes(app: Express) {
   app.post("/api/python/chat", smartAuth, async (req: any, res) => {
     try {
       const token = req.headers.authorization;
-      
+
       const response = await axios.post(
         `${PYTHON_BACKEND_URL}/api/python/chat`,
         req.body,
@@ -92,7 +99,7 @@ export function registerPythonProxyRoutes(app: Express) {
   app.post("/api/python/search", smartAuth, async (req: any, res) => {
     try {
       const token = req.headers.authorization;
-      
+
       const response = await axios.post(
         `${PYTHON_BACKEND_URL}/api/python/search`,
         req.body,
@@ -115,7 +122,7 @@ export function registerPythonProxyRoutes(app: Express) {
   app.get("/api/python/documents", smartAuth, async (req: any, res) => {
     try {
       const token = req.headers.authorization;
-      
+
       const response = await axios.get(
         `${PYTHON_BACKEND_URL}/api/python/documents`,
         {
@@ -136,7 +143,7 @@ export function registerPythonProxyRoutes(app: Express) {
   app.post("/api/python/documents/chat", smartAuth, async (req: any, res) => {
     try {
       const token = req.headers.authorization;
-      
+
       const response = await axios.post(
         `${PYTHON_BACKEND_URL}/api/python/documents/chat`,
         req.body,
@@ -159,7 +166,7 @@ export function registerPythonProxyRoutes(app: Express) {
   app.get("/api/python/stats", smartAuth, async (req: any, res) => {
     try {
       const token = req.headers.authorization;
-      
+
       const response = await axios.get(
         `${PYTHON_BACKEND_URL}/api/python/stats`,
         {
