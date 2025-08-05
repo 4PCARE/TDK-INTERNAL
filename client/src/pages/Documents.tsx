@@ -148,9 +148,9 @@ export default function Documents() {
 
         const params = new URLSearchParams({
           query: searchQuery,
-          fileName: "true",
-          keyword: "true", 
-          meaning: "true"
+          fileName: searchFileName.toString(),
+          keyword: searchKeyword.toString(), 
+          meaning: searchMeaning.toString()
         });
 
         console.log(`Frontend search: "${searchQuery}" (using Node.js backend)`);
