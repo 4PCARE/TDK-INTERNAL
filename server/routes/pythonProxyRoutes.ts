@@ -34,12 +34,15 @@ export function registerPythonProxyRoutes(app: Express) {
       // Process first file only for now (Python backend expects single file)
       const file = files[0];
       
-      // Create FormData for Python backend
+      // Create FormData for Python backend using form-data package
+      const FormData = require('form-data');
       const formData = new FormData();
-      const fileBuffer = fs.readFileSync(file.path);
-      const blob = new Blob([fileBuffer], { type: file.mimetype });
+      const fileStream = fs.createReadStream(file.path);
 
-      formData.append('file', blob, file.originalname);
+      formData.append('file', fileStream, {
+        filename: file.originalname,
+        contentType: file.mimetype
+      });
 
       // Add user ID to FormData
       const userId = req.user.claims.sub;
