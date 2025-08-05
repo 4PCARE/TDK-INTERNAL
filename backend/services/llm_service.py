@@ -1,27 +1,65 @@
+
 import os
-import openai
 from typing import List, Dict, Any, Optional
-import json
 from dotenv import load_dotenv
+import asyncio
+
+# LangChain imports
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+from langchain_core.prompts import ChatPromptTemplate
+from langchain.schema import Document
 
 load_dotenv()
 
 class LLMService:
     def __init__(self):
+        self.enabled = False
+        self.chat_model = None
+        self.embeddings_model = None
+        
         api_key = os.getenv("OPENAI_API_KEY")
         if api_key:
             try:
-                self.openai_client = openai.AsyncOpenAI(api_key=api_key)
+                # Initialize LangChain models
+                self.chat_model = ChatOpenAI(
+                    api_key=api_key,
+                    model="gpt-4o",
+                    temperature=0.7,
+                    max_tokens=1000
+                )
+                
+                self.embeddings_model = OpenAIEmbeddings(
+                    api_key=api_key,
+                    model="text-embedding-3-small"
+                )
+                
                 self.enabled = True
-                print("LLM Service initialized with OpenAI")
+                print("LLM Service initialized with LangChain (OpenAI)")
             except Exception as e:
-                print(f"Error initializing OpenAI client: {e}")
-                self.openai_client = None
+                print(f"Failed to initialize LangChain LLM service: {e}")
                 self.enabled = False
         else:
-            self.openai_client = None
-            self.enabled = False
-            print("Warning: OPENAI_API_KEY not set. LLM services will be disabled.")
+            print("No OpenAI API key found - LLM service disabled")
+
+    async def generate_embedding(self, text: str) -> List[float]:
+        """Generate embedding using LangChain OpenAI embeddings"""
+        if not self.enabled or not self.embeddings_model:
+            print("Embeddings not available")
+            return []
+
+        try:
+            # LangChain embeddings are synchronous but we can run in executor for async
+            loop = asyncio.get_event_loop()
+            embedding = await loop.run_in_executor(
+                None, 
+                self.embeddings_model.embed_query, 
+                text
+            )
+            return embedding
+        except Exception as e:
+            print(f"Error generating embedding with LangChain: {e}")
+            return []
 
     async def generate_chat_response(
         self,
@@ -29,144 +67,137 @@ class LLMService:
         context_documents: List[Dict[str, Any]] = None,
         system_prompt: str = None
     ) -> str:
-        """Generate chat response with optional document context"""
-        if not self.enabled:
-            return "LLM service is not available. Please configure OPENAI_API_KEY."
+        """Generate chat response using LangChain"""
+        if not self.enabled or not self.chat_model:
+            return "LLM service is not available."
 
         try:
-            # Build context from documents if provided
-            context_text = ""
-            if context_documents:
-                context_text = "\n\nRelevant documents:\n"
-                for i, doc in enumerate(context_documents[:5]):  # Limit to top 5
-                    content = doc.get('content', '')[:500]  # Limit content length
-                    context_text += f"\nDocument {i+1}: {content}...\n"
-
-            # Build messages for OpenAI
-            openai_messages = []
-
-            # System prompt
+            # Convert messages to LangChain message format
+            langchain_messages = []
+            
+            # Add system message if provided
             if system_prompt:
-                openai_messages.append({"role": "system", "content": system_prompt})
-            elif context_documents:
-                openai_messages.append({
-                    "role": "system",
-                    "content": "You are a helpful AI assistant. Use the provided documents to answer questions accurately. If the information is not in the documents, say so."
-                })
+                langchain_messages.append(SystemMessage(content=system_prompt))
+            
+            # Convert conversation messages
+            for msg in messages:
+                role = msg.get('role')
+                content = msg.get('content', '')
+                
+                if role == 'user':
+                    langchain_messages.append(HumanMessage(content=content))
+                elif role == 'assistant':
+                    langchain_messages.append(AIMessage(content=content))
+                elif role == 'system':
+                    langchain_messages.append(SystemMessage(content=content))
 
-            # Add conversation history
-            for message in messages:
-                role = message.get('role', 'user')
-                content = message.get('content', '')
+            # Add context from documents if available
+            if context_documents:
+                context_text = "\n\n".join([
+                    f"Document: {doc.get('title', 'Unknown')}\nContent: {doc.get('content', '')[:500]}..."
+                    for doc in context_documents[:5]
+                ])
+                
+                if context_text:
+                    context_message = f"\nRelevant context from documents:\n{context_text}"
+                    langchain_messages.append(SystemMessage(content=context_message))
 
-                # Add context to the last user message
-                if role == 'user' and message == messages[-1] and context_text:
-                    content += context_text
-
-                openai_messages.append({"role": role, "content": content})
-
-            response = await self.openai_client.chat.completions.create(
-                model="gpt-4o",
-                messages=openai_messages,
-                max_tokens=1000,
-                temperature=0.7
+            # Generate response using LangChain
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                self.chat_model.invoke,
+                langchain_messages
             )
-
-            return response.choices[0].message.content
+            
+            return response.content
 
         except Exception as e:
-            print(f"Error generating chat response: {e}")
-            return f"Sorry, I encountered an error: {str(e)}"
-
-    async def generate_embedding(self, text: str) -> List[float]:
-        """Generate embedding for text"""
-        if not self.enabled:
-            return []
-
-        try:
-            response = await self.openai_client.embeddings.create(
-                model="text-embedding-3-small",
-                input=text.strip()
-            )
-            return response.data[0].embedding
-        except Exception as e:
-            print(f"Error generating embedding: {e}")
-            return []
+            print(f"Error generating chat response with LangChain: {e}")
+            return f"I apologize, but I encountered an error while processing your request: {str(e)}"
 
     async def analyze_document(self, content: str) -> Dict[str, Any]:
-        """Analyze document content for summary, tags, and category"""
-        if not self.enabled:
+        """Analyze document content using LangChain"""
+        if not self.enabled or not self.chat_model:
             return {
-                "summary": "Document processed (AI analysis disabled)",
-                "tags": ["document"],
+                "summary": "Document analysis not available",
+                "tags": [],
                 "category": "Uncategorized"
             }
 
         try:
-            response = await self.openai_client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": """Analyze this document and provide:
+            # Create analysis prompt
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", """You are a document analysis expert. Analyze the provided document and return:
 1. A concise summary (2-3 sentences)
-2. 3-5 relevant tags
-3. Category classification (HR, Finance, Legal, Marketing, Technical, Operations, Research, Personal, Administrative, Data, Uncategorized)
+2. Relevant tags (3-5 keywords)
+3. A category classification
 
 Respond in JSON format:
 {
-  "summary": "document summary",
+  "summary": "Brief summary here",
   "tags": ["tag1", "tag2", "tag3"],
-  "category": "category_name"
-}"""
-                    },
-                    {
-                        "role": "user",
-                        "content": content[:8000]  # Limit content length
-                    }
-                ],
-                response_format={"type": "json_object"}
-            )
+  "category": "Category Name"
+}"""),
+                ("human", f"Document content:\n\n{content[:3000]}...")
+            ])
 
-            analysis = json.loads(response.choices[0].message.content)
-            return analysis
+            # Generate analysis
+            chain = prompt | self.chat_model
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(None, chain.invoke, {})
+            
+            # Try to parse JSON response
+            import json
+            try:
+                result = json.loads(response.content)
+                return {
+                    "summary": result.get("summary", "Analysis completed"),
+                    "tags": result.get("tags", []),
+                    "category": result.get("category", "Document")
+                }
+            except json.JSONDecodeError:
+                # Fallback if JSON parsing fails
+                return {
+                    "summary": response.content[:200] + "..." if len(response.content) > 200 else response.content,
+                    "tags": ["document", "analysis"],
+                    "category": "Document"
+                }
 
         except Exception as e:
-            print(f"Error analyzing document: {e}")
+            print(f"Error analyzing document with LangChain: {e}")
             return {
-                "summary": "Document processed successfully",
-                "tags": ["document"],
-                "category": "Uncategorized"
+                "summary": f"Analysis error: {str(e)}",
+                "tags": ["error"],
+                "category": "Error"
             }
 
     async def expand_query(self, query: str) -> List[str]:
-        """Expand query with synonyms and related terms"""
-        if not self.enabled:
+        """Expand search query using LangChain"""
+        if not self.enabled or not self.chat_model:
             return [query]
 
         try:
-            response = await self.openai_client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": """Generate 3-5 alternative search terms for the given query.
-Include synonyms, related terms, and different ways to express the same concept.
-Respond with a JSON array of strings.
-Example: ["original term", "synonym1", "related term", "alternative phrase"]"""
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Query: {query}"
-                    }
-                ],
-                response_format={"type": "json_object"}
-            )
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", """You are a search query expansion expert. Given a user query, generate 2-3 alternative phrasings that would help find relevant documents. Return them as a simple list, one per line, without numbers or bullets."""),
+                ("human", f"Original query: {query}")
+            ])
 
-            result = json.loads(response.choices[0].message.content)
-            expanded_terms = result.get('terms', [query])
-            return expanded_terms if expanded_terms else [query]
+            chain = prompt | self.chat_model
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(None, chain.invoke, {})
+            
+            # Parse response into list
+            expanded_queries = [query]  # Always include original
+            
+            lines = response.content.strip().split('\n')
+            for line in lines:
+                line = line.strip()
+                if line and line != query:
+                    expanded_queries.append(line)
+            
+            return expanded_queries[:4]  # Limit to 4 total queries
 
         except Exception as e:
-            print(f"Error expanding query: {e}")
+            print(f"Error expanding query with LangChain: {e}")
             return [query]
