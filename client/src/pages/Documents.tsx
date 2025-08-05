@@ -312,7 +312,7 @@ export default function Documents() {
 
   const handleBulkDelete = async () => {
     if (!selectedDocuments.length) return;
-    
+
     if (!confirm(`Are you sure you want to delete ${selectedDocuments.length} document(s)?`)) {
       return;
     }
@@ -323,12 +323,12 @@ export default function Documents() {
           fetch(`/api/documents/${id}`, { method: 'DELETE' })
         )
       );
-      
+
       toast({
         title: "Success",
         description: `${selectedDocuments.length} document(s) deleted successfully`,
       });
-      
+
       setSelectedDocuments([]);
       window.location.reload();
     } catch (error) {
@@ -342,7 +342,7 @@ export default function Documents() {
 
   const handleBulkEndorsement = async () => {
     if (!selectedDocuments.length) return;
-    
+
     try {
       await Promise.all(
         selectedDocuments.map(id => 
@@ -353,12 +353,12 @@ export default function Documents() {
           })
         )
       );
-      
+
       toast({
         title: "Success",
         description: `${selectedDocuments.length} document(s) endorsed successfully`,
       });
-      
+
       setSelectedDocuments([]);
       window.location.reload();
     } catch (error) {
@@ -372,7 +372,7 @@ export default function Documents() {
 
   const handleBulkDateUpdate = async (startDate: string, endDate: string) => {
     if (!selectedDocuments.length) return;
-    
+
     try {
       await Promise.all(
         selectedDocuments.map(id => 
@@ -383,12 +383,12 @@ export default function Documents() {
           })
         )
       );
-      
+
       toast({
         title: "Success",
         description: `Valid dates updated for ${selectedDocuments.length} document(s)`,
       });
-      
+
       setSelectedDocuments([]);
       window.location.reload();
     } catch (error) {
@@ -656,7 +656,7 @@ export default function Documents() {
                         <Star className="w-4 h-4 mr-2" />
                         Endorse All
                       </Button>
-                      
+
                       {/* Bulk Date Update */}
                       <Popover>
                         <PopoverTrigger asChild>
@@ -735,7 +735,7 @@ export default function Documents() {
                         Documents ({filteredDocuments?.length || 0})
                       </CardTitle>
                     </div>
-                  </div></old_str>
+                  </div>
                   <div className="flex items-center space-x-2">
                     <VectorizeAllButton />
                     <Button 
