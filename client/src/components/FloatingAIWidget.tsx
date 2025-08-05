@@ -243,16 +243,6 @@ export default function FloatingAIWidget() {
               )}
             </CardTitle>
             <div className="flex items-center gap-1">
-              {!isFullscreen && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsMinimized(!isMinimized)}
-                  className="h-8 w-8 text-white hover:bg-purple-700"
-                >
-                  {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
-                </Button>
-              )}
               <Button
                 variant="ghost"
                 size="icon"
