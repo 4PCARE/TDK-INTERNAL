@@ -6,7 +6,7 @@ import { insertAgentChatbotSchema } from "@shared/schema";
 
 export function registerAgentRoutes(app: Express) {
   // Get all agent chatbots
-  app.get("/api/agents", smartAuth, async (req: any, res) => {
+  app.get("/api/agent-chatbots", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const agents = await storage.getAgentChatbots(userId);
@@ -18,7 +18,7 @@ export function registerAgentRoutes(app: Express) {
   });
 
   // Create new agent chatbot
-  app.post("/api/agents", smartAuth, async (req: any, res) => {
+  app.post("/api/agent-chatbots", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const agentData = insertAgentChatbotSchema.parse({ ...req.body, userId });
@@ -31,7 +31,7 @@ export function registerAgentRoutes(app: Express) {
   });
 
   // Get specific agent chatbot
-  app.get("/api/agents/:id", smartAuth, async (req: any, res) => {
+  app.get("/api/agent-chatbots/:id", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const agentId = parseInt(req.params.id);
@@ -49,7 +49,7 @@ export function registerAgentRoutes(app: Express) {
   });
 
   // Update agent chatbot
-  app.put("/api/agents/:id", smartAuth, async (req: any, res) => {
+  app.put("/api/agent-chatbots/:id", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const agentId = parseInt(req.params.id);
@@ -64,7 +64,7 @@ export function registerAgentRoutes(app: Express) {
   });
 
   // Delete agent chatbot
-  app.delete("/api/agents/:id", smartAuth, async (req: any, res) => {
+  app.delete("/api/agent-chatbots/:id", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const agentId = parseInt(req.params.id);
@@ -78,7 +78,7 @@ export function registerAgentRoutes(app: Express) {
   });
 
   // Toggle agent active status
-  app.patch("/api/agents/:id/toggle", smartAuth, async (req: any, res) => {
+  app.patch("/api/agent-chatbots/:id/toggle", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const agentId = parseInt(req.params.id);
@@ -88,6 +88,52 @@ export function registerAgentRoutes(app: Express) {
     } catch (error) {
       console.error("Error toggling agent status:", error);
       res.status(500).json({ message: "Failed to toggle agent status" });
+    }
+  });
+
+  // Get agent chatbot documents
+  app.get("/api/agent-chatbots/:id/documents", smartAuth, async (req: any, res) => {
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      const userId = req.user.claims.sub;
+      const agentId = parseInt(req.params.id);
+      const documents = await storage.getAgentChatbotDocuments(agentId, userId);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching agent documents:", error);
+      res.status(500).json({ message: "Failed to fetch agent documents" });
+    }
+  });
+
+  // Add document to agent chatbot
+  app.post("/api/agent-chatbots/:id/documents/:documentId", smartAuth, async (req: any, res) => {
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      const userId = req.user.claims.sub;
+      const agentId = parseInt(req.params.id);
+      const documentId = parseInt(req.params.documentId);
+      
+      const result = await storage.addDocumentToAgentChatbot(agentId, documentId, userId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error adding document to agent:", error);
+      res.status(500).json({ message: "Failed to add document to agent" });
+    }
+  });
+
+  // Remove document from agent chatbot
+  app.delete("/api/agent-chatbots/:id/documents/:documentId", smartAuth, async (req: any, res) => {
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      const userId = req.user.claims.sub;
+      const agentId = parseInt(req.params.id);
+      const documentId = parseInt(req.params.documentId);
+      
+      await storage.removeDocumentFromAgentChatbot(agentId, documentId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing document from agent:", error);
+      res.status(500).json({ message: "Failed to remove document from agent" });
     }
   });
 }
