@@ -104,9 +104,17 @@ export default function FloatingAIWidget() {
       if (!response.ok) throw new Error("Failed to create conversation");
       return response.json();
     },
+    onMutate: () => {
+      // Optimistic update: immediately clear current conversation and messages
+      setCurrentConversationId(null);
+      setShowConversations(false);
+      // Clear current messages optimistically
+      if (currentConversationId) {
+        queryClient.setQueryData(["/api/chat/conversations", currentConversationId, "messages"], []);
+      }
+    },
     onSuccess: (data) => {
       setCurrentConversationId(data.id);
-      setShowConversations(false);
       queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations"] });
       queryClient.invalidateQueries({ 
         queryKey: ["/api/chat/conversations", data.id, "messages"] 
