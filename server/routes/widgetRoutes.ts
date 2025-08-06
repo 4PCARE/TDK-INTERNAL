@@ -3,6 +3,31 @@ import type { Express } from "express";
 import { smartAuth } from "../smartAuth";
 
 export function registerWidgetRoutes(app: Express) {
+  // Get chat widgets list
+  app.get("/api/chat-widgets", smartAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Return list of chat widgets - this would typically come from database
+      const chatWidgets = [
+        {
+          id: 1,
+          name: "Customer Support Widget",
+          agentId: 1,
+          isActive: true,
+          embedCode: `<script src="/widget/embed.js" data-agent-id="1"></script>`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ];
+
+      res.json(chatWidgets);
+    } catch (error) {
+      console.error("Error fetching chat widgets:", error);
+      res.status(500).json({ message: "Failed to fetch chat widgets" });
+    }
+  });
+
   // Get widget configuration
   app.get("/api/widget/config", smartAuth, async (req: any, res) => {
     try {
