@@ -1,6 +1,9 @@
 import { semanticSearchServiceV2 } from './semanticSearchV2';
 import { searchSmartHybridDebug, type SearchOptions } from './newSearch';
 import { storage } from '../storage';
+import { db } from '../db';
+import { hrEmployees } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 /**
  * Document Search Tool for LangChain
@@ -327,9 +330,132 @@ export async function listUserDocuments({
   }
 }
 
+/**
+ * Personal HR Query Tool for LangChain
+ * 
+ * Allows users to query their personal employee information using their citizen ID.
+ * Returns specific employee fields as requested by the user.
+ * 
+ * @param citizenId - The Thai citizen ID (13 digits) to look up employee data
+ * @returns Promise<string> - Formatted employee information
+ * 
+ * @example
+ * const employeeInfo = await personalHrQuery({
+ *   citizenId: "1234567890123"
+ * });
+ */
+export async function personalHrQuery({
+  citizenId
+}: {
+  citizenId: string;
+}): Promise<string> {
+  const startTime = Date.now();
+  console.log(`[LangChain Tool] ⚡ ENTRY: personalHrQuery called at ${new Date().toISOString()}`);
+  console.log(`[LangChain Tool] 📋 Input Parameters:`, {
+    citizenId: `"${citizenId}"`,
+  });
+
+  try {
+    // Validate inputs
+    if (!citizenId) {
+      const errorMsg = `Missing required parameter: citizenId`;
+      console.error(`[LangChain Tool] ❌ ${errorMsg}`);
+      return `Error: ${errorMsg}. Please provide your Thai Citizen ID (13 digits).`;
+    }
+
+    // Validate Thai Citizen ID format (13 digits)
+    if (!/^\d{13}$/.test(citizenId.trim())) {
+      console.log(`[LangChain Tool] ⚠️ Invalid citizen ID format: ${citizenId}`);
+      return "Please provide a valid Thai Citizen ID with exactly 13 digits.";
+    }
+
+    console.log(`[LangChain Tool] 🔍 Looking up employee with citizen ID: ${citizenId}`);
+    const searchStartTime = Date.now();
+    
+    // Look up employee in HR database
+    const [employee] = await db
+      .select({
+        employeeId: hrEmployees.employeeId,
+        firstName: hrEmployees.firstName,
+        lastName: hrEmployees.lastName,
+        email: hrEmployees.email,
+        phone: hrEmployees.phone,
+        department: hrEmployees.department,
+        position: hrEmployees.position,
+        hireDate: hrEmployees.hireDate,
+        leaveDays: hrEmployees.leaveDays,
+        isActive: hrEmployees.isActive
+      })
+      .from(hrEmployees)
+      .where(eq(hrEmployees.citizenId, citizenId.trim()))
+      .limit(1);
+
+    const searchDuration = Date.now() - searchStartTime;
+    console.log(`[LangChain Tool] ⏱️ HR database query completed in ${searchDuration}ms`);
+
+    if (!employee || !employee.isActive) {
+      console.log(`[LangChain Tool] 📭 No active employee found for citizen ID: ${citizenId}`);
+      return `No active employee record found for the provided Thai Citizen ID. Please verify your citizen ID or contact HR for assistance.`;
+    }
+
+    // Format employee information
+    console.log(`[LangChain Tool] 🔧 Formatting employee information for: ${employee.firstName} ${employee.lastName}`);
+    
+    const employeeInfo = {
+      employeeId: employee.employeeId,
+      citizenId: citizenId,
+      firstName: employee.firstName,
+      lastName: employee.lastName,
+      email: employee.email,
+      phone: employee.phone,
+      department: employee.department,
+      position: employee.position,
+      startDate: employee.hireDate,
+      leaveDays: employee.leaveDays
+    };
+
+    // Create structured response text
+    const responseText = `Personal Employee Information:
+
+Employee ID: ${employeeInfo.employeeId}
+Name: ${employeeInfo.firstName} ${employeeInfo.lastName}
+Email: ${employeeInfo.email || 'Not available'}
+Phone: ${employeeInfo.phone || 'Not available'}
+Department: ${employeeInfo.department}
+Position: ${employeeInfo.position}
+Start Date: ${employeeInfo.startDate ? new Date(employeeInfo.startDate).toLocaleDateString() : 'Not available'}
+Available Leave Days: ${employeeInfo.leaveDays || 0} days
+
+This information is retrieved from the HR system and is current as of today.`;
+
+    const totalDuration = Date.now() - startTime;
+    console.log(`[LangChain Tool] ✅ COMPLETED: Personal HR query completed in ${totalDuration}ms`);
+    console.log(`[LangChain Tool] 📤 FINAL RETURN: Response length ${responseText.length} characters`);
+    console.log(`[LangChain Tool] === PERSONAL HR QUERY TOOL RETURNING TO LANGCHAIN ===`);
+
+    return responseText;
+
+  } catch (error) {
+    const totalDuration = Date.now() - startTime;
+    console.error(`[LangChain Tool] 🚨 Personal HR query error after ${totalDuration}ms:`, error);
+    console.error('[LangChain Tool] 🚨 Error details:', {
+      type: error?.constructor?.name || 'Unknown',
+      message: error?.message || 'No message',
+      citizenId: `"${citizenId}"`,
+    });
+    console.error('[LangChain Tool] 🚨 Error stack:', error?.stack);
+
+    // Return descriptive error message instead of empty result
+    const errorMessage = `ERROR: Personal HR query failed - ${error?.message || 'unknown error occurred'}. Please try again or contact HR support if the issue persists.`;
+    console.log(`[LangChain Tool] 🔄 Returning error message: ${errorMessage}`);
+    return errorMessage;
+  }
+}
+
 // Export the tools in a format compatible with LangChain tool binding
 export const langchainTools = {
   documentSearch,
   getDocumentById,
-  listUserDocuments
+  listUserDocuments,
+  personalHrQuery
 };

@@ -16,7 +16,7 @@ import { createOpenAIFunctionsAgent, AgentExecutor } from "langchain/agents";
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
-import { documentSearch } from "../server/services/langchainTools";
+import { documentSearch, personalHrQuery } from "../server/services/langchainTools";
 
 async function logPackageVersions() {
   console.log("=== PACKAGE VERSIONS ===");
@@ -94,12 +94,50 @@ function createDocumentSearchTool(userId: string): DynamicStructuredTool {
   return tool;
 }
 
+function createPersonalHrQueryTool(): DynamicStructuredTool {
+  console.log(`Creating personal_hr_query tool`);
+  
+  const tool = new DynamicStructuredTool({
+    name: "personal_hr_query",
+    description: "Query personal employee information using Thai Citizen ID. Use this tool when users ask about their personal HR information, employee details, leave days, contact information, or employment status.",
+    schema: z.object({
+      citizenId: z.string().describe("The Thai Citizen ID (13 digits) to look up employee information")
+    }),
+    func: async ({ citizenId }: { citizenId: string }): Promise<string> => {
+      console.log(`TOOL EXECUTION: personal_hr_query called with citizenId: "${citizenId}"`);
+      
+      try {
+        // Ensure personalHrQuery is available
+        if (typeof personalHrQuery !== 'function') {
+          throw new Error('personalHrQuery function is not available');
+        }
+
+        const result = await personalHrQuery({
+          citizenId: citizenId.trim()
+        });
+        
+        console.log(`TOOL RESULT: personal_hr_query returned ${result.length} characters`);
+        return result;
+        
+      } catch (error: any) {
+        const errorMessage = `HR tool execution failed: ${error?.message || 'unknown error'}`;
+        console.error("HR TOOL ERROR:", errorMessage);
+        return errorMessage;
+      }
+    },
+  });
+
+  console.log(`HR Tool created with name: "${tool.name}"`);
+  return tool;
+}
+
 async function createAgentExecutor(userId: string): Promise<AgentExecutor> {
   console.log("Creating LangChain agent executor...");
 
-  // Create the document search tool
+  // Create the document search tool and personal HR query tool
   const documentSearchTool = createDocumentSearchTool(userId);
-  const tools = [documentSearchTool];
+  const personalHrQueryTool = createPersonalHrQueryTool();
+  const tools = [documentSearchTool, personalHrQueryTool];
   
   console.log(`Tools registered: [${tools.map(t => `"${t.name}"`).join(", ")}]`);
 
@@ -116,17 +154,23 @@ async function createAgentExecutor(userId: string): Promise<AgentExecutor> {
   const prompt = ChatPromptTemplate.fromMessages([
     [
       "system",
-      `You are an AI assistant for a Knowledge Management System. You help users find information from their document collection.
+      `You are an AI assistant for a Knowledge Management System with HR capabilities. You help users find information from their document collection and access their personal HR information.
 
 CRITICAL INSTRUCTIONS:
-1. When users ask questions about documents, ALWAYS use the document_search tool first
-2. ALWAYS provide a response based on the tool results
-3. Never return empty responses
+1. When users ask questions about documents, use the document_search tool
+2. When users ask about personal HR information (employee details, leave days, contact info), use the personal_hr_query tool with their citizen ID
+3. ALWAYS provide a response based on the tool results
+4. Never return empty responses
+
+Available tools:
+- document_search: Search company documents and knowledge base
+- personal_hr_query: Access personal employee information using Thai Citizen ID
 
 Your response flow:
-1. Use document_search tool with relevant keywords
-2. Analyze the tool results
-3. Generate a comprehensive response for the user`
+1. Identify the type of query (document search vs HR query)
+2. Use the appropriate tool with relevant parameters
+3. Analyze the tool results
+4. Generate a comprehensive response for the user`
     ],
     ["human", "{input}"],
     new MessagesPlaceholder("agent_scratchpad"),
