@@ -8,18 +8,11 @@ export function registerWidgetRoutes(app: Express) {
     try {
       const userId = req.user.claims.sub;
       
-      // Return list of chat widgets - this would typically come from database
-      const chatWidgets = [
-        {
-          id: 1,
-          name: "Customer Support Widget",
-          agentId: 1,
-          isActive: true,
-          embedCode: `<script src="/widget/embed.js" data-agent-id="1"></script>`,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
+      // Import storage to access database
+      const { storage } = await import("../storage");
+      
+      // Get user's chat widgets from database
+      const chatWidgets = await storage.getChatWidgets(userId);
 
       res.json(chatWidgets);
     } catch (error) {

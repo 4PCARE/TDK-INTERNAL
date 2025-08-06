@@ -20,6 +20,7 @@ import {
   lineMessageTemplates,
   lineCarouselColumns,
   lineTemplateActions,
+  chatWidgets,
   type User,
   type UpsertUser,
   type Category,
@@ -57,6 +58,8 @@ import {
   type InsertLineCarouselColumn,
   type LineTemplateAction,
   type InsertTemplateAction,
+  type ChatWidget,
+  type InsertChatWidget,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, like, count, sql, ilike, getTableColumns, gte, lte, inArray } from "drizzle-orm";
@@ -214,6 +217,12 @@ export interface IStorage {
   // LLM Configuration operations
   getLlmConfig(userId: string): Promise<any>;
   updateLlmConfig(userId: string, configData: any): Promise<any>;
+
+  // Chat Widget operations
+  getChatWidgets(userId: string): Promise<ChatWidget[]>;
+  createChatWidget(widget: InsertChatWidget): Promise<ChatWidget>;
+  updateChatWidget(id: number, widget: Partial<InsertChatWidget>, userId: string): Promise<ChatWidget>;
+  deleteChatWidget(id: number, userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -849,7 +858,7 @@ export class DatabaseStorage implements IStorage {
       .select({
         id: documents.id,
         name: documents.name,
-        category: documents.category,
+        category: documents.aiCategory, // Use aiCategory for consistency
         createdAt: documents.createdAt,
       })
       .from(documents)
@@ -2117,7 +2126,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateLlmConfig(userId: string, configData: any): Promise<any> {
     const { llmConfig } = await import('@shared/schema');
-    
+
     const [existingConfig] = await db
       .select()
       .from(llmConfig)
@@ -2150,6 +2159,38 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // Chat Widget operations
+  async getChatWidgets(userId: string): Promise<ChatWidget[]> {
+    return await db
+      .select()
+      .from(chatWidgets)
+      .where(eq(chatWidgets.userId, userId))
+      .orderBy(desc(chatWidgets.createdAt));
+  }
+
+  async createChatWidget(widget: InsertChatWidget): Promise<ChatWidget> {
+    const [newWidget] = await db
+      .insert(chatWidgets)
+      .values(widget)
+      .returning();
+    return newWidget;
+  }
+
+  async updateChatWidget(id: number, widget: Partial<InsertChatWidget>, userId: string): Promise<ChatWidget> {
+    const [updated] = await db
+      .update(chatWidgets)
+      .set({ ...widget, updatedAt: new Date() })
+      .where(and(eq(chatWidgets.id, id), eq(chatWidgets.userId, userId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteChatWidget(id: number, userId: string): Promise<void> {
+    await db
+      .delete(chatWidgets)
+      .where(and(eq(chatWidgets.id, id), eq(chatWidgets.userId, userId)));
   }
 }
 
