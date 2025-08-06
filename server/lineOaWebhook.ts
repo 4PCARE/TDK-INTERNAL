@@ -455,7 +455,7 @@ function extractIntentFromQuery(userQuery: string): string[] {
   }
 
   // Remove duplicates
-  return [...new Set(intents)];
+  return Array.from(new Set(intents));
 }
 
 // Calculate vector similarity between user query and template description

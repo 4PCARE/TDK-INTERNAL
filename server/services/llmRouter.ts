@@ -130,8 +130,13 @@ export class LLMRouter {
         });
       }
 
-      this.currentConfig = updatedConfig;
-      this.updateModels();
+      // Ensure provider is set before updating models
+      if (updatedConfig.provider && updatedConfig.embeddingProvider) {
+        this.currentConfig = updatedConfig;
+        this.updateModels();
+      } else {
+        throw new Error("Provider and embedding provider must be specified");
+      }
 
       console.log(`✅ LLM configuration updated for user ${userId}: ${updatedConfig.provider} (embeddings: ${updatedConfig.embeddingProvider})`);
     } catch (error) {
@@ -224,7 +229,7 @@ export class LLMRouter {
         provider: this.currentConfig?.provider || "OpenAI",
         model: this.currentConfig?.provider === "OpenAI" 
           ? (this.currentConfig.openAIConfig?.model || "gpt-4o")
-          : (this.currentConfig.geminiConfig?.model || "gemini-2.5-flash"),
+          : (this.currentConfig?.geminiConfig?.model || "gemini-2.5-flash"),
         prompt: JSON.stringify(messages),
         response,
         latency: Date.now() - startTime,
@@ -376,26 +381,27 @@ export class LLMRouter {
   async updateEmbeddingWithProvider(documentId: number, chunkIndex: number, newEmbedding: number[], provider: string): Promise<void> {
     try {
       // Get existing embedding JSON
+      const { documentChunkEmbeddings } = await import("@shared/schema");
       const [existingVector] = await db.select()
-        .from(documentVectors)
+        .from(documentChunkEmbeddings)
         .where(
           and(
-            eq(documentVectors.documentId, documentId),
-            eq(documentVectors.chunkIndex, chunkIndex)
+            eq(documentChunkEmbeddings.documentId, documentId),
+            eq(documentChunkEmbeddings.chunkIndex, chunkIndex)
           )
         );
 
       if (existingVector) {
-        // Use embeddingMulti column, initialize if null
-        const currentEmbedding = (existingVector.embeddingMulti as { openai?: number[]; gemini?: number[] }) || {};
+        // Use embedding column, initialize if null  
+        const currentEmbedding = (existingVector.embedding as { openai?: number[]; gemini?: number[] }) || {};
         const updatedEmbedding = {
           ...currentEmbedding,
           [provider.toLowerCase()]: newEmbedding
         };
 
-        await db.update(documentVectors)
-          .set({ embeddingMulti: updatedEmbedding })
-          .where(eq(documentVectors.id, existingVector.id));
+        await db.update(documentChunkEmbeddings)
+          .set({ embedding: updatedEmbedding })
+          .where(eq(documentChunkEmbeddings.id, existingVector.id));
 
         console.log(`✅ Updated multi-embedding for doc ${documentId} chunk ${chunkIndex} with ${provider} data`);
       }
