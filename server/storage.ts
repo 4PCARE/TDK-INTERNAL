@@ -223,6 +223,19 @@ export interface IStorage {
   createChatWidget(widget: InsertChatWidget): Promise<ChatWidget>;
   updateChatWidget(id: number, widget: Partial<InsertChatWidget>, userId: string): Promise<ChatWidget>;
   deleteChatWidget(id: number, userId: string): Promise<void>;
+
+  // Agent Console operations
+  getAgentConsoleUsers(userId: string, options?: { searchQuery?: string; channelFilter?: string }): Promise<any[]>;
+  getAgentConsoleConversation(userId: string, channelType: string, channelId: string, agentId: number): Promise<any[]>;
+  sendAgentConsoleMessage(data: {
+    userId: string;
+    channelType: string;
+    channelId: string;
+    agentId: number;
+    message: string;
+    messageType: string;
+  }): Promise<any>;
+  getAgentConsoleSummary(userId: string, channelType: string, channelId: string): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2191,6 +2204,106 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(chatWidgets)
       .where(and(eq(chatWidgets.id, id), eq(chatWidgets.userId, userId)));
+  }
+
+  // Agent Console operations
+  async getAgentConsoleUsers(userId: string, options?: { searchQuery?: string; channelFilter?: string }): Promise<any[]> {
+    // For now, return mock data since agent console functionality is being developed
+    console.log(`Getting agent console users for ${userId} with options:`, options);
+    
+    // Return mock users for testing
+    return [
+      {
+        userId: "user_123",
+        channelType: "line",
+        channelId: "line_channel_1",
+        agentId: 1,
+        agentName: "Customer Support Agent",
+        lastMessage: "Hello, I need help with my order",
+        lastMessageAt: new Date().toISOString(),
+        unreadCount: 2,
+        status: "active"
+      },
+      {
+        userId: "user_456",
+        channelType: "webwidget",
+        channelId: "widget_channel_1",
+        agentId: 2,
+        agentName: "Sales Agent",
+        lastMessage: "What are your pricing plans?",
+        lastMessageAt: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
+        unreadCount: 1,
+        status: "active"
+      }
+    ];
+  }
+
+  async getAgentConsoleConversation(userId: string, channelType: string, channelId: string, agentId: number): Promise<any[]> {
+    console.log(`Getting conversation for ${userId}, ${channelType}, ${channelId}, agent ${agentId}`);
+    
+    // Return mock conversation for testing
+    return [
+      {
+        id: 1,
+        messageType: "user",
+        content: "Hello, I need help with my order",
+        timestamp: new Date(Date.now() - 600000).toISOString(), // 10 minutes ago
+        userId: userId,
+        agentId: agentId
+      },
+      {
+        id: 2,
+        messageType: "agent",
+        content: "Hello! I'd be happy to help you with your order. Could you please provide your order number?",
+        timestamp: new Date(Date.now() - 540000).toISOString(), // 9 minutes ago
+        userId: userId,
+        agentId: agentId
+      },
+      {
+        id: 3,
+        messageType: "user",
+        content: "My order number is #12345",
+        timestamp: new Date(Date.now() - 480000).toISOString(), // 8 minutes ago
+        userId: userId,
+        agentId: agentId
+      }
+    ];
+  }
+
+  async sendAgentConsoleMessage(data: {
+    userId: string;
+    channelType: string;
+    channelId: string;
+    agentId: number;
+    message: string;
+    messageType: string;
+  }): Promise<any> {
+    console.log(`Sending agent console message:`, data);
+    
+    // Mock sending message
+    return {
+      id: Date.now(),
+      messageType: data.messageType,
+      content: data.message,
+      timestamp: new Date().toISOString(),
+      userId: data.userId,
+      agentId: data.agentId,
+      success: true
+    };
+  }
+
+  async getAgentConsoleSummary(userId: string, channelType: string, channelId: string): Promise<any> {
+    console.log(`Getting summary for ${userId}, ${channelType}, ${channelId}`);
+    
+    // Return mock summary
+    return {
+      totalMessages: 10,
+      firstContactAt: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
+      lastActiveAt: new Date().toISOString(),
+      sentiment: "positive",
+      mainTopics: ["order inquiry", "customer support"],
+      csatScore: 4.5
+    };
   }
 }
 
