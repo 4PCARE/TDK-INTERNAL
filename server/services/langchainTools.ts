@@ -3,7 +3,7 @@ import { searchSmartHybridDebug, type SearchOptions } from './newSearch';
 import { storage } from '../storage';
 import { db } from '../db';
 import { hrEmployees } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from "drizzle-orm";
 
 /**
  * Document Search Tool for LangChain
@@ -366,7 +366,7 @@ export async function personalHrQuery({
     if (context === 'platform' && userId) {
       // For authenticated platform users, look up by user association
       console.log(`[LangChain Tool] 🔍 Looking up employee for authenticated user: ${userId}`);
-      
+
       // First, try to find employee record linked to the user account
       // This assumes we have a mapping between platform users and HR employees
       const [userEmployee] = await db
@@ -386,9 +386,9 @@ export async function personalHrQuery({
         .from(hrEmployees)
         .where(eq(hrEmployees.email, userId)) // Assuming email is used as user identifier
         .limit(1);
-      
+
       employee = userEmployee;
-      
+
       if (!employee) {
         // Fallback: try to match by user ID if there's a direct mapping
         console.log(`[LangChain Tool] 🔄 No email match, trying alternative lookup methods`);
@@ -439,7 +439,7 @@ export async function personalHrQuery({
       const notFoundMsg = context === 'platform' 
         ? `ไม่พบข้อมูลพนักงานที่เชื่อมโยงกับบัญชีของคุณ กรุณาติดต่อแผนก HR เพื่อตรวจสอบข้อมูล`
         : `ไม่พบข้อมูลพนักงานสำหรับเลขบัตรประชาชนที่ระบุ กรุณาตรวจสอบเลขบัตรประชาชนหรือติดต่อแผนก HR เพื่อขอความช่วยเหลือ`;
-      
+
       console.log(`[LangChain Tool] 📭 No active employee found - context: ${context}`);
       return notFoundMsg;
     }
@@ -495,7 +495,7 @@ export async function personalHrQuery({
     const errorMsg = context === 'platform' 
       ? `เกิดข้อผิดพลาดในการค้นหาข้อมูลพนักงาน กรุณาลองใหม่อีกครั้งหรือติดต่อแผนก IT`
       : `เกิดข้อผิดพลาดในการค้นหาข้อมูล กรุณาลองใหม่อีกครั้งหรือติดต่อแผนก HR`;
-    
+
     console.log(`[LangChain Tool] 🔄 Returning error message: ${errorMsg}`);
     return errorMsg;
   }
@@ -513,7 +513,7 @@ export async function authenticatedHrQuery({
   userId: string;
 }): Promise<string> {
   console.log(`[LangChain Tool] 🔐 Authenticated HR Query for user: ${userId}`);
-  
+
   return await personalHrQuery({
     userId,
     context: 'platform'
