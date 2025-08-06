@@ -1,151 +1,231 @@
+#!/usr/bin/env node
+
+/**
+ * Test LangChain Agent with Both Tools - Final Verification
+ * 
+ * This test verifies the LangChain agent properly uses both:
+ * 1. document_search tool for document queries
+ * 2. personal_hr_query tool for HR queries (especially Thai language)
+ */
+
 import { ChatOpenAI } from "@langchain/openai";
 import { createOpenAIFunctionsAgent, AgentExecutor } from "langchain/agents";
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 
-// Test the fixed LangChain agent with proper tool execution
-async function testLangChainAgentFixed() {
-  console.log("🧪 Testing FIXED LangChain Functions Agent");
+// Import the actual tool functions
+import { documentSearch, personalHrQuery } from "./server/services/langchainTools.ts";
+
+async function testFinalLangChainAgent() {
+  console.log("🧪 Final Test: LangChain Agent with Enhanced Tool Selection");
+  console.log("Testing Thai language HR query and tool binding\n");
   
   try {
-    // Create the document search tool with proper implementation
+    // Create document search tool
     const documentSearchTool = new DynamicStructuredTool({
       name: "document_search",
-      description: "Search through uploaded documents to find relevant information based on user queries",
+      description: "Search through uploaded documents in the knowledge management system to find relevant information",
       schema: z.object({
         input: z.string().describe("The search query or question to find in documents"),
         searchType: z.string().optional().default("smart_hybrid").describe("Type of search"),
         limit: z.number().optional().default(5).describe("Maximum number of results"),
-        threshold: z.number().optional().default(0.7).describe("Similarity threshold")
+        threshold: z.number().optional().default(0.3).describe("Minimum similarity threshold")
       }),
-      func: async (input) => {
-        console.log(`🔧 TOOL EXECUTING: document_search`);
-        console.log(`🔧 Input received:`, JSON.stringify(input, null, 2));
+      func: async ({ input, searchType = "smart_hybrid", limit = 5, threshold = 0.3 }) => {
+        console.log(`🔧 DOCUMENT SEARCH: "${input}"`);
         
-        // Extract the actual search parameters
-        const query = input.input;
-        const searchType = input.searchType || "smart_hybrid";
-        const limit = input.limit || 5;
-        const threshold = input.threshold || 0.7;
-        
-        console.log(`🔍 Searching for: "${query}"`);
-        console.log(`🔍 Search params: type=${searchType}, limit=${limit}, threshold=${threshold}`);
-        
-        // Simulate realistic search results
-        const results = [
-          {
-            documentName: "OPPO Product Catalog 2024",
-            content: "OPPO smartphones feature advanced camera technology with AI enhancement. The OPPO Find X series offers flagship performance with premium build quality.",
-            score: 0.92,
-            chunkIndex: 1
-          },
-          {
-            documentName: "Mobile Device Specifications",
-            content: "OPPO devices run ColorOS based on Android, providing smooth performance and extensive customization options for users.",
-            score: 0.87,
-            chunkIndex: 3
-          }
-        ];
-        
-        console.log(`✅ TOOL COMPLETED: Found ${results.length} relevant documents`);
-        
-        // Return formatted results
-        return `Found ${results.length} relevant documents about "${query}":
-
-${results.map((result, index) => 
-  `${index + 1}. **${result.documentName}** (Score: ${result.score})
-   ${result.content}`
-).join('\n\n')}
-
-Search completed using ${searchType} method with ${limit} result limit.`;
+        try {
+          const result = await documentSearch({
+            query: input.trim(),
+            userId: "43981095",
+            searchType,
+            limit,
+            threshold
+          });
+          
+          console.log(`✅ DOCUMENT SEARCH SUCCESS: ${result.length} characters`);
+          return result;
+          
+        } catch (error) {
+          console.error("❌ DOCUMENT SEARCH ERROR:", error.message);
+          return `Document search failed: ${error.message}`;
+        }
       }
     });
 
-    // Initialize the LLM with proper settings
+    // Create personal HR query tool with comprehensive Thai language support
+    const personalHrQueryTool = new DynamicStructuredTool({
+      name: "personal_hr_query",
+      description: "Query personal employee information using Thai Citizen ID. Use this tool for HR-related questions including: leave days (วันลา), vacation days (วันหยุด), employee information (ข้อมูลพนักงาน), work details (รายละเอียดการทำงาน), employment status, contact information, and personal work-related data. This tool handles Thai language queries about วันลา, ข้อมูลส่วนตัว, การลา, วันหยุดพักผ่อน, and similar HR topics.",
+      schema: z.object({
+        citizenId: z.string().describe("The Thai Citizen ID (13 digits) to look up employee information")
+      }),
+      func: async ({ citizenId }) => {
+        console.log(`🔧 HR QUERY: citizenId="${citizenId}"`);
+        
+        try {
+          const result = await personalHrQuery({
+            citizenId: citizenId.trim()
+          });
+          
+          console.log(`✅ HR QUERY SUCCESS: ${result.length} characters`);
+          return result;
+          
+        } catch (error) {
+          console.error("❌ HR QUERY ERROR:", error.message);
+          return `HR query failed: ${error.message}`;
+        }
+      }
+    });
+
+    // Initialize LLM
     const llm = new ChatOpenAI({
       model: "gpt-4o-mini",
       temperature: 0.1,
       openAIApiKey: process.env.OPENAI_API_KEY,
     });
 
-    // Create comprehensive prompt template
+    // Enhanced prompt template for better tool selection
     const prompt = ChatPromptTemplate.fromMessages([
-      ["system", `You are a helpful AI assistant with access to a document search tool. When users ask questions that might require information from documents, use the document_search tool to find relevant information.
+      ["system", `You are an AI assistant for a Knowledge Management System with HR capabilities.
 
-Instructions:
-1. When a user asks about any topic that could be in documents, use the document_search tool
-2. Use the search results to provide a comprehensive answer
-3. Always acknowledge when you've searched documents and what you found`],
+TOOL SELECTION RULES:
+1. For document-related questions → use document_search tool
+2. For HR information queries → use personal_hr_query tool
+
+HR QUERY INDICATORS (use personal_hr_query):
+- Thai: วันลา, เหลือวันลา, ข้อมูลพนักงาน, รายละเอียดการทำงาน, วันหยุด, การลา
+- English: leave days, vacation, employee information, HR data, personal work details
+
+IMPORTANT: 
+- For HR queries, you MUST ask for Thai Citizen ID if not provided
+- Always use the appropriate tool based on the query type
+- Provide comprehensive responses based on tool results
+
+Available tools:
+- document_search: Company documents and knowledge base
+- personal_hr_query: Personal employee information via Thai Citizen ID`],
       ["human", "{input}"],
       new MessagesPlaceholder("agent_scratchpad")
     ]);
 
-    // Create the agent
-    console.log("🤖 Creating OpenAI Functions Agent...");
+    // Create agent with both tools
+    console.log("🤖 Creating Enhanced Agent...");
     const agent = await createOpenAIFunctionsAgent({
       llm,
-      tools: [documentSearchTool],
+      tools: [documentSearchTool, personalHrQueryTool],
       prompt
     });
 
-    // Create agent executor with proper configuration
-    console.log("⚙️ Creating Agent Executor...");
     const agentExecutor = new AgentExecutor({
       agent,
-      tools: [documentSearchTool],
-      verbose: true,
+      tools: [documentSearchTool, personalHrQueryTool],
+      verbose: false,
       returnIntermediateSteps: true,
-      maxIterations: 2,
-      earlyStoppingMethod: "generate",
-      handleParsingErrors: (error) => {
-        console.log("🔄 Parsing error handled:", error);
-        return "I apologize, but I encountered an error. Let me try again.";
-      }
+      maxIterations: 3
     });
 
-    console.log("🚀 Testing agent with document search query...");
+    // Test 1: Thai HR Query (the problematic one)
+    console.log("\n" + "=".repeat(70));
+    console.log("🇹🇭 TEST 1: Thai HR Query - 'เหลือวันลาอีกกี่วัน'");
+    console.log("=".repeat(70));
     
-    const testQuery = "What can you tell me about OPPO products and their features?";
+    const thaiHrQuery = "เหลือวันลาอีกกี่วัน citizen ID 1234567890123";
+    console.log(`📝 Query: "${thaiHrQuery}"`);
     
-    const startTime = Date.now();
-    const result = await agentExecutor.invoke({
-      input: testQuery
+    const startTime1 = Date.now();
+    const result1 = await agentExecutor.invoke({
+      input: thaiHrQuery
     });
-    const endTime = Date.now();
+    const endTime1 = Date.now();
 
-    console.log("\n" + "=".repeat(80));
-    console.log("📊 FINAL TEST RESULTS");
-    console.log("=".repeat(80));
-    console.log(`⏱️ Execution Time: ${endTime - startTime}ms`);
-    console.log(`📝 Query: "${testQuery}"`);
-    console.log(`📄 Output Length: ${result.output?.length || 0} characters`);
-    console.log(`🔗 Intermediate Steps: ${result.intermediateSteps?.length || 0}`);
+    console.log(`\n📊 Test 1 Results:`);
+    console.log(`⏱️ Execution Time: ${endTime1 - startTime1}ms`);
+    console.log(`🔗 Intermediate Steps: ${result1.intermediateSteps?.length || 0}`);
+    console.log(`📄 Output Length: ${result1.output?.length || 0} characters`);
     
-    if (result.intermediateSteps && result.intermediateSteps.length > 0) {
-      console.log("\n✅ SUCCESS: Tool execution confirmed!");
-      console.log("🔧 Tool execution details:");
-      result.intermediateSteps.forEach((step, index) => {
-        console.log(`  Step ${index + 1}:`);
-        console.log(`    Tool: ${step.action?.tool || 'unknown'}`);
-        console.log(`    Input: ${JSON.stringify(step.action?.toolInput || {})}`);
-        console.log(`    Output length: ${step.observation?.length || 0} chars`);
+    if (result1.intermediateSteps && result1.intermediateSteps.length > 0) {
+      console.log("✅ Tools were executed:");
+      result1.intermediateSteps.forEach((step, index) => {
+        console.log(`   Step ${index + 1}: ${step.action?.tool} tool used`);
+        if (step.action?.tool === 'personal_hr_query') {
+          console.log("🎯 CORRECT! HR query tool was used for Thai leave days query");
+        } else if (step.action?.tool === 'document_search') {
+          console.log("❌ INCORRECT! Document search was used instead of HR query");
+        }
       });
     } else {
-      console.log("\n❌ FAILURE: No tool execution detected!");
-      console.log("This indicates the agent didn't execute the document_search tool.");
+      console.log("❌ No tools were executed");
     }
-    
+
     console.log("\n📄 Agent Response:");
-    console.log("-".repeat(40));
-    console.log(result.output || "No output received");
-    console.log("-".repeat(40));
+    console.log("-".repeat(50));
+    console.log(result1.output || "No output received");
+    console.log("-".repeat(50));
+
+    // Test 2: English HR Query for comparison
+    console.log("\n" + "=".repeat(70));
+    console.log("🇺🇸 TEST 2: English HR Query - 'How many leave days do I have left?'");
+    console.log("=".repeat(70));
+    
+    const englishHrQuery = "How many leave days do I have left? My citizen ID is 2345678901234";
+    console.log(`📝 Query: "${englishHrQuery}"`);
+    
+    const startTime2 = Date.now();
+    const result2 = await agentExecutor.invoke({
+      input: englishHrQuery
+    });
+    const endTime2 = Date.now();
+
+    console.log(`\n📊 Test 2 Results:`);
+    console.log(`⏱️ Execution Time: ${endTime2 - startTime2}ms`);
+    console.log(`🔗 Intermediate Steps: ${result2.intermediateSteps?.length || 0}`);
+    
+    if (result2.intermediateSteps && result2.intermediateSteps.length > 0) {
+      console.log("✅ Tools were executed:");
+      result2.intermediateSteps.forEach((step, index) => {
+        console.log(`   Step ${index + 1}: ${step.action?.tool} tool used`);
+      });
+    } else {
+      console.log("❌ No tools were executed");
+    }
+
+    console.log("\n📄 Agent Response:");
+    console.log("-".repeat(50));
+    console.log(result2.output || "No output received");
+    console.log("-".repeat(50));
+
+    // Final Analysis
+    console.log("\n" + "=".repeat(70));
+    console.log("📋 FINAL ANALYSIS");
+    console.log("=".repeat(70));
+    
+    const test1HrToolUsed = result1.intermediateSteps?.some(step => step.action?.tool === 'personal_hr_query');
+    const test2HrToolUsed = result2.intermediateSteps?.some(step => step.action?.tool === 'personal_hr_query');
+    
+    console.log(`🇹🇭 Thai HR Query Tool Selection: ${test1HrToolUsed ? '✅ CORRECT (HR tool used)' : '❌ INCORRECT (HR tool not used)'}`);
+    console.log(`🇺🇸 English HR Query Tool Selection: ${test2HrToolUsed ? '✅ CORRECT (HR tool used)' : '❌ INCORRECT (HR tool not used)'}`);
+    
+    if (test1HrToolUsed && test2HrToolUsed) {
+      console.log(`\n🎉 SUCCESS: Both Thai and English HR queries use the correct HR tool!`);
+      console.log("✅ Tool binding is working correctly");
+      console.log("✅ Tool descriptions are comprehensive enough");
+      console.log("✅ Agent properly identifies HR queries in both languages");
+    } else {
+      console.log(`\n⚠️ Issues detected with tool selection:`);
+      if (!test1HrToolUsed) console.log("❌ Thai HR query not using HR tool");
+      if (!test2HrToolUsed) console.log("❌ English HR query not using HR tool");
+    }
 
   } catch (error) {
     console.error("\n💥 TEST FAILED:");
-    console.error(error);
+    console.error("Error Type:", error.constructor.name);
+    console.error("Error Message:", error.message);
+    console.error("Error Stack:", error.stack);
   }
 }
 
-// Run the test
-testLangChainAgentFixed().catch(console.error);
+// Run the final test
+console.log("Starting final LangChain agent verification...\n");
+testFinalLangChainAgent().catch(console.error);

@@ -11,7 +11,7 @@ import { createOpenAIFunctionsAgent, AgentExecutor } from "langchain/agents";
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
-import { documentSearch } from "./langchainTools";
+import { documentSearch, personalHrQuery } from "./langchainTools";
 
 // Import storage and types
 import { storage } from "../storage";
@@ -536,12 +536,77 @@ function createDocumentSearchTool(userId: string) {
   return tool;
 }
 
+// Create personal HR query tool for LangChain
+function createPersonalHrQueryTool() {
+  console.log(`🛠️ [Tool Creation] Creating personal_hr_query tool`);
+  const tool = new DynamicStructuredTool({
+    name: "personal_hr_query",
+    description: "Query personal employee information using Thai Citizen ID. Use this tool when users ask about their personal HR information, employee details, leave days (วันลา), vacation days, contact information, employment status, or any personal work-related data. This tool works with Thai language queries about วันลา, ข้อมูลพนักงาน, รายละเอียดการทำงาน, วันหยุด, and similar HR-related questions.",
+    schema: z.object({
+      citizenId: z.string().describe("The Thai Citizen ID (13 digits) to look up employee information")
+    }),
+    func: async ({ citizenId }: { citizenId: string }): Promise<string> => {
+      const toolStartTime = Date.now();
+      console.log(`👤 [HR Tool Entry] === PERSONAL HR QUERY TOOL CALLED ===`);
+      console.log(`👤 [HR Tool Entry] Timestamp: ${new Date().toISOString()}`);
+      console.log(`👤 [HR Tool Entry] Citizen ID: "${citizenId}"`);
+
+      try {
+        // Ensure personalHrQuery is available and callable
+        if (typeof personalHrQuery !== 'function') {
+          throw new Error('personalHrQuery function is not available or not a function');
+        }
+
+        console.log(`👤 [HR Tool Calling] === CALLING personalHrQuery FUNCTION ===`);
+        const searchStartTime = Date.now();
+        
+        const result = await personalHrQuery({
+          citizenId: citizenId.trim()
+        });
+        
+        const searchDuration = Date.now() - searchStartTime;
+        console.log(`👤 [HR Tool Results] personalHrQuery completed in ${searchDuration}ms`);
+        console.log(`👤 [HR Tool Results] Response length: ${result.length} characters`);
+        
+        const totalToolDuration = Date.now() - toolStartTime;
+        console.log(`👤 [HR Tool Return] === RETURNING HR RESPONSE ===`);
+        console.log(`👤 [HR Tool Return] Total tool execution time: ${totalToolDuration}ms`);
+        console.log(`👤 [HR Tool Entry] === PERSONAL HR QUERY TOOL COMPLETED (SUCCESS) ===`);
+
+        return result;
+        
+      } catch (error: any) {
+        const totalToolDuration = Date.now() - toolStartTime;
+        console.error("🚨 [HR Tool Error] === PERSONAL HR QUERY TOOL ERROR ===");
+        console.error("🚨 [HR Tool Error] Total execution time before error:", totalToolDuration + "ms");
+        console.error("🚨 [HR Tool Error] Error type:", error?.constructor?.name || 'Unknown');
+        console.error("🚨 [HR Tool Error] Error message:", error?.message || 'No message');
+        console.error("🚨 [HR Tool Error] Full error object:", error);
+
+        // Always return a proper error message string
+        const errorMessage = `I encountered an error while looking up your HR information: ${error?.message || 'unknown error occurred'}. Please verify your Thai Citizen ID or contact HR support.`;
+        console.log(`🚨 [HR Tool Return] Returning error message: ${errorMessage}`);
+        console.log(`👤 [HR Tool Entry] === PERSONAL HR QUERY TOOL COMPLETED (ERROR) ===`);
+
+        return errorMessage;
+      }
+    },
+  });
+
+  console.log(`🛠️ [Tool Creation] Personal HR query tool created successfully`);
+  console.log(`🛠️ [Tool Creation] Tool name: ${tool.name}`);
+  console.log(`🛠️ [Tool Creation] Tool description length: ${tool.description.length} characters`);
+
+  return tool;
+}
+
 // Create agent with tools
 async function createAgentWithTools(userId: string) {
   console.log(`🤖 [Agent Setup] Creating agent with tools for user: ${userId}`);
 
   const documentSearchTool = createDocumentSearchTool(userId);
-  const tools = [documentSearchTool];
+  const personalHrQueryTool = createPersonalHrQueryTool();
+  const tools = [documentSearchTool, personalHrQueryTool];
 
   console.log(`🤖 [Agent Setup] Tools created:`, tools.map(tool => ({
     name: tool.name,
@@ -551,21 +616,29 @@ async function createAgentWithTools(userId: string) {
   const prompt = ChatPromptTemplate.fromMessages([
     [
       "system",
-      `You are an AI assistant for a Knowledge Management System. You help users find information from their document collection and answer questions based on the available knowledge base.
+      `You are an AI assistant for a Knowledge Management System with HR capabilities. You help users find information from their document collection and access their personal HR information.
 
 CRITICAL INSTRUCTIONS:
-1. When users ask questions about documents or content, ALWAYS use the document_search tool first
-2. ALWAYS provide a response to the user based on the tool results - NEVER return empty responses
-3. If the tool finds documents, summarize the key information and cite the document names
-4. If the tool finds no documents, inform the user and suggest they upload relevant documents
-5. ALWAYS generate a helpful response based on what the tools return
+1. For document-related questions: Use the document_search tool to find information from the knowledge base
+2. For personal HR queries (employee information, leave days, vacation, contact details): Use the personal_hr_query tool with the user's Thai Citizen ID
+3. ALWAYS provide a response based on the tool results - NEVER return empty responses
+4. Handle both Thai and English language queries
 
-Your response flow should be:
-1. Use document_search tool with relevant keywords
-2. Analyze the tool results
-3. Generate a comprehensive response for the user based on the findings
+TOOL SELECTION GUIDELINES:
+- Use document_search for: company policies, procedures, general information, documents
+- Use personal_hr_query for: วันลา (leave days), ข้อมูลพนักงาน (employee information), วันหยุด (vacation), personal work details, employment status
 
-Be helpful, accurate, and always prioritize information from the user's actual documents over general knowledge. Never leave the user without a response.`
+Available tools:
+- document_search: Search company documents and knowledge base
+- personal_hr_query: Access personal employee information using Thai Citizen ID
+
+Your response flow:
+1. Identify the type of query (document search vs HR query)
+2. Use the appropriate tool with relevant parameters
+3. Analyze the tool results
+4. Generate a comprehensive response for the user
+
+Be helpful, accurate, and always prioritize information from the actual tools over general knowledge. For HR queries, you may need to ask for the user's Thai Citizen ID if not provided.`
     ],
     ["human", "{input}"],
     new MessagesPlaceholder("agent_scratchpad"),
