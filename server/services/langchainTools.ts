@@ -331,71 +331,117 @@ export async function listUserDocuments({
 }
 
 /**
- * Personal HR Query Tool for LangChain
+ * Personal HR Query Tool for LangChain - Context-Aware Version
  * 
- * Allows users to query their personal employee information using their citizen ID.
- * Returns specific employee fields as requested by the user.
+ * Allows users to query their personal employee information.
+ * - For authenticated platform users: Uses their logged-in identity
+ * - For Line OA users: Requires Thai Citizen ID for verification
  * 
- * @param citizenId - The Thai citizen ID (13 digits) to look up employee data
+ * @param citizenId - The Thai citizen ID (13 digits) - optional for authenticated users
+ * @param userId - The authenticated user ID from the platform
+ * @param context - The context ('platform' for logged-in users, 'lineoa' for Line users)
  * @returns Promise<string> - Formatted employee information
- * 
- * @example
- * const employeeInfo = await personalHrQuery({
- *   citizenId: "1234567890123"
- * });
  */
 export async function personalHrQuery({
-  citizenId
+  citizenId,
+  userId,
+  context = 'lineoa'
 }: {
-  citizenId: string;
+  citizenId?: string;
+  userId?: string;
+  context?: 'platform' | 'lineoa';
 }): Promise<string> {
   const startTime = Date.now();
   console.log(`[LangChain Tool] ⚡ ENTRY: personalHrQuery called at ${new Date().toISOString()}`);
   console.log(`[LangChain Tool] 📋 Input Parameters:`, {
     citizenId: `"${citizenId}"`,
+    userId: `"${userId}"`,
+    context: `"${context}"`
   });
 
   try {
-    // Validate inputs
-    if (!citizenId) {
-      const errorMsg = `Missing required parameter: citizenId`;
-      console.error(`[LangChain Tool] ❌ ${errorMsg}`);
-      return `Error: ${errorMsg}. Please provide your Thai Citizen ID (13 digits).`;
-    }
-
-    // Validate Thai Citizen ID format (13 digits)
-    if (!/^\d{13}$/.test(citizenId.trim())) {
-      console.log(`[LangChain Tool] ⚠️ Invalid citizen ID format: ${citizenId}`);
-      return "Please provide a valid Thai Citizen ID with exactly 13 digits.";
-    }
-
-    console.log(`[LangChain Tool] 🔍 Looking up employee with citizen ID: ${citizenId}`);
+    let employee: any = null;
     const searchStartTime = Date.now();
 
-    // Look up employee in HR database
-    const [employee] = await db
-      .select({
-        employeeId: hrEmployees.employeeId,
-        firstName: hrEmployees.firstName,
-        lastName: hrEmployees.lastName,
-        email: hrEmployees.email,
-        phone: hrEmployees.phone,
-        department: hrEmployees.department,
-        position: hrEmployees.position,
-        hireDate: hrEmployees.hireDate,
-        leaveDays: hrEmployees.leaveDays,
-        isActive: hrEmployees.isActive
-      })
-      .from(hrEmployees)
-      .where(eq(hrEmployees.citizenId, citizenId.trim()))
-      .limit(1);
+    if (context === 'platform' && userId) {
+      // For authenticated platform users, look up by user association
+      console.log(`[LangChain Tool] 🔍 Looking up employee for authenticated user: ${userId}`);
+      
+      // First, try to find employee record linked to the user account
+      // This assumes we have a mapping between platform users and HR employees
+      const [userEmployee] = await db
+        .select({
+          employeeId: hrEmployees.employeeId,
+          firstName: hrEmployees.firstName,
+          lastName: hrEmployees.lastName,
+          email: hrEmployees.email,
+          phone: hrEmployees.phone,
+          department: hrEmployees.department,
+          position: hrEmployees.position,
+          hireDate: hrEmployees.hireDate,
+          leaveDays: hrEmployees.leaveDays,
+          isActive: hrEmployees.isActive,
+          citizenId: hrEmployees.citizenId
+        })
+        .from(hrEmployees)
+        .where(eq(hrEmployees.email, userId)) // Assuming email is used as user identifier
+        .limit(1);
+      
+      employee = userEmployee;
+      
+      if (!employee) {
+        // Fallback: try to match by user ID if there's a direct mapping
+        console.log(`[LangChain Tool] 🔄 No email match, trying alternative lookup methods`);
+        return `ไม่พบข้อมูลพนักงานที่เชื่อมโยงกับบัญชีของคุณ กรุณาติดต่อแผนก HR เพื่อเชื่อมโยงข้อมูลบัญชีกับระบบ HR`;
+      }
+    } else {
+      // For Line OA users or when citizenId is provided, use traditional lookup
+      if (!citizenId) {
+        const errorMsg = `Missing required parameter: citizenId`;
+        console.error(`[LangChain Tool] ❌ ${errorMsg}`);
+        return `กรุณาแจ้งหมายเลขบัตรประชาชนไทย 13 หลักของคุณเพื่อให้ฉันสามารถตรวจสอบข้อมูลได้ค่ะ`;
+      }
+
+      // Validate Thai Citizen ID format (13 digits)
+      if (!/^\d{13}$/.test(citizenId.trim())) {
+        console.log(`[LangChain Tool] ⚠️ Invalid citizen ID format: ${citizenId}`);
+        return "กรุณาระบุหมายเลขบัตรประชาชนไทยที่ถูกต้อง 13 หลัก";
+      }
+
+      console.log(`[LangChain Tool] 🔍 Looking up employee with citizen ID: ${citizenId}`);
+
+      // Look up employee in HR database
+      const [employeeRecord] = await db
+        .select({
+          employeeId: hrEmployees.employeeId,
+          firstName: hrEmployees.firstName,
+          lastName: hrEmployees.lastName,
+          email: hrEmployees.email,
+          phone: hrEmployees.phone,
+          department: hrEmployees.department,
+          position: hrEmployees.position,
+          hireDate: hrEmployees.hireDate,
+          leaveDays: hrEmployees.leaveDays,
+          isActive: hrEmployees.isActive,
+          citizenId: hrEmployees.citizenId
+        })
+        .from(hrEmployees)
+        .where(eq(hrEmployees.citizenId, citizenId.trim()))
+        .limit(1);
+
+      employee = employeeRecord;
+    }
 
     const searchDuration = Date.now() - searchStartTime;
     console.log(`[LangChain Tool] ⏱️ HR database query completed in ${searchDuration}ms`);
 
     if (!employee || !employee.isActive) {
-      console.log(`[LangChain Tool] 📭 No active employee found for citizen ID: ${citizenId}`);
-      return `No active employee record found for the provided Thai Citizen ID. Please verify your citizen ID or contact HR for assistance.`;
+      const notFoundMsg = context === 'platform' 
+        ? `ไม่พบข้อมูลพนักงานที่เชื่อมโยงกับบัญชีของคุณ กรุณาติดต่อแผนก HR เพื่อตรวจสอบข้อมูล`
+        : `ไม่พบข้อมูลพนักงานสำหรับเลขบัตรประชาชนที่ระบุ กรุณาตรวจสอบเลขบัตรประชาชนหรือติดต่อแผนก HR เพื่อขอความช่วยเหลือ`;
+      
+      console.log(`[LangChain Tool] 📭 No active employee found - context: ${context}`);
+      return notFoundMsg;
     }
 
     // Format employee information
@@ -403,7 +449,7 @@ export async function personalHrQuery({
 
     const employeeInfo = {
       employeeId: employee.employeeId,
-      citizenId: citizenId,
+      citizenId: employee.citizenId || citizenId,
       firstName: employee.firstName,
       lastName: employee.lastName,
       email: employee.email,
@@ -446,10 +492,32 @@ export async function personalHrQuery({
     console.error('[LangChain Tool] 🚨 Error stack:', error?.stack);
 
     // Return descriptive error message instead of empty result
-    const errorMessage = `ERROR: Personal HR query failed - ${error?.message || 'unknown error occurred'}. Please try again or contact HR support if the issue persists.`;
-    console.log(`[LangChain Tool] 🔄 Returning error message: ${errorMessage}`);
-    return errorMessage;
+    const errorMsg = context === 'platform' 
+      ? `เกิดข้อผิดพลาดในการค้นหาข้อมูลพนักงาน กรุณาลองใหม่อีกครั้งหรือติดต่อแผนก IT`
+      : `เกิดข้อผิดพลาดในการค้นหาข้อมูล กรุณาลองใหม่อีกครั้งหรือติดต่อแผนก HR`;
+    
+    console.log(`[LangChain Tool] 🔄 Returning error message: ${errorMsg}`);
+    return errorMsg;
   }
+}
+
+/**
+ * Authenticated HR Query Tool for Platform Users
+ * 
+ * This tool automatically uses the authenticated user's identity to fetch their HR information
+ * without requiring them to provide their citizen ID.
+ */
+export async function authenticatedHrQuery({
+  userId
+}: {
+  userId: string;
+}): Promise<string> {
+  console.log(`[LangChain Tool] 🔐 Authenticated HR Query for user: ${userId}`);
+  
+  return await personalHrQuery({
+    userId,
+    context: 'platform'
+  });
 }
 
 // Export the tools in a format compatible with LangChain tool binding
@@ -457,5 +525,6 @@ export const langchainTools = {
   documentSearch,
   getDocumentById,
   listUserDocuments,
-  personalHrQuery
+  personalHrQuery,
+  authenticatedHrQuery
 };

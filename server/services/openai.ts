@@ -11,7 +11,7 @@ import { createOpenAIFunctionsAgent, AgentExecutor } from "langchain/agents";
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
-import { documentSearch, personalHrQuery } from "./langchainTools";
+import { documentSearch, personalHrQuery, authenticatedHrQuery } from "./langchainTools";
 
 // Import storage and types
 import { storage } from "../storage";
@@ -600,13 +600,72 @@ function createPersonalHrQueryTool() {
   return tool;
 }
 
+// Create authenticated HR query tool for platform users (no citizen ID required)
+function createAuthenticatedHrQueryTool(userId: string) {
+  console.log(`🛠️ [Tool Creation] Creating authenticated_hr_query tool for user: ${userId}`);
+  const tool = new DynamicStructuredTool({
+    name: "authenticated_hr_query",
+    description: "Query personal employee information for authenticated platform users. Use this tool for HR-related questions including: leave days (วันลา), vacation days (วันหยุด), employee information (ข้อมูลพนักงาน), work details (รายละเอียดการทำงาน), employment status, contact information, and personal work-related data. This tool handles Thai language queries about วันลา, ข้อมูลส่วนตัว, การลา, วันหยุดพักผ่อน, and similar HR topics. No citizen ID required - uses authenticated user identity.",
+    schema: z.object({
+      // No parameters needed - will use authenticated user ID directly
+    }),
+    func: async (): Promise<string> => {
+      const toolStartTime = Date.now();
+      console.log(`🔍 [Tool Entry] === AUTHENTICATED HR QUERY TOOL CALLED ===`);
+      console.log(`🔍 [Tool Entry] Timestamp: ${new Date().toISOString()}`);
+      console.log(`🔍 [Tool Entry] User ID: ${userId}`);
+
+      try {
+        console.log(`🔍 [Tool Calling] === CALLING authenticatedHrQuery FUNCTION ===`);
+        console.log(`🔍 [Tool Calling] About to call authenticatedHrQuery with userId: ${userId}`);
+
+        // Ensure authenticatedHrQuery is available and callable
+        if (typeof authenticatedHrQuery !== 'function') {
+          throw new Error('authenticatedHrQuery function is not available or not a function');
+        }
+
+        const searchStartTime = Date.now();
+        
+        const responseText = await authenticatedHrQuery({ userId });
+        
+        const searchDuration = Date.now() - searchStartTime;
+        const totalDuration = Date.now() - toolStartTime;
+        
+        console.log(`🔍 [Tool Return] === HR QUERY COMPLETED ===`);
+        console.log(`🔍 [Tool Return] Search duration: ${searchDuration}ms`);
+        console.log(`🔍 [Tool Return] Total duration: ${totalDuration}ms`);
+        console.log(`🔍 [Tool Return] Response length: ${responseText.length} characters`);
+        console.log(`🔍 [Tool Return] Response preview: ${responseText.substring(0, 200)}...`);
+
+        return responseText;
+        
+      } catch (error: any) {
+        const totalDuration = Date.now() - toolStartTime;
+        console.error(`🔍 [Tool Error] === HR QUERY TOOL ERROR ===`);
+        console.error(`🔍 [Tool Error] Duration: ${totalDuration}ms`);
+        console.error(`🔍 [Tool Error] Error:`, error);
+        
+        return `เกิดข้อผิดพลาดในการค้นหาข้อมูลพนักงาน: ${error?.message || 'unknown error'}. กรุณาลองใหม่อีกครั้งหรือติดต่อแผนก IT`;
+      }
+    },
+  });
+
+  console.log(`🛠️ [Tool Creation] Tool "${tool.name}" created with description: ${tool.description.substring(0, 100)}...`);
+  return tool;
+}
+
 // Create agent with tools
-async function createAgentWithTools(userId: string) {
-  console.log(`🤖 [Agent Setup] Creating agent with tools for user: ${userId}`);
+async function createAgentWithTools(userId: string, context: 'platform' | 'lineoa' = 'platform') {
+  console.log(`🤖 [Agent Setup] Creating agent with tools for user: ${userId}, context: ${context}`);
 
   const documentSearchTool = createDocumentSearchTool(userId);
-  const personalHrQueryTool = createPersonalHrQueryTool();
-  const tools = [documentSearchTool, personalHrQueryTool];
+  
+  // Use different HR tools based on context
+  const hrTool = context === 'platform' 
+    ? createAuthenticatedHrQueryTool(userId)  // Authenticated users don't need to provide citizen ID
+    : createPersonalHrQueryTool();           // Line OA users still need citizen ID
+    
+  const tools = [documentSearchTool, hrTool];
 
   console.log(`🤖 [Agent Setup] Tools created:`, tools.map(tool => ({
     name: tool.name,
@@ -626,11 +685,11 @@ CRITICAL INSTRUCTIONS:
 
 TOOL SELECTION GUIDELINES:
 - Use document_search for: company policies, procedures, general information, documents
-- Use personal_hr_query for: วันลา (leave days), ข้อมูลพนักงาน (employee information), วันหยุด (vacation), personal work details, employment status
+- Use the HR tool for: วันลา (leave days), ข้อมูลพนักงาน (employee information), วันหยุด (vacation), personal work details, employment status
 
 Available tools:
 - document_search: Search company documents and knowledge base
-- personal_hr_query: Access personal employee information using Thai Citizen ID
+- HR query tool: Access personal employee information${context === 'platform' ? ' (authenticated automatically)' : ' using Thai Citizen ID'}
 
 Your response flow:
 1. Identify the type of query (document search vs HR query)
@@ -638,7 +697,7 @@ Your response flow:
 3. Analyze the tool results
 4. Generate a comprehensive response for the user
 
-Be helpful, accurate, and always prioritize information from the actual tools over general knowledge. For HR queries, you may need to ask for the user's Thai Citizen ID if not provided.`
+Be helpful, accurate, and always prioritize information from the actual tools over general knowledge.${context === 'lineoa' ? ' For HR queries, you may need to ask for the user\'s Thai Citizen ID if not provided.' : ' For HR queries, you can directly access the user\'s information without asking for identification.'}`
     ],
     ["human", "{input}"],
     new MessagesPlaceholder("agent_scratchpad"),
@@ -701,7 +760,7 @@ export async function generateChatResponse(userMessage: string, documents: any[]
       // Log package versions for debugging
       await logLangChainVersions();
 
-      const agentExecutor = await createAgentWithTools(userId);
+      const agentExecutor = await createAgentWithTools(userId, 'platform');
       console.log(`🤖 [Agent Chat] Agent executor created successfully`);
 
       console.log(`🤖 [Agent Chat] === INVOKING AGENT EXECUTOR ===`);
