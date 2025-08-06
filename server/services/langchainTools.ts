@@ -87,7 +87,7 @@ export async function documentSearch({
     // Execute search using the smart hybrid search function
     console.log(`[LangChain Tool] 🔍 Calling searchSmartHybridDebug with trimmed query: "${query.trim()}"`);
     const searchStartTime = Date.now();
-    
+
     const searchResults = await searchSmartHybridDebug(
       query.trim(),
       userId,
@@ -118,7 +118,7 @@ export async function documentSearch({
 
     // Format results for LangChain consumption and create response text
     console.log(`[LangChain Tool] 🔧 Formatting ${searchResults.length} results...`);
-    
+
     const formattedResults = searchResults.slice(0, 5).map((result, index) => {
       console.log(`[LangChain Tool] 🔧 Formatting result ${index + 1}:`, {
         id: result.id,
@@ -155,7 +155,7 @@ export async function documentSearch({
     console.log(`[LangChain Tool] 📤 FINAL RETURN: Response type: ${typeof responseText}`);
     console.log(`[LangChain Tool] 📤 FINAL RETURN: Is string: ${typeof responseText === 'string'}`);
     console.log(`[LangChain Tool] 📤 FINAL RETURN: Is empty: ${!responseText || responseText.length === 0}`);
-    
+
     // Log response preview
     console.log(`[LangChain Tool] 📄 Response preview:`, responseText.substring(0, 200) + '...');
     console.log(`[LangChain Tool] === DOCUMENT SEARCH TOOL RETURNING TO LANGCHAIN ===`);
@@ -371,7 +371,7 @@ export async function personalHrQuery({
 
     console.log(`[LangChain Tool] 🔍 Looking up employee with citizen ID: ${citizenId}`);
     const searchStartTime = Date.now();
-    
+
     // Look up employee in HR database
     const [employee] = await db
       .select({
@@ -400,7 +400,7 @@ export async function personalHrQuery({
 
     // Format employee information
     console.log(`[LangChain Tool] 🔧 Formatting employee information for: ${employee.firstName} ${employee.lastName}`);
-    
+
     const employeeInfo = {
       employeeId: employee.employeeId,
       citizenId: citizenId,
@@ -414,19 +414,19 @@ export async function personalHrQuery({
       leaveDays: employee.leaveDays
     };
 
-    // Create structured response text
-    const responseText = `Personal Employee Information:
+    // Create structured response text in Thai with proper formatting
+    const responseText = `## ข้อมูลพนักงานส่วนบุคคล
 
-Employee ID: ${employeeInfo.employeeId}
-Name: ${employeeInfo.firstName} ${employeeInfo.lastName}
-Email: ${employeeInfo.email || 'Not available'}
-Phone: ${employeeInfo.phone || 'Not available'}
-Department: ${employeeInfo.department}
-Position: ${employeeInfo.position}
-Start Date: ${employeeInfo.startDate ? new Date(employeeInfo.startDate).toLocaleDateString() : 'Not available'}
-Available Leave Days: ${employeeInfo.leaveDays || 0} days
+**รหัสพนักงาน:** ${employeeInfo.employeeId}  
+**ชื่อ-นามสกุล:** ${employeeInfo.firstName} ${employeeInfo.lastName}  
+**อีเมล:** ${employeeInfo.email || 'ไม่มีข้อมูล'}  
+**เบอร์โทรศัพท์:** ${employeeInfo.phone || 'ไม่มีข้อมูล'}  
+**แผนก:** ${employeeInfo.department}  
+**ตำแหน่ง:** ${employeeInfo.position}  
+**วันที่เริ่มงาน:** ${employeeInfo.startDate ? new Date(employeeInfo.startDate).toLocaleDateString('th-TH') : 'ไม่มีข้อมูล'}  
+**วันลาคงเหลือ:** ${employeeInfo.leaveDays} วัน  
 
-This information is retrieved from the HR system and is current as of today.`;
+*ข้อมูลนี้ได้มาจากระบบ HR และเป็นข้อมูลล่าสุด ณ วันที่ ${new Date().toLocaleDateString('th-TH')}*`;
 
     const totalDuration = Date.now() - startTime;
     console.log(`[LangChain Tool] ✅ COMPLETED: Personal HR query completed in ${totalDuration}ms`);
