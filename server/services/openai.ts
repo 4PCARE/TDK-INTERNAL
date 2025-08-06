@@ -13,8 +13,8 @@ import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { documentSearch } from "./langchainTools";
 
-// Import local Document type
-import type { Document } from "../storage"; // Assuming Document type is exported from ../storage
+// Import storage and types
+import { storage } from "../storage";
 
 // Initialize OpenAI client for legacy features or other OpenAI API calls
 const openai = new OpenAI({
@@ -451,7 +451,7 @@ function createDocumentSearchTool(userId: string) {
         // Call the document search function - it now returns a string directly
         console.log(`🔍 [Tool Calling] === CALLING documentSearch FUNCTION ===`);
         console.log(`🔍 [Tool Calling] About to call documentSearch with parameters:`);
-        console.log(`🔍 [Tool Calling] - query: "${query.trim()}"`);
+        console.log(`🔍 [Tool Calling] - query: "${input.trim()}"`);
         console.log(`🔍 [Tool Calling] - userId: ${userId}`);
         console.log(`🔍 [Tool Calling] - searchType: ${searchType}`);
         console.log(`🔍 [Tool Calling] - limit: ${limit}`);
@@ -476,9 +476,9 @@ function createDocumentSearchTool(userId: string) {
             specificDocumentIds: undefined
           });
           console.log(`🔍 [Tool Calling] documentSearch executed successfully`);
-        } catch (searchError) {
+        } catch (searchError: any) {
           console.error(`🚨 [Tool Error] documentSearch function failed:`, searchError);
-          throw new Error(`Document search failed: ${searchError.message}`);
+          throw new Error(`Document search failed: ${searchError?.message || 'unknown error'}`);
         }
         
         const searchDuration = Date.now() - searchStartTime;
@@ -509,7 +509,7 @@ function createDocumentSearchTool(userId: string) {
 
         return responseText;
 
-      } catch (error) {
+      } catch (error: any) {
         const totalToolDuration = Date.now() - toolStartTime;
         console.error("🚨 [Tool Error] === DOCUMENT SEARCH TOOL ERROR ===");
         console.error("🚨 [Tool Error] Total execution time before error:", totalToolDuration + "ms");
@@ -600,7 +600,23 @@ Be helpful, accurate, and always prioritize information from the user's actual d
   return executor;
 }
 
-export async function generateChatResponse(userMessage: string, documents: Document[], userId?: string): Promise<string> {
+async function logLangChainVersions() {
+  try {
+    const fs = await import('fs');
+    const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+    console.log(`🤖 [Agent Setup] === LANGCHAIN PACKAGE VERSIONS ===`);
+    console.log(`🤖 [Agent Setup] @langchain/core: ${packageJson.dependencies["@langchain/core"]}`);
+    console.log(`🤖 [Agent Setup] @langchain/openai: ${packageJson.dependencies["@langchain/openai"]}`);
+    console.log(`🤖 [Agent Setup] langchain: ${packageJson.dependencies["langchain"]}`);
+    console.log(`🤖 [Agent Setup] zod: ${packageJson.dependencies["zod"]}`);
+    console.log(`🤖 [Agent Setup] Model: ${chatModel.modelName}`);
+    console.log(`🤖 [Agent Setup] === END VERSION INFO ===`);
+  } catch (error) {
+    console.log(`🤖 [Agent Setup] Could not read package versions:`, error);
+  }
+}
+
+export async function generateChatResponse(userMessage: string, documents: any[], userId?: string): Promise<string> {
   try {
     // If userId is provided, use LangChain agent with tools
     if (userId) {
@@ -608,6 +624,9 @@ export async function generateChatResponse(userMessage: string, documents: Docum
       console.log(`🤖 [Agent Chat] User ID: ${userId}`);
       console.log(`🤖 [Agent Chat] User message: "${userMessage}"`);
       console.log(`🤖 [Agent Chat] Timestamp: ${new Date().toISOString()}`);
+
+      // Log package versions for debugging
+      await logLangChainVersions();
 
       const agentExecutor = await createAgentWithTools(userId);
       console.log(`🤖 [Agent Chat] Agent executor created successfully`);

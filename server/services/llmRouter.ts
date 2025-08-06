@@ -1,7 +1,5 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { OpenAIEmbeddings } from "@langchain/openai";
-import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { Embeddings } from "@langchain/core/embeddings";
 import { storage } from "../storage";
@@ -180,15 +178,7 @@ export class LLMRouter {
           openAIApiKey: process.env.OPENAI_API_KEY,
         });
       } else if (this.currentConfig.provider === "Gemini") {
-        if (!process.env.GEMINI_API_KEY) {
-          throw new Error("GEMINI_API_KEY is required for Gemini provider");
-        }
-        this.chatModel = new ChatGoogleGenerativeAI({
-          model: this.currentConfig.geminiConfig?.model || "gemini-2.5-flash",
-          temperature: this.currentConfig.geminiConfig?.temperature || 0.7,
-          maxOutputTokens: this.currentConfig.geminiConfig?.maxTokens || 4000,
-          apiKey: process.env.GEMINI_API_KEY,
-        });
+        throw new Error("Gemini provider temporarily disabled - use OpenAI instead");
       }
 
       // Initialize embedding model based on embedding provider
@@ -198,13 +188,7 @@ export class LLMRouter {
           openAIApiKey: process.env.OPENAI_API_KEY,
         });
       } else if (this.currentConfig.embeddingProvider === "Gemini") {
-        if (!process.env.GEMINI_API_KEY) {
-          throw new Error("GEMINI_API_KEY is required for Gemini embedding provider");
-        }
-        this.embeddingModel = new GoogleGenerativeAIEmbeddings({
-          model: "text-embedding-004",
-          apiKey: process.env.GEMINI_API_KEY,
-        });
+        throw new Error("Gemini embedding provider temporarily disabled - use OpenAI instead");
       }
 
       console.log(`🤖 LLM Router initialized: Chat=${this.currentConfig.provider}, Embeddings=${this.currentConfig.embeddingProvider}`);
