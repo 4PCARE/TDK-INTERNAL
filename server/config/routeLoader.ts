@@ -2,6 +2,10 @@
 import type { Express } from "express";
 import { ROUTE_REGISTRY, SPECIAL_ROUTES, type RouteConfig } from "./routeRegistry";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export class RouteLoader {
   private app: Express;
