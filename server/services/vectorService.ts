@@ -350,13 +350,21 @@ export class VectorService {
         return [];
       }
 
-      // Generate embedding for the search query
-      const response = await openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: query,
-      });
-
-      const queryEmbedding = response.data[0].embedding;
+      // Generate embedding for the search query using the same provider as stored embeddings
+      let queryEmbedding: number[];
+      try {
+        // Use llmRouter to get embedding with user's configured provider
+        queryEmbedding = await llmRouter.generateEmbedding(query, userId);
+        console.log(`✅ Generated query embedding using user's configured provider`);
+      } catch (llmError) {
+        console.log(`⚠️ LLM router failed for query embedding, falling back to OpenAI: ${llmError.message}`);
+        // Fallback to OpenAI if llmRouter fails
+        const response = await openai.embeddings.create({
+          model: "text-embedding-3-small",
+          input: query,
+        });
+        queryEmbedding = response.data[0].embedding;
+      }
 
       // Calculate similarities for all chunks
       const allResults = validChunks
@@ -366,11 +374,26 @@ export class VectorService {
             console.warn(`⚠️  VECTOR SERVICE: Doc ${dbVector.documentId} chunk ${dbVector.chunkIndex} has ${dbVector.content.length} chars - suspiciously large for a chunk!`);
           }
 
-          // Extract embedding - prefer new multi-provider column, fallback to original
+          // Extract embedding - use the same provider as configured for the user
           let currentEmbedding: number[] = [];
           if (dbVector.embeddingMulti) {
             const embeddingJson = dbVector.embeddingMulti as { openai?: number[]; gemini?: number[] };
-            currentEmbedding = embeddingJson.openai || embeddingJson.gemini || [];
+            
+            // Try to get user's current provider configuration
+            let userProvider = "OpenAI"; // default fallback
+            try {
+              const config = await llmRouter.loadUserConfig(userId);
+              userProvider = config.embeddingProvider;
+            } catch (configError) {
+              console.warn(`Could not load user config, using OpenAI as fallback`);
+            }
+            
+            // Extract embedding based on user's current provider
+            if (userProvider === "Gemini") {
+              currentEmbedding = embeddingJson.gemini || embeddingJson.openai || [];
+            } else {
+              currentEmbedding = embeddingJson.openai || embeddingJson.gemini || [];
+            }
           } else if (dbVector.embedding) {
             // Fallback to original embedding column for backward compatibility
             currentEmbedding = Array.isArray(dbVector.embedding) ? dbVector.embedding : [];
@@ -396,6 +419,15 @@ export class VectorService {
             chunkIndex: dbVector.chunkIndex,
             totalChunks: dbVector.totalChunks
           };
+
+          // Validate embedding dimensions match before calculating similarity
+          if (queryEmbedding.length !== currentEmbedding.length) {
+            console.warn(`⚠️ Embedding dimension mismatch: Query=${queryEmbedding.length}, Document=${currentEmbedding.length} (Doc ${dbVector.documentId}, Chunk ${dbVector.chunkIndex})`);
+            return {
+              document: vectorDoc,
+              similarity: 0 // Skip mismatched embeddings
+            };
+          }
 
           return {
             document: vectorDoc,
