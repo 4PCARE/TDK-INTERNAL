@@ -53,67 +53,117 @@ export default function OmnichannelSummarization() {
     queryClient.invalidateQueries({ queryKey: ["/api/analytics/omnichannel"] });
   }, [queryClient]);
 
-  const { data: socialIntegrations = [] } = useQuery<SocialIntegration[]>({
-    queryKey: ["/api/social-integrations"],
-  });
-
-  const { data: chatHistory = [] } = useQuery({
-    queryKey: ["/api/chat/history"],
-  });
-
-  const { data: analyticsData = null } = useQuery({
+  const { data: analyticsData = null, isLoading, error } = useQuery({
     queryKey: ["/api/analytics/omnichannel", dateRange],
   });
 
-  // Generate mock analytics data based on actual integrations
-  const generatePlatformAnalytics = () => {
+  // Process real analytics data
+  const processAnalyticsData = () => {
+    if (!analyticsData) return { platformAnalytics: [], activePlatforms: [] };
+
+    const { integrations = [], chatStats = [], recentMessages = [] } = analyticsData;
     const platforms = ['lineoa', 'facebook', 'tiktok', 'web'];
-    const activePlatforms = socialIntegrations.filter((integration: any) => integration.isActive);
     
-    return platforms.map(platform => {
-      const isActive = activePlatforms.some((integration: any) => integration.type === platform);
-      const baseMessages = isActive ? Math.floor(Math.random() * 500) + 100 : 0;
+    // Create platform analytics from real data
+    const platformAnalytics = platforms.map(platform => {
+      const integration = integrations.find((int: any) => int.platform === platform);
+      const stats = chatStats.filter((stat: any) => stat.channelType === platform);
+      
+      const totalMessages = stats.reduce((sum: number, stat: any) => sum + (stat.messageCount || 0), 0);
+      const totalUsers = stats.reduce((sum: number, stat: any) => sum + (stat.uniqueUsers || 0), 0);
+      const userMessages = stats.reduce((sum: number, stat: any) => sum + (stat.userMessages || 0), 0);
+      const agentMessages = stats.reduce((sum: number, stat: any) => sum + (stat.agentMessages || 0), 0);
+      
+      // Calculate response rate and estimate response time
+      const responseRate = userMessages > 0 ? (agentMessages / userMessages) * 100 : 0;
+      const avgResponseTime = Math.random() * 2 + 0.5; // Placeholder until we track actual response times
+      
+      // Analyze topics from recent messages for this platform
+      const platformMessages = recentMessages.filter((msg: any) => 
+        msg.channelType === platform && msg.messageType === 'user'
+      );
+      
+      const topTopics = extractTopTopics(platformMessages);
       
       return {
         platform,
         name: platform.charAt(0).toUpperCase() + platform.slice(1),
-        totalMessages: baseMessages,
-        totalUsers: Math.floor(baseMessages * 0.6),
-        avgResponseTime: Number((Math.random() * 2 + 0.5).toFixed(1)),
-        csatScore: isActive ? Math.floor(Math.random() * 30 + 70) : 0,
-        successRate: isActive ? Math.floor(Math.random() * 20 + 80) : 0,
-        isActive,
-        topTopics: [
-          { topic: 'Product Info', count: Math.floor(Math.random() * 50 + 20) },
-          { topic: 'Support', count: Math.floor(Math.random() * 40 + 15) },
-          { topic: 'Pricing', count: Math.floor(Math.random() * 30 + 10) },
-          { topic: 'FAQ', count: Math.floor(Math.random() * 25 + 8) },
-          { topic: 'Technical', count: Math.floor(Math.random() * 20 + 5) }
-        ]
+        totalMessages,
+        totalUsers,
+        avgResponseTime: Number(avgResponseTime.toFixed(1)),
+        csatScore: Math.floor(responseRate), // Using response rate as proxy for CSAT
+        successRate: Math.floor(responseRate),
+        isActive: integration?.isActive || false,
+        integrationName: integration?.name || '',
+        agentName: integration?.agentName || '',
+        topTopics
       };
+    });
+
+    const activePlatforms = platformAnalytics.filter(p => p.isActive);
+    return { platformAnalytics, activePlatforms };
+  };
+
+  // Extract topics from messages using simple keyword analysis
+  const extractTopTopics = (messages: any[]) => {
+    const topicKeywords = {
+      'Product Info': ['product', 'information', 'details', 'specs', 'features'],
+      'Support': ['help', 'support', 'issue', 'problem', 'error'],
+      'Pricing': ['price', 'cost', 'fee', 'payment', 'subscription'],
+      'FAQ': ['how', 'what', 'when', 'where', 'why'],
+      'Technical': ['technical', 'api', 'integration', 'setup', 'configuration']
+    };
+
+    const topicCounts: { [key: string]: number } = {};
+    
+    messages.forEach((msg: any) => {
+      const content = msg.content?.toLowerCase() || '';
+      Object.entries(topicKeywords).forEach(([topic, keywords]) => {
+        if (keywords.some(keyword => content.includes(keyword))) {
+          topicCounts[topic] = (topicCounts[topic] || 0) + 1;
+        }
+      });
+    });
+
+    return Object.entries(topicCounts)
+      .map(([topic, count]) => ({ topic, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  };
+
+  const { platformAnalytics, activePlatforms } = processAnalyticsData();
+
+  // Generate trend data from real messages
+  const generateTrendData = () => {
+    if (!analyticsData?.recentMessages) return [];
+    
+    const days = analyticsData.dateRange?.days || 7;
+    const { recentMessages } = analyticsData;
+    
+    return Array.from({ length: days }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (days - 1 - i));
+      const dayStart = new Date(date.setHours(0, 0, 0, 0));
+      const dayEnd = new Date(date.setHours(23, 59, 59, 999));
+      
+      const dayData: any = {
+        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      };
+
+      activePlatforms.forEach(platform => {
+        const dayMessages = recentMessages.filter((msg: any) => {
+          const msgDate = new Date(msg.createdAt);
+          return msg.channelType === platform.platform && 
+                 msgDate >= dayStart && msgDate <= dayEnd;
+        });
+        dayData[platform.platform] = dayMessages.length;
+      });
+
+      return dayData;
     });
   };
 
-  const platformAnalytics = generatePlatformAnalytics();
-  const activePlatforms = platformAnalytics.filter(p => p.isActive);
-
-  // Generate trend data for the last 7 days
-  const trendData = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - i));
-    
-    const dayData: any = {
-      date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    };
-
-    platformAnalytics.forEach(platform => {
-      if (platform.isActive) {
-        dayData[platform.platform] = Math.floor(Math.random() * 100 + 20);
-      }
-    });
-
-    return dayData;
-  });
+  const trendData = generateTrendData();
 
   // Performance comparison data
   const performanceData = platformAnalytics.map(platform => ({
@@ -148,13 +198,81 @@ export default function OmnichannelSummarization() {
   };
 
   const handleExport = () => {
-    console.log('Exporting omnichannel analytics...');
-    // Implementation for exporting data
+    const csvData = platformAnalytics.map(platform => ({
+      Platform: platform.name,
+      'Integration Name': platform.integrationName || 'N/A',
+      'Agent Name': platform.agentName || 'N/A',
+      'Total Messages': platform.totalMessages,
+      'Total Users': platform.totalUsers,
+      'Avg Response Time': `${platform.avgResponseTime}min`,
+      'CSAT Score': `${platform.csatScore}%`,
+      'Success Rate': `${platform.successRate}%`,
+      'Status': platform.isActive ? 'Active' : 'Inactive',
+      'Top Topics': platform.topTopics.map(t => `${t.topic}(${t.count})`).join('; ')
+    }));
+
+    const csv = [
+      Object.keys(csvData[0]).join(','),
+      ...csvData.map(row => Object.values(row).map(v => `"${v}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `omnichannel-analytics-${dateRange}-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const filteredPlatforms = selectedPlatform === 'all' 
     ? activePlatforms 
     : activePlatforms.filter(p => p.platform === selectedPlatform);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Omnichannel Chat Summarization</h1>
+              <p className="text-gray-600">Loading analytics data...</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <Card key={i} className="animate-pulse">
+                <CardContent className="p-6">
+                  <div className="h-16 bg-gray-200 rounded"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Omnichannel Chat Summarization</h1>
+              <p className="text-red-600">Error loading analytics data</p>
+            </div>
+            <Button onClick={handleRefresh} variant="outline">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry
+            </Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

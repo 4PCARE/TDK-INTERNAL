@@ -3923,19 +3923,65 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
         const userId = req.user.claims.sub;
         const dateRange = req.query.dateRange || '7d';
         
+        // Calculate date range
+        const now = new Date();
+        const daysBack = dateRange === '1d' ? 1 : dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90;
+        const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+        
         // Get user's social integrations
         const integrations = await storage.getSocialIntegrations(userId);
         
-        // Build analytics data
+        // Get all chat history for analytics
+        const { chatHistory } = await import('@shared/schema');
+        const { gte, eq, sql } = await import('drizzle-orm');
+        
+        // Get chat statistics by platform/channel
+        const chatStats = await db
+          .select({
+            channelType: chatHistory.channelType,
+            channelId: chatHistory.channelId,
+            agentId: chatHistory.agentId,
+            messageCount: sql<number>`count(*)`,
+            userMessages: sql<number>`count(*) filter (where ${chatHistory.messageType} = 'user')`,
+            agentMessages: sql<number>`count(*) filter (where ${chatHistory.messageType} = 'assistant')`,
+            uniqueUsers: sql<number>`count(distinct ${chatHistory.userId})`,
+            lastActivity: sql<Date>`max(${chatHistory.createdAt})`
+          })
+          .from(chatHistory)
+          .where(gte(chatHistory.createdAt, startDate))
+          .groupBy(chatHistory.channelType, chatHistory.channelId, chatHistory.agentId);
+
+        // Get recent messages for topic analysis
+        const recentMessages = await db
+          .select({
+            content: chatHistory.content,
+            messageType: chatHistory.messageType,
+            channelType: chatHistory.channelType,
+            createdAt: chatHistory.createdAt
+          })
+          .from(chatHistory)
+          .where(gte(chatHistory.createdAt, startDate))
+          .orderBy(chatHistory.createdAt);
+
+        // Build analytics data with real statistics
         const analytics = {
           dateRange,
-          platforms: integrations.map((integration: any) => ({
+          integrations: integrations.map((integration: any) => ({
             platform: integration.type,
             name: integration.name,
             isActive: integration.isActive,
             agentId: integration.agentId,
-            agentName: integration.agentName
+            agentName: integration.agentName,
+            channelId: integration.channelId
           })),
+          chatStats,
+          recentMessages: recentMessages.slice(-100), // Last 100 messages for analysis
+          totalMessages: recentMessages.length,
+          dateRange: {
+            start: startDate.toISOString(),
+            end: now.toISOString(),
+            days: daysBack
+          },
           lastUpdated: new Date().toISOString()
         };
         
