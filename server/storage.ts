@@ -2211,60 +2211,50 @@ export class DatabaseStorage implements IStorage {
     console.log(`Getting agent console users for ${userId} with options:`, options);
 
     try {
-      // Get recent chat messages with user info and agent details
-      let query = db
-        .select({
-          userId: chatMessages.userId,
-          channelType: chatMessages.channelType,
-          channelId: chatMessages.channelId,
-          agentId: chatMessages.agentId,
-          agentName: agentChatbots.name,
-          lastMessage: chatMessages.content,
-          lastMessageAt: chatMessages.createdAt,
-          messageType: chatMessages.messageType,
-          metadata: chatMessages.metadata
-        })
-        .from(chatMessages)
-        .leftJoin(agentChatbots, eq(chatMessages.agentId, agentChatbots.id))
+      const { chatHistory } = await import('@shared/schema');
+      const { isNotNull, desc, and, eq, sql } = await import('drizzle-orm');
+      
+      // Simple query first - just get all messages and filter client-side for now
+      const messages = await db
+        .select()
+        .from(chatHistory)
+        .leftJoin(agentChatbots, eq(chatHistory.agentId, agentChatbots.id))
         .where(
           and(
-            isNotNull(chatMessages.userId),
-            isNotNull(chatMessages.channelId),
-            isNotNull(chatMessages.agentId)
+            isNotNull(chatHistory.userId),
+            isNotNull(chatHistory.channelId),
+            isNotNull(chatHistory.agentId)
           )
         )
-        .orderBy(desc(chatMessages.createdAt));
+        .orderBy(desc(chatHistory.createdAt))
+        .limit(100);
 
-      // Apply channel filter
-      if (options?.channelFilter && options.channelFilter !== "all") {
-        query = query.where(
-          and(
-            isNotNull(chatMessages.userId),
-            isNotNull(chatMessages.channelId),
-            isNotNull(chatMessages.agentId),
-            eq(chatMessages.channelType, options.channelFilter)
-          )
-        );
-      }
-
-      const messages = await query.limit(500);
+      console.log('Raw query result:', messages.length, 'records');
 
       // Group by conversation (userId + channelId + agentId) and get latest message for each
       const conversationMap = new Map();
 
-      for (const message of messages) {
+      for (const record of messages) {
+        const message = record.chat_history;
+        const agent = record.agent_chatbots;
+        
+        if (!message || !message.userId || !message.channelId || !message.agentId) {
+          console.log('Skipping invalid record:', record);
+          continue;
+        }
+
         const conversationKey = `${message.userId}-${message.channelId}-${message.agentId}`;
 
         if (!conversationMap.has(conversationKey)) {
           // Count total messages for this conversation
           const messageCount = await db
             .select({ count: sql<number>`count(*)` })
-            .from(chatMessages)
+            .from(chatHistory)
             .where(
               and(
-                eq(chatMessages.userId, message.userId),
-                eq(chatMessages.channelId, message.channelId),
-                eq(chatMessages.agentId, message.agentId)
+                eq(chatHistory.userId, message.userId),
+                eq(chatHistory.channelId, message.channelId),
+                eq(chatHistory.agentId, message.agentId)
               )
             );
 
@@ -2284,11 +2274,11 @@ export class DatabaseStorage implements IStorage {
             channelType: message.channelType,
             channelId: message.channelId,
             agentId: message.agentId,
-            agentName: message.agentName || 'Unknown Agent',
-            lastMessage: message.lastMessage,
-            lastMessageAt: message.lastMessageAt,
+            agentName: agent?.name || 'Unknown Agent',
+            lastMessage: message.content,
+            lastMessageAt: message.createdAt,
             messageCount: messageCount[0]?.count || 0,
-            isOnline: this.isUserOnline(message.userId), // You can implement this logic
+            isOnline: this.isUserOnline(message.userId),
             userProfile: {
               name: userName
             }
@@ -2330,28 +2320,31 @@ export class DatabaseStorage implements IStorage {
     console.log(`Getting conversation for ${userId}, ${channelType}, ${channelId}, agent ${agentId}`);
 
     try {
+      const { chatHistory } = await import('@shared/schema');
+      const { and, eq, asc } = await import('drizzle-orm');
+
       const messages = await db
         .select({
-          id: chatMessages.id,
-          userId: chatMessages.userId,
-          channelType: chatMessages.channelType,
-          channelId: chatMessages.channelId,
-          agentId: chatMessages.agentId,
-          messageType: chatMessages.messageType,
-          content: chatMessages.content,
-          metadata: chatMessages.metadata,
-          createdAt: chatMessages.createdAt,
+          id: chatHistory.id,
+          userId: chatHistory.userId,
+          channelType: chatHistory.channelType,
+          channelId: chatHistory.channelId,
+          agentId: chatHistory.agentId,
+          messageType: chatHistory.messageType,
+          content: chatHistory.content,
+          metadata: chatHistory.metadata,
+          createdAt: chatHistory.createdAt,
         })
-        .from(chatMessages)
+        .from(chatHistory)
         .where(
           and(
-            eq(chatMessages.userId, userId),
-            eq(chatMessages.channelType, channelType),
-            eq(chatMessages.channelId, channelId),
-            eq(chatMessages.agentId, agentId)
+            eq(chatHistory.userId, userId),
+            eq(chatHistory.channelType, channelType),
+            eq(chatHistory.channelId, channelId),
+            eq(chatHistory.agentId, agentId)
           )
         )
-        .orderBy(asc(chatMessages.createdAt))
+        .orderBy(asc(chatHistory.createdAt))
         .limit(100); // Limit to last 100 messages
 
       return messages.map(msg => ({
@@ -2398,19 +2391,22 @@ export class DatabaseStorage implements IStorage {
     console.log(`Getting summary for ${userId}, ${channelType}, ${channelId}`);
 
     try {
+      const { chatHistory } = await import('@shared/schema');
+      const { and, eq, sql } = await import('drizzle-orm');
+
       // Get conversation statistics
       const stats = await db
         .select({
           totalMessages: sql<number>`count(*)`,
-          firstContactAt: sql<string>`min(${chatMessages.createdAt})`,
-          lastActiveAt: sql<string>`max(${chatMessages.createdAt})`
+          firstContactAt: sql<string>`min(${chatHistory.createdAt})`,
+          lastActiveAt: sql<string>`max(${chatHistory.createdAt})`
         })
-        .from(chatMessages)
+        .from(chatHistory)
         .where(
           and(
-            eq(chatMessages.userId, userId),
-            eq(chatMessages.channelType, channelType),
-            eq(chatMessages.channelId, channelId)
+            eq(chatHistory.userId, userId),
+            eq(chatHistory.channelType, channelType),
+            eq(chatHistory.channelId, channelId)
           )
         );
 
