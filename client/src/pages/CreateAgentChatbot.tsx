@@ -2326,7 +2326,7 @@ export default function CreateAgentChatbot() {
                                                 </div>
                                               </FormControl>
                                               <FormDescription>
-                                                Maximum tokens from document chunks before processing (~4 chars per token for mixed content)
+                                                Maximum tokens from document chunks before processing (1 token ≈ 4 characters)
                                               </FormDescription>
                                               <FormMessage />
                                             </FormItem>
@@ -2361,7 +2361,7 @@ export default function CreateAgentChatbot() {
                                                 </div>
                                               </FormControl>
                                               <FormDescription>
-                                                Maximum tokens in final context sent to AI (includes system prompt + documents + user message)
+                                                Maximum tokens in final context sent to AI (1 token ≈ 4 characters, includes system prompt + documents + user message)
                                               </FormDescription>
                                               <FormMessage />
                                             </FormItem>
