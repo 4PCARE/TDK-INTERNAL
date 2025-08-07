@@ -197,20 +197,22 @@ export default function AgentConsole() {
 
   // Group users by unique conversation (userId + channelId + agentId) to show all conversations
   const groupedUsers = (users || []).reduce((acc, user) => {
-    if (!user) return acc;
+    if (!user || !user.userId || !user.channelId || !user.agentId) return acc;
     const conversationKey = `${user.userId}-${user.channelId}-${user.agentId}`;
-    const existingUser = acc.find(u => u && `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
+    const existingUser = acc.find(u => u && u.userId && u.channelId && u.agentId && `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
     if (existingUser) {
       // Keep the most recent conversation
-      if (new Date(user.lastMessageAt) > new Date(existingUser.lastMessageAt)) {
-        const index = acc.findIndex(u => u && `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
-        acc[index] = user;
+      if (user.lastMessageAt && existingUser.lastMessageAt && new Date(user.lastMessageAt) > new Date(existingUser.lastMessageAt)) {
+        const index = acc.findIndex(u => u && u.userId && u.channelId && u.agentId && `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
+        if (index !== -1) {
+          acc[index] = user;
+        }
       }
     } else {
       acc.push(user);
     }
     return acc;
-  }, [] as AgentUser[]);
+  }, [] as AgentUser[]).filter(user => user && user.userId && user.channelId && user.agentId);
 
   // Auto-select first user if none selected
   useEffect(() => {
@@ -363,14 +365,14 @@ export default function AgentConsole() {
                     <p className="text-sm text-gray-500">No active users</p>
                   </div>
                 ) : (
-                  groupedUsers.map((user) => {
+                  groupedUsers.filter(user => user && user.userId && user.channelId && user.agentId).map((user) => {
                     const isSelected = selectedUser?.userId === user.userId && 
                                      selectedUser?.channelId === user.channelId && 
                                      selectedUser?.agentId === user.agentId;
                     const userConversations = users?.filter(u => u?.userId === user?.userId) || [];
 
                     return (
-                      <div key={user.userId}>
+                      <div key={`${user.userId}-${user.channelId}-${user.agentId}`}>
                         <div
                           className={`p-2 lg:p-3 rounded-lg cursor-pointer transition-all mb-1 lg:mb-2 ${
                             isSelected
