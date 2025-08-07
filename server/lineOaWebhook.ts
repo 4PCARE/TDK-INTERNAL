@@ -1271,7 +1271,7 @@ async function getAiResponseDirectly(
 เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
 ${documentContext}
 
-สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้อมูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว
+สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้อมูลการวิเคราะห์รูปภาพในข้อความของผู้ผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว
 
 กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
 ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
@@ -1308,7 +1308,7 @@ ${documentContext}
           content: userMessage,
         });
 
-        // Step 6: Truncate to 15k characters
+        // Step 6: Truncate to 30k characters
         let totalLength = messages.reduce(
           (sum, msg) => sum + msg.content.length,
           0,
@@ -1317,17 +1317,15 @@ ${documentContext}
           `📊 LINE OA: Total prompt length before truncation: ${totalLength} characters`,
         );
 
-        if (totalLength > 20000) {
-          console.log(
-            `✂️ LINE OA: Truncating prompt from ${totalLength} to 20,000 characters`,
-          );
+        if (totalLength > 30000) {
+          console.log(`✂️ LINE OA: Truncating prompt from ${totalLength} to 30,000 characters`);
 
-          // Keep system message intact, truncate from conversation history
+          const maxPromptLength = 30000;
           const systemMessageLength = messages[0].content.length;
           const currentUserMessageLength =
             messages[messages.length - 1].content.length;
           const availableForHistory =
-            20000 -
+            maxPromptLength -
             systemMessageLength -
             currentUserMessageLength -
             200; // 200 chars buffer
@@ -1361,12 +1359,12 @@ ${documentContext}
               `✅ LINE OA: Truncated prompt to ${newTotalLength} characters (${messages.length - 2} history messages kept)`,
             );
           } else {
-            // If even system + user message exceeds 15k, truncate system message
+            // If even system + user message exceeds 30k, truncate system message
             console.log(
               `⚠️ LINE OA: System + user message too long, truncating system message`,
             );
             const maxSystemLength =
-              20000 - currentUserMessageLength - 100;
+              maxPromptLength - currentUserMessageLength - 100;
             if (maxSystemLength > 0) {
               messages[0].content =
                 messages[0].content.substring(0, maxSystemLength) +
@@ -2002,7 +2000,7 @@ ${imageAnalysisResult}
                   userId: lineIntegration.userId,
                   channelType: "lineoa",
                   channelId: event.source.userId,
-                  agentId: lineIntegration.agentId,
+                  agentId: lineIntegration.agentId!,
                   messageType: "assistant",
                   content: aiResponse,
                   metadata: { relatedImageMessageId: message.id },
