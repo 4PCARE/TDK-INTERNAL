@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Bot, User, Send, Plus } from "lucide-react";
+import { X, Bot, User, Send } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -39,18 +39,8 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
       });
       return response.json();
     },
-    onMutate: () => {
-      // Optimistic update: immediately clear the current conversation
-      setCurrentConversationId(null);
-      // Invalidate messages to clear the chat immediately
-      queryClient.setQueryData(["/api/chat/conversations", currentConversationId, "messages"], []);
-    },
     onSuccess: (conversation) => {
       setCurrentConversationId(conversation.id);
-    },
-    onError: () => {
-      // On error, we could potentially restore the previous conversation
-      // but for now, just show error toast (already handled in onError)
     },
   });
 
@@ -136,21 +126,9 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
       minHeight={500}
       className="flex flex-col"
     >
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-2">
-          <Bot className="w-5 h-5 text-blue-600" />
-          <span className="text-sm text-gray-600">พูดคุยกับ AI Assistant</span>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => createConversationMutation.mutate()}
-          disabled={createConversationMutation.isPending}
-          className="text-xs"
-        >
-          <Plus className="w-3 h-3 mr-1" />
-          New Chat
-        </Button>
+      <div className="flex items-center space-x-2 mb-4">
+        <Bot className="w-5 h-5 text-blue-600" />
+        <span className="text-sm text-gray-600">พูดคุยกับ AI Assistant</span>
       </div>
 
         {/* Chat Messages */}
@@ -160,7 +138,7 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
               </div>
-            ) : !currentConversationId || messages.length === 0 ? (
+            ) : messages.length === 0 ? (
               <div className="flex items-start space-x-3">
                 <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                   <Bot className="w-5 h-5 text-blue-600" />

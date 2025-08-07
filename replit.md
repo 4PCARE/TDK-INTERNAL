@@ -25,7 +25,6 @@ Preferred communication style: Simple, everyday language.
 - **Primary Database**: PostgreSQL (Neon Database for production)
 - **File Storage**: Local filesystem
 - **Vector Search**: In-memory using OpenAI embeddings
-- **HR Database**: PostgreSQL table for employee data with personal information queries
 
 ### Key Features
 - **Document Processing**: Supports various formats (PDF, DOCX, TXT, images), content extraction, AI summarization, categorization, tag generation, and vector embedding.
@@ -34,7 +33,6 @@ Preferred communication style: Simple, everyday language.
 - **Enterprise Integrations**: PostgreSQL/MySQL support, REST API connectivity, HR system integration, and embeddable live chat widgets.
 - **Real-time Communication**: WebSocket-based system for real-time messaging, including human agent takeover functionality for both Line OA and web widget channels.
 - **Agent Chatbot System**: Customizable AI agents with personality, skills, guardrails (content filtering, toxicity prevention, topic control), and knowledge base integration. Includes a comprehensive testing interface.
-- **LangChain Functions Agent**: Enhanced agent with document search and personal HR query capabilities using LangChain v0.2+ architecture. Supports both semantic document retrieval and employee data lookup via Thai Citizen ID.
 - **Customer Satisfaction Analysis (CSAT)**: AI-driven CSAT scoring (0-100) based on conversation sentiment, integrated into the Agent Console.
 - **Line OA Integration**: Full support for Line Official Account webhooks, including advanced messaging features like carousel templates and intent matching.
 

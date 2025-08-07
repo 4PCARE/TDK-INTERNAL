@@ -4,13 +4,30 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { setupAuth } from "./replitAuth";
 import { setupMicrosoftAuth } from "./microsoftAuth";
-import { RouteLoader } from "./config/routeLoader";
+import { registerHrApiRoutes } from "./hrApi";
+import { handleLineWebhook } from "./lineOaWebhook";
 import path from "path";
 import * as fsSync from "fs";
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  console.log("🚀 Starting route registration system...");
+// Import modular route handlers
+import { registerAuthRoutes } from "./routes/authRoutes";
+import { registerCategoryRoutes } from "./routes/categoryRoutes";
+import { registerDocumentRoutes } from "./routes/documentRoutes";
+import { registerChatRoutes } from "./routes/chatRoutes";
+import { registerAgentRoutes } from "./routes/agentRoutes";
+import { registerAdminRoutes } from "./routes/adminRoutes";
+import { registerIntegrationRoutes } from "./routes/integrationRoutes";
+import { registerVectorRoutes } from "./routes/vectorRoutes";
+import { registerDataRoutes } from "./routes/dataRoutes";
+import { registerWidgetRoutes } from "./routes/widgetRoutes";
+import { registerSurveyRoutes } from "./routes/surveyRoutes";
+import { registerAnalyticsRoutes } from "./routes/analyticsRoutes";
+import { registerAiFeedbackRoutes } from "./routes/aiFeedbackRoutes";
+import { registerAiResponseAnalysisRoutes } from "./routes/aiResponseAnalysisRoutes";
+import { registerLlmConfigRoutes } from "./routes/llmConfigRoutes";
+import { registerLineTemplateRoutes } from "./routes/lineTemplateRoutes";
 
+export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
   await setupMicrosoftAuth(app);
@@ -29,14 +46,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.use('/uploads', express.static(uploadsPath));
 
-  // Initialize dynamic route loader
-  const routeLoader = new RouteLoader(app);
-  
-  // Register all routes dynamically
-  await routeLoader.registerAllRoutes();
+  // Register public HR API routes (no authentication required)
+  registerHrApiRoutes(app);
 
-  // Make route loader available globally for hot reloading
-  (global as any).routeLoader = routeLoader;
+  // Register modular routes
+  registerAuthRoutes(app);
+  registerCategoryRoutes(app);
+  registerDocumentRoutes(app);
+  registerChatRoutes(app);
+  registerAgentRoutes(app);
+  registerAdminRoutes(app);
+  registerIntegrationRoutes(app);
+  registerVectorRoutes(app);
+  registerDataRoutes(app);
+  registerWidgetRoutes(app);
+  registerSurveyRoutes(app);
+  registerAnalyticsRoutes(app);
+  registerAiFeedbackRoutes(app);
+  registerAiResponseAnalysisRoutes(app);
+  registerLlmConfigRoutes(app);
+  registerLineTemplateRoutes(app);
+
+  // Line OA Webhook endpoint (no authentication required)
+  app.post("/api/line/webhook", handleLineWebhook);
 
   const httpServer = createServer(app);
 

@@ -88,27 +88,6 @@ async function sendLineReply(
   }
 }
 
-// Helper function to detect HR-related queries
-function isHrRelatedQuery(message: string): boolean {
-  const hrKeywords = [
-    // Thai HR keywords
-    'วันลา', 'การลา', 'ลาป่วย', 'ลาพักร้อน', 'วันหยุด', 'วันหยุดพักผ่อน',
-    'ข้อมูลพนักงาน', 'ข้อมูลส่วนตัว', 'รายละเอียดการทำงาน', 'สถานะการทำงาน',
-    'เงินเดือน', 'เลขบัตรประชาชน', 'หมายเลขบัตรประชาชน', 'เบอร์โทร', 'อีเมล',
-    'แผนก', 'ตำแหน่ง', 'วันที่เริ่มงาน', 'วันที่เข้าทำงาน', 'อาชีพ', 'ตำแหน่งงาน',
-    'พนักงาน', 'บุคลากร', 'hr', 'human resource', 'ทรัพยากรบุคคล',
-    
-    // English HR keywords
-    'leave days', 'vacation', 'sick leave', 'employee information', 'personal information',
-    'employee details', 'work details', 'employment status', 'salary', 'citizen id',
-    'phone number', 'email', 'department', 'position', 'hire date', 'start date',
-    'employee', 'staff', 'personnel'
-  ];
-
-  const lowerMessage = message.toLowerCase();
-  return hrKeywords.some(keyword => lowerMessage.includes(keyword.toLowerCase()));
-}
-
 // Send push message to Line user (supports text and carousel templates)
 export async function sendLinePushMessage(
   userId: string,
@@ -476,7 +455,7 @@ function extractIntentFromQuery(userQuery: string): string[] {
   }
 
   // Remove duplicates
-  return Array.from(new Set(intents));
+  return [...new Set(intents)];
 }
 
 // Calculate vector similarity between user query and template description
@@ -814,39 +793,6 @@ async function getAiResponseDirectly(
 ): Promise<string> {
   try {
     console.log(`🔍 Debug: Getting agent ${agentId} for user ${userId}`);
-
-    // Check if this is an HR-related query that needs LangChain agent handling
-    const isHrQuery = isHrRelatedQuery(userMessage);
-    console.log(`🏢 HR query detected in getAiResponseDirectly: ${isHrQuery}`);
-
-    if (isHrQuery) {
-      console.log(`🤖 Routing HR query to LangChain agent: "${userMessage}"`);
-      
-      try {
-        // Import and use the LangChain agent with appropriate context
-        const { generateChatResponse } = await import("./services/openai");
-        
-        // Determine context based on channel type
-        const context = channelType === "lineoa" ? "lineoa" : "platform";
-        console.log(`🔄 Using context: ${context} for channel type: ${channelType}`);
-        
-        // Use generateChatResponse which has the LangChain agent integration
-        const hrResponse = await generateChatResponse(
-          userMessage,
-          userId,
-          context,
-          [] // Empty chat history for now - could be enhanced later
-        );
-        
-        console.log(`✅ LangChain HR response: ${hrResponse.length} chars`);
-        return hrResponse;
-        
-      } catch (langchainError) {
-        console.error("❌ LangChain HR query failed:", langchainError);
-        // Fall back to regular processing
-        console.log("🔄 Falling back to regular processing for HR query");
-      }
-    }
 
     // Get agent configuration
     const agent = await storage.getAgentChatbot(agentId, userId);
@@ -1807,51 +1753,19 @@ ${imageAnalysisResult}
           let aiResponse = "";
 
           try {
-            // Check if this is an HR-related query that needs specialized handling
-            const isHrQuery = isHrRelatedQuery(contextMessage);
-            console.log(`🏢 LINE OA: HR query detected: ${isHrQuery}`);
+            // Step 1: AI Query Preprocessing (mirroring debug-prompt-inspector)
+            console.log(
+              `🧠 LINE OA: Starting AI query preprocessing for: "${contextMessage}"`,
+            );
+            const { queryPreprocessor } = await import(
+              "./services/queryPreprocessor"
+            );
 
-            if (isHrQuery) {
-              console.log(`🤖 LINE OA: Using LangChain agent for HR query: "${contextMessage}"`);
-              
-              // Import LangChain agent functionality
-              const { generateChatResponse } = await import("./services/openai");
-              
-              // Use the LangChain agent with Line OA context
-              // Note: We pass a dummy userId since Line OA users don't have platform accounts
-              // The agent will detect this is from Line OA context and request citizen ID
-              try {
-                // Import agent creator function (not exported from openai.ts, so we'll use generateChatResponse)
-                // For now, let's use the traditional approach but with our new HR query logic
-                aiResponse = await getAiResponseDirectly(
-                  contextMessage,
-                  lineIntegration.agentId,
-                  lineIntegration.userId,
-                  "lineoa",
-                  event.source.userId,
-                );
-                
-                console.log(`✅ LINE OA: HR response generated: ${aiResponse.length} chars`);
-                
-              } catch (agentError) {
-                console.error("❌ LINE OA: HR query error:", agentError);
-                aiResponse = "ขออภัย เกิดข้อผิดพลาดในการค้นหาข้อมูล HR กรุณาลองใหม่อีกครั้ง";
-              }
-              
-            } else {
-              // Step 1: AI Query Preprocessing (mirroring debug-prompt-inspector)
-              console.log(
-                `🧠 LINE OA: Starting AI query preprocessing for: "${contextMessage}"`,
-              );
-              const { queryPreprocessor } = await import(
-                "./services/queryPreprocessor"
-              );
-
-              const queryAnalysis = await queryPreprocessor.analyzeQuery(
-                contextMessage,
-                recentChatHistory,
-                `Agent: ${agent.name}, Bound Documents: ${agentDocIds.length} available`,
-              );
+            const queryAnalysis = await queryPreprocessor.analyzeQuery(
+              contextMessage,
+              recentChatHistory,
+              `Agent: ${agent.name}, Bound Documents: ${agentDocIds.length} available`,
+            );
 
             console.log(`🧠 LINE OA: Query analysis result:`, {
               needsSearch: queryAnalysis.needsSearch,
@@ -2563,7 +2477,6 @@ ${documentContext}
                 }
               }
             } // End of search workflow conditional
-            } // End of non-HR query processing
           } catch (error) {
             console.error(
               "💥 LINE OA: New search workflow failed, falling back to agent conversation without documents:",

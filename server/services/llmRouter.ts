@@ -1,5 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { OpenAIEmbeddings } from "@langchain/openai";
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { Embeddings } from "@langchain/core/embeddings";
 import { storage } from "../storage";
@@ -130,13 +132,8 @@ export class LLMRouter {
         });
       }
 
-      // Ensure provider is set before updating models
-      if (updatedConfig.provider && updatedConfig.embeddingProvider) {
-        this.currentConfig = updatedConfig;
-        this.updateModels();
-      } else {
-        throw new Error("Provider and embedding provider must be specified");
-      }
+      this.currentConfig = updatedConfig;
+      this.updateModels();
 
       console.log(`✅ LLM configuration updated for user ${userId}: ${updatedConfig.provider} (embeddings: ${updatedConfig.embeddingProvider})`);
     } catch (error) {
@@ -183,7 +180,15 @@ export class LLMRouter {
           openAIApiKey: process.env.OPENAI_API_KEY,
         });
       } else if (this.currentConfig.provider === "Gemini") {
-        throw new Error("Gemini provider temporarily disabled - use OpenAI instead");
+        if (!process.env.GEMINI_API_KEY) {
+          throw new Error("GEMINI_API_KEY is required for Gemini provider");
+        }
+        this.chatModel = new ChatGoogleGenerativeAI({
+          model: this.currentConfig.geminiConfig?.model || "gemini-2.5-flash",
+          temperature: this.currentConfig.geminiConfig?.temperature || 0.7,
+          maxOutputTokens: this.currentConfig.geminiConfig?.maxTokens || 4000,
+          apiKey: process.env.GEMINI_API_KEY,
+        });
       }
 
       // Initialize embedding model based on embedding provider
@@ -193,7 +198,13 @@ export class LLMRouter {
           openAIApiKey: process.env.OPENAI_API_KEY,
         });
       } else if (this.currentConfig.embeddingProvider === "Gemini") {
-        throw new Error("Gemini embedding provider temporarily disabled - use OpenAI instead");
+        if (!process.env.GEMINI_API_KEY) {
+          throw new Error("GEMINI_API_KEY is required for Gemini embedding provider");
+        }
+        this.embeddingModel = new GoogleGenerativeAIEmbeddings({
+          model: "text-embedding-004",
+          apiKey: process.env.GEMINI_API_KEY,
+        });
       }
 
       console.log(`🤖 LLM Router initialized: Chat=${this.currentConfig.provider}, Embeddings=${this.currentConfig.embeddingProvider}`);
@@ -229,7 +240,7 @@ export class LLMRouter {
         provider: this.currentConfig?.provider || "OpenAI",
         model: this.currentConfig?.provider === "OpenAI" 
           ? (this.currentConfig.openAIConfig?.model || "gpt-4o")
-          : (this.currentConfig?.geminiConfig?.model || "gemini-2.5-flash"),
+          : (this.currentConfig.geminiConfig?.model || "gemini-2.5-flash"),
         prompt: JSON.stringify(messages),
         response,
         latency: Date.now() - startTime,
@@ -381,27 +392,26 @@ export class LLMRouter {
   async updateEmbeddingWithProvider(documentId: number, chunkIndex: number, newEmbedding: number[], provider: string): Promise<void> {
     try {
       // Get existing embedding JSON
-      const { documentChunkEmbeddings } = await import("@shared/schema");
       const [existingVector] = await db.select()
-        .from(documentChunkEmbeddings)
+        .from(documentVectors)
         .where(
           and(
-            eq(documentChunkEmbeddings.documentId, documentId),
-            eq(documentChunkEmbeddings.chunkIndex, chunkIndex)
+            eq(documentVectors.documentId, documentId),
+            eq(documentVectors.chunkIndex, chunkIndex)
           )
         );
 
       if (existingVector) {
-        // Use embedding column, initialize if null  
-        const currentEmbedding = (existingVector.embedding as { openai?: number[]; gemini?: number[] }) || {};
+        // Use embeddingMulti column, initialize if null
+        const currentEmbedding = (existingVector.embeddingMulti as { openai?: number[]; gemini?: number[] }) || {};
         const updatedEmbedding = {
           ...currentEmbedding,
           [provider.toLowerCase()]: newEmbedding
         };
 
-        await db.update(documentChunkEmbeddings)
-          .set({ embedding: updatedEmbedding })
-          .where(eq(documentChunkEmbeddings.id, existingVector.id));
+        await db.update(documentVectors)
+          .set({ embeddingMulti: updatedEmbedding })
+          .where(eq(documentVectors.id, existingVector.id));
 
         console.log(`✅ Updated multi-embedding for doc ${documentId} chunk ${chunkIndex} with ${provider} data`);
       }

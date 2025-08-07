@@ -22,33 +22,32 @@ const getOidcConfig = memoize(
   { maxAge: 3600 * 1000 }
 );
 
-import { pool } from "./db";
-
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
-    pool: pool, // Use shared pool instead of connection string
-    createTableIfMissing: true,
-    ttl: Math.floor(sessionTtl / 1000),
-    tableName: "user_sessions", // Use different table name to avoid conflicts
-    pruneSessionInterval: 60 * 60,
-    schemaName: null, // Use default schema
-    errorLog: (err) => {
-      console.warn('Session store error (will retry):', err.message);
-    },
+    conString: process.env.DATABASE_URL,
+    createTableIfMissing: true, // Allow table creation for robustness
+    ttl: Math.floor(sessionTtl / 1000), // Convert to seconds for postgres store
+    tableName: "sessions",
+    pruneSessionInterval: 60 * 60, // Prune expired sessions every hour
+  });
+  
+  // Handle store errors gracefully
+  sessionStore.on('error', (err) => {
+    console.error('Session store error:', err);
   });
   
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
-    resave: false,
-    saveUninitialized: false,
-    rolling: true,
-    name: 'replit.sid',
+    resave: false, // Don't save session if unmodified
+    saveUninitialized: false, // Don't save uninitialized sessions
+    rolling: true, // Reset expiration on activity
+    name: 'replit.sid', // Custom session name
     cookie: {
       httpOnly: true,
-      secure: false,
+      secure: false, // Always false for Replit environment
       maxAge: sessionTtl,
       sameSite: 'lax'
     },

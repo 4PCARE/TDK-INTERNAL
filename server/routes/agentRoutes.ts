@@ -1,3 +1,4 @@
+
 import type { Express } from "express";
 import { smartAuth } from "../smartAuth";
 import { storage } from "../storage";
@@ -5,7 +6,7 @@ import { insertAgentChatbotSchema } from "@shared/schema";
 
 export function registerAgentRoutes(app: Express) {
   // Get all agent chatbots
-  app.get("/api/agent-chatbots", smartAuth, async (req: any, res) => {
+  app.get("/api/agents", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const agents = await storage.getAgentChatbots(userId);
@@ -17,7 +18,7 @@ export function registerAgentRoutes(app: Express) {
   });
 
   // Create new agent chatbot
-  app.post("/api/agent-chatbots", smartAuth, async (req: any, res) => {
+  app.post("/api/agents", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const agentData = insertAgentChatbotSchema.parse({ ...req.body, userId });
@@ -30,16 +31,16 @@ export function registerAgentRoutes(app: Express) {
   });
 
   // Get specific agent chatbot
-  app.get("/api/agent-chatbots/:id", smartAuth, async (req: any, res) => {
+  app.get("/api/agents/:id", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const agentId = parseInt(req.params.id);
       const agent = await storage.getAgentChatbot(agentId, userId);
-
+      
       if (!agent) {
         return res.status(404).json({ message: "Agent not found" });
       }
-
+      
       res.json(agent);
     } catch (error) {
       console.error("Error fetching agent:", error);
@@ -48,12 +49,12 @@ export function registerAgentRoutes(app: Express) {
   });
 
   // Update agent chatbot
-  app.put("/api/agent-chatbots/:id", smartAuth, async (req: any, res) => {
+  app.put("/api/agents/:id", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const agentId = parseInt(req.params.id);
       const updateData = insertAgentChatbotSchema.partial().parse(req.body);
-
+      
       const agent = await storage.updateAgentChatbot(agentId, userId, updateData);
       res.json(agent);
     } catch (error) {
@@ -63,11 +64,11 @@ export function registerAgentRoutes(app: Express) {
   });
 
   // Delete agent chatbot
-  app.delete("/api/agent-chatbots/:id", smartAuth, async (req: any, res) => {
+  app.delete("/api/agents/:id", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const agentId = parseInt(req.params.id);
-
+      
       await storage.deleteAgentChatbot(agentId, userId);
       res.json({ success: true });
     } catch (error) {
@@ -77,167 +78,16 @@ export function registerAgentRoutes(app: Express) {
   });
 
   // Toggle agent active status
-  app.patch("/api/agent-chatbots/:id/toggle", smartAuth, async (req: any, res) => {
+  app.patch("/api/agents/:id/toggle", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const agentId = parseInt(req.params.id);
-
+      
       const agent = await storage.toggleAgentChatbotStatus(agentId, userId);
       res.json(agent);
     } catch (error) {
       console.error("Error toggling agent status:", error);
       res.status(500).json({ message: "Failed to toggle agent status" });
-    }
-  });
-
-  // Agent Console - Get active conversations with end-users
-  // Note: userId here is the ADMIN user (you), the returned data contains END-USER conversations
-  app.get("/api/agent-console/users", smartAuth, async (req: any, res) => {
-    try {
-      res.setHeader('Content-Type', 'application/json');
-      const adminUserId = req.user.claims.sub; // This is YOU (the admin)
-      const searchQuery = req.query.search as string;
-      const channelFilter = req.query.channelFilter as string;
-
-      // Returns conversations between end-users and your agents
-      const conversations = await storage.getAgentConsoleUsers(adminUserId, { searchQuery, channelFilter });
-      res.json(conversations);
-    } catch (error) {
-      console.error("Error fetching agent console conversations:", error);
-      res.status(500).json({ message: "Failed to fetch agent console conversations" });
-    }
-  });
-
-  // Agent Console - Get conversation messages with an end-user
-  app.get("/api/agent-console/conversation", smartAuth, async (req: any, res) => {
-    try {
-      res.setHeader('Content-Type', 'application/json');
-      const endUserId = req.query.userId as string; // This is the END-USER ID (not admin)
-      const channelType = req.query.channelType as string;
-      const channelId = req.query.channelId as string;
-      const agentId = parseInt(req.query.agentId as string);
-
-      const messages = await storage.getAgentConsoleConversation(endUserId, channelType, channelId, agentId);
-      res.json(messages);
-    } catch (error) {
-      console.error("Error fetching conversation:", error);
-      res.status(500).json({ message: "Failed to fetch conversation" });
-    }
-  });
-
-  // Agent Console - Send message to end-user (admin sending message)
-  app.post("/api/agent-console/send-message", smartAuth, async (req: any, res) => {
-    try {
-      res.setHeader('Content-Type', 'application/json');
-      const { userId, channelType, channelId, agentId, message } = req.body;
-      // Note: userId here is the END-USER who will receive the message
-      // The admin user is req.user.claims.sub
-
-      const result = await storage.sendAgentConsoleMessage({
-        userId, // End-user ID
-        channelType,
-        channelId,
-        agentId,
-        message,
-        messageType: 'agent' // Message from agent/admin
-      });
-
-      res.json(result);
-    } catch (error) {
-      console.error("Error sending message:", error);
-      res.status(500).json({ message: "Failed to send message" });
-    }
-  });
-
-  // Agent Console - Get conversation summary for an end-user
-  app.get("/api/agent-console/summary", smartAuth, async (req: any, res) => {
-    try {
-      res.setHeader('Content-Type', 'application/json');
-      const endUserId = req.query.userId as string; // This is the END-USER ID
-      const channelType = req.query.channelType as string;
-      const channelId = req.query.channelId as string;
-
-      const summary = await storage.getAgentConsoleSummary(endUserId, channelType, channelId);
-      res.json(summary);
-    } catch (error) {
-      console.error("Error fetching summary:", error);
-      res.status(500).json({ message: "Failed to fetch summary" });
-    }
-  });
-
-  // Get agent chatbot documents
-  app.get("/api/agent-chatbots/:id/documents", smartAuth, async (req: any, res) => {
-    try {
-      res.setHeader('Content-Type', 'application/json');
-      const userId = req.user.claims.sub;
-      const agentId = parseInt(req.params.id);
-      const documents = await storage.getAgentChatbotDocuments(agentId, userId);
-      res.json(documents);
-    } catch (error) {
-      console.error("Error fetching agent documents:", error);
-      res.status(500).json({ message: "Failed to fetch agent documents" });
-    }
-  });
-
-  // Add document to agent chatbot
-  app.post("/api/agent-chatbots/:id/documents/:documentId", smartAuth, async (req: any, res) => {
-    try {
-      res.setHeader('Content-Type', 'application/json');
-      const userId = req.user.claims.sub;
-      const agentId = parseInt(req.params.id);
-      const documentId = parseInt(req.params.documentId);
-
-      const result = await storage.addDocumentToAgentChatbot(agentId, documentId, userId);
-      res.json(result);
-    } catch (error) {
-      console.error("Error adding document to agent:", error);
-      res.status(500).json({ message: "Failed to add document to agent" });
-    }
-  });
-
-  // Remove document from agent chatbot
-  app.delete("/api/agent-chatbots/:id/documents/:documentId", smartAuth, async (req: any, res) => {
-    try {
-      res.setHeader('Content-Type', 'application/json');
-      const userId = req.user.claims.sub;
-      const agentId = parseInt(req.params.id);
-      const documentId = parseInt(req.params.documentId);
-
-      await storage.removeDocumentFromAgentChatbot(agentId, documentId, userId);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error removing document from agent:", error);
-      res.status(500).json({ message: "Failed to remove document from agent" });
-    }
-  });
-
-  // Get social integrations
-  app.get("/api/social-integrations", smartAuth, async (req: any, res) => {
-    try {
-      const userId = req.user?.claims?.sub || req.user?.id;
-      console.log("🔍 Fetching social integrations for user:", userId);
-
-      // Ensure we have a valid user
-      if (!userId) {
-        return res.status(401).json({ 
-          error: "Unauthorized", 
-          message: "User not authenticated" 
-        });
-      }
-
-      const integrations = await storage.getSocialIntegrations(userId);
-      console.log("✅ Found", integrations.length, "social integrations");
-
-      // Explicitly set JSON content type
-      res.setHeader('Content-Type', 'application/json');
-      res.json(integrations);
-    } catch (error) {
-      console.error("💥 Error fetching social integrations:", error);
-      res.setHeader('Content-Type', 'application/json');
-      res.status(500).json({ 
-        error: "Internal Server Error",
-        message: "Failed to fetch social integrations" 
-      });
     }
   });
 }

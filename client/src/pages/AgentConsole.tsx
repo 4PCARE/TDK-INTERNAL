@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -104,30 +104,8 @@ export default function AgentConsole() {
       const response = await fetch(`/api/agent-console/users?${params}`);
       if (!response.ok) throw new Error("Failed to fetch users");
       const data = await response.json();
-      console.log("📋 Agent Console: Filtered users response:", Array.isArray(data) ? data.length : 0, "users");
-      
-      // Ensure we always return a valid array with proper validation
-      if (!Array.isArray(data)) {
-        console.warn("⚠️ API returned non-array data:", data);
-        return [];
-      }
-      
-      // Filter and validate each user object
-      return data.filter(user => {
-        if (!user) {
-          console.warn("⚠️ Found null/undefined user in response");
-          return false;
-        }
-        if (!user.userId) {
-          console.warn("⚠️ Found user without userId:", user);
-          return false;
-        }
-        if (!user.userProfile) {
-          console.warn("⚠️ Found user without userProfile:", user);
-          user.userProfile = { name: 'Unknown User' }; // Add fallback
-        }
-        return true;
-      });
+      console.log("📋 Agent Console: Filtered users response:", data.length, "users");
+      return data;
     },
     refetchInterval: 10000, // Refetch every 10 seconds
   }) as { data: AgentUser[]; refetch: () => void };
@@ -136,13 +114,13 @@ export default function AgentConsole() {
   const { data: messages = [], refetch: refetchMessages } = useQuery({
     queryKey: ["/api/agent-console/conversation", selectedUser?.userId, selectedUser?.channelId, selectedUser?.agentId],
     queryFn: async () => {
-      if (!selectedUser?.userId || !selectedUser?.channelId) return [];
+      if (!selectedUser) return [];
 
       const params = new URLSearchParams({
         userId: selectedUser.userId,
-        channelType: selectedUser.channelType || '',
+        channelType: selectedUser.channelType,
         channelId: selectedUser.channelId,
-        agentId: selectedUser.agentId?.toString() || '',
+        agentId: selectedUser.agentId.toString(),
       });
 
       console.log("🔍 Fetching conversation with params:", Object.fromEntries(params));
@@ -150,24 +128,7 @@ export default function AgentConsole() {
       if (!response.ok) throw new Error("Failed to fetch conversation");
       const data = await response.json();
       console.log("📨 Conversation response:", data);
-      
-      // Ensure we always return a valid array
-      if (!Array.isArray(data)) {
-        console.warn("⚠️ Messages API returned non-array data:", data);
-        return [];
-      }
-      
-      return data.filter(msg => {
-        if (!msg) {
-          console.warn("⚠️ Found null/undefined message");
-          return false;
-        }
-        if (!msg.id) {
-          console.warn("⚠️ Found message without id:", msg);
-          return false;
-        }
-        return true;
-      });
+      return data;
     },
     enabled: !!selectedUser?.userId && !!selectedUser?.channelId,
   }) as { data: Message[]; refetch: () => void };
@@ -235,41 +196,20 @@ export default function AgentConsole() {
   }, [queryClient]);
 
   // Group users by unique conversation (userId + channelId + agentId) to show all conversations
-  const groupedUsers = useMemo(() => {
-    // Ensure users is always an array and has valid data
-    const safeUsers = Array.isArray(users) ? users : [];
-    console.log("🔄 Processing users for grouping:", safeUsers.length, "users");
-    
-    const validUsers = safeUsers.filter(user => {
-      if (!user) {
-        console.warn("⚠️ Skipping null/undefined user in grouping");
-        return false;
+  const groupedUsers = users.reduce((acc, user) => {
+    const conversationKey = `${user.userId}-${user.channelId}-${user.agentId}`;
+    const existingUser = acc.find(u => `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
+    if (existingUser) {
+      // Keep the most recent conversation
+      if (new Date(user.lastMessageAt) > new Date(existingUser.lastMessageAt)) {
+        const index = acc.findIndex(u => `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
+        acc[index] = user;
       }
-      if (!user.userId || !user.channelId || !user.agentId) {
-        console.warn("⚠️ Skipping user with missing required fields:", user);
-        return false;
-      }
-      return true;
-    });
-    
-    console.log("✅ Valid users for grouping:", validUsers.length);
-    
-    return validUsers.reduce((acc, user) => {
-      const conversationKey = `${user.userId}-${user.channelId}-${user.agentId}`;
-      const existingUserIndex = acc.findIndex(u => `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
-      
-      if (existingUserIndex >= 0) {
-        // Keep the most recent conversation
-        if (user.lastMessageAt && acc[existingUserIndex].lastMessageAt && 
-            new Date(user.lastMessageAt) > new Date(acc[existingUserIndex].lastMessageAt)) {
-          acc[existingUserIndex] = user;
-        }
-      } else {
-        acc.push(user);
-      }
-      return acc;
-    }, [] as AgentUser[]);
-  }, [users]);
+    } else {
+      acc.push(user);
+    }
+    return acc;
+  }, [] as AgentUser[]);
 
   // Auto-select first user if none selected
   useEffect(() => {
@@ -340,17 +280,13 @@ export default function AgentConsole() {
     });
   };
 
-  const getInitials = (name: string | undefined) => {
-    if (!name) return 'U';
+  const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  const uniqueChannelTypes = useMemo(() => {
-    const safeUsers = Array.isArray(users) ? users : [];
-    return allChannelTypes.filter(channelType => 
-      channelType?.id && safeUsers.some(u => u?.channelType === channelType.id)
-    );
-  }, [users]);
+  const uniqueChannelTypes = allChannelTypes.filter(channelType => 
+    users.some(u => u.channelType === channelType.id)
+  );
 
   return (
     <DashboardLayout>
@@ -371,7 +307,7 @@ export default function AgentConsole() {
                 <Dot className="w-3 h-3 text-green-500 animate-pulse" />
                 <span>Real-time WebSocket</span>
               </div>
-              <span>{Array.isArray(users) ? users.filter(u => u && u.isOnline).length : 0} Active Conversations</span>
+              <span>{users.filter(u => u.isOnline).length} Active Conversations</span>
             </div>
           </div>
 
@@ -392,10 +328,10 @@ export default function AgentConsole() {
                       <span>All Channels</span>
                     </div>
                   </SelectItem>
-                  {allChannelTypes.filter(channel => channel && channel.id && channel.name).map(channel => (
+                  {allChannelTypes.map(channel => (
                     <SelectItem key={channel.id} value={channel.id}>
                       <div className="flex items-center space-x-2">
-                        <span>{channel.icon || '📱'}</span>
+                        <span>{channel.icon}</span>
                         <span>{channel.name}</span>
                       </div>
                     </SelectItem>
@@ -419,22 +355,20 @@ export default function AgentConsole() {
           <div className="flex-1 min-h-0">
             <ScrollArea className="h-full">
               <div className="p-2">
-                {(!groupedUsers || groupedUsers.length === 0) ? (
+                {groupedUsers.length === 0 ? (
                   <div className="text-center py-8">
                     <UserCheck className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm text-gray-500">No active users</p>
                   </div>
                 ) : (
                   groupedUsers.map((user) => {
-                    if (!user?.userId) return null;
-                    
                     const isSelected = selectedUser?.userId === user.userId && 
                                      selectedUser?.channelId === user.channelId && 
                                      selectedUser?.agentId === user.agentId;
-                    const userConversations = Array.isArray(users) ? users.filter(u => u && u.userId === user.userId) : [];
+                    const userConversations = users.filter(u => u.userId === user.userId);
 
                     return (
-                      <div key={`${user.userId}-${user.channelId}-${user.agentId}`}>
+                      <div key={user.userId}>
                         <div
                           className={`p-2 lg:p-3 rounded-lg cursor-pointer transition-all mb-1 lg:mb-2 ${
                             isSelected
@@ -447,7 +381,7 @@ export default function AgentConsole() {
                             <div className="relative">
                               <Avatar className="w-6 h-6 lg:w-8 lg:h-8">
                                 <AvatarFallback className="text-xs">
-                                  {getInitials(user.userProfile?.name)}
+                                  {getInitials(user.userProfile.name)}
                                 </AvatarFallback>
                               </Avatar>
                               {user.isOnline && (
@@ -460,20 +394,20 @@ export default function AgentConsole() {
                                 <p className={`text-xs lg:text-sm text-gray-900 truncate ${
                                   isSelected ? 'font-bold' : 'font-medium'
                                 }`}>
-                                  {user.userProfile?.name || 'Unknown User'}
+                                  {user.userProfile.name}
                                 </p>
                                 <div className="flex items-center space-x-1">
                                   <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 hidden lg:flex">
                                     <span className="mr-1">
-                                      {allChannelTypes.find(c => c && c.id === user.channelType)?.icon || '📱'}
+                                      {allChannelTypes.find(c => c.id === user.channelType)?.icon || '📱'}
                                     </span>
-                                    <span className="hidden lg:inline">{allChannelTypes.find(c => c && c.id === user.channelType)?.name || user.channelType?.toUpperCase() || 'UNKNOWN'}</span>
+                                    <span className="hidden lg:inline">{allChannelTypes.find(c => c.id === user.channelType)?.name || user.channelType.toUpperCase()}</span>
                                   </Badge>
                                   <span className="lg:hidden text-lg">
-                                    {allChannelTypes.find(c => c && c.id === user.channelType)?.icon || '📱'}
+                                    {allChannelTypes.find(c => c.id === user.channelType)?.icon || '📱'}
                                   </span>
                                   <Badge variant="secondary" className="text-xs">
-                                    {userConversations?.reduce((total, conv) => total + (conv?.messageCount || 0), 0) || 0}
+                                    {userConversations.reduce((total, conv) => total + conv.messageCount, 0)}
                                   </Badge>
                                 </div>
                               </div>
@@ -484,7 +418,7 @@ export default function AgentConsole() {
 
                               <div className="text-xs text-gray-600 mb-1 h-6 lg:h-8 overflow-hidden">
                                 <p className="leading-3 lg:leading-4">
-                                  {(user.lastMessage?.length || 0) > (window.innerWidth < 768 ? 40 : 80) ? `${(user.lastMessage || '').substring(0, window.innerWidth < 768 ? 40 : 80)}...` : (user.lastMessage || 'No message')}
+                                  {user.lastMessage.length > (window.innerWidth < 768 ? 40 : 80) ? `${user.lastMessage.substring(0, window.innerWidth < 768 ? 40 : 80)}...` : user.lastMessage}
                                 </p>
                               </div>
 
@@ -492,9 +426,9 @@ export default function AgentConsole() {
                                 <p className="text-xs text-gray-400">
                                   {formatTime(user.lastMessageAt)}
                                 </p>
-                                {(userConversations?.length || 0) > 1 && (
+                                {userConversations.length > 1 && (
                                   <span className="text-xs text-blue-600 font-medium">
-                                    {userConversations?.length || 0} chats
+                                    {userConversations.length} chats
                                   </span>
                                 )}
                               </div>
@@ -522,12 +456,12 @@ export default function AgentConsole() {
                     <div className="flex items-center space-x-2 lg:space-x-3">
                       <Avatar className="w-6 h-6 lg:w-8 lg:h-8">
                         <AvatarFallback>
-                          {getInitials(selectedUser.userProfile?.name)}
+                          {getInitials(selectedUser.userProfile.name)}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <h3 className="text-sm lg:font-medium text-gray-900">
-                          {selectedUser.userProfile?.name || 'Unknown User'}
+                          {selectedUser.userProfile.name}
                         </h3>
                         <p className="text-xs lg:text-sm text-gray-500">
                           {selectedUser.channelType.toUpperCase()} • Agent: {selectedUser.agentName}
@@ -546,15 +480,13 @@ export default function AgentConsole() {
                 <div className="flex-1 flex flex-col min-h-0">
                   <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
                     <div className="space-y-4">
-                      {(!messages?.length) ? (
+                      {messages.length === 0 ? (
                         <div className="text-center py-8">
                           <MessageCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                           <p className="text-sm text-gray-500">No messages yet</p>
                         </div>
                       ) : (
-                        messages.map((message) => {
-                          if (!message?.id) return null;
-                          return (
+                        messages.map((message) => (
                           <div
                             key={`message-${message.id}-${message.userId}-${message.createdAt}`}
                             className={`flex space-x-3 ${
@@ -592,8 +524,7 @@ export default function AgentConsole() {
                               </Avatar>
                             )}
                           </div>
-                          );
-                        }).filter(Boolean)
+                        ))
                       )}
                       {/* Invisible div for scroll target */}
                       <div ref={messagesEndRef} />
@@ -682,7 +613,7 @@ export default function AgentConsole() {
                         <div className="space-y-2 text-sm">
                           <div className="flex items-center space-x-2">
                             <User className="w-4 h-4 text-gray-400" />
-                            <span>{selectedUser.userProfile?.name || 'Unknown User'}</span>
+                            <span>{selectedUser.userProfile.name}</span>
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="text-gray-500">ID:</span>

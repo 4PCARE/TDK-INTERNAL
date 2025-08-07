@@ -11,10 +11,10 @@ import { createOpenAIFunctionsAgent, AgentExecutor } from "langchain/agents";
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
-import { documentSearch, personalHrQuery, authenticatedHrQuery } from "./langchainTools";
+import { documentSearch } from "./langchainTools";
 
-// Import storage and types
-import { storage } from "../storage";
+// Import local Document type
+import type { Document } from "../storage"; // Assuming Document type is exported from ../storage
 
 // Initialize OpenAI client for legacy features or other OpenAI API calls
 const openai = new OpenAI({
@@ -451,7 +451,7 @@ function createDocumentSearchTool(userId: string) {
         // Call the document search function - it now returns a string directly
         console.log(`🔍 [Tool Calling] === CALLING documentSearch FUNCTION ===`);
         console.log(`🔍 [Tool Calling] About to call documentSearch with parameters:`);
-        console.log(`🔍 [Tool Calling] - query: "${input.trim()}"`);
+        console.log(`🔍 [Tool Calling] - query: "${query.trim()}"`);
         console.log(`🔍 [Tool Calling] - userId: ${userId}`);
         console.log(`🔍 [Tool Calling] - searchType: ${searchType}`);
         console.log(`🔍 [Tool Calling] - limit: ${limit}`);
@@ -476,9 +476,9 @@ function createDocumentSearchTool(userId: string) {
             specificDocumentIds: undefined
           });
           console.log(`🔍 [Tool Calling] documentSearch executed successfully`);
-        } catch (searchError: any) {
+        } catch (searchError) {
           console.error(`🚨 [Tool Error] documentSearch function failed:`, searchError);
-          throw new Error(`Document search failed: ${searchError?.message || 'unknown error'}`);
+          throw new Error(`Document search failed: ${searchError.message}`);
         }
         
         const searchDuration = Date.now() - searchStartTime;
@@ -509,7 +509,7 @@ function createDocumentSearchTool(userId: string) {
 
         return responseText;
 
-      } catch (error: any) {
+      } catch (error) {
         const totalToolDuration = Date.now() - toolStartTime;
         console.error("🚨 [Tool Error] === DOCUMENT SEARCH TOOL ERROR ===");
         console.error("🚨 [Tool Error] Total execution time before error:", totalToolDuration + "ms");
@@ -536,136 +536,12 @@ function createDocumentSearchTool(userId: string) {
   return tool;
 }
 
-// Create personal HR query tool for LangChain
-function createPersonalHrQueryTool() {
-  console.log(`🛠️ [Tool Creation] Creating personal_hr_query tool`);
-  const tool = new DynamicStructuredTool({
-    name: "personal_hr_query",
-    description: "Query personal employee information using Thai Citizen ID. Use this tool when users ask about their personal HR information, employee details, leave days (วันลา), vacation days, contact information, employment status, or any personal work-related data. This tool works with Thai language queries about วันลา, ข้อมูลพนักงาน, รายละเอียดการทำงาน, วันหยุด, and similar HR-related questions.",
-    schema: z.object({
-      citizenId: z.string().describe("The Thai Citizen ID (13 digits) to look up employee information")
-    }),
-    func: async ({ citizenId }: { citizenId: string }): Promise<string> => {
-      const toolStartTime = Date.now();
-      console.log(`👤 [HR Tool Entry] === PERSONAL HR QUERY TOOL CALLED ===`);
-      console.log(`👤 [HR Tool Entry] Timestamp: ${new Date().toISOString()}`);
-      console.log(`👤 [HR Tool Entry] Citizen ID: "${citizenId}"`);
-
-      try {
-        // Ensure personalHrQuery is available and callable
-        if (typeof personalHrQuery !== 'function') {
-          throw new Error('personalHrQuery function is not available or not a function');
-        }
-
-        console.log(`👤 [HR Tool Calling] === CALLING personalHrQuery FUNCTION ===`);
-        const searchStartTime = Date.now();
-        
-        const result = await personalHrQuery({
-          citizenId: citizenId.trim()
-        });
-        
-        const searchDuration = Date.now() - searchStartTime;
-        console.log(`👤 [HR Tool Results] personalHrQuery completed in ${searchDuration}ms`);
-        console.log(`👤 [HR Tool Results] Response length: ${result.length} characters`);
-        
-        const totalToolDuration = Date.now() - toolStartTime;
-        console.log(`👤 [HR Tool Return] === RETURNING HR RESPONSE ===`);
-        console.log(`👤 [HR Tool Return] Total tool execution time: ${totalToolDuration}ms`);
-        console.log(`👤 [HR Tool Entry] === PERSONAL HR QUERY TOOL COMPLETED (SUCCESS) ===`);
-
-        return result;
-        
-      } catch (error: any) {
-        const totalToolDuration = Date.now() - toolStartTime;
-        console.error("🚨 [HR Tool Error] === PERSONAL HR QUERY TOOL ERROR ===");
-        console.error("🚨 [HR Tool Error] Total execution time before error:", totalToolDuration + "ms");
-        console.error("🚨 [HR Tool Error] Error type:", error?.constructor?.name || 'Unknown');
-        console.error("🚨 [HR Tool Error] Error message:", error?.message || 'No message');
-        console.error("🚨 [HR Tool Error] Full error object:", error);
-
-        // Always return a proper error message string
-        const errorMessage = `I encountered an error while looking up your HR information: ${error?.message || 'unknown error occurred'}. Please verify your Thai Citizen ID or contact HR support.`;
-        console.log(`🚨 [HR Tool Return] Returning error message: ${errorMessage}`);
-        console.log(`👤 [HR Tool Entry] === PERSONAL HR QUERY TOOL COMPLETED (ERROR) ===`);
-
-        return errorMessage;
-      }
-    },
-  });
-
-  console.log(`🛠️ [Tool Creation] Personal HR query tool created successfully`);
-  console.log(`🛠️ [Tool Creation] Tool name: ${tool.name}`);
-  console.log(`🛠️ [Tool Creation] Tool description length: ${tool.description.length} characters`);
-
-  return tool;
-}
-
-// Create authenticated HR query tool for platform users (no citizen ID required)
-function createAuthenticatedHrQueryTool(userId: string) {
-  console.log(`🛠️ [Tool Creation] Creating authenticated_hr_query tool for user: ${userId}`);
-  const tool = new DynamicStructuredTool({
-    name: "authenticated_hr_query",
-    description: "Query personal employee information for authenticated platform users. Use this tool for HR-related questions including: leave days (วันลา), vacation days (วันหยุด), employee information (ข้อมูลพนักงาน), work details (รายละเอียดการทำงาน), employment status, contact information, and personal work-related data. This tool handles Thai language queries about วันลา, ข้อมูลส่วนตัว, การลา, วันหยุดพักผ่อน, and similar HR topics. No citizen ID required - uses authenticated user identity.",
-    schema: z.object({
-      // No parameters needed - will use authenticated user ID directly
-    }),
-    func: async (): Promise<string> => {
-      const toolStartTime = Date.now();
-      console.log(`🔍 [Tool Entry] === AUTHENTICATED HR QUERY TOOL CALLED ===`);
-      console.log(`🔍 [Tool Entry] Timestamp: ${new Date().toISOString()}`);
-      console.log(`🔍 [Tool Entry] User ID: ${userId}`);
-
-      try {
-        console.log(`🔍 [Tool Calling] === CALLING authenticatedHrQuery FUNCTION ===`);
-        console.log(`🔍 [Tool Calling] About to call authenticatedHrQuery with userId: ${userId}`);
-
-        // Ensure authenticatedHrQuery is available and callable
-        if (typeof authenticatedHrQuery !== 'function') {
-          throw new Error('authenticatedHrQuery function is not available or not a function');
-        }
-
-        const searchStartTime = Date.now();
-        
-        const responseText = await authenticatedHrQuery({ userId });
-        
-        const searchDuration = Date.now() - searchStartTime;
-        const totalDuration = Date.now() - toolStartTime;
-        
-        console.log(`🔍 [Tool Return] === HR QUERY COMPLETED ===`);
-        console.log(`🔍 [Tool Return] Search duration: ${searchDuration}ms`);
-        console.log(`🔍 [Tool Return] Total duration: ${totalDuration}ms`);
-        console.log(`🔍 [Tool Return] Response length: ${responseText.length} characters`);
-        console.log(`🔍 [Tool Return] Response preview: ${responseText.substring(0, 200)}...`);
-
-        return responseText;
-        
-      } catch (error: any) {
-        const totalDuration = Date.now() - toolStartTime;
-        console.error(`🔍 [Tool Error] === HR QUERY TOOL ERROR ===`);
-        console.error(`🔍 [Tool Error] Duration: ${totalDuration}ms`);
-        console.error(`🔍 [Tool Error] Error:`, error);
-        
-        return `เกิดข้อผิดพลาดในการค้นหาข้อมูลพนักงาน: ${error?.message || 'unknown error'}. กรุณาลองใหม่อีกครั้งหรือติดต่อแผนก IT`;
-      }
-    },
-  });
-
-  console.log(`🛠️ [Tool Creation] Tool "${tool.name}" created with description: ${tool.description.substring(0, 100)}...`);
-  return tool;
-}
-
 // Create agent with tools
-async function createAgentWithTools(userId: string, context: 'platform' | 'lineoa' = 'platform') {
-  console.log(`🤖 [Agent Setup] Creating agent with tools for user: ${userId}, context: ${context}`);
+async function createAgentWithTools(userId: string) {
+  console.log(`🤖 [Agent Setup] Creating agent with tools for user: ${userId}`);
 
   const documentSearchTool = createDocumentSearchTool(userId);
-  
-  // Use different HR tools based on context
-  const hrTool = context === 'platform' 
-    ? createAuthenticatedHrQueryTool(userId)  // Authenticated users don't need to provide citizen ID
-    : createPersonalHrQueryTool();           // Line OA users still need citizen ID
-    
-  const tools = [documentSearchTool, hrTool];
+  const tools = [documentSearchTool];
 
   console.log(`🤖 [Agent Setup] Tools created:`, tools.map(tool => ({
     name: tool.name,
@@ -675,29 +551,21 @@ async function createAgentWithTools(userId: string, context: 'platform' | 'lineo
   const prompt = ChatPromptTemplate.fromMessages([
     [
       "system",
-      `You are an AI assistant for a Knowledge Management System with HR capabilities. You help users find information from their document collection and access their personal HR information.
+      `You are an AI assistant for a Knowledge Management System. You help users find information from their document collection and answer questions based on the available knowledge base.
 
 CRITICAL INSTRUCTIONS:
-1. For document-related questions: Use the document_search tool to find information from the knowledge base
-2. For personal HR queries (employee information, leave days, vacation, contact details): Use the personal_hr_query tool with the user's Thai Citizen ID
-3. ALWAYS provide a response based on the tool results - NEVER return empty responses
-4. Handle both Thai and English language queries
+1. When users ask questions about documents or content, ALWAYS use the document_search tool first
+2. ALWAYS provide a response to the user based on the tool results - NEVER return empty responses
+3. If the tool finds documents, summarize the key information and cite the document names
+4. If the tool finds no documents, inform the user and suggest they upload relevant documents
+5. ALWAYS generate a helpful response based on what the tools return
 
-TOOL SELECTION GUIDELINES:
-- Use document_search for: company policies, procedures, general information, documents
-- Use the HR tool for: วันลา (leave days), ข้อมูลพนักงาน (employee information), วันหยุด (vacation), personal work details, employment status
+Your response flow should be:
+1. Use document_search tool with relevant keywords
+2. Analyze the tool results
+3. Generate a comprehensive response for the user based on the findings
 
-Available tools:
-- document_search: Search company documents and knowledge base
-- HR query tool: Access personal employee information${context === 'platform' ? ' (authenticated automatically)' : ' using Thai Citizen ID'}
-
-Your response flow:
-1. Identify the type of query (document search vs HR query)
-2. Use the appropriate tool with relevant parameters
-3. Analyze the tool results
-4. Generate a comprehensive response for the user
-
-Be helpful, accurate, and always prioritize information from the actual tools over general knowledge.${context === 'lineoa' ? ' For HR queries, you may need to ask for the user\'s Thai Citizen ID if not provided.' : ' For HR queries, you can directly access the user\'s information without asking for identification.'}`
+Be helpful, accurate, and always prioritize information from the user's actual documents over general knowledge. Never leave the user without a response.`
     ],
     ["human", "{input}"],
     new MessagesPlaceholder("agent_scratchpad"),
@@ -732,23 +600,7 @@ Be helpful, accurate, and always prioritize information from the actual tools ov
   return executor;
 }
 
-async function logLangChainVersions() {
-  try {
-    const fs = await import('fs');
-    const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-    console.log(`🤖 [Agent Setup] === LANGCHAIN PACKAGE VERSIONS ===`);
-    console.log(`🤖 [Agent Setup] @langchain/core: ${packageJson.dependencies["@langchain/core"]}`);
-    console.log(`🤖 [Agent Setup] @langchain/openai: ${packageJson.dependencies["@langchain/openai"]}`);
-    console.log(`🤖 [Agent Setup] langchain: ${packageJson.dependencies["langchain"]}`);
-    console.log(`🤖 [Agent Setup] zod: ${packageJson.dependencies["zod"]}`);
-    console.log(`🤖 [Agent Setup] Model: ${chatModel.modelName}`);
-    console.log(`🤖 [Agent Setup] === END VERSION INFO ===`);
-  } catch (error) {
-    console.log(`🤖 [Agent Setup] Could not read package versions:`, error);
-  }
-}
-
-export async function generateChatResponse(userMessage: string, documents: any[], userId?: string): Promise<string> {
+export async function generateChatResponse(userMessage: string, documents: Document[], userId?: string): Promise<string> {
   try {
     // If userId is provided, use LangChain agent with tools
     if (userId) {
@@ -757,10 +609,7 @@ export async function generateChatResponse(userMessage: string, documents: any[]
       console.log(`🤖 [Agent Chat] User message: "${userMessage}"`);
       console.log(`🤖 [Agent Chat] Timestamp: ${new Date().toISOString()}`);
 
-      // Log package versions for debugging
-      await logLangChainVersions();
-
-      const agentExecutor = await createAgentWithTools(userId, 'platform');
+      const agentExecutor = await createAgentWithTools(userId);
       console.log(`🤖 [Agent Chat] Agent executor created successfully`);
 
       console.log(`🤖 [Agent Chat] === INVOKING AGENT EXECUTOR ===`);
