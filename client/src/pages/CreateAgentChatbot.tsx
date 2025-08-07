@@ -2411,8 +2411,7 @@ export default function CreateAgentChatbot() {
                           </div>
                         )}
                       </div>
-                    </CardContent>
-                    </Card>
+                    )}
 
                     {/* Search Configuration Information */}
                     <Card className="border-amber-200 bg-amber-50">
