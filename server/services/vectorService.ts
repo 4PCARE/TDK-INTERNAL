@@ -376,6 +376,13 @@ export class VectorService {
             currentEmbedding = Array.isArray(dbVector.embedding) ? dbVector.embedding : [];
           }
 
+          // Debug: Check for problematic embeddings
+          if (currentEmbedding.length === 0) {
+            console.warn(`⚠️ Empty embedding for document ${dbVector.documentId} chunk ${dbVector.chunkIndex}`);
+          } else if (currentEmbedding.some(val => isNaN(val) || !isFinite(val))) {
+            console.warn(`⚠️ Invalid embedding values for document ${dbVector.documentId} chunk ${dbVector.chunkIndex}`);
+          }
+
           const vectorDoc: VectorDocument = {
             id: `${dbVector.documentId}_chunk_${dbVector.chunkIndex}`,
             content: dbVector.content, // This should be chunk content from document_vectors table
@@ -439,10 +446,30 @@ export class VectorService {
   }
 
   private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) {
+      console.warn('Vector length mismatch in cosine similarity calculation');
+      return 0;
+    }
+
     const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
     const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
     const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
-    return dotProduct / (magnitudeA * magnitudeB);
+    
+    // Handle zero magnitude vectors to prevent NaN
+    if (magnitudeA === 0 || magnitudeB === 0) {
+      console.warn('Zero magnitude vector detected in similarity calculation');
+      return 0;
+    }
+    
+    const similarity = dotProduct / (magnitudeA * magnitudeB);
+    
+    // Additional safeguard against NaN
+    if (isNaN(similarity)) {
+      console.warn('NaN similarity detected, returning 0');
+      return 0;
+    }
+    
+    return similarity;
   }
 
   async getDocumentCount(): Promise<number> {
