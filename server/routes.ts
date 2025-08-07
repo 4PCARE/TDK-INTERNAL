@@ -3433,108 +3433,62 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       let messageType = "text";
       let metadata = null;
 
-      // If widget has an AI agent, use it for direct AI responses
+      // If widget has an AI agent, use agentBot service for smart responses
       if (widget.agentId) {
         try {
-          // Get agent configuration
-          const [agent] = await db
-            .select()
-            .from(agentChatbots)
-            .where(eq(agentChatbots.id, widget.agentId))
-            .limit(1);
+          console.log(`🤖 Widget: Using agentBot service for agent ${widget.agentId}`);
+          
+          // Get recent chat history for context
+          const recentMessages = await db
+            .select({
+              role: widgetChatMessages.role,
+              content: widgetChatMessages.content,
+              createdAt: widgetChatMessages.createdAt,
+            })
+            .from(widgetChatMessages)
+            .where(eq(widgetChatMessages.sessionId, session.sessionId))
+            .orderBy(desc(widgetChatMessages.createdAt))
+            .limit(20); // Get more history for better context
 
-          if (agent) {
-            // Get recent chat history for context
-            const recentMessages = await db
-              .select({
-                role: widgetChatMessages.role,
-                content: widgetChatMessages.content,
-                createdAt: widgetChatMessages.createdAt,
-              })
-              .from(widgetChatMessages)
-              .where(eq(widgetChatMessages.sessionId, session.sessionId))
-              .orderBy(desc(widgetChatMessages.createdAt))
-              .limit(agent.memoryLimit || 10);
+          // Build conversation context in the format expected by agentBot
+          const conversationHistory = recentMessages.reverse().map(msg => ({
+            role: msg.role,
+            content: msg.content
+          }));
 
-            // Build conversation context
-            const conversationHistory = recentMessages.reverse();
+          // Use agentBot service for smart response generation
+          const { AgentBot } = await import('./agentBot');
+          const agentBotResponse = await AgentBot.generateResponse(
+            message,
+            widget.agentId,
+            session.sessionId, // Use sessionId as userId for widget
+            conversationHistory,
+            'web' // channelType
+          );
 
-            // Get current date and time in Thai format
-            const now = new Date();
-            const thaiDate = now.toLocaleDateString('th-TH', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              weekday: 'long'
-            });
-            const thaiTime = now.toLocaleTimeString('th-TH', {
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false
-            });
-
-            // Build system prompt
-            const systemPrompt = `${agent.systemPrompt}
-
-📅 วันที่และเวลาปัจจุบัน: ${thaiDate} เวลา ${thaiTime} น.
-
-ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
-ตอบอย่างเป็นมิตรและช่วยเหลือ`;
-
-            // Build messages for OpenAI
-            const messages = [
-              { role: "system", content: systemPrompt }
-            ];
-
-            // Add conversation history
-            conversationHistory.forEach(msg => {
-              messages.push({
-                role: msg.role === 'assistant' ? 'assistant' : 'user',
-                content: msg.content
-              });
-            });
-
-            // Add current user message
-            messages.push({
-              role: "user",
-              content: message
-            });
-
-            console.log(`🤖 Widget: Using AI directly for agent ${agent.name} with ${messages.length} messages`);
-
-            // Call OpenAI directly
-            const { OpenAI } = await import('openai');
-            const openai = new OpenAI({
-              apiKey: process.env.OPENAI_API_KEY,
-            });
-
-            const completion = await openai.chat.completions.create({
-              model: "gpt-4o",
-              messages: messages,
-              max_tokens: 1000,
-              temperature: 0.7,
-            });
-
-            response = completion.choices[0].message.content || "ขออภัย ไม่สามารถสร้างคำตอบได้ในขณะนี้";
+          if (agentBotResponse.success) {
+            response = agentBotResponse.response;
             messageType = "ai_response";
             metadata = {
-              agentId: agent.id,
-              agentName: agent.name,
-              searchMethod: "direct_ai"
+              agentId: widget.agentId,
+              searchMethod: agentBotResponse.searchMethod || "agent_bot",
+              documentsFound: agentBotResponse.documentsFound || 0,
+              hasCarousel: agentBotResponse.hasCarousel || false
             };
 
-            console.log(`✅ Widget: Generated direct AI response (${response.length} chars)`);
+            console.log(`✅ Widget: Generated agentBot response (${response.length} chars, method: ${agentBotResponse.searchMethod})`);
           } else {
-            console.log(`❌ Widget: Agent ${widget.agentId} not found`);
+            console.log(`❌ Widget: AgentBot failed - ${agentBotResponse.error}`);
             response = widget.welcomeMessage || "ขออภัย ไม่สามารถเชื่อมต่อกับระบบได้ในขณะนี้";
             messageType = "error";
+            metadata = { error: agentBotResponse.error };
           }
         } catch (error) {
-          console.error("Widget AI response error:", error);
-          // Fallback to welcome message if AI fails
+          console.error("Widget agentBot integration error:", error);
+          // Fallback to welcome message if agentBot fails
           response = widget.welcomeMessage || "ขออภัย เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง";
           messageType = "error";
-          metadata = { error: "AI service unavailable" };
+          metadata = { error: "AgentBot service unavailable" };
         }
       } else if (widget.enableHrLookup && message) {
         // Check if message contains Thai Citizen ID pattern
