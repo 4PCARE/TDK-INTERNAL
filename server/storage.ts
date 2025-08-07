@@ -1266,11 +1266,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAgentChatbot(id: number, userId: string): Promise<AgentChatbot | undefined> {
-    const [agent] = await db
-      .select()
-      .from(agentChatbots)
-      .where(and(eq(agentChatbots.id, id), eq(agentChatbots.userId, userId)));
-    return agent;
+    try {
+      const [agent] = await db
+        .select()
+        .from(agentChatbots)
+        .where(and(eq(agentChatbots.id, id), eq(agentChatbots.userId, userId)));
+      return agent;
+    } catch (error: any) {
+      console.error(`💥 Database error in getAgentChatbot:`, error);
+      
+      // Check if it's a connection termination error
+      if (error.code === '57P01' || error.code === 'ECONNRESET' || error.code === 'ENOTFOUND') {
+        console.log(`🔄 Retrying database connection for getAgentChatbot...`);
+        // Wait a moment and retry once
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        try {
+          const [agent] = await db
+            .select()
+            .from(agentChatbots)
+            .where(and(eq(agentChatbots.id, id), eq(agentChatbots.userId, userId)));
+          return agent;
+        } catch (retryError) {
+          console.error(`💥 Retry failed for getAgentChatbot:`, retryError);
+          throw retryError;
+        }
+      }
+      
+      throw error;
+    }
   }
 
   async getAgentChatbotForWidget(id: number): Promise<AgentChatbot | undefined> {

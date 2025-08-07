@@ -794,8 +794,28 @@ async function getAiResponseDirectly(
   try {
     console.log(`🔍 Debug: Getting agent ${agentId} for user ${userId}`);
 
-    // Get agent configuration
-    const agentData = await storage.getAgentChatbot(agentId, userId);
+    // Get agent configuration with retry logic
+    let agentData;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        agentData = await storage.getAgentChatbot(agentId, userId);
+        break; // Success, exit retry loop
+      } catch (dbError: any) {
+        retryCount++;
+        console.log(`🔄 Database connection attempt ${retryCount}/${maxRetries} failed:`, dbError.code);
+        
+        if (retryCount >= maxRetries) {
+          throw dbError; // Re-throw after max retries
+        }
+        
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+      }
+    }
+    
     if (!agentData) {
       console.log(`❌ Agent ${agentId} not found for user ${userId}`);
       return "ขออภัย ไม่สามารถเชื่อมต่อกับระบบได้ในขณะนี้";
@@ -1685,8 +1705,15 @@ ${documentContext}
     }
 
     return aiResponse; // Return the AI response for potential further processing
-  } catch (error) {
+  } catch (error: any) {
     console.error("💥 Error getting AI response:", error);
+    
+    // Check if it's a database connection error
+    if (error.code === '57P01' || error.code === 'ECONNRESET' || error.code === 'ENOTFOUND') {
+      console.log("🔄 Database connection issue detected, sending retry message");
+      return "ขออภัย ระบบกำลังปรับปรุง กรุณาลองใหม่อีกครั้งใน 1-2 นาที 🔄";
+    }
+    
     return "ขออภัย เกิดข้อผิดพลาดในการประมวลผลคำถาม กรุณาลองใหม่อีกครั้ง";
   }
 }
