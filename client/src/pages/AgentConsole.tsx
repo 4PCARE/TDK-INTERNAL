@@ -196,13 +196,14 @@ export default function AgentConsole() {
   }, [queryClient]);
 
   // Group users by unique conversation (userId + channelId + agentId) to show all conversations
-  const groupedUsers = users.reduce((acc, user) => {
+  const groupedUsers = (users || []).reduce((acc, user) => {
+    if (!user) return acc;
     const conversationKey = `${user.userId}-${user.channelId}-${user.agentId}`;
-    const existingUser = acc.find(u => `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
+    const existingUser = acc.find(u => u && `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
     if (existingUser) {
       // Keep the most recent conversation
       if (new Date(user.lastMessageAt) > new Date(existingUser.lastMessageAt)) {
-        const index = acc.findIndex(u => `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
+        const index = acc.findIndex(u => u && `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
         acc[index] = user;
       }
     } else {
@@ -286,7 +287,7 @@ export default function AgentConsole() {
   };
 
   const uniqueChannelTypes = allChannelTypes.filter(channelType => 
-    channelType && channelType.id && users.some(u => u.channelType === channelType.id)
+    channelType && channelType.id && users?.some(u => u?.channelType === channelType.id)
   );
 
   return (
@@ -308,7 +309,7 @@ export default function AgentConsole() {
                 <Dot className="w-3 h-3 text-green-500 animate-pulse" />
                 <span>Real-time WebSocket</span>
               </div>
-              <span>{users.filter(u => u.isOnline).length} Active Conversations</span>
+              <span>{users?.filter(u => u?.isOnline)?.length || 0} Active Conversations</span>
             </div>
           </div>
 
@@ -356,7 +357,7 @@ export default function AgentConsole() {
           <div className="flex-1 min-h-0">
             <ScrollArea className="h-full">
               <div className="p-2">
-                {groupedUsers.length === 0 ? (
+                {(!groupedUsers || groupedUsers.length === 0) ? (
                   <div className="text-center py-8">
                     <UserCheck className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm text-gray-500">No active users</p>
@@ -366,7 +367,7 @@ export default function AgentConsole() {
                     const isSelected = selectedUser?.userId === user.userId && 
                                      selectedUser?.channelId === user.channelId && 
                                      selectedUser?.agentId === user.agentId;
-                    const userConversations = users.filter(u => u.userId === user.userId);
+                    const userConversations = users?.filter(u => u?.userId === user?.userId) || [];
 
                     return (
                       <div key={user.userId}>
@@ -408,7 +409,7 @@ export default function AgentConsole() {
                                     {allChannelTypes.find(c => c && c.id === user.channelType)?.icon || '📱'}
                                   </span>
                                   <Badge variant="secondary" className="text-xs">
-                                    {userConversations.reduce((total, conv) => total + conv.messageCount, 0)}
+                                    {userConversations?.reduce((total, conv) => total + (conv?.messageCount || 0), 0) || 0}
                                   </Badge>
                                 </div>
                               </div>
@@ -427,9 +428,9 @@ export default function AgentConsole() {
                                 <p className="text-xs text-gray-400">
                                   {formatTime(user.lastMessageAt)}
                                 </p>
-                                {userConversations.length > 1 && (
+                                {(userConversations?.length || 0) > 1 && (
                                   <span className="text-xs text-blue-600 font-medium">
-                                    {userConversations.length} chats
+                                    {userConversations?.length || 0} chats
                                   </span>
                                 )}
                               </div>
