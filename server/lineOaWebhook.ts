@@ -1971,7 +1971,7 @@ ${imageAnalysisResult}
             agentId: lineIntegration.agentId,
             messageType: "assistant",
             content: aiResponse,
-            metadata: queryAnalysis.needsSearch ? { documentSearch: true, searchReasoning: queryAnalysis.reasoning, enhancedQuery: queryAnalysis.enhancedQuery } : { documentSearch: false },
+            metadata: { documentSearch: false }, // Simple metadata since queryAnalysis is not available in this scope
           });
           console.log("💾 Saved AI response to chat history");
 
