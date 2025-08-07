@@ -988,7 +988,7 @@ async function getAiResponseDirectly(
 ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
 ตอบอย่างเป็นมิตรและช่วยเหลือ
 
-⚠️ สำคัญมาก: ไม่มีเอกสารอ้างอิงสำหรับคำถามนี้ 
+⚠️ สำคัญมาก: ไม่มีเอกสารอ้างอิงสำหรับคำถามนี้
 - ห้ามให้ข้อมูลเฉพาะเจาะจง เช่น ที่อยู่ เบอร์โทร ราคา ชั้น หรือรายละเอียดใดๆ ที่ต้องอาศัยข้อมูลจากเอกสาร
 - ให้ตอบเพียงว่าไม่สามารถให้ข้อมูลเฉพาะเจาะจงได้เนื่องจากไม่มีเอกสารอ้างอิง
 - แนะนำให้ติดต่อแหล่งข้อมูลที่เชื่อถือได้แทน`;
@@ -1139,15 +1139,17 @@ async function getAiResponseDirectly(
         queryAnalysis.enhancedQuery || userMessage,
         userId,
         {
+          specificDocumentIds: agentDocIds,
           keywordWeight: searchConfig.keywordWeight,
           vectorWeight: searchConfig.vectorWeight,
-          specificDocumentIds: agentDocIds,
-          massSelectionPercentage: documentMass,
-          enhancedQuery: queryAnalysis.enhancedQuery,
-          isLineOAContext: true, // Flag to indicate LINE OA context
-          chunkMaxType: searchConfig.chunkMaxType,
-          chunkMaxValue: searchConfig.chunkMaxValue,
-          limit: 22, // LINE OA context - enable higher chunk limits
+          threshold: 0.3,
+          massSelectionPercentage: searchConfig.documentMass || 0.6,
+          enhancedQuery,
+          isLineOAContext: true,
+          chunkMaxType: searchConfig.chunkMaxType || 'number',
+          chunkMaxValue: searchConfig.chunkMaxValue || 16,
+          documentTokenLimit: searchConfig.documentTokenLimit,
+          finalTokenLimit: searchConfig.finalTokenLimit,
         },
       );
 
@@ -1155,7 +1157,27 @@ async function getAiResponseDirectly(
         `🔍 LINE OA: Smart hybrid search found ${searchResults.length} relevant chunks from agent's bound documents`,
       );
 
-      // Chunk limits are now applied during the search itself, not after
+      // Apply token limit filtering if enabled
+      if (searchConfig?.tokenLimitEnabled && searchConfig?.documentTokenLimit) {
+        const tokenLimit = searchConfig.documentTokenLimit;
+        const charLimit = tokenLimit * 4; // Convert tokens to characters (4 chars per token)
+        let accumulatedChars = 0;
+        const filteredResults = [];
+
+        for (const result of searchResults) {
+          const contentLength = result.content.length;
+          if (accumulatedChars + contentLength <= charLimit) {
+            filteredResults.push(result);
+            accumulatedChars += contentLength;
+          } else {
+            break;
+          }
+        }
+
+        console.log(`📄 LINE OA: Applied ${tokenLimit} token limit (${charLimit} chars): ${filteredResults.length}/${searchResults.length} chunks (${accumulatedChars} chars, ~${Math.round(accumulatedChars/4)} tokens)`);
+        searchResults = filteredResults;
+      }
+
       let finalSearchResults = searchResults;
 
       if (finalSearchResults.length > 0) {
@@ -1207,12 +1229,20 @@ async function getAiResponseDirectly(
 
         // Apply final token limit if enabled
         if (tokenLimitEnabled && tokenLimitType === 'final') {
-          const estimatedTokens = Math.ceil(documentContext.length / 3.5); // Rough token estimation
-          if (estimatedTokens > finalTokenLimit) {
-            const targetChars = finalTokenLimit * 3.5;
-            documentContext = documentContext.substring(0, Math.floor(targetChars));
-            console.log(`🔒 LINE OA: Applied final token limit - truncated to ~${finalTokenLimit} tokens (${documentContext.length} chars)`);
+          const finalTokenLimit = searchConfig.finalTokenLimit;
+          const finalCharLimit = finalTokenLimit * 4; // Convert tokens to characters
+          if (documentContext.length > finalCharLimit) {
+            console.log(`📄 LINE OA: Final context exceeds ${finalTokenLimit} tokens (${finalCharLimit} chars), current: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens), truncating...`);
+            // Truncate the document context while preserving system prompt and user message
+            const maxDocumentChars = finalCharLimit - agentData.systemPrompt.length - userMessage.length - 200; // Buffer for formatting
+            if (maxDocumentChars > 0) {
+              documentContext = documentContext.substring(0, maxDocumentChars) + "\n[Content truncated due to token limit]";
+            } else {
+              // If even system prompt + user message exceeds final limit, truncate document context to minimum
+              documentContext = "[Content truncated due to token limit]";
+            }
           }
+          console.log(`📄 LINE OA: Final context: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens, limit: ${finalTokenLimit} tokens/${finalCharLimit} chars)`);
         }
 
         const now = new Date();
@@ -1291,7 +1321,7 @@ ${documentContext}
           const currentUserMessageLength =
             messages[messages.length - 1].content.length;
           const availableForHistory =
-            15000 -
+            20000 -
             systemMessageLength -
             currentUserMessageLength -
             200; // 200 chars buffer
@@ -1330,7 +1360,7 @@ ${documentContext}
               `⚠️ LINE OA: System + user message too long, truncating system message`,
             );
             const maxSystemLength =
-              15000 - currentUserMessageLength - 100;
+              20000 - currentUserMessageLength - 100;
             if (maxSystemLength > 0) {
               messages[0].content =
                 messages[0].content.substring(0, maxSystemLength) +
@@ -1456,7 +1486,7 @@ ${documentContext}
 ตอบอย่างเป็นมิตรและช่วยเหลือ
 
 ⚠️ สำคัญมาก: ไม่มีเอกสารที่เกี่ยวข้องในฐานข้อมูลสำหรับคำถามนี้
-- ห้ามให้ข้อมูลเฉพาะเจาะจง เช่น ที่อยู่ เบอร์โทร ราคา ชั้น หรือรายละเอียดใดๆ ที่ต้องอาศัยข้อมูลจากเอกสาร  
+- ห้ามให้ข้อมูลเฉพาะเจาะจง เช่น ที่อยู่ เบอร์โทร ราคา ชั้น หรือรายละเอียดใดๆ ที่ต้องอาศัยข้อมูลจากเอกสาร
 - ให้ตอบเพียงว่าไม่สามารถให้ข้อมูลเฉพาะเจาะจงได้เนื่องจากไม่พบเอกสารที่เกี่ยวข้อง
 - แนะนำให้ติดต่อแหล่งข้อมูลที่เชื่อถือได้แทน`;
 

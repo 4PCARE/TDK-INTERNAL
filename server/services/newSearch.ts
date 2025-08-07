@@ -463,6 +463,8 @@ export async function searchSmartHybridDebug(
     massSelectionPercentage?: number;
     enhancedQuery?: string; // Accept preprocessed query from queryPreprocessor
     isLineOAContext?: boolean; // Flag to indicate context
+    documentTokenLimit?: number; // Token limit for document content
+    finalTokenLimit?: number; // Token limit for final context
   }
 ): Promise<SearchResult[]> {
   const keywordWeight = options.keywordWeight ?? 0.5;
