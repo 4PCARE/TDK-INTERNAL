@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Activity, Download, Eye, Edit, Clock } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, Legend } from "recharts";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
+import { SeededRandom } from "@/utils/seededRandom";
 
 export default function UserActivity() {
   const { data: documents = [] } = useQuery({
@@ -21,23 +22,27 @@ export default function UserActivity() {
 
   // Daily activity trend (last 7 days)
   const activityTrendData = Array.from({ length: 7 }, (_, i) => {
+    const rng = new SeededRandom(600 + i);
     const date = new Date();
     date.setDate(date.getDate() - (6 - i));
     
     return {
       date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      uploads: Math.floor(Math.random() * 15) + 5,
-      downloads: Math.floor(Math.random() * 50) + 20,
-      searches: Math.floor(Math.random() * 80) + 30,
-      views: Math.floor(Math.random() * 120) + 50
+      uploads: rng.randomInt(5, 20),
+      downloads: rng.randomInt(20, 70),
+      searches: rng.randomInt(30, 110),
+      views: rng.randomInt(50, 170)
     };
   });
 
   // Hourly activity distribution (24 hours)
-  const hourlyActivityData = Array.from({ length: 24 }, (_, hour) => ({
-    hour: `${hour.toString().padStart(2, '0')}:00`,
-    activity: Math.floor(Math.random() * 20) + (hour >= 8 && hour <= 18 ? 10 : 2) // Higher during work hours
-  }));
+  const hourlyActivityData = Array.from({ length: 24 }, (_, hour) => {
+    const rng = new SeededRandom(700 + hour);
+    return {
+      hour: `${hour.toString().padStart(2, '0')}:00`,
+      activity: rng.randomInt(0, 20) + (hour >= 8 && hour <= 18 ? 10 : 2) // Higher during work hours
+    };
+  });
 
   // Role distribution
   const roleDistribution = [

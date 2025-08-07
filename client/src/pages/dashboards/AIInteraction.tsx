@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Bot, MessageSquare, Clock, Target, Zap, TrendingUp } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, Legend, PieChart as RechartsPieChart, Cell } from "recharts";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
+import { SeededRandom } from "@/utils/seededRandom";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
@@ -35,12 +36,13 @@ export default function AIInteraction() {
 
   // Daily AI queries trend (last 7 days)
   const queryTrendData = Array.from({ length: 7 }, (_, i) => {
+    const rng = new SeededRandom(100 + i); // Different seed per day
     const date = new Date();
     date.setDate(date.getDate() - (6 - i));
     return {
       date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      queries: Math.floor(Math.random() * 50) + 20,
-      responses: Math.floor(Math.random() * 45) + 18
+      queries: rng.randomInt(20, 70),
+      responses: rng.randomInt(18, 63)
     };
   });
 

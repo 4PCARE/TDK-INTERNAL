@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Server, Zap, AlertTriangle, CheckCircle, Clock, TrendingUp } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, Legend } from "recharts";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
+import { SeededRandom } from "@/utils/seededRandom";
 
 export default function SystemHealth() {
   // Mock system health data - in real implementation, this would come from monitoring APIs
@@ -16,14 +17,15 @@ export default function SystemHealth() {
 
   // Performance trend over last 24 hours
   const performanceTrendData = Array.from({ length: 24 }, (_, i) => {
+    const rng = new SeededRandom(500 + i);
     const hour = new Date();
     hour.setHours(hour.getHours() - (23 - i));
     
     return {
       time: hour.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      responseTime: 0.8 + Math.random() * 0.8, // 0.8-1.6 seconds
-      accuracy: 85 + Math.random() * 10, // 85-95%
-      throughput: 50 + Math.random() * 100 // 50-150 requests/hour
+      responseTime: rng.randomFloat(0.8, 1.6, 1), // 0.8-1.6 seconds
+      accuracy: rng.randomFloat(85, 95, 1), // 85-95%
+      throughput: rng.randomInt(50, 150) // 50-150 requests/hour
     };
   });
 

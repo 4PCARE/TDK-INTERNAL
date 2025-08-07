@@ -40,6 +40,8 @@ const PLATFORM_ICONS = {
   web: '🌐'
 };
 
+import { SeededRandom } from "@/utils/seededRandom";
+
 export default function OmnichannelSummarization() {
   const queryClient = useQueryClient();
   const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
@@ -67,28 +69,30 @@ export default function OmnichannelSummarization() {
 
   // Generate mock analytics data based on actual integrations
   const generatePlatformAnalytics = () => {
+    // Reset RNG for consistent results every time
+    const localRng = new SeededRandom(42);
     const platforms = ['lineoa', 'facebook', 'tiktok', 'web'];
     const activePlatforms = socialIntegrations.filter((integration: any) => integration.isActive);
     
     return platforms.map(platform => {
       const isActive = activePlatforms.some((integration: any) => integration.type === platform);
-      const baseMessages = isActive ? Math.floor(Math.random() * 500) + 100 : 0;
+      const baseMessages = isActive ? localRng.randomInt(100, 600) : 0;
       
       return {
         platform,
         name: platform.charAt(0).toUpperCase() + platform.slice(1),
         totalMessages: baseMessages,
         totalUsers: Math.floor(baseMessages * 0.6),
-        avgResponseTime: Number((Math.random() * 2 + 0.5).toFixed(1)),
-        csatScore: isActive ? Math.floor(Math.random() * 30 + 70) : 0,
-        successRate: isActive ? Math.floor(Math.random() * 20 + 80) : 0,
+        avgResponseTime: localRng.randomFloat(0.5, 2.5, 1),
+        csatScore: isActive ? localRng.randomInt(70, 100) : 0,
+        successRate: isActive ? localRng.randomInt(80, 100) : 0,
         isActive,
         topTopics: [
-          { topic: 'Product Info', count: Math.floor(Math.random() * 50 + 20) },
-          { topic: 'Support', count: Math.floor(Math.random() * 40 + 15) },
-          { topic: 'Pricing', count: Math.floor(Math.random() * 30 + 10) },
-          { topic: 'FAQ', count: Math.floor(Math.random() * 25 + 8) },
-          { topic: 'Technical', count: Math.floor(Math.random() * 20 + 5) }
+          { topic: 'Product Info', count: localRng.randomInt(20, 70) },
+          { topic: 'Support', count: localRng.randomInt(15, 55) },
+          { topic: 'Pricing', count: localRng.randomInt(10, 40) },
+          { topic: 'FAQ', count: localRng.randomInt(8, 33) },
+          { topic: 'Technical', count: localRng.randomInt(5, 25) }
         ]
       };
     });
@@ -99,6 +103,7 @@ export default function OmnichannelSummarization() {
 
   // Generate trend data for the last 7 days
   const trendData = Array.from({ length: 7 }, (_, i) => {
+    const trendRng = new SeededRandom(100 + i); // Different seed per day for variation
     const date = new Date();
     date.setDate(date.getDate() - (6 - i));
     
@@ -108,7 +113,7 @@ export default function OmnichannelSummarization() {
 
     platformAnalytics.forEach(platform => {
       if (platform.isActive) {
-        dayData[platform.platform] = Math.floor(Math.random() * 100 + 20);
+        dayData[platform.platform] = trendRng.randomInt(20, 120);
       }
     });
 
