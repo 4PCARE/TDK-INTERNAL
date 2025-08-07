@@ -92,7 +92,7 @@ app.use((req, res, next) => {
 
   // Use the dynamic route loader
   const routeLoader = new RouteLoader(app);
-  await routeLoader.loadRoutes();
+  await routeLoader.registerAllRoutes();
 
   // Global error handler for API routes - ensure JSON responses
   app.use('/api/*', (err: any, req: any, res: any, next: any) => {
