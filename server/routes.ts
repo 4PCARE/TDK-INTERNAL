@@ -3483,7 +3483,8 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           const [employee] = await db
             .select({
               employeeId: hrEmployees.employeeId,
-              name: hrEmployees.name,
+              firstName: hrEmployees.firstName,
+              lastName: hrEmployees.lastName,
               department: hrEmployees.department,
               position: hrEmployees.position,
               isActive: hrEmployees.isActive,
@@ -3493,7 +3494,8 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
             .limit(1);
 
           if (employee && employee.isActive) {
-            response = `Yes, ${employee.employeeId} ${employee.name} is working in ${employee.department}`;
+            const fullName = `${employee.firstName} ${employee.lastName}`.trim();
+            response = `Yes, ${employee.employeeId} ${fullName} is working in ${employee.department}`;
             if (employee.position) {
               response += ` as ${employee.position}`;
             }
@@ -3503,7 +3505,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
               found: true,
               employee: {
                 employeeId: employee.employeeId,
-                name: employee.name,
+                name: fullName,
                 department: employee.department,
                 position: employee.position,
               },
