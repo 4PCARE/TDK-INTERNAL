@@ -2222,7 +2222,7 @@ export class DatabaseStorage implements IStorage {
           lastMessage: chatMessages.content,
           lastMessageAt: chatMessages.createdAt,
           messageType: chatMessages.messageType,
-          userProfileName: sql<string>`COALESCE(${chatMessages.metadata}->>'userName', ${chatMessages.metadata}->>'displayName', 'Unknown User')`
+          metadata: chatMessages.metadata
         })
         .from(chatMessages)
         .leftJoin(agentChatbots, eq(chatMessages.agentId, agentChatbots.id))
@@ -2268,6 +2268,17 @@ export class DatabaseStorage implements IStorage {
               )
             );
 
+          // Extract user name from metadata
+          let userName = 'Unknown User';
+          if (message.metadata) {
+            try {
+              const metadata = typeof message.metadata === 'string' ? JSON.parse(message.metadata) : message.metadata;
+              userName = metadata?.userName || metadata?.displayName || 'Unknown User';
+            } catch (e) {
+              console.warn('Failed to parse message metadata:', e);
+            }
+          }
+
           conversationMap.set(conversationKey, {
             userId: message.userId,
             channelType: message.channelType,
@@ -2279,7 +2290,7 @@ export class DatabaseStorage implements IStorage {
             messageCount: messageCount[0]?.count || 0,
             isOnline: this.isUserOnline(message.userId), // You can implement this logic
             userProfile: {
-              name: message.userProfileName || 'Unknown User'
+              name: userName
             }
           });
         }
