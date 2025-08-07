@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -105,7 +105,7 @@ export default function AgentConsole() {
       if (!response.ok) throw new Error("Failed to fetch users");
       const data = await response.json();
       console.log("📋 Agent Console: Filtered users response:", Array.isArray(data) ? data.length : 0, "users");
-      return Array.isArray(data) ? data : [];
+      return Array.isArray(data) ? data.filter(user => user && user.userId) : [];
     },
     refetchInterval: 10000, // Refetch every 10 seconds
   }) as { data: AgentUser[]; refetch: () => void };
@@ -114,13 +114,13 @@ export default function AgentConsole() {
   const { data: messages = [], refetch: refetchMessages } = useQuery({
     queryKey: ["/api/agent-console/conversation", selectedUser?.userId, selectedUser?.channelId, selectedUser?.agentId],
     queryFn: async () => {
-      if (!selectedUser) return [];
+      if (!selectedUser?.userId || !selectedUser?.channelId) return [];
 
       const params = new URLSearchParams({
         userId: selectedUser.userId,
-        channelType: selectedUser.channelType,
+        channelType: selectedUser.channelType || '',
         channelId: selectedUser.channelId,
-        agentId: selectedUser.agentId.toString(),
+        agentId: selectedUser.agentId?.toString() || '',
       });
 
       console.log("🔍 Fetching conversation with params:", Object.fromEntries(params));
@@ -128,7 +128,7 @@ export default function AgentConsole() {
       if (!response.ok) throw new Error("Failed to fetch conversation");
       const data = await response.json();
       console.log("📨 Conversation response:", data);
-      return Array.isArray(data) ? data : [];
+      return Array.isArray(data) ? data.filter(msg => msg && msg.id) : [];
     },
     enabled: !!selectedUser?.userId && !!selectedUser?.channelId,
   }) as { data: Message[]; refetch: () => void };
@@ -196,23 +196,25 @@ export default function AgentConsole() {
   }, [queryClient]);
 
   // Group users by unique conversation (userId + channelId + agentId) to show all conversations
-  const groupedUsers = (users || []).reduce((acc, user) => {
-    if (!user || !user.userId || !user.channelId || !user.agentId) return acc;
-    const conversationKey = `${user.userId}-${user.channelId}-${user.agentId}`;
-    const existingUser = acc.find(u => u && u.userId && u.channelId && u.agentId && `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
-    if (existingUser) {
-      // Keep the most recent conversation
-      if (user.lastMessageAt && existingUser.lastMessageAt && new Date(user.lastMessageAt) > new Date(existingUser.lastMessageAt)) {
-        const index = acc.findIndex(u => u && u.userId && u.channelId && u.agentId && `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
-        if (index !== -1) {
-          acc[index] = user;
+  const groupedUsers = useMemo(() => {
+    const validUsers = (users || []).filter(user => user?.userId && user?.channelId && user?.agentId);
+    
+    return validUsers.reduce((acc, user) => {
+      const conversationKey = `${user.userId}-${user.channelId}-${user.agentId}`;
+      const existingUserIndex = acc.findIndex(u => `${u.userId}-${u.channelId}-${u.agentId}` === conversationKey);
+      
+      if (existingUserIndex >= 0) {
+        // Keep the most recent conversation
+        if (user.lastMessageAt && acc[existingUserIndex].lastMessageAt && 
+            new Date(user.lastMessageAt) > new Date(acc[existingUserIndex].lastMessageAt)) {
+          acc[existingUserIndex] = user;
         }
+      } else {
+        acc.push(user);
       }
-    } else {
-      acc.push(user);
-    }
-    return acc;
-  }, [] as AgentUser[]).filter(user => user && user.userId && user.channelId && user.agentId);
+      return acc;
+    }, [] as AgentUser[]);
+  }, [users]);
 
   // Auto-select first user if none selected
   useEffect(() => {
@@ -288,8 +290,10 @@ export default function AgentConsole() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  const uniqueChannelTypes = allChannelTypes.filter(channelType => 
-    channelType && channelType.id && Array.isArray(users) && users.some(u => u?.channelType === channelType.id)
+  const uniqueChannelTypes = useMemo(() => 
+    allChannelTypes.filter(channelType => 
+      channelType?.id && users?.some(u => u?.channelType === channelType.id)
+    ), [users]
   );
 
   return (
@@ -365,11 +369,13 @@ export default function AgentConsole() {
                     <p className="text-sm text-gray-500">No active users</p>
                   </div>
                 ) : (
-                  groupedUsers.filter(user => user && user.userId && user.channelId && user.agentId).map((user) => {
+                  groupedUsers.map((user) => {
+                    if (!user?.userId) return null;
+                    
                     const isSelected = selectedUser?.userId === user.userId && 
                                      selectedUser?.channelId === user.channelId && 
                                      selectedUser?.agentId === user.agentId;
-                    const userConversations = Array.isArray(users) ? users.filter(u => u?.userId === user?.userId) || [] : [];
+                    const userConversations = users?.filter(u => u?.userId === user.userId) ?? [];
 
                     return (
                       <div key={`${user.userId}-${user.channelId}-${user.agentId}`}>
@@ -484,13 +490,15 @@ export default function AgentConsole() {
                 <div className="flex-1 flex flex-col min-h-0">
                   <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
                     <div className="space-y-4">
-                      {(!Array.isArray(messages) || messages.length === 0) ? (
+                      {(!messages?.length) ? (
                         <div className="text-center py-8">
                           <MessageCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                           <p className="text-sm text-gray-500">No messages yet</p>
                         </div>
                       ) : (
-                        messages.map((message) => (
+                        messages.map((message) => {
+                          if (!message?.id) return null;
+                          return (
                           <div
                             key={`message-${message.id}-${message.userId}-${message.createdAt}`}
                             className={`flex space-x-3 ${
@@ -528,7 +536,8 @@ export default function AgentConsole() {
                               </Avatar>
                             )}
                           </div>
-                        ))
+                          );
+                        }).filter(Boolean)
                       )}
                       {/* Invisible div for scroll target */}
                       <div ref={messagesEndRef} />
