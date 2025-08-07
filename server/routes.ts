@@ -3935,8 +3935,12 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
         const { chatHistory } = await import('@shared/schema');
         const { gte, eq, sql } = await import('drizzle-orm');
         
-        // Get chat statistics by platform/channel
-        const chatStats = await db
+        // Get user's agent IDs from integrations
+        const userAgentIds = integrations.map(int => int.agentId).filter(Boolean);
+        
+        // Get chat statistics by platform/channel for this user's agents only
+        const { inArray, and } = await import('drizzle-orm');
+        const chatStats = userAgentIds.length > 0 ? await db
           .select({
             channelType: chatHistory.channelType,
             channelId: chatHistory.channelId,
@@ -3948,11 +3952,14 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
             lastActivity: sql<Date>`max(${chatHistory.createdAt})`
           })
           .from(chatHistory)
-          .where(gte(chatHistory.createdAt, startDate))
-          .groupBy(chatHistory.channelType, chatHistory.channelId, chatHistory.agentId);
+          .where(and(
+            inArray(chatHistory.agentId, userAgentIds),
+            gte(chatHistory.createdAt, startDate)
+          ))
+          .groupBy(chatHistory.channelType, chatHistory.channelId, chatHistory.agentId) : [];
 
-        // Get recent messages for topic analysis
-        const recentMessages = await db
+        // Get recent messages for topic analysis (only for this user's agents)
+        const recentMessages = userAgentIds.length > 0 ? await db
           .select({
             content: chatHistory.content,
             messageType: chatHistory.messageType,
@@ -3960,8 +3967,11 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
             createdAt: chatHistory.createdAt
           })
           .from(chatHistory)
-          .where(gte(chatHistory.createdAt, startDate))
-          .orderBy(chatHistory.createdAt);
+          .where(and(
+            inArray(chatHistory.agentId, userAgentIds),
+            gte(chatHistory.createdAt, startDate)
+          ))
+          .orderBy(chatHistory.createdAt) : [];
 
         // Build analytics data with real statistics
         const analytics = {
