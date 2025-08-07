@@ -1,5 +1,6 @@
 import * as client from "openid-client";
 import { Strategy, type VerifyFunction } from "openid-client/passport";
+import crypto from "crypto";
 
 import passport from "passport";
 import session from "express-session";
@@ -49,12 +50,12 @@ export function getSession() {
       // Generate unique session IDs that include device fingerprinting
       const userAgent = req.headers['user-agent'] || '';
       const forwarded = req.headers['x-forwarded-for'] || req.connection.remoteAddress || '';
-      const deviceFingerprint = require('crypto')
+      const deviceFingerprint = crypto
         .createHash('md5')
         .update(userAgent + forwarded + Date.now().toString())
         .digest('hex')
         .substring(0, 8);
-      return require('crypto').randomBytes(16).toString('hex') + '_' + deviceFingerprint;
+      return crypto.randomBytes(16).toString('hex') + '_' + deviceFingerprint;
     },
     cookie: {
       httpOnly: true,
