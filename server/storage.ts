@@ -2497,23 +2497,41 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log(`📊 Getting summary for userId: "${userId}", channelType: "${channelType}", channelId: "${channelId}"`);
 
-      // Import functions directly to avoid undefined reference issues
-      const { and: andFn, eq: eqFn, desc: descFn } = await import('drizzle-orm');
-      const { chatHistory: chatHistoryTable } = await import('@shared/schema');
-
+      // Use pre-imported functions and table references
       const messages = await db
-        .select()
-        .from(chatHistoryTable)
+        .select({
+          id: chatHistory.id,
+          userId: chatHistory.userId,
+          channelType: chatHistory.channelType,
+          channelId: chatHistory.channelId,
+          messageType: chatHistory.messageType,
+          content: chatHistory.content,
+          createdAt: chatHistory.createdAt
+        })
+        .from(chatHistory)
         .where(
-          andFn(
-            eqFn(chatHistoryTable.userId, userId),
-            eqFn(chatHistoryTable.channelType, channelType),
-            eqFn(chatHistoryTable.channelId, channelId)
+          and(
+            eq(chatHistory.userId, userId),
+            eq(chatHistory.channelType, channelType),
+            eq(chatHistory.channelId, channelId)
           )
         )
-        .orderBy(descFn(chatHistoryTable.createdAt));
+        .orderBy(desc(chatHistory.createdAt));
 
-      console.log(`📊 Found ${messages.length} messages for specific conversation`);
+      console.log(`📊 Query executed successfully. Found ${messages?.length || 0} messages`);
+
+      // Add null guard for query result
+      if (!messages || !Array.isArray(messages)) {
+        console.warn('📊 Query returned null/undefined or non-array result');
+        return {
+          totalMessages: 0,
+          firstContactAt: null,
+          lastActiveAt: null,
+          sentiment: null,
+          mainTopics: [],
+          csatScore: null
+        };
+      }
 
       if (messages.length === 0) {
         console.log(`📊 No messages found for conversation`);
@@ -2527,25 +2545,30 @@ export class DatabaseStorage implements IStorage {
         };
       }
 
+      // Process messages with null guards
       const userMessages = messages
-        .filter(msg => msg.messageType === 'user')
-        .map(msg => (msg.content || '').toLowerCase());
+        .filter(msg => msg && msg.messageType === 'user')
+        .map(msg => (msg.content || '').toLowerCase())
+        .filter(content => content.length > 0);
 
+      console.log(`📊 Processed ${userMessages.length} user messages`);
+
+      // Topic analysis
       const topics = [];
-      if (userMessages.some(msg => msg.includes('order') || msg.includes('purchase'))) topics.push('order inquiry');
-      if (userMessages.some(msg => msg.includes('ship') || msg.includes('delivery'))) topics.push('shipping');
-      if (userMessages.some(msg => msg.includes('help') || msg.includes('support'))) topics.push('customer support');
-      if (userMessages.some(msg => msg.includes('refund') || msg.includes('return'))) topics.push('refund request');
-      if (userMessages.some(msg => msg.includes('price') || msg.includes('cost'))) topics.push('pricing');
+      const allUserText = userMessages.join(' ');
+      if (allUserText.includes('order') || allUserText.includes('purchase')) topics.push('order inquiry');
+      if (allUserText.includes('ship') || allUserText.includes('delivery')) topics.push('shipping');
+      if (allUserText.includes('help') || allUserText.includes('support')) topics.push('customer support');
+      if (allUserText.includes('refund') || allUserText.includes('return')) topics.push('refund request');
+      if (allUserText.includes('price') || allUserText.includes('cost')) topics.push('pricing');
 
       // Simple sentiment analysis
       let sentiment = 'neutral';
       const positiveWords = ['thank', 'great', 'good', 'excellent', 'happy', 'satisfied'];
       const negativeWords = ['bad', 'terrible', 'awful', 'angry', 'frustrated', 'disappointed'];
 
-      const allText = userMessages.join(' ');
-      const positiveCount = positiveWords.filter(word => allText.includes(word)).length;
-      const negativeCount = negativeWords.filter(word => allText.includes(word)).length;
+      const positiveCount = positiveWords.filter(word => allUserText.includes(word)).length;
+      const negativeCount = negativeWords.filter(word => allUserText.includes(word)).length;
 
       if (positiveCount > negativeCount) sentiment = 'positive';
       else if (negativeCount > positiveCount) sentiment = 'negative';
@@ -2556,12 +2579,20 @@ export class DatabaseStorage implements IStorage {
         csatScore = sentiment === 'positive' ? 85 : sentiment === 'negative' ? 45 : 70;
       }
 
+      // Get first and last message dates with null guards
+      const sortedMessages = [...messages].sort((a, b) => 
+        new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+      );
+      
+      const firstContactAt = sortedMessages[0]?.createdAt || null;
+      const lastActiveAt = sortedMessages[sortedMessages.length - 1]?.createdAt || null;
+
       console.log(`📊 Summary calculated: ${messages.length} messages, sentiment: ${sentiment}, topics: ${topics.join(', ')}`);
 
       return {
         totalMessages: messages.length,
-        firstContactAt: messages[messages.length - 1]?.createdAt || null,
-        lastActiveAt: messages[0]?.createdAt || null,
+        firstContactAt,
+        lastActiveAt,
         sentiment,
         mainTopics: topics,
         csatScore
