@@ -65,7 +65,7 @@ export default function TopBar({ isSidebarCollapsed = false, onMobileMenuToggle 
             <img 
               src="/tdk-logo.png" 
               alt="TDK Logo" 
-              className="w-8 h-8 rounded-lg object-contain bg-white/10 p-1"
+              className="w-12 h-12 rounded-lg object-contain bg-white/10 p-2"
             />
             <div>
               <h2 className="text-xl font-semibold text-slate-800">TDK</h2>
