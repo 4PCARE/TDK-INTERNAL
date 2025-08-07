@@ -798,7 +798,7 @@ async function getAiResponseDirectly(
     let agentData;
     let retryCount = 0;
     const maxRetries = 3;
-    
+
     while (retryCount < maxRetries) {
       try {
         agentData = await storage.getAgentChatbot(agentId, userId);
@@ -806,16 +806,16 @@ async function getAiResponseDirectly(
       } catch (dbError: any) {
         retryCount++;
         console.log(`🔄 Database connection attempt ${retryCount}/${maxRetries} failed:`, dbError.code);
-        
+
         if (retryCount >= maxRetries) {
           throw dbError; // Re-throw after max retries
         }
-        
+
         // Wait before retry (exponential backoff)
         await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
       }
     }
-    
+
     if (!agentData) {
       console.log(`❌ Agent ${agentId} not found for user ${userId}`);
       return "ขออภัย ไม่สามารถเชื่อมต่อกับระบบได้ในขณะนี้";
@@ -1043,20 +1043,9 @@ async function getAiResponseDirectly(
           aiResponse = `ขออภัย ไม่สามารถประมวลผลคำถามนี้ได้ ${inputValidation.reason ? `(${inputValidation.reason})` : ""} ${suggestions}`;
 
           // Send blocked response and save to chat history
-          await sendLineReply(
-            replyToken,
-            aiResponse,
-            lineIntegration.channelAccessToken!,
-          );
-          await storage.createChatHistory({
-            userId: lineIntegration.userId,
-            channelType: "lineoa",
-            channelId: event.source.userId,
-            agentId: lineIntegration.agentId,
-            messageType: "assistant",
-            content: aiResponse,
-            metadata: { blockedByGuardrails: true },
-          });
+          // Note: Chat history saving is handled in the calling function (handleLineWebhook)
+          // since this function doesn't have access to the lineIntegration object
+
           return aiResponse; // Exit function early
         }
 
@@ -1180,7 +1169,7 @@ async function getAiResponseDirectly(
         now.setHours(now.getHours() + 7)
         const thaiDate = now.toLocaleDateString('th-TH', {
           year: 'numeric',
-          month: 'long', 
+          month: 'long',
           day: 'numeric',
           weekday: 'long'
         });
@@ -1337,20 +1326,9 @@ ${documentContext}
             aiResponse = `ขออภัย ไม่สามารถประมวลผลคำถามนี้ได้ ${inputValidation.reason ? `(${inputValidation.reason})` : ""} ${suggestions}`;
 
             // Send blocked response and save to chat history
-            await sendLineReply(
-              replyToken,
-              aiResponse,
-              lineIntegration.channelAccessToken!,
-            );
-            await storage.createChatHistory({
-              userId: lineIntegration.userId,
-              channelType: "lineoa",
-              channelId: event.source.userId,
-              agentId: lineIntegration.agentId,
-              messageType: "assistant",
-              content: aiResponse,
-              metadata: { blockedByGuardrails: true },
-            });
+            // Note: Chat history saving is handled in the calling function (handleLineWebhook)
+            // since this function doesn't have access to the lineIntegration object
+
             return aiResponse; // Exit function early
           }
 
@@ -1489,18 +1467,8 @@ ${documentContext}
             aiResponse = `ขออภัย ไม่สามารถประมวลผลคำถามนี้ได้ ${inputValidation.reason ? `(${inputValidation.reason})` : ""} ${suggestions}`;
 
             // Save blocked response and continue to reply
-            await storage.createChatHistory({
-              userId: lineIntegration.userId,
-              channelType: "lineoa",
-              channelId: event.source.userId,
-              agentId: lineIntegration.agentId,
-              messageType: "assistant",
-              content: aiResponse,
-              metadata: {
-                blockedByGuardrails: true,
-                fallbackMode: true,
-              },
-            });
+            // Note: Chat history saving is handled in the calling function (handleLineWebhook)
+            // since this function doesn't have access to the lineIntegration object
           } else {
             // Use modified content if privacy protection applied
             if (inputValidation.modifiedContent) {
@@ -1583,137 +1551,22 @@ ${documentContext}
 
     console.log("🤖 AI response:", aiResponse);
 
-    // Save only the assistant response (user message already saved above)
-    try {
-      await storage.createChatHistory({
-        userId: lineIntegration.userId,
-        channelType: "lineoa",
-        channelId: event.source.userId,
-        agentId: lineIntegration.agentId,
-        messageType: "assistant",
-        content: aiResponse,
-        metadata: queryAnalysis.needsSearch ? { documentSearch: true, searchReasoning: queryAnalysis.reasoning, enhancedQuery: queryAnalysis.enhancedQuery } : { documentSearch: false },
-      });
-      console.log("💾 Saved AI response to chat history");
+    // Note: Chat history saving is handled in the calling function (handleLineWebhook)
+    // since this function doesn't have access to the lineIntegration object
 
-      // Broadcast new message to Agent Console via WebSocket
-      if (typeof (global as any).broadcastToAgentConsole === "function") {
-        (global as any).broadcastToAgentConsole({
-          type: "new_message",
-          data: {
-            userId: lineIntegration.userId,
-            channelType: "lineoa",
-            channelId: event.source.userId,
-            agentId: lineIntegration.agentId,
-            userMessage: userMessage,
-            aiResponse,
-            timestamp: new Date().toISOString(),
-          },
-        });
-        console.log("📡 Broadcasted new message to Agent Console");
-      }
-    } catch (error) {
-      console.error("⚠️ Error saving AI response:", error);
-    }
-
-    // Send reply to Line using stored access token
-    if (lineIntegration.channelAccessToken) {
-      await sendLineReply(
-        replyToken,
-        aiResponse,
-        lineIntegration.channelAccessToken,
-      );
-
-      console.log(`🎯 LINE OA: Checking carousel intent for response...`);
-
-      // Check if user query matches any carousel templates
-      const carouselIntent = await checkCarouselIntents(
-        userMessage,
-        lineIntegration.id,
-        lineIntegration.userId,
-      );
-
-      if (carouselIntent.matched && carouselIntent.template) {
-        console.log(
-          `🎠 LINE OA: Intent matched! Sending carousel template: ${carouselIntent.template.template.name}`,
-        );
-
-        // Send carousel as a push message (since we already used the replyToken)
-        const carouselSent = await sendLinePushMessage(
-          event.source.userId,
-          carouselIntent.template,
-          lineIntegration.channelAccessToken,
-          true, // This is a carousel template
-        );
-
-        if (carouselSent) {
-          console.log(`✅ LINE OA: Carousel template sent successfully`);
-
-          // Save carousel message to chat history
-          await storage.createChatHistory({
-            userId: lineIntegration.userId,
-            channelType: "lineoa",
-            channelId: event.source.userId,
-            agentId: lineIntegration.agentId,
-            messageType: "assistant",
-            content: `[Carousel Template: ${carouselIntent.template.template.name}]`,
-            metadata: {
-              templateId: carouselIntent.template.template.id,
-              templateName: carouselIntent.template.template.name,
-              intentSimilarity: carouselIntent.similarity,
-              messageType: "carousel",
-            },
-          });
-
-          // Broadcast carousel message to Agent Console via WebSocket
-          if (
-            typeof (global as any).broadcastToAgentConsole === "function"
-          ) {
-            (global as any).broadcastToAgentConsole({
-              type: "new_message",
-              data: {
-                userId: lineIntegration.userId,
-                channelType: "lineoa",
-                channelId: event.source.userId,
-                agentId: lineIntegration.agentId,
-                userMessage: `[Carousel: ${carouselIntent.template.template.name}]`,
-                aiResponse: `Carousel template sent with ${carouselIntent.template.columns.length} columns`,
-                timestamp: new Date().toISOString(),
-              },
-            });
-            console.log(
-              "📡 Broadcasted carousel message to Agent Console",
-            );
-          }
-        } else {
-          console.log(`❌ LINE OA: Failed to send carousel template`);
-        }
-      } else {
-        console.log(
-          `🎯 LINE OA: No carousel intent match found (best similarity: ${carouselIntent.similarity.toFixed(4)})`,
-        );
-      }
-    } else {
-      console.log(
-        "❌ No channel access token available for Line integration",
-      );
-      await sendLineReply(
-        replyToken,
-        "ขออภัย ระบบยังไม่ได้ตั้งค่า access token กรุณาติดต่อผู้ดูแลระบบ",
-        lineIntegration.channelSecret!,
-      );
-    }
+    // Note: Line reply and carousel handling is done in the calling function (handleLineWebhook)
+    // since this function doesn't have access to the lineIntegration object
 
     return aiResponse; // Return the AI response for potential further processing
   } catch (error: any) {
     console.error("💥 Error getting AI response:", error);
-    
+
     // Check if it's a database connection error
     if (error.code === '57P01' || error.code === 'ECONNRESET' || error.code === 'ENOTFOUND') {
       console.log("🔄 Database connection issue detected, sending retry message");
       return "ขออภัย ระบบกำลังปรับปรุง กรุณาลองใหม่อีกครั้งใน 1-2 นาที 🔄";
     }
-    
+
     return "ขออภัย เกิดข้อผิดพลาดในการประมวลผลคำถาม กรุณาลองใหม่อีกครั้ง";
   }
 }
@@ -1792,8 +1645,8 @@ export async function handleLineWebhook(req: Request, res: Response) {
           // Update the Bot User ID for future webhook calls using raw SQL
           try {
             await db.execute(sql`
-              UPDATE social_integrations 
-              SET bot_user_id = ${destination}, updated_at = NOW() 
+              UPDATE social_integrations
+              SET bot_user_id = ${destination}, updated_at = NOW()
               WHERE id = ${lineIntegration.id}
             `);
             console.log("✅ Updated Bot User ID for future webhook calls");
@@ -2103,7 +1956,126 @@ ${imageAnalysisResult}
           event.source.userId,
         );
 
-        // The getAiResponseDirectly function already handles sending the reply and saving to history
+        // Save only the assistant response (user message already saved above)
+        try {
+          await storage.createChatHistory({
+            userId: lineIntegration.userId,
+            channelType: "lineoa",
+            channelId: event.source.userId,
+            agentId: lineIntegration.agentId,
+            messageType: "assistant",
+            content: aiResponse,
+            metadata: queryAnalysis.needsSearch ? { documentSearch: true, searchReasoning: queryAnalysis.reasoning, enhancedQuery: queryAnalysis.enhancedQuery } : { documentSearch: false },
+          });
+          console.log("💾 Saved AI response to chat history");
+
+          // Broadcast new message to Agent Console via WebSocket
+          if (typeof (global as any).broadcastToAgentConsole === "function") {
+            (global as any).broadcastToAgentConsole({
+              type: "new_message",
+              data: {
+                userId: lineIntegration.userId,
+                channelType: "lineoa",
+                channelId: event.source.userId,
+                agentId: lineIntegration.agentId,
+                userMessage: userMessage,
+                aiResponse,
+                timestamp: new Date().toISOString(),
+              },
+            });
+            console.log("📡 Broadcasted new message to Agent Console");
+          }
+        } catch (error) {
+          console.error("⚠️ Error saving AI response:", error);
+        }
+
+        // Send reply to Line using stored access token
+        if (lineIntegration.channelAccessToken) {
+          await sendLineReply(
+            replyToken,
+            aiResponse,
+            lineIntegration.channelAccessToken,
+          );
+
+          console.log(`🎯 LINE OA: Checking carousel intent for response...`);
+
+          // Check if user query matches any carousel templates
+          const carouselIntent = await checkCarouselIntents(
+            userMessage,
+            lineIntegration.id,
+            lineIntegration.userId,
+          );
+
+          if (carouselIntent.matched && carouselIntent.template) {
+            console.log(
+              `🎠 LINE OA: Intent matched! Sending carousel template: ${carouselIntent.template.template.name}`,
+            );
+
+            // Send carousel as a push message (since we already used the replyToken)
+            const carouselSent = await sendLinePushMessage(
+              event.source.userId,
+              carouselIntent.template,
+              lineIntegration.channelAccessToken,
+              true, // This is a carousel template
+            );
+
+            if (carouselSent) {
+              console.log(`✅ LINE OA: Carousel template sent successfully`);
+
+              // Save carousel message to chat history
+              await storage.createChatHistory({
+                userId: lineIntegration.userId,
+                channelType: "lineoa",
+                channelId: event.source.userId,
+                agentId: lineIntegration.agentId,
+                messageType: "assistant",
+                content: `[Carousel Template: ${carouselIntent.template.template.name}]`,
+                metadata: {
+                  templateId: carouselIntent.template.template.id,
+                  templateName: carouselIntent.template.template.name,
+                  intentSimilarity: carouselIntent.similarity,
+                  messageType: "carousel",
+                },
+              });
+
+              // Broadcast carousel message to Agent Console via WebSocket
+              if (
+                typeof (global as any).broadcastToAgentConsole === "function"
+              ) {
+                (global as any).broadcastToAgentConsole({
+                  type: "new_message",
+                  data: {
+                    userId: lineIntegration.userId,
+                    channelType: "lineoa",
+                    channelId: event.source.userId,
+                    agentId: lineIntegration.agentId,
+                    userMessage: `[Carousel: ${carouselIntent.template.template.name}]`,
+                    aiResponse: `Carousel template sent with ${carouselIntent.template.columns.length} columns`,
+                    timestamp: new Date().toISOString(),
+                  },
+                });
+                console.log(
+                  "📡 Broadcasted carousel message to Agent Console",
+                );
+              }
+            } else {
+              console.log(`❌ LINE OA: Failed to send carousel template`);
+            }
+          } else {
+            console.log(
+              `🎯 LINE OA: No carousel intent match found (best similarity: ${carouselIntent.similarity.toFixed(4)})`,
+            );
+          }
+        } else {
+          console.log(
+            "❌ No channel access token available for Line integration",
+          );
+          await sendLineReply(
+            replyToken,
+            "ขออภัย ระบบยังไม่ได้ตั้งค่า access token กรุณาติดต่อผู้ดูแลระบบ",
+            lineIntegration.channelSecret!,
+          );
+        }
       }
     }
 
