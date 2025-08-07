@@ -2410,7 +2410,8 @@ export default function CreateAgentChatbot() {
                             </div>
                           </div>
                         )}
-                      </CardContent>
+                      </div>
+                    </CardContent>
                     </Card>
 
                     {/* Search Configuration Information */}
