@@ -46,18 +46,25 @@ export default function AIInteraction() {
     };
   });
 
-  // Topic distribution (based on documents categories)
-  const topicData = documents.slice(0, 5).map((doc: any) => ({
-    topic: doc.aiCategory || 'General',
-    queries: Math.floor(Math.random() * 30) + 5
-  }));
+  // Topic distribution (based on documents categories with unique topics)
+  const uniqueTopics = [...new Set(documents.map((doc: any) => doc.aiCategory || 'General'))].slice(0, 5);
+  const topicData = uniqueTopics.map((topic: string, index: number) => {
+    const rng = new SeededRandom(800 + index);
+    return {
+      topic,
+      queries: rng.randomInt(5, 35)
+    };
+  });
 
   // Document hits - most referenced documents
-  const documentHits = documents.slice(0, 10).map((doc: any, index: number) => ({
-    name: doc.name,
-    hits: Math.floor(Math.random() * 50) + 5,
-    category: doc.aiCategory || 'Uncategorized'
-  })).sort((a, b) => b.hits - a.hits);
+  const documentHits = documents.slice(0, 10).map((doc: any, index: number) => {
+    const rng = new SeededRandom(900 + index);
+    return {
+      name: doc.name,
+      hits: rng.randomInt(5, 55),
+      category: doc.aiCategory || 'Uncategorized'
+    };
+  }).sort((a, b) => b.hits - a.hits);
 
   // Response time distribution
   const responseTimeData = [
@@ -220,12 +227,15 @@ export default function AIInteraction() {
                 "Security guidelines",
                 "Project deadlines",
                 "Training requirements"
-              ].map((query, index) => (
-                <div key={index} className="p-3 bg-blue-50 rounded-lg text-center">
-                  <p className="text-sm font-medium text-blue-900">{query}</p>
-                  <p className="text-xs text-blue-600 mt-1">{Math.floor(Math.random() * 20) + 5} times</p>
-                </div>
-              ))}
+              ].map((query, index) => {
+                const rng = new SeededRandom(1000 + index);
+                return (
+                  <div key={index} className="p-3 bg-blue-50 rounded-lg text-center">
+                    <p className="text-sm font-medium text-blue-900">{query}</p>
+                    <p className="text-xs text-blue-600 mt-1">{rng.randomInt(5, 25)} times</p>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>

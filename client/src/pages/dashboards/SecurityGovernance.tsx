@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Shield, Lock, UserCheck, AlertTriangle, Eye, FileText } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Cell, LineChart, Line, Legend, Pie } from "recharts";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
+import { SeededRandom } from "@/utils/seededRandom";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
@@ -22,14 +23,15 @@ export default function SecurityGovernance() {
 
   // Security events trend (last 7 days)
   const securityTrendData = Array.from({ length: 7 }, (_, i) => {
+    const rng = new SeededRandom(1100 + i);
     const date = new Date();
     date.setDate(date.getDate() - (6 - i));
     
     return {
       date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      accessAttempts: Math.floor(Math.random() * 20) + 50,
-      violations: Math.floor(Math.random() * 3),
-      permissionChanges: Math.floor(Math.random() * 8) + 2
+      accessAttempts: rng.randomInt(50, 70),
+      violations: rng.randomInt(0, 3),
+      permissionChanges: rng.randomInt(2, 10)
     };
   });
 

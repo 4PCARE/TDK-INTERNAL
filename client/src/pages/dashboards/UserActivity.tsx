@@ -114,7 +114,7 @@ export default function UserActivity() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Document Views</p>
-                  <p className="text-2xl font-bold text-gray-900">{Math.floor(Math.random() * 500) + 1200}</p>
+                  <p className="text-2xl font-bold text-gray-900">{new SeededRandom(1200).randomInt(1200, 1700)}</p>
                   <p className="text-xs text-green-600 mt-1">+22% increase</p>
                 </div>
                 <Eye className="w-8 h-8 text-yellow-500" />
