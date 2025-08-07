@@ -462,12 +462,14 @@ export async function searchSmartHybridDebug(
   options: Omit<SearchOptions, "searchType"> & { 
     massSelectionPercentage?: number;
     enhancedQuery?: string; // Accept preprocessed query from queryPreprocessor
+    isLineOAContext?: boolean; // Flag to indicate context
   }
 ): Promise<SearchResult[]> {
   const keywordWeight = options.keywordWeight ?? 0.5;
   const vectorWeight = options.vectorWeight ?? 0.5;
   const threshold = options.threshold ?? 0.3;
   const massSelectionPercentage = options.massSelectionPercentage || MASS_SELECTION_PERCENTAGE;
+  const isLineOAContext = options.isLineOAContext ?? false; // Get context flag
 
   // Use enhanced query from preprocessor if provided, otherwise use original
   const searchQuery = options.enhancedQuery || query;
@@ -668,51 +670,50 @@ export async function searchSmartHybridDebug(
   const maxResults = massSelectionPercentage >= 0.6 ? Math.min(16, scoredChunks.length) : Math.min(8, scoredChunks.length); // Document bots cap at 16 chunks
 
   let selectedChunks = [];
+  let totalScore = scoredChunks.reduce((sum, c) => sum + c.finalScore, 0); // Initialize totalScore
 
   if (scoredChunks.length > 0) {
-    // Use TRUE mass-based selection - accumulate until we get the target percentage of total score
-    const totalScore = scoredChunks.reduce((sum, c) => sum + c.finalScore, 0);
-    const avgScore = totalScore / scoredChunks.length;
+    // Use TRUE mass-based selection - accumulate until we get the target percentage of total score mass
+    const scoreTarget = totalScore * massSelectionPercentage;
+    let accScore = 0;
 
-    if (avgScore > 0.05) {
-      // Use configurable mass selection - keep adding chunks until we reach the target percentage of total score mass
-      const scoreTarget = totalScore * massSelectionPercentage;
-      let accScore = 0;
+    console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, ${(massSelectionPercentage * 100).toFixed(1)}% target: ${scoreTarget.toFixed(4)}, min ${minResults} chunks, max ${maxResults} chunks`);
 
-      console.log(`📊 TRUE MASS SELECTION: Total score: ${totalScore.toFixed(4)}, ${(massSelectionPercentage * 100).toFixed(1)}% target: ${scoreTarget.toFixed(4)}, min ${minResults} chunks, max ${maxResults} chunks`);
+    for (const chunk of scoredChunks) {
+      const potentialScore = accScore + chunk.finalScore;
 
-      for (const chunk of scoredChunks) {
-        const potentialScore = accScore + chunk.finalScore;
-
-        // For document bots (60% mass), don't stop until we have at least 8 chunks, regardless of mass target
-        if (potentialScore > scoreTarget && selectedChunks.length >= minResults) {
-          console.log(`📊 STOPPING: Adding chunk ${selectedChunks.length + 1} would exceed ${(massSelectionPercentage * 100).toFixed(1)}% mass target (${(potentialScore/totalScore*100).toFixed(1)}% > ${(massSelectionPercentage * 100).toFixed(1)}%) - stopping at ${selectedChunks.length} chunks`);
-          break;
-        }
-
-        selectedChunks.push(chunk);
-        accScore += chunk.finalScore;
-
-        if (selectedChunks.length >= maxResults) {
-          console.log(`📊 STOPPING: Reached maximum ${maxResults} chunks`);
-          break;
-        }
+      // For document bots (60% mass), don't stop until we have at least 8 chunks, regardless of mass target
+      if (potentialScore > scoreTarget && selectedChunks.length >= minResults) {
+        console.log(`📊 STOPPING: Adding chunk ${selectedChunks.length + 1} would exceed ${(massSelectionPercentage * 100).toFixed(1)}% mass target (${(potentialScore/totalScore*100).toFixed(1)}% > ${(massSelectionPercentage * 100).toFixed(1)}%) - stopping at ${selectedChunks.length} chunks`);
+        break;
       }
 
-    // Calculate selected chunks total score
-    const selectedTotalScore = selectedChunks.reduce((sum, c) => sum + c.finalScore, 0);
-    console.log(`📊 SCORE BREAKDOWN: ${selectedTotalScore.toFixed(4)} out of ${totalScore.toFixed(4)} (${(selectedTotalScore/totalScore*100).toFixed(1)}%)`);
-    console.log(`🎯 TRUE MASS SELECTION (${(massSelectionPercentage * 100).toFixed(1)}%): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} chunks capturing ${(selectedTotalScore/totalScore*100).toFixed(1)}% of total score mass`);
-  } else {
-      // If scores are very low, take top 5 as fallback
-      selectedChunks = scoredChunks.slice(0, Math.min(5, scoredChunks.length));
+      selectedChunks.push(chunk);
+      accScore += chunk.finalScore;
+
+      if (selectedChunks.length >= maxResults) {
+        console.log(`📊 STOPPING: Reached maximum ${maxResults} chunks`);
+        break;
+      }
     }
 
     // Calculate selected chunks total score
     const selectedTotalScore = selectedChunks.reduce((sum, c) => sum + c.finalScore, 0);
     console.log(`📊 SCORE BREAKDOWN: ${selectedTotalScore.toFixed(4)} out of ${totalScore.toFixed(4)} (${(selectedTotalScore/totalScore*100).toFixed(1)}%)`);
-    console.log(`🎯 TRUE MASS SELECTION (${(massSelectionPercentage * 100).toFixed(1)}%): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} chunks capturing ${(selectedTotalScore/totalScore*100).toFixed(1)}% of total score mass`);
+    // Update log to include context
+    console.log(`🎯 TRUE MASS SELECTION (${(massSelectionPercentage * 100).toFixed(1)}%): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} chunks capturing ${(selectedTotalScore/totalScore*100).toFixed(1)}% of total score mass (${isLineOAContext ? 'LINE OA' : 'Document Bot'} context)`);
+  } else {
+      // If scores are very low, take top 5 as fallback
+      selectedChunks = scoredChunks.slice(0, Math.min(5, scoredChunks.length));
+      totalScore = selectedChunks.reduce((sum, c) => sum + c.finalScore, 0); // Update totalScore for fallback case
   }
+
+  // Calculate selected chunks total score (recalculate in case of fallback)
+  const selectedTotalScore = selectedChunks.reduce((sum, c) => sum + c.finalScore, 0);
+  console.log(`📊 SCORE BREAKDOWN: ${selectedTotalScore.toFixed(4)} out of ${totalScore.toFixed(4)} (${(selectedTotalScore/totalScore*100).toFixed(1)}%)`);
+  // Update log to include context
+  console.log(`🎯 TRUE MASS SELECTION (${(massSelectionPercentage * 100).toFixed(1)}%): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} chunks capturing ${(selectedTotalScore/totalScore*100).toFixed(1)}% of total score mass (${isLineOAContext ? 'LINE OA' : 'Document Bot'} context)`);
+
 
   const results: SearchResult[] = selectedChunks.map(chunk => {
     const doc = docMap.get(chunk.docId);

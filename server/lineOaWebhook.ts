@@ -1123,8 +1123,8 @@ async function getAiResponseDirectly(
 
       const searchOptions: any = {
         threshold: 0.3,
-        keywordWeight: queryAnalysis.keywordWeight,
-        vectorWeight: queryAnalysis.vectorWeight,
+        keywordWeight: searchConfig.keywordWeight,
+        vectorWeight: searchConfig.vectorWeight,
         specificDocumentIds: agentDocIds, // Restrict search to agent's bound documents
         massSelectionPercentage: documentMass,
       };
@@ -1136,9 +1136,16 @@ async function getAiResponseDirectly(
       // For percentage type, we'll apply it after getting results
 
       const searchResults = await searchSmartHybridDebug(
-        queryAnalysis.enhancedQuery,
+        queryAnalysis.enhancedQuery || userMessage,
         userId,
-        searchOptions,
+        {
+          keywordWeight: searchConfig.keywordWeight,
+          vectorWeight: searchConfig.vectorWeight,
+          specificDocumentIds: agentDocIds,
+          massSelectionPercentage: documentMass,
+          enhancedQuery: queryAnalysis.enhancedQuery,
+          limit: 22, // LINE OA context - enable higher chunk limits
+        },
       );
 
       console.log(
@@ -1149,10 +1156,10 @@ async function getAiResponseDirectly(
       let finalSearchResults = searchResults;
       if (chunkMaxType === 'percentage' && chunkMaxValue > 0) {
         // Calculate percentage based on total available chunks in agent's documents, not just search results
-        const totalAvailableChunks = agentDocIds.length > 0 ? 
-          await getTotalChunksForDocuments(agentDocIds, userId) : 
+        const totalAvailableChunks = agentDocIds.length > 0 ?
+          await getTotalChunksForDocuments(agentDocIds, userId) :
           await getTotalChunksForUser(userId);
-        
+
         const maxChunks = Math.max(1, Math.ceil(totalAvailableChunks * (chunkMaxValue / 100)));
         finalSearchResults = searchResults.slice(0, Math.min(maxChunks, searchResults.length));
         console.log(`📊 LINE OA: Applied ${chunkMaxValue}% limit: ${chunkMaxValue}% of ${totalAvailableChunks} total chunks = ${maxChunks} max chunks → selected ${finalSearchResults.length} chunks`);
@@ -1161,8 +1168,8 @@ async function getAiResponseDirectly(
       if (finalSearchResults.length > 0) {
         // Step 3: Build document context from search results
         let documentContext = "";
-        const maxContextLength = tokenLimitEnabled && tokenLimitType === 'document' 
-          ? documentTokenLimit 
+        const maxContextLength = tokenLimitEnabled && tokenLimitType === 'document'
+          ? documentTokenLimit
           : 12000; // Use configured document token limit or default
         let chunksUsed = 0;
 
