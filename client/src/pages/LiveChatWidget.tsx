@@ -99,7 +99,7 @@ export default function LiveChatWidget() {
         primaryColor: "#3B82F6",
         textColor: "#FFFFFF",
         enableHrLookup: false,
-        agentId: ""
+        agentId: null
       });
     },
     onError: (error: Error) => {
@@ -130,7 +130,7 @@ export default function LiveChatWidget() {
         primaryColor: "#3B82F6",
         textColor: "#FFFFFF",
         enableHrLookup: false,
-        agentId: ""
+        agentId: null
       });
     },
     onError: (error: Error) => {
