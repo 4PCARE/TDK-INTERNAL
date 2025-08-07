@@ -3433,42 +3433,104 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       let messageType = "text";
       let metadata = null;
 
-      // If widget has an AI agent, use it for responses
+      // If widget has an AI agent, use it for direct AI responses
       if (widget.agentId) {
         try {
-          // Get recent chat history for context
-          const recentMessages = await db
-            .select({
-              role: widgetChatMessages.role,
-              content: widgetChatMessages.content,
-              createdAt: widgetChatMessages.createdAt,
-            })
-            .from(widgetChatMessages)
-            .where(eq(widgetChatMessages.sessionId, session.sessionId))
-            .orderBy(desc(widgetChatMessages.createdAt))
-            .limit(20);
+          // Get agent configuration
+          const [agent] = await db
+            .select()
+            .from(agentChatbots)
+            .where(eq(agentChatbots.id, widget.agentId))
+            .limit(1);
 
-          // Build conversation context
-          const conversationHistory = recentMessages.reverse().map(msg => ({
-            role: msg.role,
-            content: msg.content
-          }));
+          if (agent) {
+            // Get recent chat history for context
+            const recentMessages = await db
+              .select({
+                role: widgetChatMessages.role,
+                content: widgetChatMessages.content,
+                createdAt: widgetChatMessages.createdAt,
+              })
+              .from(widgetChatMessages)
+              .where(eq(widgetChatMessages.sessionId, session.sessionId))
+              .orderBy(desc(widgetChatMessages.createdAt))
+              .limit(agent.memoryLimit || 10);
 
-          // Use dedicated widget chat service
-          const { WidgetChatService } = await import('./services/widgetChatService');
-          const aiResult = await WidgetChatService.generateAgentResponse(
-            message,
-            widget.agentId,
-            null, // Widget chat doesn't need userId - using widget-specific methods
-            session.sessionId,
-            conversationHistory
-          );
+            // Build conversation context
+            const conversationHistory = recentMessages.reverse();
 
-          response = aiResult.response;
-          messageType = aiResult.messageType;
-          metadata = aiResult.metadata;
+            // Get current date and time in Thai format
+            const now = new Date();
+            const thaiDate = now.toLocaleDateString('th-TH', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              weekday: 'long'
+            });
+            const thaiTime = now.toLocaleTimeString('th-TH', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+            });
+
+            // Build system prompt
+            const systemPrompt = `${agent.systemPrompt}
+
+📅 วันที่และเวลาปัจจุบัน: ${thaiDate} เวลา ${thaiTime} น.
+
+ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
+ตอบอย่างเป็นมิตรและช่วยเหลือ`;
+
+            // Build messages for OpenAI
+            const messages = [
+              { role: "system", content: systemPrompt }
+            ];
+
+            // Add conversation history
+            conversationHistory.forEach(msg => {
+              messages.push({
+                role: msg.role === 'assistant' ? 'assistant' : 'user',
+                content: msg.content
+              });
+            });
+
+            // Add current user message
+            messages.push({
+              role: "user",
+              content: message
+            });
+
+            console.log(`🤖 Widget: Using AI directly for agent ${agent.name} with ${messages.length} messages`);
+
+            // Call OpenAI directly
+            const { OpenAI } = await import('openai');
+            const openai = new OpenAI({
+              apiKey: process.env.OPENAI_API_KEY,
+            });
+
+            const completion = await openai.chat.completions.create({
+              model: "gpt-4o",
+              messages: messages,
+              max_tokens: 1000,
+              temperature: 0.7,
+            });
+
+            response = completion.choices[0].message.content || "ขออภัย ไม่สามารถสร้างคำตอบได้ในขณะนี้";
+            messageType = "ai_response";
+            metadata = {
+              agentId: agent.id,
+              agentName: agent.name,
+              searchMethod: "direct_ai"
+            };
+
+            console.log(`✅ Widget: Generated direct AI response (${response.length} chars)`);
+          } else {
+            console.log(`❌ Widget: Agent ${widget.agentId} not found`);
+            response = widget.welcomeMessage || "ขออภัย ไม่สามารถเชื่อมต่อกับระบบได้ในขณะนี้";
+            messageType = "error";
+          }
         } catch (error) {
-          console.error("Widget Agent AI response error:", error);
+          console.error("Widget AI response error:", error);
           // Fallback to welcome message if AI fails
           response = widget.welcomeMessage || "ขออภัย เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่อีกครั้ง";
           messageType = "error";
