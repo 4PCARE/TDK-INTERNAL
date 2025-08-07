@@ -49,6 +49,7 @@ export default function LiveChatWidget() {
   const queryClient = useQueryClient();
   const [selectedWidget, setSelectedWidget] = useState<ChatWidget | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [editingWidget, setEditingWidget] = useState<ChatWidget | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
 
   // Form state for creating/editing widgets
@@ -81,44 +82,61 @@ export default function LiveChatWidget() {
 
   // Create widget mutation
   const createWidgetMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await apiRequest('POST', '/api/chat-widgets', data);
-      return await response.json();
+    mutationFn: async (data: typeof formData) => {
+      return await apiRequest("/api/chat-widgets", "POST", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/chat-widgets"] });
+      toast({
+        title: "Widget created",
+        description: "Your chat widget has been created successfully.",
+      });
       setIsCreating(false);
       setFormData({
         name: "",
-        agentId: null,
-        primaryColor: "#2563eb",
-        textColor: "#ffffff",
+        welcomeMessage: "",
         position: "bottom-right",
-        welcomeMessage: "Hi! How can I help you today?",
-        offlineMessage: "We're currently offline. Please leave a message.",
+        primaryColor: "#3B82F6",
+        textColor: "#FFFFFF",
         enableHrLookup: false,
-        hrApiEndpoint: ""
-      });
-      toast({
-        title: "Success",
-        description: "Live chat widget created successfully",
+        agentId: ""
       });
     },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to create widget",
+        description: error.message || "Failed to create widget.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateWidgetMutation = useMutation({
+    mutationFn: async (data: { id: number } & typeof formData) => {
+      const { id, ...updateData } = data;
+      return await apiRequest(`/api/chat-widgets/${id}`, "PUT", updateData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/chat-widgets"] });
+      toast({
+        title: "Widget updated",
+        description: "Your chat widget has been updated successfully.",
+      });
+      setEditingWidget(null);
+      setFormData({
+        name: "",
+        welcomeMessage: "",
+        position: "bottom-right",
+        primaryColor: "#3B82F6",
+        textColor: "#FFFFFF",
+        enableHrLookup: false,
+        agentId: ""
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update widget.",
         variant: "destructive",
       });
     },
@@ -139,13 +157,27 @@ export default function LiveChatWidget() {
   };
 
   const copyEmbedCode = (widget: ChatWidget) => {
-    const code = generateEmbedCode(widget);
-    navigator.clipboard.writeText(code);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-    toast({
-      title: "Copied!",
-      description: "Embed code copied to clipboard",
+    const embedCode = generateEmbedCode(widget);
+    navigator.clipboard.writeText(embedCode).then(() => {
+      setCopiedCode(true);
+      toast({
+        title: "Embed code copied",
+        description: "The embed code has been copied to your clipboard.",
+      });
+      setTimeout(() => setCopiedCode(false), 2000);
+    });
+  };
+
+  const handleEditWidget = (widget: ChatWidget) => {
+    setEditingWidget(widget);
+    setFormData({
+      name: widget.name,
+      welcomeMessage: widget.welcomeMessage,
+      position: widget.position,
+      primaryColor: widget.primaryColor,
+      textColor: widget.textColor,
+      enableHrLookup: widget.enableHrLookup,
+      agentId: widget.agentId || null
     });
   };
 
@@ -159,7 +191,13 @@ export default function LiveChatWidget() {
       });
       return;
     }
-    createWidgetMutation.mutate(formData);
+    if (editingWidget) {
+      // Update existing widget
+      updateWidgetMutation.mutate({ id: editingWidget.id, ...formData });
+    } else {
+      // Create new widget
+      createWidgetMutation.mutate(formData);
+    }
   };
 
   if (isLoading || !isAuthenticated) {
@@ -180,7 +218,7 @@ export default function LiveChatWidget() {
               <p className="text-gray-600">Create embeddable chat widgets for your websites</p>
             </div>
           </div>
-          <Button onClick={() => setIsCreating(true)}>
+          <Button onClick={() => { setIsCreating(true); setEditingWidget(null); }}>
             <Plus className="w-4 h-4 mr-2" />
             Create Widget
           </Button>
@@ -200,7 +238,7 @@ export default function LiveChatWidget() {
                   <div className="text-center py-8">
                     <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                     <p className="text-gray-500">No chat widgets yet</p>
-                    <Button className="mt-4" onClick={() => setIsCreating(true)}>
+                    <Button className="mt-4" onClick={() => { setIsCreating(true); setEditingWidget(null); }}>
                       Create Your First Widget
                     </Button>
                   </div>
@@ -242,7 +280,14 @@ export default function LiveChatWidget() {
                             }}>
                               {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                             </Button>
-                            <Button size="sm" variant="outline">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditWidget(widget);
+                              }}
+                            >
                               <Settings className="w-4 h-4" />
                             </Button>
                           </div>
@@ -282,10 +327,10 @@ export default function LiveChatWidget() {
 
           {/* Widget Form / Details */}
           <div>
-            {isCreating ? (
+            {(isCreating || editingWidget) ? (
               <Card>
                 <CardHeader>
-                  <CardTitle>Create New Widget</CardTitle>
+                  <CardTitle>{editingWidget ? "Edit Widget" : "Create New Widget"}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleSubmit} className="space-y-4">
@@ -326,6 +371,16 @@ export default function LiveChatWidget() {
                         type="color"
                         value={formData.primaryColor}
                         onChange={(e) => setFormData({...formData, primaryColor: e.target.value})}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="textColor">Text Color</Label>
+                      <Input
+                        id="textColor"
+                        type="color"
+                        value={formData.textColor}
+                        onChange={(e) => setFormData({...formData, textColor: e.target.value})}
                       />
                     </div>
 
@@ -374,10 +429,10 @@ export default function LiveChatWidget() {
                     )}
 
                     <div className="flex space-x-2">
-                      <Button type="submit" disabled={createWidgetMutation.isPending}>
-                        {createWidgetMutation.isPending ? "Creating..." : "Create Widget"}
+                      <Button type="submit" disabled={createWidgetMutation.isPending || updateWidgetMutation.isPending}>
+                        {editingWidget ? (updateWidgetMutation.isPending ? "Saving..." : "Save Changes") : (createWidgetMutation.isPending ? "Creating..." : "Create Widget")}
                       </Button>
-                      <Button type="button" variant="outline" onClick={() => setIsCreating(false)}>
+                      <Button type="button" variant="outline" onClick={() => { setIsCreating(false); setEditingWidget(null); }}>
                         Cancel
                       </Button>
                     </div>
