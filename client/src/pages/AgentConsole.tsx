@@ -280,7 +280,8 @@ export default function AgentConsole() {
     });
   };
 
-  const getInitials = (name: string) => {
+  const getInitials = (name: string | undefined) => {
+    if (!name) return 'U';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
@@ -381,7 +382,7 @@ export default function AgentConsole() {
                             <div className="relative">
                               <Avatar className="w-6 h-6 lg:w-8 lg:h-8">
                                 <AvatarFallback className="text-xs">
-                                  {getInitials(user.userProfile.name)}
+                                  {getInitials(user.userProfile?.name)}
                                 </AvatarFallback>
                               </Avatar>
                               {user.isOnline && (
@@ -456,12 +457,12 @@ export default function AgentConsole() {
                     <div className="flex items-center space-x-2 lg:space-x-3">
                       <Avatar className="w-6 h-6 lg:w-8 lg:h-8">
                         <AvatarFallback>
-                          {getInitials(selectedUser.userProfile.name)}
+                          {getInitials(selectedUser.userProfile?.name)}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <h3 className="text-sm lg:font-medium text-gray-900">
-                          {selectedUser.userProfile.name}
+                          {selectedUser.userProfile?.name || 'Unknown User'}
                         </h3>
                         <p className="text-xs lg:text-sm text-gray-500">
                           {selectedUser.channelType.toUpperCase()} • Agent: {selectedUser.agentName}
@@ -613,7 +614,7 @@ export default function AgentConsole() {
                         <div className="space-y-2 text-sm">
                           <div className="flex items-center space-x-2">
                             <User className="w-4 h-4 text-gray-400" />
-                            <span>{selectedUser.userProfile.name}</span>
+                            <span>{selectedUser.userProfile?.name || 'Unknown User'}</span>
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="text-gray-500">ID:</span>
