@@ -90,32 +90,34 @@ export function registerAgentRoutes(app: Express) {
     }
   });
 
-  // Agent Console - Get active users
+  // Agent Console - Get active conversations with end-users
+  // Note: userId here is the ADMIN user (you), the returned data contains END-USER conversations
   app.get("/api/agent-console/users", smartAuth, async (req: any, res) => {
     try {
       res.setHeader('Content-Type', 'application/json');
-      const userId = req.user.claims.sub;
+      const adminUserId = req.user.claims.sub; // This is YOU (the admin)
       const searchQuery = req.query.search as string;
       const channelFilter = req.query.channelFilter as string;
 
-      const users = await storage.getAgentConsoleUsers(userId, { searchQuery, channelFilter });
-      res.json(users);
+      // Returns conversations between end-users and your agents
+      const conversations = await storage.getAgentConsoleUsers(adminUserId, { searchQuery, channelFilter });
+      res.json(conversations);
     } catch (error) {
-      console.error("Error fetching agent console users:", error);
-      res.status(500).json({ message: "Failed to fetch agent console users" });
+      console.error("Error fetching agent console conversations:", error);
+      res.status(500).json({ message: "Failed to fetch agent console conversations" });
     }
   });
 
-  // Agent Console - Get conversation
+  // Agent Console - Get conversation messages with an end-user
   app.get("/api/agent-console/conversation", smartAuth, async (req: any, res) => {
     try {
       res.setHeader('Content-Type', 'application/json');
-      const userId = req.query.userId as string;
+      const endUserId = req.query.userId as string; // This is the END-USER ID (not admin)
       const channelType = req.query.channelType as string;
       const channelId = req.query.channelId as string;
       const agentId = parseInt(req.query.agentId as string);
 
-      const messages = await storage.getAgentConsoleConversation(userId, channelType, channelId, agentId);
+      const messages = await storage.getAgentConsoleConversation(endUserId, channelType, channelId, agentId);
       res.json(messages);
     } catch (error) {
       console.error("Error fetching conversation:", error);
@@ -123,19 +125,21 @@ export function registerAgentRoutes(app: Express) {
     }
   });
 
-  // Agent Console - Send message
+  // Agent Console - Send message to end-user (admin sending message)
   app.post("/api/agent-console/send-message", smartAuth, async (req: any, res) => {
     try {
       res.setHeader('Content-Type', 'application/json');
       const { userId, channelType, channelId, agentId, message } = req.body;
+      // Note: userId here is the END-USER who will receive the message
+      // The admin user is req.user.claims.sub
 
       const result = await storage.sendAgentConsoleMessage({
-        userId,
+        userId, // End-user ID
         channelType,
         channelId,
         agentId,
         message,
-        messageType: 'agent'
+        messageType: 'agent' // Message from agent/admin
       });
 
       res.json(result);
@@ -145,15 +149,15 @@ export function registerAgentRoutes(app: Express) {
     }
   });
 
-  // Agent Console - Get conversation summary
+  // Agent Console - Get conversation summary for an end-user
   app.get("/api/agent-console/summary", smartAuth, async (req: any, res) => {
     try {
       res.setHeader('Content-Type', 'application/json');
-      const userId = req.query.userId as string;
+      const endUserId = req.query.userId as string; // This is the END-USER ID
       const channelType = req.query.channelType as string;
       const channelId = req.query.channelId as string;
 
-      const summary = await storage.getAgentConsoleSummary(userId, channelType, channelId);
+      const summary = await storage.getAgentConsoleSummary(endUserId, channelType, channelId);
       res.json(summary);
     } catch (error) {
       console.error("Error fetching summary:", error);

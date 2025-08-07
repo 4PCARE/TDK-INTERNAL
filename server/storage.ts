@@ -2207,21 +2207,22 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(chatWidgets.id, id), eq(chatWidgets.userId, userId)));
   }
 
-  // Agent Console operations
-  async getAgentConsoleUsers(userId: string, options?: { searchQuery?: string; channelFilter?: string }): Promise<any[]> {
-    console.log(`Getting agent console users for ${userId} with options:`, options);
+  // Agent Console operations - Get conversations with end-users for the admin
+  async getAgentConsoleUsers(adminUserId: string, options?: { searchQuery?: string; channelFilter?: string }): Promise<any[]> {
+    console.log(`Getting active conversations for admin ${adminUserId} with options:`, options);
 
     try {
       const { chatHistory } = await import('@shared/schema');
       const { isNotNull, desc, and, eq, sql, count } = await import('drizzle-orm');
 
-      // Simple query first - just get all messages and filter client-side for now
+      // Get conversations from agents owned by this admin user
       const messages = await db
         .select()
         .from(chatHistory)
         .leftJoin(agentChatbots, eq(chatHistory.agentId, agentChatbots.id))
         .where(
           and(
+            eq(agentChatbots.userId, adminUserId), // Only agents owned by this admin
             isNotNull(chatHistory.userId),
             isNotNull(chatHistory.channelId),
             isNotNull(chatHistory.agentId)
@@ -2232,7 +2233,7 @@ export class DatabaseStorage implements IStorage {
 
       console.log('Raw query result:', messages.length, 'records');
 
-      // Group by conversation (userId + channelId + agentId) and get latest message for each
+      // Group by conversation (endUserId + channelId + agentId) and get latest message for each
       const conversationMap = new Map();
 
       for (const record of messages) {
@@ -2253,25 +2254,25 @@ export class DatabaseStorage implements IStorage {
             .from(chatHistory)
             .where(
               and(
-                eq(chatHistory.userId, message.userId),
+                eq(chatHistory.userId, message.userId), // End-user ID
                 eq(chatHistory.channelId, message.channelId),
                 eq(chatHistory.agentId, message.agentId)
               )
             );
 
-          // Extract user name from metadata
-          let userName = `User ${message.userId}`;
+          // Extract end-user name from metadata
+          let endUserName = `User ${message.userId}`;
           if (message.metadata) {
             try {
               const metadata = typeof message.metadata === 'string' ? JSON.parse(message.metadata) : message.metadata;
-              userName = metadata?.userName || metadata?.displayName || `User ${message.userId}`;
+              endUserName = metadata?.userName || metadata?.displayName || `User ${message.userId}`;
             } catch (e) {
               console.warn('Failed to parse message metadata:', e);
             }
           }
 
           conversationMap.set(conversationKey, {
-            userId: message.userId,
+            userId: message.userId, // This is the END-USER ID (not admin)
             channelType: message.channelType,
             channelId: message.channelId,
             agentId: message.agentId,
@@ -2279,9 +2280,9 @@ export class DatabaseStorage implements IStorage {
             lastMessage: message.content,
             lastMessageAt: message.createdAt,
             messageCount: messageCountResult[0]?.count || 0,
-            isOnline: this.isUserOnline(message.userId),
+            isOnline: this.isEndUserOnline(message.userId),
             userProfile: {
-              name: userName
+              name: endUserName
             }
           });
         }
@@ -2292,33 +2293,38 @@ export class DatabaseStorage implements IStorage {
       // Apply search filter
       if (options?.searchQuery) {
         const query = options.searchQuery.toLowerCase();
-        result = result.filter(user => 
-          user.userProfile.name.toLowerCase().includes(query) ||
-          user.lastMessage.toLowerCase().includes(query) ||
-          user.agentName.toLowerCase().includes(query)
+        result = result.filter(conversation => 
+          conversation.userProfile.name.toLowerCase().includes(query) ||
+          conversation.lastMessage.toLowerCase().includes(query) ||
+          conversation.agentName.toLowerCase().includes(query)
         );
+      }
+
+      // Apply channel filter
+      if (options?.channelFilter && options.channelFilter !== 'all') {
+        result = result.filter(conversation => conversation.channelType === options.channelFilter);
       }
 
       // Sort by most recent activity
       result.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
 
-      console.log(`Found ${result.length} active conversations`);
+      console.log(`Found ${result.length} active conversations for admin ${adminUserId}`);
       return result;
 
     } catch (error) {
-      console.error("Error fetching agent console users:", error);
+      console.error("Error fetching agent console conversations:", error);
       return [];
     }
   }
 
-  private isUserOnline(userId: string): boolean {
-    // Simple implementation - consider user online if they had activity in last 5 minutes
-    // You can enhance this with WebSocket connection tracking
-    return Math.random() > 0.5; // Placeholder logic
+  private isEndUserOnline(endUserId: string): boolean {
+    // Simple implementation - consider end-user online if they had activity in last 5 minutes
+    // You can enhance this with WebSocket connection tracking or platform-specific presence
+    return Math.random() > 0.5; // Placeholder logic for now
   }
 
-  async getAgentConsoleConversation(userId: string, channelType: string, channelId: string, agentId: number): Promise<any[]> {
-    console.log(`Getting conversation for ${userId}, ${channelType}, ${channelId}, agent ${agentId}`);
+  async getAgentConsoleConversation(endUserId: string, channelType: string, channelId: string, agentId: number): Promise<any[]> {
+    console.log(`Getting conversation messages for end-user ${endUserId}, ${channelType}, ${channelId}, agent ${agentId}`);
 
     try {
       const { chatHistory } = await import('@shared/schema');
@@ -2327,7 +2333,7 @@ export class DatabaseStorage implements IStorage {
       const messages = await db
         .select({
           id: chatHistory.id,
-          userId: chatHistory.userId,
+          userId: chatHistory.userId, // This is the END-USER ID
           channelType: chatHistory.channelType,
           channelId: chatHistory.channelId,
           agentId: chatHistory.agentId,
@@ -2339,7 +2345,7 @@ export class DatabaseStorage implements IStorage {
         .from(chatHistory)
         .where(
           and(
-            eq(chatHistory.userId, userId),
+            eq(chatHistory.userId, endUserId), // End-user conversation
             eq(chatHistory.channelType, channelType),
             eq(chatHistory.channelId, channelId),
             eq(chatHistory.agentId, agentId)
@@ -2348,9 +2354,11 @@ export class DatabaseStorage implements IStorage {
         .orderBy(asc(chatHistory.createdAt))
         .limit(100); // Limit to last 100 messages
 
+      console.log(`Found ${messages.length} messages in conversation`);
+
       return messages.map(msg => ({
         id: msg.id,
-        userId: msg.userId,
+        userId: msg.userId, // End-user ID
         channelType: msg.channelType,
         channelId: msg.channelId,
         agentId: msg.agentId,
@@ -2367,35 +2375,61 @@ export class DatabaseStorage implements IStorage {
   }
 
   async sendAgentConsoleMessage(data: {
-    userId: string;
+    userId: string; // End-user ID who will receive the message
     channelType: string;
     channelId: string;
     agentId: number;
     message: string;
     messageType: string;
   }): Promise<any> {
-    console.log(`Sending agent console message:`, data);
+    console.log(`Admin sending message to end-user ${data.userId}:`, data);
 
-    // Mock sending message
-    return {
-      id: Date.now(),
-      messageType: data.messageType,
-      content: data.message,
-      timestamp: new Date().toISOString(),
-      userId: data.userId,
-      agentId: data.agentId,
-      success: true
-    };
+    // Store the message in chat history
+    try {
+      const { chatHistory } = await import('@shared/schema');
+      
+      const [savedMessage] = await db
+        .insert(chatHistory)
+        .values({
+          userId: data.userId, // End-user ID
+          channelType: data.channelType,
+          channelId: data.channelId,
+          agentId: data.agentId,
+          messageType: data.messageType,
+          content: data.message,
+          metadata: {
+            sentByAdmin: true,
+            timestamp: new Date().toISOString()
+          }
+        })
+        .returning();
+
+      return {
+        id: savedMessage.id,
+        messageType: data.messageType,
+        content: data.message,
+        timestamp: savedMessage.createdAt,
+        userId: data.userId, // End-user ID
+        agentId: data.agentId,
+        success: true
+      };
+    } catch (error) {
+      console.error('Error saving admin message:', error);
+      return {
+        success: false,
+        error: 'Failed to save message'
+      };
+    }
   }
 
-  async getAgentConsoleSummary(userId: string, channelType: string, channelId: string): Promise<any> {
-    console.log(`Getting summary for ${userId}, ${channelType}, ${channelId}`);
+  async getAgentConsoleSummary(endUserId: string, channelType: string, channelId: string): Promise<any> {
+    console.log(`Getting conversation summary for end-user ${endUserId}, ${channelType}, ${channelId}`);
 
     try {
       const { chatHistory } = await import('@shared/schema');
       const { and, eq, sql } = await import('drizzle-orm');
 
-      // Get conversation statistics with simpler query
+      // Get conversation statistics
       const stats = await db
         .select({
           totalMessages: sql<number>`count(*)`,
@@ -2405,7 +2439,7 @@ export class DatabaseStorage implements IStorage {
         .from(chatHistory)
         .where(
           and(
-            eq(chatHistory.userId, userId),
+            eq(chatHistory.userId, endUserId), // End-user's conversation
             eq(chatHistory.channelType, channelType),
             eq(chatHistory.channelId, channelId)
           )
@@ -2427,38 +2461,38 @@ export class DatabaseStorage implements IStorage {
       // Get recent messages for topic analysis
       const recentMessages = await db
         .select({
-          content: chatMessages.content,
-          messageType: chatMessages.messageType
+          content: chatHistory.content,
+          messageType: chatHistory.messageType
         })
-        .from(chatMessages)
+        .from(chatHistory)
         .where(
           and(
-            eq(chatMessages.userId, userId),
-            eq(chatMessages.channelType, channelType),
-            eq(chatMessages.channelId, channelId)
+            eq(chatHistory.userId, endUserId),
+            eq(chatHistory.channelType, channelType),
+            eq(chatHistory.channelId, channelId)
           )
         )
-        .orderBy(desc(chatMessages.createdAt))
+        .orderBy(desc(chatHistory.createdAt))
         .limit(20);
 
-      // Simple topic extraction (you can enhance this with AI)
-      const userMessages = recentMessages
-        .filter(msg => msg.messageType === 'user')
+      // Simple topic extraction from end-user messages
+      const endUserMessages = recentMessages
+        .filter(msg => msg.messageType === 'user') // End-user messages
         .map(msg => msg.content.toLowerCase());
 
       const topics = [];
-      if (userMessages.some(msg => msg.includes('order') || msg.includes('purchase'))) topics.push('order inquiry');
-      if (userMessages.some(msg => msg.includes('ship') || msg.includes('delivery'))) topics.push('shipping');
-      if (userMessages.some(msg => msg.includes('help') || msg.includes('support'))) topics.push('customer support');
-      if (userMessages.some(msg => msg.includes('refund') || msg.includes('return'))) topics.push('refund request');
-      if (userMessages.some(msg => msg.includes('price') || msg.includes('cost'))) topics.push('pricing');
+      if (endUserMessages.some(msg => msg.includes('order') || msg.includes('purchase'))) topics.push('order inquiry');
+      if (endUserMessages.some(msg => msg.includes('ship') || msg.includes('delivery'))) topics.push('shipping');
+      if (endUserMessages.some(msg => msg.includes('help') || msg.includes('support'))) topics.push('customer support');
+      if (endUserMessages.some(msg => msg.includes('refund') || msg.includes('return'))) topics.push('refund request');
+      if (endUserMessages.some(msg => msg.includes('price') || msg.includes('cost'))) topics.push('pricing');
 
-      // Simple sentiment analysis (you can enhance this with AI)
+      // Simple sentiment analysis
       let sentiment = 'neutral';
       const positiveWords = ['thank', 'great', 'good', 'excellent', 'happy', 'satisfied'];
       const negativeWords = ['bad', 'terrible', 'awful', 'angry', 'frustrated', 'disappointed'];
 
-      const allText = userMessages.join(' ');
+      const allText = endUserMessages.join(' ');
       const positiveCount = positiveWords.filter(word => allText.includes(word)).length;
       const negativeCount = negativeWords.filter(word => allText.includes(word)).length;
 
@@ -2481,7 +2515,7 @@ export class DatabaseStorage implements IStorage {
       };
 
     } catch (error) {
-      console.error("Error fetching conversation summary:", error);
+      console.error("Error fetching end-user conversation summary:", error);
       return {
         totalMessages: 0,
         firstContactAt: null,
