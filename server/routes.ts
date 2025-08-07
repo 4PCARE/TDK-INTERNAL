@@ -3369,8 +3369,14 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     }
   });
 
-  // Widget chat endpoints for public use
-  app.post("/api/widget/:widgetKey/chat", async (req: any, res) => {
+  // Widget chat endpoints - with optional authentication for HR integration
+  app.post("/api/widget/:widgetKey/chat", (req, res, next) => {
+    // Try to apply authentication, but don't fail if not authenticated
+    smartAuth(req, res, (err) => {
+      // Continue regardless of authentication status
+      next();
+    });
+  }, async (req: any, res) => {
     try {
       const { widgetKey } = req.params;
       const { sessionId, message, visitorInfo } = req.body;
@@ -3390,12 +3396,38 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       // Get current user information if authenticated
       let currentUser = null;
       let hrEmployeeData = null;
-      if (req.user && req.user.claims && req.user.claims.email) {
-        currentUser = req.user.claims;
-        console.log(`👤 Widget: Authenticated user: ${currentUser.email}`);
-        
+      
+      console.log(`👤 Widget: Checking authentication - req.user exists: ${!!req.user}`);
+      console.log(`👤 Widget: req.user structure:`, req.user ? Object.keys(req.user) : 'undefined');
+      
+      // Try multiple authentication methods
+      if (req.user) {
+        // Method 1: Check for claims structure (Replit Auth)
+        if (req.user.claims && req.user.claims.email) {
+          currentUser = req.user.claims;
+          console.log(`👤 Widget: Authenticated via claims: ${currentUser.email}`);
+        }
+        // Method 2: Check for direct email property 
+        else if (req.user.email) {
+          currentUser = req.user;
+          console.log(`👤 Widget: Authenticated via direct email: ${currentUser.email}`);
+        }
+        // Method 3: Check for profile structure
+        else if (req.user.profile && req.user.profile.email) {
+          currentUser = req.user.profile;
+          console.log(`👤 Widget: Authenticated via profile: ${currentUser.email}`);
+        }
+        else {
+          console.log(`👤 Widget: User exists but no email found in structure:`, JSON.stringify(req.user, null, 2));
+        }
+      } else {
+        console.log(`👤 Widget: No authenticated user found`);
+      }
+      
+      if (currentUser && currentUser.email) {
         // Try to find HR employee data for the authenticated user
         try {
+          console.log(`👤 Widget: Looking up HR data for email: ${currentUser.email}`);
           const hrEmployeeQuery = await db.query.hrEmployees.findFirst({
             where: (hrEmployees, { eq }) => eq(hrEmployees.email, currentUser.email),
           });
@@ -3404,7 +3436,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           
           if (employee) {
             hrEmployeeData = employee;
-            console.log(`👤 Widget: Found HR data for ${employee.firstName} ${employee.lastName} (${employee.department})`);
+            console.log(`👤 Widget: Found HR data for ${employee.first_name || employee.firstName} ${employee.last_name || employee.lastName} (${employee.department})`);
           } else {
             console.log(`👤 Widget: No HR data found for email: ${currentUser.email}`);
           }
