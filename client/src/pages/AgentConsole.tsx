@@ -104,8 +104,8 @@ export default function AgentConsole() {
       const response = await fetch(`/api/agent-console/users?${params}`);
       if (!response.ok) throw new Error("Failed to fetch users");
       const data = await response.json();
-      console.log("📋 Agent Console: Filtered users response:", data.length, "users");
-      return data;
+      console.log("📋 Agent Console: Filtered users response:", Array.isArray(data) ? data.length : 0, "users");
+      return Array.isArray(data) ? data : [];
     },
     refetchInterval: 10000, // Refetch every 10 seconds
   }) as { data: AgentUser[]; refetch: () => void };
@@ -128,7 +128,7 @@ export default function AgentConsole() {
       if (!response.ok) throw new Error("Failed to fetch conversation");
       const data = await response.json();
       console.log("📨 Conversation response:", data);
-      return data;
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!selectedUser?.userId && !!selectedUser?.channelId,
   }) as { data: Message[]; refetch: () => void };
@@ -289,7 +289,7 @@ export default function AgentConsole() {
   };
 
   const uniqueChannelTypes = allChannelTypes.filter(channelType => 
-    channelType && channelType.id && users?.some(u => u?.channelType === channelType.id)
+    channelType && channelType.id && Array.isArray(users) && users.some(u => u?.channelType === channelType.id)
   );
 
   return (
@@ -311,7 +311,7 @@ export default function AgentConsole() {
                 <Dot className="w-3 h-3 text-green-500 animate-pulse" />
                 <span>Real-time WebSocket</span>
               </div>
-              <span>{users?.filter(u => u?.isOnline)?.length || 0} Active Conversations</span>
+              <span>{Array.isArray(users) ? users.filter(u => u?.isOnline)?.length || 0 : 0} Active Conversations</span>
             </div>
           </div>
 
@@ -369,7 +369,7 @@ export default function AgentConsole() {
                     const isSelected = selectedUser?.userId === user.userId && 
                                      selectedUser?.channelId === user.channelId && 
                                      selectedUser?.agentId === user.agentId;
-                    const userConversations = users?.filter(u => u?.userId === user?.userId) || [];
+                    const userConversations = Array.isArray(users) ? users.filter(u => u?.userId === user?.userId) || [] : [];
 
                     return (
                       <div key={`${user.userId}-${user.channelId}-${user.agentId}`}>
@@ -422,7 +422,7 @@ export default function AgentConsole() {
 
                               <div className="text-xs text-gray-600 mb-1 h-6 lg:h-8 overflow-hidden">
                                 <p className="leading-3 lg:leading-4">
-                                  {user.lastMessage.length > (window.innerWidth < 768 ? 40 : 80) ? `${user.lastMessage.substring(0, window.innerWidth < 768 ? 40 : 80)}...` : user.lastMessage}
+                                  {(user.lastMessage?.length || 0) > (window.innerWidth < 768 ? 40 : 80) ? `${(user.lastMessage || '').substring(0, window.innerWidth < 768 ? 40 : 80)}...` : (user.lastMessage || 'No message')}
                                 </p>
                               </div>
 
@@ -484,7 +484,7 @@ export default function AgentConsole() {
                 <div className="flex-1 flex flex-col min-h-0">
                   <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
                     <div className="space-y-4">
-                      {messages.length === 0 ? (
+                      {(!Array.isArray(messages) || messages.length === 0) ? (
                         <div className="text-center py-8">
                           <MessageCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                           <p className="text-sm text-gray-500">No messages yet</p>
