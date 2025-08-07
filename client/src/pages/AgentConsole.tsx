@@ -285,7 +285,7 @@ export default function AgentConsole() {
   };
 
   const uniqueChannelTypes = allChannelTypes.filter(channelType => 
-    users.some(u => u.channelType === channelType.id)
+    channelType && channelType.id && users.some(u => u.channelType === channelType.id)
   );
 
   return (
@@ -328,10 +328,10 @@ export default function AgentConsole() {
                       <span>All Channels</span>
                     </div>
                   </SelectItem>
-                  {allChannelTypes.map(channel => (
+                  {allChannelTypes.filter(channel => channel && channel.id && channel.name).map(channel => (
                     <SelectItem key={channel.id} value={channel.id}>
                       <div className="flex items-center space-x-2">
-                        <span>{channel.icon}</span>
+                        <span>{channel.icon || '📱'}</span>
                         <span>{channel.name}</span>
                       </div>
                     </SelectItem>
@@ -394,17 +394,17 @@ export default function AgentConsole() {
                                 <p className={`text-xs lg:text-sm text-gray-900 truncate ${
                                   isSelected ? 'font-bold' : 'font-medium'
                                 }`}>
-                                  {user.userProfile.name}
+                                  {user.userProfile?.name || 'Unknown User'}
                                 </p>
                                 <div className="flex items-center space-x-1">
                                   <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 hidden lg:flex">
                                     <span className="mr-1">
-                                      {allChannelTypes.find(c => c.id === user.channelType)?.icon || '📱'}
+                                      {allChannelTypes.find(c => c && c.id === user.channelType)?.icon || '📱'}
                                     </span>
-                                    <span className="hidden lg:inline">{allChannelTypes.find(c => c.id === user.channelType)?.name || user.channelType.toUpperCase()}</span>
+                                    <span className="hidden lg:inline">{allChannelTypes.find(c => c && c.id === user.channelType)?.name || user.channelType?.toUpperCase() || 'UNKNOWN'}</span>
                                   </Badge>
                                   <span className="lg:hidden text-lg">
-                                    {allChannelTypes.find(c => c.id === user.channelType)?.icon || '📱'}
+                                    {allChannelTypes.find(c => c && c.id === user.channelType)?.icon || '📱'}
                                   </span>
                                   <Badge variant="secondary" className="text-xs">
                                     {userConversations.reduce((total, conv) => total + conv.messageCount, 0)}
