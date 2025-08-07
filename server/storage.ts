@@ -2305,6 +2305,24 @@ export class DatabaseStorage implements IStorage {
       csatScore: 4.5
     };
   }
+
+  async getSocialIntegrations(userId: string): Promise<any[]> {
+    console.log(`Getting social integrations for user ${userId}`);
+    
+    // Return mock integrations for now
+    return [
+      {
+        id: 1,
+        type: 'lineoa',
+        name: 'Line Official Account',
+        channelId: 'line_channel_1',
+        status: 'active',
+        agentId: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    ];
+  }
 }
 
 export const storage = new DatabaseStorage();

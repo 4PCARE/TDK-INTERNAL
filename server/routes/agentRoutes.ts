@@ -210,17 +210,18 @@ export function registerAgentRoutes(app: Express) {
   // Get social integrations
   app.get("/api/social-integrations", smartAuth, async (req: any, res) => {
     try {
-      console.log("🔍 Fetching social integrations for user:", req.user?.id);
+      const userId = req.user?.claims?.sub || req.user?.id;
+      console.log("🔍 Fetching social integrations for user:", userId);
 
       // Ensure we have a valid user
-      if (!req.user?.id) {
+      if (!userId) {
         return res.status(401).json({ 
           error: "Unauthorized", 
           message: "User not authenticated" 
         });
       }
 
-      const integrations = await storage.getSocialIntegrations(req.user.id);
+      const integrations = await storage.getSocialIntegrations(userId);
       console.log("✅ Found", integrations.length, "social integrations");
 
       // Explicitly set JSON content type
