@@ -62,7 +62,7 @@ import {
   type InsertChatWidget,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, like, count, sql, ilike, getTableColumns, gte, lte, inArray, asc, isNotNull } from "drizzle-orm";
+import { eq, desc, and, or, like, count, sql, ilike, getTableColumns, gte, lte, inArray, asc, isNotNull, ne } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -2209,111 +2209,63 @@ export class DatabaseStorage implements IStorage {
 
   // Agent Console operations - Get conversations with end-users for the admin
   async getAgentConsoleUsers(adminUserId: string, options?: { searchQuery?: string; channelFilter?: string }): Promise<any[]> {
-    console.log(`Getting active conversations for admin ${adminUserId} with options:`, options);
-
     try {
-      const { chatHistory } = await import('@shared/schema');
-      const { isNotNull, desc, and, eq, sql, count } = await import('drizzle-orm');
+      console.log(`Getting active conversations for admin ${adminUserId} with options:`, options);
 
-      // Get conversations from agents owned by this admin user
-      const messages = await db
-        .select()
+      // Get all conversations where END-USERS are talking to agents OWNED BY this admin
+      const conversations = await db
+        .select({
+          userId: chatHistory.userId,
+          channelType: chatHistory.channelType,
+          channelId: chatHistory.channelId,
+          agentId: chatHistory.agentId,
+          lastMessageAt: sql<string>`MAX(${chatHistory.createdAt})`.as('lastMessageAt'),
+          messageCount: sql<number>`COUNT(*)`.as('messageCount'),
+          agentName: agentChatbots.name,
+        })
         .from(chatHistory)
         .leftJoin(agentChatbots, eq(chatHistory.agentId, agentChatbots.id))
         .where(
           and(
-            eq(agentChatbots.userId, adminUserId), // Only agents owned by this admin
-            isNotNull(chatHistory.userId),
-            isNotNull(chatHistory.channelId),
-            isNotNull(chatHistory.agentId)
+            eq(agentChatbots.userId, adminUserId), // Find agents owned by admin
+            isNotNull(chatHistory.agentId),
+            ne(chatHistory.userId, adminUserId) // Exclude admin's own conversations - show END-USERS only
           )
         )
-        .orderBy(desc(chatHistory.createdAt))
-        .limit(100);
+        .groupBy(
+          chatHistory.userId,
+          chatHistory.channelType, 
+          chatHistory.channelId,
+          chatHistory.agentId,
+          agentChatbots.name
+        )
+        .orderBy(desc(sql`MAX(${chatHistory.createdAt})`));
 
-      console.log('Raw query result:', messages.length, 'records');
+      console.log(`Raw query result: ${conversations.length} records`);
 
-      // Group by conversation (endUserId + channelId + agentId) and get latest message for each
-      const conversationMap = new Map();
+      // Apply filters
+      let filteredConversations = conversations;
 
-      for (const record of messages) {
-        const message = record.chat_history;
-        const agent = record.agent_chatbots;
-
-        if (!message || !message.userId || !message.channelId || !message.agentId) {
-          console.log('Skipping invalid record:', record);
-          continue;
-        }
-
-        const conversationKey = `${message.userId}-${message.channelId}-${message.agentId}`;
-
-        if (!conversationMap.has(conversationKey)) {
-          // Count total messages for this conversation
-          const messageCountResult = await db
-            .select({ count: count() })
-            .from(chatHistory)
-            .where(
-              and(
-                eq(chatHistory.userId, message.userId), // End-user ID
-                eq(chatHistory.channelId, message.channelId),
-                eq(chatHistory.agentId, message.agentId)
-              )
-            );
-
-          // Extract end-user name from metadata
-          let endUserName = `User ${message.userId}`;
-          if (message.metadata) {
-            try {
-              const metadata = typeof message.metadata === 'string' ? JSON.parse(message.metadata) : message.metadata;
-              endUserName = metadata?.userName || metadata?.displayName || `User ${message.userId}`;
-            } catch (e) {
-              console.warn('Failed to parse message metadata:', e);
-            }
-          }
-
-          conversationMap.set(conversationKey, {
-            userId: message.userId, // This is the END-USER ID (not admin)
-            channelType: message.channelType,
-            channelId: message.channelId,
-            agentId: message.agentId,
-            agentName: agent?.name || 'Unknown Agent',
-            lastMessage: message.content,
-            lastMessageAt: message.createdAt,
-            messageCount: messageCountResult[0]?.count || 0,
-            isOnline: this.isEndUserOnline(message.userId),
-            userProfile: {
-              name: endUserName
-            }
-          });
-        }
-      }
-
-      let result = Array.from(conversationMap.values());
-
-      // Apply search filter
       if (options?.searchQuery) {
-        const query = options.searchQuery.toLowerCase();
-        result = result.filter(conversation => 
-          conversation.userProfile.name.toLowerCase().includes(query) ||
-          conversation.lastMessage.toLowerCase().includes(query) ||
-          conversation.agentName.toLowerCase().includes(query)
+        const searchLower = options.searchQuery.toLowerCase();
+        filteredConversations = filteredConversations.filter(conv => 
+          conv.userId?.toLowerCase().includes(searchLower) ||
+          conv.channelId?.toLowerCase().includes(searchLower) ||
+          conv.agentName?.toLowerCase().includes(searchLower)
         );
       }
 
-      // Apply channel filter
-      if (options?.channelFilter && options.channelFilter !== 'all') {
-        result = result.filter(conversation => conversation.channelType === options.channelFilter);
+      if (options?.channelFilter) {
+        filteredConversations = filteredConversations.filter(conv => 
+          conv.channelType === options.channelFilter
+        );
       }
 
-      // Sort by most recent activity
-      result.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
-
-      console.log(`Found ${result.length} active conversations for admin ${adminUserId}`);
-      return result;
-
+      console.log(`Found ${filteredConversations.length} active conversations with end-users for admin ${adminUserId}`);
+      return filteredConversations;
     } catch (error) {
-      console.error("Error fetching agent console conversations:", error);
-      return [];
+      console.error("Error getting agent console users:", error);
+      throw error;
     }
   }
 
@@ -2387,7 +2339,7 @@ export class DatabaseStorage implements IStorage {
     // Store the message in chat history
     try {
       const { chatHistory } = await import('@shared/schema');
-      
+
       const [savedMessage] = await db
         .insert(chatHistory)
         .values({
@@ -2526,7 +2478,7 @@ export class DatabaseStorage implements IStorage {
       };
     }
   }
-  
+
   async getConversationSummary(userId: string, channelType: string, channelId: string): Promise<any> {
     try {
       console.log(`📊 Getting summary for userId: "${userId}", channelType: "${channelType}", channelId: "${channelId}"`);
@@ -2617,7 +2569,7 @@ export class DatabaseStorage implements IStorage {
       const sortedMessages = [...messages].sort((a, b) => 
         new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
       );
-      
+
       const firstContactAt = sortedMessages[0]?.createdAt || null;
       const lastActiveAt = sortedMessages[sortedMessages.length - 1]?.createdAt || null;
 
@@ -2643,7 +2595,7 @@ export class DatabaseStorage implements IStorage {
         errorType: typeof error,
         errorConstructor: error?.constructor?.name
       });
-      
+
       // Return default summary to prevent frontend crashes
       return {
         totalMessages: 0,
