@@ -524,6 +524,11 @@ export default function CreateAgentChatbot() {
   });
 
   const onSubmit = (data: CreateAgentForm) => {
+    console.log("🚀 Form onSubmit triggered");
+    console.log("Form data received:", data);
+    console.log("Is editing mode:", isEditing);
+    console.log("Agent ID:", editAgentId);
+    
     // Build the guardrails configuration object
     const guardrailsConfig = data.guardrailsEnabled ? data.guardrailsConfig : null;
 
@@ -536,6 +541,7 @@ export default function CreateAgentChatbot() {
     console.log("Form submission data:", JSON.stringify(finalData, null, 2));
     console.log("Guardrails enabled:", data.guardrailsEnabled);
     console.log("Guardrails config:", data.guardrailsConfig);
+    console.log("Selected documents:", selectedDocuments);
 
     saveAgentMutation.mutate(finalData);
   };
@@ -910,7 +916,16 @@ export default function CreateAgentChatbot() {
               <div className="flex-1">
                 <Form {...form}>
                   <form
-                    onSubmit={form.handleSubmit(onSubmit)}
+                    onSubmit={(e) => {
+                      console.log("📝 Form onSubmit event triggered");
+                      e.preventDefault();
+                      form.handleSubmit((data) => {
+                        console.log("✅ Form validation passed, calling onSubmit");
+                        onSubmit(data);
+                      }, (errors) => {
+                        console.log("❌ Form validation failed:", errors);
+                      })(e);
+                    }}
                     className="space-y-6"
                   >
                     {activeTab === "overview" && (
@@ -2449,6 +2464,12 @@ export default function CreateAgentChatbot() {
                         type="submit"
                         disabled={saveAgentMutation.isPending}
                         className="bg-blue-600 hover:bg-blue-700"
+                        onClick={(e) => {
+                          console.log("🔘 Submit button clicked");
+                          console.log("Form valid:", form.formState.isValid);
+                          console.log("Form errors:", form.formState.errors);
+                          // Don't prevent default - let form submission handle it
+                        }}
                       >
                         {saveAgentMutation.isPending ? (
                           <>
