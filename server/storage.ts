@@ -236,6 +236,7 @@ export interface IStorage {
     messageType: string;
   }): Promise<any>;
   getAgentConsoleSummary(userId: string, channelType: string, channelId: string): Promise<any>;
+  getConversationSummary(userId: string, channelType: string, channelId: string): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2213,7 +2214,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const { chatHistory } = await import('@shared/schema');
       const { isNotNull, desc, and, eq, sql, count } = await import('drizzle-orm');
-      
+
       // Simple query first - just get all messages and filter client-side for now
       const messages = await db
         .select()
@@ -2237,7 +2238,7 @@ export class DatabaseStorage implements IStorage {
       for (const record of messages) {
         const message = record.chat_history;
         const agent = record.agent_chatbots;
-        
+
         if (!message || !message.userId || !message.channelId || !message.agentId) {
           console.log('Skipping invalid record:', record);
           continue;
@@ -2481,6 +2482,96 @@ export class DatabaseStorage implements IStorage {
 
     } catch (error) {
       console.error("Error fetching conversation summary:", error);
+      return {
+        totalMessages: 0,
+        firstContactAt: null,
+        lastActiveAt: null,
+        sentiment: null,
+        mainTopics: [],
+        csatScore: null
+      };
+    }
+  }
+  
+  async getConversationSummary(userId: string, channelType: string, channelId: string): Promise<any> {
+    try {
+      const { chatHistory } = await import('@shared/schema');
+      const { eq, and, desc } = await import('drizzle-orm');
+
+      console.log(`Getting summary for ${userId}, ${channelType}, ${channelId}`);
+
+      // Get basic conversation stats - select specific fields to avoid undefined issues
+      const messages = await db
+        .select({
+          id: chatHistory.id,
+          userId: chatHistory.userId,
+          channelType: chatHistory.channelType,
+          channelId: chatHistory.channelId,
+          messageType: chatHistory.messageType,
+          content: chatHistory.content,
+          createdAt: chatHistory.createdAt
+        })
+        .from(chatHistory)
+        .where(
+          and(
+            eq(chatHistory.userId, userId),
+            eq(chatHistory.channelType, channelType),
+            eq(chatHistory.channelId, channelId)
+          )
+        )
+        .orderBy(desc(chatHistory.createdAt));
+
+      if (messages.length === 0) {
+        return {
+          totalMessages: 0,
+          firstContactAt: null,
+          lastActiveAt: null,
+          sentiment: null,
+          mainTopics: [],
+          csatScore: null
+        };
+      }
+
+      const userMessages = messages
+        .filter(msg => msg.messageType === 'user')
+        .map(msg => msg.content?.toLowerCase() || '');
+
+      const topics = [];
+      if (userMessages.some(msg => msg.includes('order') || msg.includes('purchase'))) topics.push('order inquiry');
+      if (userMessages.some(msg => msg.includes('ship') || msg.includes('delivery'))) topics.push('shipping');
+      if (userMessages.some(msg => msg.includes('help') || msg.includes('support'))) topics.push('customer support');
+      if (userMessages.some(msg => msg.includes('refund') || msg.includes('return'))) topics.push('refund request');
+      if (userMessages.some(msg => msg.includes('price') || msg.includes('cost'))) topics.push('pricing');
+
+      // Simple sentiment analysis
+      let sentiment = 'neutral';
+      const positiveWords = ['thank', 'great', 'good', 'excellent', 'happy', 'satisfied'];
+      const negativeWords = ['bad', 'terrible', 'awful', 'angry', 'frustrated', 'disappointed'];
+
+      const allText = userMessages.join(' ');
+      const positiveCount = positiveWords.filter(word => allText.includes(word)).length;
+      const negativeCount = negativeWords.filter(word => allText.includes(word)).length;
+
+      if (positiveCount > negativeCount) sentiment = 'positive';
+      else if (negativeCount > positiveCount) sentiment = 'negative';
+
+      // Calculate CSAT score based on sentiment and conversation length
+      let csatScore = null;
+      if (messages.length >= 3) {
+        csatScore = sentiment === 'positive' ? 85 : sentiment === 'negative' ? 45 : 70;
+      }
+
+      return {
+        totalMessages: messages.length,
+        firstContactAt: messages[messages.length - 1]?.createdAt || null,
+        lastActiveAt: messages[0]?.createdAt || null,
+        sentiment,
+        mainTopics: topics,
+        csatScore
+      };
+
+    } catch (error) {
+      console.error('Error fetching conversation summary:', error);
       return {
         totalMessages: 0,
         firstContactAt: null,
