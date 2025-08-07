@@ -1470,7 +1470,7 @@ ${documentContext}
         // Fallback to agent conversation without documents
         const now = new Date();
         now.setHours(now.getHours() + 7)
-        const thaiDate = now.toLocaleDateString('th-TH', {
+        const thaiDate = now.toLocaleDateString('th-TH-u-ca-gregory', {
           year: 'numeric',
           month: 'long',
           day: 'numeric',
