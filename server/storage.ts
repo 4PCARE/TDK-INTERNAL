@@ -2259,11 +2259,11 @@ export class DatabaseStorage implements IStorage {
             );
 
           // Extract user name from metadata
-          let userName = 'Unknown User';
+          let userName = `User ${message.userId}`;
           if (message.metadata) {
             try {
               const metadata = typeof message.metadata === 'string' ? JSON.parse(message.metadata) : message.metadata;
-              userName = metadata?.userName || metadata?.displayName || 'Unknown User';
+              userName = metadata?.userName || metadata?.displayName || `User ${message.userId}`;
             } catch (e) {
               console.warn('Failed to parse message metadata:', e);
             }
@@ -2394,12 +2394,12 @@ export class DatabaseStorage implements IStorage {
       const { chatHistory } = await import('@shared/schema');
       const { and, eq, sql } = await import('drizzle-orm');
 
-      // Get conversation statistics
+      // Get conversation statistics with simpler query
       const stats = await db
         .select({
           totalMessages: sql<number>`count(*)`,
-          firstContactAt: sql<string>`min(${chatHistory.createdAt})`,
-          lastActiveAt: sql<string>`max(${chatHistory.createdAt})`
+          firstContactAt: sql<string>`min(created_at)`,
+          lastActiveAt: sql<string>`max(created_at)`
         })
         .from(chatHistory)
         .where(
