@@ -1490,6 +1490,24 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  // Chat Widget operations
+  async updateChatWidget(id: number, updates: any, userId: string): Promise<any> {
+    const { chatWidgets } = await import('@shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+
+    const [updated] = await db
+      .update(chatWidgets)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(chatWidgets.id, id), eq(chatWidgets.userId, userId)))
+      .returning();
+
+    if (!updated) {
+      throw new Error("Chat widget not found or access denied");
+    }
+
+    return updated;
+  }
+
   // Social Integration operations
   async getSocialIntegrations(userId: string): Promise<SocialIntegration[]> {
     console.log("🔍 Debug: Fetching social integrations for user:", userId);
