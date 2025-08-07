@@ -50,6 +50,17 @@ export async function seedHrEmployees() {
         position: "Financial Analyst",
         startDate: new Date("2020-11-05"),
       },
+      {
+        employeeId: "EMP005",
+        citizenId: "5678901234567",
+        firstName: "Admin",
+        lastName: "User",
+        email: "admin@4plus.co.th",
+        phone: "085-678-9012",
+        department: "Administration",
+        position: "System Administrator",
+        startDate: new Date("2018-06-01"),
+      },
     ];
 
     // Insert sample employees

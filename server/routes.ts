@@ -3396,22 +3396,11 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
         
         // Try to find HR employee data for the authenticated user
         try {
-          const [employee] = await db
-            .select({
-              employeeId: hrEmployees.employeeId,
-              citizenId: hrEmployees.citizenId,
-              firstName: hrEmployees.firstName,
-              lastName: hrEmployees.lastName,
-              email: hrEmployees.email,
-              phone: hrEmployees.phone,
-              department: hrEmployees.department,
-              position: hrEmployees.position,
-              startDate: hrEmployees.startDate,
-              isActive: hrEmployees.isActive
-            })
-            .from(hrEmployees)
-            .where(eq(hrEmployees.email, currentUser.email))
-            .limit(1);
+          const hrEmployeeQuery = await db.query.hrEmployees.findFirst({
+            where: (hrEmployees, { eq }) => eq(hrEmployees.email, currentUser.email),
+          });
+          
+          const employee = hrEmployeeQuery;
           
           if (employee) {
             hrEmployeeData = employee;

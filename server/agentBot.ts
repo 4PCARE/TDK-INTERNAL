@@ -315,16 +315,16 @@ async function getAiResponseDirectly(
 
       // Add HR employee context if available
       if (hrEmployeeData) {
-        console.log(`👤 AgentBot: Adding HR employee context for ${hrEmployeeData.firstName} ${hrEmployeeData.lastName} (${hrEmployeeData.employeeId})`);
+        console.log(`👤 AgentBot: Adding HR employee context for ${hrEmployeeData.firstName || hrEmployeeData.first_name} ${hrEmployeeData.lastName || hrEmployeeData.last_name} (${hrEmployeeData.employeeId})`);
         systemPrompt += `
 
-🏢 ข้อมูลพนักงาน: คุณกำลังสนทนากับ ${hrEmployeeData.firstName} ${hrEmployeeData.lastName}
-- รหัสพนักงาน: ${hrEmployeeData.employeeId}
+🏢 ข้อมูลพนักงาน: คุณกำลังสนทนากับ ${hrEmployeeData.firstName || hrEmployeeData.first_name} ${hrEmployeeData.lastName || hrEmployeeData.last_name}
+- รหัสพนักงาน: ${hrEmployeeData.employeeId || hrEmployeeData.employee_id}
 - แผนก: ${hrEmployeeData.department}
 - ตำแหน่ง: ${hrEmployeeData.position}
 - อีเมล: ${hrEmployeeData.email}
-- วันที่เริ่มงาน: ${hrEmployeeData.startDate}
-- สถานะ: ${hrEmployeeData.status}
+- วันที่เริ่มงาน: ${hrEmployeeData.startDate || hrEmployeeData.hire_date}
+- สถานะ: ${hrEmployeeData.isActive ? 'Active' : 'Inactive'}
 
 กรุณาให้คำตอบที่เป็นส่วนตัวและเหมาะสมกับตำแหน่งและแผนกของพนักงาน`;
       } else {
@@ -602,16 +602,16 @@ ${documentContext}
 
         // Add HR employee context if available
         if (hrEmployeeData) {
-          console.log(`👤 AgentBot: Adding HR employee context with documents for ${hrEmployeeData.firstName} ${hrEmployeeData.lastName} (${hrEmployeeData.employeeId})`);
+          console.log(`👤 AgentBot: Adding HR employee context with documents for ${hrEmployeeData.firstName || hrEmployeeData.first_name} ${hrEmployeeData.lastName || hrEmployeeData.last_name} (${hrEmployeeData.employeeId})`);
           baseSystemPrompt += `
 
-🏢 ข้อมูลพนักงาน: คุณกำลังสนทนากับ ${hrEmployeeData.firstName} ${hrEmployeeData.lastName}
-- รหัสพนักงาน: ${hrEmployeeData.employeeId}
+🏢 ข้อมูลพนักงาน: คุณกำลังสนทนากับ ${hrEmployeeData.firstName || hrEmployeeData.first_name} ${hrEmployeeData.lastName || hrEmployeeData.last_name}
+- รหัสพนักงาน: ${hrEmployeeData.employeeId || hrEmployeeData.employee_id}
 - แผนก: ${hrEmployeeData.department}
 - ตำแหน่ง: ${hrEmployeeData.position}
 - อีเมล: ${hrEmployeeData.email}
-- วันที่เริ่มงาน: ${hrEmployeeData.startDate}
-- สถานะ: ${hrEmployeeData.status}
+- วันที่เริ่มงาน: ${hrEmployeeData.startDate || hrEmployeeData.hire_date}
+- สถานะ: ${hrEmployeeData.isActive ? 'Active' : 'Inactive'}
 
 กรุณาให้คำตอบที่เป็นส่วนตัวและเหมาะสมกับตำแหน่งและแผนกของพนักงาน`;
         } else {
