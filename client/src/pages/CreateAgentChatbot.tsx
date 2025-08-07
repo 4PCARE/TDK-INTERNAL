@@ -2437,8 +2437,8 @@ export default function CreateAgentChatbot() {
                         </div>
                       </CardContent>
                     </Card>
-                  </div>
-                </div>
+                      </div>
+                    )}
 
                 {/* Test Agent Interface */}
                 {activeTab === "test" && (
