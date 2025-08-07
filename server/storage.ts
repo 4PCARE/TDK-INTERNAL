@@ -2212,20 +2212,20 @@ export class DatabaseStorage implements IStorage {
 
     try {
       // Get recent chat messages with user info and agent details
-      let query = this.db
+      let query = db
         .select({
           userId: chatMessages.userId,
           channelType: chatMessages.channelType,
           channelId: chatMessages.channelId,
           agentId: chatMessages.agentId,
-          agentName: agents.name,
+          agentName: agentChatbots.name,
           lastMessage: chatMessages.content,
           lastMessageAt: chatMessages.createdAt,
           messageType: chatMessages.messageType,
           userProfileName: sql<string>`COALESCE(${chatMessages.metadata}->>'userName', ${chatMessages.metadata}->>'displayName', 'Unknown User')`
         })
         .from(chatMessages)
-        .leftJoin(agents, eq(chatMessages.agentId, agents.id))
+        .leftJoin(agentChatbots, eq(chatMessages.agentId, agentChatbots.id))
         .where(
           and(
             isNotNull(chatMessages.userId),
@@ -2257,7 +2257,7 @@ export class DatabaseStorage implements IStorage {
 
         if (!conversationMap.has(conversationKey)) {
           // Count total messages for this conversation
-          const messageCount = await this.db
+          const messageCount = await db
             .select({ count: sql<number>`count(*)` })
             .from(chatMessages)
             .where(
@@ -2319,7 +2319,7 @@ export class DatabaseStorage implements IStorage {
     console.log(`Getting conversation for ${userId}, ${channelType}, ${channelId}, agent ${agentId}`);
 
     try {
-      const messages = await this.db
+      const messages = await db
         .select({
           id: chatMessages.id,
           userId: chatMessages.userId,
@@ -2388,7 +2388,7 @@ export class DatabaseStorage implements IStorage {
 
     try {
       // Get conversation statistics
-      const stats = await this.db
+      const stats = await db
         .select({
           totalMessages: sql<number>`count(*)`,
           firstContactAt: sql<string>`min(${chatMessages.createdAt})`,
@@ -2417,7 +2417,7 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Get recent messages for topic analysis
-      const recentMessages = await this.db
+      const recentMessages = await db
         .select({
           content: chatMessages.content,
           messageType: chatMessages.messageType
