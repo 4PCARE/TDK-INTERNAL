@@ -130,6 +130,22 @@ export default function Integrations() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
+  // Redirect if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <p className="text-slate-600 dark:text-slate-400 mb-4">Please log in to access integrations</p>
+            <Button onClick={() => window.location.href = "/api/login"}>
+              Login
+            </Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
 
 
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
@@ -151,14 +167,16 @@ export default function Integrations() {
   // Fetch social integrations
   const { data: integrations = [], isLoading: integrationsLoading, error: integrationsError } = useQuery({
     queryKey: ["/api/social-integrations"],
+    enabled: isAuthenticated,
     retry: (failureCount, error: any) => {
       // Don't retry on auth errors
-      if (error?.status === 401) {
+      if (isUnauthorizedError(error)) {
         return false;
       }
       return failureCount < 3;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
   });
 
   // Fetch agent chatbots for selection
@@ -375,19 +393,39 @@ export default function Integrations() {
 
   const lineOaIntegrations = integrations.filter(int => int.type === 'lineoa');
 
-    // Early return for error state
+  // Loading state
+  if (integrationsLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 mx-auto mb-4"></div>
+            <p className="text-slate-600 dark:text-slate-400">Loading integrations...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Early return for error state
   if (integrationsError) {
-    const isAuthError = (integrationsError as any)?.status === 401;
+    const isAuthError = isUnauthorizedError(integrationsError);
 
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <p className="text-destructive mb-4">
-              {isAuthError ? "Authentication required. Please refresh the page." : "Error loading data"}
+              {isAuthError ? "Authentication required. Please refresh the page." : "Error loading social integrations data. Please try again."}
             </p>
-            <Button onClick={() => window.location.reload()}>
-              {isAuthError ? "Refresh Page" : "Retry"}
+            <Button onClick={() => {
+              if (isAuthError) {
+                window.location.href = "/api/login";
+              } else {
+                queryClient.invalidateQueries({ queryKey: ["/api/social-integrations"] });
+              }
+            }}>
+              {isAuthError ? "Login" : "Retry"}
             </Button>
           </div>
         </div>
