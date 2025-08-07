@@ -75,26 +75,7 @@ app.use((req, res, next) => {
   next();
 });
 
-const PgSession = pgConnect(session);
-
-app.use(session({
-  store: new PgSession({
-    pool: pool,
-    tableName: "session",
-    errorLog: (err) => {
-      console.warn('Session store error (will retry):', err.message);
-    },
-    createTableIfMissing: true
-  }),
-  secret: process.env.SESSION_SECRET || "default-session-secret",
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === "production",
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-}));
+// Session configuration is handled by setupAuth in replitAuth
 
 (async () => {
   // Mount debug routes BEFORE registerRoutes to ensure higher priority
