@@ -93,7 +93,7 @@ export default function AgentConsole() {
   ];
 
   // Fetch active users
-  const { data: users = [], refetch: refetchUsers } = useQuery({
+  const { data: users = [], refetch: refetchUsers, error: usersError } = useQuery({
     queryKey: ["/api/agent-console/users", searchQuery, channelFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -101,14 +101,47 @@ export default function AgentConsole() {
       if (channelFilter !== "all") params.append("channelFilter", channelFilter);
 
       console.log("🔍 Agent Console: Fetching users with params:", Object.fromEntries(params));
-      const response = await fetch(`/api/agent-console/users?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch users");
+      const response = await fetch(`/api/agent-console/users?${params}`, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const text = await response.text();
+        console.error("❌ Agent Console: API error:", response.status, text);
+        
+        // Check if we got HTML instead of JSON (likely authentication redirect)
+        if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+          throw new Error("Authentication required - redirected to login page");
+        }
+        
+        throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
+      }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error("❌ Agent Console: Expected JSON but got:", contentType, text.substring(0, 200));
+        throw new Error("Invalid response format - expected JSON");
+      }
+      
       const data = await response.json();
       console.log("📋 Agent Console: Filtered users response:", data.length, "users");
       return data;
     },
+    enabled: !!user, // Only fetch if user is authenticated
     refetchInterval: 10000, // Refetch every 10 seconds
-  }) as { data: AgentUser[]; refetch: () => void };
+    retry: (failureCount, error) => {
+      // Don't retry authentication errors
+      if (error.message.includes("Authentication required")) {
+        return false;
+      }
+      return failureCount < 3;
+    },
+  }) as { data: AgentUser[]; refetch: () => void; error: any };
 
   // Fetch conversation messages
   const { data: messages = [], refetch: refetchMessages } = useQuery({
@@ -124,13 +157,36 @@ export default function AgentConsole() {
       });
 
       console.log("🔍 Fetching conversation with params:", Object.fromEntries(params));
-      const response = await fetch(`/api/agent-console/conversation?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch conversation");
+      const response = await fetch(`/api/agent-console/conversation?${params}`, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const text = await response.text();
+        console.error("❌ Conversation API error:", response.status, text);
+        
+        if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+          throw new Error("Authentication required");
+        }
+        
+        throw new Error(`Failed to fetch conversation: ${response.status}`);
+      }
+      
       const data = await response.json();
       console.log("📨 Conversation response:", data);
       return data;
     },
-    enabled: !!selectedUser?.userId && !!selectedUser?.channelId,
+    enabled: !!selectedUser?.userId && !!selectedUser?.channelId && !!user,
+    retry: (failureCount, error) => {
+      if (error.message.includes("Authentication required")) {
+        return false;
+      }
+      return failureCount < 3;
+    },
   }) as { data: Message[]; refetch: () => void };
 
   // Fetch conversation summary
@@ -146,13 +202,36 @@ export default function AgentConsole() {
       });
 
       console.log("📊 Fetching summary with params:", Object.fromEntries(params));
-      const response = await fetch(`/api/agent-console/summary?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch summary");
+      const response = await fetch(`/api/agent-console/summary?${params}`, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const text = await response.text();
+        console.error("❌ Summary API error:", response.status, text);
+        
+        if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+          throw new Error("Authentication required");
+        }
+        
+        throw new Error(`Failed to fetch summary: ${response.status}`);
+      }
+      
       const data = await response.json();
       console.log("📊 Summary response:", data);
       return data;
     },
-    enabled: !!selectedUser?.userId && !!selectedUser?.channelId,
+    enabled: !!selectedUser?.userId && !!selectedUser?.channelId && !!user,
+    retry: (failureCount, error) => {
+      if (error.message.includes("Authentication required")) {
+        return false;
+      }
+      return failureCount < 3;
+    },
   }) as { data: ConversationSummary | null };
 
   // WebSocket connection for real-time updates
@@ -288,6 +367,26 @@ export default function AgentConsole() {
   const uniqueChannelTypes = allChannelTypes.filter(channelType => 
     users.some(u => u.channelType === channelType.id)
   );
+
+  // Show authentication error if present
+  if (usersError && usersError.message.includes("Authentication required")) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-120px)]">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentication Required</h2>
+            <p className="text-gray-600 mb-4">Please log in to access the Agent Console.</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Refresh Page
+            </button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
