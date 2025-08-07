@@ -20,13 +20,13 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // Function to calculate CSAT score using OpenAI with agent memory limits
 async function calculateCSATScore(userId: string, channelType: string, channelId: string, agentId?: number): Promise<number | undefined> {
   try {
-    console.log("🎯 Starting CSAT calculation for:", { 
-      userId, 
-      channelType, 
+    console.log("🎯 Starting CSAT calculation for:", {
+      userId,
+      channelType,
       channelId: channelId.substring(0, 8) + '...',
-      agentId 
+      agentId
     });
-    
+
     // Get agent memory limit if agentId is provided
     let messageLimit = 20; // Default limit
     if (agentId) {
@@ -40,47 +40,47 @@ async function calculateCSATScore(userId: string, channelType: string, channelId
         console.log("⚠️ Could not fetch agent memory limit, using default:", messageLimit);
       }
     }
-    
+
     // Get recent chat history for analysis using the same memory strategy as agent
     const messages = await storage.getChatHistoryWithMemoryStrategy(userId, channelType, channelId, agentId, messageLimit);
-    
+
     console.log("📊 Retrieved messages for CSAT:", messages.length);
-    
+
     if (messages.length < 3) {
       console.log("⚠️ Not enough messages for CSAT analysis:", messages.length);
       return undefined;
     }
-    
+
     // Format conversation for OpenAI - only include user and agent messages for CSAT analysis
     const conversationText = messages
       .filter(msg => msg.messageType === 'user' || msg.messageType === 'agent' || msg.messageType === 'assistant')
       .map(msg => {
-        const role = msg.messageType === 'user' ? 'Customer' : 
+        const role = msg.messageType === 'user' ? 'Customer' :
                      msg.messageType === 'agent' ? 'Human Agent' : 'AI Agent';
         return `${role}: ${msg.content}`;
       }).join('\n\n');
-    
+
     console.log("💬 Conversation sample for CSAT:", conversationText.substring(0, 200) + '...');
-    
+
     const prompt = `
       ประเมิน Customer Satisfaction Score (CSAT) จากการสนทนาต่อไปนี้:
-      
+
       ${conversationText}
-      
+
       กรุณาวิเคราะห์ระดับความพึงพอใจของลูกค้าจากการสนทนานี้ โดยพิจารณาจาก:
       1. ความเป็นมิตรและสุภาพของลูกค้า
       2. การแสดงความพึงพอใจหรือไม่พึงพอใจ
       3. การตอบสนองต่อการให้บริการ
       4. ความเต็มใจในการใช้บริการต่อ
       5. การแสดงความรู้สึกเชิงบวกหรือลบ
-      
+
       ให้คะแนน CSAT เป็นตัวเลข 0-100 เท่านั้น โดยที่:
       - 0-30: ลูกค้าไม่พอใจมาก (มีการแสดงความโกรธ ผิดหวัง หรือต้องการยกเลิก)
       - 31-50: ลูกค้าไม่พอใจ (มีความกังวล ไม่แน่ใจ หรือต้องการความช่วยเหลือเพิ่มเติม)
       - 51-70: ลูกค้าพอใจปานกลาง (ยอมรับคำตอบ แต่ไม่แสดงความกระตือรือร้น)
       - 71-85: ลูกค้าพอใจ (แสดงความขอบคุณ พอใจกับการให้บริการ)
       - 86-100: ลูกค้าพอใจมาก (แสดงความประทับใจ ชื่นชม หรือแนะนำให้คนอื่น)
-      
+
       ตอบเป็นตัวเลขเท่านั้น ไม่ต้องมีคำอธิบาย:
     `;
 
@@ -95,9 +95,9 @@ async function calculateCSATScore(userId: string, channelType: string, channelId
 
     const scoreText = response.choices[0].message.content?.trim();
     const score = parseInt(scoreText || '0');
-    
+
     console.log("🎯 CSAT Score calculated:", { scoreText, score });
-    
+
     return isNaN(score) ? undefined : Math.max(0, Math.min(100, score));
   } catch (error) {
     console.error("❌ Error calculating CSAT score:", error);
@@ -123,6 +123,15 @@ import {
   categories,
   auditLogs,
   socialIntegrations,
+  chatWidgets,
+  agentChatbots,
+  agentChatbotDocuments,
+  documentVectors,
+  chatHistory,
+  widgetChatMessages,
+  hrEmployees,
+  llm_config,
+  chat_history,
 } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
@@ -212,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Serve uploaded files and Line images
   const uploadsPath = path.join(process.cwd(), 'uploads');
   const lineImagesPath = path.join(uploadsPath, 'line-images');
-  
+
   // Ensure directories exist
   if (!fsSync.existsSync(uploadsPath)) {
     fsSync.mkdirSync(uploadsPath, { recursive: true });
@@ -220,7 +229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   if (!fsSync.existsSync(lineImagesPath)) {
     fsSync.mkdirSync(lineImagesPath, { recursive: true });
   }
-  
+
   app.use('/uploads', express.static(uploadsPath));
 
   // Register public HR API routes (no authentication required)
@@ -527,9 +536,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const firstName = req.user.claims.given_name || req.user.claims.first_name || '';
         const lastName = req.user.claims.family_name || req.user.claims.last_name || '';
         const fullName = req.user.claims.name || `${firstName} ${lastName}`.trim();
-        const displayName = fullName || 
-                         req.user.claims.display_name || 
-                         req.user.claims.name || 
+        const displayName = fullName ||
+                         req.user.claims.display_name ||
+                         req.user.claims.name ||
                          userEmail;
 
         return res.json({
@@ -553,19 +562,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Construct display name from database fields first, then fallback to claims
       let displayName = `${userWithDept.firstName || ''} ${userWithDept.lastName || ''}`.trim();
-      
+
       // If no name in database, try to get from claims and update database
       if (!displayName) {
-        displayName = req.user.claims.display_name || 
-                     req.user.claims.name || 
+        displayName = req.user.claims.display_name ||
+                     req.user.claims.name ||
                      userWithDept.email;
-                     
+
         // If we have name from claims but not in database, extract and update
         if (req.user.claims.name && !userWithDept.firstName && !userWithDept.lastName) {
           const nameParts = req.user.claims.name.split(' ');
           const firstName = nameParts[0] || '';
           const lastName = nameParts.slice(1).join(' ') || '';
-          
+
           try {
             // Update the database with extracted name parts
             await db
@@ -576,7 +585,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 updatedAt: new Date(),
               })
               .where(eq(users.id, userWithDept.id));
-              
+
             console.log(`Updated user ${userWithDept.id} with name: ${firstName} ${lastName}`);
           } catch (error) {
             console.error("Error updating user name:", error);
@@ -612,10 +621,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { name, department, preferences } = req.body;
-      
+
       // For now, just return success since we don't have a full user management system
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: "Profile updated successfully",
         id: userId,
         name: name,
@@ -914,20 +923,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const { users } = await import("@shared/schema");
-      
+
       // Check if any admin exists
       const [existingAdmin] = await db
         .select()
         .from(users)
         .where(eq(users.role, 'admin'))
         .limit(1);
-      
+
       if (existingAdmin) {
-        return res.status(403).json({ 
-          message: "Admin already exists. Contact existing admin for role assignment." 
+        return res.status(403).json({
+          message: "Admin already exists. Contact existing admin for role assignment."
         });
       }
-      
+
       // Make this user an admin
       const [updatedUser] = await db
         .update(users)
@@ -937,10 +946,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .where(eq(users.id, userId))
         .returning();
-      
+
       console.log(`Bootstrap admin: User ${userId} promoted to admin`);
-      
-      res.json({ 
+
+      res.json({
         message: "Successfully promoted to admin",
         user: updatedUser
       });
@@ -1053,7 +1062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
         }
 
-        res.json({ 
+        res.json({
           message: "User role updated successfully",
           user: {
             id: updatedUser.id,
@@ -1062,7 +1071,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } catch (error) {
         console.error("Error updating user role:", error);
-        res.status(500).json({ 
+        res.status(500).json({
           message: "Failed to update user role",
           error: error instanceof Error ? error.message : "Unknown error"
         });
@@ -1474,7 +1483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Performing filename search...");
         try {
           const allDocs = await storage.getDocuments(userId);
-          filenameResults = allDocs.filter(doc => 
+          filenameResults = allDocs.filter(doc =>
             (doc.name || doc.originalName || "").toLowerCase().includes(query.toLowerCase())
           ).map(doc => ({
             ...doc,
@@ -1493,22 +1502,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const { advancedKeywordSearchService } = await import('./services/advancedKeywordSearch');
           const advancedResults = await advancedKeywordSearchService.searchDocuments(query, userId, 50);
-          
+
           keywordResults = advancedResults.map(result => ({
-            id: result.id,
-            name: result.name,
-            content: result.content,
-            summary: result.summary,
-            aiCategory: result.aiCategory,
-            createdAt: result.createdAt,
-            similarity: result.similarity,
-            tags: [],
-            categoryId: null,
-            userId: userId,
+            ...result,
             searchScore: 50 + (result.similarity * 30), // Medium priority with similarity boost
             searchType: "keyword"
           }));
-          
+
           console.log(`Keyword search returned ${keywordResults.length} results`);
         } catch (error) {
           console.error("Keyword search failed, falling back to basic:", error);
@@ -1530,13 +1530,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             userId,
             { searchType: "semantic" },
           );
-          
+
           semanticResults = semanticDocs.map(doc => ({
             ...doc,
             searchScore: 20 + (doc.similarity || 0) * 25, // Lower priority but similarity-based
             searchType: "semantic"
           }));
-          
+
           console.log(`Semantic search returned ${semanticResults.length} results`);
         } catch (error) {
           console.error("Semantic search failed:", error);
@@ -1546,16 +1546,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Merge and deduplicate results
       const allResults = [...filenameResults, ...keywordResults, ...semanticResults];
       const deduplicatedResults = new Map();
-      
+
       // Keep the highest scoring result for each document
       allResults.forEach(result => {
         const docId = result.id;
-        if (!deduplicatedResults.has(docId) || 
+        if (!deduplicatedResults.has(docId) ||
             result.searchScore > deduplicatedResults.get(docId).searchScore) {
           deduplicatedResults.set(docId, result);
         }
       });
-      
+
       // Sort by search score (highest first) then by relevance
       results = Array.from(deduplicatedResults.values())
         .sort((a, b) => {
@@ -1738,7 +1738,7 @@ ${document.summary}`;
             },
           ],
           max_tokens: 2000,
-          temperature: 0.3,
+          temperature: 0.3
         });
 
         const translatedText = response.choices[0].message.content?.trim();
@@ -1788,7 +1788,7 @@ ${document.summary}`;
       try {
         const userId = req.user.claims.sub;
         const files = req.files as Express.Multer.File[];
-        
+
         // Parse metadata if provided
         let metadataArray: any[] = [];
         try {
@@ -1838,7 +1838,7 @@ ${document.summary}`;
 
             // Find metadata for this file
             const fileMetadata = metadataArray.find(meta => meta.fileName === file.originalname);
-            
+
             // Process the document with enhanced AI classification
             const { content, summary, tags, category, categoryColor } =
               await processDocument(file.path, file.mimetype);
@@ -2110,7 +2110,8 @@ ${document.summary}`;
                 originalDocumentId: doc.id.toString(),
               }, doc.mimeType, preserveExistingEmbeddings);
               vectorizedCount++;
-              console.log(`Vectorized document ${doc.id}: ${doc.name}`);
+              console.log(
+                `Vectorized document ${doc.id}: ${doc.name}`);
             } catch (error) {
               console.error(`Failed to vectorize document ${doc.id}:`, error);
               skippedCount++;
@@ -2152,13 +2153,13 @@ ${document.summary}`;
     async (req: any, res) => {
       try {
         const userId = req.user.claims.sub;
-        
+
         console.log(`Starting revert vectorization for user ${userId}`);
-        
+
         // Get all document vectors for this user that have multi-provider embeddings
         const { documentVectors } = await import("@shared/schema");
         const { eq, and, isNotNull } = await import("drizzle-orm");
-        
+
         const vectorsToRevert = await db.select()
           .from(documentVectors)
           .where(
@@ -2167,18 +2168,18 @@ ${document.summary}`;
               isNotNull(documentVectors.embeddingMulti)
             )
           );
-        
+
         let revertedCount = 0;
-        
+
         for (const vector of vectorsToRevert) {
           try {
             const embeddingMulti = vector.embeddingMulti as { openai?: number[]; gemini?: number[] };
-            
+
             // If we have a previous embedding to revert to
             if (embeddingMulti && (embeddingMulti.gemini || embeddingMulti.openai)) {
               // Prefer reverting to OpenAI embedding if available, otherwise use Gemini
               const revertToEmbedding = embeddingMulti.openai || embeddingMulti.gemini;
-              
+
               // Update the main embedding column and clear the multi-provider column
               await db.update(documentVectors)
                 .set({
@@ -2186,27 +2187,27 @@ ${document.summary}`;
                   embeddingMulti: null // Clear the multi-provider column
                 })
                 .where(eq(documentVectors.id, vector.id));
-              
+
               revertedCount++;
             }
           } catch (error) {
             console.error(`Failed to revert vector ${vector.id}:`, error);
           }
         }
-        
+
         console.log(`Revert complete: ${revertedCount} vectors reverted`);
-        
+
         res.json({
           success: true,
           message: `Successfully reverted ${revertedCount} document embeddings`,
           revertedCount
         });
-        
+
       } catch (error) {
         console.error("Error reverting vectorization:", error);
-        res.status(500).json({ 
+        res.status(500).json({
           message: "Failed to revert vectorization",
-          error: error.message 
+          error: error.message
         });
       }
     },
@@ -2228,13 +2229,13 @@ ${document.summary}`;
       try {
         const userId = req.user.claims.sub;
         const { text = "Hello, this is a test embedding." } = req.body;
-        
+
         console.log(`Testing Gemini embedding for user ${userId}`);
-        
+
         // Test Gemini embedding generation
         const { llmRouter } = await import("./services/llmRouter");
         const embeddings = await llmRouter.generateEmbeddings([text], userId);
-        
+
         if (embeddings && embeddings[0] && embeddings[0].length > 0) {
           console.log(`✅ Gemini embedding test successful: ${embeddings[0].length} dimensions`);
           res.json({
@@ -2250,12 +2251,12 @@ ${document.summary}`;
             message: "Failed to generate Gemini embedding"
           });
         }
-        
+
       } catch (error) {
         console.error("Error testing Gemini embedding:", error);
-        res.status(500).json({ 
+        res.status(500).json({
           message: "Failed to test Gemini embedding",
-          error: error.message 
+          error: error.message
         });
       }
     },
@@ -3418,7 +3419,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
               timestamp: new Date().toISOString()
             }
           };
-          
+
           global.wsClients.forEach(client => {
             if (client.readyState === 1) { // WebSocket.OPEN
               client.send(JSON.stringify(wsMessage));
@@ -3563,7 +3564,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
               timestamp: new Date().toISOString()
             }
           };
-          
+
           global.wsClients.forEach(client => {
             if (client.readyState === 1) { // WebSocket.OPEN
               client.send(JSON.stringify(wsMessage));
@@ -4069,8 +4070,8 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     isAuthenticated,
     async (req: any, res) => {
       try {
-        const { message, agentConfig, documentIds } = req.body;
-        
+        const { message, agentConfig, documentIds = [], chatHistory = [] } = req.body;
+
         if (!message || !agentConfig) {
           return res.status(400).json({ message: "Message and agent configuration are required" });
         }
@@ -4079,7 +4080,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
         const personality = agentConfig.personality ? `, with a ${agentConfig.personality} personality` : '';
         const profession = agentConfig.profession ? ` as a ${agentConfig.profession}` : '';
         const responseStyle = agentConfig.responseStyle ? ` in a ${agentConfig.responseStyle} style` : '';
-        
+
         const systemPrompt = `${agentConfig.systemPrompt}
 
 You are ${agentConfig.name || 'an AI assistant'}${profession}${personality}. Respond ${responseStyle}.
@@ -4098,26 +4099,52 @@ ${agentConfig.blockedTopics?.length > 0 ? `Blocked topics: ${agentConfig.blocked
 
         // Get document context if documents are selected
         let documentContext = '';
-        if (documentIds && documentIds.length > 0) {
+
+        if (documentIds.length > 0) {
+          console.log(`🔍 Performing search with ${documentIds.length} documents...`);
+
           try {
-            const userId = req.user.claims.sub;
-            const documents = await storage.getDocumentsByIds(documentIds, userId);
-            if (documents.length > 0) {
-              documentContext = `\n\nRelevant documents:\n${documents.map(doc => 
-                `- ${doc.name}: ${doc.summary || doc.description || 'No summary available'}`
-              ).join('\n')}`;
-              
-              // Add actual document content for better context
-              for (const doc of documents) {
-                if (doc.content && doc.content.length > 0) {
-                  const contentLimit = 30000; // Much larger content for test context
-                  const contentSnippet = doc.content.substring(0, contentLimit) + (doc.content.length > contentLimit ? '...' : '');
-                  documentContext += `\n\nContent from ${doc.name}:\n${contentSnippet}`;
-                }
+            // Extract search configuration from agent config
+            const searchConfig = agentConfig.searchConfiguration || {};
+            const chunkMaxType = searchConfig.chunkMaxType || 'number';
+            const chunkMaxValue = searchConfig.chunkMaxValue || 8;
+            const documentMass = searchConfig.documentMass || 0.3;
+
+            console.log(`⚙️ Search config: ${chunkMaxType}=${chunkMaxValue}, mass=${Math.round(documentMass * 100)}%`);
+
+            // Use smart hybrid search for testing with custom configuration
+            const searchResults = await semanticSearchServiceV2.searchSmartHybridDebug(
+              message,
+              userId,
+              {
+                specificDocumentIds: documentIds,
+                massSelectionPercentage: documentMass,
+                hybridAlpha: 0.2, // 20% keyword, 80% vector
+                maxResults: chunkMaxType === 'number' ? chunkMaxValue : undefined
               }
+            );
+
+            console.log(`🎯 Smart search returned ${searchResults.results.length} results`);
+
+            // Apply chunk maximum if using percentage
+            let finalResults = searchResults.results;
+            if (chunkMaxType === 'percentage' && chunkMaxValue > 0) {
+              const maxChunks = Math.max(1, Math.ceil(searchResults.results.length * (chunkMaxValue / 100)));
+              finalResults = searchResults.results.slice(0, maxChunks);
+              console.log(`📊 Applied ${chunkMaxValue}% limit: ${searchResults.results.length} → ${finalResults.length} chunks`);
             }
-          } catch (error) {
-            console.error("Error fetching documents for test:", error);
+
+            // Build document context
+            const contextChunks = finalResults.map((result, index) => {
+              return `Document ${result.documentId} (Chunk ${result.chunkIndex}) - Similarity: ${result.similarity?.toFixed(4) || 'N/A'}:\n${result.content}`;
+            });
+
+            documentContext = contextChunks.join('\n\n---\n\n');
+            console.log(`📄 Built context with ${contextChunks.length} chunks (${documentContext.length} chars)`);
+
+          } catch (searchError) {
+            console.error('❌ Search error during agent testing:', searchError);
+            documentContext = 'Error retrieving document context for testing.';
           }
         }
 
@@ -4126,23 +4153,23 @@ ${agentConfig.blockedTopics?.length > 0 ? `Blocked topics: ${agentConfig.blocked
         // Apply guardrails to input message if configured
         let processedMessage = message;
         const guardrailsConfig = agentConfig.guardrailsConfig;
-        
+
         if (guardrailsConfig && Object.keys(guardrailsConfig).length > 0) {
           console.log(`🛡️ Applying guardrails to test input: ${JSON.stringify(guardrailsConfig)}`);
-          
-          
+
+
           const guardrailsService = new GuardrailsService(guardrailsConfig);
-          
+
           const inputValidation = await guardrailsService.evaluateInput(message);
           console.log(`📝 Input validation result: ${JSON.stringify(inputValidation)}`);
-          
+
           if (!inputValidation.allowed) {
             console.log(`❌ Input blocked by guardrails: ${inputValidation.reason}`);
-            return res.json({ 
-              response: `ขออภัย ไม่สามารถประมวลผลคำถามนี้ได้ (${inputValidation.reason}) ${inputValidation.suggestions?.[0] || 'Please try rephrasing your message'}` 
+            return res.json({
+              response: `ขออภัย ไม่สามารถประมวลผลคำถามนี้ได้ (${inputValidation.reason}) ${inputValidation.suggestions?.[0] || 'Please try rephrasing your message'}`
             });
           }
-          
+
           // Use modified content if available
           if (inputValidation.modifiedContent) {
             processedMessage = inputValidation.modifiedContent;
@@ -4157,7 +4184,7 @@ ${agentConfig.blockedTopics?.length > 0 ? `Blocked topics: ${agentConfig.blocked
             { role: "system", content: fullPrompt },
             { role: "user", content: processedMessage }
           ],
-          max_tokens: agentConfig.responseLength === 'short' ? 150 : 
+          max_tokens: agentConfig.responseLength === 'short' ? 150 :
                      agentConfig.responseLength === 'long' ? 500 : 300,
           temperature: 0.7
         });
@@ -4166,12 +4193,12 @@ ${agentConfig.blockedTopics?.length > 0 ? `Blocked topics: ${agentConfig.blocked
 
         // Apply guardrails to output response if configured
         if (guardrailsConfig && Object.keys(guardrailsConfig).length > 0) {
-          
+
           const guardrailsService = new GuardrailsService(guardrailsConfig);
-          
+
           const outputValidation = await guardrailsService.evaluateOutput(agentResponse);
           console.log(`📤 Output validation result: ${JSON.stringify(outputValidation)}`);
-          
+
           if (!outputValidation.allowed) {
             console.log(`❌ Output blocked by guardrails: ${outputValidation.reason}`);
             agentResponse = `ขออภัย ไม่สามารถให้คำตอบนี้ได้ (${outputValidation.reason}) ${outputValidation.suggestions?.[0] || 'Please try asking in a different way'}`;
@@ -4195,8 +4222,8 @@ ${agentConfig.blockedTopics?.length > 0 ? `Blocked topics: ${agentConfig.blocked
     isAuthenticated,
     async (req: any, res) => {
       try {
-        const { message, agentConfig, documentIds, chatHistory = [] } = req.body;
-        
+        const { message, agentConfig, documentIds = [], chatHistory = [] } = req.body;
+
         if (!message || !agentConfig) {
           return res.status(400).json({ message: "Message and agent configuration are required" });
         }
@@ -4207,7 +4234,7 @@ ${agentConfig.blockedTopics?.length > 0 ? `Blocked topics: ${agentConfig.blocked
         const personality = agentConfig.personality ? `, with a ${agentConfig.personality} personality` : '';
         const profession = agentConfig.profession ? ` as a ${agentConfig.profession}` : '';
         const responseStyle = agentConfig.responseStyle ? ` in a ${agentConfig.responseStyle} style` : '';
-        
+
         let systemPrompt = `${agentConfig.systemPrompt}
 
 You are ${agentConfig.name || 'an AI assistant'}${profession}${personality}. Respond ${responseStyle}.
@@ -4228,26 +4255,50 @@ Memory management: Keep track of conversation context within the last ${agentCon
 
         // Get document context if documents are selected
         let documentContext = '';
-        if (documentIds && documentIds.length > 0) {
+        if (documentIds.length > 0) {
+          console.log(`🔍 Performing search with ${documentIds.length} documents...`);
+
           try {
-            const userId = req.user.claims.sub;
-            const documents = await storage.getDocumentsByIds(documentIds, userId);
-            if (documents.length > 0) {
-              documentContext = `\n\nRelevant documents for context:\n${documents.map(doc => 
-                `- ${doc.name}: ${doc.summary || doc.description || 'No summary available'}`
-              ).join('\n')}`;
-              
-              // Use significantly more document content for better context
-              for (const doc of documents) {
-                if (doc.content && doc.content.length > 0) {
-                  const contentLimit = 30000; // Increased from 500 to 30000 characters
-                  const contentSnippet = doc.content.substring(0, contentLimit) + (doc.content.length > contentLimit ? '...' : '');
-                  documentContext += `\n\nContent from ${doc.name}:\n${contentSnippet}`;
-                }
+            // Extract search configuration from agent config
+            const searchConfig = agentConfig.searchConfiguration || {};
+            const chunkMaxType = searchConfig.chunkMaxType || 'number';
+            const chunkMaxValue = searchConfig.chunkMaxValue || 8;
+            const documentMass = searchConfig.documentMass || 0.3;
+
+            console.log(`⚙️ Search config: ${chunkMaxType}=${chunkMaxValue}, mass=${Math.round(documentMass * 100)}%`);
+
+            // Use smart hybrid search for testing with custom configuration
+            const searchResults = await semanticSearchServiceV2.searchSmartHybridDebug(
+              message,
+              userId,
+              {
+                specificDocumentIds: documentIds,
+                massSelectionPercentage: documentMass,
+                hybridAlpha: 0.2, // 20% keyword, 80% vector
+                maxResults: chunkMaxType === 'number' ? chunkMaxValue : undefined
               }
+            );
+
+            console.log(`🎯 Smart search returned ${searchResults.results.length} results`);
+
+            // Apply chunk maximum if using percentage
+            let finalResults = searchResults.results;
+            if (chunkMaxType === 'percentage' && chunkMaxValue > 0) {
+              const maxChunks = Math.max(1, Math.ceil(searchResults.results.length * (chunkMaxValue / 100)));
+              finalResults = searchResults.results.slice(0, maxChunks);
+              console.log(`📊 Applied ${chunkMaxValue}% limit: ${searchResults.results.length} → ${finalResults.length} chunks`);
             }
-          } catch (error) {
-            console.error("Error fetching documents for test:", error);
+
+            // Build document context
+            const contextChunks = finalResults.map((result, index) => {
+              return `Document ${result.documentId} (Chunk ${result.chunkIndex}) - Similarity: ${result.similarity?.toFixed(4) || 'N/A'}:\n${result.content}`;
+            });
+
+            documentContext = contextChunks.join('\n\n---\n\n');
+            console.log(`📄 Built context with ${contextChunks.length} chunks (${documentContext.length} chars)`);
+
+          } catch (searchError) {
+            console.error("Error fetching documents for test:", searchError);
           }
         }
 
@@ -4256,7 +4307,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
         // Prepare conversation messages respecting memory limit
         const memoryLimit = Math.min(agentConfig.memoryLimit || 10, 20); // Cap at 20 for API limits
         const recentHistory = chatHistory.slice(-memoryLimit);
-        
+
         const messages = [
           { role: "system", content: systemPrompt },
           ...recentHistory,
@@ -4268,23 +4319,23 @@ Memory management: Keep track of conversation context within the last ${agentCon
         // Apply guardrails to input message if configured
         let processedMessage = message;
         const guardrailsConfig = agentConfig.guardrailsConfig;
-        
+
         if (guardrailsConfig && Object.keys(guardrailsConfig).length > 0) {
           console.log(`🛡️ Applying guardrails to test input: ${JSON.stringify(guardrailsConfig)}`);
-          
-          
+
+
           const guardrailsService = new GuardrailsService(guardrailsConfig);
-          
+
           const inputValidation = await guardrailsService.evaluateInput(message);
           console.log(`📝 Input validation result: ${JSON.stringify(inputValidation)}`);
-          
+
           if (!inputValidation.allowed) {
             console.log(`❌ Input blocked by guardrails: ${inputValidation.reason}`);
-            return res.json({ 
-              response: `ขออภัย ไม่สามารถประมวลผลคำถามนี้ได้ (${inputValidation.reason}) ${inputValidation.suggestions?.[0] || 'Please try rephrasing your message'}` 
+            return res.json({
+              response: `ขออภัย ไม่สามารถประมวลผลคำถามนี้ได้ (${inputValidation.reason}) ${inputValidation.suggestions?.[0] || 'Please try rephrasing your message'}`
             });
           }
-          
+
           // Use modified content if available
           if (inputValidation.modifiedContent) {
             processedMessage = inputValidation.modifiedContent;
@@ -4303,7 +4354,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
         const response = await openai.chat.completions.create({
           model: "gpt-4o",
           messages: finalMessages,
-          max_tokens: agentConfig.responseLength === 'short' ? 150 : 
+          max_tokens: agentConfig.responseLength === 'short' ? 150 :
                      agentConfig.responseLength === 'long' ? 500 : 300,
           temperature: 0.7
         });
@@ -4313,12 +4364,12 @@ Memory management: Keep track of conversation context within the last ${agentCon
 
         // Apply guardrails to output response if configured
         if (guardrailsConfig && Object.keys(guardrailsConfig).length > 0) {
-          
+
           const guardrailsService = new GuardrailsService(guardrailsConfig);
-          
+
           const outputValidation = await guardrailsService.evaluateOutput(agentResponse);
           console.log(`📤 Output validation result: ${JSON.stringify(outputValidation)}`);
-          
+
           if (!outputValidation.allowed) {
             console.log(`❌ Output blocked by guardrails: ${outputValidation.reason}`);
             agentResponse = `ขออภัย ไม่สามารถให้คำตอบนี้ได้ (${outputValidation.reason}) ${outputValidation.suggestions?.[0] || 'Please try asking in a different way'}`;
@@ -4337,7 +4388,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
   );
 
   // Social Integrations routes
-  
+
   // Get webhook URL for a specific integration
   app.get(
     "/api/social-integrations/:id/webhook-url",
@@ -4346,7 +4397,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
       try {
         const userId = req.user.claims.sub;
         const integrationId = parseInt(req.params.id);
-        
+
         if (isNaN(integrationId)) {
           return res.status(400).json({ error: "Invalid integration ID" });
         }
@@ -4361,9 +4412,9 @@ Memory management: Keep track of conversation context within the last ${agentCon
         const protocol = req.headers['x-forwarded-proto'] || 'https';
         const host = req.headers['x-replit-domain'] || req.headers['host'];
         const baseUrl = `${protocol}://${host}`;
-        
+
         let webhookUrl: string;
-        
+
         if (integration.type === 'lineoa') {
           // Use the dynamic webhook endpoint for Line OA
           webhookUrl = `${baseUrl}/api/line/webhook/${integrationId}`;
@@ -4372,7 +4423,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
           webhookUrl = `${baseUrl}/api/webhook/${integration.type}/${integrationId}`;
         }
 
-        res.json({ 
+        res.json({
           integrationId: integrationId,
           type: integration.type,
           name: integration.name,
@@ -4385,7 +4436,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
       }
     }
   );
-  
+
   app.get(
     "/api/social-integrations",
     isAuthenticated,
@@ -4538,7 +4589,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
         if (integrationId) {
           const userId = req.user.claims.sub;
           const updateResult = await db.execute(sql`
-            UPDATE social_integrations 
+            UPDATE social_integrations
             SET is_verified = true, last_verified_at = NOW(), updated_at = NOW()
             WHERE id = ${integrationId} AND user_id = ${userId} AND type = 'lineoa'
           `);
@@ -4629,7 +4680,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
 
         // Update integration in database with raw SQL
         const result = await db.execute(sql`
-        UPDATE social_integrations 
+        UPDATE social_integrations
         SET channel_access_token = ${accessToken}, updated_at = NOW()
         WHERE id = ${integrationId} AND user_id = ${userId}
         RETURNING *
@@ -4650,14 +4701,14 @@ Memory management: Keep track of conversation context within the last ${agentCon
   );
 
   // Agent Console API endpoints
-  
+
   // Get channel integrations for hierarchical filtering
   app.get('/api/agent-console/channels', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      
+
       const query = `
-        SELECT 
+        SELECT
           si.id,
           si.name,
           si.type as channel_type,
@@ -4666,13 +4717,13 @@ Memory management: Keep track of conversation context within the last ${agentCon
           ac.id as agent_id
         FROM social_integrations si
         JOIN agent_chatbots ac ON si.agent_id = ac.id
-        WHERE si.is_verified = true 
+        WHERE si.is_verified = true
         AND ac.user_id = $1
         ORDER BY si.type, si.name
       `;
-      
+
       const result = await pool.query(query, [userId]);
-      
+
       // Group by channel type
       const channelGroups = {
         lineoa: [],
@@ -4680,7 +4731,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
         tiktok: [],
         web: []
       };
-      
+
       result.rows.forEach(row => {
         if (channelGroups[row.channel_type]) {
           channelGroups[row.channel_type].push({
@@ -4692,10 +4743,10 @@ Memory management: Keep track of conversation context within the last ${agentCon
           });
         }
       });
-      
+
       // Add web widgets
       const webWidgetsQuery = `
-        SELECT 
+        SELECT
           cw.id,
           cw.name,
           cw.widget_key as channel_id,
@@ -4707,7 +4758,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
         AND cw.user_id = $1
         ORDER BY cw.name
       `;
-      
+
       const webResult = await pool.query(webWidgetsQuery, [userId]);
       webResult.rows.forEach(row => {
         channelGroups.web.push({
@@ -4718,7 +4769,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
           agentId: row.agent_id
         });
       });
-      
+
       res.json(channelGroups);
     } catch (error) {
       console.error("Error fetching channel integrations:", error);
@@ -4731,18 +4782,18 @@ Memory management: Keep track of conversation context within the last ${agentCon
       const userId = req.user.claims.sub;
       const channelFilter = req.query.channelFilter || 'all';
       const subChannelFilter = req.query.subChannelFilter || 'all';
-      
+
       // Build WHERE conditions for sub-channel filtering
       let whereConditions = 'ac.user_id = $1 AND (ch.channel_id LIKE \'U%\' OR ch.channel_type = \'web\')';
       const params = [userId];
       let paramIndex = 2;
-      
+
       if (channelFilter !== 'all') {
         whereConditions += ` AND ch.channel_type = $${paramIndex}`;
         params.push(channelFilter);
         paramIndex++;
       }
-      
+
       if (subChannelFilter !== 'all') {
         if (channelFilter === 'web') {
           // For web widgets, filter by widget_key
@@ -4751,14 +4802,14 @@ Memory management: Keep track of conversation context within the last ${agentCon
         } else if (channelFilter === 'lineoa') {
           // For Line OA, filter by specific channel integration
           whereConditions += ` AND EXISTS (
-            SELECT 1 FROM social_integrations si 
-            WHERE si.channel_id = $${paramIndex} 
+            SELECT 1 FROM social_integrations si
+            WHERE si.channel_id = $${paramIndex}
             AND si.agent_id = ch.agent_id
           )`;
           params.push(subChannelFilter);
         }
       }
-      
+
       // Get all unique users from chat history grouped by user, channel, and agent
       // Fixed query to properly sort by last message time
       const query = `
@@ -4780,9 +4831,9 @@ Memory management: Keep track of conversation context within the last ${agentCon
         SELECT * FROM latest_messages
         ORDER BY last_message_at DESC
       `;
-      
+
       const result = await pool.query(query, params);
-      
+
       const chatUsers = result.rows.map(row => ({
         userId: row.user_id,
         channelType: row.channel_type,
@@ -4794,13 +4845,13 @@ Memory management: Keep track of conversation context within the last ${agentCon
         messageCount: parseInt(row.message_count),
         isOnline: Math.random() > 0.7, // Simplified online status
         userProfile: {
-          name: row.channel_type === 'web' ? 
-            `Web User ${row.user_id.slice(-4)}` : 
+          name: row.channel_type === 'web' ?
+            `Web User ${row.user_id.slice(-4)}` :
             `User ${row.channel_id.slice(-4)}`, // Use Line user ID for display
           // Add more profile fields as needed
         }
       }));
-      
+
       console.log("🔍 Agent Console Users API: Raw DB results:", result.rows.length);
       console.log("🔍 Agent Console Users API: Raw DB sample:", result.rows[0]);
       console.log("🔍 Agent Console Users API: Found users:", chatUsers.length);
@@ -4808,7 +4859,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
         console.log("🔍 Agent Console Users API: Sample user:", chatUsers[0]);
         console.log("🔍 Agent Console Users API: All channelIds:", chatUsers.map(u => u.channelId));
       }
-      
+
       res.json(chatUsers);
     } catch (error) {
       console.error("Error fetching agent console users:", error);
@@ -4819,18 +4870,18 @@ Memory management: Keep track of conversation context within the last ${agentCon
   app.get('/api/agent-console/conversation', isAuthenticated, async (req: any, res) => {
     try {
       const { userId: targetUserId, channelType, channelId, agentId } = req.query;
-      
+
       if (!targetUserId || !channelType || !channelId || !agentId) {
         return res.status(400).json({ message: "Missing required parameters" });
       }
-      
+
       console.log("🔍 Agent Console Conversation API: Query params:", {
         targetUserId,
         channelType,
         channelId,
         agentId
       });
-      
+
       // Try to get messages with the provided channelId first
       let messages = await storage.getChatHistory(
         targetUserId,
@@ -4839,25 +4890,25 @@ Memory management: Keep track of conversation context within the last ${agentCon
         parseInt(agentId),
         50 // Get last 50 messages
       );
-      
-      // If no messages found and channelId looks like a Line OA channel ID, 
+
+      // If no messages found and channelId looks like a Line OA channel ID,
       // try to find with actual Line user ID from the database
       if (messages.length === 0 && channelType === 'lineoa') {
         console.log("🔍 No messages found with channelId:", channelId, "- trying to find Line user ID");
-        
+
         // Query to find actual Line user IDs for this user and agent
         const lineUserQuery = `
-          SELECT DISTINCT channel_id 
-          FROM chat_history 
+          SELECT DISTINCT channel_id
+          FROM chat_history
           WHERE user_id = $1 AND channel_type = $2 AND agent_id = $3
           AND channel_id LIKE 'U%'
         `;
-        const lineUserResult = await pool.query(lineUserQuery, [targetUserId, channelType, parseInt(agentId)]);
-        
+        const lineUserResult = await pool.query(lineUserQuery, [targetUserId, channelType]);
+
         if (lineUserResult.rows.length > 0) {
           const actualChannelId = lineUserResult.rows[0].channel_id;
           console.log("🔍 Found actual Line user ID:", actualChannelId);
-          
+
           messages = await storage.getChatHistory(
             targetUserId,
             channelType,
@@ -4867,12 +4918,12 @@ Memory management: Keep track of conversation context within the last ${agentCon
           );
         }
       }
-      
+
       console.log("📨 Agent Console Conversation API: Found messages:", messages.length);
       if (messages.length > 0) {
         console.log("📨 Agent Console Conversation API: Sample message:", messages[0]);
       }
-      
+
       res.json(messages);
     } catch (error) {
       console.error("Error fetching conversation:", error);
@@ -4888,86 +4939,86 @@ Memory management: Keep track of conversation context within the last ${agentCon
       console.log("🚀 SUMMARY ENDPOINT CALLED! 🚀");
       const { userId: targetUserId, channelType, channelId } = req.query;
       console.log("📊 Summary request params:", { targetUserId, channelType, channelId });
-      
+
       if (!targetUserId || !channelType || !channelId) {
         return res.status(400).json({ message: "Missing required parameters" });
       }
-      
+
       // Get conversation statistics - try both channelId variants for Line OA
       let query = `
-        SELECT 
+        SELECT
           COUNT(*) as total_messages,
           MIN(created_at) as first_contact_at,
           MAX(created_at) as last_active_at
-        FROM chat_history 
+        FROM chat_history
         WHERE user_id = $1 AND channel_type = $2 AND channel_id = $3
       `;
-      
+
       let result = await pool.query(query, [targetUserId, channelType, channelId]);
       let row = result.rows[0];
-      
-      console.log("📊 First query result for summary:", { 
-        targetUserId, 
-        channelType, 
-        channelId: channelId.substring(0, 8) + '...', 
-        totalMessages: row?.total_messages 
+
+      console.log("📊 First query result for summary:", {
+        targetUserId,
+        channelType,
+        channelId: channelId.substring(0, 8) + '...',
+        totalMessages: row?.total_messages
       });
-      
+
       // If no messages found and it's Line OA, try finding the actual Line user ID
       if (parseInt(row.total_messages) === 0 && channelType === 'lineoa') {
         console.log("🔍 No messages found, trying to find actual Line user ID");
-        
+
         const lineUserQuery = `
           SELECT DISTINCT channel_id, COUNT(*) as message_count
-          FROM chat_history 
+          FROM chat_history
           WHERE user_id = $1 AND channel_type = $2
           GROUP BY channel_id
           ORDER BY message_count DESC
           LIMIT 1
         `;
-        
+
         const lineUserResult = await pool.query(lineUserQuery, [targetUserId, channelType]);
-        
+
         if (lineUserResult.rows.length > 0) {
           const actualChannelId = lineUserResult.rows[0].channel_id;
           console.log("🔍 Found actual channel ID:", actualChannelId.substring(0, 8) + '...');
-          
+
           // Update the channel ID for both summary and CSAT
           actualChannelIdForCSAT = actualChannelId;
-          
+
           // Re-query with the actual channel ID
           result = await pool.query(query, [targetUserId, channelType, actualChannelId]);
           row = result.rows[0];
-          
-          console.log("📊 Second query result with actual channel ID:", { 
-            actualChannelId: actualChannelId.substring(0, 8) + '...', 
-            totalMessages: row?.total_messages 
+
+          console.log("📊 Second query result with actual channel ID:", {
+            actualChannelId: actualChannelId.substring(0, 8) + '...',
+            totalMessages: row?.total_messages
           });
         }
       }
-      
+
       // Get CSAT score using OpenAI analysis of actual conversation
       let csatScore = undefined;
       let actualChannelIdForCSAT = channelId;
-      
+
       // If we have enough messages, calculate CSAT score using OpenAI
       if (parseInt(row.total_messages) >= 3) {
         try {
-          console.log("🎯 Starting CSAT calculation for:", { 
-            targetUserId, 
-            channelType, 
+          console.log("🎯 Starting CSAT calculation for:", {
+            targetUserId,
+            channelType,
             originalChannelId: channelId.substring(0, 8) + '...',
             actualChannelId: actualChannelIdForCSAT.substring(0, 8) + '...',
-            totalMessages: row.total_messages 
+            totalMessages: row.total_messages
           });
-          
+
           // Get agent ID from first message to use correct memory limits
           let agentId = undefined;
           const firstMessageQuery = `
-            SELECT agent_id 
-            FROM chat_history 
-            WHERE user_id = $1 AND channel_type = $2 AND channel_id = $3 
-            ORDER BY created_at ASC 
+            SELECT agent_id
+            FROM chat_history
+            WHERE user_id = $1 AND channel_type = $2 AND channel_id = $3
+            ORDER BY created_at ASC
             LIMIT 1
           `;
           const firstMessageResult = await pool.query(firstMessageQuery, [targetUserId, channelType, actualChannelIdForCSAT]);
@@ -4975,15 +5026,15 @@ Memory management: Keep track of conversation context within the last ${agentCon
             agentId = firstMessageResult.rows[0].agent_id;
             console.log("📊 Found agent ID for CSAT:", agentId);
           }
-          
+
           // Add timeout for CSAT calculation to prevent hanging
           const csatPromise = calculateCSATScore(targetUserId, channelType, actualChannelIdForCSAT, agentId);
-          const timeoutPromise = new Promise<undefined>((_, reject) => 
+          const timeoutPromise = new Promise<undefined>((_, reject) =>
             setTimeout(() => reject(new Error('CSAT calculation timeout')), 15000)
           );
-          
+
           csatScore = await Promise.race([csatPromise, timeoutPromise]);
-          
+
           console.log("🎯 CSAT calculation completed:", { csatScore });
         } catch (error) {
           console.error("❌ Error calculating CSAT score:", error);
@@ -5015,7 +5066,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
         mainTopics: ['General Inquiry', 'Support'], // Could be enhanced with AI topic extraction
         csatScore: csatScore
       };
-      
+
       console.log("📊 Final summary response:", {
         totalMessages: summary.totalMessages,
         firstContactAt: summary.firstContactAt ? summary.firstContactAt.toISOString() : null,
@@ -5023,7 +5074,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
         csatScore: summary.csatScore,
         csatScore: summary.csatScore
       });
-      
+
       res.json(summary);
     } catch (error) {
       console.error("Error fetching conversation summary:", error);
@@ -5035,15 +5086,15 @@ Memory management: Keep track of conversation context within the last ${agentCon
   app.post('/api/debug/websocket-test', async (req: any, res) => {
     try {
       const { message, userId, channelId } = req.body;
-      
+
       console.log('🧪 Debug WebSocket test initiated:', {
         message,
         userId,
         channelId,
-        wsClientsCount: global.wsClients ? global.wsClients.size : 0
+        wsClientsCount: wsClients.size + 1
       });
-      
-      if (global.wsClients && global.wsClients.size > 0) {
+
+      if (wsClients && wsClients.size > 0) {
         const testMessage = {
           type: 'human_agent_message',
           channelType: 'web',
@@ -5057,27 +5108,27 @@ Memory management: Keep track of conversation context within the last ${agentCon
             humanAgentName: 'Debug Agent'
           }
         };
-        
+
         console.log('🧪 Broadcasting test message:', JSON.stringify(testMessage, null, 2));
-        
+
         let sentCount = 0;
-        global.wsClients.forEach((client, index) => {
-          if (client.readyState === 1) {
+        wsClients.forEach((client, index) => {
+          if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify(testMessage));
             sentCount++;
             console.log(`🧪 Test message sent to client ${index + 1}`);
           }
         });
-        
-        res.json({ 
-          success: true, 
-          message: 'Test message broadcast', 
-          clientsCount: global.wsClients.size,
+
+        res.json({
+          success: true,
+          message: 'Test message broadcast',
+          clientsCount: wsClients.size,
           sentCount: sentCount
         });
       } else {
-        res.json({ 
-          success: false, 
+        res.json({
+          success: false,
           message: 'No WebSocket clients connected',
           clientsCount: 0
         });
@@ -5091,7 +5142,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
   app.post('/api/agent-console/send-message', isAuthenticated, async (req: any, res) => {
     try {
       let { userId: targetUserId, channelType, channelId, agentId, message, messageType } = req.body;
-      
+
       console.log('📤 Agent Console send-message endpoint called:', {
         targetUserId,
         channelType,
@@ -5101,7 +5152,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
         messageType,
         humanAgent: req.user.claims.first_name || req.user.claims.email || 'Human Agent'
       });
-      
+
       if (!targetUserId || !channelType || !channelId || !agentId || !message) {
         console.log('❌ Missing required parameters:', { targetUserId, channelType, channelId, agentId, hasMessage: !!message });
         return res.status(400).json({ message: "Missing required parameters" });
@@ -5109,7 +5160,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
 
       // For web channel, always broadcast to all active sessions for this widget
       // This ensures messages reach the widget regardless of session ID mismatches
-      
+
       // Store the human agent message in chat history
       console.log('💾 Storing human agent message in chat history...');
       const chatHistoryRecord = await storage.createChatHistory({
@@ -5125,7 +5176,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
           humanAgentName: req.user.claims.first_name || req.user.claims.email || 'Human Agent'
         }
       });
-      
+
       console.log('✅ Chat history stored with ID:', chatHistoryRecord.id);
 
       // Broadcast new message to Agent Console via WebSocket
@@ -5145,14 +5196,14 @@ Memory management: Keep track of conversation context within the last ${agentCon
             humanAgentName: req.user.claims.first_name || req.user.claims.email || 'Human Agent'
           }
         };
-        
+
         console.log('📡 Broadcasting to Agent Console:', broadcastData);
         (global as any).broadcastToAgentConsole(broadcastData);
         console.log('✅ Broadcasted human agent message to Agent Console');
       } else {
         console.log('⚠️ broadcastToAgentConsole function not available');
       }
-      
+
       // Send the message via the appropriate channel
       if (channelType === 'lineoa') {
         try {
@@ -5160,14 +5211,14 @@ Memory management: Keep track of conversation context within the last ${agentCon
           const integrationQuery = `
             SELECT si.channel_access_token, si.channel_id, si.name
             FROM social_integrations si
-            WHERE si.agent_id = $1 
+            WHERE si.agent_id = $1
             AND si.type = 'lineoa'
             AND si.is_verified = true
             ORDER BY si.created_at DESC
             LIMIT 1
           `;
           const integrationResult = await pool.query(integrationQuery, [parseInt(agentId)]);
-          
+
           if (integrationResult.rows.length > 0) {
             const integration = integrationResult.rows[0];
             console.log('🔍 Found Line integration:', {
@@ -5175,7 +5226,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
               channelId: integration.channel_id?.substring(0, 8) + '...',
               hasToken: !!integration.channel_access_token
             });
-            
+
             if (integration.channel_access_token) {
               const { sendLinePushMessage } = await import('./lineOaWebhook');
               await sendLinePushMessage(channelId, message, integration.channel_access_token);
@@ -5196,7 +5247,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
           targetUserId,
           channelId,
           agentId: parseInt(agentId),
-          wsClientsCount: global.wsClients ? global.wsClients.size : 0,
+          wsClientsCount: wsClients.size,
           globalWsClientsExists: !!(global.wsClients),
           messageContent: message.substring(0, 50) + '...'
         });
@@ -5205,14 +5256,14 @@ Memory management: Keep track of conversation context within the last ${agentCon
         // This is what the widget actually reads from!
         try {
           console.log('💾 Storing human agent message in widget_chat_messages table...');
-          
+
           // Insert into widget_chat_messages table
           const widgetMessageQuery = `
             INSERT INTO widget_chat_messages (session_id, role, content, message_type, metadata, created_at)
             VALUES ($1, $2, $3, $4, $5, NOW())
             RETURNING id
           `;
-          
+
           const widgetMessageValues = [
             targetUserId, // session_id (this is the visitor session ID)
             'assistant', // role (must be 'assistant' to pass DB constraint, but message_type will be 'agent')
@@ -5224,15 +5275,15 @@ Memory management: Keep track of conversation context within the last ${agentCon
               humanAgentName: req.user.claims.first_name || req.user.claims.email || 'Human Agent'
             }) // metadata
           ];
-          
+
           const widgetMessageResult = await pool.query(widgetMessageQuery, widgetMessageValues);
           console.log('✅ Human agent message stored in widget_chat_messages with ID:', widgetMessageResult.rows[0].id);
-          
+
         } catch (widgetStoreError) {
           console.error('❌ Error storing human agent message in widget_chat_messages:', widgetStoreError);
         }
-        
-        if (global.wsClients && global.wsClients.size > 0) {
+
+        if (wsClients && wsClients.size > 0) {
           // Create two different message formats for broader compatibility
           const wsMessage = {
             type: 'human_agent_message',
@@ -5248,7 +5299,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
               humanAgentName: req.user.claims.first_name || req.user.claims.email || 'Human Agent'
             }
           };
-          
+
           // Also create a broadcast message that any widget with this channelId can receive
           const broadcastMessage = {
             type: 'human_agent_message',
@@ -5264,15 +5315,15 @@ Memory management: Keep track of conversation context within the last ${agentCon
               humanAgentName: req.user.claims.first_name || req.user.claims.email || 'Human Agent'
             }
           };
-          
+
           console.log('📡 Broadcasting web widget message (specific):', JSON.stringify(wsMessage, null, 2));
           console.log('📡 Broadcasting web widget message (broadcast):', JSON.stringify(broadcastMessage, null, 2));
-          
+
           let sentCount = 0;
           let openConnections = 0;
-          global.wsClients.forEach((client, index) => {
+          wsClients.forEach((client, index) => {
             console.log(`🔍 WebSocket client ${index + 1} readyState:`, client.readyState);
-            if (client.readyState === 1) { // WebSocket.OPEN
+            if (client.readyState === WebSocket.OPEN) {
               openConnections++;
               try {
                 // Send both specific and broadcast messages
@@ -5285,8 +5336,8 @@ Memory management: Keep track of conversation context within the last ${agentCon
               }
             }
           });
-          
-          console.log(`📊 WebSocket summary - Total clients: ${global.wsClients.size}, Open: ${openConnections}, Sent: ${sentCount}`);
+
+          console.log(`📊 WebSocket summary - Total clients: ${wsClients.size}, Open: ${openConnections}, Sent: ${sentCount}`);
         } else {
           console.log('⚠️ No WebSocket clients connected for web channel message');
           console.log('🔍 Global WebSocket debugging:', {
@@ -5295,11 +5346,11 @@ Memory management: Keep track of conversation context within the last ${agentCon
           });
         }
       }
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         messageId: chatHistoryRecord.id,
-        message: "Message sent successfully" 
+        message: "Message sent successfully"
       });
     } catch (error) {
       console.error("Error sending agent console message:", error);
@@ -5307,33 +5358,33 @@ Memory management: Keep track of conversation context within the last ${agentCon
     }
   });
 
-  // Agent Console Image Upload and Send endpoint  
+  // Agent Console Image Upload and Send endpoint
   app.post('/api/agent-console/send-image', isAuthenticated, upload.single('image'), async (req: any, res) => {
     try {
       const { userId: targetUserId, channelType, channelId, agentId, message, messageType } = req.body;
       const imageFile = req.file;
-      
+
       if (!targetUserId || !channelType || !channelId || !agentId) {
         return res.status(400).json({ message: "Missing required parameters" });
       }
-      
+
       if (!imageFile) {
         return res.status(400).json({ message: "No image file provided" });
       }
-      
+
       console.log('📸 Agent Console: Processing image upload:', {
         targetUserId,
-        channelType, 
+        channelType,
         channelId,
         agentId,
         fileName: imageFile.filename,
         size: imageFile.size,
         mimetype: imageFile.mimetype
       });
-      
+
       // Create image URL for serving
       const imageUrl = `/uploads/${imageFile.filename}`;
-      
+
       // Store image message in chat history
       const chatHistoryRecord = await storage.createChatHistory({
         userId: targetUserId,
@@ -5373,23 +5424,23 @@ Memory management: Keep track of conversation context within the last ${agentCon
             imageUrl: imageUrl
           }
         });
-        console.log('📡 Broadcasted human agent image message to Agent Console');
+        console.log('✅ Broadcasted human agent image message to Agent Console');
       }
-      
+
       // Send the image via the appropriate channel
       if (channelType === 'lineoa') {
         try {
           // Get Line channel access token from agent using direct DB query
           const query = `SELECT lineoa_config FROM agent_chatbots WHERE id = $1`;
           const result = await pool.query(query, [parseInt(agentId)]);
-          
+
           if (result.rows.length > 0) {
             const lineoaConfig = result.rows[0].lineoa_config;
             console.log('🔍 Agent lineoa_config for image:', lineoaConfig);
-            
+
             if (lineoaConfig?.accessToken) {
               // Send image via Line Push Message API
-              const imageResult = await sendLineImageMessage(channelId, imageUrl, lineoaConfig.accessToken, message);
+              const imageResult = await sendLineImageMessage(channelId, imageUrl, lineoaConfig.accessToken);
               if (imageResult) {
                 console.log('✅ Successfully sent Line image:', imageUrl);
               } else {
@@ -5405,12 +5456,12 @@ Memory management: Keep track of conversation context within the last ${agentCon
           console.error('❌ Error sending Line image:', error);
         }
       }
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         messageId: chatHistoryRecord.id,
         imageUrl: imageUrl,
-        message: "Image sent successfully" 
+        message: "Image sent successfully"
       });
     } catch (error) {
       console.error("Error sending agent console image:", error);
@@ -5420,12 +5471,12 @@ Memory management: Keep track of conversation context within the last ${agentCon
 
   app.post('/api/agent-console/takeover', isAuthenticated, async (req: any, res) => {
     try {
-      const { userId: targetUserId, channelType, channelId, agentId } = req.body;
-      
+      const { targetUserId, channelType, channelId, agentId } = req.body;
+
       if (!targetUserId || !channelType || !channelId || !agentId) {
         return res.status(400).json({ message: "Missing required parameters" });
       }
-      
+
       // Log the takeover action
       await storage.createAuditLog({
         userId: req.user.claims.sub,
@@ -5441,7 +5492,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
           agentId: parseInt(agentId)
         }
       });
-      
+
       // Store a system message indicating human takeover
       await storage.createChatHistory({
         userId: targetUserId,
@@ -5456,7 +5507,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
           agentId: req.user.claims.sub
         }
       });
-      
+
       res.json({ success: true, message: "Conversation takeover successful" });
     } catch (error) {
       console.error("Error taking over conversation:", error);
@@ -5465,18 +5516,18 @@ Memory management: Keep track of conversation context within the last ${agentCon
   });
 
   // Line Message Template Routes
-  
+
   // Get all Line message templates for user
   app.get("/api/line-templates", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const integrationId = req.query.integrationId ? parseInt(req.query.integrationId) : undefined;
-      
+
       console.log("🔍 Fetching Line templates for user:", userId, "integration:", integrationId);
-      
+
       const templates = await storage.getLineMessageTemplates(userId, integrationId);
       console.log("📋 Found templates:", templates.length);
-      
+
       // Get complete template data (with columns and actions) for each template
       const completeTemplates = await Promise.all(
         templates.map(async (template) => {
@@ -5484,7 +5535,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
           return completeTemplate;
         })
       );
-      
+
       console.log("✅ Complete templates ready:", completeTemplates.length);
       res.json(completeTemplates.filter(t => t !== undefined));
     } catch (error) {
@@ -5498,13 +5549,13 @@ Memory management: Keep track of conversation context within the last ${agentCon
     try {
       const userId = req.user.claims.sub;
       const templateId = parseInt(req.params.id);
-      
+
       if (isNaN(templateId)) {
         return res.status(400).json({ message: "Invalid template ID" });
       }
 
       const completeTemplate = await storage.getCompleteLineTemplate(templateId, userId);
-      
+
       if (!completeTemplate) {
         return res.status(404).json({ message: "Template not found" });
       }
@@ -5536,7 +5587,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
           const openai = new (await import("openai")).default({
             apiKey: process.env.OPENAI_API_KEY,
           });
-          
+
           const response = await openai.embeddings.create({
             model: "text-embedding-3-small",
             input: description,
@@ -5621,7 +5672,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
         templateType: type,
         integrationId: integrationId || null,
       };
-      
+
       console.log("🔍 BACKEND UPDATE - Sending to storage:", updateData);
       const updatedTemplate = await storage.updateLineMessageTemplate(templateId, updateData, userId);
       console.log("🔍 BACKEND UPDATE - Updated template result:", updatedTemplate);
@@ -5630,7 +5681,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
       if (columns && Array.isArray(columns)) {
         // Get existing columns
         const existingColumns = await storage.getLineCarouselColumns(templateId);
-        
+
         // Delete existing columns and actions
         for (const existingColumn of existingColumns) {
           const existingActions = await storage.getLineTemplateActions(existingColumn.id);
@@ -5690,7 +5741,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
 
       // Get existing columns to clean up
       const existingColumns = await storage.getLineCarouselColumns(templateId);
-      
+
       // Delete all actions and columns first
       for (const column of existingColumns) {
         const actions = await storage.getLineTemplateActions(column.id);
@@ -5712,7 +5763,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
 
   // Line OA Webhook endpoint (no authentication required)
   app.post("/api/line/webhook", handleLineWebhook);
-  
+
   // Dynamic Line OA Webhook with integration ID for multiple channels
   app.post("/api/line/webhook/:integrationId", async (req: Request, res: Response) => {
     try {
@@ -5731,10 +5782,10 @@ Memory management: Keep track of conversation context within the last ${agentCon
       console.log(`🔔 Line webhook received for integration ${integrationId} (${integration.name})`);
       console.log(`🔍 Integration verified status: ${integration.isVerified}`);
       console.log(`📅 Last verified: ${integration.lastVerifiedAt || 'Never'}`);
-      
+
       // Temporarily modify the request to include integration info for handleLineWebhook
       (req as any).lineIntegration = integration;
-      
+
       // Call the existing webhook handler
       return await handleLineWebhook(req, res);
     } catch (error) {
@@ -5747,7 +5798,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
   app.get("/api/admin/line-integrations/debug", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      
+
       // Get all Line OA integrations for this user
       const integrations = await db
         .select()
@@ -5768,10 +5819,10 @@ Memory management: Keep track of conversation context within the last ${agentCon
         isVerified: integration.isVerified,
         lastVerifiedAt: integration.lastVerifiedAt,
         dynamicWebhookUrl: `/api/line/webhook/${integration.id}`,
-        recommendedAction: !integration.isVerified 
+        recommendedAction: !integration.isVerified
           ? "ต้อง verify Channel Secret ใหม่ผ่าน Social Integrations page"
           : "พร้อมใช้งาน",
-        secretPreview: integration.channelSecret 
+        secretPreview: integration.channelSecret
           ? `${integration.channelSecret.substring(0, 8)}...`
           : "ไม่มี",
         agentId: integration.agentId,
@@ -5794,11 +5845,11 @@ Memory management: Keep track of conversation context within the last ${agentCon
   });
 
   const httpServer = createServer(app);
-  
+
   // Create WebSocket server on /ws path to avoid conflicts with Vite HMR
-  const wss = new WebSocketServer({ 
-    server: httpServer, 
-    path: '/ws' 
+  const wss = new WebSocketServer({
+    server: httpServer,
+    path: '/ws'
   });
 
   // LLM Configuration API routes
@@ -5813,7 +5864,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
   }, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      
+
       // Get current LLM configuration for user
       const configResult = await pool.query(`
         SELECT provider, embedding_provider, config_data, created_at, updated_at
@@ -5877,18 +5928,18 @@ Memory management: Keep track of conversation context within the last ${agentCon
   }, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { 
-        provider, 
-        embeddingProvider, 
-        openAIConfig, 
-        geminiConfig 
+      const {
+        provider,
+        embeddingProvider,
+        openAIConfig,
+        geminiConfig
       } = req.body;
 
       // Validate provider options
       if (!["OpenAI", "Gemini"].includes(provider)) {
         return res.status(400).json({ message: "Invalid provider. Must be 'OpenAI' or 'Gemini'" });
       }
-      
+
       if (!["OpenAI", "Gemini"].includes(embeddingProvider)) {
         return res.status(400).json({ message: "Invalid embedding provider. Must be 'OpenAI' or 'Gemini'" });
       }
@@ -5915,7 +5966,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
       if (existingResult.rows.length > 0) {
         // Update existing config
         configResult = await pool.query(`
-          UPDATE llm_config 
+          UPDATE llm_config
           SET provider = $2, embedding_provider = $3, config_data = $4, updated_at = NOW()
           WHERE user_id = $1
           RETURNING provider, embedding_provider, config_data, created_at, updated_at
@@ -5946,7 +5997,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
 
   // Store connected WebSocket clients
   const wsClients = new Set<WebSocket>();
-  
+
   // Also store global reference for widget message broadcasting
   (global as any).wsClients = wsClients;
 
@@ -5957,7 +6008,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
       userAgent: req.headers['user-agent']?.substring(0, 50) + '...',
       totalClients: wsClients.size + 1
     });
-    
+
     wsClients.add(ws);
     console.log('📊 WebSocket clients count:', wsClients.size);
 
@@ -5974,7 +6025,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
       try {
         const message = JSON.parse(data.toString());
         console.log('📨 WebSocket message received:', message);
-        
+
         // Handle different message types if needed
         if (message.type === 'subscribe') {
           console.log('📡 Client subscribed to Agent Console updates');
@@ -6001,7 +6052,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
   // Export function to broadcast messages to all connected clients
   (global as any).broadcastToAgentConsole = (message: any) => {
     console.log(`📡 Broadcasting to ${wsClients.size} connected clients:`, message);
-    
+
     wsClients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
         try {

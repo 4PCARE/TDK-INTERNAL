@@ -87,6 +87,9 @@ const createAgentSchema = z.object({
   searchConfiguration: z.object({
     enableCustomSearch: z.boolean().default(false),
     additionalSearchDetail: z.string().default(""),
+    chunkMaxType: z.enum(["number", "percentage"]).default("number"),
+    chunkMaxValue: z.number().min(1).default(8),
+    documentMass: z.number().min(0.1).max(1).default(0.3),
   }).optional(),
   // Advanced Guardrails Configuration
   guardrailsEnabled: z.boolean().default(false),
@@ -197,6 +200,9 @@ export default function CreateAgentChatbot() {
       searchConfiguration: {
         enableCustomSearch: false,
         additionalSearchDetail: "",
+        chunkMaxType: "number",
+        chunkMaxValue: 8,
+        documentMass: 0.3,
       },
     },
   });
@@ -267,6 +273,9 @@ export default function CreateAgentChatbot() {
         searchConfiguration: {
           enableCustomSearch: agent.searchConfiguration?.enableCustomSearch || false,
           additionalSearchDetail: agent.searchConfiguration?.additionalSearchDetail || "",
+          chunkMaxType: agent.searchConfiguration?.chunkMaxType || "number",
+          chunkMaxValue: agent.searchConfiguration?.chunkMaxValue || 8,
+          documentMass: agent.searchConfiguration?.documentMass || 0.3,
         },
         memoryEnabled: agent.memoryEnabled || false,
         memoryLimit: agent.memoryLimit || 10,
@@ -2071,51 +2080,192 @@ export default function CreateAgentChatbot() {
 
                             {/* Additional Search Details - Only show if enabled */}
                             {form.watch("searchConfiguration.enableCustomSearch") && (
-                              <FormField
-                                control={form.control}
-                                name="searchConfiguration.additionalSearchDetail"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Additional Search Context</FormLabel>
-                                    <FormControl>
-                                      <Textarea
-                                        placeholder="Enter additional context that will be injected into search queries. For example: 'Focus on company policies and HR procedures' or 'Prioritize technical documentation and troubleshooting guides'"
-                                        className="min-h-[120px]"
-                                        {...field}
-                                      />
-                                    </FormControl>
-                                    <FormDescription>
-                                      This text will be appended to the query preprocessor's prompt as: "Help modify search ... {form.watch("searchConfiguration.additionalSearchDetail") || "${additionalSearchDetail}"}"
-                                      <br />
-                                      <strong>Note:</strong> This will also be included as an additional system prompt for the agent bot.
-                                    </FormDescription>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
+                              <div className="space-y-6">
+                                <FormField
+                                  control={form.control}
+                                  name="searchConfiguration.additionalSearchDetail"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Additional Search Context</FormLabel>
+                                      <FormControl>
+                                        <Textarea
+                                          placeholder="Enter additional context that will be injected into search queries. For example: 'Focus on company policies and HR procedures' or 'Prioritize technical documentation and troubleshooting guides'"
+                                          className="min-h-[120px]"
+                                          {...field}
+                                        />
+                                      </FormControl>
+                                      <FormDescription>
+                                        This text will be appended to the query preprocessor's prompt as: "Help modify search ... {form.watch("searchConfiguration.additionalSearchDetail") || "${additionalSearchDetail}"}"
+                                        <br />
+                                        <strong>Note:</strong> This will also be included as an additional system prompt for the agent bot.
+                                      </FormDescription>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                {/* Chunk Maximum Configuration */}
+                                <div className="space-y-4 border-l-4 border-blue-500 pl-4">
+                                  <h4 className="font-medium text-slate-800">Chunk Maximum Settings</h4>
+                                  <FormField
+                                    control={form.control}
+                                    name="searchConfiguration.chunkMaxType"
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>Chunk Maximum Type</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                          <FormControl>
+                                            <SelectTrigger>
+                                              <SelectValue placeholder="Choose how to limit chunks" />
+                                            </SelectTrigger>
+                                          </FormControl>
+                                          <SelectContent>
+                                            <SelectItem value="number">Fixed Number</SelectItem>
+                                            <SelectItem value="percentage">Percentage of Retrieved Chunks</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                        <FormDescription>
+                                          Choose whether to limit by a fixed number of chunks or a percentage of retrieved chunks
+                                        </FormDescription>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  <FormField
+                                    control={form.control}
+                                    name="searchConfiguration.chunkMaxValue"
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>
+                                          {form.watch("searchConfiguration.chunkMaxType") === "percentage" 
+                                            ? "Maximum Percentage (%)" 
+                                            : "Maximum Number of Chunks"}
+                                        </FormLabel>
+                                        <FormControl>
+                                          <div className="space-y-2">
+                                            <div className="flex items-center space-x-2">
+                                              <span className="text-sm text-slate-500">
+                                                {form.watch("searchConfiguration.chunkMaxType") === "percentage" ? "1%" : "1"}
+                                              </span>
+                                              <Slider
+                                                value={[field.value || (form.watch("searchConfiguration.chunkMaxType") === "percentage" ? 5 : 8)]}
+                                                onValueChange={(value) => field.onChange(value[0])}
+                                                max={form.watch("searchConfiguration.chunkMaxType") === "percentage" ? 100 : 32}
+                                                min={form.watch("searchConfiguration.chunkMaxType") === "percentage" ? 1 : 1}
+                                                step={form.watch("searchConfiguration.chunkMaxType") === "percentage" ? 1 : 1}
+                                                className="flex-1"
+                                              />
+                                              <span className="text-sm text-slate-500">
+                                                {form.watch("searchConfiguration.chunkMaxType") === "percentage" ? "100%" : "32"}
+                                              </span>
+                                            </div>
+                                            <div className="text-center">
+                                              <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                                                {field.value || (form.watch("searchConfiguration.chunkMaxType") === "percentage" ? 5 : 8)}{form.watch("searchConfiguration.chunkMaxType") === "percentage" ? "%" : " chunks"}
+                                              </Badge>
+                                            </div>
+                                          </div>
+                                        </FormControl>
+                                        <FormDescription>
+                                          {form.watch("searchConfiguration.chunkMaxType") === "percentage" 
+                                            ? "Percentage of retrieved chunks to send to AI (e.g., 5% of 100 chunks = 5 chunks)"
+                                            : "Maximum number of chunks to send to AI regardless of how many are retrieved"}
+                                        </FormDescription>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+
+                                {/* Document Mass Configuration */}
+                                <div className="space-y-4 border-l-4 border-green-500 pl-4">
+                                  <h4 className="font-medium text-slate-800">Document Mass Selection</h4>
+                                  <FormField
+                                    control={form.control}
+                                    name="searchConfiguration.documentMass"
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>Document Mass Percentage</FormLabel>
+                                        <FormControl>
+                                          <div className="space-y-2">
+                                            <div className="flex items-center space-x-2">
+                                              <span className="text-sm text-slate-500">10%</span>
+                                              <Slider
+                                                value={[field.value ? field.value * 100 : 30]}
+                                                onValueChange={(value) => field.onChange(value[0] / 100)}
+                                                max={100}
+                                                min={10}
+                                                step={5}
+                                                className="flex-1"
+                                              />
+                                              <span className="text-sm text-slate-500">100%</span>
+                                            </div>
+                                            <div className="text-center">
+                                              <Badge variant="secondary" className="bg-green-100 text-green-700">
+                                                {Math.round((field.value || 0.3) * 100)}% mass
+                                              </Badge>
+                                            </div>
+                                          </div>
+                                        </FormControl>
+                                        <FormDescription className="space-y-1">
+                                          <div><strong>What is Document Mass?</strong></div>
+                                          <div>• Document mass determines how much of the total relevance score to capture</div>
+                                          <div>• Lower values (10-30%): Select only the most relevant chunks, more precise but may miss context</div>
+                                          <div>• Higher values (60-100%): Include more chunks for broader context, but may include less relevant information</div>
+                                          <div>• Recommended: 30% for general use, 60% for document-focused bots</div>
+                                        </FormDescription>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+                              </div>
                             )}
 
                             {/* Preview Section */}
-                            {form.watch("searchConfiguration.enableCustomSearch") && form.watch("searchConfiguration.additionalSearchDetail") && (
+                            {form.watch("searchConfiguration.enableCustomSearch") && (
                               <div className="bg-blue-50 rounded-lg p-4 space-y-3">
                                 <h4 className="font-medium text-blue-900 flex items-center gap-2">
                                   <Info className="w-4 h-4" />
-                                  Search Enhancement Preview
+                                  Search Configuration Summary
                                 </h4>
                                 <div className="space-y-2 text-sm">
+                                  {form.watch("searchConfiguration.additionalSearchDetail") && (
+                                    <>
+                                      <div>
+                                        <span className="font-medium text-blue-800">Query Preprocessor Enhancement:</span>
+                                        <div className="bg-white rounded p-2 mt-1 border border-blue-200">
+                                          <code className="text-xs text-slate-700">
+                                            "Help modify search ... {form.watch("searchConfiguration.additionalSearchDetail")}"
+                                          </code>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <span className="font-medium text-blue-800">System Prompt Addition:</span>
+                                        <div className="bg-white rounded p-2 mt-1 border border-blue-200">
+                                          <code className="text-xs text-slate-700">
+                                            Additional context: {form.watch("searchConfiguration.additionalSearchDetail")}
+                                          </code>
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
                                   <div>
-                                    <span className="font-medium text-blue-800">Query Preprocessor Enhancement:</span>
+                                    <span className="font-medium text-blue-800">Chunk Limit:</span>
                                     <div className="bg-white rounded p-2 mt-1 border border-blue-200">
                                       <code className="text-xs text-slate-700">
-                                        "Help modify search ... {form.watch("searchConfiguration.additionalSearchDetail")}"
+                                        {form.watch("searchConfiguration.chunkMaxType") === "percentage" 
+                                          ? `Maximum ${form.watch("searchConfiguration.chunkMaxValue") || 5}% of retrieved chunks`
+                                          : `Maximum ${form.watch("searchConfiguration.chunkMaxValue") || 8} chunks`}
                                       </code>
                                     </div>
                                   </div>
                                   <div>
-                                    <span className="font-medium text-blue-800">System Prompt Addition:</span>
+                                    <span className="font-medium text-blue-800">Document Mass:</span>
                                     <div className="bg-white rounded p-2 mt-1 border border-blue-200">
                                       <code className="text-xs text-slate-700">
-                                        Additional context: {form.watch("searchConfiguration.additionalSearchDetail")}
+                                        {Math.round((form.watch("searchConfiguration.documentMass") || 0.3) * 100)}% of total relevance score
                                       </code>
                                     </div>
                                   </div>
