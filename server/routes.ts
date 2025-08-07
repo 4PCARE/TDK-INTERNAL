@@ -2533,18 +2533,6 @@ Classification criteria:
 - "positive": The response contains specific information, facts, procedures, or actionable guidance that directly addresses the user's question. Even if the response says "according to the document" or references sources, it's positive if it provides useful information.
 - "fallback": The response explicitly states inability to help, gives only generic advice without specifics, or clearly indicates no relevant information was found.
 
-Key indicators of POSITIVE responses:
-- Contains specific numbers, dates, procedures, or facts
-- References document content or policies
-- Provides step-by-step instructions
-- Answers the specific question asked
-- Uses phrases like "according to the document", "the policy states", "you need to", etc.
-
-Key indicators of FALLBACK responses:
-- "I don't know", "I cannot help", "No information available"
-- Very generic advice without specifics
-- Deflecting to "contact someone else" without any useful information
-
 Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "reason": "explanation"}
 `;
 
@@ -3071,7 +3059,6 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       const suggestions = await databaseQueryService.suggestQueries(
         connectionId,
         userId,
-        message,
       );
 
       // Use OpenAI to generate a response and SQL query
@@ -3187,6 +3174,27 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     } catch (error) {
       console.error("Error creating chat widget:", error);
       res.status(500).json({ message: "Failed to create chat widget" });
+    }
+  });
+
+  app.put("/api/chat-widgets/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const widgetId = parseInt(req.params.id);
+      const updates = req.body;
+
+      console.log(`PUT /api/chat-widgets/${widgetId} - User: ${userId}, Updates:`, updates);
+
+      const widget = await storage.updateChatWidget(widgetId, updates, userId);
+
+      console.log(`PUT /api/chat-widgets/${widgetId} - Success, returning widget:`, widget);
+
+      res.setHeader('Content-Type', 'application/json');
+      res.json(widget);
+    } catch (error) {
+      console.error("Error updating chat widget:", error);
+      res.setHeader('Content-Type', 'application/json');
+      res.status(500).json({ message: "Failed to update chat widget" });
     }
   });
 
@@ -3437,7 +3445,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       if (widget.agentId) {
         try {
           console.log(`🤖 Widget: Using agentBot service for agent ${widget.agentId}`);
-          
+
           // Get recent chat history for context
           const recentMessages = await db
             .select({
@@ -4435,10 +4443,10 @@ Memory management: Keep track of conversation context within the last ${agentCon
 
         if (integration.type === 'lineoa') {
           // Use the dynamic webhook endpoint for Line OA
-          webhookUrl = `${baseUrl}/api/line/webhook/${integrationId}`;
+          webhookUrl = `${baseUrl}/api/line/webhook/${integration.id}`;
         } else {
           // For other platforms, use generic webhook (to be implemented)
-          webhookUrl = `${baseUrl}/api/webhook/${integration.type}/${integrationId}`;
+          webhookUrl = `${baseUrl}/api/webhook/${integration.type}/${integration.id}`;
         }
 
         res.json({
@@ -4567,7 +4575,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
 
         if (!channelId || !channelSecret) {
           console.log("❌ Missing required fields");
-          return res.status(400).json({
+          return res.json({
             success: false,
             message: "กรุณากรอก Channel ID และ Channel Secret",
           });
