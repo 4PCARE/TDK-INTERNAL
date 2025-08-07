@@ -1183,12 +1183,12 @@ async function getAiResponseDirectly(
         // Step 3: Build document context from search results
         let documentContext = "";
         const maxContextLength = tokenLimitEnabled && tokenLimitType === 'document'
-          ? documentTokenLimit
+          ? documentTokenLimit * 4  // Convert tokens to characters (4 chars per token)
           : 12000; // Use configured document token limit or default
         let chunksUsed = 0;
 
         console.log(
-          `📄 LINE OA: Building document context from search results:`,
+          `📄 LINE OA: Building document context from search results (max: ${maxContextLength} chars):`,
         );
         for (let i = 0; i < finalSearchResults.length; i++) {
           const result = finalSearchResults[i];
@@ -1207,23 +1207,30 @@ async function getAiResponseDirectly(
           ) {
             documentContext += chunkText;
             chunksUsed++;
+            console.log(`      ✅ Added chunk ${i + 1} (${chunkText.length} chars, total: ${documentContext.length}/${maxContextLength} chars)`);
           } else {
             const remainingSpace =
               maxContextLength - documentContext.length;
             if (remainingSpace > 300) {
-              const availableContentSpace = remainingSpace - 150;
-              const truncatedContent =
-                result.content.substring(0, availableContentSpace) +
-                "...";
-              documentContext += `=== ข้อมูลที่ ${i + 1}: ${result.name} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${truncatedContent}\n\n`;
-              chunksUsed++;
+              const headerText = `=== ข้อมูลที่ ${i + 1}: ${result.name} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: `;
+              const availableContentSpace = remainingSpace - headerText.length - 10; // 10 chars for "...\n\n"
+              if (availableContentSpace > 100) {
+                const truncatedContent =
+                  result.content.substring(0, availableContentSpace) +
+                  "...";
+                const truncatedChunkText = headerText + truncatedContent + "\n\n";
+                documentContext += truncatedChunkText;
+                chunksUsed++;
+                console.log(`      ✂️ Added truncated chunk ${i + 1} (${truncatedChunkText.length} chars, total: ${documentContext.length}/${maxContextLength} chars)`);
+              }
             }
+            console.log(`      🛑 Stopping: Would exceed max context length`);
             break;
           }
         }
 
         console.log(
-          `📄 LINE OA: Used ${chunksUsed}/${finalSearchResults.length} chunks (${documentContext.length} chars)`,
+          `📄 LINE OA: Used ${chunksUsed}/${finalSearchResults.length} chunks (${documentContext.length} chars, max: ${maxContextLength} chars)`,
         );
 
         // Apply final token limit if enabled
