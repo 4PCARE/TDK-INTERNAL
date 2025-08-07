@@ -1155,18 +1155,8 @@ async function getAiResponseDirectly(
         `🔍 LINE OA: Smart hybrid search found ${searchResults.length} relevant chunks from agent's bound documents`,
       );
 
-      // Apply chunk maximum if using percentage type
+      // Chunk limits are now applied during the search itself, not after
       let finalSearchResults = searchResults;
-      if (chunkMaxType === 'percentage' && chunkMaxValue > 0) {
-        // Calculate percentage based on total available chunks in agent's documents, not just search results
-        const totalAvailableChunks = agentDocIds.length > 0 ?
-          await getTotalChunksForDocuments(agentDocIds, userId) :
-          await getTotalChunksForUser(userId);
-
-        const maxChunks = Math.max(1, Math.ceil(totalAvailableChunks * (chunkMaxValue / 100)));
-        finalSearchResults = searchResults.slice(0, Math.min(maxChunks, searchResults.length));
-        console.log(`📊 LINE OA: Applied ${chunkMaxValue}% limit: ${chunkMaxValue}% of ${totalAvailableChunks} total chunks = ${maxChunks} max chunks → selected ${finalSearchResults.length} chunks`);
-      }
 
       if (finalSearchResults.length > 0) {
         // Step 3: Build document context from search results

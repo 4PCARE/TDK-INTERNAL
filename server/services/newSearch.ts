@@ -669,13 +669,28 @@ export async function searchSmartHybridDebug(
   let minResults, maxResults;
 
   if (isLineOAContext) {
-    // LINE OA context: Use dynamic limits based on mass selection percentage
-    if (massSelectionPercentage >= 0.6) {
-      minResults = 8; // Document bots need minimum 8 chunks
-      maxResults = Math.min(16, scoredChunks.length); // Document bots cap at 16 chunks
+    // LINE OA context: Use agent's chunk configuration properly
+    if (options.chunkMaxType === 'percentage' && options.chunkMaxValue > 0) {
+      // Calculate percentage based on total available chunks
+      const totalAvailableChunks = scoredChunks.length;
+      const maxChunks = Math.max(1, Math.ceil(totalAvailableChunks * (options.chunkMaxValue / 100)));
+      minResults = Math.min(2, maxChunks);
+      maxResults = Math.min(maxChunks, scoredChunks.length);
+      console.log(`📊 LINE OA: Using ${options.chunkMaxValue}% limit: ${options.chunkMaxValue}% of ${totalAvailableChunks} total chunks = ${maxResults} max chunks`);
+    } else if (options.chunkMaxType === 'number' && options.chunkMaxValue > 0) {
+      // Use fixed number of chunks
+      minResults = Math.min(2, options.chunkMaxValue);
+      maxResults = Math.min(options.chunkMaxValue, scoredChunks.length);
+      console.log(`📊 LINE OA: Using fixed limit: ${maxResults} max chunks`);
     } else {
-      minResults = 2; // General chat needs minimum 2 chunks
-      maxResults = Math.min(22, scoredChunks.length); // Allow up to 22 chunks for general chat
+      // Fallback to default LINE OA limits
+      if (massSelectionPercentage >= 0.6) {
+        minResults = 8; // Document bots need minimum 8 chunks
+        maxResults = Math.min(16, scoredChunks.length); // Document bots cap at 16 chunks
+      } else {
+        minResults = 2; // General chat needs minimum 2 chunks
+        maxResults = Math.min(22, scoredChunks.length); // Allow up to 22 chunks for general chat
+      }
     }
   } else {
     // Document Bot context: Always use document-focused limits
