@@ -2498,7 +2498,28 @@ export class DatabaseStorage implements IStorage {
       const { chatHistory } = await import('@shared/schema');
       const { eq, and, desc } = await import('drizzle-orm');
 
-      console.log(`Getting summary for ${userId}, ${channelType}, ${channelId}`);
+      console.log(`📊 Getting summary for userId: "${userId}", channelType: "${channelType}", channelId: "${channelId}"`);
+
+      // First, let's see what data exists for this user across all conversations
+      const allUserMessages = await db
+        .select({
+          id: chatHistory.id,
+          userId: chatHistory.userId,
+          channelType: chatHistory.channelType,
+          channelId: chatHistory.channelId,
+          messageType: chatHistory.messageType,
+          content: chatHistory.content,
+          createdAt: chatHistory.createdAt
+        })
+        .from(chatHistory)
+        .where(eq(chatHistory.userId, userId))
+        .orderBy(desc(chatHistory.createdAt))
+        .limit(5);
+
+      console.log(`📊 Found ${allUserMessages.length} total messages for user ${userId}:`);
+      allUserMessages.forEach((msg, index) => {
+        console.log(`  ${index + 1}. Channel: ${msg.channelType}/${msg.channelId}, Type: ${msg.messageType}, Content: ${msg.content?.substring(0, 50)}...`);
+      });
 
       // Get basic conversation stats - select specific fields to avoid undefined issues
       const messages = await db
@@ -2520,6 +2541,8 @@ export class DatabaseStorage implements IStorage {
           )
         )
         .orderBy(desc(chatHistory.createdAt));
+
+      console.log(`📊 Found ${messages.length} messages for specific conversation`);
 
       if (messages.length === 0) {
         return {
