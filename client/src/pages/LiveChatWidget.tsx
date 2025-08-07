@@ -177,6 +177,7 @@ export default function LiveChatWidget() {
       primaryColor: widget.primaryColor,
       textColor: widget.textColor,
       enableHrLookup: widget.enableHrLookup,
+      hrApiEndpoint: widget.hrApiEndpoint,
       agentId: widget.agentId || null
     });
   };
@@ -373,7 +374,7 @@ export default function LiveChatWidget() {
                         onChange={(e) => setFormData({...formData, primaryColor: e.target.value})}
                       />
                     </div>
-                    
+
                     <div>
                       <Label htmlFor="textColor">Text Color</Label>
                       <Input
@@ -421,7 +422,7 @@ export default function LiveChatWidget() {
                         <Label htmlFor="hrApiEndpoint">HR API Endpoint</Label>
                         <Input
                           id="hrApiEndpoint"
-                          value={formData.hrApiEndpoint}
+                          value={formData.hrApiEndpoint || ""}
                           onChange={(e) => setFormData({...formData, hrApiEndpoint: e.target.value})}
                           placeholder="/api/public/hr/employee"
                         />
