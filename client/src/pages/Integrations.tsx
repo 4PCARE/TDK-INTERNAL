@@ -137,9 +137,20 @@ export default function Integrations() {
   const [editingIntegration, setEditingIntegration] = useState<SocialIntegration | null>(null);
   const [manageIntegrationsOpen, setManageIntegrationsOpen] = useState(false);
   const [selectedPlatformType, setSelectedPlatformType] = useState<string>('');
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   // Form states for Line OA
   const [lineOaForm, setLineOaForm] = useState({
+    name: "",
+    channelId: "",
+    channelSecret: "",
+    channelAccessToken: "",
+    agentId: "",
+    description: ""
+  });
+
+  // Form states for editing
+  const [editForm, setEditForm] = useState({
     name: "",
     channelId: "",
     channelSecret: "",
@@ -300,6 +311,78 @@ export default function Integrations() {
 
   const handleVerifyIntegration = (integration: SocialIntegration) => {
     verifyIntegrationMutation.mutate(integration);
+  };
+
+  // Update integration mutation
+  const updateIntegrationMutation = useMutation({
+    mutationFn: async (data: { id: number; updates: Partial<SocialIntegration> }) => {
+      return await apiRequest("PUT", `/api/social-integrations/${data.id}`, data.updates);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Integration updated successfully!",
+      });
+      setEditDialogOpen(false);
+      setEditingIntegration(null);
+      setEditForm({ name: "", channelId: "", channelSecret: "", channelAccessToken: "", agentId: "", description: "" });
+      queryClient.invalidateQueries({ queryKey: ['/api/social-integrations'] });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to update integration",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditIntegration = (integration: SocialIntegration) => {
+    setEditingIntegration(integration);
+    setEditForm({
+      name: integration.name,
+      channelId: integration.channelId || "",
+      channelSecret: integration.channelSecret || "",
+      channelAccessToken: integration.channelAccessToken || "",
+      agentId: integration.agentId?.toString() || "",
+      description: ""
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateIntegration = () => {
+    if (!editingIntegration) return;
+
+    if (!editForm.name || !editForm.channelId || !editForm.channelSecret || !editForm.agentId) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateIntegrationMutation.mutate({
+      id: editingIntegration.id,
+      updates: {
+        name: editForm.name,
+        channelId: editForm.channelId,
+        channelSecret: editForm.channelSecret,
+        channelAccessToken: editForm.channelAccessToken,
+        agentId: parseInt(editForm.agentId)
+      }
+    });
   };
 
   const handleManageIntegrations = (platformType: string) => {
@@ -788,10 +871,7 @@ export default function Integrations() {
                                       <Button
                                         size="sm"
                                         variant="outline"
-                                        onClick={() => {
-                                          setEditingIntegration(integration);
-                                          // You can add edit functionality here
-                                        }}
+                                        onClick={() => handleEditIntegration(integration)}
                                       >
                                         <Settings className="w-4 h-4 mr-2" />
                                         Edit
@@ -843,6 +923,144 @@ export default function Integrations() {
                           onClick={() => setManageIntegrationsOpen(false)}
                         >
                           Close
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Edit Integration Dialog */}
+                <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Edit Integration</DialogTitle>
+                      <DialogDescription>
+                        Update your integration settings
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-6">
+                      {/* Basic Information */}
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="edit-name">Integration Name *</Label>
+                          <Input
+                            id="edit-name"
+                            placeholder="e.g., Customer Support Bot"
+                            value={editForm.name}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      {/* Line OA Configuration */}
+                      {editingIntegration?.type === 'lineoa' && (
+                        <div className="space-y-4">
+                          <h4 className="text-sm font-medium text-slate-900 dark:text-white">
+                            Line OA Configuration
+                          </h4>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="edit-channelId">Channel ID *</Label>
+                              <Input
+                                id="edit-channelId"
+                                placeholder="Enter your Line OA Channel ID"
+                                value={editForm.channelId}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, channelId: e.target.value }))}
+                              />
+                            </div>
+
+                            <div>
+                              <Label htmlFor="edit-channelSecret">Channel Secret *</Label>
+                              <Input
+                                id="edit-channelSecret"
+                                type="password"
+                                placeholder="Enter your Line OA Channel Secret"
+                                value={editForm.channelSecret}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, channelSecret: e.target.value }))}
+                              />
+                            </div>
+
+                            <div className="md:col-span-2">
+                              <Label htmlFor="edit-channelAccessToken">Channel Access Token *</Label>
+                              <Input
+                                id="edit-channelAccessToken"
+                                type="password"
+                                placeholder="Enter your Line OA Channel Access Token"
+                                value={editForm.channelAccessToken || ''}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, channelAccessToken: e.target.value }))}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <Separator />
+
+                      {/* Agent Selection */}
+                      <div className="space-y-4">
+                        <h4 className="text-sm font-medium text-slate-900 dark:text-white">
+                          Select AI Agent
+                        </h4>
+
+                        <div>
+                          <Label htmlFor="edit-agentId">Choose Agent Bot *</Label>
+                          <Select
+                            value={editForm.agentId}
+                            onValueChange={(value) => setEditForm(prev => ({ ...prev, agentId: value }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select an agent to handle conversations" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {agents.filter(agent => agent.isActive).map((agent) => (
+                                <SelectItem key={agent.id} value={agent.id.toString()}>
+                                  <div className="flex items-center gap-2">
+                                    <Bot className="w-4 h-4" />
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{agent.name}</span>
+                                      {agent.description && (
+                                        <span className="text-xs text-slate-500">{agent.description}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex justify-end gap-3 pt-4 border-t">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setEditDialogOpen(false);
+                            setEditingIntegration(null);
+                            setEditForm({ name: "", channelId: "", channelSecret: "", channelAccessToken: "", agentId: "", description: "" });
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleUpdateIntegration}
+                          disabled={updateIntegrationMutation.isPending}
+                        >
+                          {updateIntegrationMutation.isPending ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              Updating...
+                            </>
+                          ) : (
+                            <>
+                              <Settings className="w-4 h-4 mr-2" />
+                              Update Integration
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>
