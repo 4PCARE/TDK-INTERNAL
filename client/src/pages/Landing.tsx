@@ -31,10 +31,15 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                <FileText className="w-5 h-5 text-white" />
+              <img 
+                src="/tdk-logo.png" 
+                alt="TDK Logo" 
+                className="w-8 h-8 rounded-lg object-contain"
+              />
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">TDK</h1>
+                <p className="text-sm text-gray-600">Mind of Knowledge, Voice of AI</p>
               </div>
-              <h1 className="text-2xl font-bold text-gray-900">ถามได้คับ</h1>
             </div>
             <div className="flex gap-3">
               <Button
@@ -59,16 +64,14 @@ export default function Landing() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center">
           <h1 className="text-4xl sm:text-6xl font-bold text-gray-900 mb-6">
-            AI-Powered
+            TDK
             <span className="text-blue-500">
               {" "}
               Knowledge Management Platform
             </span>
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-            Upload, organize, and search your documents with advanced AI
-            capabilities. Get instant insights and chat with your documents like
-            never before.
+            Mind of Knowledge, Voice of AI. Unleash the power of intelligent knowledge discovery and seamless collaboration.
           </p>
         </div>
       </section>
