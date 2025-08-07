@@ -459,7 +459,7 @@ function isThaiTokenSimilar(term1: string, term2: string): boolean {
 export async function searchSmartHybridDebug(
   query: string,
   userId: string,
-  options: Omit<SearchOptions, "searchType"> & { 
+  options: Omit<SearchOptions, "searchType"> & {
     massSelectionPercentage?: number;
     enhancedQuery?: string; // Accept preprocessed query from queryPreprocessor
     isLineOAContext?: boolean; // Flag to indicate context
@@ -667,7 +667,7 @@ export async function searchSmartHybridDebug(
 
   // Smart selection: TRUE mass-based selection with context-aware limits
   let minResults, maxResults;
-  
+
   if (isLineOAContext) {
     // LINE OA context: Use dynamic limits based on mass selection percentage
     if (massSelectionPercentage >= 0.6) {
@@ -773,7 +773,7 @@ export async function searchSmartHybridDebug(
 export async function searchSmartHybridV1(
   query: string,
   userId: string,
-  options: Omit<SearchOptions, "searchType"> & { 
+  options: Omit<SearchOptions, "searchType"> & {
     massSelectionPercentage?: number;
     enhancedQuery?: string; // Accept preprocessed query from queryPreprocessor
   }

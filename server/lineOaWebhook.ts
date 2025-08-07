@@ -1145,6 +1145,8 @@ async function getAiResponseDirectly(
           massSelectionPercentage: documentMass,
           enhancedQuery: queryAnalysis.enhancedQuery,
           isLineOAContext: true, // Flag to indicate LINE OA context
+          chunkMaxType: searchConfig.chunkMaxType,
+          chunkMaxValue: searchConfig.chunkMaxValue,
           limit: 22, // LINE OA context - enable higher chunk limits
         },
       );
