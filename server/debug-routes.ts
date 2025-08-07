@@ -208,10 +208,18 @@ router.post('/api/debug/ai-input', async (req, res) => {
         // Get recent chat history if available (mock for now)
         const recentChatHistory = []; // TODO: Integrate with actual chat history
 
+        // Build additional context with search configuration
+        let additionalContext = `Document scope: ${specificDocumentIds ? specificDocumentIds.join(', ') : 'All documents'}`;
+        
+        // For debug, we can simulate search configuration
+        if (req.query.searchConfig) {
+          additionalContext += `\n\nSearch Configuration: ${req.query.searchConfig}`;
+        }
+
         const queryAnalysis = await queryPreprocessor.analyzeQuery(
           userMessage,
           recentChatHistory,
-          `Document scope: ${specificDocumentIds ? specificDocumentIds.join(', ') : 'All documents'}`
+          additionalContext
         );
 
         if (!queryAnalysis.needsSearch) {

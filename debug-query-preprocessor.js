@@ -67,7 +67,17 @@ Respond in JSON format:
 
 console.log(systemPrompt);
 console.log("\n" + "=" * 80);
-console.log("📋 This is the exact system prompt used by the Query Preprocessor AI");
+console.log("📋 This is the base system prompt used by the Query Preprocessor AI");
 console.log("🎯 It analyzes user queries to determine if search is needed and enhances them");
 console.log("🔧 Located in: server/services/queryPreprocessor.ts");
+console.log("\n💡 SEARCH CONFIGURATION ENHANCEMENT:");
+console.log("When an agent has additionalSearchDetail configured, it gets injected like this:");
+console.log("----------------------------------------");
+console.log(`**SEARCH CONFIGURATION ENHANCEMENT:**
+Additional search context: "Focus on company policies and HR procedures"
+- Incorporate this context when enhancing queries
+- Use this to better understand the domain and purpose of the search
+- Apply this context to make queries more specific and relevant`);
+console.log("----------------------------------------");
+console.log("🧪 Test with: ?searchConfig=Focus on promotions and discounts");
 console.log("=" * 80);

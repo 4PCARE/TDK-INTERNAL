@@ -1,4 +1,3 @@
-
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -28,8 +27,8 @@ export class QueryPreprocessorService {
   ): Promise<QueryAnalysis> {
     try {
       console.log(`🧠 PRE-FEED: Analyzing query "${userQuery}"`);
-      
-      const systemPrompt = `You are a query analysis AI for a Thai shopping mall information system. ${additionalSearchDetail ? `Additional Context: ${additionalSearchDetail}` : ''} Your job is to:
+
+      let systemPrompt = `You are a query analysis AI for a Thai shopping mall information system. ${additionalSearchDetail ? `Additional Context: ${additionalSearchDetail}` : ''} Your job is to:
 
 1. **CRITICAL: Inject Historical Context**
    - ALWAYS examine the chat history for relevant context, especially:
@@ -46,7 +45,7 @@ export class QueryPreprocessorService {
      - Correct minor typos when possible (e.g., "บางกะปี" → "บางกะปิ")
      - Mark as vague any query that is too short UNLESS you can inject historical context
      - For specific names, add English name to it. For example "แมค โดนัลด์" add "McDonald's" to the prompt.
-   - The returned query should be optimized for both keyword and semantic search. To optimize keyword search, ensure stopwords are removed and the query is segmented properly using PythaiNLP. For example, 
+   - The returned query should be optimized for both keyword and semantic search. To optimize keyword search, ensure stopwords are removed and the query is segmented properly using PythaiNLP. For example,
      - Original: "ซื้อของ 6,000 ใช้บัตรเครดิตใบไหนดี"
      - After segmentation: "ซื้อ ของ 6,000 ใช้ บัตรเครดิต ใบ ไหน ดี"
      - Preferred: "ซื้อ ของ 6,000 บัตรเครดิต"
@@ -88,6 +87,22 @@ Respond in JSON format:
   "vectorWeight": 0.0-1.0,
   "reasoning": "explanation of your decision"
 }`;
+
+      // Inject search configuration into system prompt if available
+      if (additionalSearchDetail && additionalSearchDetail.includes('Search Configuration:')) {
+        const searchConfigMatch = additionalSearchDetail.match(/Search Configuration: (.+)/);
+        if (searchConfigMatch) {
+          const searchConfig = searchConfigMatch[1];
+          systemPrompt += `
+
+**SEARCH CONFIGURATION ENHANCEMENT:**
+Additional search context: "${searchConfig}"
+- Incorporate this context when enhancing queries
+- Use this to better understand the domain and purpose of the search
+- Apply this context to make queries more specific and relevant`;
+          console.log(`🧠 PRE-FEED: Applied search configuration: "${searchConfig}"`);
+        }
+      }
 
       const chatHistoryText = chatHistory
         .slice(-5) // Last 5 messages for context
@@ -163,15 +178,15 @@ Analyze this query and provide your response.`;
   private getFallbackAnalysis(userQuery: string): QueryAnalysis {
     // Simple fallback logic
     const lowerQuery = userQuery.toLowerCase();
-    
+
     // Check if it's a location question
     const isLocationQuery = /อยู่ไหน|ชั้นไหน|ที่ไหน|where|location|floor/.test(lowerQuery);
-    
+
     // Check for store names
     const hasStoreName = /oppo|xolo|kfc|starbucks|uniqlo|ทำเล|ร้าน/.test(lowerQuery);
-    
+
     const needsSearch = isLocationQuery || hasStoreName || lowerQuery.length > 3;
-    
+
     return {
       needsSearch,
       enhancedQuery: userQuery,
