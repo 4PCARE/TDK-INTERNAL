@@ -3370,10 +3370,11 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
   });
 
   // Widget chat endpoints for public use
-  app.post("/api/widget/:widgetKey/chat", async (req, res) => {
+  app.post("/api/widget/:widgetKey/chat", async (req: any, res) => {
     try {
       const { widgetKey } = req.params;
       const { sessionId, message, visitorInfo } = req.body;
+      
       const {
         chatWidgets,
         widgetChatSessions,
@@ -3385,6 +3386,32 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       } = await import("@shared/schema");
       const { eq, desc } = await import("drizzle-orm");
       const { nanoid } = await import("nanoid");
+
+      // Get current user information if authenticated
+      let currentUser = null;
+      let hrEmployeeData = null;
+      if (req.user && req.user.claims && req.user.claims.email) {
+        currentUser = req.user.claims;
+        console.log(`👤 Widget: Authenticated user: ${currentUser.email}`);
+        
+        // Try to find HR employee data for the authenticated user
+        try {
+          const [employee] = await db
+            .select()
+            .from(hrEmployees)
+            .where(eq(hrEmployees.email, currentUser.email))
+            .limit(1);
+          
+          if (employee) {
+            hrEmployeeData = employee;
+            console.log(`👤 Widget: Found HR data for ${employee.firstName} ${employee.lastName} (${employee.department})`);
+          } else {
+            console.log(`👤 Widget: No HR data found for email: ${currentUser.email}`);
+          }
+        } catch (hrError) {
+          console.error('👤 Widget: Error looking up HR data:', hrError);
+        }
+      }
 
       // Find widget with agent information
       const [widget] = await db
@@ -3516,20 +3543,29 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           // Use agentBot service for smart response generation
           const { processMessage, saveAssistantResponse } = await import('./agentBot');
 
-          // Create bot context for agentBot
+          // Create bot context for agentBot with HR employee data
           const botContext = {
             userId: session.sessionId,
             channelType: 'chat_widget',
             channelId: widget.widgetKey,
             agentId: widget.agentId,
             messageId: `widget_${Date.now()}`,
-            lineIntegration: null // Not needed for widget chat
+            lineIntegration: null, // Not needed for widget chat
+            hrEmployeeData: hrEmployeeData // Pass HR employee data for personalized responses
           };
 
-          // Create bot message
+          // Create bot message with HR context if available
+          let messageContent = message;
+          if (hrEmployeeData) {
+            // Prefix the message with HR employee context
+            const hrContext = `[EMPLOYEE CONTEXT: User is ${hrEmployeeData.firstName} ${hrEmployeeData.lastName}, Employee ID: ${hrEmployeeData.employeeId}, Department: ${hrEmployeeData.department}, Position: ${hrEmployeeData.position}, Email: ${hrEmployeeData.email}] User asks: ${message}`;
+            messageContent = hrContext;
+            console.log(`👤 Widget: Added HR context for personalized response`);
+          }
+
           const botMessage = {
             type: 'text',
-            content: message
+            content: messageContent
           };
 
           const agentBotResponse = await processMessage(botMessage, botContext);
