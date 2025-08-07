@@ -157,6 +157,11 @@ export interface IStorage {
   removeDocumentFromAgent(agentId: number, documentId: number, userId: string): Promise<void>;
   removeAllDocumentsFromAgent(agentId: number, userId: string): Promise<void>;
 
+  // Agent Chatbot operations (Widget specific)
+  getAgentChatbotForWidget(id: number): Promise<AgentChatbot | undefined>;
+  getAgentChatbotDocumentsForWidget(agentId: number): Promise<AgentChatbotDocument[]>;
+  getDocumentForWidget(documentId: number): Promise<any>;
+
   // AI Response Analysis operations
   createAiResponseAnalysis(analysis: InsertAiResponseAnalysis): Promise<AiResponseAnalysis>;
   getAiResponseAnalysis(userId: string, options?: { limit?: number; offset?: number; analysisResult?: string }): Promise<AiResponseAnalysis[]>;
@@ -477,12 +482,12 @@ export class DatabaseStorage implements IStorage {
     return undefined;
   }
 
-  async getDocumentForWidget(id: number): Promise<Document | undefined> {
-    const [doc] = await db
+  async getDocumentForWidget(documentId: number): Promise<any> {
+    const [document] = await db
       .select()
       .from(documents)
-      .where(eq(documents.id, id));
-    return doc;
+      .where(eq(documents.id, documentId));
+    return document;
   }
 
   async getDocumentsByIds(ids: number[], userId: string): Promise<Document[]> {
@@ -1274,13 +1279,13 @@ export class DatabaseStorage implements IStorage {
       return agent;
     } catch (error: any) {
       console.error(`💥 Database error in getAgentChatbot:`, error);
-      
+
       // Check if it's a connection termination error
       if (error.code === '57P01' || error.code === 'ECONNRESET' || error.code === 'ENOTFOUND') {
         console.log(`🔄 Retrying database connection for getAgentChatbot...`);
         // Wait a moment and retry once
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         try {
           const [agent] = await db
             .select()
@@ -1292,7 +1297,7 @@ export class DatabaseStorage implements IStorage {
           throw retryError;
         }
       }
-      
+
       throw error;
     }
   }
@@ -1303,6 +1308,13 @@ export class DatabaseStorage implements IStorage {
       .from(agentChatbots)
       .where(eq(agentChatbots.id, id));
     return agent;
+  }
+
+  async getAgentChatbotDocumentsForWidget(agentId: number): Promise<AgentChatbotDocument[]> {
+    return await db
+      .select()
+      .from(agentChatbotDocuments)
+      .where(eq(agentChatbotDocuments.agentId, agentId));
   }
 
   async createAgentChatbot(agent: InsertAgentChatbot): Promise<AgentChatbot> {
@@ -1346,13 +1358,6 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Agent not found");
     }
 
-    return await db
-      .select()
-      .from(agentChatbotDocuments)
-      .where(eq(agentChatbotDocuments.agentId, agentId));
-  }
-
-  async getAgentChatbotDocumentsForWidget(agentId: number): Promise<AgentChatbotDocument[]> {
     return await db
       .select()
       .from(agentChatbotDocuments)

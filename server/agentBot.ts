@@ -129,7 +129,12 @@ async function getAiResponseDirectly(
 
     while (retryCount < maxRetries) {
       try {
-        agentData = await storage.getAgentChatbot(agentId, userId);
+        // For widget contexts (web channel), use getAgentChatbotForWidget which doesn't require user ownership
+        if (channelType === 'web' || channelType === 'chat_widget') {
+          agentData = await storage.getAgentChatbotForWidget(agentId);
+        } else {
+          agentData = await storage.getAgentChatbot(agentId, userId);
+        }
         break; // Success, exit retry loop
       } catch (dbError: any) {
         retryCount++;
@@ -145,7 +150,7 @@ async function getAiResponseDirectly(
     }
 
     if (!agentData) {
-      console.log(`❌ Agent ${agentId} not found for user ${userId}`);
+      console.log(`❌ Agent ${agentId} not found${channelType === 'web' || channelType === 'chat_widget' ? '' : ` for user ${userId}`}`);
       return "ขออภัย ไม่สามารถเชื่อมต่อกับระบบได้ในขณะนี้";
     }
 
@@ -235,7 +240,14 @@ async function getAiResponseDirectly(
     let agentDocIds: number[] = [];
 
     if (!skipSearch) {
-      const agentDocs = await storage.getAgentChatbotDocuments(agentId, userId);
+      let agentDocs;
+      
+      // For widget contexts, use widget-specific methods that don't require user ownership
+      if (channelType === 'web' || channelType === 'chat_widget') {
+        agentDocs = await storage.getAgentChatbotDocumentsForWidget(agentId);
+      } else {
+        agentDocs = await storage.getAgentChatbotDocuments(agentId, userId);
+      }
 
       if (agentDocs.length > 0) {
         console.log(`📚 Found ${agentDocs.length} documents for agent`);
