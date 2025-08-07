@@ -2437,7 +2437,7 @@ export default function CreateAgentChatbot() {
                             </div>
                           </CardContent>
                         </Card>
-                      </div>
+                      </form>
                     )}
 
                 {/* Test Agent Interface */}
