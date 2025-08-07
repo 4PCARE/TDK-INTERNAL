@@ -56,7 +56,7 @@ import {
   type LineCarouselColumn,
   type InsertLineCarouselColumn,
   type LineTemplateAction,
-  type InsertTemplateAction,
+  type InsertLineTemplateAction,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, like, count, sql, ilike, getTableColumns, gte, lte, inArray } from "drizzle-orm";
@@ -838,7 +838,7 @@ export class DatabaseStorage implements IStorage {
       .select({
         id: documents.id,
         name: documents.name,
-        category: documents.category,
+        category: documents.categoryId,
         createdAt: documents.createdAt,
       })
       .from(documents)
@@ -1113,7 +1113,7 @@ export class DatabaseStorage implements IStorage {
 
       return { success: false, message: "Unknown connection type" };
     } catch (error) {
-      return { success: false, message: `Connection test failed: ${error.message}` };
+      return { success: false, message: `Connection test failed: ${(error as Error).message}` };
     }
   }
 
@@ -1407,33 +1407,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(agentChatbotDocuments.agentId, agentId));
   }
 
-  // Widget Chat specific operations (without userId requirement)
-  async getAgentChatbotForWidget(agentId: number): Promise<AgentChatbot | null> {
-    const [agent] = await db
-      .select()
-      .from(agentChatbots)
-      .where(eq(agentChatbots.id, agentId))
-      .limit(1);
 
-    return agent || null;
-  }
-
-  async getAgentChatbotDocumentsForWidget(agentId: number): Promise<any[]> {
-    return await db
-      .select()
-      .from(agentChatbotDocuments)
-      .where(eq(agentChatbotDocuments.agentId, agentId));
-  }
-
-  async getDocumentForWidget(documentId: number): Promise<any | null> {
-    const [document] = await db
-      .select()
-      .from(documents)
-      .where(eq(documents.id, documentId))
-      .limit(1);
-
-    return document || null;
-  }
 
   // AI Response Analysis operations
   async createAiResponseAnalysis(analysis: InsertAiResponseAnalysis): Promise<AiResponseAnalysis> {

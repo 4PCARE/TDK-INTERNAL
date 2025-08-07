@@ -5071,7 +5071,6 @@ Memory management: Keep track of conversation context within the last ${agentCon
         totalMessages: summary.totalMessages,
         firstContactAt: summary.firstContactAt ? summary.firstContactAt.toISOString() : null,
         lastActiveAt: summary.lastActiveAt ? summary.lastActiveAt.toISOString() : null,
-        csatScore: summary.csatScore,
         csatScore: summary.csatScore
       });
 

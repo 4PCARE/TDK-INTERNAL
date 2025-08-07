@@ -1930,6 +1930,7 @@ export async function handleLineWebhook(req: Request, res: Response) {
           if (chatHistoryId && lineIntegration.agentId) {
             console.log("🖼️ Starting image processing...");
             const imageService = LineImageService.getInstance();
+            let aiResponse = "";
 
             try {
               // Wait for image processing to complete
@@ -1962,7 +1963,6 @@ export async function handleLineWebhook(req: Request, res: Response) {
                   (msg.metadata as any).relatedImageMessageId === message.id,
               );
 
-              let aiResponse = "";
               if (imageAnalysisMessage) {
                 const imageAnalysisResult =
                   imageAnalysisMessage.content.replace(
@@ -2057,7 +2057,7 @@ ${imageAnalysisResult}
         }
 
         // Call getAiResponseDirectly to handle the main logic
-        const aiResponse = await getAiResponseDirectly(
+        let aiResponse = await getAiResponseDirectly(
           contextMessage,
           lineIntegration.agentId,
           lineIntegration.userId,
