@@ -89,20 +89,28 @@ Respond in JSON format:
 }`;
 
       // Inject search configuration into system prompt if available
-      if (additionalSearchDetail && additionalSearchDetail.includes('Search Configuration:')) {
-        const searchConfigMatch = additionalSearchDetail.match(/Search Configuration: (.+)/);
-        if (searchConfigMatch) {
-          const searchConfig = searchConfigMatch[1];
-          systemPrompt += `
+        if (additionalSearchDetail) {
+          // Handle both direct search detail and context string formats
+          let searchConfig = additionalSearchDetail;
+          if (additionalSearchDetail.includes('Search Configuration:')) {
+            const searchConfigMatch = additionalSearchDetail.match(/Search Configuration: (.+)/);
+            if (searchConfigMatch) {
+              searchConfig = searchConfigMatch[1];
+            }
+          }
+
+          if (searchConfig && searchConfig.trim()) {
+            systemPrompt += `
 
 **SEARCH CONFIGURATION ENHANCEMENT:**
 Additional search context: "${searchConfig}"
-- Incorporate this context when enhancing queries
+- CRITICAL: Incorporate this context when enhancing queries
 - Use this to better understand the domain and purpose of the search
-- Apply this context to make queries more specific and relevant`;
-          console.log(`🧠 PRE-FEED: Applied search configuration: "${searchConfig}"`);
+- Apply this context to make queries more specific and relevant
+- When the user query is vague, use this context to provide better search terms`;
+            console.log(`🧠 PRE-FEED: Applied search configuration: "${searchConfig}"`);
+          }
         }
-      }
 
       const chatHistoryText = chatHistory
         .slice(-5) // Last 5 messages for context

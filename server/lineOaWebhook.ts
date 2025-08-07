@@ -949,14 +949,20 @@ async function getAiResponseDirectly(
     let additionalContext = `Document scope: ${agentDocIds.length > 0 ? agentDocIds.join(', ') : 'All documents'}`;
 
     // Add agent's search configuration if available
+    let additionalSearchDetail = '';
     if (agentData.searchConfiguration?.enableCustomSearch && agentData.searchConfiguration?.additionalSearchDetail) {
-      additionalContext += `\n\nSearch Configuration: ${agentData.searchConfiguration.additionalSearchDetail}`;
+      additionalSearchDetail = agentData.searchConfiguration.additionalSearchDetail;
+      additionalContext += `\n\nSearch Configuration: ${additionalSearchDetail}`;
     }
+
+    console.log(`🧠 LINE OA: Search configuration enabled: ${!!agentData.searchConfiguration?.enableCustomSearch}`);
+    console.log(`🧠 LINE OA: Additional search detail: "${additionalSearchDetail}"`);
 
     const queryAnalysis = await queryPreprocessor.analyzeQuery(
       userMessage,
       recentChatHistory,
-      additionalContext
+      additionalContext,
+      additionalSearchDetail  // Pass as separate parameter
     );
 
     console.log(`🧠 LINE OA: Query analysis result:`, {

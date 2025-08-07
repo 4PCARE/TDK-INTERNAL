@@ -1,4 +1,3 @@
-
 #!/usr/bin/env node
 
 // Debug script to display the query preprocessor prompt
@@ -81,3 +80,37 @@ Additional search context: "Focus on company policies and HR procedures"
 console.log("----------------------------------------");
 console.log("🧪 Test with: ?searchConfig=Focus on promotions and discounts");
 console.log("=" * 80);
+
+// Mock queryPreprocessor and analyzeQuery for demonstration purposes
+const queryPreprocessor = {
+    analyzeQuery: async (userMessage, recentChatHistory, additionalContext, additionalSearchDetail) => {
+        console.log('=== QUERY PREPROCESSING DEBUG ===');
+        console.log('User Query:', userMessage);
+        console.log('Additional Context:', additionalContext || 'None');
+        console.log('Additional Search Detail:', additionalSearchDetail || 'None');
+        console.log('===================================');
+        // Simulate a response
+        return {
+            needsSearch: true,
+            enhancedQuery: `Enhanced query for: ${userMessage} with context: ${additionalContext} and detail: ${additionalSearchDetail}`,
+            keywordWeight: 0.5,
+            vectorWeight: 0.5,
+            reasoning: 'Simulated analysis'
+        };
+    }
+};
+
+// Example usage (replace with actual function call in a real application)
+async function getAiResponseDirectly(userMessage, recentChatHistory, additionalContext, additionalSearchDetail) {
+    const queryAnalysis = await queryPreprocessor.analyzeQuery(
+        userMessage,
+        recentChatHistory,
+        additionalContext,
+        additionalSearchDetail
+    );
+    console.log('Query Analysis Result:', queryAnalysis);
+    return `AI Response based on analysis: ${queryAnalysis.enhancedQuery}`;
+}
+
+// Example call:
+// getAiResponseDirectly("สวัสดีครับ มีโปรโมชั่นอะไรบ้าง", [], "เกี่ยวกับส่วนลด", "Focus on promotions and discounts");
