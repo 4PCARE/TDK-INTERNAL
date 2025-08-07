@@ -36,23 +36,27 @@ export default function AIInteraction() {
 
   // Daily AI queries trend (last 7 days)
   const queryTrendData = Array.from({ length: 7 }, (_, i) => {
-    const rng = new SeededRandom(100 + i); // Different seed per day
+    const rng = new SeededRandom(100 + i);
     const date = new Date();
     date.setDate(date.getDate() - (6 - i));
+    
+    const queries = rng.randomInt(30, 70);
+    const responses = Math.max(queries - rng.randomInt(2, 8), queries * 0.85); // Responses should be close to but slightly less than queries
+    
     return {
       date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      queries: rng.randomInt(20, 70),
-      responses: rng.randomInt(18, 63)
+      queries,
+      responses: Math.round(responses)
     };
   });
 
-  // Topic distribution (based on documents categories with unique topics)
-  const uniqueTopics = [...new Set(documents.map((doc: any) => doc.aiCategory || 'General'))].slice(0, 5);
-  const topicData = uniqueTopics.map((topic: string, index: number) => {
+  // Topic distribution with specific categories
+  const predefinedTopics = ['Research', 'Marketing', 'HR', 'Finance', 'Technical'];
+  const topicData = predefinedTopics.map((topic: string, index: number) => {
     const rng = new SeededRandom(800 + index);
     return {
       topic,
-      queries: rng.randomInt(5, 35)
+      queries: rng.randomInt(8, 36)
     };
   });
 
