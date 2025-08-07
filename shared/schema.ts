@@ -255,7 +255,6 @@ export const hrEmployees = pgTable("hr_employees", {
   email: varchar("email"),
   phone: varchar("phone"),
   hireDate: timestamp("hire_date"),
-  leaveDays: integer("leave_days").default(0),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

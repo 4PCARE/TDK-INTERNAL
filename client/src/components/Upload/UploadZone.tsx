@@ -1,10 +1,9 @@
-import { useCallback, useState, useRef } from "react";
+import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { CloudUpload, Pause, Square, Play } from "lucide-react";
+import { CloudUpload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
 import DocumentMetadataModal, { DocumentMetadata } from "./DocumentMetadataModal";
 
 interface UploadZoneProps {
@@ -18,21 +17,9 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [fileMetadataMap, setFileMetadataMap] = useState<Map<string, DocumentMetadata>>(new Map());
-  const [isPaused, setIsPaused] = useState(false);
-  const [isStopped, setIsStopped] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   const uploadMutation = useMutation({
     mutationFn: async (payload: { files: File[], metadataMap: Map<string, DocumentMetadata> }) => {
-      // Create abort controller for this upload
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-      
-      // Check if upload was stopped before starting
-      if (isStopped) {
-        throw new Error('Upload was cancelled');
-      }
-      
       const formData = new FormData();
       
       payload.files.forEach(file => {
@@ -52,81 +39,41 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
       
       formData.append('metadata', JSON.stringify(metadataArray));
       
-      const response = await apiRequest('POST', '/api/documents/upload', formData, {
-        signal: abortController.signal
-      });
+      const response = await apiRequest('POST', '/api/documents/upload', formData);
       return response.json();
     },
     onSuccess: (data) => {
-      if (!isStopped) {
-        toast({
-          title: "Upload successful",
-          description: `${data.length} document(s) uploaded successfully`,
-        });
-        
-        // Invalidate all document-related queries to ensure fresh data
-        queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/stats/categories"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
-        onUploadComplete();
-      }
-      
+      toast({
+        title: "Upload successful",
+        description: `${data.length} document(s) uploaded successfully`,
+      });
       // Reset state
-      resetUploadState();
+      setPendingFiles([]);
+      setCurrentFileIndex(0);
+      setFileMetadataMap(new Map());
+      
+      // Invalidate all document-related queries to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      onUploadComplete();
     },
     onError: (error) => {
-      if (error.name === 'AbortError' || isStopped) {
-        toast({
-          title: "Upload cancelled",
-          description: "Upload was stopped by user",
-        });
-      } else {
-        toast({
-          title: "Upload failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
-      
+      toast({
+        title: "Upload failed",
+        description: error.message,
+        variant: "destructive",
+      });
       // Reset state on error
-      resetUploadState();
+      setPendingFiles([]);
+      setCurrentFileIndex(0);
+      setFileMetadataMap(new Map());
     },
   });
 
-  const resetUploadState = () => {
-    setPendingFiles([]);
-    setCurrentFileIndex(0);
-    setFileMetadataMap(new Map());
-    setIsPaused(false);
-    setIsStopped(false);
-    abortControllerRef.current = null;
-  };
-
-  const handlePauseUpload = () => {
-    setIsPaused(!isPaused);
-    toast({
-      title: isPaused ? "Upload resumed" : "Upload paused",
-      description: isPaused ? "Upload process has been resumed" : "Upload process has been paused",
-    });
-  };
-
-  const handleStopUpload = () => {
-    setIsStopped(true);
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    resetUploadState();
-    toast({
-      title: "Upload stopped",
-      description: "Upload process has been cancelled",
-    });
-  };
-
   const handleMetadataSubmit = (metadata: DocumentMetadata) => {
-    if (isStopped) return;
-    
     const currentFile = pendingFiles[currentFileIndex];
     if (currentFile) {
       const newMetadataMap = new Map(fileMetadataMap);
@@ -139,16 +86,16 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
       } else {
         // All files have metadata, proceed with upload
         setIsModalOpen(false);
-        if (!isStopped && !isPaused) {
-          uploadMutation.mutate({ files: pendingFiles, metadataMap: newMetadataMap });
-        }
+        uploadMutation.mutate({ files: pendingFiles, metadataMap: newMetadataMap });
       }
     }
   };
 
   const handleModalClose = () => {
     setIsModalOpen(false);
-    resetUploadState();
+    setPendingFiles([]);
+    setCurrentFileIndex(0);
+    setFileMetadataMap(new Map());
   };
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
@@ -216,13 +163,13 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
     <>
       <div 
         {...getRootProps()} 
-        className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+        className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
           isDragActive 
             ? 'border-blue-400 bg-blue-50' 
             : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
-        } ${uploadMutation.isPending ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}
+        } ${uploadMutation.isPending ? 'opacity-50 pointer-events-none' : ''}`}
       >
-        <input {...getInputProps()} disabled={uploadMutation.isPending} />
+        <input {...getInputProps()} />
         
         <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <CloudUpload className="w-8 h-8 text-blue-600" />
@@ -247,37 +194,8 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
         </p>
         
         {uploadMutation.isPending && (
-          <div className="mt-4 space-y-3 pointer-events-auto">
+          <div className="mt-4">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
-            <div className="flex justify-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePauseUpload();
-                }}
-                className="flex items-center space-x-1"
-              >
-                {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                <span>{isPaused ? 'Resume' : 'Pause'}</span>
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleStopUpload();
-                }}
-                className="flex items-center space-x-1"
-              >
-                <Square className="w-4 h-4" />
-                <span>Stop</span>
-              </Button>
-            </div>
-            {isPaused && (
-              <p className="text-sm text-amber-600 text-center">Upload paused</p>
-            )}
           </div>
         )}
       </div>

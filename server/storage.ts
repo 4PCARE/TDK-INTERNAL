@@ -210,10 +210,6 @@ export interface IStorage {
       actions: LineTemplateAction[];
     }>;
   } | undefined>;
-
-  // LLM Configuration operations
-  getLlmConfig(userId: string): Promise<any>;
-  updateLlmConfig(userId: string, configData: any): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -798,14 +794,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createChatConversation(conversation: InsertChatConversation): Promise<ChatConversation> {
-    console.log("Creating conversation with data:", conversation);
-    const [newConversation] = await db.insert(chatConversations).values({
-      userId: conversation.userId,
-      title: conversation.title,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }).returning();
-    console.log("Created conversation:", newConversation);
+    const [newConversation] = await db.insert(chatConversations).values(conversation).returning();
     return newConversation;
   }
 
@@ -2080,76 +2069,6 @@ export class DatabaseStorage implements IStorage {
       template,
       columns: columnsWithActions,
     };
-  }
-
-  // LLM Configuration operations
-  async getLlmConfig(userId: string): Promise<any> {
-    const { llmConfig } = await import('@shared/schema');
-    const [config] = await db
-      .select()
-      .from(llmConfig)
-      .where(eq(llmConfig.userId, userId));
-
-    if (!config) {
-      // Return default configuration
-      return {
-        provider: "OpenAI",
-        embeddingProvider: "OpenAI",
-        openAIConfig: {
-          model: "gpt-4o",
-          temperature: 0.7,
-          maxTokens: 4000,
-        },
-        geminiConfig: {
-          model: "gemini-2.5-flash",
-          temperature: 0.7,
-          maxTokens: 4000,
-        },
-      };
-    }
-
-    return {
-      provider: config.provider,
-      embeddingProvider: config.embeddingProvider,
-      ...(config.configData as any),
-    };
-  }
-
-  async updateLlmConfig(userId: string, configData: any): Promise<any> {
-    const { llmConfig } = await import('@shared/schema');
-    
-    const [existingConfig] = await db
-      .select()
-      .from(llmConfig)
-      .where(eq(llmConfig.userId, userId));
-
-    const updateData = {
-      provider: configData.provider,
-      embeddingProvider: configData.embeddingProvider,
-      configData: {
-        openAIConfig: configData.openAIConfig,
-        geminiConfig: configData.geminiConfig,
-      },
-      updatedAt: new Date(),
-    };
-
-    if (existingConfig) {
-      const [updated] = await db
-        .update(llmConfig)
-        .set(updateData)
-        .where(eq(llmConfig.id, existingConfig.id))
-        .returning();
-      return updated;
-    } else {
-      const [created] = await db
-        .insert(llmConfig)
-        .values({
-          userId,
-          ...updateData,
-        })
-        .returning();
-      return created;
-    }
   }
 }
 

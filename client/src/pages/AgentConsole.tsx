@@ -93,7 +93,7 @@ export default function AgentConsole() {
   ];
 
   // Fetch active users
-  const { data: users = [], refetch: refetchUsers, error: usersError } = useQuery({
+  const { data: users = [], refetch: refetchUsers } = useQuery({
     queryKey: ["/api/agent-console/users", searchQuery, channelFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -101,47 +101,14 @@ export default function AgentConsole() {
       if (channelFilter !== "all") params.append("channelFilter", channelFilter);
 
       console.log("🔍 Agent Console: Fetching users with params:", Object.fromEntries(params));
-      const response = await fetch(`/api/agent-console/users?${params}`, {
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        const text = await response.text();
-        console.error("❌ Agent Console: API error:", response.status, text);
-        
-        // Check if we got HTML instead of JSON (likely authentication redirect)
-        if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
-          throw new Error("Authentication required - redirected to login page");
-        }
-        
-        throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
-      }
-      
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        console.error("❌ Agent Console: Expected JSON but got:", contentType, text.substring(0, 200));
-        throw new Error("Invalid response format - expected JSON");
-      }
-      
+      const response = await fetch(`/api/agent-console/users?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch users");
       const data = await response.json();
       console.log("📋 Agent Console: Filtered users response:", data.length, "users");
       return data;
     },
-    enabled: !!user, // Only fetch if user is authenticated
     refetchInterval: 10000, // Refetch every 10 seconds
-    retry: (failureCount, error) => {
-      // Don't retry authentication errors
-      if (error.message.includes("Authentication required")) {
-        return false;
-      }
-      return failureCount < 3;
-    },
-  }) as { data: AgentUser[]; refetch: () => void; error: any };
+  }) as { data: AgentUser[]; refetch: () => void };
 
   // Fetch conversation messages
   const { data: messages = [], refetch: refetchMessages } = useQuery({
@@ -157,36 +124,13 @@ export default function AgentConsole() {
       });
 
       console.log("🔍 Fetching conversation with params:", Object.fromEntries(params));
-      const response = await fetch(`/api/agent-console/conversation?${params}`, {
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        const text = await response.text();
-        console.error("❌ Conversation API error:", response.status, text);
-        
-        if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
-          throw new Error("Authentication required");
-        }
-        
-        throw new Error(`Failed to fetch conversation: ${response.status}`);
-      }
-      
+      const response = await fetch(`/api/agent-console/conversation?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch conversation");
       const data = await response.json();
       console.log("📨 Conversation response:", data);
       return data;
     },
-    enabled: !!selectedUser?.userId && !!selectedUser?.channelId && !!user,
-    retry: (failureCount, error) => {
-      if (error.message.includes("Authentication required")) {
-        return false;
-      }
-      return failureCount < 3;
-    },
+    enabled: !!selectedUser?.userId && !!selectedUser?.channelId,
   }) as { data: Message[]; refetch: () => void };
 
   // Fetch conversation summary
@@ -202,36 +146,13 @@ export default function AgentConsole() {
       });
 
       console.log("📊 Fetching summary with params:", Object.fromEntries(params));
-      const response = await fetch(`/api/agent-console/summary?${params}`, {
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        const text = await response.text();
-        console.error("❌ Summary API error:", response.status, text);
-        
-        if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
-          throw new Error("Authentication required");
-        }
-        
-        throw new Error(`Failed to fetch summary: ${response.status}`);
-      }
-      
+      const response = await fetch(`/api/agent-console/summary?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch summary");
       const data = await response.json();
       console.log("📊 Summary response:", data);
       return data;
     },
-    enabled: !!selectedUser?.userId && !!selectedUser?.channelId && !!user,
-    retry: (failureCount, error) => {
-      if (error.message.includes("Authentication required")) {
-        return false;
-      }
-      return failureCount < 3;
-    },
+    enabled: !!selectedUser?.userId && !!selectedUser?.channelId,
   }) as { data: ConversationSummary | null };
 
   // WebSocket connection for real-time updates
@@ -360,33 +281,12 @@ export default function AgentConsole() {
   };
 
   const getInitials = (name: string) => {
-    if (!name || typeof name !== 'string') return 'U';
-    return name.split(' ').map(n => n?.[0] || '').join('').toUpperCase().slice(0, 2) || 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
   const uniqueChannelTypes = allChannelTypes.filter(channelType => 
     users.some(u => u.channelType === channelType.id)
   );
-
-  // Show authentication error if present
-  if (usersError && usersError.message.includes("Authentication required")) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-[calc(100vh-120px)]">
-          <div className="text-center">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentication Required</h2>
-            <p className="text-gray-600 mb-4">Please log in to access the Agent Console.</p>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Refresh Page
-            </button>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
 
   return (
     <DashboardLayout>
@@ -556,12 +456,12 @@ export default function AgentConsole() {
                     <div className="flex items-center space-x-2 lg:space-x-3">
                       <Avatar className="w-6 h-6 lg:w-8 lg:h-8">
                         <AvatarFallback>
-                          {getInitials(selectedUser.userProfile?.name || 'Unknown User')}
+                          {getInitials(selectedUser.userProfile.name)}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <h3 className="text-sm lg:font-medium text-gray-900">
-                          {selectedUser.userProfile?.name || 'Unknown User'}
+                          {selectedUser.userProfile.name}
                         </h3>
                         <p className="text-xs lg:text-sm text-gray-500">
                           {selectedUser.channelType.toUpperCase()} • Agent: {selectedUser.agentName}
@@ -713,7 +613,7 @@ export default function AgentConsole() {
                         <div className="space-y-2 text-sm">
                           <div className="flex items-center space-x-2">
                             <User className="w-4 h-4 text-gray-400" />
-                            <span>{selectedUser.userProfile?.name || 'Unknown User'}</span>
+                            <span>{selectedUser.userProfile.name}</span>
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="text-gray-500">ID:</span>

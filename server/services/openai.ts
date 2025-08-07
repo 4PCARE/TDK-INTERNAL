@@ -1,34 +1,17 @@
 import OpenAI from "openai";
+import fs from "fs";
+import { Document } from "@shared/schema";
 import mammoth from "mammoth";
 import XLSX from "xlsx";
 import textract from "textract";
 import { LlamaParseReader } from "@llamaindex/cloud";
-import fs from 'fs'; // Make sure fs is imported
 
-// Import LangChain components for agent and tools (v0.2+ format)
-import { ChatOpenAI } from "@langchain/openai";
-import { createOpenAIFunctionsAgent, AgentExecutor } from "langchain/agents";
-import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
-import { DynamicStructuredTool } from "@langchain/core/tools";
-import { z } from "zod";
-import { documentSearch } from "./langchainTools";
-
-// Import local Document type
-import type { Document } from "../storage"; // Assuming Document type is exported from ../storage
-
-// Initialize OpenAI client for legacy features or other OpenAI API calls
+// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || (() => {
-    console.error("OPENAI_API_KEY not found in environment variables");
-    throw new Error("OpenAI API key is required");
-  })(),
-});
-
-// Initialize LangChain ChatOpenAI model for tool binding
-const chatModel = new ChatOpenAI({
-  model: "gpt-4o",
-  temperature: 0.7,
-  openAIApiKey: process.env.OPENAI_API_KEY,
+  apiKey:
+    process.env.OPENAI_API_KEY ||
+    process.env.OPENAI_API_KEY_ENV_VAR ||
+    "default_key",
 });
 
 export async function processDocument(
@@ -344,13 +327,13 @@ Columns: ${table.columns.map((col: any) => `${col.name} (${col.type})`).join(", 
   `,
     )
     .join("\n\n");
-
+  
   // Get current date and time in Thai format
   const now = new Date();
   now.setHours(now.getHours() + 7)
   const thaiDate = now.toLocaleDateString('th-TH', {
     year: 'numeric',
-    month: 'long',
+    month: 'long', 
     day: 'numeric',
     weekday: 'long'
   });
@@ -408,301 +391,119 @@ Current time: ${thaiTime}`;
   }
 }
 
-// Create document search tool for LangChain
-function createDocumentSearchTool(userId: string) {
-  console.log(`🛠️ [Tool Creation] Creating document_search tool for user: ${userId}`);
-  const tool = new DynamicStructuredTool({
-    name: "document_search",
-    description: "Search through documents in the knowledge management system. Use this tool when users ask questions about documents, need information from their knowledge base, or want to find specific content.",
-    schema: z.object({
-      input: z.string().describe("The search query string to find relevant documents"),
-      searchType: z.string().optional().describe("Type of search: semantic, keyword, hybrid, or smart_hybrid"),
-      limit: z.number().int().optional().describe("Maximum number of results to return"),
-      threshold: z.number().optional().describe("Minimum similarity threshold for results")
-    }),
-    func: async ({ input, searchType = "smart_hybrid", limit = 5, threshold = 0.3 }: { 
-      input: string; 
-      searchType?: string; 
-      limit?: number; 
-      threshold?: number; 
-    }): Promise<string> => {
-      const toolStartTime = Date.now();
-      console.log(`🔍 [Tool Entry] === DOCUMENT SEARCH TOOL CALLED ===`);
-      console.log(`🔍 [Tool Entry] Timestamp: ${new Date().toISOString()}`);
-      console.log(`🔍 [Tool Entry] Raw input type: ${typeof input}`);
-      console.log(`🔍 [Tool Entry] Raw input value:`, input);
-      console.log(`🔍 [Tool Entry] User ID: ${userId}`);
-
-      try {
-        // With DynamicStructuredTool, parameters are already validated and typed
-        console.log(`🔍 [Tool Parsing] === PARSED PARAMETERS ===`);
-        console.log(`🔍 [Tool Parsing] Query: "${input}"`);
-        console.log(`🔍 [Tool Parsing] SearchType: ${searchType}`);
-        console.log(`🔍 [Tool Parsing] Limit: ${limit}`);
-        console.log(`🔍 [Tool Parsing] Threshold: ${threshold}`);
-        console.log(`🔍 [Tool Parsing] User ID: ${userId}`);
-
-        if (!input || input.trim().length === 0) {
-          const emptyQueryMessage = "Please provide a search query to find documents.";
-          console.log(`🔍 [Tool Return] Empty query detected: ${emptyQueryMessage}`);
-          return emptyQueryMessage;
-        }
-
-        // Call the document search function - it now returns a string directly
-        console.log(`🔍 [Tool Calling] === CALLING documentSearch FUNCTION ===`);
-        console.log(`🔍 [Tool Calling] About to call documentSearch with parameters:`);
-        console.log(`🔍 [Tool Calling] - query: "${query.trim()}"`);
-        console.log(`🔍 [Tool Calling] - userId: ${userId}`);
-        console.log(`🔍 [Tool Calling] - searchType: ${searchType}`);
-        console.log(`🔍 [Tool Calling] - limit: ${limit}`);
-        console.log(`🔍 [Tool Calling] - threshold: ${threshold}`);
-        console.log(`🔍 [Tool Calling] - specificDocumentIds: undefined (not provided by LLM)`);
-
-        const searchStartTime = Date.now();
-        
-        // Ensure documentSearch is available and callable
-        if (typeof documentSearch !== 'function') {
-          throw new Error('documentSearch function is not available or not a function');
-        }
-
-        let responseText: string;
-        try {
-          responseText = await documentSearch({
-            query: input.trim(),
-            userId: userId,
-            searchType: searchType as any,
-            limit: limit,
-            threshold: threshold,
-            specificDocumentIds: undefined
-          });
-          console.log(`🔍 [Tool Calling] documentSearch executed successfully`);
-        } catch (searchError) {
-          console.error(`🚨 [Tool Error] documentSearch function failed:`, searchError);
-          throw new Error(`Document search failed: ${searchError.message}`);
-        }
-        
-        const searchDuration = Date.now() - searchStartTime;
-
-        // Ensure we always have a string response
-        if (typeof responseText !== 'string') {
-          console.warn(`🚨 [Tool Warning] documentSearch returned non-string:`, typeof responseText);
-          responseText = String(responseText || "No results found");
-        }
-
-        if (!responseText || responseText.trim().length === 0) {
-          responseText = "No documents found matching your search criteria.";
-        }
-
-        const functionCallDuration = Date.now() - searchStartTime;
-
-        console.log(`📄 [Tool Results] === DOCUMENT SEARCH COMPLETED ===`);
-        console.log(`📄 [Tool Results] Function call duration: ${functionCallDuration}ms`);
-        console.log(`📄 [Tool Results] Response type: ${typeof responseText}`);
-        console.log(`📄 [Tool Results] Response length: ${responseText?.length || 0} characters`);
-        console.log(`📄 [Tool Results] Response preview: ${responseText?.substring(0, 100)}...`);
-
-        const totalToolDuration = Date.now() - toolStartTime;
-        console.log(`📄 [Tool Return] === RETURNING RESPONSE ===`);
-        console.log(`📄 [Tool Return] Total tool execution time: ${totalToolDuration}ms`);
-        console.log(`📄 [Tool Return] Final response text: "${responseText}"`);
-        console.log(`🔍 [Tool Entry] === DOCUMENT SEARCH TOOL COMPLETED (SUCCESS) ===`);
-
-        return responseText;
-
-      } catch (error) {
-        const totalToolDuration = Date.now() - toolStartTime;
-        console.error("🚨 [Tool Error] === DOCUMENT SEARCH TOOL ERROR ===");
-        console.error("🚨 [Tool Error] Total execution time before error:", totalToolDuration + "ms");
-        console.error("🚨 [Tool Error] Error type:", error?.constructor?.name || 'Unknown');
-        console.error("🚨 [Tool Error] Error message:", error?.message || 'No message');
-        console.error("🚨 [Tool Error] Full error object:", error);
-        console.error("🚨 [Tool Error] Stack trace:", error?.stack);
-
-        // Always return a proper error message string
-        const errorMessage = `I encountered an error while searching your documents: ${error?.message || 'unknown error occurred'}. Please try rephrasing your search query.`;
-        console.log(`🚨 [Tool Return] Returning error message: ${errorMessage}`);
-        console.log(`🔍 [Tool Entry] === DOCUMENT SEARCH TOOL COMPLETED (ERROR) ===`);
-
-        // Make sure we return a string, never throw
-        return errorMessage;
-      }
-    },
-  });
-
-  console.log(`🛠️ [Tool Creation] Document search tool created successfully for user: ${userId}`);
-  console.log(`🛠️ [Tool Creation] Tool name: ${tool.name}`);
-  console.log(`🛠️ [Tool Creation] Tool description length: ${tool.description.length} characters`);
-
-  return tool;
-}
-
-// Create agent with tools
-async function createAgentWithTools(userId: string) {
-  console.log(`🤖 [Agent Setup] Creating agent with tools for user: ${userId}`);
-
-  const documentSearchTool = createDocumentSearchTool(userId);
-  const tools = [documentSearchTool];
-
-  console.log(`🤖 [Agent Setup] Tools created:`, tools.map(tool => ({
-    name: tool.name,
-    description: tool.description.substring(0, 100) + '...'
-  })));
-
-  const prompt = ChatPromptTemplate.fromMessages([
-    [
-      "system",
-      `You are an AI assistant for a Knowledge Management System. You help users find information from their document collection and answer questions based on the available knowledge base.
-
-CRITICAL INSTRUCTIONS:
-1. When users ask questions about documents or content, ALWAYS use the document_search tool first
-2. ALWAYS provide a response to the user based on the tool results - NEVER return empty responses
-3. If the tool finds documents, summarize the key information and cite the document names
-4. If the tool finds no documents, inform the user and suggest they upload relevant documents
-5. ALWAYS generate a helpful response based on what the tools return
-
-Your response flow should be:
-1. Use document_search tool with relevant keywords
-2. Analyze the tool results
-3. Generate a comprehensive response for the user based on the findings
-
-Be helpful, accurate, and always prioritize information from the user's actual documents over general knowledge. Never leave the user without a response.`
-    ],
-    ["human", "{input}"],
-    new MessagesPlaceholder("agent_scratchpad"),
-  ]);
-
-  console.log(`🤖 [Agent Setup] Creating OpenAI Functions Agent...`);
-  const agent = await createOpenAIFunctionsAgent({
-    llm: chatModel,
-    tools,
-    prompt,
-  });
-
-  console.log(`🤖 [Agent Setup] Creating Agent Executor...`);
-  const executor = new AgentExecutor({
-    agent,
-    tools,
-    verbose: true,
-    returnIntermediateSteps: true,
-    maxIterations: 3, // Reduced back to reasonable number
-    earlyStoppingMethod: "generate", // Changed back to generate for better responses
-    handleParsingErrors: true,
-  });
-
-  console.log(`🤖 [Agent Setup] Agent executor created successfully`);
-  console.log(`🤖 [Agent Setup] Executor configuration:`, {
-    verbose: true,
-    returnIntermediateSteps: true,
-    maxIterations: 5,
-    earlyStoppingMethod: "force",
-    handleParsingErrors: true
-  });
-  return executor;
-}
-
-export async function generateChatResponse(userMessage: string, documents: Document[], userId?: string): Promise<string> {
+export async function generateChatResponse(
+  userMessage: string,
+  documents: any[],
+  specificDocumentId?: number,
+  searchType: 'hybrid' | 'semantic' | 'keyword' = 'hybrid',
+  keywordWeight: number = 0.95,
+  vectorWeight: number = 0.05,
+  massSelectionPercentage?: number
+): Promise<string> {
   try {
-    // If userId is provided, use LangChain agent with tools
-    if (userId) {
-      console.log(`🤖 [Agent Chat] === STARTING LANGCHAIN AGENT FLOW ===`);
-      console.log(`🤖 [Agent Chat] User ID: ${userId}`);
-      console.log(`🤖 [Agent Chat] User message: "${userMessage}"`);
-      console.log(`🤖 [Agent Chat] Timestamp: ${new Date().toISOString()}`);
+    let relevantContent = "";
 
-      const agentExecutor = await createAgentWithTools(userId);
-      console.log(`🤖 [Agent Chat] Agent executor created successfully`);
+    // Use the same hybrid search system as Line OA bot
+    try {
+      console.log(`📄 DOCUMENT BOT: Performing smart hybrid search for query: "${userMessage}"`);
 
-      console.log(`🤖 [Agent Chat] === INVOKING AGENT EXECUTOR ===`);
-      const invokeStartTime = Date.now();
+      // Get document IDs to filter search scope
+      const documentIds = specificDocumentId 
+        ? [specificDocumentId] 
+        : documents.map(doc => doc.id).filter(id => id !== undefined);
+      
+      console.log(`📄 DOCUMENT BOT: Restricting search to ${documentIds.length} documents: [${documentIds.join(', ')}]`);
 
-      // Add comprehensive callbacks to track tool execution
-      const callbacks = [{
-        handleToolStart(tool: any, input: any) { 
-          console.log(`🔧 [CALLBACK] TOOL START: ${tool.name}`, input); 
-        },
-        handleToolEnd(output: any, runId: any) { 
-          console.log(`🔧 [CALLBACK] TOOL END: ${String(output)?.slice?.(0, 200)}...`); 
-        },
-        handleToolError(error: any, runId: any) { 
-          console.error(`🔧 [CALLBACK] TOOL ERROR:`, error); 
-        },
-        handleAgentAction(action: any) {
-          console.log(`🔧 [CALLBACK] AGENT ACTION:`, action.tool, action.toolInput);
-        },
-        handleAgentEnd(action: any) {
-          console.log(`🔧 [CALLBACK] AGENT END:`, action);
+      // Use the same search method as Line OA bot with document-specific configuration
+      const { searchSmartHybridDebug } = await import('./newSearch');
+      const searchResults = await searchSmartHybridDebug(
+        userMessage,
+        documents[0]?.userId,
+        {
+          keywordWeight: 0.95, // High keyword weight for document bots
+          vectorWeight: 0.05,
+          specificDocumentIds: documentIds,
+          massSelectionPercentage: 0.6, // 60% mass selection for document bots
+          limit: 16 // Max 16 chunks for document bots
         }
-      }];
-
-      const result = await agentExecutor.invoke(
-        { input: userMessage },
-        { callbacks }
       );
 
-      const invokeDuration = Date.now() - invokeStartTime;
-      console.log(`🤖 [Agent Chat] === AGENT EXECUTOR COMPLETED ===`);
-      console.log(`🤖 [Agent Chat] Execution time: ${invokeDuration}ms`);
-      console.log(`🤖 [Agent Chat] Result object:`, {
-        type: typeof result,
-        keys: Object.keys(result || {}),
-        output: result?.output,
-        outputType: typeof result?.output,
-        outputLength: result?.output?.length || 0,
-        hasIntermediateSteps: !!result?.intermediateSteps,
-        intermediateStepsLength: result?.intermediateSteps?.length || 0
-      });
-
-      if (result?.intermediateSteps && result.intermediateSteps.length > 0) {
-        console.log(`🤖 [Agent Chat] === INTERMEDIATE STEPS DEBUG ===`);
-        result.intermediateSteps.forEach((step: any, index: number) => {
-          console.log(`🤖 [Agent Chat] Step ${index + 1}:`, {
-            action: step?.action,
-            observation: step?.observation?.substring(0, 200) + '...'
-          });
-        });
+      if (searchResults.length > 0) {
+        console.log(`📄 DOCUMENT BOT: Smart hybrid search found ${searchResults.length} relevant chunks from document(s)`);
+        
+        // Build document context from search results
+        console.log(`📄 DOCUMENT BOT: Building document context from search results:`);
+        const documentContents = [];
+        let totalChars = 0;
+        const maxChars = 15000; // Same limit as Line OA bot
+        
+        for (let i = 0; i < Math.min(searchResults.length, 16); i++) {
+          const result = searchResults[i];
+          const chunkContent = `=== ${result.name} ===\n${result.content}\n`;
+          
+          if (totalChars + chunkContent.length <= maxChars) {
+            documentContents.push(chunkContent);
+            totalChars += chunkContent.length;
+            console.log(`  ${i + 1}. ${result.name} - Similarity: ${result.similarity.toFixed(4)}`);
+            console.log(`      Content preview: ${result.content.substring(0, 100)}...`);
+          } else {
+            break;
+          }
+        }
+        
+        relevantContent = documentContents.join('\n');
+        console.log(`📄 DOCUMENT BOT: Used ${documentContents.length}/${searchResults.length} chunks (${totalChars} chars)`);
+      } else {
+        console.log("📄 DOCUMENT BOT: No hybrid search results found, using fallback document content");
+        relevantContent = documents
+          .map(doc => doc.content || doc.summary || '')
+          .filter(content => content.length > 0)
+          .slice(0, 2)
+          .map(content => content.substring(0, 15000))
+          .join("\n\n");
       }
-
-      const finalOutput = result.output || "I couldn't generate a response. Please try again.";
-      console.log(`🤖 [Agent Chat] === FINAL OUTPUT ===`);
-      console.log(`🤖 [Agent Chat] Final output: "${finalOutput}"`);
-      console.log(`🤖 [Agent Chat] Output length: ${finalOutput.length} characters`);
-
-      return finalOutput;
+    } catch (searchError) {
+      console.error(`📄 DOCUMENT BOT: Smart hybrid search failed:`, searchError);
+      console.log("📄 DOCUMENT BOT: Falling back to document content");
+      relevantContent = documents
+        .map(doc => doc.content || doc.summary || '')
+        .filter(content => content.length > 0)
+        .slice(0, 2)
+        .map(content => content.substring(0, 15000))
+        .join("\n\n");
     }
 
-    // Fallback to traditional approach if no userId
-    console.log("🔄 Using traditional chat approach (no tools)");
+    const systemMessage = `You are an AI assistant helping users with their document management system. You have access to the user's documents and can answer questions about them, help with searches, provide summaries, and assist with document organization.
 
-    // Create context from documents
-    const context = documents
-      .slice(0, 10) // Limit to first 10 documents to avoid token limits
-      .map(doc => `Document: ${doc.name}\nContent: ${doc.content || doc.summary || 'No content available'}\n`)
-      .join('\n---\n');
+Available documents:
+${relevantContent}
+`;
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: `You are an AI assistant helping users with their knowledge management system. Use the provided document context to answer questions accurately. If the information isn't in the provided documents, say so clearly.
-
-Available documents context:
-${context}
-
-Always be helpful and provide specific references to the documents when answering questions.`
+          content: systemMessage,
         },
         {
           role: "user",
-          content: userMessage
-        }
+          content: userMessage,
+        },
       ],
-      max_tokens: 1000,
-      temperature: 0.7,
+      max_tokens: 700,
     });
 
-    return response.choices[0]?.message?.content || "I couldn't generate a response. Please try again.";
+    return (
+      response.choices[0].message.content ||
+      "I'm sorry, I couldn't generate a response at this time."
+    );
   } catch (error) {
     console.error("Error generating chat response:", error);
-    throw new Error("Failed to generate response");
+    return "I'm experiencing some technical difficulties. Please try again later.";
   }
 }

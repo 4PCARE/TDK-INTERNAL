@@ -1,58 +1,63 @@
 import { RequestHandler } from "express";
 import { storage } from "./storage";
-import { isAuthenticated } from "./replitAuth"; // Corrected import
+import { isAuthenticated as replitAuth } from "./replitAuth";
 import { isMicrosoftAuthenticated } from "./microsoftAuth";
 
-// Cache for recent auth checks to reduce repetitive calls
-const authCheckCache = new Map<string, number>();
-
-// Clean up old cache entries every 10 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [sessionId, timestamp] of authCheckCache.entries()) {
-    if (now - timestamp > 600000) { // 10 minutes
-      authCheckCache.delete(sessionId);
-    }
-  }
-}, 600000);
-
 export const smartAuth: RequestHandler = async (req, res, next) => {
+  // First, try to get user ID from either auth method without failing
+  let userId: string | undefined;
+
+  // Check if user is authenticated with either method
+  const user = req.user as any;
+  const sessionUser = (req.session as any)?.passport?.user;
+  const currentUser = user || sessionUser;
+
+  if (currentUser?.claims?.sub) {
+    userId = currentUser.claims.sub;
+  }
+
+  if (!userId) {
+    console.log("Smart auth: No user ID found, unauthorized");
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
   try {
-    // Skip auth check for rapid consecutive requests from same session
-    const sessionId = req.sessionID;
-    const now = Date.now();
-    const lastCheck = authCheckCache.get(sessionId);
-
-    if (lastCheck && (now - lastCheck) < 5000) { // 5 second cache
-      return next();
-    }
-
-    console.log(`Smart auth: Checking authentication for ${req.method} ${req.path}`);
-
-    // Check if user is authenticated with Replit
-    if (req.isAuthenticated() && req.user) {
-      const user = req.user as any;
-      if (user.claims?.sub) {
-        console.log(`Smart auth: User ${user.claims.sub} uses replit authentication`);
-        authCheckCache.set(sessionId, now);
-        return next();
+    // Get user's preferred login method from database
+    let user;
+    try {
+      user = await storage.getUser(userId);
+    } catch (error: any) {
+      // Handle missing login_method column gracefully
+      if (error.message && error.message.includes('column "login_method" does not exist')) {
+        console.log("Smart auth - handling missing login_method column, proceeding with fallback");
+        user = null; // Will fall back to auth provider data
+      } else {
+        throw error;
       }
     }
 
-    // Check Microsoft authentication
-    const result = await new Promise<void>((resolve, reject) => {
-      isMicrosoftAuthenticated(req, res, (err) => {
-        if (err) reject(err);
-        else {
-          authCheckCache.set(sessionId, now);
-          resolve();
-        }
-      });
-    });
+    if (!user) {
+      console.log("Smart auth - user not found in database or column missing, using auth provider data");
+    }
 
-    return next();
+    console.log(`Smart auth: User ${userId} uses ${user?.loginMethod} authentication`);
+
+    // Route to the correct authentication middleware
+    if (user?.loginMethod === "microsoft") {
+      return isMicrosoftAuthenticated(req, res, next);
+    } else {
+      return replitAuth(req, res, next);
+    }
+
   } catch (error) {
     console.error("Smart auth error:", error);
-    return next(error);
+
+    // Fallback: try Microsoft first, then Replit
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      replitAuth(req, res, next);
+    });
   }
 };
