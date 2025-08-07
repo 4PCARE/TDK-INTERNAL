@@ -1136,22 +1136,22 @@ async function getAiResponseDirectly(
       // For percentage type, we'll apply it after getting results
 
       const searchResults = await searchSmartHybridDebug(
-        queryAnalysis.enhancedQuery || userMessage,
-        userId,
-        {
-          specificDocumentIds: agentDocIds,
-          keywordWeight: searchConfig.keywordWeight,
-          vectorWeight: searchConfig.vectorWeight,
-          threshold: 0.3,
-          massSelectionPercentage: searchConfig.documentMass || 0.6,
-          enhancedQuery,
-          isLineOAContext: true,
-          chunkMaxType: searchConfig.chunkMaxType || 'number',
-          chunkMaxValue: searchConfig.chunkMaxValue || 16,
-          documentTokenLimit: searchConfig.documentTokenLimit,
-          finalTokenLimit: searchConfig.finalTokenLimit,
-        },
-      );
+          queryAnalysis.enhancedQuery || userMessage,
+          userId,
+          {
+            specificDocumentIds: agentDocIds,
+            keywordWeight: searchConfig.keywordWeight,
+            vectorWeight: searchConfig.vectorWeight,
+            threshold: 0.3,
+            massSelectionPercentage: searchConfig.documentMass || 0.6,
+            enhancedQuery: queryAnalysis.enhancedQuery || userMessage,
+            isLineOAContext: true,
+            chunkMaxType: searchConfig.chunkMaxType || 'number',
+            chunkMaxValue: searchConfig.chunkMaxValue || 16,
+            documentTokenLimit: searchConfig.documentTokenLimit,
+            finalTokenLimit: searchConfig.finalTokenLimit,
+          },
+        );
 
       console.log(
         `🔍 LINE OA: Smart hybrid search found ${searchResults.length} relevant chunks from agent's bound documents`,
