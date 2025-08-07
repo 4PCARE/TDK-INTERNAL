@@ -75,7 +75,7 @@ app.use((req, res, next) => {
   app.use(debugRoutes);
   app.use("/api", debugRoutes);
   app.use("/api", debugChunkTest);
-  
+
   // Register HR API routes
   registerHrApiRoutes(app);
 
@@ -87,6 +87,24 @@ app.use((req, res, next) => {
 
     res.status(status).json({ message });
     throw err;
+  });
+
+  // Use the dynamic route loader
+  const routeLoader = new RouteLoader(app);
+  await routeLoader.loadRoutes();
+
+  // Global error handler for API routes - ensure JSON responses
+  app.use('/api/*', (err: any, req: any, res: any, next: any) => {
+    console.error('API Error:', err);
+
+    // Always respond with JSON for API routes
+    if (!res.headersSent) {
+      res.setHeader('Content-Type', 'application/json');
+      res.status(err.status || 500).json({
+        error: err.name || 'Internal Server Error',
+        message: err.message || 'An unexpected error occurred'
+      });
+    }
   });
 
   // importantly only setup vite in development and after
@@ -116,17 +134,17 @@ app.use((req, res, next) => {
   // Handle graceful shutdown
   const gracefulShutdown = (signal: string) => {
     log(`Received ${signal}. Starting graceful shutdown...`);
-    
+
     httpServer.close((err) => {
       if (err) {
         console.error('Error during server shutdown:', err);
         process.exit(1);
       }
-      
+
       log('Server closed successfully');
       process.exit(0);
     });
-    
+
     // Force close after 10 seconds
     setTimeout(() => {
       console.error('Forced shutdown after timeout');

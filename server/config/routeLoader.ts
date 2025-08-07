@@ -1,4 +1,3 @@
-
 import type { Express } from "express";
 import { ROUTE_REGISTRY, SPECIAL_ROUTES, type RouteConfig } from "./routeRegistry";
 import path from "path";
@@ -14,6 +13,27 @@ export class RouteLoader {
 
   constructor(app: Express) {
     this.app = app;
+    // Add JSON error handling middleware
+    this.setupJsonErrorHandling();
+  }
+
+  private setupJsonErrorHandling() {
+    // Middleware to ensure API routes always return JSON
+    this.app.use('/api/*', (req, res, next) => {
+      // Override res.send to ensure JSON responses for API routes
+      const originalSend = res.send;
+      res.send = function(data) {
+        if (typeof data === 'string' && data.includes('<!DOCTYPE html>')) {
+          // If we're trying to send HTML on an API route, send JSON error instead
+          return res.status(500).json({
+            error: 'Internal server error',
+            message: 'API endpoint returned unexpected HTML response'
+          });
+        }
+        return originalSend.call(this, data);
+      };
+      next();
+    });
   }
 
   async loadRouteModule(routeName: string): Promise<any> {
@@ -25,10 +45,10 @@ export class RouteLoader {
       // Convert route name to file path
       const fileName = this.getRouteFileName(routeName);
       const modulePath = path.join(__dirname, '..', 'routes', fileName);
-      
+
       const module = await import(modulePath);
       this.routeModules.set(routeName, module);
-      
+
       return module;
     } catch (error) {
       console.error(`Failed to load route module ${routeName}:`, error);
@@ -105,11 +125,11 @@ export class RouteLoader {
       console.log(`📡 Loading route module: ${routeConfig.name}`);
       const module = await this.loadRouteModule(routeConfig.name);
       const registerFunctionName = this.getRegisterFunctionName(routeConfig.name);
-      
+
       if (typeof module[registerFunctionName] === 'function') {
         module[registerFunctionName](this.app);
         this.registeredRoutes.add(routeConfig.name);
-        
+
         console.log(`✅ Successfully registered route: ${routeConfig.name} -> ${routeConfig.path}`);
         return true;
       } else {
