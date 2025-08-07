@@ -375,11 +375,21 @@ export const isMicrosoftAuthenticated: RequestHandler = async (req, res, next) =
     // Don't reject immediately, allow session-based auth to continue
   }
 
-  // Update session activity
+  // Update session activity with device-specific info
   if (!req.user && sessionUser) {
     req.user = sessionUser;
   }
 
-  console.log("Microsoft auth successful for:", user.claims.email);
+  // Store device info for multi-device session management
+  if (req.session) {
+    (req.session as any).deviceInfo = {
+      userAgent: req.headers['user-agent'],
+      lastAccess: Date.now(),
+      userId: user.claims?.sub,
+      authMethod: 'microsoft'
+    };
+  }
+
+  console.log("Microsoft auth successful for:", user.claims.email, "on device:", req.headers['user-agent']?.substring(0, 50));
   return next();
 };

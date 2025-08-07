@@ -45,6 +45,17 @@ export function getSession() {
     saveUninitialized: false, // Don't save uninitialized sessions
     rolling: true, // Reset expiration on activity
     name: 'replit.sid', // Custom session name
+    genid: function(req) {
+      // Generate unique session IDs that include device fingerprinting
+      const userAgent = req.headers['user-agent'] || '';
+      const forwarded = req.headers['x-forwarded-for'] || req.connection.remoteAddress || '';
+      const deviceFingerprint = require('crypto')
+        .createHash('md5')
+        .update(userAgent + forwarded + Date.now().toString())
+        .digest('hex')
+        .substring(0, 8);
+      return require('crypto').randomBytes(16).toString('hex') + '_' + deviceFingerprint;
+    },
     cookie: {
       httpOnly: true,
       secure: false, // Always false for Replit environment
@@ -109,7 +120,14 @@ export async function setupAuth(app: Express) {
     passport.use(strategy);
   }
 
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
+  passport.serializeUser((user: Express.User, cb) => {
+    // Store minimal user info in session to avoid conflicts
+    const sessionUser = {
+      ...(user as any),
+      sessionId: Math.random().toString(36).substring(2, 15) // Unique session identifier
+    };
+    cb(null, sessionUser);
+  });
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
@@ -209,9 +227,15 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   
   // If token is still valid, proceed
   if (now <= currentUser.expires_at) {
-    // Update session activity
+    // Update session activity with device-specific touch
     if (req.session) {
       req.session.touch();
+      // Store device info for session management
+      (req.session as any).deviceInfo = {
+        userAgent: req.headers['user-agent'],
+        lastAccess: Date.now(),
+        userId: currentUser.claims?.sub
+      };
     }
     return next();
   }
@@ -228,10 +252,16 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(currentUser, tokenResponse);
     
-    // Update both req.user and session
+    // Update both req.user and session with device-specific data
     req.user = currentUser;
     if (req.session) {
       (req.session as any).passport = { user: currentUser };
+      (req.session as any).deviceInfo = {
+        userAgent: req.headers['user-agent'],
+        lastAccess: Date.now(),
+        userId: currentUser.claims?.sub,
+        refreshed: true
+      };
       req.session.save((err) => {
         if (err) {
           console.error("Failed to save refreshed session:", err);
@@ -239,7 +269,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
       });
     }
     
-    console.log("Token refreshed successfully for user:", currentUser.claims?.email);
+    console.log("Token refreshed successfully for user:", currentUser.claims?.email, "on device:", req.headers['user-agent']?.substring(0, 50));
     return next();
   } catch (error) {
     console.log("Replit auth failed - token refresh failed:", error);
