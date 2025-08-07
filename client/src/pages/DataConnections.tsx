@@ -363,15 +363,7 @@ export default function DataConnections() {
           </Link>
         </div>
 
-        {/* Replit PostgreSQL Notice */}
-        <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-          <Database className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800 dark:text-blue-200">
-            <strong>Replit PostgreSQL:</strong> Create a production-ready PostgreSQL database directly in Replit. 
-            Open a new tab, search for "Database" and click "create a database" to get started.
-            <Link href="#" className="ml-2 text-blue-600 hover:underline">Learn more</Link>
-          </AlertDescription>
-        </Alert>
+        
 
         {/* Database Types Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
