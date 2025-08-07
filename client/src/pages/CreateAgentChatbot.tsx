@@ -83,6 +83,11 @@ const createAgentSchema = z.object({
   responseLength: z.enum(["short", "medium", "long"]).default("medium"),
   allowedTopics: z.array(z.string()).default([]),
   blockedTopics: z.array(z.string()).default([]),
+  // Search Configuration
+  searchConfiguration: z.object({
+    enableCustomSearch: z.boolean().default(false),
+    additionalSearchDetail: z.string().default(""),
+  }).optional(),
   // Advanced Guardrails Configuration
   guardrailsEnabled: z.boolean().default(false),
   guardrailsConfig: z.object({
@@ -189,6 +194,10 @@ export default function CreateAgentChatbot() {
       responseLength: "medium",
       allowedTopics: [],
       blockedTopics: [],
+      searchConfiguration: {
+        enableCustomSearch: false,
+        additionalSearchDetail: "",
+      },
     },
   });
 
@@ -255,6 +264,10 @@ export default function CreateAgentChatbot() {
         responseLength: agent.responseLength || "medium",
         allowedTopics: agent.allowedTopics || [],
         blockedTopics: agent.blockedTopics || [],
+        searchConfiguration: {
+          enableCustomSearch: agent.searchConfiguration?.enableCustomSearch || false,
+          additionalSearchDetail: agent.searchConfiguration?.additionalSearchDetail || "",
+        },
         memoryEnabled: agent.memoryEnabled || false,
         memoryLimit: agent.memoryLimit || 10,
         // Advanced Guardrails Configuration
@@ -852,6 +865,14 @@ export default function CreateAgentChatbot() {
                 >
                   <Shield className="w-4 h-4 mr-2" />
                   Guardrails
+                </Button>
+                <Button
+                  variant={activeTab === "searchConfig" ? "default" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => setActiveTab("searchConfig")}
+                >
+                  <Search className="w-4 h-4 mr-2" />
+                  Search Configuration
                 </Button>
                 <Button
                   variant={activeTab === "test" ? "default" : "ghost"}
@@ -2003,6 +2024,127 @@ export default function CreateAgentChatbot() {
                                   </a>{" "}
                                   best practices for responsible AI deployment.
                                 </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+
+                    {activeTab === "searchConfig" && (
+                      <div className="space-y-6">
+                        {/* Search Configuration */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Search className="h-5 w-5" />
+                              Search Configuration
+                            </CardTitle>
+                            <CardDescription>
+                              Customize how your agent processes and enhances search queries
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-6">
+                            {/* Enable Custom Search */}
+                            <FormField
+                              control={form.control}
+                              name="searchConfiguration.enableCustomSearch"
+                              render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                  <div className="space-y-0.5">
+                                    <FormLabel className="text-base">
+                                      Enable Custom Search Configuration
+                                    </FormLabel>
+                                    <FormDescription>
+                                      Allow customization of query preprocessing and search enhancement
+                                    </FormDescription>
+                                  </div>
+                                  <FormControl>
+                                    <Switch
+                                      checked={field.value}
+                                      onCheckedChange={field.onChange}
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+
+                            {/* Additional Search Details - Only show if enabled */}
+                            {form.watch("searchConfiguration.enableCustomSearch") && (
+                              <FormField
+                                control={form.control}
+                                name="searchConfiguration.additionalSearchDetail"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Additional Search Context</FormLabel>
+                                    <FormControl>
+                                      <Textarea
+                                        placeholder="Enter additional context that will be injected into search queries. For example: 'Focus on company policies and HR procedures' or 'Prioritize technical documentation and troubleshooting guides'"
+                                        className="min-h-[120px]"
+                                        {...field}
+                                      />
+                                    </FormControl>
+                                    <FormDescription>
+                                      This text will be appended to the query preprocessor's prompt as: "Help modify search ... {form.watch("searchConfiguration.additionalSearchDetail") || "${additionalSearchDetail}"}"
+                                      <br />
+                                      <strong>Note:</strong> This will also be included as an additional system prompt for the agent bot.
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            )}
+
+                            {/* Preview Section */}
+                            {form.watch("searchConfiguration.enableCustomSearch") && form.watch("searchConfiguration.additionalSearchDetail") && (
+                              <div className="bg-blue-50 rounded-lg p-4 space-y-3">
+                                <h4 className="font-medium text-blue-900 flex items-center gap-2">
+                                  <Info className="w-4 h-4" />
+                                  Search Enhancement Preview
+                                </h4>
+                                <div className="space-y-2 text-sm">
+                                  <div>
+                                    <span className="font-medium text-blue-800">Query Preprocessor Enhancement:</span>
+                                    <div className="bg-white rounded p-2 mt-1 border border-blue-200">
+                                      <code className="text-xs text-slate-700">
+                                        "Help modify search ... {form.watch("searchConfiguration.additionalSearchDetail")}"
+                                      </code>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <span className="font-medium text-blue-800">System Prompt Addition:</span>
+                                    <div className="bg-white rounded p-2 mt-1 border border-blue-200">
+                                      <code className="text-xs text-slate-700">
+                                        Additional context: {form.watch("searchConfiguration.additionalSearchDetail")}
+                                      </code>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+
+                        {/* Search Configuration Information */}
+                        <Card className="border-amber-200 bg-amber-50">
+                          <CardContent className="pt-6">
+                            <div className="flex items-start space-x-3">
+                              <Lightbulb className="w-5 h-5 text-amber-600 mt-0.5" />
+                              <div>
+                                <h4 className="font-medium text-amber-900">
+                                  How Search Configuration Works
+                                </h4>
+                                <div className="text-sm text-amber-700 mt-2 space-y-2">
+                                  <p>
+                                    <strong>Query Preprocessing:</strong> Your additional search detail will be injected into the query preprocessor's system prompt, helping it better understand the context and intent of user queries.
+                                  </p>
+                                  <p>
+                                    <strong>Agent System Prompt:</strong> The same detail will be added to your agent's system prompt, ensuring consistent context awareness across both search and response generation.
+                                  </p>
+                                  <p>
+                                    <strong>Example Use Cases:</strong> "Focus on customer service policies", "Prioritize technical troubleshooting steps", "Emphasize safety procedures and compliance"
+                                  </p>
+                                </div>
                               </div>
                             </div>
                           </CardContent>

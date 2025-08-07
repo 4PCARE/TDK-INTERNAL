@@ -23,12 +23,13 @@ export class QueryPreprocessorService {
   async analyzeQuery(
     userQuery: string,
     chatHistory: ChatMessage[] = [],
-    context?: string
+    context?: string,
+    additionalSearchDetail?: string
   ): Promise<QueryAnalysis> {
     try {
       console.log(`🧠 PRE-FEED: Analyzing query "${userQuery}"`);
       
-      const systemPrompt = `You are a query analysis AI for a Thai shopping mall information system. Your job is to:
+      const systemPrompt = `You are a query analysis AI for a Thai shopping mall information system. ${additionalSearchDetail ? `Additional Context: ${additionalSearchDetail}` : ''} Your job is to:
 
 1. **CRITICAL: Inject Historical Context**
    - ALWAYS examine the chat history for relevant context, especially:

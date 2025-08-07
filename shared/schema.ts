@@ -626,6 +626,12 @@ export const agentChatbots = pgTable("agent_chatbots", {
   // Memory configuration for chat history
   memoryEnabled: boolean("memory_enabled").default(true),
 
+  // Search configuration
+  searchConfiguration: jsonb("search_configuration").$type<{
+    enableCustomSearch?: boolean;
+    additionalSearchDetail?: string;
+  }>(),
+
   // Advanced guardrails configuration
   guardrailsConfig: jsonb("guardrails_config").$type<{
     contentFiltering?: {
