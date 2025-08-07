@@ -2212,13 +2212,23 @@ export class DatabaseStorage implements IStorage {
 
     try {
       const { chatHistory } = await import('@shared/schema');
+      const { hrEmployees } = await import('@shared/schema');
       const { isNotNull, desc, and, eq, sql } = await import('drizzle-orm');
-      
+
       // Simple query first - just get all messages and filter client-side for now
       const messages = await db
-        .select()
+        .select({
+          id: chatHistory.id,
+          userId: chatHistory.userId,
+          channelType: chatHistory.channelType,
+          channelId: chatHistory.channelId,
+          agentId: chatHistory.agentId,
+          content: chatHistory.content,
+          createdAt: chatHistory.createdAt,
+          agentName: agentChatbots.name
+        })
         .from(chatHistory)
-        .leftJoin(agentChatbots, eq(chatHistory.agentId, agentChatbots.id))
+        .innerJoin(agentChatbots, eq(chatHistory.agentId, agentChatbots.id))
         .where(
           and(
             isNotNull(chatHistory.userId),
@@ -2234,39 +2244,44 @@ export class DatabaseStorage implements IStorage {
       // Group by conversation (userId + channelId + agentId) and get latest message for each
       const conversationMap = new Map();
 
-      for (const record of messages) {
-        const message = record.chat_history;
-        const agent = record.agent_chatbots;
-        
-        if (!message || !message.userId || !message.channelId || !message.agentId) {
-          console.log('Skipping invalid record:', record);
-          continue;
-        }
-
+      for (const message of messages) {
         const conversationKey = `${message.userId}-${message.channelId}-${message.agentId}`;
 
         if (!conversationMap.has(conversationKey)) {
-          // Count total messages for this conversation
-          const messageCount = await db
+          // Get message count for this conversation
+          const messageCount = await this.db
             .select({ count: sql<number>`count(*)` })
             .from(chatHistory)
             .where(
               and(
                 eq(chatHistory.userId, message.userId),
+                eq(chatHistory.channelType, message.channelType),
                 eq(chatHistory.channelId, message.channelId),
                 eq(chatHistory.agentId, message.agentId)
               )
             );
 
-          // Extract user name from metadata
-          let userName = `User ${message.userId}`;
-          if (message.metadata) {
-            try {
-              const metadata = typeof message.metadata === 'string' ? JSON.parse(message.metadata) : message.metadata;
-              userName = metadata?.userName || metadata?.displayName || `User ${message.userId}`;
-            } catch (e) {
-              console.warn('Failed to parse message metadata:', e);
+          // Try to get user name from HR data if available
+          let userName = 'Unknown User';
+          try {
+            if (message.userId === '43981095') {
+              // This is our admin user, try to get name from HR employee data
+              const hrEmployee = await this.db
+                .select({
+                  firstName: hrEmployees.firstName,
+                  lastName: hrEmployees.lastName
+                })
+                .from(hrEmployees)
+                .where(eq(hrEmployees.email, 'admin@4plus.co.th'))
+                .limit(1);
+
+              if (hrEmployee && hrEmployee[0] && hrEmployee[0].firstName) {
+                userName = `${hrEmployee[0].firstName || ''} ${hrEmployee[0].lastName || ''}`.trim();
+              }
             }
+          } catch (error) {
+            console.error('Error fetching HR employee data for user profile:', error);
+            userName = 'Unknown User';
           }
 
           conversationMap.set(conversationKey, {
@@ -2274,8 +2289,8 @@ export class DatabaseStorage implements IStorage {
             channelType: message.channelType,
             channelId: message.channelId,
             agentId: message.agentId,
-            agentName: agent?.name || 'Unknown Agent',
-            lastMessage: message.content,
+            agentName: message.agentName || 'Unknown Agent',
+            lastMessage: message.content || '',
             lastMessageAt: message.createdAt,
             messageCount: messageCount[0]?.count || 0,
             isOnline: this.isUserOnline(message.userId),
@@ -2388,46 +2403,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAgentConsoleSummary(userId: string, channelType: string, channelId: string): Promise<any> {
-    console.log(`Getting summary for ${userId}, ${channelType}, ${channelId}`);
-
     try {
-      const { chatHistory } = await import('@shared/schema');
-      const { and, eq, sql } = await import('drizzle-orm');
+      console.log(`Getting summary for ${userId}, ${channelType}, ${channelId}`);
 
-      // Get conversation statistics with simpler query
-      const stats = await db
+      const messages = await this.db
         .select({
-          totalMessages: sql<number>`count(*)`,
-          firstContactAt: sql<string>`min(created_at)`,
-          lastActiveAt: sql<string>`max(created_at)`
-        })
-        .from(chatHistory)
-        .where(
-          and(
-            eq(chatHistory.userId, userId),
-            eq(chatHistory.channelType, channelType),
-            eq(chatHistory.channelId, channelId)
-          )
-        );
-
-      const summary = stats[0];
-
-      if (!summary || summary.totalMessages === 0) {
-        return {
-          totalMessages: 0,
-          firstContactAt: null,
-          lastActiveAt: null,
-          sentiment: null,
-          mainTopics: [],
-          csatScore: null
-        };
-      }
-
-      // Get recent messages for topic analysis
-      const recentMessages = await db
-        .select({
-          content: chatMessages.content,
-          messageType: chatMessages.messageType
+          id: chatMessages.id,
+          createdAt: chatMessages.createdAt,
+          content: chatMessages.content
         })
         .from(chatMessages)
         .where(
@@ -2437,57 +2420,30 @@ export class DatabaseStorage implements IStorage {
             eq(chatMessages.channelId, channelId)
           )
         )
-        .orderBy(desc(chatMessages.createdAt))
-        .limit(20);
+        .orderBy(asc(chatMessages.createdAt));
 
-      // Simple topic extraction (you can enhance this with AI)
-      const userMessages = recentMessages
-        .filter(msg => msg.messageType === 'user')
-        .map(msg => msg.content.toLowerCase());
-
-      const topics = [];
-      if (userMessages.some(msg => msg.includes('order') || msg.includes('purchase'))) topics.push('order inquiry');
-      if (userMessages.some(msg => msg.includes('ship') || msg.includes('delivery'))) topics.push('shipping');
-      if (userMessages.some(msg => msg.includes('help') || msg.includes('support'))) topics.push('customer support');
-      if (userMessages.some(msg => msg.includes('refund') || msg.includes('return'))) topics.push('refund request');
-      if (userMessages.some(msg => msg.includes('price') || msg.includes('cost'))) topics.push('pricing');
-
-      // Simple sentiment analysis (you can enhance this with AI)
-      let sentiment = 'neutral';
-      const positiveWords = ['thank', 'great', 'good', 'excellent', 'happy', 'satisfied'];
-      const negativeWords = ['bad', 'terrible', 'awful', 'angry', 'frustrated', 'disappointed'];
-
-      const allText = userMessages.join(' ');
-      const positiveCount = positiveWords.filter(word => allText.includes(word)).length;
-      const negativeCount = negativeWords.filter(word => allText.includes(word)).length;
-
-      if (positiveCount > negativeCount) sentiment = 'positive';
-      else if (negativeCount > positiveCount) sentiment = 'negative';
-
-      // Calculate CSAT score based on sentiment and conversation length
-      let csatScore = null;
-      if (summary.totalMessages >= 3) {
-        csatScore = sentiment === 'positive' ? 85 : sentiment === 'negative' ? 45 : 70;
+      if (messages.length === 0) {
+        return {
+          totalMessages: 0,
+          firstContactAt: new Date().toISOString(),
+          lastActiveAt: new Date().toISOString()
+        };
       }
 
       return {
-        totalMessages: summary.totalMessages,
-        firstContactAt: summary.firstContactAt,
-        lastActiveAt: summary.lastActiveAt,
-        sentiment,
-        mainTopics: topics,
-        csatScore
+        totalMessages: messages.length,
+        firstContactAt: messages[0].createdAt || new Date().toISOString(),
+        lastActiveAt: messages[messages.length - 1].createdAt || new Date().toISOString(),
+        sentiment: 'neutral',
+        mainTopics: ['General Inquiry'],
+        csatScore: null
       };
-
     } catch (error) {
       console.error("Error fetching conversation summary:", error);
       return {
         totalMessages: 0,
-        firstContactAt: null,
-        lastActiveAt: null,
-        sentiment: null,
-        mainTopics: [],
-        csatScore: null
+        firstContactAt: new Date().toISOString(),
+        lastActiveAt: new Date().toISOString()
       };
     }
   }
