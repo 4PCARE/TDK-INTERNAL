@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
+import pgConnect from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { createReplitAuthRouter } from "./replitAuth";
 import { imageAnalysisRoute } from './lineImageService';
@@ -9,6 +10,9 @@ import debugChunkTest from "./debug-chunk-test";
 import { registerHrApiRoutes } from "./hrApi";
 import { setupVite, serveStatic, log } from "./vite";
 import { RouteLoader } from "./config/routeLoader";
+import { db, pool } from "./db";
+import { setupRoutes } from "./config/routeRegistry";
+import { startDatabaseKeepAlive } from "./keepAlive";
 
 const app = express();
 
@@ -71,6 +75,27 @@ app.use((req, res, next) => {
   next();
 });
 
+const PgSession = pgConnect(session);
+
+app.use(session({
+  store: new PgSession({
+    pool: pool,
+    tableName: "session",
+    errorLog: (err) => {
+      console.warn('Session store error (will retry):', err.message);
+    },
+    createTableIfMissing: true
+  }),
+  secret: process.env.SESSION_SECRET || "default-session-secret",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
 (async () => {
   // Mount debug routes BEFORE registerRoutes to ensure higher priority
   app.use(debugRoutes);
@@ -121,22 +146,19 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // const port = process.env.NODE_ENV === 'production' ? 80 : 5000;
   const port = process.env.PORT || 5000;
-  const httpServer = server.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`serving on port ${port}`);
-    },
-  );
+
+  // Start database keep-alive service
+  startDatabaseKeepAlive();
+
+  app.listen(port, "0.0.0.0", () => {
+    console.log(`${new Date().toLocaleTimeString()} [express] serving on port ${port}`);
+  });
 
   // Handle graceful shutdown
   const gracefulShutdown = (signal: string) => {
     log(`Received ${signal}. Starting graceful shutdown...`);
 
-    httpServer.close((err) => {
+    server.close((err) => {
       if (err) {
         console.error('Error during server shutdown:', err);
         process.exit(1);
