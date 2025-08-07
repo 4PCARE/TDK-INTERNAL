@@ -51,19 +51,19 @@ export default function LiveChatWidget() {
   const [isCreating, setIsCreating] = useState(false);
   const [editingWidget, setEditingWidget] = useState<ChatWidget | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [isDialogOpen, setDialogOpen] = useState(false); // State to control the dialog visibility
 
   // Form state for creating/editing widgets
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    agentId: null as number | null,
+    welcomeMessage: "Hi! How can I help you today?",
     primaryColor: "#2563eb",
     textColor: "#ffffff",
     position: "bottom-right",
-    welcomeMessage: "Hi! How can I help you today?",
-    offlineMessage: "We're currently offline. Please leave a message.",
     enableHrLookup: false,
-    hrApiEndpoint: ""
+    hrApiEndpoint: '',
+    agentId: null as number | null,
   });
 
   // Get chat widgets
@@ -101,6 +101,7 @@ export default function LiveChatWidget() {
         enableHrLookup: false,
         agentId: null
       });
+      setDialogOpen(false); // Close dialog after success
     },
     onError: (error: Error) => {
       toast({
@@ -133,6 +134,7 @@ export default function LiveChatWidget() {
         enableHrLookup: false,
         agentId: null
       });
+      setDialogOpen(false); // Close dialog after success
     },
     onError: (error: Error) => {
       toast({
@@ -214,36 +216,68 @@ export default function LiveChatWidget() {
     });
   };
 
-  const handleEditWidget = (widget: ChatWidget) => {
+  const handleEdit = (widget: ChatWidget) => {
     setEditingWidget(widget);
     setFormData({
       name: widget.name,
       welcomeMessage: widget.welcomeMessage,
-      position: widget.position,
       primaryColor: widget.primaryColor,
       textColor: widget.textColor,
-      enableHrLookup: widget.enableHrLookup,
-      hrApiEndpoint: widget.hrApiEndpoint,
-      agentId: widget.agentId || null
+      position: widget.position,
+      enableHrLookup: widget.enableHrLookup || false,
+      hrApiEndpoint: widget.hrApiEndpoint || '',
+      agentId: widget.agentId || null, // Initialize agentId from widget data
     });
+    setDialogOpen(true);
   };
+
+  const handleCreateNew = () => {
+    setEditingWidget(null);
+    setFormData({
+      name: "",
+      welcomeMessage: "Hi! How can I help you today?",
+      primaryColor: "#2563eb",
+      textColor: "#ffffff",
+      position: "bottom-right",
+      enableHrLookup: false,
+      hrApiEndpoint: '',
+      agentId: null,
+    });
+    setDialogOpen(true);
+  };
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!formData.name.trim()) {
       toast({
-        title: "Validation Error",
+        title: "Error",
         description: "Widget name is required",
         variant: "destructive",
       });
       return;
     }
-    if (editingWidget) {
-      // Update existing widget
-      updateWidgetMutation.mutate({ id: editingWidget.id, ...formData });
-    } else {
-      // Create new widget
-      createWidgetMutation.mutate(formData);
+
+    try {
+      const widgetData = {
+        name: formData.name,
+        welcomeMessage: formData.welcomeMessage,
+        primaryColor: formData.primaryColor,
+        textColor: formData.textColor,
+        position: formData.position,
+        enableHrLookup: formData.enableHrLookup,
+        hrApiEndpoint: formData.hrApiEndpoint,
+        agentId: formData.agentId // Add agentId to the submission data
+      };
+
+      if (editingWidget) {
+        updateWidgetMutation.mutate({ id: editingWidget.id, ...widgetData });
+      } else {
+        createWidgetMutation.mutate(widgetData);
+      }
+    } catch (error) {
+      console.error("Error submitting form:", error);
     }
   };
 
@@ -265,7 +299,7 @@ export default function LiveChatWidget() {
               <p className="text-gray-600">Create embeddable chat widgets for your websites</p>
             </div>
           </div>
-          <Button onClick={() => { setIsCreating(true); setEditingWidget(null); }}>
+          <Button onClick={handleCreateNew}>
             <Plus className="w-4 h-4 mr-2" />
             Create Widget
           </Button>
@@ -285,7 +319,7 @@ export default function LiveChatWidget() {
                   <div className="text-center py-8">
                     <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                     <p className="text-gray-500">No chat widgets yet</p>
-                    <Button className="mt-4" onClick={() => { setIsCreating(true); setEditingWidget(null); }}>
+                    <Button className="mt-4" onClick={handleCreateNew}>
                       Create Your First Widget
                     </Button>
                   </div>
@@ -332,7 +366,7 @@ export default function LiveChatWidget() {
                               variant="outline"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleEditWidget(widget);
+                                handleEdit(widget);
                               }}
                             >
                               <Settings className="w-4 h-4" />
@@ -387,7 +421,7 @@ export default function LiveChatWidget() {
 
           {/* Widget Form / Details */}
           <div>
-            {(isCreating || editingWidget) ? (
+            {(isCreating || editingWidget) && isDialogOpen && ( // Show form only when creating or editing and dialog is open
               <Card>
                 <CardHeader>
                   <CardTitle>{editingWidget ? "Edit Widget" : "Create New Widget"}</CardTitle>
@@ -492,87 +526,96 @@ export default function LiveChatWidget() {
                       <Button type="submit" disabled={createWidgetMutation.isPending || updateWidgetMutation.isPending}>
                         {editingWidget ? (updateWidgetMutation.isPending ? "Saving..." : "Save Changes") : (createWidgetMutation.isPending ? "Creating..." : "Create Widget")}
                       </Button>
-                      <Button type="button" variant="outline" onClick={() => { setIsCreating(false); setEditingWidget(null); }}>
+                      <Button type="button" variant="outline" onClick={() => { setIsCreating(false); setEditingWidget(null); setDialogOpen(false); }}>
                         Cancel
                       </Button>
                     </div>
                   </form>
                 </CardContent>
               </Card>
-            ) : selectedWidget ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Embed Code</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <p className="text-sm text-gray-600">
-                      Copy and paste this code into your website's HTML to add the chat widget:
-                    </p>
-                    <div className="bg-gray-100 p-3 rounded-lg">
-                      <pre className="text-xs overflow-x-auto">
-                        <code>{generateEmbedCode(selectedWidget)}</code>
-                      </pre>
-                    </div>
-                    <Button onClick={() => copyEmbedCode(selectedWidget)} className="w-full">
-                      {copiedCode ? (
-                        <>
-                          <Check className="w-4 h-4 mr-2" />
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-4 h-4 mr-2" />
-                          Copy Code
-                        </>
-                      )}
-                    </Button>
-
-                    <div className="pt-4 border-t">
-                      <h4 className="font-medium mb-2">Widget Settings</h4>
-                      <div className="space-y-2 text-sm">
-                        <div>Position: {selectedWidget.position}</div>
-                        <div>Primary Color: {selectedWidget.primaryColor}</div>
-                        <div>HR Lookup: {selectedWidget.enableHrLookup ? "Enabled" : "Disabled"}</div>
-                        <div>Status: {selectedWidget.isActive ? "Active" : "Inactive"}</div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Getting Started</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
-                      <div>
-                        <h4 className="font-medium">Create a Widget</h4>
-                        <p className="text-sm text-gray-600">Set up your chat widget with custom styling and messages</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
-                      <div>
-                        <h4 className="font-medium">Copy Embed Code</h4>
-                        <p className="text-sm text-gray-600">Get the HTML code to add to your website</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
-                      <div>
-                        <h4 className="font-medium">Enable HR Lookup</h4>
-                        <p className="text-sm text-gray-600">Allow visitors to check employee status using Thai Citizen ID</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
             )}
           </div>
+
+          {/* Display details when a widget is selected and not editing */}
+          {!isCreating && !editingWidget && selectedWidget && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Embed Code</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600">
+                    Copy and paste this code into your website's HTML to add the chat widget:
+                  </p>
+                  <div className="bg-gray-100 p-3 rounded-lg">
+                    <pre className="text-xs overflow-x-auto">
+                      <code>{generateEmbedCode(selectedWidget)}</code>
+                    </pre>
+                  </div>
+                  <Button onClick={() => copyEmbedCode(selectedWidget)} className="w-full">
+                    {copiedCode ? (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copy Code
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="pt-4 border-t">
+                    <h4 className="font-medium mb-2">Widget Settings</h4>
+                    <div className="space-y-2 text-sm">
+                      <div>Position: {selectedWidget.position}</div>
+                      <div>Primary Color: {selectedWidget.primaryColor}</div>
+                      <div>HR Lookup: {selectedWidget.enableHrLookup ? "Enabled" : "Disabled"}</div>
+                      <div>Status: {selectedWidget.isActive ? "Active" : "Inactive"}</div>
+                      {selectedWidget.agentName && (
+                        <div>AI Agent: {selectedWidget.agentName}</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Getting Started Guide */}
+          {!isCreating && !editingWidget && !selectedWidget && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Getting Started</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
+                    <div>
+                      <h4 className="font-medium">Create a Widget</h4>
+                      <p className="text-sm text-gray-600">Set up your chat widget with custom styling and messages</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
+                    <div>
+                      <h4 className="font-medium">Copy Embed Code</h4>
+                      <p className="text-sm text-gray-600">Get the HTML code to add to your website</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
+                    <div>
+                      <h4 className="font-medium">Enable HR Lookup</h4>
+                      <p className="text-sm text-gray-600">Allow visitors to check employee status using Thai Citizen ID</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </DashboardLayout>
