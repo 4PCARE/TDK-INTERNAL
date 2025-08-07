@@ -3493,6 +3493,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       if (widget.agentId) {
         try {
           console.log(`🤖 Widget: Using agentBot service for agent ${widget.agentId}`);
+          console.log(`🤖 Widget: Message content: "${message}"`);
 
           // Get recent chat history for context
           const recentMessages = await db
@@ -3518,7 +3519,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           // Create bot context for agentBot
           const botContext = {
             userId: session.sessionId,
-            channelType: 'web',
+            channelType: 'chat_widget',
             channelId: widget.widgetKey,
             agentId: widget.agentId,
             messageId: `widget_${Date.now()}`,
