@@ -1144,6 +1144,7 @@ async function getAiResponseDirectly(
           specificDocumentIds: agentDocIds,
           massSelectionPercentage: documentMass,
           enhancedQuery: queryAnalysis.enhancedQuery,
+          isLineOAContext: true, // Flag to indicate LINE OA context
           limit: 22, // LINE OA context - enable higher chunk limits
         },
       );

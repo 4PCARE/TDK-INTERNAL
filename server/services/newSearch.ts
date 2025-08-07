@@ -665,9 +665,23 @@ export async function searchSmartHybridDebug(
   // 5. Sort by finalScore and apply smart selection
   scoredChunks.sort((a, b) => b.finalScore - a.finalScore);
 
-  // Smart selection: TRUE mass-based selection for document bots
-  const minResults = massSelectionPercentage >= 0.6 ? 8 : 2; // Document bots need minimum 8 chunks
-  const maxResults = massSelectionPercentage >= 0.6 ? Math.min(16, scoredChunks.length) : Math.min(8, scoredChunks.length); // Document bots cap at 16 chunks
+  // Smart selection: TRUE mass-based selection with context-aware limits
+  let minResults, maxResults;
+  
+  if (isLineOAContext) {
+    // LINE OA context: Use dynamic limits based on mass selection percentage
+    if (massSelectionPercentage >= 0.6) {
+      minResults = 8; // Document bots need minimum 8 chunks
+      maxResults = Math.min(16, scoredChunks.length); // Document bots cap at 16 chunks
+    } else {
+      minResults = 2; // General chat needs minimum 2 chunks
+      maxResults = Math.min(22, scoredChunks.length); // Allow up to 22 chunks for general chat
+    }
+  } else {
+    // Document Bot context: Always use document-focused limits
+    minResults = 8;
+    maxResults = Math.min(16, scoredChunks.length);
+  }
 
   let selectedChunks = [];
   let totalScore = scoredChunks.reduce((sum, c) => sum + c.finalScore, 0); // Initialize totalScore
