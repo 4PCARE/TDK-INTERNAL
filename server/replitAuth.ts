@@ -33,6 +33,7 @@ export function getSession() {
     ttl: Math.floor(sessionTtl / 1000),
     tableName: "user_sessions", // Use different table name to avoid conflicts
     pruneSessionInterval: 60 * 60,
+    schemaName: null, // Use default schema
     errorLog: (err) => {
       console.warn('Session store error (will retry):', err.message);
     },
