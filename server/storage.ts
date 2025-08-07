@@ -2495,43 +2495,12 @@ export class DatabaseStorage implements IStorage {
   
   async getConversationSummary(userId: string, channelType: string, channelId: string): Promise<any> {
     try {
-      const { chatHistory } = await import('@shared/schema');
-      const { eq, and, desc } = await import('drizzle-orm');
-
       console.log(`📊 Getting summary for userId: "${userId}", channelType: "${channelType}", channelId: "${channelId}"`);
 
-      // First, let's see what data exists for this user across all conversations
-      const allUserMessages = await db
-        .select({
-          id: chatHistory.id,
-          userId: chatHistory.userId,
-          channelType: chatHistory.channelType,
-          channelId: chatHistory.channelId,
-          messageType: chatHistory.messageType,
-          content: chatHistory.content,
-          createdAt: chatHistory.createdAt
-        })
-        .from(chatHistory)
-        .where(eq(chatHistory.userId, userId))
-        .orderBy(desc(chatHistory.createdAt))
-        .limit(5);
-
-      console.log(`📊 Found ${allUserMessages.length} total messages for user ${userId}:`);
-      allUserMessages.forEach((msg, index) => {
-        console.log(`  ${index + 1}. Channel: ${msg.channelType}/${msg.channelId}, Type: ${msg.messageType}, Content: ${msg.content?.substring(0, 50)}...`);
-      });
-
-      // Get basic conversation stats - select specific fields to avoid undefined issues
+      // Use the pre-imported schema and functions from the top of the file
+      // Get basic conversation stats using a simple query first
       const messages = await db
-        .select({
-          id: chatHistory.id,
-          userId: chatHistory.userId,
-          channelType: chatHistory.channelType,
-          channelId: chatHistory.channelId,
-          messageType: chatHistory.messageType,
-          content: chatHistory.content,
-          createdAt: chatHistory.createdAt
-        })
+        .select()
         .from(chatHistory)
         .where(
           and(
@@ -2545,6 +2514,7 @@ export class DatabaseStorage implements IStorage {
       console.log(`📊 Found ${messages.length} messages for specific conversation`);
 
       if (messages.length === 0) {
+        console.log(`📊 No messages found for conversation`);
         return {
           totalMessages: 0,
           firstContactAt: null,
@@ -2557,7 +2527,7 @@ export class DatabaseStorage implements IStorage {
 
       const userMessages = messages
         .filter(msg => msg.messageType === 'user')
-        .map(msg => msg.content?.toLowerCase() || '');
+        .map(msg => (msg.content || '').toLowerCase());
 
       const topics = [];
       if (userMessages.some(msg => msg.includes('order') || msg.includes('purchase'))) topics.push('order inquiry');
@@ -2584,6 +2554,8 @@ export class DatabaseStorage implements IStorage {
         csatScore = sentiment === 'positive' ? 85 : sentiment === 'negative' ? 45 : 70;
       }
 
+      console.log(`📊 Summary calculated: ${messages.length} messages, sentiment: ${sentiment}, topics: ${topics.join(', ')}`);
+
       return {
         totalMessages: messages.length,
         firstContactAt: messages[messages.length - 1]?.createdAt || null,
@@ -2595,6 +2567,13 @@ export class DatabaseStorage implements IStorage {
 
     } catch (error) {
       console.error('Error fetching conversation summary:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        userId,
+        channelType,
+        channelId
+      });
       return {
         totalMessages: 0,
         firstContactAt: null,
