@@ -252,7 +252,7 @@ export default function CreateAgentChatbot() {
       const agent = existingAgent as any;
       console.log("Loading existing agent data:", JSON.stringify(agent, null, 2));
       console.log("Agent guardrails config from DB:", agent.guardrailsConfig);
-      
+
       form.reset({
         name: agent.name || "",
         description: agent.description || "",
@@ -397,14 +397,14 @@ export default function CreateAgentChatbot() {
     },
     onSuccess: (data) => {
       console.log("Test agent response received:", data);
-      
+
       if (isTestChatMode) {
         // Add user message and AI response to chat history
         const userMessage = { role: "user" as const, content: testMessage, timestamp: new Date() };
         const assistantMessage = { role: "assistant" as const, content: data.response, timestamp: new Date() };
         setTestChatHistory(prev => [...prev, userMessage, assistantMessage]);
         setTestMessage(""); // Clear input for next message
-        
+
         // Auto-scroll to bottom after response
         setTimeout(() => {
           if (chatHistoryRef.current) {
@@ -414,7 +414,7 @@ export default function CreateAgentChatbot() {
       } else {
         setTestResponse(data.response || "No response received");
       }
-      
+
       setIsTestingAgent(false);
     },
     onError: (error) => {
@@ -464,10 +464,10 @@ export default function CreateAgentChatbot() {
       // Clear form and navigate back
       form.reset();
       setSelectedDocuments([]);
-      
+
       // Invalidate comprehensive cache keys to ensure frontend updates
       queryClient.invalidateQueries({ queryKey: ["/api/agent-chatbots"] });
-      
+
       // If editing, also invalidate the specific agent's cache
       if (isEditing && editAgentId) {
         queryClient.invalidateQueries({ 
@@ -477,7 +477,7 @@ export default function CreateAgentChatbot() {
           queryKey: [`/api/agent-chatbots/${editAgentId}/documents`] 
         });
       }
-      
+
       // Invalidate all agent-related cache to ensure complete refresh
       queryClient.invalidateQueries({ 
         predicate: (query) => {
@@ -485,7 +485,7 @@ export default function CreateAgentChatbot() {
           return typeof queryKey === "string" && queryKey.includes("/api/agent-chatbots");
         }
       });
-      
+
       window.history.back();
     },
     onError: (error) => {
@@ -513,17 +513,17 @@ export default function CreateAgentChatbot() {
   const onSubmit = (data: CreateAgentForm) => {
     // Build the guardrails configuration object
     const guardrailsConfig = data.guardrailsEnabled ? data.guardrailsConfig : null;
-    
+
     const finalData = {
       ...data,
       documentIds: selectedDocuments,
       guardrailsConfig,
     };
-    
+
     console.log("Form submission data:", JSON.stringify(finalData, null, 2));
     console.log("Guardrails enabled:", data.guardrailsEnabled);
     console.log("Guardrails config:", data.guardrailsConfig);
-    
+
     saveAgentMutation.mutate(finalData);
   };
 
@@ -538,7 +538,7 @@ export default function CreateAgentChatbot() {
     }
 
     const currentFormData = form.getValues();
-    
+
     // Basic validation for required fields
     if (!currentFormData.name || !currentFormData.personality || !currentFormData.profession || !currentFormData.responseStyle) {
       toast({
@@ -551,7 +551,7 @@ export default function CreateAgentChatbot() {
 
     // Build guardrails configuration for testing (same as deployment)
     const guardrailsConfig = currentFormData.guardrailsEnabled ? currentFormData.guardrailsConfig : null;
-    
+
     const testConfigData = {
       ...currentFormData,
       guardrailsConfig: guardrailsConfig, // Include guardrails config for testing
@@ -560,20 +560,20 @@ export default function CreateAgentChatbot() {
     console.log("Starting test agent with:", { message: testMessage, config: testConfigData, documents: selectedDocuments });
     console.log("Guardrails enabled for test:", currentFormData.guardrailsEnabled);
     console.log("Guardrails config for test:", guardrailsConfig);
-    
+
     setIsTestingAgent(true);
-    
+
     if (!isTestChatMode) {
       setTestResponse("");
     }
-    
+
     // Prepare chat history for API call (respecting memory limit)
     const memoryLimit = currentFormData.memoryLimit || 10;
     const recentHistory = testChatHistory.slice(-memoryLimit).map(msg => ({
       role: msg.role,
       content: msg.content
     }));
-    
+
     testAgentMutation.mutate({
       message: testMessage,
       agentConfig: testConfigData,
@@ -630,7 +630,7 @@ export default function CreateAgentChatbot() {
 
   const toggleDocument = (documentId: number) => {
     const isSelected = selectedDocuments.includes(documentId);
-    
+
     if (isEditing && editAgentId) {
       // For editing mode, use API calls for real-time updates
       if (isSelected) {
@@ -639,7 +639,7 @@ export default function CreateAgentChatbot() {
         addDocumentMutation.mutate(documentId);
       }
     }
-    
+
     // Update local state immediately for UI responsiveness
     setSelectedDocuments((prev) =>
       prev.includes(documentId)
@@ -2169,7 +2169,7 @@ export default function CreateAgentChatbot() {
                                         </FormControl>
                                         <FormDescription>
                                           {form.watch("searchConfiguration.chunkMaxType") === "percentage" 
-                                            ? "Percentage of retrieved chunks to send to AI (e.g., 5% of 100 chunks = 5 chunks)"
+                                            ? "Percentage of total available chunks in agent's documents to send to AI (e.g., 5% of 1000 total chunks = 50 chunks max)"
                                             : "Maximum number of chunks to send to AI regardless of how many are retrieved"}
                                         </FormDescription>
                                         <FormMessage />

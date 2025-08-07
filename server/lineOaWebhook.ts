@@ -1143,10 +1143,15 @@ async function getAiResponseDirectly(
 
       // Apply chunk maximum if using percentage type
       let finalSearchResults = searchResults;
-      if (chunkMaxType === 'percentage' && chunkMaxValue > 0 && searchResults.length > 0) {
-        const maxChunks = Math.max(1, Math.ceil(searchResults.length * (chunkMaxValue / 100)));
-        finalSearchResults = searchResults.slice(0, maxChunks);
-        console.log(`📊 LINE OA: Applied ${chunkMaxValue}% limit: ${searchResults.length} → ${finalSearchResults.length} chunks`);
+      if (chunkMaxType === 'percentage' && chunkMaxValue > 0) {
+        // Calculate percentage based on total available chunks in agent's documents, not just search results
+        const totalAvailableChunks = agentDocIds.length > 0 ? 
+          await getTotalChunksForDocuments(agentDocIds, userId) : 
+          await getTotalChunksForUser(userId);
+        
+        const maxChunks = Math.max(1, Math.ceil(totalAvailableChunks * (chunkMaxValue / 100)));
+        finalSearchResults = searchResults.slice(0, Math.min(maxChunks, searchResults.length));
+        console.log(`📊 LINE OA: Applied ${chunkMaxValue}% limit: ${chunkMaxValue}% of ${totalAvailableChunks} total chunks = ${maxChunks} max chunks → selected ${finalSearchResults.length} chunks`);
       }
 
       if (finalSearchResults.length > 0) {
@@ -1598,6 +1603,31 @@ ${documentContext}
 
     return "ขออภัย เกิดข้อผิดพลาดในการประมวลผลคำถาม กรุณาลองใหม่อีกครั้ง";
   }
+}
+
+// Helper function to get total chunks for specific documents
+async function getTotalChunksForDocuments(documentIds: number[], userId: string): Promise<number> {
+  const { db } = await import('./db');
+  const { documentVectors } = await import('@shared/schema');
+  const { eq, and, or, count } = await import('drizzle-orm');
+
+  const whereCondition = and(
+    eq(documentVectors.userId, userId),
+    or(...documentIds.map(id => eq(documentVectors.documentId, id)))
+  );
+
+  const result = await db.select({ count: count() }).from(documentVectors).where(whereCondition);
+  return result[0]?.count || 0;
+}
+
+// Helper function to get total chunks for user
+async function getTotalChunksForUser(userId: string): Promise<number> {
+  const { db } = await import('./db');
+  const { documentVectors } = await import('@shared/schema');
+  const { eq, count } = await import('drizzle-orm');
+
+  const result = await db.select({ count: count() }).from(documentVectors).where(eq(documentVectors.userId, userId));
+  return result[0]?.count || 0;
 }
 
 // Store processed message IDs to prevent duplicates with timestamp for cleanup
