@@ -504,8 +504,8 @@ export async function searchSmartHybridDebug(
 
   // Get chunks from database (same source as vector search)
   const { db } = await import('../db');
-  const { documentVectors, inArray } = await import('@shared/schema');
-  const { eq, and, or } = await import('drizzle-orm');
+  const { documentVectors } = await import('@shared/schema');
+  const { eq, and, or, inArray } = await import('drizzle-orm');
 
   let whereCondition: any = eq(documentVectors.userId, userId);
 
