@@ -2212,7 +2212,7 @@ export class DatabaseStorage implements IStorage {
 
     try {
       const { chatHistory } = await import('@shared/schema');
-      const { isNotNull, desc, and, eq, sql } = await import('drizzle-orm');
+      const { isNotNull, desc, and, eq, sql, count } = await import('drizzle-orm');
       
       // Simple query first - just get all messages and filter client-side for now
       const messages = await db
@@ -2247,8 +2247,8 @@ export class DatabaseStorage implements IStorage {
 
         if (!conversationMap.has(conversationKey)) {
           // Count total messages for this conversation
-          const messageCount = await db
-            .select({ count: sql<number>`count(*)` })
+          const messageCountResult = await db
+            .select({ count: count() })
             .from(chatHistory)
             .where(
               and(
@@ -2277,7 +2277,7 @@ export class DatabaseStorage implements IStorage {
             agentName: agent?.name || 'Unknown Agent',
             lastMessage: message.content,
             lastMessageAt: message.createdAt,
-            messageCount: messageCount[0]?.count || 0,
+            messageCount: messageCountResult[0]?.count || 0,
             isOnline: this.isUserOnline(message.userId),
             userProfile: {
               name: userName
