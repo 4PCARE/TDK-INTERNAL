@@ -1,7 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/Layout/Sidebar";
 import TopBar from "@/components/TopBar";
 import { useIsMobile } from "@/hooks/use-mobile";
+
+// Global type declaration for widget loading state
+declare global {
+  interface Window {
+    askHRWidgetLoaded?: boolean;
+  }
+}
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -12,6 +19,24 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isMobile = useIsMobile();
+
+  // Load the Ask HR V5 widget
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.askHRWidgetLoaded) {
+      window.askHRWidgetLoaded = true;
+      
+      const script = document.createElement('script');
+      script.src = '/widget/YmnYTsTPY0A1HG-Z/embed.js?v=' + Date.now();
+      script.async = true;
+      script.onload = () => {
+        console.log('✅ Ask HR V5 widget loaded in dashboard');
+      };
+      script.onerror = () => {
+        console.error('❌ Failed to load Ask HR V5 widget in dashboard');
+      };
+      document.head.appendChild(script);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -41,28 +66,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </main>
       </div>
 
-    {/* Ask HR V5 Widget Integration */}
-    <script
-      dangerouslySetInnerHTML={{
-        __html: `
-          (function() {
-            if (window.askHRWidgetLoaded) return;
-            window.askHRWidgetLoaded = true;
-
-            var script = document.createElement('script');
-            script.src = '/widget/YmnYTsTPY0A1HG-Z/embed.js?v=' + Date.now();
-            script.async = true;
-            script.onload = function() {
-              console.log('✅ Ask HR V5 widget loaded in dashboard');
-            };
-            script.onerror = function() {
-              console.error('❌ Failed to load Ask HR V5 widget in dashboard');
-            };
-            document.head.appendChild(script);
-          })();
-        `
-      }}
-    />
+    
   </div>
   );
 }
