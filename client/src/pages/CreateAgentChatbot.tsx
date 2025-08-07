@@ -2437,8 +2437,8 @@ export default function CreateAgentChatbot() {
                             </div>
                           </CardContent>
                         </Card>
-                      </form>
-                    )}
+                  </form>
+                </Form>
 
                 {/* Test Agent Interface */}
                 {activeTab === "test" && (
@@ -2732,11 +2732,10 @@ export default function CreateAgentChatbot() {
                     )}
                   </Button>
                 </div>
-              </form>
-            </Form>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </DashboardLayout>
-  );
-}
+      </DashboardLayout>
+    );
+  }
