@@ -1158,6 +1158,7 @@ async function getAiResponseDirectly(
       );
 
       // Apply token limit filtering if enabled
+      let finalSearchResults = searchResults;
       if (searchConfig?.tokenLimitEnabled && searchConfig?.documentTokenLimit) {
         const tokenLimit = searchConfig.documentTokenLimit;
         const charLimit = tokenLimit * 4; // Convert tokens to characters (4 chars per token)
@@ -1175,10 +1176,8 @@ async function getAiResponseDirectly(
         }
 
         console.log(`📄 LINE OA: Applied ${tokenLimit} token limit (${charLimit} chars): ${filteredResults.length}/${searchResults.length} chunks (${accumulatedChars} chars, ~${Math.round(accumulatedChars/4)} tokens)`);
-        searchResults = filteredResults;
+        finalSearchResults = filteredResults;
       }
-
-      let finalSearchResults = searchResults;
 
       if (finalSearchResults.length > 0) {
         // Step 3: Build document context from search results
