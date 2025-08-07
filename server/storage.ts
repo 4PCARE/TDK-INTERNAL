@@ -2497,18 +2497,21 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log(`📊 Getting summary for userId: "${userId}", channelType: "${channelType}", channelId: "${channelId}"`);
 
-      // Use the pre-imported chatHistory table and functions from the top of the file
+      // Import functions directly to avoid undefined reference issues
+      const { and: andFn, eq: eqFn, desc: descFn } = await import('drizzle-orm');
+      const { chatHistory: chatHistoryTable } = await import('@shared/schema');
+
       const messages = await db
         .select()
-        .from(chatHistory)
+        .from(chatHistoryTable)
         .where(
-          and(
-            eq(chatHistory.userId, userId),
-            eq(chatHistory.channelType, channelType),
-            eq(chatHistory.channelId, channelId)
+          andFn(
+            eqFn(chatHistoryTable.userId, userId),
+            eqFn(chatHistoryTable.channelType, channelType),
+            eqFn(chatHistoryTable.channelId, channelId)
           )
         )
-        .orderBy(desc(chatHistory.createdAt));
+        .orderBy(descFn(chatHistoryTable.createdAt));
 
       console.log(`📊 Found ${messages.length} messages for specific conversation`);
 
