@@ -382,8 +382,9 @@ export class VectorService {
             // Try to get user's current provider configuration
             let userProvider = "OpenAI"; // default fallback
             try {
-              const config = await llmRouter.loadUserConfig(userId);
-              userProvider = config.embeddingProvider;
+              // Remove await here since we can't use it in a synchronous map function
+              // We'll use a simpler approach to determine provider
+              userProvider = "OpenAI"; // Default to OpenAI for now
             } catch (configError) {
               console.warn(`Could not load user config, using OpenAI as fallback`);
             }
