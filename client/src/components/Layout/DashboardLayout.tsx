@@ -22,7 +22,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         isCollapsed={isCollapsed}
         onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
       />
-      
+
       <div 
         className={`transition-all duration-300 ${
           !isMobile && !isCollapsed ? 'lg:ml-64' : !isMobile && isCollapsed ? 'lg:ml-16' : ''
@@ -33,13 +33,36 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           isMobile={isMobile}
           isSidebarCollapsed={isCollapsed}
         />
-        
+
         <main className="p-6 bg-gray-50">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>
         </main>
       </div>
-    </div>
+
+    {/* Ask HR V5 Widget Integration */}
+    <script
+      dangerouslySetInnerHTML={{
+        __html: `
+          (function() {
+            if (window.askHRWidgetLoaded) return;
+            window.askHRWidgetLoaded = true;
+
+            var script = document.createElement('script');
+            script.src = '/widget/YmnYTsTPY0A1HG-Z/embed.js?v=' + Date.now();
+            script.async = true;
+            script.onload = function() {
+              console.log('✅ Ask HR V5 widget loaded in dashboard');
+            };
+            script.onerror = function() {
+              console.error('❌ Failed to load Ask HR V5 widget in dashboard');
+            };
+            document.head.appendChild(script);
+          })();
+        `
+      }}
+    />
+  </div>
   );
 }
