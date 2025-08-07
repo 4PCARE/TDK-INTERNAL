@@ -2410,10 +2410,8 @@ export default function CreateAgentChatbot() {
                             </div>
                           </div>
                         )}
-                      </div>
-                    )}
 
-                    {/* Search Configuration Information */}
+                        {/* Search Configuration Information */}
                         <Card className="border-amber-200 bg-amber-50">
                           <CardContent className="pt-6">
                             <div className="flex items-start space-x-3">
@@ -2437,34 +2435,36 @@ export default function CreateAgentChatbot() {
                             </div>
                           </CardContent>
                         </Card>
+                      </div>
+                    )}
+
+                    {/* Submit Button - Always visible */}
+                    <div className="flex justify-end space-x-4 pt-6 border-t">
+                      <Link href="/agent-chatbots">
+                        <Button type="button" variant="outline">
+                          Cancel
+                        </Button>
+                      </Link>
+                      <Button
+                        type="submit"
+                        disabled={saveAgentMutation.isPending}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        {saveAgentMutation.isPending ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            {isEditing ? "Updating..." : "Creating..."}
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 mr-2" />
+                            {isEditing ? "Update Agent" : "Create Agent"}
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </form>
                 </Form>
-
-                {/* Submit Button - Always visible */}
-                <div className="flex justify-end space-x-4 pt-6 border-t">
-                  <Link href="/agent-chatbots">
-                    <Button type="button" variant="outline">
-                      Cancel
-                    </Button>
-                  </Link>
-                  <Button
-                    type="submit"
-                    disabled={saveAgentMutation.isPending}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    {saveAgentMutation.isPending ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        {isEditing ? "Updating..." : "Creating..."}
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4 mr-2" />
-                        {isEditing ? "Update Agent" : "Create Agent"}
-                      </>
-                    )}
-                  </Button>
-                </div>
               </div>
             </div>
           </div>
