@@ -47,12 +47,12 @@ export default function AppShell() {
               </Button>
               
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <h1 className="text-xl font-semibold text-gray-900">DocumentAI</h1>
+                <img 
+                  src="/tdk-logo.png" 
+                  alt="TDK Logo" 
+                  className="w-8 h-8 rounded-lg object-contain"
+                />
+                <h1 className="text-xl font-semibold text-gray-900">TDK Knowledge Management</h1>
               </div>
             </div>
 
