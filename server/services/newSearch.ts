@@ -257,7 +257,7 @@ async function calculateBM25(
 
   console.log(`🔍 BM25: Document frequencies calculated:`, Array.from(termDF.entries()).map(([term, df]) => `${term}:${df}`));
 
-  const avgDocLength = totalDocLength / totalChunks;
+  const avgDocLength = totalChunks > 0 ? totalDocLength / totalChunks : 1;
 
   // Second pass: calculate BM25 scores
   for (const chunk of chunks) {
@@ -504,14 +504,15 @@ export async function searchSmartHybridDebug(
 
   // Get chunks from database (same source as vector search)
   const { db } = await import('../db');
-  const { documentVectors } = await import('@shared/schema');
+  const { documentVectors, inArray } = await import('@shared/schema');
   const { eq, and, or } = await import('drizzle-orm');
 
   let whereCondition: any = eq(documentVectors.userId, userId);
-  if (options.specificDocumentIds?.length) {
+
+  if (options.specificDocumentIds && options.specificDocumentIds.length > 0) {
     whereCondition = and(
       eq(documentVectors.userId, userId),
-      or(...options.specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
+      inArray(documentVectors.documentId, options.specificDocumentIds)
     );
   }
 
@@ -1073,9 +1074,13 @@ async function performKeywordSearch(
 
   const results: Array<{ chunk: any; score: number; reason: string }> = [];
 
-  for (const bm25Result of bm25Results) {
+  for (const [chunkId, bm25Result] of Array.from(bm25Results.entries())) {
     if (bm25Result.score > 0) {
-      results.push({ chunk: bm25Result.chunk, score: bm25Result.score, reason: "BM25 match" });
+      // Find the chunk object corresponding to the chunkId
+      const chunk = chunks.find(c => `${c.documentId}-${c.chunkIndex}` === chunkId);
+      if (chunk) {
+        results.push({ chunk: chunk, score: bm25Result.score, reason: "BM25 match" });
+      }
     }
   }
 
@@ -1107,13 +1112,14 @@ async function calculateBM25Score(
   }
 
   // Calculate average document length
-  const avgDocLength = documents.reduce((sum, doc) => sum + doc.content.length, 0) / documents.length;
+  const avgDocLength = documents.length > 0 ? documents.reduce((sum, doc) => sum + (doc.content?.length || 0), 0) / documents.length : 1;
 
   // Calculate BM25 score
   let score = 0;
   for (const term of searchTerms) {
     const tf = termFrequency.get(term) || 0;
-    const idf = Math.log((documents.length - documents.filter(doc => doc.content.includes(term)).length + 0.5) / (documents.filter(doc => doc.content.includes(term)).length + 0.5) + 1);
+    const df = documents.filter(doc => doc.content && doc.content.includes(term)).length;
+    const idf = Math.log((documents.length - df + 0.5) / (df + 0.5) + 1);
     score += idf * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (documentText.length / avgDocLength)));
   }
 
