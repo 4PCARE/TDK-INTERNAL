@@ -3465,14 +3465,26 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           }));
 
           // Use agentBot service for smart response generation
-          const { AgentBot } = await import('./agentBot');
-          const agentBotResponse = await AgentBot.generateResponse(
-            message,
-            widget.agentId,
-            session.sessionId, // Use sessionId as userId for widget
-            conversationHistory,
-            'web' // channelType
-          );
+          const { processMessage, saveAssistantResponse } = await import('./agentBot');
+
+          // Create bot context for agentBot
+          const botContext = {
+            userId: session.sessionId,
+            channelType: 'web',
+            channelId: widget.widgetKey,
+            agentId: widget.agentId,
+            messageId: `widget_${Date.now()}`,
+            lineIntegration: null // Not needed for widget chat
+          };
+
+          // Create bot message
+          const botMessage = {
+            type: 'text',
+            content: message
+          };
+
+          const agentBotResponse = await processMessage(botMessage, botContext);
+
 
           if (agentBotResponse.success) {
             response = agentBotResponse.response;
@@ -4871,9 +4883,9 @@ Memory management: Keep track of conversation context within the last ${agentCon
         messageCount: parseInt(row.message_count),
         isOnline: Math.random() > 0.7, // Simplified online status
         userProfile: {
-          name: row.channel_type === 'web' ?
-            `Web User ${row.user_id.slice(-4)}` :
-            `User ${row.channel_id.slice(-4)}`, // Use Line user ID for display
+          name: row.channelType === 'web' ?
+            `Web User ${row.userId.slice(-4)}` :
+            `User ${row.channelId.slice(-4)}`, // Use Line user ID for display
           // Add more profile fields as needed
         }
       }));
@@ -5359,6 +5371,8 @@ Memory management: Keep track of conversation context within the last ${agentCon
               } catch (error) {
                 console.log(`❌ Error sending to WebSocket client ${index + 1}:`, error);
               }
+            } else {
+              wsClients.delete(client);
             }
           });
 
