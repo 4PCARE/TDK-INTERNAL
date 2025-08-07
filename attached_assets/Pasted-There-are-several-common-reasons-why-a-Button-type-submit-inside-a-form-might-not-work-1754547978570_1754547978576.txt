@@ -1,0 +1,102 @@
+There are several **common reasons** why a `<Button type="submit">` inside a `<form>` might not work — meaning, the `onSubmit` handler doesn’t trigger. Let's break it down for your code:
+
+---
+
+### ✅ You're using:
+
+```tsx
+<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+```
+
+Which is correct, assuming:
+
+* `form` is properly initialized via `useForm()` from something like `react-hook-form`.
+* `onSubmit` is a valid function (not undefined or throwing).
+
+---
+
+### 🔍 **Now, potential culprits**:
+
+---
+
+#### 1. 🧠 **The `<Button type="submit">` is outside the `<form>`**
+
+In your code:
+
+```tsx
+{/* Submit Button - Always visible */}
+<div className="flex justify-end space-x-4 pt-6 border-t">
+  <Link href="/agent-chatbots">
+    <Button type="button" variant="outline">
+      Cancel
+    </Button>
+  </Link>
+  <Button
+    type="submit"
+    ...
+  >
+```
+
+Check carefully — the submit button is rendered **after** the closing `</form>` tag:
+
+```tsx
+</form> // ← Here ends the form
+{/* Submit Button - Always visible */}
+<div className="flex justify-end ...">
+```
+
+🚨 **This means the submit button is outside the form.**
+That’s the likely reason the form isn’t submitting when the button is clicked.
+
+---
+
+### ✅ Fix:
+
+Move the submit button **inside** the `<form>` block, e.g.:
+
+```tsx
+<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+  ...
+  {/* Submit Button - Always visible */}
+  <div className="flex justify-end space-x-4 pt-6 border-t">
+    <Link href="/agent-chatbots">
+      <Button type="button" variant="outline">
+        Cancel
+      </Button>
+    </Link>
+    <Button
+      type="submit"
+      ...
+    >
+      ...
+    </Button>
+  </div>
+</form>
+```
+
+---
+
+### Optional: 🧪 Test Your Theory
+
+To confirm that’s the issue:
+
+* Add a `console.log("submitted!")` to your `onSubmit`
+* Click the button.
+* If nothing appears, it's definitely not wired correctly.
+
+---
+
+### Bonus sanity checks 🧠
+
+If moving it inside still doesn't work:
+
+* Check that no `preventDefault` is accidentally getting called.
+* Ensure `form.handleSubmit(onSubmit)` is valid — no typos or undefined.
+
+---
+
+Let me know if you want me to review `onSubmit` and `useForm()` logic too! But TL;DR:
+
+> 💣 **Your submit button is outside the form.**
+>
+> 💡 Move it inside, and it'll likely work as expected.
