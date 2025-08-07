@@ -13,6 +13,7 @@ Preferred communication style: Simple, everyday language.
 - **State Management**: TanStack Query
 - **Routing**: Wouter
 - **Build Tool**: Vite
+- **Analytics Dashboard**: Omnichannel Chat Summarization with real-time data integration
 
 ### Backend
 - **Runtime**: Node.js with TypeScript
@@ -36,6 +37,7 @@ Preferred communication style: Simple, everyday language.
 - **Customer Satisfaction Analysis (CSAT)**: AI-driven CSAT scoring (0-100) based on conversation sentiment, integrated into the Agent Console.
 - **Line OA Integration**: Full support for Line Official Account webhooks, including advanced messaging features like carousel templates and intent matching. Uses a modular architecture with message relay pattern separating webhook handling from bot logic.
 - **Live Chat Widget Integration**: Chat widgets can be attached to AI agents for smart query handling using the same agentBot service as LINE OA, providing consistent AI responses, document search, and carousel functionality across all channels.
+- **Omnichannel Analytics Dashboard**: Comprehensive analytics dashboard with real-time data from chat history and social integrations. Features platform comparison, trend analysis, topic extraction, and performance metrics across Line OA, Facebook, TikTok, and Web channels. Includes data export functionality and three-view modes (Overview, Compare, Individual).
 
 ## External Dependencies
 - **OpenAI API**: Used for GPT-4 (text processing, summarization, categorization, tag generation, CSAT analysis, image analysis with GPT-4o Vision) and text-embedding-3-small (vector embeddings).
