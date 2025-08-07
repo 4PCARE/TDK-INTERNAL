@@ -1109,24 +1109,47 @@ async function getAiResponseDirectly(
         "./services/newSearch"
       );
 
+      // Use agent's search configuration if available
+      const searchConfig = agentData.searchConfiguration || {};
+      const chunkMaxType = searchConfig.chunkMaxType || 'number';
+      const chunkMaxValue = searchConfig.chunkMaxValue || 8;
+      const documentMass = searchConfig.documentMass || 0.3;
+
+      console.log(`🔧 LINE OA: Using agent's search config - ${chunkMaxType}=${chunkMaxValue}, mass=${Math.round(documentMass * 100)}%`);
+
+      const searchOptions: any = {
+        threshold: 0.3,
+        keywordWeight: queryAnalysis.keywordWeight,
+        vectorWeight: queryAnalysis.vectorWeight,
+        specificDocumentIds: agentDocIds, // Restrict search to agent's bound documents
+        massSelectionPercentage: documentMass,
+      };
+
+      // Apply chunk maximum based on agent configuration
+      if (chunkMaxType === 'number') {
+        searchOptions.limit = chunkMaxValue;
+      }
+      // For percentage type, we'll apply it after getting results
+
       const searchResults = await searchSmartHybridDebug(
         queryAnalysis.enhancedQuery,
         userId,
-        {
-          limit: 3, // Much stricter - only top 3 chunks maximum
-          threshold: 0.3,
-          keywordWeight: queryAnalysis.keywordWeight,
-          vectorWeight: queryAnalysis.vectorWeight,
-          specificDocumentIds: agentDocIds, // Restrict search to agent's bound documents
-          massSelectionPercentage: 0.3, // Use 30% mass selection for Line OA
-        },
+        searchOptions,
       );
 
       console.log(
         `🔍 LINE OA: Smart hybrid search found ${searchResults.length} relevant chunks from agent's bound documents`,
       );
 
-      if (searchResults.length > 0) {
+      // Apply chunk maximum if using percentage type
+      let finalSearchResults = searchResults;
+      if (chunkMaxType === 'percentage' && chunkMaxValue > 0 && searchResults.length > 0) {
+        const maxChunks = Math.max(1, Math.ceil(searchResults.length * (chunkMaxValue / 100)));
+        finalSearchResults = searchResults.slice(0, maxChunks);
+        console.log(`📊 LINE OA: Applied ${chunkMaxValue}% limit: ${searchResults.length} → ${finalSearchResults.length} chunks`);
+      }
+
+      if (finalSearchResults.length > 0) {
         // Step 3: Build document context from search results
         let documentContext = "";
         const maxContextLength = 12000; // Leave room for system prompt and user message
@@ -1135,8 +1158,8 @@ async function getAiResponseDirectly(
         console.log(
           `📄 LINE OA: Building document context from search results:`,
         );
-        for (let i = 0; i < searchResults.length; i++) {
-          const result = searchResults[i];
+        for (let i = 0; i < finalSearchResults.length; i++) {
+          const result = finalSearchResults[i];
           const chunkText = `=== ข้อมูลที่ ${i + 1}: ${result.name} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${result.content}\n\n`;
 
           console.log(
@@ -1168,7 +1191,7 @@ async function getAiResponseDirectly(
         }
 
         console.log(
-          `📄 LINE OA: Used ${chunksUsed}/${searchResults.length} chunks (${documentContext.length} chars)`,
+          `📄 LINE OA: Used ${chunksUsed}/${finalSearchResults.length} chunks (${documentContext.length} chars)`,
         );
 
         const now = new Date();
