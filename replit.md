@@ -34,7 +34,7 @@ Preferred communication style: Simple, everyday language.
 - **Real-time Communication**: WebSocket-based system for real-time messaging, including human agent takeover functionality for both Line OA and web widget channels.
 - **Agent Chatbot System**: Customizable AI agents with personality, skills, guardrails (content filtering, toxicity prevention, topic control), and knowledge base integration. Includes a comprehensive testing interface.
 - **Customer Satisfaction Analysis (CSAT)**: AI-driven CSAT scoring (0-100) based on conversation sentiment, integrated into the Agent Console.
-- **Line OA Integration**: Full support for Line Official Account webhooks, including advanced messaging features like carousel templates and intent matching.
+- **Line OA Integration**: Full support for Line Official Account webhooks, including advanced messaging features like carousel templates and intent matching. Uses a modular architecture with message relay pattern separating webhook handling from bot logic.
 
 ## External Dependencies
 - **OpenAI API**: Used for GPT-4 (text processing, summarization, categorization, tag generation, CSAT analysis, image analysis with GPT-4o Vision) and text-embedding-3-small (vector embeddings).

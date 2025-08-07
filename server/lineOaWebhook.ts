@@ -263,353 +263,11 @@ export async function sendLineImageMessage(
 }
 
 // ===== CAROUSEL INTENT MATCHING SYSTEM =====
+// Note: Carousel intent matching logic has been moved to server/services/carouselService.ts
 
-// Get Line templates associated with the integration
-async function getIntegrationTemplates(
-  integrationId: number,
-  userId: string,
-): Promise<any[]> {
-  try {
-    console.log(`🎠 === TEMPLATE RETRIEVAL START ===`);
-    console.log(`🎠 Integration ID: ${integrationId}, User ID: ${userId}`);
+// Old carousel intent functions moved to server/services/carouselService.ts
 
-    // First get all message templates for the user and integration
-    const messageTemplates = await storage.getLineMessageTemplates(
-      userId,
-      integrationId,
-    );
-    console.log(
-      `🎠 Found ${messageTemplates.length} message templates for integration ${integrationId}`,
-    );
 
-    // Get complete template data with columns and actions
-    const completeTemplates = await Promise.all(
-      messageTemplates.map(async (template: any) => {
-        const completeTemplate = await storage.getCompleteLineTemplate(
-          template.id,
-          userId,
-        );
-        return completeTemplate;
-      }),
-    );
-
-    // Filter out undefined results
-    const validTemplates = completeTemplates.filter(
-      (template: any) => template !== undefined,
-    );
-
-    validTemplates.forEach((template: any, index: number) => {
-      console.log(`🎠 Template ${index + 1}:`);
-      console.log(`   - ID: ${template.template.id}`);
-      console.log(`   - Name: ${template.template.name}`);
-      console.log(
-        `   - Description: ${template.template.description || "No description"}`,
-      );
-      console.log(`   - Type: ${template.template.type}`);
-      console.log(`   - Columns: ${template.columns.length}`);
-    });
-
-    console.log(`🎠 === TEMPLATE RETRIEVAL END ===`);
-    return validTemplates;
-  } catch (error) {
-    console.error(
-      `❌ Error fetching templates for integration ${integrationId}:`,
-      error,
-    );
-    return [];
-  }
-}
-
-// Extract intent tags from user query using predefined categories
-function extractIntentFromQuery(userQuery: string): string[] {
-  const query = userQuery.toLowerCase();
-  const intents: string[] = [];
-
-  // Beauty & Cosmetics intents
-  const beautyKeywords = [
-    "ครีม",
-    "เซรั่ม",
-    "โลชั่น",
-    "ผิว",
-    "หน้า",
-    "ตา",
-    "ริมฝีปาก",
-    "แก้ม",
-    "เครื่องสำอาง",
-    "แป้ง",
-    "ลิปสติก",
-    "อายแชโดว์",
-    "มาสคาร่า",
-    "ริ้วรอย",
-    "ใส",
-    "ขาว",
-    "เด็ก",
-    "สวย",
-    "งาม",
-    "beauty",
-    "cosmetics",
-    "skincare",
-  ];
-
-  const antiAgingKeywords = [
-    "ริ้วรอย",
-    "แก่",
-    "ชรา",
-    "เหี่ยว",
-    "ตีนกา",
-    "หย่อนคล้อย",
-    "กระชับ",
-    "ย้อนวัย",
-    "เด็กลง",
-    "ร่องแก้ม",
-    "หน้าหมอง",
-    "anti-aging",
-    "wrinkle",
-  ];
-
-  const hairKeywords = [
-    "ผม",
-    "หัว",
-    "แชมพู",
-    "ครีมนวด",
-    "โรคผม",
-    "หัวล้าน",
-    "ผมร่วง",
-    "ผมหงอก",
-    "hair",
-    "shampoo",
-  ];
-
-  const healthKeywords = [
-    "สุขภาพ",
-    "วิตามิน",
-    "อาหารเสริม",
-    "ยา",
-    "รักษา",
-    "โรค",
-    "ป่วย",
-    "health",
-    "vitamin",
-    "supplement",
-  ];
-
-  const fashionKeywords = [
-    "เสื้อผ้า",
-    "แฟชั่น",
-    "กระเป๋า",
-    "รองเท้า",
-    "เครื่องประดับ",
-    "นาฬิกา",
-    "fashion",
-    "clothes",
-    "bag",
-    "shoes",
-  ];
-
-  const electronicKeywords = [
-    "มือถือ",
-    "โทรศัพท์",
-    "คอมพิวเตอร์",
-    "แท็บเล็ต",
-    "หูฟัง",
-    "ลำโพง",
-    "โน้ตบุ๊ก",
-    "electronics",
-    "phone",
-    "computer",
-    "notebook",
-  ];
-
-  const krapraoKeywords = [
-    "กระเพราไก่",
-
-  ];
-
-  // Check each category
-  if (beautyKeywords.some((keyword) => query.includes(keyword))) {
-    intents.push("beauty", "cosmetics");
-  }
-
-  if (antiAgingKeywords.some((keyword) => query.includes(keyword))) {
-    intents.push("anti-aging", "skincare");
-  }
-
-  if (hairKeywords.some((keyword) => query.includes(keyword))) {
-    intents.push("hair", "beauty");
-  }
-
-  if (healthKeywords.some((keyword) => query.includes(keyword))) {
-    intents.push("health", "wellness");
-  }
-
-  if (fashionKeywords.some((keyword) => query.includes(keyword))) {
-    intents.push("fashion", "clothing");
-  }
-
-  if (electronicKeywords.some((keyword) => query.includes(keyword))) {
-    intents.push("electronics", "gadgets", "notebook", "computer");
-  }
-
-  if (krapraoKeywords.some((keyword) => query.includes(keyword))) {
-    intents.push("กระเพราไก่");
-  }
-
-  // Remove duplicates
-  return [...new Set(intents)];
-}
-
-// Calculate vector similarity between user query and template description
-async function calculateIntentSimilarity(
-  userQuery: string,
-  templateDescription: string,
-): Promise<number> {
-  try {
-    console.log(`🔍 === INTENT SIMILARITY CALCULATION START ===`);
-    console.log(`🔍 User Query: "${userQuery}"`);
-    console.log(`🔍 Template Description: "${templateDescription}"`);
-
-    // Generate embeddings for both texts
-    const [queryEmbedding, descriptionEmbedding] = await Promise.all([
-      openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: userQuery,
-      }),
-      openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: templateDescription,
-      }),
-    ]);
-
-    console.log(
-      `🔍 Query embedding dimensions: ${queryEmbedding.data[0].embedding.length}`,
-    );
-    console.log(
-      `🔍 Description embedding dimensions: ${descriptionEmbedding.data[0].embedding.length}`,
-    );
-
-    // Calculate cosine similarity
-    const query_vec = queryEmbedding.data[0].embedding;
-    const desc_vec = descriptionEmbedding.data[0].embedding;
-
-    let dot_product = 0;
-    let query_norm = 0;
-    let desc_norm = 0;
-
-    for (let i = 0; i < query_vec.length; i++) {
-      dot_product += query_vec[i] * desc_vec[i];
-      query_norm += query_vec[i] * query_vec[i];
-      desc_norm += desc_vec[i] * desc_vec[i];
-    }
-
-    const similarity =
-      dot_product / (Math.sqrt(query_norm) * Math.sqrt(desc_norm));
-
-    console.log(`🔍 Cosine Similarity: ${similarity.toFixed(4)}`);
-    console.log(`🔍 === INTENT SIMILARITY CALCULATION END ===`);
-
-    return similarity;
-  } catch (error) {
-    console.error(`❌ Error calculating intent similarity:`, error);
-    return 0;
-  }
-}
-
-// Check if user query matches any template intents using tag comparison
-async function checkCarouselIntents(
-  userQuery: string,
-  integrationId: number,
-  userId: string,
-): Promise<{ matched: boolean; template: any | null; similarity: number }> {
-  try {
-    console.log(`🎯 === CAROUSEL INTENT MATCHING START (TAG-BASED) ===`);
-    console.log(`🎯 User Query: "${userQuery}"`);
-    console.log(`🎯 Integration ID: ${integrationId}`);
-
-    // Extract intent from user query
-    const userIntents = extractIntentFromQuery(userQuery);
-    console.log(`🎯 Extracted User Intents: [${userIntents.join(", ")}]`);
-
-    if (userIntents.length === 0) {
-      console.log(
-        `🎯 No intents extracted from user query - skipping intent matching`,
-      );
-      return { matched: false, template: null, similarity: 0 };
-    }
-
-    const templates = await getIntegrationTemplates(integrationId, userId);
-
-    if (templates.length === 0) {
-      console.log(`🎯 No templates found - skipping intent matching`);
-      return { matched: false, template: null, similarity: 0 };
-    }
-
-    console.log(
-      `🎯 Testing ${templates.length} templates for tag match (any overlap = match)`,
-    );
-
-    for (const template of templates) {
-      const templateTags = template?.template?.tags || [];
-
-      console.log(
-        `🎯 Testing template: "${template?.template?.name || "Unknown"}"`,
-      );
-      console.log(`🎯 Template Tags: [${templateTags.join(", ")}]`);
-
-      if (templateTags.length === 0) {
-        console.log(
-          `🎯 Skipping template "${template?.template?.name || "Unknown"}" - no tags for intent matching`,
-        );
-        continue;
-      }
-
-      // Check for ANY tag overlap (simple match approach)
-      const commonTags = userIntents.filter((intent) =>
-        templateTags.some(
-          (tag: string) =>
-            tag.toLowerCase().includes(intent.toLowerCase()) ||
-            intent.toLowerCase().includes(tag.toLowerCase()),
-        ),
-      );
-
-      const hasMatch = commonTags.length > 0;
-
-      console.log(`🎯 Intent Match Result (Tag-based):`);
-      console.log(`   - Template: ${template.template.name}`);
-      console.log(`   - User Intents: [${userIntents.join(", ")}]`);
-      console.log(`   - Template Tags: [${templateTags.join(", ")}]`);
-      console.log(`   - Common Tags: [${commonTags.join(", ")}]`);
-      console.log(`   - Match: ${hasMatch ? "YES" : "NO"}`);
-
-      if (hasMatch) {
-        // Found a match - return immediately (first match wins)
-        console.log(`🎯 === FINAL INTENT MATCHING RESULT (TAG-BASED) ===`);
-        console.log(`🎯 Matched Template: ${template.template.name}`);
-        console.log(`🎯 Common Tags: [${commonTags.join(", ")}]`);
-        console.log(`🎯 === CAROUSEL INTENT MATCHING END (TAG-BASED) ===`);
-
-        return {
-          matched: true,
-          template: template,
-          similarity: 1.0, // Set to 1.0 since any match is considered valid
-        };
-      }
-    }
-
-    // No match found
-    console.log(`🎯 === FINAL INTENT MATCHING RESULT (TAG-BASED) ===`);
-    console.log(`🎯 No templates matched any user intents`);
-    console.log(`🎯 === CAROUSEL INTENT MATCHING END (TAG-BASED) ===`);
-
-    return {
-      matched: false,
-      template: null,
-      similarity: 0,
-    };
-  } catch (error) {
-    console.error(`❌ Error in carousel intent matching:`, error);
-    return { matched: false, template: null, similarity: 0 };
-  }
-}
 
 // Send carousel message to Line
 async function sendLineCarousel(
@@ -1913,199 +1571,116 @@ export async function handleLineWebhook(req: Request, res: Response) {
           console.error("⚠️ Error saving user message:", error);
         }
 
-        // Handle image messages with immediate acknowledgment and processing
-        if (message.type === "image" && lineIntegration.channelAccessToken) {
-          console.log(
-            "🖼️ Image message detected - sending immediate acknowledgment and starting processing",
-          );
+        // Process message using AgentBot
+        const botContext = {
+          userId: lineIntegration.userId,
+          channelType: "lineoa" as const,
+          channelId: event.source.userId,
+          agentId: lineIntegration.agentId!,
+          messageId: message.id,
+          lineIntegration: lineIntegration,
+        };
 
-          // 1. Send immediate acknowledgment
-          await sendLineReply(
-            replyToken,
-            "ได้รับรูปภาพแล้ว ขอเวลาตรวจสอบสักครู่นะคะ",
-            lineIntegration.channelAccessToken,
-          );
+        const botMessage = {
+          type: message.type,
+          content: userMessage,
+          metadata: messageMetadata,
+        };
 
-          // 2. Process image and get analysis
-          if (chatHistoryId && lineIntegration.agentId) {
-            console.log("🖼️ Starting image processing...");
-            const imageService = LineImageService.getInstance();
-            let aiResponse = "";
+        // Import and use AgentBot
+        const { processMessage, saveAssistantResponse, checkCarouselIntents } = await import("./agentBot");
+        
+        const botResponse = await processMessage(botMessage, botContext);
 
-            try {
-              // Wait for image processing to complete
-              await imageService.processImageMessage(
-                message.id,
-                lineIntegration.channelAccessToken,
-                lineIntegration.userId,
-                "lineoa",
-                event.source.userId,
-                lineIntegration.agentId!,
-                chatHistoryId,
-              );
-              console.log("✅ Image processing completed successfully");
-
-              // Get the SPECIFIC image analysis for THIS message
-              const updatedChatHistory = await storage.getChatHistory(
-                lineIntegration.userId,
-                "lineoa",
-                event.source.userId,
-                lineIntegration.agentId!,
-                10, // Get more messages to find the right analysis
-              );
-
-              // Find the image analysis that corresponds to THIS specific message
-              const imageAnalysisMessage = updatedChatHistory.find(
-                (msg) =>
-                  msg.messageType === "system" &&
-                  msg.metadata &&
-                  (msg.metadata as any).messageType === "image_analysis" &&
-                  (msg.metadata as any).relatedImageMessageId === message.id,
-              );
-
-              if (imageAnalysisMessage) {
-                const imageAnalysisResult =
-                  imageAnalysisMessage.content.replace(
-                    "[การวิเคราะห์รูปภาพ] ",
-                    "",
-                  );
-                console.log(
-                  `🔍 Found specific image analysis for message ${message.id}: ${imageAnalysisResult.substring(0, 100)}...`,
-                );
-
-                // 3. Generate AI response with image analysis
-                const contextMessage = `ผู้ใช้ส่งรูปภาพมา นี่คือผลการวิเคราะห์รูปภาพ:
-
-${imageAnalysisResult}
-
-กรุณาให้ข้อมูลเกี่ยวกับสิ่งที่เห็นในรูป พร้อมถามว่ามีอะไรให้ช่วยเหลือ`;
-
-                aiResponse = await getAiResponseDirectly(
-                  contextMessage,
-                  lineIntegration.agentId,
-                  lineIntegration.userId,
-                  "lineoa",
-                  event.source.userId,
-                );
-
-                // 4. Send follow-up message with AI analysis
-                await sendLinePushMessage(
-                  event.source.userId,
-                  aiResponse,
-                  lineIntegration.channelAccessToken,
-                );
-
-                // Save the assistant response
-                await storage.createChatHistory({
-                  userId: lineIntegration.userId,
-                  channelType: "lineoa",
-                  channelId: event.source.userId,
-                  agentId: lineIntegration.agentId!,
-                  messageType: "assistant",
-                  content: aiResponse,
-                  metadata: { relatedImageMessageId: message.id },
-                });
-
-                console.log("✅ Image analysis response sent successfully");
-              } else {
-                console.log(
-                  "⚠️ No specific image analysis found for this message",
-                );
-                aiResponse = "ขออภัย ไม่สามารถวิเคราะห์รูปภาพได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง";
-                await sendLinePushMessage(
-                  event.source.userId,
-                  aiResponse,
-                  lineIntegration.channelAccessToken,
-                );
-              }
-            } catch (error) {
-              console.error("⚠️ Error processing image message:", error);
-              aiResponse = "ขออภัย เกิดข้อผิดพลาดในการประมวลผลรูปภาพ กรุณาลองใหม่อีกครั้ง";
-              await sendLinePushMessage(
-                event.source.userId,
-                aiResponse,
-                lineIntegration.channelAccessToken,
-              );
-            }
+        if (!botResponse.success) {
+          console.error("⚠️ AgentBot processing failed:", botResponse.error);
+          // Send error response
+          if (lineIntegration.channelAccessToken) {
+            await sendLineReply(
+              replyToken,
+              botResponse.error || "ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้ง",
+              lineIntegration.channelAccessToken,
+            );
           }
-
-          // Broadcast to Agent Console for image messages
-          if (typeof (global as any).broadcastToAgentConsole === "function") {
-            (global as any).broadcastToAgentConsole({
-              type: "new_message",
-              data: {
-                userId: lineIntegration.userId,
-                channelType: "lineoa",
-                channelId: event.source.userId,
-                agentId: lineIntegration.agentId,
-                userMessage: userMessage,
-                aiResponse: "ได้รับรูปภาพแล้ว ขอเวลาตรวจสอบสักครู่นะคะ",
-                timestamp: new Date().toISOString(),
-              },
-            });
-          }
-
-          // Skip normal AI response processing for images
           continue;
         }
 
-        // Get AI response using the getAiResponseDirectly function
-        let contextMessage = userMessage;
-        if (message.type === "sticker") {
-          contextMessage =
-            "ผู้ใช้ส่งสติ๊กเกอร์มา กรุณาตอบอย่างเป็นมิตรและถามว่ามีอะไรให้ช่วย";
-        }
-
-        // Call getAiResponseDirectly to handle the main logic
-        let aiResponse = await getAiResponseDirectly(
-          contextMessage,
-          lineIntegration.agentId,
-          lineIntegration.userId,
-          "lineoa",
-          event.source.userId,
-        );
-
-        // Save only the assistant response (user message already saved above)
-        try {
-          await storage.createChatHistory({
-            userId: lineIntegration.userId,
-            channelType: "lineoa",
-            channelId: event.source.userId,
-            agentId: lineIntegration.agentId,
-            messageType: "assistant",
-            content: aiResponse,
-            metadata: { documentSearch: false }, // Simple metadata since queryAnalysis is not available in this scope
-          });
-          console.log("💾 Saved AI response to chat history");
-
-          // Broadcast new message to Agent Console via WebSocket
-          if (typeof (global as any).broadcastToAgentConsole === "function") {
-            (global as any).broadcastToAgentConsole({
-              type: "new_message",
-              data: {
-                userId: lineIntegration.userId,
-                channelType: "lineoa",
-                channelId: event.source.userId,
-                agentId: lineIntegration.agentId,
-                userMessage: userMessage,
-                aiResponse,
-                timestamp: new Date().toISOString(),
-              },
-            });
-            console.log("📡 Broadcasted new message to Agent Console");
-          }
-        } catch (error) {
-          console.error("⚠️ Error saving AI response:", error);
-        }
-
-        // Send reply to Line using stored access token
+        // Send immediate response
+        let aiResponse = botResponse.response!;
         if (lineIntegration.channelAccessToken) {
           await sendLineReply(
             replyToken,
             aiResponse,
             lineIntegration.channelAccessToken,
           );
+        }
 
+        // Handle image processing if needed
+        if (botResponse.needsImageProcessing && botResponse.imageProcessingPromise) {
+          console.log("🖼️ Handling image processing in background...");
+          
+          // Process image analysis in background
+          botResponse.imageProcessingPromise.then(async (imageAiResponse) => {
+            if (lineIntegration.channelAccessToken) {
+              // Send follow-up message with AI analysis
+              await sendLinePushMessage(
+                event.source.userId,
+                imageAiResponse,
+                lineIntegration.channelAccessToken,
+              );
+
+              // Save the assistant response
+              await saveAssistantResponse(
+                imageAiResponse,
+                botContext,
+                { relatedImageMessageId: message.id }
+              );
+
+              console.log("✅ Image analysis response sent successfully");
+            }
+          }).catch((error) => {
+            console.error("⚠️ Error in image processing:", error);
+            if (lineIntegration.channelAccessToken) {
+              sendLinePushMessage(
+                event.source.userId,
+                "ขออภัย เกิดข้อผิดพลาดในการประมวลผลรูปภาพ กรุณาลองใหม่อีกครั้ง",
+                lineIntegration.channelAccessToken,
+              );
+            }
+          });
+        } else {
+          // Save assistant response for non-image messages
+          try {
+            await saveAssistantResponse(
+              aiResponse,
+              botContext,
+              { documentSearch: false }
+            );
+            console.log("💾 Saved AI response to chat history");
+          } catch (error) {
+            console.error("⚠️ Error saving AI response:", error);
+          }
+        }
+
+        // Broadcast to Agent Console
+        if (typeof (global as any).broadcastToAgentConsole === "function") {
+          (global as any).broadcastToAgentConsole({
+            type: "new_message",
+            data: {
+              userId: lineIntegration.userId,
+              channelType: "lineoa",
+              channelId: event.source.userId,
+              agentId: lineIntegration.agentId,
+              userMessage: userMessage,
+              aiResponse: aiResponse,
+              timestamp: new Date().toISOString(),
+            },
+          });
+          console.log("📡 Broadcasted new message to Agent Console");
+        }
+
+        // Check for carousel intents (skip for image messages as they handle their own flow)
+        if (message.type !== "image" && lineIntegration.channelAccessToken) {
           console.log(`🎯 LINE OA: Checking carousel intent for response...`);
 
           // Check if user query matches any carousel templates
@@ -2172,7 +1747,7 @@ ${imageAnalysisResult}
             }
           } else {
             console.log(
-              `🎯 LINE OA: No carousel intent match found (best similarity: ${carouselIntent.similarity.toFixed(4)})`,
+              `🔍 LINE OA: No carousel intent matched for: "${userMessage}"`,
             );
           }
         } else {
