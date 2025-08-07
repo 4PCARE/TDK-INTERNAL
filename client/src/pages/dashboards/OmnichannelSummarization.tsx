@@ -71,18 +71,19 @@ export default function OmnichannelSummarization() {
       
       const totalMessages = stats.reduce((sum: number, stat: any) => sum + (stat.messageCount || 0), 0);
       const totalUsers = stats.reduce((sum: number, stat: any) => sum + (stat.uniqueUsers || 0), 0);
-      const userMessages = stats.reduce((sum: number, stat: any) => sum + (stat.userMessages || 0), 0);
-      const agentMessages = stats.reduce((sum: number, stat: any) => sum + (stat.agentMessages || 0), 0);
       
-      // Calculate proper response rate and CSAT
-      const responseRate = userMessages > 0 ? Math.min((agentMessages / userMessages) * 100, 100) : 0;
-      const avgResponseTime = Number((Math.random() * 2 + 0.5).toFixed(1)); // Placeholder until we track actual response times
+      // Use the corrected response rate from backend
+      const avgResponseRate = stats.length > 0 ? 
+        stats.reduce((sum: number, stat: any) => sum + (stat.responseRate || 0), 0) / stats.length : 0;
       
-      // Calculate reasonable CSAT based on response rate (max 100%)
-      const csatScore = responseRate > 90 ? Math.floor(Math.random() * 10 + 85) : 
-                       responseRate > 70 ? Math.floor(Math.random() * 15 + 70) :
-                       responseRate > 50 ? Math.floor(Math.random() * 20 + 50) :
-                       Math.floor(Math.random() * 30 + 30);
+      // Use actual response time from backend (already in minutes)
+      const avgResponseTime = stats.length > 0 ? 
+        stats.reduce((sum: number, stat: any) => sum + (stat.avgResponseTimeMinutes || 0), 0) / stats.length : 0;
+      
+      // Use actual CSAT scores from backend, calculate weighted average
+      const csatScores = stats.filter((stat: any) => stat.csatScore !== null).map((stat: any) => stat.csatScore);
+      const avgCsatScore = csatScores.length > 0 ? 
+        csatScores.reduce((sum: number, score: number) => sum + score, 0) / csatScores.length : null;
       
       // Analyze topics from recent messages for this platform
       const platformMessages = recentMessages.filter((msg: any) => 
@@ -94,15 +95,16 @@ export default function OmnichannelSummarization() {
       return {
         platform,
         name: platform.charAt(0).toUpperCase() + platform.slice(1),
-        totalMessages: Math.max(0, totalMessages), // Ensure no negative numbers
+        totalMessages: Math.max(0, totalMessages),
         totalUsers: Math.max(0, totalUsers),
-        avgResponseTime,
-        csatScore: Math.min(100, Math.max(0, csatScore)), // Ensure CSAT is between 0-100
-        successRate: Math.min(100, Math.max(0, Math.floor(responseRate))),
-        isActive: integration?.isActive || false,
+        avgResponseTime: Number(avgResponseTime.toFixed(1)),
+        csatScore: avgCsatScore ? Math.round(avgCsatScore) : null,
+        successRate: Math.round(avgResponseRate),
+        isActive: integration?.isActive || stats.length > 0, // Active if has integration or has chat data
         integrationName: integration?.name || '',
         agentName: integration?.agentName || '',
-        topTopics
+        topTopics,
+        hasRealData: stats.length > 0
       };
     });
 
@@ -364,7 +366,9 @@ export default function OmnichannelSummarization() {
                     <div>
                       <p className="text-sm font-medium text-gray-600">Avg Response Time</p>
                       <p className="text-2xl font-bold">
-                        {(activePlatforms.reduce((sum, p) => sum + p.avgResponseTime, 0) / activePlatforms.length).toFixed(1)}s
+                        {activePlatforms.length > 0 ? 
+                          (activePlatforms.reduce((sum, p) => sum + p.avgResponseTime, 0) / activePlatforms.length).toFixed(1)
+                          : '0.0'}min
                       </p>
                     </div>
                     <Clock className="w-8 h-8 text-orange-600" />
@@ -381,7 +385,11 @@ export default function OmnichannelSummarization() {
                     <div>
                       <p className="text-sm font-medium text-gray-600">Avg CSAT Score</p>
                       <p className="text-2xl font-bold">
-                        {Math.round(activePlatforms.reduce((sum, p) => sum + p.csatScore, 0) / activePlatforms.length)}%
+                        {(() => {
+                          const platformsWithCSAT = activePlatforms.filter(p => p.csatScore !== null);
+                          if (platformsWithCSAT.length === 0) return 'N/A';
+                          return Math.round(platformsWithCSAT.reduce((sum, p) => sum + p.csatScore, 0) / platformsWithCSAT.length) + '%';
+                        })()}
                       </p>
                     </div>
                     <Star className="w-8 h-8 text-yellow-600" />
@@ -415,11 +423,13 @@ export default function OmnichannelSummarization() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">CSAT:</span>
-                          <span className="font-medium">{platform.csatScore}%</span>
+                          <span className="font-medium">
+                            {platform.csatScore !== null ? `${platform.csatScore}%` : 'N/A'}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Response:</span>
-                          <span className="font-medium">{platform.avgResponseTime}s</span>
+                          <span className="font-medium">{platform.avgResponseTime}min</span>
                         </div>
                       </div>
                     )}
