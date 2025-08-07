@@ -3,7 +3,7 @@ import { storage } from '../storage';
 import { aiKeywordExpansionService } from './aiKeywordExpansion';
 import { db } from '../db';
 import { documentVectors } from '@shared/schema';
-import { eq, and, or } from 'drizzle-orm';
+import { eq, and, or, inArray } from 'drizzle-orm';
 
 interface SearchTerm {
   term: string;
@@ -54,18 +54,18 @@ export class AdvancedKeywordSearchService {
       let whereCondition: any = eq(documentVectors.userId, userId);
 
       if (specificDocumentIds && specificDocumentIds.length > 0) {
+        console.log(`Advanced keyword search: Filtering to ${specificDocumentIds.length} specific documents: [${specificDocumentIds.join(', ')}]`);
         whereCondition = and(
           eq(documentVectors.userId, userId),
-          or(...specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
+          inArray(documentVectors.documentId, specificDocumentIds)
         );
-        console.log(`Advanced keyword search: Filtering to ${specificDocumentIds.length} specific documents: [${specificDocumentIds.join(', ')}]`);
       }
 
       const chunks = await db.select()
         .from(documentVectors)
         .where(whereCondition);
 
-      console.log(`Advanced keyword search: Found ${chunks.length} chunks for user ${userId}`);
+      console.log(`Advanced keyword search: Found ${chunks.length} chunks for user ${userId} with document filter: ${specificDocumentIds ? 'YES' : 'NO'}`);
 
       if (chunks.length === 0) {
         return [];
@@ -486,11 +486,11 @@ export class AdvancedKeywordSearchService {
       let whereCondition: any = eq(documentVectors.userId, userId);
 
       if (specificDocumentIds && specificDocumentIds.length > 0) {
+        console.log(`AI-enhanced search: Filtering to ${specificDocumentIds.length} documents from specific IDs: [${specificDocumentIds.join(', ')}]`);
         whereCondition = and(
           eq(documentVectors.userId, userId),
-          or(...specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
+          inArray(documentVectors.documentId, specificDocumentIds)
         );
-        console.log(`AI-enhanced search: Filtering to ${specificDocumentIds.length} documents from specific IDs: [${specificDocumentIds.join(', ')}]`);
       }
 
       const chunks = await db.select()
