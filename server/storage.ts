@@ -1513,6 +1513,59 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async setPlatformWidget(id: number, userId: string): Promise<any> {
+    const { chatWidgets } = await import('@shared/schema');
+    const { eq, and, ne } = await import('drizzle-orm');
+
+    // First, ensure only admins can do this
+    const user = await this.getUser(userId);
+    if (!user || !user.email?.includes('admin')) {
+      throw new Error("Only administrators can set platform widgets");
+    }
+
+    // Remove platform widget status from all other widgets
+    await db
+      .update(chatWidgets)
+      .set({ isPlatformWidget: false, updatedAt: new Date() })
+      .where(ne(chatWidgets.id, id));
+
+    // Set this widget as the platform widget
+    const [updated] = await db
+      .update(chatWidgets)
+      .set({ isPlatformWidget: true, updatedAt: new Date() })
+      .where(eq(chatWidgets.id, id))
+      .returning();
+
+    if (!updated) {
+      throw new Error("Chat widget not found");
+    }
+
+    return updated;
+  }
+
+  async unsetPlatformWidget(id: number, userId: string): Promise<any> {
+    const { chatWidgets } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+
+    // First, ensure only admins can do this
+    const user = await this.getUser(userId);
+    if (!user || !user.email?.includes('admin')) {
+      throw new Error("Only administrators can unset platform widgets");
+    }
+
+    const [updated] = await db
+      .update(chatWidgets)
+      .set({ isPlatformWidget: false, updatedAt: new Date() })
+      .where(eq(chatWidgets.id, id))
+      .returning();
+
+    if (!updated) {
+      throw new Error("Chat widget not found");
+    }
+
+    return updated;
+  }
+
   // Social Integration operations
   async getSocialIntegrations(userId: string): Promise<SocialIntegration[]> {
     console.log("🔍 Debug: Fetching social integrations for user:", userId);

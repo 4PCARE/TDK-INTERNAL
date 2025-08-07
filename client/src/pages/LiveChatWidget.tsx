@@ -40,6 +40,7 @@ interface ChatWidget {
   offlineMessage: string;
   enableHrLookup: boolean;
   hrApiEndpoint: string;
+  isPlatformWidget: boolean;
   createdAt: string;
 }
 
@@ -184,6 +185,48 @@ export default function LiveChatWidget() {
       toast({
         title: "Error",
         description: error.message || "Failed to update widget status.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Set platform widget mutation
+  const setPlatformWidgetMutation = useMutation({
+    mutationFn: async (widgetId: number) => {
+      return await apiRequest("PUT", `/api/chat-widgets/${widgetId}/set-platform`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/chat-widgets"] });
+      toast({
+        title: "Platform widget set",
+        description: "This widget is now the platform's default widget.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to set platform widget.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Unset platform widget mutation
+  const unsetPlatformWidgetMutation = useMutation({
+    mutationFn: async (widgetId: number) => {
+      return await apiRequest("PUT", `/api/chat-widgets/${widgetId}/unset-platform`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/chat-widgets"] });
+      toast({
+        title: "Platform widget unset",
+        description: "This widget is no longer the platform's default widget.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to unset platform widget.",
         variant: "destructive",
       });
     },
@@ -352,6 +395,11 @@ export default function LiveChatWidget() {
                                   AI-Powered
                                 </Badge>
                               )}
+                              {widget.isPlatformWidget && (
+                                <Badge variant="default" className="bg-purple-100 text-purple-700">
+                                  Platform Widget
+                                </Badge>
+                              )}
                             </div>
                           </div>
                           <div className="flex space-x-2">
@@ -371,6 +419,29 @@ export default function LiveChatWidget() {
                             >
                               <Settings className="w-4 h-4" />
                             </Button>
+                            {/* Admin-only platform widget controls */}
+                            {user?.email?.includes('admin') && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className={widget.isPlatformWidget ? "text-purple-600 hover:text-purple-700" : "text-gray-500 hover:text-gray-700"}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (widget.isPlatformWidget) {
+                                    if (window.confirm("Remove this widget as the platform's default widget?")) {
+                                      unsetPlatformWidgetMutation.mutate(widget.id);
+                                    }
+                                  } else {
+                                    if (window.confirm("Make this widget the platform's default widget? This will replace any existing platform widget.")) {
+                                      setPlatformWidgetMutation.mutate(widget.id);
+                                    }
+                                  }
+                                }}
+                                title={widget.isPlatformWidget ? "Unset as platform widget" : "Set as platform widget"}
+                              >
+                                {widget.isPlatformWidget ? "🏢" : "🏢"}
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="outline"
@@ -573,6 +644,9 @@ export default function LiveChatWidget() {
                       <div>Primary Color: {selectedWidget.primaryColor}</div>
                       <div>HR Lookup: {selectedWidget.enableHrLookup ? "Enabled" : "Disabled"}</div>
                       <div>Status: {selectedWidget.isActive ? "Active" : "Inactive"}</div>
+                      {selectedWidget.isPlatformWidget && (
+                        <div className="text-purple-600 font-medium">Platform Widget: Yes</div>
+                      )}
                       {selectedWidget.agentName && (
                         <div>AI Agent: {selectedWidget.agentName}</div>
                       )}
@@ -612,6 +686,15 @@ export default function LiveChatWidget() {
                       <p className="text-sm text-gray-600">Allow visitors to check employee status using Thai Citizen ID</p>
                     </div>
                   </div>
+                  {user?.email?.includes('admin') && (
+                    <div className="flex items-start space-x-3">
+                      <div className="w-6 h-6 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-sm font-medium">🏢</div>
+                      <div>
+                        <h4 className="font-medium">Set Platform Widget (Admin)</h4>
+                        <p className="text-sm text-gray-600">Designate one widget as the platform's default widget for organization-wide use</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

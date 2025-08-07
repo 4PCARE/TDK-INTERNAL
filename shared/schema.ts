@@ -280,6 +280,9 @@ export const chatWidgets = pgTable("chat_widgets", {
   welcomeMessage: text("welcome_message").default("Hi! How can I help you today?"),
   offlineMessage: text("offline_message").default("We're currently offline. Please leave a message."),
 
+  // Platform widget flag (only one can be true)
+  isPlatformWidget: boolean("is_platform_widget").default(false),
+
   // HR API integration
   enableHrLookup: boolean("enable_hr_lookup").default(false),
   hrApiEndpoint: varchar("hr_api_endpoint"),

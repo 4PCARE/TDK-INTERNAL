@@ -3080,6 +3080,35 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     }
   });
 
+  // Platform widget management endpoints (Admin only)
+  app.put("/api/chat-widgets/:id/set-platform", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const widgetId = parseInt(req.params.id);
+
+      const updatedWidget = await storage.setPlatformWidget(widgetId, userId);
+      
+      res.json(updatedWidget);
+    } catch (error) {
+      console.error("Error setting platform widget:", error);
+      res.status(500).json({ message: error.message || "Failed to set platform widget" });
+    }
+  });
+
+  app.put("/api/chat-widgets/:id/unset-platform", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const widgetId = parseInt(req.params.id);
+
+      const updatedWidget = await storage.unsetPlatformWidget(widgetId, userId);
+      
+      res.json(updatedWidget);
+    } catch (error) {
+      console.error("Error unsetting platform widget:", error);
+      res.status(500).json({ message: error.message || "Failed to unset platform widget" });
+    }
+  });
+
   // Widget config endpoint for embed script
   app.get("/api/widget/:widgetKey/config", async (req, res) => {
     try {
@@ -3113,12 +3142,31 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
   app.get("/api/chat-widgets", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { chatWidgets } = await import("@shared/schema");
-      const { eq } = await import("drizzle-orm");
+      const { chatWidgets, agentChatbots } = await import("@shared/schema");
+      const { eq, leftJoin } = await import("drizzle-orm");
 
       const widgets = await db
-        .select()
+        .select({
+          id: chatWidgets.id,
+          userId: chatWidgets.userId,
+          name: chatWidgets.name,
+          widgetKey: chatWidgets.widgetKey,
+          isActive: chatWidgets.isActive,
+          agentId: chatWidgets.agentId,
+          primaryColor: chatWidgets.primaryColor,
+          textColor: chatWidgets.textColor,
+          position: chatWidgets.position,
+          welcomeMessage: chatWidgets.welcomeMessage,
+          offlineMessage: chatWidgets.offlineMessage,
+          enableHrLookup: chatWidgets.enableHrLookup,
+          hrApiEndpoint: chatWidgets.hrApiEndpoint,
+          isPlatformWidget: chatWidgets.isPlatformWidget,
+          createdAt: chatWidgets.createdAt,
+          updatedAt: chatWidgets.updatedAt,
+          agentName: agentChatbots.name,
+        })
         .from(chatWidgets)
+        .leftJoin(agentChatbots, eq(chatWidgets.agentId, agentChatbots.id))
         .where(eq(chatWidgets.userId, userId));
 
       res.json(widgets);
