@@ -4931,9 +4931,9 @@ Memory management: Keep track of conversation context within the last ${agentCon
         messageCount: parseInt(row.message_count),
         isOnline: Math.random() > 0.7, // Simplified online status
         userProfile: {
-          name: row.channelType === 'web' ?
-            `Web User ${row.userId.slice(-4)}` :
-            `User ${row.channelId.slice(-4)}`, // Use Line user ID for display
+          name: row.channel_type === 'web' ?
+            `Web User ${(row.user_id || 'unknown').slice(-4)}` :
+            `User ${(row.channel_id || 'unknown').slice(-4)}`, // Use Line user ID for display with fallback
           // Add more profile fields as needed
         }
       }));
