@@ -13,12 +13,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { 
-  MessageCircle, 
-  Code, 
-  Copy, 
-  Check, 
-  Settings, 
+import {
+  MessageCircle,
+  Code,
+  Copy,
+  Check,
+  Settings,
   ExternalLink,
   Plus,
   Trash2,
@@ -111,10 +111,11 @@ export default function LiveChatWidget() {
     },
   });
 
+  // Update widget mutation
   const updateWidgetMutation = useMutation({
     mutationFn: async (data: { id: number } & typeof formData) => {
       const { id, ...updateData } = data;
-      return await apiRequest(`/api/chat-widgets/${id}`, "PUT", updateData);
+      return await apiRequest("PUT", `/api/chat-widgets/${id}`, updateData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/chat-widgets"] });
@@ -141,6 +142,51 @@ export default function LiveChatWidget() {
       });
     },
   });
+
+  // Delete widget mutation
+  const deleteWidgetMutation = useMutation({
+    mutationFn: async (widgetId: number) => {
+      return await apiRequest("DELETE", `/api/chat-widgets/${widgetId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/chat-widgets"] });
+      toast({
+        title: "Widget deleted",
+        description: "Your chat widget has been deleted successfully.",
+      });
+      setSelectedWidget(null);
+      setEditingWidget(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete widget.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Toggle widget status mutation
+  const toggleWidgetMutation = useMutation({
+    mutationFn: async ({ widgetId, isActive }: { widgetId: number; isActive: boolean }) => {
+      return await apiRequest("PUT", `/api/chat-widgets/${widgetId}`, { isActive });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/chat-widgets"] });
+      toast({
+        title: "Widget status updated",
+        description: "The status of your chat widget has been updated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update widget status.",
+        variant: "destructive",
+      });
+    },
+  });
+
 
   const generateEmbedCode = (widget: ChatWidget) => {
     const baseUrl = window.location.origin;
@@ -246,8 +292,8 @@ export default function LiveChatWidget() {
                 ) : (
                   <div className="space-y-4">
                     {widgets.map((widget: ChatWidget) => (
-                      <div 
-                        key={widget.id} 
+                      <div
+                        key={widget.id}
                         className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer"
                         onClick={() => setSelectedWidget(widget)}
                       >
@@ -281,8 +327,8 @@ export default function LiveChatWidget() {
                             }}>
                               {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                             </Button>
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               variant="outline"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -290,6 +336,19 @@ export default function LiveChatWidget() {
                               }}
                             >
                               <Settings className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-500 hover:text-red-700"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm("Are you sure you want to delete this widget?")) {
+                                  deleteWidgetMutation.mutate(widget.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         </div>
@@ -309,7 +368,7 @@ export default function LiveChatWidget() {
                 <CardContent>
                   <div className="bg-gray-100 p-4 rounded-lg relative h-64">
                     <div className="absolute bottom-4 right-4">
-                      <div 
+                      <div
                         className="w-14 h-14 rounded-full flex items-center justify-center cursor-pointer shadow-lg"
                         style={{ backgroundColor: selectedWidget.primaryColor }}
                       >
