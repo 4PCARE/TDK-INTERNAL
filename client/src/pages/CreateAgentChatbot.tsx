@@ -2414,29 +2414,29 @@ export default function CreateAgentChatbot() {
                     )}
 
                     {/* Search Configuration Information */}
-                    <Card className="border-amber-200 bg-amber-50">
-                      <CardContent className="pt-6">
-                        <div className="flex items-start space-x-3">
-                          <Lightbulb className="w-5 h-5 text-amber-600 mt-0.5" />
-                          <div>
-                            <h4 className="font-medium text-amber-900">
-                              How Search Configuration Works
-                            </h4>
-                            <div className="text-sm text-amber-700 mt-2 space-y-2">
-                              <p>
-                                <strong>Query Preprocessing:</strong> Your additional search detail will be injected into the query preprocessor's system prompt, helping it better understand the context and intent of user queries.
-                              </p>
-                              <p>
-                                <strong>Agent System Prompt:</strong> The same detail will be added to your agent's system prompt, ensuring consistent context awareness across both search and response generation.
-                              </p>
-                              <p>
-                                <strong>Example Use Cases:</strong> "Focus on customer service policies", "Prioritize technical troubleshooting steps", "Emphasize safety procedures and compliance"
-                              </p>
+                        <Card className="border-amber-200 bg-amber-50">
+                          <CardContent className="pt-6">
+                            <div className="flex items-start space-x-3">
+                              <Lightbulb className="w-5 h-5 text-amber-600 mt-0.5" />
+                              <div>
+                                <h4 className="font-medium text-amber-900">
+                                  How Search Configuration Works
+                                </h4>
+                                <div className="text-sm text-amber-700 mt-2 space-y-2">
+                                  <p>
+                                    <strong>Query Preprocessing:</strong> Your additional search detail will be injected into the query preprocessor's system prompt, helping it better understand the context and intent of user queries.
+                                  </p>
+                                  <p>
+                                    <strong>Agent System Prompt:</strong> The same detail will be added to your agent's system prompt, ensuring consistent context awareness across both search and response generation.
+                                  </p>
+                                  <p>
+                                    <strong>Example Use Cases:</strong> "Focus on customer service policies", "Prioritize technical troubleshooting steps", "Emphasize safety procedures and compliance"
+                                  </p>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                          </CardContent>
+                        </Card>
                       </div>
                     )}
 
