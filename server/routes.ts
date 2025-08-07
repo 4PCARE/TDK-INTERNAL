@@ -3436,7 +3436,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           
           if (employee) {
             hrEmployeeData = employee;
-            console.log(`👤 Widget: Found HR data for ${employee.first_name || employee.firstName} ${employee.last_name || employee.lastName} (${employee.department})`);
+            console.log(`👤 Widget: Found HR data for ${employee.name} (${employee.department})`);
           } else {
             console.log(`👤 Widget: No HR data found for email: ${currentUser.email}`);
           }
@@ -3590,7 +3590,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           let messageContent = message;
           if (hrEmployeeData) {
             // Prefix the message with HR employee context
-            const hrContext = `[EMPLOYEE CONTEXT: User is ${hrEmployeeData.firstName} ${hrEmployeeData.lastName}, Employee ID: ${hrEmployeeData.employeeId}, Department: ${hrEmployeeData.department}, Position: ${hrEmployeeData.position}, Email: ${hrEmployeeData.email}] User asks: ${message}`;
+            const hrContext = `[EMPLOYEE CONTEXT: User is ${hrEmployeeData.name}, Employee ID: ${hrEmployeeData.employeeId}, Department: ${hrEmployeeData.department}, Position: ${hrEmployeeData.position}, Email: ${hrEmployeeData.email}] User asks: ${message}`;
             messageContent = hrContext;
             console.log(`👤 Widget: Added HR context for personalized response`);
           }
@@ -3636,8 +3636,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           const [employee] = await db
             .select({
               employeeId: hrEmployees.employeeId,
-              firstName: hrEmployees.firstName,
-              lastName: hrEmployees.lastName,
+              name: hrEmployees.name,
               department: hrEmployees.department,
               position: hrEmployees.position,
               isActive: hrEmployees.isActive,
@@ -3647,8 +3646,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
             .limit(1);
 
           if (employee && employee.isActive) {
-            const fullName = `${employee.firstName} ${employee.lastName}`.trim();
-            response = `Yes, ${employee.employeeId} ${fullName} is working in ${employee.department}`;
+            response = `Yes, ${employee.employeeId} ${employee.name} is working in ${employee.department}`;
             if (employee.position) {
               response += ` as ${employee.position}`;
             }
@@ -3658,7 +3656,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
               found: true,
               employee: {
                 employeeId: employee.employeeId,
-                name: fullName,
+                name: employee.name,
                 department: employee.department,
                 position: employee.position,
               },
