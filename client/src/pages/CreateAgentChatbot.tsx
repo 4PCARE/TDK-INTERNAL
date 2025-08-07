@@ -395,8 +395,8 @@ export default function CreateAgentChatbot() {
 
   // Test agent mutation (for chat conversation)
   const testAgentMutation = useMutation({
-    mutationFn: async (testData: { 
-      message: string; 
+    mutationFn: async (testData: {
+      message: string;
       agentConfig: CreateAgentForm;
       chatHistory?: Array<{ role: "user" | "assistant"; content: string; }>;
     }) => {
@@ -483,16 +483,16 @@ export default function CreateAgentChatbot() {
 
       // If editing, also invalidate the specific agent's cache
       if (isEditing && editAgentId) {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/agent-chatbots/${editAgentId}`] 
+        queryClient.invalidateQueries({
+          queryKey: [`/api/agent-chatbots/${editAgentId}`]
         });
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/agent-chatbots/${editAgentId}/documents`] 
+        queryClient.invalidateQueries({
+          queryKey: [`/api/agent-chatbots/${editAgentId}/documents`]
         });
       }
 
       // Invalidate all agent-related cache to ensure complete refresh
-      queryClient.invalidateQueries({ 
+      queryClient.invalidateQueries({
         predicate: (query) => {
           const queryKey = query.queryKey[0];
           return typeof queryKey === "string" && queryKey.includes("/api/agent-chatbots");
@@ -555,7 +555,7 @@ export default function CreateAgentChatbot() {
     // Basic validation for required fields
     if (!currentFormData.name || !currentFormData.personality || !currentFormData.profession || !currentFormData.responseStyle) {
       toast({
-        title: "Error", 
+        title: "Error",
         description: "Please fill in all required fields in Overview tab before testing",
         variant: "destructive",
       });
@@ -617,8 +617,8 @@ export default function CreateAgentChatbot() {
     },
     onSuccess: () => {
       if (isEditing && editAgentId) {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/agent-chatbots/${editAgentId}/documents`] 
+        queryClient.invalidateQueries({
+          queryKey: [`/api/agent-chatbots/${editAgentId}/documents`]
         });
         queryClient.invalidateQueries({ queryKey: ["/api/agent-chatbots"] });
       }
@@ -633,8 +633,8 @@ export default function CreateAgentChatbot() {
     },
     onSuccess: () => {
       if (isEditing && editAgentId) {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/agent-chatbots/${editAgentId}/documents`] 
+        queryClient.invalidateQueries({
+          queryKey: [`/api/agent-chatbots/${editAgentId}/documents`]
         });
         queryClient.invalidateQueries({ queryKey: ["/api/agent-chatbots"] });
       }
@@ -2151,8 +2151,8 @@ export default function CreateAgentChatbot() {
                                     render={({ field }) => (
                                       <FormItem>
                                         <FormLabel>
-                                          {form.watch("searchConfiguration.chunkMaxType") === "percentage" 
-                                            ? "Maximum Percentage (%)" 
+                                          {form.watch("searchConfiguration.chunkMaxType") === "percentage"
+                                            ? "Maximum Percentage (%)"
                                             : "Maximum Number of Chunks"}
                                         </FormLabel>
                                         <FormControl>
@@ -2181,7 +2181,7 @@ export default function CreateAgentChatbot() {
                                           </div>
                                         </FormControl>
                                         <FormDescription>
-                                          {form.watch("searchConfiguration.chunkMaxType") === "percentage" 
+                                          {form.watch("searchConfiguration.chunkMaxType") === "percentage"
                                             ? "Percentage of total available chunks in agent's documents to send to AI (e.g., 5% of 1000 total chunks = 50 chunks max)"
                                             : "Maximum number of chunks to send to AI regardless of how many are retrieved"}
                                         </FormDescription>
@@ -2393,7 +2393,7 @@ export default function CreateAgentChatbot() {
                                 <span className="font-medium text-blue-800">Chunk Limit:</span>
                                 <div className="bg-white rounded p-2 mt-1 border border-blue-200">
                                   <code className="text-xs text-slate-700">
-                                    {form.watch("searchConfiguration.chunkMaxType") === "percentage" 
+                                    {form.watch("searchConfiguration.chunkMaxType") === "percentage"
                                       ? `Maximum ${form.watch("searchConfiguration.chunkMaxValue") || 5}% of retrieved chunks`
                                       : `Maximum ${form.watch("searchConfiguration.chunkMaxValue") || 8} chunks`}
                                   </code>
@@ -2439,273 +2439,6 @@ export default function CreateAgentChatbot() {
                         </Card>
                   </form>
                 </Form>
-
-                {/* Test Agent Interface */}
-                {activeTab === "test" && (
-                  <div className="space-y-6">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <MessageSquare className="h-5 w-5" />
-                          Test your Agent
-                        </CardTitle>
-                        <CardDescription>
-                          Send test messages to see how your agent will respond based on current configuration
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        {/* Agent Status Toggle */}
-                        <div className="flex items-center justify-between bg-slate-50 rounded-lg p-4">
-                          <div>
-                            <h4 className="font-medium text-slate-800">Agent Status</h4>
-                            <p className="text-sm text-slate-600">
-                              {agentStatus === "testing" 
-                                ? "Agent is in testing mode - responses are for preview only"
-                                : "Agent is published and live - ready to receive real user messages"}
-                            </p>
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <Badge 
-                              variant={agentStatus === "testing" ? "outline" : "default"}
-                              className={agentStatus === "testing" ? "border-orange-300 text-orange-700" : "bg-green-600 text-white"}
-                            >
-                              {agentStatus === "testing" ? "Testing" : "Published"}
-                            </Badge>
-                            <Button
-                              type="button"
-                              onClick={() => setAgentStatus(agentStatus === "testing" ? "published" : "testing")}
-                              variant={agentStatus === "testing" ? "default" : "outline"}
-                              size="sm"
-                            >
-                              {agentStatus === "testing" ? "Publish Agent" : "Switch to Testing"}
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Current Configuration Summary */}
-                        <div className="bg-slate-50 rounded-lg p-4 space-y-2">
-                          <h4 className="font-medium text-slate-800">Current Configuration:</h4>
-                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
-                            <div>
-                              <span className="text-slate-600">Name:</span>
-                              <Badge variant="outline" className="ml-1">
-                                {form.watch("name") || "Not set"}
-                              </Badge>
-                            </div>
-                            <div>
-                              <span className="text-slate-600">Personality:</span>
-                              <Badge variant="outline" className="ml-1">
-                                {personalityOptions.find(p => p.id === form.watch("personality"))?.label || "Not set"}
-                              </Badge>
-                            </div>
-                            <div>
-                              <span className="text-slate-600">Profession:</span>
-                              <Badge variant="outline" className="ml-1">
-                                {professionOptions.find(p => p.id === form.watch("profession"))?.label || "Not set"}
-                              </Badge>
-                            </div>
-                            <div>
-                              <span className="text-slate-600">Documents:</span>
-                              <Badge variant="outline" className="ml-1">
-                                {selectedDocuments.length} selected
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Test Mode Selection */}
-                        <div className="flex gap-2 mb-4">
-                          <Button
-                            type="button"
-                            onClick={() => !isTestChatMode && setIsTestChatMode(false)}
-                            variant={!isTestChatMode ? "default" : "outline"}
-                            size="sm"
-                          >
-                            Single Message Test
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={startChatTest}
-                            variant={isTestChatMode ? "default" : "outline"}
-                            size="sm"
-                          >
-                            <MessageSquare className="w-4 h-4 mr-2" />
-                            Chat Conversation Test
-                          </Button>
-                          {isTestChatMode && (
-                            <Button
-                              type="button"
-                              onClick={stopChatTest}
-                              variant="outline"
-                              size="sm"
-                            >
-                              Stop Chat Test
-                            </Button>
-                          )}
-                        </div>
-
-                        {isTestChatMode ? (
-                          /* Chat Mode Interface */
-                          <div className="space-y-4">
-                            {/* Chat History Display */}
-                            <div ref={chatHistoryRef} className="border rounded-lg bg-gray-50 h-80 overflow-y-auto p-4 space-y-3">
-                              {testChatHistory.length === 0 ? (
-                                <div className="text-center text-gray-500 italic py-8">
-                                  Start a conversation to test your agent with realistic back-and-forth chat
-                                </div>
-                              ) : (
-                                testChatHistory.map((msg, index) => (
-                                  <div
-                                    key={index}
-                                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                                  >
-                                    <div
-                                      className={`max-w-[70%] rounded-lg px-4 py-2 ${
-                                        msg.role === "user"
-                                          ? "bg-blue-600 text-white"
-                                          : "bg-white border text-gray-900"
-                                      }`}
-                                    >
-                                      <div className="flex items-start gap-2">
-                                        {msg.role === "assistant" && (
-                                          <Bot className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                                        )}
-                                        <div className="whitespace-pre-wrap text-sm">{msg.content}</div>
-                                      </div>
-                                      <div className={`text-xs mt-1 opacity-70`}>
-                                        {msg.timestamp.toLocaleTimeString()}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                              {(isTestingAgent || testAgentMutation.isPending) && (
-                                <div className="flex justify-start">
-                                  <div className="max-w-[70%] rounded-lg px-4 py-2 bg-white border">
-                                    <div className="flex items-center gap-2">
-                                      <Bot className="w-4 h-4 text-blue-600" />
-                                      <div className="animate-pulse text-gray-500">กำลังพิมพ์...</div>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Chat Input */}
-                            <div className="flex gap-2">
-                              <Textarea
-                                placeholder="พิมพ์ข้อความเพื่อทดสอบการสนทนากับ Agent..."
-                                value={testMessage}
-                                onChange={(e) => setTestMessage(e.target.value)}
-                                className="flex-1 min-h-[60px] resize-none"
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleTestAgent();
-                                  }
-                                }}
-                              />
-                              <Button
-                                onClick={handleTestAgent}
-                                disabled={isTestingAgent || testAgentMutation.isPending || !testMessage.trim()}
-                                className="bg-blue-600 hover:bg-blue-700 self-end"
-                              >
-                                {(isTestingAgent || testAgentMutation.isPending) ? (
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                ) : (
-                                  "ส่ง"
-                                )}
-                              </Button>
-                            </div>
-
-                            {/* Memory Info */}
-                            <div className="text-xs text-gray-600 bg-yellow-50 border border-yellow-200 rounded p-2">
-                              Memory Limit: {form.watch("memoryLimit") || 10} messages | 
-                              Current History: {testChatHistory.length} messages |
-                              Documents: {selectedDocuments.length} attached
-                            </div>
-                          </div>
-                        ) : (
-                          /* Single Message Mode Interface */
-                          <div className="space-y-4">
-                            {/* Test Message Input */}
-                            <div className="space-y-2">
-                              <Label htmlFor="testMessage">Test Message</Label>
-                              <Textarea
-                                id="testMessage"
-                                placeholder="Enter a message to test how your agent will respond..."
-                                value={testMessage}
-                                onChange={(e) => setTestMessage(e.target.value)}
-                                className="min-h-[100px]"
-                              />
-                            </div>
-
-                            {/* Test Button */}
-                            <Button
-                              onClick={handleTestAgent}
-                              disabled={isTestingAgent || testAgentMutation.isPending || !testMessage.trim()}
-                              className="w-full bg-green-600 hover:bg-green-700"
-                            >
-                              {(isTestingAgent || testAgentMutation.isPending) ? (
-                                <>
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                  Testing Agent...
-                                </>
-                              ) : (
-                                <>
-                                  <MessageSquare className="w-4 h-4 mr-2" />
-                                  Test Agent Response
-                                </>
-                              )}
-                            </Button>
-
-                            {/* Test Response */}
-                            <div className="space-y-2">
-                              <Label>Agent Response</Label>
-                              {testResponse ? (
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                  <div className="flex items-start space-x-3">
-                                    <Bot className="w-5 h-5 text-blue-600 mt-0.5" />
-                                    <div className="flex-1">
-                                      <p className="text-blue-900 whitespace-pre-wrap">{testResponse}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                  <div className="flex items-start space-x-3">
-                                    <Bot className="w-5 h-5 text-gray-400 mt-0.5" />
-                                    <div className="flex-1">
-                                      <p className="text-gray-500 italic">No response yet. Click "Test Agent Response" to see how your agent will respond.</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Test Tips */}
-                        <Card className="border-amber-200 bg-amber-50">
-                          <CardContent className="pt-6">
-                            <div className="flex items-start space-x-3">
-                              <Lightbulb className="w-5 h-5 text-amber-600 mt-0.5" />
-                              <div>
-                                <h4 className="font-medium text-amber-900">Test Tips</h4>
-                                <ul className="text-sm text-amber-700 mt-1 list-disc list-inside space-y-1">
-                                  <li>Test different types of questions to see how your agent responds</li>
-                                  <li>Try questions related to your selected documents</li>
-                                  <li>Test edge cases and inappropriate content to verify guardrails</li>
-                                  <li>Make sure all required fields are filled before testing</li>
-                                </ul>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
 
                 {/* Submit Button - Always visible */}
                 <div className="flex justify-end space-x-4 pt-6 border-t">
