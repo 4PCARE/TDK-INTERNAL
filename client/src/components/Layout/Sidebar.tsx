@@ -223,11 +223,11 @@ export default function Sidebar({
                   <img 
                     src="/tdk-logo.png" 
                     alt="TDK Logo" 
-                    className="w-12 h-12 rounded-lg object-contain bg-white/10 p-2"
+                    className="w-16 h-16 rounded-lg object-contain bg-white/10 p-2"
                   />
                   <div>
-                    <h1 className="text-xl font-bold text-white">TDK</h1>
-                    <p className="text-sm text-navy-300">
+                    <h1 className="text-2xl font-bold text-white">TDK</h1>
+                    <p className="text-base text-navy-300">
                       Knowledge Management
                     </p>
                   </div>
