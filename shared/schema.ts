@@ -630,53 +630,13 @@ export const agentChatbots = pgTable("agent_chatbots", {
   searchConfiguration: jsonb("search_configuration").$type<{
     enableCustomSearch?: boolean;
     additionalSearchDetail?: string;
-  }>(),
-
-  // Advanced guardrails configuration
-  guardrailsConfig: jsonb("guardrails_config").$type<{
-    contentFiltering?: {
-      enabled: boolean;
-      blockProfanity?: boolean;
-      blockHateSpeech?: boolean;
-      blockSexualContent?: boolean;
-      blockViolence?: boolean;
-      customBlockedWords?: string[];
-    };
-    topicControl?: {
-      enabled: boolean;
-      allowedTopics?: string[];
-      blockedTopics?: string[];
-      strictMode?: boolean;
-    };
-    privacyProtection?: {
-      enabled: boolean;
-      blockPersonalInfo?: boolean;
-      blockFinancialInfo?: boolean;
-      blockHealthInfo?: boolean;
-      maskPhoneNumbers?: boolean;
-      maskEmails?: boolean;
-    };
-    responseQuality?: {
-      enabled: boolean;
-      maxResponseLength?: number;
-      minResponseLength?: number;
-      requireSourceCitation?: boolean;
-      preventHallucination?: boolean;
-    };
-    toxicityPrevention?: {
-      enabled: boolean;
-      toxicityThreshold?: number;
-      blockSarcasm?: boolean;
-      blockInsults?: boolean;
-    };
-    businessContext?: {
-      enabled: boolean;
-      stayOnBrand?: boolean;
-      requireProfessionalTone?: boolean;
-      blockCompetitorMentions?: boolean;
-      companyName?: string;
-      brandGuidelines?: string;
-    };
+    chunkMaxType?: 'number' | 'percentage';
+    chunkMaxValue?: number;
+    documentMass?: number;
+    tokenLimitEnabled?: boolean;
+    tokenLimitType?: 'document' | 'final';
+    documentTokenLimit?: number;
+    finalTokenLimit?: number;
   }>(),
   memoryLimit: integer("memory_limit").default(10), // Number of previous messages to remember
 

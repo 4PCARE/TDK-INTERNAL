@@ -1114,8 +1114,12 @@ async function getAiResponseDirectly(
       const chunkMaxType = searchConfig.chunkMaxType || 'number';
       const chunkMaxValue = searchConfig.chunkMaxValue || 8;
       const documentMass = searchConfig.documentMass || 0.3;
+      const tokenLimitEnabled = searchConfig.tokenLimitEnabled || false;
+      const tokenLimitType = searchConfig.tokenLimitType || 'document';
+      const documentTokenLimit = searchConfig.documentTokenLimit || 12000;
+      const finalTokenLimit = searchConfig.finalTokenLimit || 4000;
 
-      console.log(`🔧 LINE OA: Using agent's search config - ${chunkMaxType}=${chunkMaxValue}, mass=${Math.round(documentMass * 100)}%`);
+      console.log(`🔧 LINE OA: Using agent's search config - ${chunkMaxType}=${chunkMaxValue}, mass=${Math.round(documentMass * 100)}%${tokenLimitEnabled ? `, token limit: ${tokenLimitType}=${tokenLimitType === 'document' ? documentTokenLimit : finalTokenLimit}` : ''}`);
 
       const searchOptions: any = {
         threshold: 0.3,
@@ -1157,7 +1161,9 @@ async function getAiResponseDirectly(
       if (finalSearchResults.length > 0) {
         // Step 3: Build document context from search results
         let documentContext = "";
-        const maxContextLength = 12000; // Leave room for system prompt and user message
+        const maxContextLength = tokenLimitEnabled && tokenLimitType === 'document' 
+          ? documentTokenLimit 
+          : 12000; // Use configured document token limit or default
         let chunksUsed = 0;
 
         console.log(
@@ -1198,6 +1204,16 @@ async function getAiResponseDirectly(
         console.log(
           `📄 LINE OA: Used ${chunksUsed}/${finalSearchResults.length} chunks (${documentContext.length} chars)`,
         );
+
+        // Apply final token limit if enabled
+        if (tokenLimitEnabled && tokenLimitType === 'final') {
+          const estimatedTokens = Math.ceil(documentContext.length / 3.5); // Rough token estimation
+          if (estimatedTokens > finalTokenLimit) {
+            const targetChars = finalTokenLimit * 3.5;
+            documentContext = documentContext.substring(0, Math.floor(targetChars));
+            console.log(`🔒 LINE OA: Applied final token limit - truncated to ~${finalTokenLimit} tokens (${documentContext.length} chars)`);
+          }
+        }
 
         const now = new Date();
         now.setHours(now.getHours() + 7)
