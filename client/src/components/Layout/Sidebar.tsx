@@ -102,6 +102,7 @@ export default function Sidebar({
       items: [
         { name: "AI Interaction", href: "/ai-interaction", icon: BarChart3 },
         { name: "AI Response Analysis", href: "/ai-response-analysis", icon: TrendingUp },
+        { name: "Omnichannel Chat", href: "/omnichannel-summarization", icon: MessageCircle },
         { name: "Customer Survey", href: "/customer-survey", icon: Star },
         { name: "Document Usage", href: "/document-usage", icon: FileBarChart },
         { name: "Security & Governance", href: "/security-governance", icon: Shield },

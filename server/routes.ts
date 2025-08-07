@@ -3914,6 +3914,39 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     },
   );
 
+  // Omnichannel Analytics endpoint
+  app.get(
+    "/api/analytics/omnichannel",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const dateRange = req.query.dateRange || '7d';
+        
+        // Get user's social integrations
+        const integrations = await storage.getSocialIntegrations(userId);
+        
+        // Build analytics data
+        const analytics = {
+          dateRange,
+          platforms: integrations.map((integration: any) => ({
+            platform: integration.type,
+            name: integration.name,
+            isActive: integration.isActive,
+            agentId: integration.agentId,
+            agentName: integration.agentName
+          })),
+          lastUpdated: new Date().toISOString()
+        };
+        
+        res.json(analytics);
+      } catch (error) {
+        console.error("Error fetching omnichannel analytics:", error);
+        res.status(500).json({ message: "Failed to fetch omnichannel analytics" });
+      }
+    },
+  );
+
   app.post(
     "/api/ai-response-analysis/analyze",
     isAuthenticated,

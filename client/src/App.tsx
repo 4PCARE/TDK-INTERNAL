@@ -33,6 +33,7 @@ import SecurityGovernance from "@/pages/dashboards/SecurityGovernance";
 import CustomerSurvey from "@/pages/dashboards/CustomerSurvey";
 import UserFeedback from "@/pages/dashboards/UserFeedback";
 import AiResponseAnalysis from "@/pages/dashboards/AiResponseAnalysis";
+import OmnichannelSummarization from "@/pages/dashboards/OmnichannelSummarization";
 import AIAssistant from "@/pages/AIAssistant";
 
 function Router() {
@@ -88,6 +89,7 @@ function Router() {
           <Route path="/user-feedback" component={UserFeedback} />
           <Route path="/ai-interaction" component={AIInteraction} />
           <Route path="/ai-response-analysis" component={AiResponseAnalysis} />
+          <Route path="/omnichannel-summarization" component={OmnichannelSummarization} />
           <Route path="/customer-survey" component={CustomerSurvey} />
           <Route path="/document-demand-insights" component={DocumentUsage} />
           <Route path="/document-usage" component={DocumentUsage} />

@@ -1990,6 +1990,20 @@ export class DatabaseStorage implements IStorage {
       ));
   }
 
+  async getAllChatHistoryForUser(userId: string): Promise<any[]> {
+    const { chatHistory } = await import('@shared/schema');
+    const { eq } = await import('drizzle-orm');
+
+    // Get all chat history entries for analytics (not just for specific user conversations)
+    // This is for analytics aggregation across all platforms for this authenticated user
+    const allHistory = await db
+      .select()
+      .from(chatHistory)
+      .orderBy(chatHistory.createdAt);
+
+    return allHistory;
+  }
+
   // Line Message Template operations
   async getLineMessageTemplates(userId: string, integrationId?: number): Promise<LineMessageTemplate[]> {
     let whereCondition = eq(lineMessageTemplates.userId, userId);
