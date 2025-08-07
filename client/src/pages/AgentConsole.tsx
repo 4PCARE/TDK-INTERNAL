@@ -105,7 +105,29 @@ export default function AgentConsole() {
       if (!response.ok) throw new Error("Failed to fetch users");
       const data = await response.json();
       console.log("📋 Agent Console: Filtered users response:", Array.isArray(data) ? data.length : 0, "users");
-      return Array.isArray(data) ? data.filter(user => user && user.userId) : [];
+      
+      // Ensure we always return a valid array with proper validation
+      if (!Array.isArray(data)) {
+        console.warn("⚠️ API returned non-array data:", data);
+        return [];
+      }
+      
+      // Filter and validate each user object
+      return data.filter(user => {
+        if (!user) {
+          console.warn("⚠️ Found null/undefined user in response");
+          return false;
+        }
+        if (!user.userId) {
+          console.warn("⚠️ Found user without userId:", user);
+          return false;
+        }
+        if (!user.userProfile) {
+          console.warn("⚠️ Found user without userProfile:", user);
+          user.userProfile = { name: 'Unknown User' }; // Add fallback
+        }
+        return true;
+      });
     },
     refetchInterval: 10000, // Refetch every 10 seconds
   }) as { data: AgentUser[]; refetch: () => void };
@@ -128,7 +150,24 @@ export default function AgentConsole() {
       if (!response.ok) throw new Error("Failed to fetch conversation");
       const data = await response.json();
       console.log("📨 Conversation response:", data);
-      return Array.isArray(data) ? data.filter(msg => msg && msg.id) : [];
+      
+      // Ensure we always return a valid array
+      if (!Array.isArray(data)) {
+        console.warn("⚠️ Messages API returned non-array data:", data);
+        return [];
+      }
+      
+      return data.filter(msg => {
+        if (!msg) {
+          console.warn("⚠️ Found null/undefined message");
+          return false;
+        }
+        if (!msg.id) {
+          console.warn("⚠️ Found message without id:", msg);
+          return false;
+        }
+        return true;
+      });
     },
     enabled: !!selectedUser?.userId && !!selectedUser?.channelId,
   }) as { data: Message[]; refetch: () => void };
@@ -197,7 +236,23 @@ export default function AgentConsole() {
 
   // Group users by unique conversation (userId + channelId + agentId) to show all conversations
   const groupedUsers = useMemo(() => {
-    const validUsers = (users || []).filter(user => user?.userId && user?.channelId && user?.agentId);
+    // Ensure users is always an array and has valid data
+    const safeUsers = Array.isArray(users) ? users : [];
+    console.log("🔄 Processing users for grouping:", safeUsers.length, "users");
+    
+    const validUsers = safeUsers.filter(user => {
+      if (!user) {
+        console.warn("⚠️ Skipping null/undefined user in grouping");
+        return false;
+      }
+      if (!user.userId || !user.channelId || !user.agentId) {
+        console.warn("⚠️ Skipping user with missing required fields:", user);
+        return false;
+      }
+      return true;
+    });
+    
+    console.log("✅ Valid users for grouping:", validUsers.length);
     
     return validUsers.reduce((acc, user) => {
       const conversationKey = `${user.userId}-${user.channelId}-${user.agentId}`;
@@ -290,11 +345,12 @@ export default function AgentConsole() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  const uniqueChannelTypes = useMemo(() => 
-    allChannelTypes.filter(channelType => 
-      channelType?.id && users?.some(u => u?.channelType === channelType.id)
-    ), [users]
-  );
+  const uniqueChannelTypes = useMemo(() => {
+    const safeUsers = Array.isArray(users) ? users : [];
+    return allChannelTypes.filter(channelType => 
+      channelType?.id && safeUsers.some(u => u?.channelType === channelType.id)
+    );
+  }, [users]);
 
   return (
     <DashboardLayout>
@@ -315,7 +371,7 @@ export default function AgentConsole() {
                 <Dot className="w-3 h-3 text-green-500 animate-pulse" />
                 <span>Real-time WebSocket</span>
               </div>
-              <span>{Array.isArray(users) ? users.filter(u => u?.isOnline)?.length || 0 : 0} Active Conversations</span>
+              <span>{Array.isArray(users) ? users.filter(u => u && u.isOnline).length : 0} Active Conversations</span>
             </div>
           </div>
 
@@ -375,7 +431,7 @@ export default function AgentConsole() {
                     const isSelected = selectedUser?.userId === user.userId && 
                                      selectedUser?.channelId === user.channelId && 
                                      selectedUser?.agentId === user.agentId;
-                    const userConversations = users?.filter(u => u?.userId === user.userId) ?? [];
+                    const userConversations = Array.isArray(users) ? users.filter(u => u && u.userId === user.userId) : [];
 
                     return (
                       <div key={`${user.userId}-${user.channelId}-${user.agentId}`}>
