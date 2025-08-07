@@ -352,7 +352,20 @@ export default function AgentChatbots() {
 
                 {/* Documents */}
                 <div className="pt-3 border-t border-gray-100">
-                  <AgentDocumentList agentId={agent.id} />
+                  {/* Conditionally render AgentDocumentList only when agent is expanded */}
+                  <div onClick={() => {
+                    setExpandedAgents(prev => {
+                      const next = new Set(prev);
+                      if (next.has(agent.id)) {
+                        next.delete(agent.id);
+                      } else {
+                        next.add(agent.id);
+                      }
+                      return next;
+                    });
+                  }} className="cursor-pointer">
+                    <AgentDocumentList agentId={agent.id} />
+                  </div>
                 </div>
 
                 {/* Stats */}

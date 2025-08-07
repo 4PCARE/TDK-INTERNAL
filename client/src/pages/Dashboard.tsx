@@ -48,11 +48,13 @@ export default function Dashboard() {
   const { data: documents = [] } = useQuery({
     queryKey: ["/api/documents"],
     enabled: isAuthenticated,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   }) as { data: Array<any> };
 
   const { data: stats } = useQuery({
     queryKey: ["/api/stats"],
     enabled: isAuthenticated,
+    staleTime: 2 * 60 * 1000, // 2 minutes
   }) as { data: { totalDocuments: number } | undefined };
 
   // Upload mutation with progress tracking

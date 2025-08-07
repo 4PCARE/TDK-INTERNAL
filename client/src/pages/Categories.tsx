@@ -57,11 +57,14 @@ export default function Categories() {
   const { data: categories, isLoading: categoriesLoading } = useQuery({
     queryKey: ["/api/categories"],
     retry: false,
+    staleTime: 10 * 60 * 1000, // 10 minutes - categories change infrequently
   });
 
   const { data: documents } = useQuery({
     queryKey: ["/api/documents"],
     retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: isAuthenticated, // Only fetch when authenticated
   });
 
   const createCategoryMutation = useMutation({
