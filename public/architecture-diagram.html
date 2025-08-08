@@ -1,0 +1,376 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-KMS Architecture Diagram</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .architecture-svg {
+            width: 100%;
+            height: auto;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            background: #fafbfc;
+        }
+        
+        .layer {
+            opacity: 0.9;
+            transition: opacity 0.3s;
+        }
+        
+        .layer:hover {
+            opacity: 1;
+        }
+        
+        .component {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .component:hover {
+            filter: brightness(1.1);
+            transform: scale(1.02);
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            max-width: 250px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        
+        .legend {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏗️ AI-KMS Infrastructure Architecture</h1>
+        
+        <svg class="architecture-svg" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+            <!-- Background layers -->
+            <defs>
+                <linearGradient id="frontendGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#4facfe"/>
+                    <stop offset="100%" style="stop-color:#00f2fe"/>
+                </linearGradient>
+                <linearGradient id="backendGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#43e97b"/>
+                    <stop offset="100%" style="stop-color:#38f9d7"/>
+                </linearGradient>
+                <linearGradient id="aiGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#fa709a"/>
+                    <stop offset="100%" style="stop-color:#fee140"/>
+                </linearGradient>
+                <linearGradient id="dataGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#667eea"/>
+                    <stop offset="100%" style="stop-color:#764ba2"/>
+                </linearGradient>
+            </defs>
+            
+            <!-- Frontend Layer -->
+            <g class="layer" data-layer="frontend">
+                <rect x="50" y="50" width="280" height="180" rx="15" fill="url(#frontendGradient)" opacity="0.2"/>
+                <text x="190" y="40" text-anchor="middle" font-weight="bold" font-size="16" fill="#2563eb">Frontend Layer</text>
+                
+                <!-- React Components -->
+                <rect x="70" y="70" width="80" height="40" rx="8" fill="#61dafb" class="component" data-tooltip="React 18 + TypeScript - Modern component architecture"/>
+                <text x="110" y="93" text-anchor="middle" font-size="12" font-weight="bold">React 18</text>
+                
+                <rect x="160" y="70" width="80" height="40" rx="8" fill="#38bdf8" class="component" data-tooltip="Tailwind CSS + shadcn/ui - Beautiful, responsive UI components"/>
+                <text x="200" y="93" text-anchor="middle" font-size="12" font-weight="bold">Tailwind</text>
+                
+                <rect x="250" y="70" width="70" height="40" rx="8" fill="#ff6b6b" class="component" data-tooltip="TanStack Query - Powerful data fetching and caching"/>
+                <text x="285" y="93" text-anchor="middle" font-size="12" font-weight="bold">Query</text>
+                
+                <rect x="70" y="120" width="80" height="40" rx="8" fill="#ffd93d" class="component" data-tooltip="Wouter - Minimalist router for React"/>
+                <text x="110" y="143" text-anchor="middle" font-size="12" font-weight="bold">Wouter</text>
+                
+                <rect x="160" y="120" width="80" height="40" rx="8" fill="#646cff" class="component" data-tooltip="Vite - Lightning fast build tool"/>
+                <text x="200" y="143" text-anchor="middle" font-size="12" font-weight="bold">Vite</text>
+                
+                <rect x="250" y="120" width="70" height="40" rx="8" fill="#22c55e" class="component" data-tooltip="WebSocket - Real-time communication"/>
+                <text x="285" y="143" text-anchor="middle" font-size="11" font-weight="bold">WebSocket</text>
+            </g>
+            
+            <!-- Backend Layer -->
+            <g class="layer" data-layer="backend">
+                <rect x="380" y="50" width="380" height="180" rx="15" fill="url(#backendGradient)" opacity="0.2"/>
+                <text x="570" y="40" text-anchor="middle" font-weight="bold" font-size="16" fill="#059669">Backend Layer</text>
+                
+                <!-- Node.js & Express -->
+                <rect x="400" y="70" width="100" height="40" rx="8" fill="#339933" class="component" data-tooltip="Node.js + Express - Server runtime and web framework"/>
+                <text x="450" y="93" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Node + Express</text>
+                
+                <!-- Authentication -->
+                <rect x="510" y="70" width="120" height="40" rx="8" fill="#4285f4" class="component" data-tooltip="Multi-provider auth: Replit Auth + Microsoft Azure AD"/>
+                <text x="570" y="93" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Smart Auth</text>
+                
+                <rect x="640" y="70" width="100" height="40" rx="8" fill="#8b5cf6" class="component" data-tooltip="Session management with PostgreSQL store"/>
+                <text x="690" y="93" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Sessions</text>
+                
+                <!-- API Services -->
+                <rect x="400" y="120" width="90" height="40" rx="8" fill="#f97316" class="component" data-tooltip="Document processing pipeline with multiple parsers"/>
+                <text x="445" y="143" text-anchor="middle" font-size="11" font-weight="bold" fill="white">Doc Processing</text>
+                
+                <rect x="500" y="120" width="90" height="40" rx="8" fill="#e11d48" class="component" data-tooltip="LINE Official Account integration"/>
+                <text x="545" y="143" text-anchor="middle" font-size="12" font-weight="bold" fill="white">LINE API</text>
+                
+                <rect x="600" y="120" width="90" height="40" rx="8" fill="#0891b2" class="component" data-tooltip="Embeddable chat widgets"/>
+                <text x="645" y="143" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Widgets</text>
+                
+                <rect x="400" y="170" width="120" height="40" rx="8" fill="#7c3aed" class="component" data-tooltip="Hybrid search: Vector + Keyword with Thai support"/>
+                <text x="460" y="193" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Search Engine</text>
+                
+                <rect x="530" y="170" width="110" height="40" rx="8" fill="#dc2626" class="component" data-tooltip="WebSocket server for real-time features"/>
+                <text x="585" y="193" text-anchor="middle" font-size="12" font-weight="bold" fill="white">WebSocket Server</text>
+                
+                <rect x="650" y="170" width="90" height="40" rx="8" fill="#059669" class="component" data-tooltip="Drizzle ORM for PostgreSQL"/>
+                <text x="695" y="193" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Drizzle ORM</text>
+            </g>
+            
+            <!-- AI & ML Layer -->
+            <g class="layer" data-layer="ai">
+                <rect x="50" y="280" width="500" height="200" rx="15" fill="url(#aiGradient)" opacity="0.2"/>
+                <text x="300" y="270" text-anchor="middle" font-weight="bold" font-size="16" fill="#dc2626">AI & ML Services</text>
+                
+                <!-- OpenAI Services -->
+                <rect x="70" y="300" width="100" height="50" rx="8" fill="#00a67e" class="component" data-tooltip="GPT-4 for text processing, summarization, Q&A"/>
+                <text x="120" y="328" text-anchor="middle" font-size="12" font-weight="bold" fill="white">GPT-4 LLM</text>
+                
+                <rect x="180" y="300" width="100" height="50" rx="8" fill="#ff6b35" class="component" data-tooltip="GPT-4 Vision for image analysis and OCR"/>
+                <text x="230" y="328" text-anchor="middle" font-size="12" font-weight="bold" fill="white">GPT-4 Vision</text>
+                
+                <rect x="290" y="300" width="120" height="50" rx="8" fill="#4338ca" class="component" data-tooltip="text-embedding-3-small for vector search"/>
+                <text x="350" y="328" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Embeddings API</text>
+                
+                <rect x="420" y="300" width="110" height="50" rx="8" fill="#7c2d12" class="component" data-tooltip="Advanced PDF parsing and extraction"/>
+                <text x="475" y="328" text-anchor="middle" font-size="12" font-weight="bold" fill="white">LlamaParse</text>
+                
+                <!-- Processing Pipeline -->
+                <rect x="70" y="360" width="130" height="40" rx="8" fill="#f59e0b" class="component" data-tooltip="textract, mammoth, xlsx parsers"/>
+                <text x="135" y="383" text-anchor="middle" font-size="12" font-weight="bold">Document Parsers</text>
+                
+                <rect x="210" y="360" width="120" height="40" rx="8" fill="#8b5cf6" class="component" data-tooltip="Tesseract.js for OCR processing"/>
+                <text x="270" y="383" text-anchor="middle" font-size="12" font-weight="bold" fill="white">OCR Engine</text>
+                
+                <rect x="340" y="360" width="120" height="40" rx="8" fill="#e11d48" class="component" data-tooltip="Custom Thai text segmentation"/>
+                <text x="400" y="383" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Thai Processor</text>
+                
+                <rect x="70" y="410" width="200" height="40" rx="8" fill="#059669" class="component" data-tooltip="Vector similarity search with embedding storage"/>
+                <text x="170" y="433" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Vector Search Engine</text>
+                
+                <rect x="280" y="410" width="160" height="40" rx="8" fill="#7c3aed" class="component" data-tooltip="AI-powered query expansion and processing"/>
+                <text x="360" y="433" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Query Preprocessor</text>
+            </g>
+            
+            <!-- Database & Storage Layer -->
+            <g class="layer" data-layer="database">
+                <rect x="600" y="280" width="300" height="200" rx="15" fill="url(#dataGradient)" opacity="0.2"/>
+                <text x="750" y="270" text-anchor="middle" font-weight="bold" font-size="16" fill="#4338ca">Data & Storage</text>
+                
+                <!-- PostgreSQL -->
+                <rect x="620" y="300" width="120" height="60" rx="8" fill="#336791" class="component" data-tooltip="Primary database - Neon PostgreSQL in production"/>
+                <text x="680" y="335" text-anchor="middle" font-size="12" font-weight="bold" fill="white">PostgreSQL</text>
+                <text x="680" y="348" text-anchor="middle" font-size="10" fill="white">(Neon Cloud)</text>
+                
+                <!-- File Storage -->
+                <rect x="750" y="300" width="130" height="60" rx="8" fill="#0891b2" class="component" data-tooltip="Local filesystem storage for uploads"/>
+                <text x="815" y="335" text-anchor="middle" font-size="12" font-weight="bold" fill="white">File Storage</text>
+                <text x="815" y="348" text-anchor="middle" font-size="10" fill="white">(/uploads)</text>
+                
+                <!-- Vector Storage -->
+                <rect x="620" y="370" width="120" height="40" rx="8" fill="#ec4899" class="component" data-tooltip="In-memory vector storage (needs Redis for scaling)"/>
+                <text x="680" y="393" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Vector Store</text>
+                
+                <!-- Cache & Sessions -->
+                <rect x="750" y="370" width="130" height="40" rx="8" fill="#f59e0b" class="component" data-tooltip="Session storage with connect-pg-simple"/>
+                <text x="815" y="393" text-anchor="middle" font-size="12" font-weight="bold">Session Store</text>
+                
+                <!-- Audit Logs -->
+                <rect x="620" y="420" width="120" height="40" rx="8" fill="#7c2d12" class="component" data-tooltip="Database-tracked user actions and system events"/>
+                <text x="680" y="443" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Audit Logs</text>
+                
+                <rect x="750" y="420" width="130" height="40" rx="8" fill="#059669" class="component" data-tooltip="User analytics and feedback collection"/>
+                <text x="815" y="443" text-anchor="middle" font-size="12" font-weight="bold" fill="white">Analytics</text>
+            </g>
+            
+            <!-- External Services -->
+            <g class="layer" data-layer="external">
+                <rect x="50" y="520" width="850" height="120" rx="15" fill="#f3f4f6" opacity="0.8" stroke="#d1d5db" stroke-width="2"/>
+                <text x="475" y="510" text-anchor="middle" font-weight="bold" font-size="16" fill="#374151">External Integrations</text>
+                
+                <rect x="70" y="540" width="100" height="40" rx="8" fill="#00d4aa" class="component" data-tooltip="LINE Official Account messaging platform"/>
+                <text x="120" y="563" text-anchor="middle" font-size="12" font-weight="bold">LINE OA</text>
+                
+                <rect x="180" y="540" width="100" height="40" rx="8" fill="#f97316" class="component" data-tooltip="Replit authentication provider"/>
+                <text x="230" y="563" text-anchor="middle" font-size="12" font-weight="bold">Replit Auth</text>
+                
+                <rect x="290" y="540" width="100" height="40" rx="8" fill="#0078d4" class="component" data-tooltip="Microsoft Azure Active Directory"/>
+                <text x="340" y="563" text-anchor="middle" font-size="12" font-weight="bold">Azure AD</text>
+                
+                <rect x="400" y="540" width="100" height="40" rx="8" fill="#00a67e" class="component" data-tooltip="OpenAI API services"/>
+                <text x="450" y="563" text-anchor="middle" font-size="12" font-weight="bold">OpenAI API</text>
+                
+                <rect x="510" y="540" width="100" height="40" rx="8" fill="#7c3aed" class="component" data-tooltip="LlamaParse document processing service"/>
+                <text x="560" y="563" text-anchor="middle" font-size="12" font-weight="bold">LlamaParse</text>
+                
+                <rect x="620" y="540" width="120" height="40" rx="8" fill="#336791" class="component" data-tooltip="Neon Database cloud PostgreSQL"/>
+                <text x="680" y="563" text-anchor="middle" font-size="12" font-weight="bold">Neon Database</text>
+                
+                <rect x="750" y="540" width="130" height="40" rx="8" fill="#6366f1" class="component" data-tooltip="Replit Autoscale deployment platform"/>
+                <text x="815" y="563" text-anchor="middle" font-size="12" font-weight="bold">Replit Deploy</text>
+            </g>
+            
+            <!-- Deployment Info -->
+            <g class="layer" data-layer="deployment">
+                <rect x="50" y="680" width="850" height="80" rx="15" fill="#fef3c7" opacity="0.8" stroke="#f59e0b" stroke-width="2"/>
+                <text x="475" y="670" text-anchor="middle" font-weight="bold" font-size="16" fill="#92400e">🚀 Deployment Architecture</text>
+                
+                <text x="475" y="700" text-anchor="middle" font-size="14" font-weight="bold" fill="#92400e">Replit Autoscale Deployment</text>
+                <text x="230" y="720" text-anchor="middle" font-size="12" fill="#92400e">✅ Auto Load Balancing</text>
+                <text x="400" y="720" text-anchor="middle" font-size="12" fill="#92400e">✅ Horizontal Scaling</text>
+                <text x="570" y="720" text-anchor="middle" font-size="12" fill="#92400e">✅ Global CDN</text>
+                <text x="720" y="720" text-anchor="middle" font-size="12" fill="#92400e">✅ Health Monitoring</text>
+                
+                <text x="475" y="745" text-anchor="middle" font-size="11" fill="#78350f">Port 5000 (Dev) → 80/443 (Production) | Multi-tenant | Real-time Features</text>
+            </g>
+            
+            <!-- Connection Lines -->
+            <g stroke="#94a3b8" stroke-width="2" opacity="0.6">
+                <!-- Frontend to Backend -->
+                <line x1="330" y1="140" x2="380" y2="140"/>
+                
+                <!-- Backend to AI -->
+                <line x1="570" y1="230" x2="300" y2="280"/>
+                
+                <!-- Backend to Database -->
+                <line x1="570" y1="230" x2="750" y2="280"/>
+                
+                <!-- External connections -->
+                <line x1="475" y1="480" x2="475" y2="520"/>
+            </g>
+        </svg>
+        
+        <div class="tooltip" id="tooltip"></div>
+        
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(135deg, #4facfe, #00f2fe);"></div>
+                <span><strong>Frontend Layer:</strong> React, TypeScript, Tailwind CSS</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(135deg, #43e97b, #38f9d7);"></div>
+                <span><strong>Backend Layer:</strong> Node.js, Express, Authentication</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(135deg, #fa709a, #fee140);"></div>
+                <span><strong>AI/ML Services:</strong> OpenAI, Document Processing</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(135deg, #667eea, #764ba2);"></div>
+                <span><strong>Data Layer:</strong> PostgreSQL, File Storage, Analytics</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #f3f4f6;"></div>
+                <span><strong>External Services:</strong> Third-party integrations</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #fef3c7;"></div>
+                <span><strong>Deployment:</strong> Replit Autoscale with load balancing</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Tooltip functionality
+        const tooltip = document.getElementById('tooltip');
+        const components = document.querySelectorAll('.component');
+        
+        components.forEach(component => {
+            component.addEventListener('mouseenter', (e) => {
+                const tooltipText = e.target.getAttribute('data-tooltip');
+                if (tooltipText) {
+                    tooltip.innerHTML = tooltipText;
+                    tooltip.style.opacity = '1';
+                }
+            });
+            
+            component.addEventListener('mousemove', (e) => {
+                tooltip.style.left = e.pageX + 10 + 'px';
+                tooltip.style.top = e.pageY + 10 + 'px';
+            });
+            
+            component.addEventListener('mouseleave', () => {
+                tooltip.style.opacity = '0';
+            });
+        });
+        
+        // Layer highlighting
+        const layers = document.querySelectorAll('.layer');
+        layers.forEach(layer => {
+            layer.addEventListener('mouseenter', () => {
+                layers.forEach(l => l.style.opacity = '0.3');
+                layer.style.opacity = '1';
+            });
+            
+            layer.addEventListener('mouseleave', () => {
+                layers.forEach(l => l.style.opacity = '0.9');
+            });
+        });
+    </script>
+</body>
+</html>
