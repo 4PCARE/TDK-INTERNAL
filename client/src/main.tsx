@@ -2,4 +2,24 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
+// Register service worker for better caching
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        console.log('SW registered: ', registration);
+      })
+      .catch((registrationError) => {
+        console.log('SW registration failed: ', registrationError);
+      });
+  });
+}
+
+// Handle unhandled promise rejections
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+  // Prevent the default browser behavior
+  event.preventDefault();
+});
+
 createRoot(document.getElementById("root")!).render(<App />);

@@ -4,51 +4,61 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
-import NotFound from "@/pages/not-found";
-import Dashboard from "@/pages/Dashboard";
-import Documents from "@/pages/Documents";
-import Categories from "@/pages/Categories";
-import Upload from "@/pages/Upload";
-import Search from "@/pages/Search";
-import Landing from "@/pages/Landing";
-import Admin from "@/pages/Admin";
-import CreateAgentChatbot from "@/pages/CreateAgentChatbot";
-import AgentChatbots from "@/pages/AgentChatbots";
-import AgentConsole from "@/pages/AgentConsole";
-import Integrations from "@/pages/Integrations";
-import DataConnections from "./pages/DataConnections";
-import LineConfiguration from "@/pages/LineConfiguration";
-import Settings from "@/pages/Settings";
-import UserManagement from "@/pages/UserManagement";
-import RoleManagement from "@/pages/RoleManagement";
-import AuditMonitoring from "@/pages/AuditMonitoring";
-import MeetingNotes from "@/pages/MeetingNotes";
-import LiveChatWidget from "@/pages/LiveChatWidget";
-import Survey from "@/pages/Survey";
-import DocumentUsage from "@/pages/dashboards/DocumentUsage";
-import AIInteraction from "@/pages/dashboards/AIInteraction";
-import UserActivity from "@/pages/dashboards/UserActivity";
-import SystemHealth from "@/pages/dashboards/SystemHealth";
-import SecurityGovernance from "@/pages/dashboards/SecurityGovernance";
-import CustomerSurvey from "@/pages/dashboards/CustomerSurvey";
-import UserFeedback from "@/pages/dashboards/UserFeedback";
-import AiResponseAnalysis from "@/pages/dashboards/AiResponseAnalysis";
-import OmnichannelSummarization from "@/pages/dashboards/OmnichannelSummarization";
-import AIAssistant from "@/pages/AIAssistant";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { Suspense, lazy } from "react";
+
+// Lazy load components to reduce initial bundle size
+const NotFound = lazy(() => import("@/pages/not-found"));
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Documents = lazy(() => import("@/pages/Documents"));
+const Categories = lazy(() => import("@/pages/Categories"));
+const Upload = lazy(() => import("@/pages/Upload"));
+const Search = lazy(() => import("@/pages/Search"));
+const Landing = lazy(() => import("@/pages/Landing"));
+const Admin = lazy(() => import("@/pages/Admin"));
+const CreateAgentChatbot = lazy(() => import("@/pages/CreateAgentChatbot"));
+const AgentChatbots = lazy(() => import("@/pages/AgentChatbots"));
+const AgentConsole = lazy(() => import("@/pages/AgentConsole"));
+const Integrations = lazy(() => import("@/pages/Integrations"));
+const DataConnections = lazy(() => import("./pages/DataConnections"));
+const LineConfiguration = lazy(() => import("@/pages/LineConfiguration"));
+const Settings = lazy(() => import("@/pages/Settings"));
+const UserManagement = lazy(() => import("@/pages/UserManagement"));
+const RoleManagement = lazy(() => import("@/pages/RoleManagement"));
+const AuditMonitoring = lazy(() => import("@/pages/AuditMonitoring"));
+const MeetingNotes = lazy(() => import("@/pages/MeetingNotes"));
+const LiveChatWidget = lazy(() => import("@/pages/LiveChatWidget"));
+const Survey = lazy(() => import("@/pages/Survey"));
+const DocumentUsage = lazy(() => import("@/pages/dashboards/DocumentUsage"));
+const AIInteraction = lazy(() => import("@/pages/dashboards/AIInteraction"));
+const UserActivity = lazy(() => import("@/pages/dashboards/UserActivity"));
+const SystemHealth = lazy(() => import("@/pages/dashboards/SystemHealth"));
+const SecurityGovernance = lazy(() => import("@/pages/dashboards/SecurityGovernance"));
+const CustomerSurvey = lazy(() => import("@/pages/dashboards/CustomerSurvey"));
+const UserFeedback = lazy(() => import("@/pages/dashboards/UserFeedback"));
+const AiResponseAnalysis = lazy(() => import("@/pages/dashboards/AiResponseAnalysis"));
+const OmnichannelSummarization = lazy(() => import("@/pages/dashboards/OmnichannelSummarization"));
+const AIAssistant = lazy(() => import("@/pages/AIAssistant"));
+
+// Loading component
+const LoadingFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+      <p className="text-gray-600">Loading...</p>
+    </div>
+  </div>
+);
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <LoadingFallback />;
   }
 
   return (
-    <>
+    <Suspense fallback={<LoadingFallback />}>
       {!isAuthenticated ? (
         <Switch>
           <Route path="/" component={Landing} />
@@ -102,18 +112,20 @@ function Router() {
           <Route component={NotFound} />
         </Switch>
       )}
-    </>
+    </Suspense>
   );
 }
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
