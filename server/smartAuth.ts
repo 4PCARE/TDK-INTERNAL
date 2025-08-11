@@ -17,8 +17,10 @@ export const smartAuth: RequestHandler = async (req, res, next) => {
     hasUser: !!user,
     hasSessionUser: !!sessionUser,
     sessionPassport: !!(req.session as any)?.passport,
+    sessionData: JSON.stringify((req.session as any)?.passport || {}, null, 2),
     userClaims: user?.claims?.sub,
-    sessionUserClaims: sessionUser?.claims?.sub
+    sessionUserClaims: sessionUser?.claims?.sub,
+    reqUser: req.user ? JSON.stringify(req.user, null, 2).substring(0, 200) : 'null'
   });
 
   if (currentUser?.claims?.sub) {

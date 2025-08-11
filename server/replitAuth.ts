@@ -92,11 +92,19 @@ async function upsertUser(
 
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
-  app.use(getSession());
-  app.use(passport.initialize());
-  app.use(passport.session());
-
+  
   const config = await getOidcConfig();
+
+  // Configure Passport strategies and serialization BEFORE setting up middleware
+  passport.serializeUser((user: Express.User, cb) => {
+    console.log("Serializing user:", (user as any)?.claims?.email);
+    cb(null, user);
+  });
+  
+  passport.deserializeUser((user: Express.User, cb) => {
+    console.log("Deserializing user:", (user as any)?.claims?.email);
+    cb(null, user);
+  });
 
   const verify: VerifyFunction = async (
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
@@ -105,6 +113,7 @@ export async function setupAuth(app: Express) {
     const user = {};
     updateUserSession(user, tokens);
     await upsertUser(tokens.claims());
+    console.log("Verify function completed for user:", tokens.claims().email);
     verified(null, user);
   };
 
@@ -122,15 +131,10 @@ export async function setupAuth(app: Express) {
     passport.use(strategy);
   }
 
-  passport.serializeUser((user: Express.User, cb) => {
-    // Store minimal user info in session to avoid conflicts
-    const sessionUser = {
-      ...(user as any),
-      sessionId: Math.random().toString(36).substring(2, 15) // Unique session identifier
-    };
-    cb(null, sessionUser);
-  });
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+  // Apply middleware after configuration
+  app.use(getSession());
+  app.use(passport.initialize());
+  app.use(passport.session());
 
   app.get("/api/login", (req, res, next) => {
     passport.authenticate(`replitauth:${req.hostname}`, {
