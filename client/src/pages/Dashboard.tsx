@@ -45,19 +45,23 @@ export default function Dashboard() {
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [selectedDocumentSummary, setSelectedDocumentSummary] = useState<string | null>(null);
 
-  const { data: documents = [] } = useQuery({
+  const { data: documents = [], isLoading: isDocumentsLoading, error: documentsError } = useQuery({
     queryKey: ["/api/documents"],
     queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutes
-  }) as { data: Array<any> };
+    retry: 3,
+  }) as { data: Array<any>; isLoading: boolean; error: any };
 
-  const { data: stats, isLoading: isStatsLoading } = useQuery({
+  const { data: stats, isLoading: isStatsLoading, error: statsError } = useQuery({
     queryKey: ["/api/stats"],
     queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: isAuthenticated,
     staleTime: 2 * 60 * 1000, // 2 minutes
-  }) as { data: { totalDocuments: number; processedToday: number; storageUsed: number; aiQueries: number } | undefined; isLoading: boolean };
+    retry: 3,
+  }) as { data: { totalDocuments: number; processedToday: number; storageUsed: number; aiQueries: number } | undefined; isLoading: boolean; error: any };
+
+
 
   // Upload mutation with progress tracking
   const uploadMutation = useMutation({
@@ -177,7 +181,7 @@ export default function Dashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-            <StatsCards stats={stats} isLoading={!isAuthenticated || isLoading || isStatsLoading} />
+            <StatsCards />
 
             {/* Upload and Category Stats Section */}
             <div className="grid lg:grid-cols-2 gap-6">
