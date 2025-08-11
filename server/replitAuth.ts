@@ -43,7 +43,7 @@ export function getSession() {
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
     resave: false, // Don't save session if unmodified
-    saveUninitialized: false, // Don't save uninitialized sessions
+    saveUninitialized: true, // Save uninitialized sessions to ensure session persistence
     rolling: true, // Reset expiration on activity
     name: 'replit.sid', // Custom session name
     genid: function(req) {
@@ -61,7 +61,8 @@ export function getSession() {
       httpOnly: true,
       secure: false, // Always false for Replit environment
       maxAge: sessionTtl,
-      sameSite: 'lax'
+      sameSite: 'lax',
+      path: '/'
     },
   });
 }
@@ -148,6 +149,8 @@ export async function setupAuth(app: Express) {
         try {
           const user = req.user as any;
           const userId = user.claims?.sub;
+          console.log("Authentication callback successful for user:", userId, "Session ID:", req.sessionID);
+          
           if (userId) {
             const { storage } = await import('./storage');
             await storage.createAuditLog({
@@ -163,11 +166,23 @@ export async function setupAuth(app: Express) {
               }
             });
           }
+          
+          // Ensure session is saved before redirecting
+          req.session.save((saveErr) => {
+            if (saveErr) {
+              console.error("Session save error:", saveErr);
+            } else {
+              console.log("Session saved successfully, session ID:", req.sessionID);
+            }
+            next(err);
+          });
         } catch (auditError) {
           console.error("Failed to create audit log for login:", auditError);
+          next(err);
         }
+      } else {
+        next(err);
       }
-      next(err);
     });
   });
 

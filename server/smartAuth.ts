@@ -12,6 +12,15 @@ export const smartAuth: RequestHandler = async (req, res, next) => {
   const sessionUser = (req.session as any)?.passport?.user || (req.session as any)?.user;
   const currentUser = user || sessionUser;
 
+  console.log("Smart auth debug:", {
+    sessionID: req.sessionID,
+    hasUser: !!user,
+    hasSessionUser: !!sessionUser,
+    sessionPassport: !!(req.session as any)?.passport,
+    userClaims: user?.claims?.sub,
+    sessionUserClaims: sessionUser?.claims?.sub
+  });
+
   if (currentUser?.claims?.sub) {
     userId = currentUser.claims.sub;
   }
