@@ -1,6 +1,5 @@
 import * as client from "openid-client";
 import { Strategy, type VerifyFunction } from "openid-client/passport";
-import crypto from "crypto";
 
 import passport from "passport";
 import session from "express-session";
@@ -43,26 +42,14 @@ export function getSession() {
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
     resave: false, // Don't save session if unmodified
-    saveUninitialized: true, // Save uninitialized sessions to ensure session persistence
+    saveUninitialized: false, // Don't save uninitialized sessions
     rolling: true, // Reset expiration on activity
     name: 'replit.sid', // Custom session name
-    genid: function(req) {
-      // Generate unique session IDs that include device fingerprinting
-      const userAgent = req.headers['user-agent'] || '';
-      const forwarded = req.headers['x-forwarded-for'] || req.connection.remoteAddress || '';
-      const deviceFingerprint = crypto
-        .createHash('md5')
-        .update(userAgent + forwarded + Date.now().toString())
-        .digest('hex')
-        .substring(0, 8);
-      return crypto.randomBytes(16).toString('hex') + '_' + deviceFingerprint;
-    },
     cookie: {
       httpOnly: true,
       secure: false, // Always false for Replit environment
       maxAge: sessionTtl,
-      sameSite: 'lax',
-      path: '/'
+      sameSite: 'lax'
     },
   });
 }
@@ -92,19 +79,11 @@ async function upsertUser(
 
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
-  
-  const config = await getOidcConfig();
+  app.use(getSession());
+  app.use(passport.initialize());
+  app.use(passport.session());
 
-  // Configure Passport strategies and serialization BEFORE setting up middleware
-  passport.serializeUser((user: Express.User, cb) => {
-    console.log("Serializing user:", (user as any)?.claims?.email);
-    cb(null, user);
-  });
-  
-  passport.deserializeUser((user: Express.User, cb) => {
-    console.log("Deserializing user:", (user as any)?.claims?.email);
-    cb(null, user);
-  });
+  const config = await getOidcConfig();
 
   const verify: VerifyFunction = async (
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
@@ -113,7 +92,6 @@ export async function setupAuth(app: Express) {
     const user = {};
     updateUserSession(user, tokens);
     await upsertUser(tokens.claims());
-    console.log("Verify function completed for user:", tokens.claims().email);
     verified(null, user);
   };
 
@@ -131,10 +109,8 @@ export async function setupAuth(app: Express) {
     passport.use(strategy);
   }
 
-  // Apply middleware after configuration
-  app.use(getSession());
-  app.use(passport.initialize());
-  app.use(passport.session());
+  passport.serializeUser((user: Express.User, cb) => cb(null, user));
+  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
     passport.authenticate(`replitauth:${req.hostname}`, {
@@ -153,8 +129,6 @@ export async function setupAuth(app: Express) {
         try {
           const user = req.user as any;
           const userId = user.claims?.sub;
-          console.log("Authentication callback successful for user:", userId, "Session ID:", req.sessionID);
-          
           if (userId) {
             const { storage } = await import('./storage');
             await storage.createAuditLog({
@@ -170,23 +144,11 @@ export async function setupAuth(app: Express) {
               }
             });
           }
-          
-          // Ensure session is saved before redirecting
-          req.session.save((saveErr) => {
-            if (saveErr) {
-              console.error("Session save error:", saveErr);
-            } else {
-              console.log("Session saved successfully, session ID:", req.sessionID);
-            }
-            next(err);
-          });
         } catch (auditError) {
           console.error("Failed to create audit log for login:", auditError);
-          next(err);
         }
-      } else {
-        next(err);
       }
+      next(err);
     });
   });
 
@@ -247,15 +209,9 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   
   // If token is still valid, proceed
   if (now <= currentUser.expires_at) {
-    // Update session activity with device-specific touch
+    // Update session activity
     if (req.session) {
       req.session.touch();
-      // Store device info for session management
-      (req.session as any).deviceInfo = {
-        userAgent: req.headers['user-agent'],
-        lastAccess: Date.now(),
-        userId: currentUser.claims?.sub
-      };
     }
     return next();
   }
@@ -272,16 +228,10 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(currentUser, tokenResponse);
     
-    // Update both req.user and session with device-specific data
+    // Update both req.user and session
     req.user = currentUser;
     if (req.session) {
       (req.session as any).passport = { user: currentUser };
-      (req.session as any).deviceInfo = {
-        userAgent: req.headers['user-agent'],
-        lastAccess: Date.now(),
-        userId: currentUser.claims?.sub,
-        refreshed: true
-      };
       req.session.save((err) => {
         if (err) {
           console.error("Failed to save refreshed session:", err);
@@ -289,7 +239,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
       });
     }
     
-    console.log("Token refreshed successfully for user:", currentUser.claims?.email, "on device:", req.headers['user-agent']?.substring(0, 50));
+    console.log("Token refreshed successfully for user:", currentUser.claims?.email);
     return next();
   } catch (error) {
     console.log("Replit auth failed - token refresh failed:", error);

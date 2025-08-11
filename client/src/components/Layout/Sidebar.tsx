@@ -218,19 +218,27 @@ export default function Sidebar({
           {/* Header */}
           <div className="p-4 border-b border-navy-700/50">
             <div className="flex items-center justify-between">
-              {!isCollapsed && (
+              {!isCollapsed ? (
                 <div className="flex items-center space-x-3">
                   <img 
                     src="/tdk-logo.png" 
                     alt="TDK Logo" 
-                    className="w-16 h-16 rounded-lg object-contain bg-white/10 p-2"
+                    className="w-8 h-8 rounded-lg object-contain bg-white/10 p-1"
                   />
                   <div>
-                    <h1 className="text-2xl font-bold text-white">TDK</h1>
-                    <p className="text-base text-navy-300">
+                    <h1 className="text-lg font-bold text-white">TDK</h1>
+                    <p className="text-xs text-navy-300">
                       Knowledge Management
                     </p>
                   </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center w-full">
+                  <img 
+                    src="/tdk-logo.png" 
+                    alt="TDK Logo" 
+                    className="w-6 h-6 rounded object-contain bg-white/10 p-1"
+                  />
                 </div>
               )}
 

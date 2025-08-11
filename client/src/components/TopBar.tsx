@@ -61,19 +61,15 @@ export default function TopBar({ isSidebarCollapsed = false, onMobileMenuToggle 
             alt="Kingpower" 
             className="h-12 w-auto object-contain"
           /> */}
-          <div className="flex items-center space-x-3">
-            <img 
-              src="/tdk-logo.png" 
-              alt="TDK Logo" 
-              className="w-16 h-16 rounded-lg object-contain bg-white/10 p-2"
-            />
+          {isSidebarCollapsed && (
             <div>
-              <h2 className="text-2xl font-bold text-slate-800">TDK</h2>
+              <h2 className="text-xl font-semibold text-slate-800">ถามได้คับ</h2>
               <p className="text-sm text-slate-500 hidden xl:block">
-                Mind of Knowledge, Voice of AI
+                Unleash the power of intelligent knowledge discovery and seamless
+                collaboration.
               </p>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="flex items-center space-x-4">

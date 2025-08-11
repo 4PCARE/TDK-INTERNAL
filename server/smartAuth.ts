@@ -9,37 +9,16 @@ export const smartAuth: RequestHandler = async (req, res, next) => {
 
   // Check if user is authenticated with either method
   const user = req.user as any;
-  const sessionUser = (req.session as any)?.passport?.user || (req.session as any)?.user;
+  const sessionUser = (req.session as any)?.passport?.user;
   const currentUser = user || sessionUser;
-
-  console.log("Smart auth debug:", {
-    sessionID: req.sessionID,
-    hasUser: !!user,
-    hasSessionUser: !!sessionUser,
-    sessionPassport: !!(req.session as any)?.passport,
-    sessionData: JSON.stringify((req.session as any)?.passport || {}, null, 2),
-    userClaims: user?.claims?.sub,
-    sessionUserClaims: sessionUser?.claims?.sub,
-    reqUser: req.user ? JSON.stringify(req.user, null, 2).substring(0, 200) : 'null'
-  });
 
   if (currentUser?.claims?.sub) {
     userId = currentUser.claims.sub;
   }
 
   if (!userId) {
-    console.log("Smart auth: No user ID found, unauthorized - Session ID:", req.sessionID);
+    console.log("Smart auth: No user ID found, unauthorized");
     return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  // Log device info for debugging multi-device issues
-  const deviceInfo = (req.session as any)?.deviceInfo;
-  if (deviceInfo) {
-    console.log(`Smart auth: Device session for user ${userId}:`, {
-      lastAccess: new Date(deviceInfo.lastAccess).toISOString(),
-      userAgent: deviceInfo.userAgent?.substring(0, 50),
-      authMethod: deviceInfo.authMethod
-    });
   }
 
   try {

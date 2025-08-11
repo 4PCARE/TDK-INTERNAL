@@ -27,7 +27,7 @@ import StatsCards from "@/components/Stats/StatsCards";
 import CategoryStatsCards from "@/components/Stats/CategoryStatsCards";
 import UploadZone from "@/components/Upload/UploadZone";
 import ChatModal from "@/components/Chat/ChatModal";
-import { apiRequest, getQueryFn } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 
 interface UploadFile {
   file: File;
@@ -45,23 +45,17 @@ export default function Dashboard() {
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [selectedDocumentSummary, setSelectedDocumentSummary] = useState<string | null>(null);
 
-  const { data: documents = [], isLoading: isDocumentsLoading, error: documentsError } = useQuery({
+  const { data: documents = [] } = useQuery({
     queryKey: ["/api/documents"],
-    queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: 3,
-  }) as { data: Array<any>; isLoading: boolean; error: any };
+  }) as { data: Array<any> };
 
-  const { data: stats, isLoading: isStatsLoading, error: statsError } = useQuery({
+  const { data: stats } = useQuery({
     queryKey: ["/api/stats"],
-    queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: isAuthenticated,
     staleTime: 2 * 60 * 1000, // 2 minutes
-    retry: 3,
-  }) as { data: { totalDocuments: number; processedToday: number; storageUsed: number; aiQueries: number } | undefined; isLoading: boolean; error: any };
-
-
+  }) as { data: { totalDocuments: number } | undefined };
 
   // Upload mutation with progress tracking
   const uploadMutation = useMutation({
