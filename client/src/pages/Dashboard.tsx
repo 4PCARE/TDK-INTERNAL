@@ -52,12 +52,12 @@ export default function Dashboard() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   }) as { data: Array<any> };
 
-  const { data: stats } = useQuery({
+  const { data: stats, isLoading: isStatsLoading } = useQuery({
     queryKey: ["/api/stats"],
     queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: isAuthenticated,
     staleTime: 2 * 60 * 1000, // 2 minutes
-  }) as { data: { totalDocuments: number } | undefined };
+  }) as { data: { totalDocuments: number; processedToday: number; storageUsed: number; aiQueries: number } | undefined; isLoading: boolean };
 
   // Upload mutation with progress tracking
   const uploadMutation = useMutation({
@@ -177,7 +177,7 @@ export default function Dashboard() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-            <StatsCards />
+            <StatsCards stats={stats} isLoading={!isAuthenticated || isLoading || isStatsLoading} />
 
             {/* Upload and Category Stats Section */}
             <div className="grid lg:grid-cols-2 gap-6">

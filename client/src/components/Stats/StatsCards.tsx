@@ -1,12 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { FileText, CheckCircle, HardDrive, Bot, TrendingUp } from "lucide-react";
 import { MessageSquare } from "lucide-react"; // Import MessageSquare for AI Queries icon
 
-export default function StatsCards() {
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ["/api/stats"],
-  });
+interface StatsCardsProps {
+  stats?: {
+    totalDocuments: number;
+    processedToday: number;
+    storageUsed: number;
+    aiQueries: number;
+  };
+  isLoading?: boolean;
+}
+
+export default function StatsCards({ stats, isLoading }: StatsCardsProps) {
 
   // Mock conversations data (in a real app, this would also come from an API call)
   // For demonstration purposes, let's assume we have some conversation data.
