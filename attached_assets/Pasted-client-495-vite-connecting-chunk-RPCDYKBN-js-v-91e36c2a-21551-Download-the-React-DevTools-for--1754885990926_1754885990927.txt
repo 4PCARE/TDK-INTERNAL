@@ -1,0 +1,28 @@
+client:495 [vite] connecting...
+chunk-RPCDYKBN.js?v=91e36c2a:21551 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+main.tsx:10 SW registered:  ServiceWorkerRegistration {installing: null, waiting: null, active: ServiceWorker, navigationPreload: NavigationPreloadManager, scope: 'https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/', …}
+client:536 WebSocket connection to 'wss://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/?token=QhPLXaiVdVKO' failed: 
+setupWebSocket @ client:536
+(anonymous) @ client:531
+main.tsx:20 Unhandled promise rejection: SyntaxError: Failed to construct 'WebSocket': The URL 'wss://localhost:undefined/?token=QhPLXaiVdVKO' is invalid.
+    at setupWebSocket (client:536:19)
+    at fallback (client:509:16)
+    at WebSocket.<anonymous> (client:555:7)
+(anonymous) @ main.tsx:20
+embed.js?v=1754885974852:554 🚀 Starting widget initialization...
+embed.js?v=1754885974852:555 🔑 Widget Key: YmnYTsTPY0A1HG-Z
+embed.js?v=1754885974852:556 🌐 Base URL: https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev
+embed.js?v=1754885974852:562 🆔 Generated sessionId: visitor_9tq3txenhme6llrwi
+DashboardLayout.tsx:32 ✅ Ask HR V5 widget loaded in dashboard
+embed.js?v=1754885974852:42 Widget config loaded: {name: 'Ask HR V5', welcomeMessage: 'Hi! How can I help you today?', primaryColor: '#2563eb', textColor: '#ffffff', position: 'bottom-right'}
+embed.js?v=1754885974852:486 📚 Loading chat history for session: visitor_9tq3txenhme6llrwi
+embed.js?v=1754885974852:492 📚 Retrieved chat history: {messages: Array(0)}
+embed.js?v=1754885974852:282 🔄 Processing AI/Agent message: Hi! How can I help you today?
+embed.js?v=1754885974852:53 🔍 Input text: Hi! How can I help you today?
+embed.js?v=1754885974852:61 🔒 Escaped text: Hi! How can I help you today?
+embed.js?v=1754885974852:65 💪 After bold processing: Hi! How can I help you today?
+embed.js?v=1754885974852:72 📋 After numbered lists: Hi! How can I help you today?
+embed.js?v=1754885974852:79 🔹 After bullet points: Hi! How can I help you today?
+embed.js?v=1754885974852:94 ✨ Final result: <p style="margin: 0; line-height: 1.6;">Hi! How can I help you today?</p>
+embed.js?v=1754885974852:295 ✅ Final parsed result: <p style="margin: 0; line-height: 1.6;">Hi! How can I help you today?</p>
+embed.js?v=1754885974852:407 🔗 Widget WebSocket connected
