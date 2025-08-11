@@ -666,7 +666,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/stats", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      console.log(`📊 Stats API called for user: ${userId}`);
+      
       const stats = await storage.getUserStats(userId);
+      console.log(`📊 User ${userId} stats:`, stats);
+      
       res.json(stats);
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -1433,6 +1437,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/documents", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      console.log(`📄 Documents API called for user: ${userId}`);
+      
       const categoryId = req.query.categoryId
         ? parseInt(req.query.categoryId as string)
         : undefined;
@@ -1448,6 +1454,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         limit,
         offset,
       });
+      
+      console.log(`📄 Found ${documents.length} documents for user ${userId}`);
       res.json(documents);
     } catch (error) {
       console.error("Error fetching documents:", error);
