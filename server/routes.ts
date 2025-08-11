@@ -735,9 +735,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Category statistics endpoint
-  app.get("/api/stats/categories", isAuthenticated, async (req: any, res) => {
+  app.get("/api/stats/categories", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      console.log(`📊 Category Stats API called for user: ${userId}`);
       const { documents } = await import("@shared/schema");
       const { sql } = await import("drizzle-orm");
 
@@ -751,6 +752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .groupBy(documents.aiCategory)
         .orderBy(sql`count(${documents.id}) desc`);
 
+      console.log(`📊 User ${userId} category stats:`, categoryStats);
       res.json(categoryStats);
     } catch (error) {
       console.error("Error fetching category stats:", error);

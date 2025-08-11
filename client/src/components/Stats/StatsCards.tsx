@@ -6,16 +6,19 @@ import { getQueryFn } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function StatsCards() {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading, error } = useQuery({
     queryKey: ["/api/stats"],
     queryFn: getQueryFn({ on401: "returnNull" }),
-    enabled: isAuthenticated,
-    staleTime: 30 * 1000, // 30 seconds cache
+    enabled: !!user && isAuthenticated, // Wait for both user and auth status
+    staleTime: 0, // No cache to force fresh data
     retry: 3,
     refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
+
+
 
   // Mock conversations data (in a real app, this would also come from an API call)
   // For demonstration purposes, let's assume we have some conversation data.

@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Folder, TrendingUp, BarChart3 } from "lucide-react";
+import { getQueryFn } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 
 interface CategoryStat {
   category: string;
@@ -47,9 +49,18 @@ const getCategoryColor = (category: string) => {
 };
 
 export default function CategoryStatsCards() {
+  const { user, isAuthenticated } = useAuth();
+  
   const { data: categoryStats = [], isLoading } = useQuery({
     queryKey: ["/api/stats/categories"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    enabled: !!user && isAuthenticated, // Wait for both user and auth status
+    staleTime: 0, // No cache to force fresh data
+    retry: 3,
+    refetchOnMount: true,
   });
+
+
 
   if (isLoading) {
     return (
