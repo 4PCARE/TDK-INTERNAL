@@ -27,7 +27,7 @@ import StatsCards from "@/components/Stats/StatsCards";
 import CategoryStatsCards from "@/components/Stats/CategoryStatsCards";
 import UploadZone from "@/components/Upload/UploadZone";
 import ChatModal from "@/components/Chat/ChatModal";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
 
 interface UploadFile {
   file: File;
@@ -47,12 +47,14 @@ export default function Dashboard() {
 
   const { data: documents = [] } = useQuery({
     queryKey: ["/api/documents"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutes
   }) as { data: Array<any> };
 
   const { data: stats } = useQuery({
     queryKey: ["/api/stats"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
     enabled: isAuthenticated,
     staleTime: 2 * 60 * 1000, // 2 minutes
   }) as { data: { totalDocuments: number } | undefined };
