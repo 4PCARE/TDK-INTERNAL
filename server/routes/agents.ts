@@ -289,12 +289,14 @@ export function registerAgentRoutes(app: Express) {
       // Import chatService and generate response
       const { chatService } = await import("../services/agentChatService");
 
-      const response = await chatService.generateAgentResponse(
+      // Use generateResponseWithConfig for testing with agent configuration
+      const response = await chatService.generateResponseWithConfig(
         message.trim(),
         agentConfig,
         userId,
         `test_${Date.now()}`,
         documentIds,
+        chatHistory
       );
 
       res.json({
