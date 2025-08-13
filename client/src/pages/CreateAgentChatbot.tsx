@@ -557,12 +557,23 @@ export default function CreateAgentChatbot() {
     }
 
     const currentFormData = form.getValues();
+    console.log("🧪 Current form data for testing:", currentFormData);
 
     // Basic validation for required fields
     if (!currentFormData.name || !currentFormData.personality || !currentFormData.profession || !currentFormData.responseStyle) {
       toast({
         title: "Error",
         description: "Please fill in all required fields in Overview tab before testing",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate system prompt
+    if (!currentFormData.systemPrompt || currentFormData.systemPrompt.trim().length === 0) {
+      toast({
+        title: "Error",
+        description: "System prompt is required for testing",
         variant: "destructive",
       });
       return;
@@ -576,9 +587,17 @@ export default function CreateAgentChatbot() {
       guardrailsConfig: guardrailsConfig, // Include guardrails config for testing
     };
 
-    console.log("Starting test agent with:", { message: testMessage, config: testConfigData, documents: selectedDocuments });
-    console.log("Guardrails enabled for test:", currentFormData.guardrailsEnabled);
-    console.log("Guardrails config for test:", guardrailsConfig);
+    console.log("🚀 Starting test agent with:", { 
+      message: testMessage, 
+      config: {
+        name: testConfigData.name,
+        personality: testConfigData.personality,
+        profession: testConfigData.profession,
+        systemPrompt: testConfigData.systemPrompt?.substring(0, 100) + "...",
+        guardrailsEnabled: testConfigData.guardrailsEnabled
+      }, 
+      documents: selectedDocuments 
+    });
 
     setIsTestingAgent(true);
 
@@ -596,6 +615,7 @@ export default function CreateAgentChatbot() {
     testAgentMutation.mutate({
       message: testMessage,
       agentConfig: testConfigData,
+      documentIds: selectedDocuments,
       chatHistory: isTestChatMode ? recentHistory : undefined,
     });
   };

@@ -259,6 +259,63 @@ export function registerAgentRoutes(app: Express) {
     }
   });
 
+  // Agent test-chat endpoint (for testing during creation/editing)
+  app.post("/api/agent-chatbots/test-chat", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { message, agentConfig, documentIds = [], chatHistory = [] } = req.body;
+
+      if (!message || message.trim().length === 0) {
+        return res.status(400).json({ message: "Message is required" });
+      }
+
+      if (!agentConfig) {
+        return res.status(400).json({ message: "Agent configuration is required" });
+      }
+
+      // Validate required agent config fields
+      if (!agentConfig.name || !agentConfig.personality || !agentConfig.profession || !agentConfig.responseStyle) {
+        return res.status(400).json({ message: "Missing required agent configuration fields" });
+      }
+
+      console.log("🧪 Testing agent with config:", {
+        name: agentConfig.name,
+        personality: agentConfig.personality,
+        profession: agentConfig.profession,
+        documentsCount: documentIds.length,
+        guardrailsEnabled: agentConfig.guardrailsEnabled,
+        memoryEnabled: agentConfig.memoryEnabled
+      });
+
+      // Import chat service and generate response using the provided config
+      const { chatService } = await import("../services/widgetChatService");
+
+      const response = await chatService.generateResponseWithConfig({
+        message: message.trim(),
+        agentConfig: agentConfig,
+        documentIds: documentIds,
+        userId: userId,
+        sessionId: `test_${Date.now()}`,
+        chatHistory: chatHistory,
+        isTest: true
+      });
+
+      res.json({
+        success: true,
+        response: response.message,
+        sources: response.sources || [],
+        responseTime: response.responseTime || 0
+      });
+
+    } catch (error) {
+      console.error("Error testing agent:", error);
+      res.status(500).json({
+        message: "Failed to test agent",
+        error: error.message
+      });
+    }
+  });
+
   // Agent testing endpoint
   app.post("/api/agent-chatbots/:id/test", isAuthenticated, async (req: any, res) => {
     try {

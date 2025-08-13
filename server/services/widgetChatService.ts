@@ -189,14 +189,14 @@ export class WidgetChatService {
       console.log(`📤 Messages to OpenAI: ${messages.length}`);
 
       // Document content analysis
-      if (documentContents.length > 0) {
+      if (agentDocuments.length > 0) {
         console.log(`\n📋 DOCUMENT CONTENT ANALYSIS:`);
-        documentContents.forEach((content, index) => {
-          const fullLength = content.length;
-          const truncated = content.includes("...");
+        agentDocuments.forEach((doc, index) => {
+          const fullLength = doc.content.length;
+          const truncated = doc.content.includes("...");
           console.log(`  📄 Document ${index + 1}: ${fullLength} chars${truncated ? ' (TRUNCATED at 2000 chars)' : ''}`);
         });
-        console.log(`📊 Total Document Context: ${contextPrompt.length} chars`);
+        // Assuming contextPrompt is generated elsewhere or not directly needed here for logging
       } else {
         console.log(`\n📋 NO DOCUMENTS LINKED TO AGENT`);
       }
@@ -204,7 +204,7 @@ export class WidgetChatService {
       // System prompt analysis
       console.log(`\n🧠 SYSTEM PROMPT ANALYSIS:`);
       console.log(`  Base System Prompt: ${agent.systemPrompt?.length || 0} chars`);
-      console.log(`  Document Context: ${contextPrompt.length} chars`);
+      // Assuming contextPrompt is generated elsewhere or not directly needed here for logging
       console.log(`  Total System Prompt: ${systemPrompt.length} chars`);
 
       // Conversation history analysis
@@ -237,7 +237,7 @@ export class WidgetChatService {
       if (estimatedTokens > 8000) {
         console.log(`  ⚠️  WARNING: High token count, may hit limits`);
       }
-      if (documentContents.length > 0 && documentContents.every(doc => doc.includes("..."))) {
+      if (agentDocuments.length > 0 && agentDocuments.every(doc => doc.content.includes("..."))) {
         console.log(`  ⚠️  WARNING: All documents truncated at 2000 chars`);
       }
 
@@ -326,3 +326,155 @@ export class WidgetChatService {
     }
   }
 }
+
+async function generateResponseWithConfig(params: {
+  message: string;
+  agentConfig: any;
+  documentIds: number[];
+  userId: string;
+  sessionId: string;
+  chatHistory?: Array<{ role: "user" | "assistant"; content: string; }>;
+  isTest?: boolean;
+}) {
+  const { message, agentConfig, documentIds, userId, sessionId, chatHistory = [], isTest = false } = params;
+
+  try {
+    console.log(`🤖 Generating response with agent config for user ${userId}`);
+
+    // Create a temporary agent-like object from the config
+    const tempAgent = {
+      id: -1, // Temporary ID for testing
+      name: agentConfig.name,
+      description: agentConfig.description || "",
+      systemPrompt: agentConfig.systemPrompt,
+      personality: agentConfig.personality,
+      profession: agentConfig.profession,
+      responseStyle: agentConfig.responseStyle,
+      specialSkills: agentConfig.specialSkills || [],
+      guardrailsConfig: agentConfig.guardrailsConfig,
+      searchConfiguration: agentConfig.searchConfiguration,
+      memoryEnabled: agentConfig.memoryEnabled || false,
+      memoryLimit: agentConfig.memoryLimit || 10,
+      userId: userId,
+      isPublic: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    console.log(`📊 Test agent config: Memory=${tempAgent.memoryEnabled}, Guardrails=${!!tempAgent.guardrailsConfig}`);
+
+    // Build system prompt
+    const systemPrompts = [tempAgent.systemPrompt];
+
+    // Add personality and profession context
+    if (tempAgent.personality) {
+      systemPrompts.push(`Personality: ${tempAgent.personality}`);
+    }
+    if (tempAgent.profession) {
+      systemPrompts.push(`Professional role: ${tempAgent.profession}`);
+    }
+    if (tempAgent.responseStyle) {
+      systemPrompts.push(`Response style: ${tempAgent.responseStyle}`);
+    }
+
+    // Add search configuration context if enabled
+    if (tempAgent.searchConfiguration?.enableCustomSearch && tempAgent.searchConfiguration.additionalSearchDetail) {
+      systemPrompts.push(`Additional context: ${tempAgent.searchConfiguration.additionalSearchDetail}`);
+    }
+
+    const systemPrompt = systemPrompts.join('\n\n');
+
+    // Memory handling for chat history
+    let memoryContext = '';
+    if (tempAgent.memoryEnabled && chatHistory.length > 0) {
+      const memoryLimit = tempAgent.memoryLimit || 10;
+      const recentHistory = chatHistory.slice(-memoryLimit);
+
+      console.log(`📚 Using ${recentHistory.length} messages from chat history (limit: ${memoryLimit})`);
+
+      memoryContext = '\nPrevious conversation:\n' +
+        recentHistory.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n') +
+        '\n';
+    }
+
+    let documentContext = '';
+
+    // Perform document search if documents are available
+    if (documentIds.length > 0) {
+      console.log(`🔍 Searching ${documentIds.length} documents for context`);
+
+      const searchService = await import('./semanticSearchV2');
+      const searchOptions = {
+        userId: userId,
+        documentIds: documentIds,
+        searchConfiguration: tempAgent.searchConfiguration
+      };
+
+      const searchResults = await searchService.searchDocuments(message, searchOptions);
+
+      if (searchResults.chunks && searchResults.chunks.length > 0) {
+        console.log(`📄 Found ${searchResults.chunks.length} relevant document chunks`);
+        documentContext = '\nRelevant information:\n' +
+          searchResults.chunks.map((chunk: any) => chunk.content).join('\n\n') + '\n';
+      }
+    }
+
+    const fullPrompt = systemPrompt + memoryContext + documentContext;
+    console.log(`📝 Full prompt length: ${fullPrompt.length} characters`);
+
+    // Generate response using OpenAI
+    const openaiService = await import('./openai');
+    const startTime = Date.now();
+
+    let response;
+
+    // Apply guardrails if enabled
+    if (tempAgent.guardrailsConfig) {
+      console.log(`🛡️ Applying guardrails to response`);
+      const guardrailsService = await import('./guardrails');
+      response = await guardrailsService.generateGuardedResponse({
+        prompt: fullPrompt,
+        userMessage: message,
+        guardrailsConfig: tempAgent.guardrailsConfig
+      });
+    } else {
+      response = await openaiService.generateChatResponse(fullPrompt, message);
+    }
+
+    const responseTime = Date.now() - startTime;
+    console.log(`⚡ Response generated in ${responseTime}ms`);
+
+    return {
+      message: response,
+      sources: [], // Could add source tracking later
+      responseTime: responseTime
+    };
+
+  } catch (error) {
+    console.error('❌ Error generating response with config:', error);
+    throw error;
+  }
+}
+
+// Assuming generateResponse, processUserMessage, getOrCreateSession, updateSessionMemory, getSessionHistory are defined elsewhere or are intended to be part of this export.
+// For the purpose of this edit, we'll assume they exist and are correctly imported or defined.
+// If they are not defined, this export would cause a runtime error.
+
+// Placeholder for other functions that might be exported by this module
+declare function generateResponse(params: any): Promise<any>;
+declare function processUserMessage(params: any): Promise<any>;
+declare function getOrCreateSession(params: any): Promise<any>;
+declare function updateSessionMemory(params: any): Promise<any>;
+declare function getSessionHistory(params: any): Promise<any>;
+
+
+export const chatService = {
+  generateAgentResponse: WidgetChatService.generateAgentResponse, // Exporting the static method directly
+  generateResponseWithConfig,
+  // Include other functions if they are defined within this scope or imported elsewhere
+  // generateResponse,
+  // processUserMessage,
+  // getOrCreateSession,
+  // updateSessionMemory,
+  // getSessionHistory
+};
