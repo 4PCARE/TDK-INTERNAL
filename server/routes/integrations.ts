@@ -7,7 +7,7 @@ import { storage } from "../storage";
 import { db } from "../db";
 import { 
   socialIntegrations, 
-  lineTemplates, 
+  lineOaTemplates as lineTemplates, 
   users, 
   departments,
   agentChatbots
