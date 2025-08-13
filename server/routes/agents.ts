@@ -142,12 +142,7 @@ export function registerAgentRoutes(app: Express) {
       }
 
       const associatedDocuments = await db
-        .select({
-          id: agentDocumentsTable.id,
-          agentId: agentDocumentsTable.agentId,
-          documentId: agentDocumentsTable.documentId,
-          addedAt: agentDocumentsTable.addedAt,
-        })
+        .select()
         .from(agentDocumentsTable)
         .where(eq(agentDocumentsTable.agentId, agentId))
         .orderBy(desc(agentDocumentsTable.addedAt));
