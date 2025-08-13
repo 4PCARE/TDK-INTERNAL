@@ -17,7 +17,9 @@ const skipAuthPaths = [
   '/@vite/',
   '/@fs/',
   '/node_modules/',
-  '/favicon.ico'
+  '/favicon.ico',
+  '/ws',
+  '/__vite_ping'
 ];
 
 const app = express();
@@ -41,6 +43,15 @@ app.use((req, res, next) => {
       res.sendStatus(204);
       return;
     }
+  }
+  next();
+});
+
+// Skip auth middleware for specific paths
+app.use((req, res, next) => {
+  const shouldSkipAuth = skipAuthPaths.some(path => req.path.startsWith(path));
+  if (shouldSkipAuth) {
+    req.skipAuth = true;
   }
   next();
 });

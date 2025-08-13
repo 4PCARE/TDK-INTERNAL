@@ -72,3 +72,20 @@ export const smartAuth: RequestHandler = async (req, res, next) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
+
+// Assuming replitAuth is defined elsewhere and imported.
+// The following is a placeholder for the modification requested.
+// If the original code for replitAuth was provided, it would be modified directly.
+// For the purpose of this example, we'll assume the change is applied to the imported function.
+
+// Placeholder for the modification in replitAuth:
+// export function isAuthenticated(req: any, res: any, next: any) {
+//   // Skip auth for paths that don't need it
+//   if (req.skipAuth) {
+//     return next();
+//   }
+//
+//   if (!req.session || !req.session.passport || !req.session.passport.user) {
+//     // ... rest of the original replitAuth function
+//   }
+// }

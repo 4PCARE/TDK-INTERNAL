@@ -470,8 +470,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const server = createServer(app);
 
-  // Setup WebSocket server for real-time features
-  const wss = new WebSocketServer({ server });
+  // Setup WebSocket server for real-time features on a separate port in development
+  const wsPort = process.env.NODE_ENV === 'development' ? 5001 : server;
+  const wss = new WebSocketServer({ 
+    port: typeof wsPort === 'number' ? wsPort : undefined,
+    server: typeof wsPort === 'number' ? undefined : wsPort
+  });
 
   // Global WebSocket clients storage
   if (!global.wsClients) {
