@@ -13,6 +13,19 @@ import { registerChatRoutes } from "./routes/chat";
 import { registerAdminRoutes } from "./routes/admin";
 import { registerHrApiRoutes } from "./hrApi";
 import { handleLineWebhook } from "./lineOaWebhook";
+import { isAuthenticated, isAdmin } from "./replitAuth";
+import { isMicrosoftAuthenticated } from "./microsoftAuth";
+import { smartAuth } from "./smartAuth";
+import { storage } from "./storage";
+import { db } from "./db";
+import pkg from 'pg';
+const { Pool } = pkg;
+
+// PostgreSQL connection pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Serve uploaded files and Line images
@@ -46,6 +59,200 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error("Error registering routes:", error);
     throw error;
   }
+
+  // Agent Console Routes
+  app.get('/api/agent-console/users', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const channelFilter = req.query.channelFilter || 'all';
+      const searchQuery = req.query.search || '';
+
+      console.log('🔍 Agent Console Users API: Query params:', {
+        userId,
+        channelFilter,
+        searchQuery
+      });
+
+      // Get all unique conversations from chat history
+      const query = `
+        WITH latest_conversations AS (
+          SELECT DISTINCT ON (ch.channel_id, ch.channel_type, ch.agent_id)
+            ch.user_id,
+            ch.channel_type,
+            ch.channel_id,
+            ch.agent_id,
+            ac.name as agent_name,
+            ch.content as last_message,
+            ch.created_at as last_message_at,
+            COUNT(*) OVER (PARTITION BY ch.channel_id, ch.channel_type, ch.agent_id) as message_count
+          FROM chat_history ch
+          JOIN agent_chatbots ac ON ch.agent_id = ac.id
+          WHERE ac.user_id = $1
+            AND ($2 = 'all' OR ch.channel_type = $2)
+            AND ($3 = '' OR ch.content ILIKE $4)
+          ORDER BY ch.channel_id, ch.channel_type, ch.agent_id, ch.created_at DESC
+        )
+        SELECT * FROM latest_conversations
+        ORDER BY last_message_at DESC
+        LIMIT 50
+      `;
+
+      const params = [
+        userId,
+        channelFilter,
+        searchQuery,
+        searchQuery ? `%${searchQuery}%` : ''
+      ];
+
+      const result = await pool.query(query, params);
+
+      const chatUsers = result.rows.map(row => ({
+        userId: row.user_id,
+        channelType: row.channel_type,
+        channelId: row.channel_id,
+        agentId: row.agent_id,
+        agentName: row.agent_name,
+        lastMessage: row.last_message,
+        lastMessageAt: row.last_message_at,
+        messageCount: parseInt(row.message_count),
+        isOnline: false, // Default to offline for now
+        userProfile: {
+          name: row.channel_type === 'web' 
+            ? `Web User ${(row.user_id || 'unknown').slice(-4)}`
+            : `User ${(row.channel_id || 'unknown').slice(-4)}`
+        }
+      }));
+
+      console.log('🔍 Agent Console Users API: Found users:', chatUsers.length);
+      res.json(chatUsers);
+    } catch (error) {
+      console.error('❌ Error fetching agent console users:', error);
+      res.status(500).json({ 
+        message: 'Failed to fetch users',
+        error: error.message 
+      });
+    }
+  });
+
+  app.get('/api/agent-console/conversation', isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId: targetUserId, channelType, channelId, agentId } = req.query;
+
+      if (!targetUserId || !channelType || !channelId || !agentId) {
+        return res.status(400).json({ message: "Missing required parameters" });
+      }
+
+      console.log("🔍 Agent Console Conversation API: Query params:", {
+        targetUserId,
+        channelType,
+        channelId,
+        agentId
+      });
+
+      const messages = await storage.getChatHistory(channelId, channelType, parseInt(agentId));
+
+      console.log(`📨 Conversation response: ${messages.length} messages`);
+      res.json(messages);
+    } catch (error) {
+      console.error("❌ Error fetching conversation:", error);
+      res.status(500).json({ message: "Failed to fetch conversation" });
+    }
+  });
+
+  app.get('/api/agent-console/summary', isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId: targetUserId, channelType, channelId } = req.query;
+
+      if (!targetUserId || !channelType || !channelId) {
+        return res.status(400).json({ message: "Missing required parameters" });
+      }
+
+      // Get basic conversation summary
+      const query = `
+        SELECT 
+          COUNT(*) as total_messages,
+          MIN(created_at) as first_contact_at,
+          MAX(created_at) as last_active_at
+        FROM chat_history 
+        WHERE channel_id = $1 AND channel_type = $2
+      `;
+
+      const result = await pool.query(query, [channelId, channelType]);
+      const row = result.rows[0];
+
+      const summary = {
+        totalMessages: parseInt(row.total_messages),
+        firstContactAt: row.first_contact_at,
+        lastActiveAt: row.last_active_at,
+        sentiment: 'neutral',
+        mainTopics: [],
+        csatScore: null
+      };
+
+      console.log("📊 Summary response:", summary);
+      res.json(summary);
+    } catch (error) {
+      console.error("❌ Error fetching conversation summary:", error);
+      res.status(500).json({ message: "Failed to fetch conversation summary" });
+    }
+  });
+
+  app.post('/api/agent-console/send-message', isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId: targetUserId, channelType, channelId, agentId, message, messageType = 'agent' } = req.body;
+
+      if (!targetUserId || !channelType || !channelId || !agentId || !message) {
+        return res.status(400).json({ message: "Missing required parameters" });
+      }
+
+      console.log("📤 Sending message:", {
+        targetUserId,
+        channelType,
+        channelId,
+        agentId,
+        messageLength: message.length
+      });
+
+      // Store the message in chat history
+      await storage.saveChatMessage(channelId, channelType, parseInt(agentId), {
+        messageType,
+        content: message,
+        timestamp: new Date().toISOString(),
+        sentBy: req.user.claims.sub,
+        humanAgent: true,
+        humanAgentName: req.user.claims.first_name || req.user.claims.email || 'Human Agent'
+      });
+
+      // Broadcast via WebSocket if available
+      if (typeof (global as any).broadcastToAgentConsole === 'function') {
+        (global as any).broadcastToAgentConsole({
+          type: 'new_message',
+          data: {
+            userId: targetUserId,
+            channelType,
+            channelId,
+            agentId: parseInt(agentId),
+            message,
+            messageType,
+            timestamp: new Date().toISOString(),
+            humanAgentName: req.user.claims.first_name || req.user.claims.email || 'Human Agent'
+          }
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Message sent successfully" 
+      });
+
+    } catch (error) {
+      console.error("❌ Error sending message:", error);
+      res.status(500).json({ 
+        message: "Failed to send message",
+        error: error.message 
+      });
+    }
+  });
 
   // Serve widget embed script
   app.get("/widget/:widgetKey/embed.js", async (req, res) => {
