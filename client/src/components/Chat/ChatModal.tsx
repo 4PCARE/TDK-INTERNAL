@@ -139,83 +139,139 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
               </div>
             ) : messages.length === 0 ? (
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-blue-600" />
+              <div className="flex justify-start mt-4">
+                <div className="w-8 h-8 mr-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Bot className="w-5 h-5 text-blue-600" />
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-900">
+                <div className="max-w-[70%] mr-12">
+                  <div className="px-4 py-3 bg-gray-100 text-gray-900 rounded-2xl rounded-bl-md text-sm">
                     Hello! I can help you search and analyze your documents.
                     What would you like to know?
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">Just now</p>
+                  </div>
+                  <div className="mt-1 text-left">
+                    <p className="text-xs text-gray-500">Just now</p>
+                  </div>
                 </div>
               </div>
             ) : (
-              messages.map((msg: ChatMessage) => (
-                <div key={msg.id} className="flex items-start space-x-3">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      msg.role === "assistant" ? "bg-blue-100" : "bg-gray-100"
+              messages.map((msg: ChatMessage, index: number) => {
+                const isUser = msg.role === "user";
+                const prevMsg = index > 0 ? messages[index - 1] : null;
+                const nextMsg = index < messages.length - 1 ? messages[index + 1] : null;
+                const isFirstInGroup = !prevMsg || prevMsg.role !== msg.role;
+                const isLastInGroup = !nextMsg || nextMsg.role !== msg.role;
+                const showAvatar = isFirstInGroup;
+                const showTimestamp = isLastInGroup;
+
+                return (
+                  <div 
+                    key={msg.id} 
+                    className={`flex ${isUser ? 'justify-end' : 'justify-start'} ${
+                      isFirstInGroup ? 'mt-4' : 'mt-1'
                     }`}
                   >
-                    {msg.role === "assistant" ? (
-                      <Bot className="w-5 h-5 text-blue-600" />
-                    ) : (
-                      <User className="w-5 h-5 text-gray-600" />
+                    {/* Avatar for assistant messages */}
+                    {!isUser && (
+                      <div className={`w-8 h-8 mr-3 ${showAvatar ? '' : 'invisible'}`}>
+                        {showAvatar && (
+                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <Bot className="w-5 h-5 text-blue-600" />
+                          </div>
+                        )}
+                      </div>
                     )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm text-gray-900 whitespace-pre-wrap">
-                      {msg.content}
-                      {msg.role === "assistant" && (
-                        <div className="mt-3">
-                          <p className="text-xs text-gray-500 italic">
-                            Is there anything else you'd like me to help with?
+
+                    {/* Message bubble */}
+                    <div className={`max-w-[70%] ${isUser ? 'ml-12' : 'mr-12'}`}>
+                      <div
+                        className={`px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap ${
+                          isUser
+                            ? 'bg-blue-500 text-white rounded-br-md'
+                            : 'bg-gray-100 text-gray-900 rounded-bl-md'
+                        } ${
+                          !isFirstInGroup && !isLastInGroup
+                            ? isUser
+                              ? 'rounded-r-md'
+                              : 'rounded-l-md'
+                            : ''
+                        } ${
+                          isFirstInGroup && !isLastInGroup
+                            ? isUser
+                              ? 'rounded-br-md'
+                              : 'rounded-bl-md'
+                            : ''
+                        } ${
+                          !isFirstInGroup && isLastInGroup
+                            ? isUser
+                              ? 'rounded-br-lg'
+                              : 'rounded-bl-lg'
+                            : ''
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
+
+                      {/* Timestamp and feedback */}
+                      {showTimestamp && (
+                        <div className={`mt-1 ${isUser ? 'text-right' : 'text-left'}`}>
+                          <p className="text-xs text-gray-500">
+                            {new Date(msg.createdAt).toLocaleTimeString('th-TH', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: false
+                            })} น.
                           </p>
+                          {!isUser && (
+                            <div className="mt-2">
+                              <FeedbackButtons
+                                messageId={msg.id}
+                                userQuery={messages[messages.findIndex(m => m.id === msg.id) - 1]?.content || ''}
+                                assistantResponse={msg.content}
+                                conversationId={currentConversationId!}
+                                documentContext={{ mode: 'documents' }}
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(msg.createdAt).toLocaleDateString('th-TH', {
-                        year: 'numeric',
-                        month: 'long', 
-                        day: 'numeric'
-                      })} เวลา {new Date(msg.createdAt).toLocaleTimeString('th-TH', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: false
-                      })} น.
-                    </p>
-                    {msg.role === 'assistant' && (
-                      <FeedbackButtons
-                        messageId={msg.id}
-                        userQuery={messages[messages.findIndex(m => m.id === msg.id) - 1]?.content || ''}
-                        assistantResponse={msg.content}
-                        conversationId={currentConversationId!}
-                        documentContext={{ mode: 'documents' }}
-                      />
+
+                    {/* Avatar for user messages */}
+                    {isUser && (
+                      <div className={`w-8 h-8 ml-3 ${showAvatar ? '' : 'invisible'}`}>
+                        {showAvatar && (
+                          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                            <User className="w-5 h-5 text-gray-600" />
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
             {sendMessageMutation.isPending && (
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-blue-600" />
+              <div className="flex justify-start mt-1">
+                <div className="w-8 h-8 mr-3">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Bot className="w-5 h-5 text-blue-600" />
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
-                    <div
-                      className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                      style={{ animationDelay: "0.1s" }}
-                    ></div>
-                    <div
-                      className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
-                      style={{ animationDelay: "0.2s" }}
-                    ></div>
+                <div className="max-w-[70%] mr-12">
+                  <div className="px-4 py-3 bg-gray-100 rounded-2xl rounded-bl-md">
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
+                      <div
+                        className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
+                        style={{ animationDelay: "0.1s" }}
+                      ></div>
+                      <div
+                        className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"
+                        style={{ animationDelay: "0.2s" }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
               </div>
