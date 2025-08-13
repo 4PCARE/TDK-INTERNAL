@@ -286,18 +286,16 @@ export function registerAgentRoutes(app: Express) {
         memoryEnabled: agentConfig.memoryEnabled
       });
 
-      // Import agentBot and generate response using the provided config
-      const { agentBot } = await import("../agentBot");
+      // Import chatService and generate response
+      const { chatService } = await import("../services/agentChatService");
 
-      const response = await agentBot.generateResponseWithConfig({
-        message: message.trim(),
-        agentConfig: agentConfig,
-        documentIds: documentIds,
-        userId: userId,
-        sessionId: `test_${Date.now()}`,
-        chatHistory: chatHistory,
-        isTest: true
-      });
+      const response = await chatService.generateAgentResponse(
+        message.trim(),
+        agentConfig,
+        userId,
+        `test_${Date.now()}`,
+        documentIds,
+      );
 
       res.json({
         success: true,
@@ -336,16 +334,16 @@ export function registerAgentRoutes(app: Express) {
         return res.status(404).json({ message: "Agent not found" });
       }
 
-      // Import agentBot and generate response
-      const { agentBot } = await import("../agentBot");
+      // Import chatService and generate response
+      const { chatService } = await import("../services/agentChatService");
 
-      const response = await agentBot.generateResponse({
-        message: message.trim(),
-        agentId: agentId,
-        userId: userId,
-        sessionId: `test_${Date.now()}`,
-        isTest: true
-      });
+      const response = await chatService.generateAgentResponse(
+        message.trim(),
+        agentId,
+        userId,
+        `test_${Date.now()}`,
+        []
+      );
 
       res.json({
         success: true,
@@ -388,15 +386,16 @@ export function registerAgentRoutes(app: Express) {
         return res.status(404).json({ message: "Agent not found" });
       }
 
-      // Import agentBot and generate response
-      const { agentBot } = await import("../agentBot");
+      // Import chatService and generate response
+      const { chatService } = await import("../services/agentChatService");
 
-      const response = await agentBot.generateResponse({
-        message: message.trim(),
-        agentId: agentId,
-        sessionId: sessionId || `public_${Date.now()}`,
-        isPublic: true
-      });
+      const response = await chatService.generateAgentResponse(
+        message.trim(),
+        agentId,
+        "public_user",
+        sessionId || `public_${Date.now()}`,
+        []
+      );
 
       res.json({
         success: true,
