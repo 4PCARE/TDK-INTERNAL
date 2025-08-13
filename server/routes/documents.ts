@@ -18,7 +18,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs/promises";
 import * as fsSync from "fs";
-import { processDocument } from "./services/openai";
+import { processDocument } from "../services/openai";
 import { vectorService } from "./services/vectorService";
 import { semanticSearchServiceV2 } from "./services/semanticSearchV2";
 
