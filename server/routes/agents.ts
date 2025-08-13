@@ -141,15 +141,27 @@ export function registerAgentRoutes(app: Express) {
         return res.status(404).json({ message: "Agent not found" });
       }
 
+      console.log(`Fetching documents for agent ${agentId}...`);
+      
+      // Use a simpler approach without orderBy to test if that's the issue
       const associatedDocuments = await db
         .select()
         .from(agentDocumentsTable)
-        .where(eq(agentDocumentsTable.agentId, agentId))
-        .orderBy(descOrder(agentDocumentsTable.addedAt));
+        .where(eq(agentDocumentsTable.agentId, agentId));
 
+      // Sort manually to avoid potential SQL issues
+      associatedDocuments.sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime());
+
+      console.log(`Found ${associatedDocuments.length} documents for agent ${agentId}`);
       res.json(associatedDocuments);
     } catch (error) {
-      console.error("Error fetching agent documents:", error);
+      console.error(`Error fetching agent documents for agent ${req.params.id}:`, error);
+      console.error("Error details:", {
+        name: error.name,
+        message: error.message,
+        code: error.code,
+        stack: error.stack?.split('\n').slice(0, 5).join('\n')
+      });
       res.status(500).json({ message: "Failed to fetch agent documents" });
     }
   });
