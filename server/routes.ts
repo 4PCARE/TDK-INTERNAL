@@ -20,12 +20,107 @@ import { storage } from "./storage";
 import { db } from "./db";
 import pkg from 'pg';
 const { Pool } = pkg;
+import OpenAI from 'openai';
 
 // PostgreSQL connection pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Function to calculate CSAT score using OpenAI with agent memory limits
+async function calculateCSATScore(userId: string, channelType: string, channelId: string, agentId?: number): Promise<number | undefined> {
+  try {
+    console.log("🎯 Starting CSAT calculation for:", {
+      userId,
+      channelType,
+      channelId: channelId.substring(0, 8) + '...',
+      agentId
+    });
+
+    // Get agent memory limit if agentId is provided
+    let messageLimit = 20; // Default limit
+    if (agentId) {
+      try {
+        const { agentChatbots } = await import('@shared/schema');
+        const { eq } = await import('drizzle-orm');
+        const [agent] = await db.select().from(agentChatbots).where(eq(agentChatbots.id, agentId));
+        if (agent && agent.memoryLimit) {
+          messageLimit = agent.memoryLimit;
+          console.log("📊 Using agent memory limit:", messageLimit);
+        }
+      } catch (error) {
+        console.log("⚠️ Could not fetch agent memory limit, using default:", messageLimit);
+      }
+    }
+
+    // Get recent chat history for analysis using the same memory strategy as agent
+    const messages = await storage.getChatHistoryWithMemoryStrategy(userId, channelType, channelId, agentId, messageLimit);
+
+    console.log("📊 Retrieved messages for CSAT:", messages.length);
+
+    if (messages.length < 3) {
+      console.log("⚠️ Not enough messages for CSAT analysis:", messages.length);
+      return undefined;
+    }
+
+    // Format conversation for OpenAI - only include user and agent messages for CSAT analysis
+    const conversationText = messages
+      .filter(msg => msg.messageType === 'user' || msg.messageType === 'agent' || msg.messageType === 'assistant')
+      .map(msg => {
+        const role = msg.messageType === 'user' ? 'Customer' :
+                     msg.messageType === 'agent' ? 'Human Agent' : 'AI Agent';
+        return `${role}: ${msg.content}`;
+      }).join('\n\n');
+
+    console.log("💬 Conversation sample for CSAT:", conversationText.substring(0, 200) + '...');
+
+    const prompt = `
+      ประเมิน Customer Satisfaction Score (CSAT) จากการสนทนาต่อไปนี้:
+
+      ${conversationText}
+
+      กรุณาวิเคราะห์ระดับความพึงพอใจของลูกค้าจากการสนทนานี้ โดยพิจารณาจาก:
+      1. ความเป็นมิตรและสุภาพของลูกค้า
+      2. การแสดงความพึงพอใจหรือไม่พึงพอใจ
+      3. การตอบสนองต่อการให้บริการ
+      4. ความเต็มใจในการใช้บริการต่อ
+      5. การแสดงความรู้สึกเชิงบวกหรือลบ
+
+      ให้คะแนน CSAT เป็นตัวเลข 0-100 เท่านั้น โดยที่:
+      - 0-30: ลูกค้าไม่พอใจมาก (มีการแสดงความโกรธ ผิดหวัง หรือต้องการยกเลิก)
+      - 31-50: ลูกค้าไม่พอใจ (มีความกังวล ไม่แน่ใจ หรือต้องการความช่วยเหลือเพิ่มเติม)
+      - 51-70: ลูกค้าพอใจปานกลาง (ยอมรับคำตอบ แต่ไม่แสดงความกระตือรือร้น)
+      - 71-85: ลูกค้าพอใจ (แสดงความขอบคุณ หรือความพอใจเบื้องต้น)
+      - 86-100: ลูกค้าพอใจมาก (แสดงความขอบคุณมาก พอใจการบริการ หรือชื่นชม)
+
+      ตอบเป็นตัวเลขเดียวเท่านั้น ไม่ต้องมีข้อความอธิบาย
+    `;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 10,
+      temperature: 0.1,
+    });
+
+    const response = completion.choices[0]?.message?.content?.trim();
+    const score = response ? parseInt(response) : undefined;
+
+    if (score !== undefined && score >= 0 && score <= 100) {
+      console.log(`🎯 CSAT Score calculated: ${score}/100`);
+      return score;
+    } else {
+      console.log("⚠️ Invalid CSAT score response:", response);
+      return undefined;
+    }
+  } catch (error) {
+    console.error("❌ Error calculating CSAT score:", error);
+    return undefined;
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Serve uploaded files and Line images
@@ -149,7 +244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         agentId
       });
 
-      const messages = await storage.getChatHistory(channelId, channelType, parseInt(agentId));
+      const messages = await storage.getChatHistory(targetUserId, channelType, channelId, parseInt(agentId));
 
       console.log(`📨 Conversation response: ${messages.length} messages`);
       res.json(messages);
@@ -180,13 +275,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await pool.query(query, [channelId, channelType]);
       const row = result.rows[0];
 
+      // Calculate CSAT score if there are enough messages
+      let csatScore = null;
+      if (parseInt(row.total_messages) >= 3) {
+        try {
+          // Get agent ID from first message to use correct memory limits
+          const firstMessageQuery = `
+            SELECT agent_id
+            FROM chat_history
+            WHERE user_id = $1 AND channel_type = $2 AND channel_id = $3
+            ORDER BY created_at ASC
+            LIMIT 1
+          `;
+          const firstMessageResult = await pool.query(firstMessageQuery, [targetUserId, channelType, channelId]);
+          let agentId = firstMessageResult.rows.length > 0 ? firstMessageResult.rows[0].agent_id : null;
+
+          if (agentId) {
+            csatScore = await calculateCSATScore(targetUserId, channelType, channelId, agentId);
+          }
+        } catch (error) {
+          console.error("Error calculating CSAT score:", error);
+        }
+      }
+
       const summary = {
         totalMessages: parseInt(row.total_messages),
         firstContactAt: row.first_contact_at,
         lastActiveAt: row.last_active_at,
         sentiment: 'neutral',
         mainTopics: [],
-        csatScore: null
+        csatScore: csatScore
       };
 
       console.log("📊 Summary response:", summary);
