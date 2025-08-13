@@ -1,14 +1,13 @@
-
 import type { Express } from "express";
 import { isAuthenticated, isAdmin } from "../replitAuth";
 import { isMicrosoftAuthenticated } from "../microsoftAuth";
 import { smartAuth } from "../smartAuth";
 import { storage } from "../storage";
 import { db } from "../db";
-import { 
-  agentChatbots, 
-  agentDocuments, 
-  users, 
+import {
+  agentChatbots,
+  agentDocuments,
+  users,
   departments,
   documents
 } from "@shared/schema";
@@ -32,11 +31,11 @@ export function registerAgentRoutes(app: Express) {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
       const agent = await storage.getAgentChatbot(id, userId);
-      
+
       if (!agent) {
         return res.status(404).json({ message: "Agent not found" });
       }
-      
+
       res.json(agent);
     } catch (error) {
       console.error("Error fetching agent chatbot:", error);
@@ -67,11 +66,11 @@ export function registerAgentRoutes(app: Express) {
       const agentData = req.body;
 
       const agent = await storage.updateAgentChatbot(id, userId, agentData);
-      
+
       if (!agent) {
         return res.status(404).json({ message: "Agent not found" });
       }
-      
+
       res.json(agent);
     } catch (error) {
       console.error("Error updating agent chatbot:", error);
@@ -221,7 +220,7 @@ export function registerAgentRoutes(app: Express) {
 
       // Import chat service and generate response
       const { chatService } = await import("../services/widgetChatService");
-      
+
       const response = await chatService.generateResponse({
         message: message,
         agentId: agentId,
@@ -239,9 +238,9 @@ export function registerAgentRoutes(app: Express) {
 
     } catch (error) {
       console.error("Error testing agent:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to test agent",
-        error: error.message 
+        error: error.message
       });
     }
   });
@@ -269,7 +268,7 @@ export function registerAgentRoutes(app: Express) {
 
       // Import chat service and generate response
       const { chatService } = await import("../services/widgetChatService");
-      
+
       const response = await chatService.generateResponse({
         message: message,
         agentId: agentId,
@@ -286,9 +285,9 @@ export function registerAgentRoutes(app: Express) {
 
     } catch (error) {
       console.error("Error in agent chat:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to process chat message",
-        error: error.message 
+        error: error.message
       });
     }
   });

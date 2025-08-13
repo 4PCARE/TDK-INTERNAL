@@ -1,11 +1,10 @@
-
 import type { Express } from "express";
 import { isAuthenticated, isAdmin } from "../replitAuth";
 import { isMicrosoftAuthenticated } from "../microsoftAuth";
 import { smartAuth } from "../smartAuth";
 import { storage } from "../storage";
 import { db, pool } from "../db";
-import { 
+import {
   chatConversations,
   chatMessages,
   chatWidgets,
@@ -392,7 +391,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       const widgetId = parseInt(req.params.id);
 
       const updatedWidget = await storage.setPlatformWidget(widgetId, userId);
-      
+
       res.json(updatedWidget);
     } catch (error) {
       console.error("Error setting platform widget:", error);
@@ -406,7 +405,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       const widgetId = parseInt(req.params.id);
 
       const updatedWidget = await storage.unsetPlatformWidget(widgetId, userId);
-      
+
       res.json(updatedWidget);
     } catch (error) {
       console.error("Error unsetting platform widget:", error);
@@ -498,16 +497,16 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     try {
       const { widgetKey } = req.params;
       const { sessionId, message, visitorInfo } = req.body;
-      
+
       const { nanoid } = await import("nanoid");
 
       // Get current user information if authenticated
       let currentUser = null;
       let hrEmployeeData = null;
-      
+
       console.log(`👤 Widget: Checking authentication - req.user exists: ${!!req.user}`);
       console.log(`👤 Widget: req.user structure:`, req.user ? Object.keys(req.user) : 'undefined');
-      
+
       // Try multiple authentication methods
       if (req.user) {
         // Method 1: Check for claims structure (Replit Auth)
@@ -515,7 +514,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           currentUser = req.user.claims;
           console.log(`👤 Widget: Authenticated via claims: ${currentUser.email}`);
         }
-        // Method 2: Check for direct email property 
+        // Method 2: Check for direct email property
         else if (req.user.email) {
           currentUser = req.user;
           console.log(`👤 Widget: Authenticated via direct email: ${currentUser.email}`);
@@ -531,7 +530,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       } else {
         console.log(`👤 Widget: No authenticated user found`);
       }
-      
+
       if (currentUser && currentUser.email) {
         // Try to find HR employee data for the authenticated user
         try {
@@ -539,9 +538,9 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           const hrEmployeeQuery = await db.query.hrEmployees.findFirst({
             where: (hrEmployees, { eq }) => eq(hrEmployees.email, currentUser.email),
           });
-          
+
           const employee = hrEmployeeQuery;
-          
+
           if (employee) {
             hrEmployeeData = employee;
             console.log(`👤 Widget: Found HR data for ${employee.name} (${employee.department})`);
@@ -652,7 +651,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       }
 
       // Generate AI response based on widget configuration
-      let response = widget.welcomeMessage || "Thank you for your message. How can I help you today?";
+      let response = widget.welcomeMessage || "Hi! How can I help you today?";
       let messageType = "text";
       let metadata = null;
 

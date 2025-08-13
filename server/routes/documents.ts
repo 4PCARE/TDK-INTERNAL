@@ -19,8 +19,8 @@ import path from "path";
 import fs from "fs/promises";
 import * as fsSync from "fs";
 import { processDocument } from "../services/openai";
-import { vectorService } from "./services/vectorService";
-import { semanticSearchServiceV2 } from "./services/semanticSearchV2";
+import { vectorService } from "../services/vectorService";
+import { semanticSearchServiceV2 } from "../services/semanticSearchV2";
 
 // File upload configuration
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -163,6 +163,9 @@ export function registerDocumentRoutes(app: Express) {
         console.log("Performing keyword search...");
         try {
           const { advancedKeywordSearchService } = await import('../services/advancedKeywordSearch');
+          if (!advancedKeywordSearchService) {
+            throw new Error('advancedKeywordSearchService not available');
+          }
           const advancedResults = await advancedKeywordSearchService.searchDocuments(query, userId, 50);
 
           keywordResults = advancedResults.map(result => ({

@@ -1,4 +1,3 @@
-
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
@@ -34,13 +33,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerHrApiRoutes(app);
 
   // Register all route modules
-  registerAuthRoutes(app);
-  registerDocumentRoutes(app);
-  registerAgentRoutes(app);
-  registerIntegrationRoutes(app);
-  registerAnalyticsRoutes(app);
-  registerChatRoutes(app);
-  registerAdminRoutes(app);
+  try {
+    registerAuthRoutes(app);
+    registerDocumentRoutes(app);
+    registerAgentRoutes(app);
+    registerIntegrationRoutes(app);
+    registerAnalyticsRoutes(app);
+    registerChatRoutes(app);
+    registerAdminRoutes(app);
+    console.log("All routes registered successfully");
+  } catch (error) {
+    console.error("Error registering routes:", error);
+    throw error;
+  }
 
   // Serve widget embed script
   app.get("/widget/:widgetKey/embed.js", async (req, res) => {
@@ -91,7 +96,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/categories", (req: any, res: any, next: any) => {
     const { isMicrosoftAuthenticated } = require("./microsoftAuth");
     const { isAuthenticated } = require("./replitAuth");
-    
+
     // Try Microsoft auth first, then fallback to Replit auth
     isMicrosoftAuthenticated(req, res, (err: any) => {
       if (!err) {
@@ -113,13 +118,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/categories", async (req: any, res) => {
     const { isAuthenticated } = await import("./replitAuth");
-    
+
     isAuthenticated(req, res, async () => {
       try {
         const userId = req.user.claims.sub;
         const { storage } = await import("./storage");
         const { insertCategorySchema } = await import("@shared/schema");
-        
+
         const categoryData = insertCategorySchema.parse({ ...req.body, userId });
         const category = await storage.createCategory(categoryData);
         res.json(category);
@@ -132,13 +137,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/categories/:id", async (req: any, res) => {
     const { isAuthenticated } = await import("./replitAuth");
-    
+
     isAuthenticated(req, res, async () => {
       try {
         const id = parseInt(req.params.id);
         const { storage } = await import("./storage");
         const { insertCategorySchema } = await import("@shared/schema");
-        
+
         const categoryData = insertCategorySchema.partial().parse(req.body);
         const category = await storage.updateCategory(id, categoryData);
         res.json(category);
@@ -151,13 +156,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/categories/:id", async (req: any, res) => {
     const { isAuthenticated } = await import("./replitAuth");
-    
+
     isAuthenticated(req, res, async () => {
       try {
         const userId = req.user.claims.sub;
         const id = parseInt(req.params.id);
         const { storage } = await import("./storage");
-        
+
         await storage.deleteCategory(id, userId);
         res.json({ success: true });
       } catch (error) {
@@ -170,7 +175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Category statistics endpoint
   app.get("/api/stats/categories", async (req: any, res) => {
     const { isAuthenticated } = await import("./replitAuth");
-    
+
     isAuthenticated(req, res, async () => {
       try {
         const userId = req.user.claims.sub;
@@ -199,7 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Tag statistics endpoint
   app.get("/api/stats/tags", async (req: any, res) => {
     const { isAuthenticated } = await import("./replitAuth");
-    
+
     isAuthenticated(req, res, async () => {
       try {
         const userId = req.user.claims.sub;
@@ -242,12 +247,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Vector database management routes
   app.get("/api/vector/stats", async (req: any, res) => {
     const { isAuthenticated } = await import("./replitAuth");
-    
+
     isAuthenticated(req, res, async () => {
       try {
         const userId = req.user.claims.sub;
         const { vectorService } = await import("./services/vectorService");
-        
+
         const userDocuments = await vectorService.getDocumentsByUser(userId);
         const totalDocuments = await vectorService.getDocumentCount();
         const chunkStats = await vectorService.getDocumentChunkStats(userId);
@@ -288,7 +293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/vector/reindex-all", (req: any, res: any, next: any) => {
     const { isMicrosoftAuthenticated } = require("./microsoftAuth");
     const { isAuthenticated } = require("./replitAuth");
-    
+
     // Try Microsoft auth first, then fallback to Replit auth
     isMicrosoftAuthenticated(req, res, (err: any) => {
       if (!err) {
@@ -302,7 +307,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { preserveExistingEmbeddings = true } = req.body; // Default to preserving for re-indexing
       const { storage } = await import("./storage");
       const { vectorService } = await import("./services/vectorService");
-      
+
       const documents = await storage.getDocuments(userId);
 
       let processedCount = 0;
@@ -379,7 +384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/test/gemini-embedding", (req: any, res: any, next: any) => {
     const { isMicrosoftAuthenticated } = require("./microsoftAuth");
     const { isAuthenticated } = require("./replitAuth");
-    
+
     // Try Microsoft auth first, then fallback to Replit auth
     isMicrosoftAuthenticated(req, res, (err: any) => {
       if (!err) {
@@ -426,7 +431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Data connection management routes
   app.get("/api/data-connections", async (req: any, res) => {
     const { isAuthenticated } = await import("./replitAuth");
-    
+
     isAuthenticated(req, res, async () => {
       try {
         const userId = req.user.claims.sub;
@@ -442,13 +447,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/data-connections", async (req: any, res) => {
     const { isAuthenticated } = await import("./replitAuth");
-    
+
     isAuthenticated(req, res, async () => {
       try {
         const userId = req.user.claims.sub;
         const { storage } = await import("./storage");
         const { insertDataConnectionSchema } = await import("@shared/schema");
-        
+
         const connectionData = insertDataConnectionSchema.parse({
           ...req.body,
           userId,
@@ -464,10 +469,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Create HTTP server
   const server = createServer(app);
-  
+
   // Setup WebSocket server for real-time features
   const wss = new WebSocketServer({ server });
-  
+
   // Global WebSocket clients storage
   if (!global.wsClients) {
     global.wsClients = new Set();
@@ -490,7 +495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const data = JSON.parse(message.toString());
         console.log('📨 WebSocket message received:', data.type || 'unknown');
-        
+
         // Echo back for testing
         if (data.type === 'ping') {
           ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
