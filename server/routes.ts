@@ -792,14 +792,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Catch-all handler: send back React's index.html file for any non-API routes
-  app.get("*", (req, res) => {
-    if (req.path.startsWith("/api/")) {
-      return res.status(404).json({ message: "API endpoint not found" });
-    }
-    res.sendFile(path.join(import.meta.dirname, "../client/index.html"));
-  });
-
   // Create HTTP server
   const server = createServer(app);
 

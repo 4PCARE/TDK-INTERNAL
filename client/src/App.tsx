@@ -71,7 +71,6 @@ function Router() {
           <Route path="/settings" component={Settings} />
           <Route path="/agent-chatbots" component={AgentChatbots} />
           <Route path="/create-agent-chatbot" component={CreateAgentChatbot} />
-        <Route path="/create-agent-chatbot/:id" component={CreateAgentChatbot} />
           <Route path="/agent-console" component={AgentConsole} />
           <Route path="/audit-monitoring" component={AuditMonitoring} />
           <Route path="/role-management" component={RoleManagement} />
