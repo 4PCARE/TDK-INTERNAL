@@ -559,23 +559,55 @@ export default function CreateAgentChatbot() {
     const currentFormData = form.getValues();
     console.log("🧪 Current form data for testing:", currentFormData);
 
-    // Basic validation for required fields
-    if (!currentFormData.name || !currentFormData.personality || !currentFormData.profession || !currentFormData.responseStyle) {
+    // Basic validation for required fields - check if fields are empty strings or undefined
+    if (!currentFormData.name?.trim()) {
       toast({
         title: "Error",
-        description: "Please fill in all required fields in Overview tab before testing",
+        description: "Please enter an agent name in the Overview tab",
         variant: "destructive",
       });
+      setActiveTab("overview");
+      return;
+    }
+
+    if (!currentFormData.personality?.trim()) {
+      toast({
+        title: "Error",
+        description: "Please select a personality for your agent in the Overview tab",
+        variant: "destructive",
+      });
+      setActiveTab("overview");
+      return;
+    }
+
+    if (!currentFormData.profession?.trim()) {
+      toast({
+        title: "Error",
+        description: "Please select a profession for your agent in the Overview tab",
+        variant: "destructive",
+      });
+      setActiveTab("overview");
+      return;
+    }
+
+    if (!currentFormData.responseStyle?.trim()) {
+      toast({
+        title: "Error",
+        description: "Please select a response style for your agent in the Overview tab",
+        variant: "destructive",
+      });
+      setActiveTab("overview");
       return;
     }
 
     // Validate system prompt
-    if (!currentFormData.systemPrompt || currentFormData.systemPrompt.trim().length === 0) {
+    if (!currentFormData.systemPrompt?.trim()) {
       toast({
         title: "Error",
-        description: "System prompt is required for testing",
+        description: "Please enter a system prompt in the Overview tab",
         variant: "destructive",
       });
+      setActiveTab("overview");
       return;
     }
 
@@ -2465,6 +2497,200 @@ export default function CreateAgentChatbot() {
                                   <p>
                                     <strong>Example Use Cases:</strong> "Focus on customer service policies", "Prioritize technical troubleshooting steps", "Emphasize safety procedures and compliance"
                                   </p>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+
+                    {activeTab === "test" && (
+                      <div className="space-y-6">
+                        {/* Test Agent Section */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <MessageSquare className="h-5 w-5" />
+                              Test Your Agent
+                            </CardTitle>
+                            <CardDescription>
+                              Test your agent configuration before saving to see how it responds to user messages
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-6">
+                            {/* Test Mode Toggle */}
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                              <div>
+                                <h4 className="font-medium">Test Mode</h4>
+                                <p className="text-sm text-slate-500">
+                                  {isTestChatMode ? "Interactive chat mode" : "Single message mode"}
+                                </p>
+                              </div>
+                              <div className="flex gap-2">
+                                {!isTestChatMode ? (
+                                  <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    onClick={startChatTest}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <MessageCircle className="w-4 h-4" />
+                                    Start Chat Test
+                                  </Button>
+                                ) : (
+                                  <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    onClick={stopChatTest}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <X className="w-4 h-4" />
+                                    Stop Chat Test
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Test Input */}
+                            <div className="space-y-4">
+                              <div className="flex gap-2">
+                                <Input
+                                  placeholder="Enter a test message to see how your agent responds..."
+                                  value={testMessage}
+                                  onChange={(e) => setTestMessage(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                      e.preventDefault();
+                                      handleTestAgent();
+                                    }
+                                  }}
+                                  disabled={isTestingAgent}
+                                />
+                                <Button
+                                  type="button"
+                                  onClick={handleTestAgent}
+                                  disabled={isTestingAgent || !testMessage.trim()}
+                                  className="shrink-0"
+                                >
+                                  {isTestingAgent ? (
+                                    <>
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                      Testing...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <MessageSquare className="w-4 h-4 mr-2" />
+                                      Test
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Chat History (for chat mode) */}
+                            {isTestChatMode && (
+                              <div className="border rounded-lg">
+                                <div className="p-3 bg-slate-50 border-b">
+                                  <h4 className="font-medium text-sm">Chat Conversation</h4>
+                                </div>
+                                <div
+                                  ref={chatHistoryRef}
+                                  className="h-96 overflow-y-auto p-4 space-y-4"
+                                >
+                                  {testChatHistory.length === 0 ? (
+                                    <div className="text-center text-slate-500 py-8">
+                                      <MessageSquare className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+                                      <p>Start a conversation by sending a test message</p>
+                                    </div>
+                                  ) : (
+                                    testChatHistory.map((msg, index) => (
+                                      <div
+                                        key={index}
+                                        className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}
+                                      >
+                                        {msg.role === 'assistant' && (
+                                          <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shrink-0">
+                                            <Bot className="w-4 h-4 text-white" />
+                                          </div>
+                                        )}
+                                        <div className={`max-w-xs lg:max-w-md ${msg.role === 'user' ? 'order-first' : ''}`}>
+                                          <div
+                                            className={`rounded-lg px-4 py-2 ${
+                                              msg.role === 'user'
+                                                ? 'bg-blue-600 text-white rounded-tr-none'
+                                                : 'bg-slate-100 text-slate-700 rounded-tl-none'
+                                            }`}
+                                          >
+                                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                                          </div>
+                                          <p className={`text-xs text-slate-500 mt-1 ${msg.role === 'user' ? 'text-right' : ''}`}>
+                                            {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                          </p>
+                                        </div>
+                                        {msg.role === 'user' && (
+                                          <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center shrink-0">
+                                            <User className="w-4 h-4 text-slate-600" />
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))
+                                  )}
+                                  
+                                  {/* Loading indicator */}
+                                  {isTestingAgent && (
+                                    <div className="flex gap-3">
+                                      <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shrink-0">
+                                        <Bot className="w-4 h-4 text-white" />
+                                      </div>
+                                      <div className="bg-slate-100 rounded-lg rounded-tl-none px-4 py-2">
+                                        <div className="flex items-center gap-2">
+                                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-400"></div>
+                                          <p className="text-sm text-slate-500">Agent is thinking...</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Single Response (for single mode) */}
+                            {!isTestChatMode && (testResponse || isTestingAgent) && (
+                              <div className="border rounded-lg">
+                                <div className="p-3 bg-slate-50 border-b">
+                                  <h4 className="font-medium text-sm">Agent Response</h4>
+                                </div>
+                                <div className="p-4">
+                                  {isTestingAgent ? (
+                                    <div className="flex items-center gap-2 text-slate-500">
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-400"></div>
+                                      <p>Agent is generating response...</p>
+                                    </div>
+                                  ) : (
+                                    <div className="prose max-w-none">
+                                      <p className="text-slate-700 whitespace-pre-wrap">{testResponse}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Test Information */}
+                            <div className="bg-blue-50 rounded-lg p-4">
+                              <div className="flex items-start space-x-3">
+                                <Info className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+                                <div className="space-y-2 text-sm text-blue-700">
+                                  <p className="font-medium">Testing Tips:</p>
+                                  <ul className="space-y-1 ml-4">
+                                    <li>• Make sure to fill out the Overview tab with required fields before testing</li>
+                                    <li>• Test with different types of questions to verify your agent's responses</li>
+                                    <li>• Use the chat mode to test conversation flow and memory retention</li>
+                                    <li>• Try questions related to your selected documents to test knowledge retrieval</li>
+                                    {form.watch("memoryEnabled") && (
+                                      <li>• Memory is enabled - the agent will remember up to {form.watch("memoryLimit") || 10} previous messages in chat mode</li>
+                                    )}
+                                  </ul>
                                 </div>
                               </div>
                             </div>
