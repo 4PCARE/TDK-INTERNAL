@@ -2052,7 +2052,6 @@ ${document.summary}`;
             documentName: document.name,
             mimeType: document.mimeType,
             tags: document.tags || [],
-            originalDocumentId: id.toString(),
           }, document.mimeType, preserveExistingEmbeddings);
 
           console.log(`Document ${id} manually vectorized successfully with preserve mode: ${preserveExistingEmbeddings}`);
@@ -2107,7 +2106,6 @@ ${document.summary}`;
                 documentName: doc.name,
                 mimeType: doc.mimeType,
                 tags: doc.tags || [],
-                originalDocumentId: doc.id.toString(),
               }, doc.mimeType, preserveExistingEmbeddings);
               vectorizedCount++;
               console.log(
@@ -2645,7 +2643,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
         for (const document of documents) {
           if (document.content && document.content.trim().length > 0) {
             try {
-              const result = await vectorService.addDocument(
+              await vectorService.addDocument(
                 document.id.toString(),
                 document.content,
                 {
@@ -3087,7 +3085,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       const widgetId = parseInt(req.params.id);
 
       const updatedWidget = await storage.setPlatformWidget(widgetId, userId);
-      
+
       res.json(updatedWidget);
     } catch (error) {
       console.error("Error setting platform widget:", error);
@@ -3101,7 +3099,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       const widgetId = parseInt(req.params.id);
 
       const updatedWidget = await storage.unsetPlatformWidget(widgetId, userId);
-      
+
       res.json(updatedWidget);
     } catch (error) {
       console.error("Error unsetting platform widget:", error);
@@ -3380,7 +3378,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     try {
       const { widgetKey } = req.params;
       const { sessionId, message, visitorInfo } = req.body;
-      
+
       const {
         chatWidgets,
         widgetChatSessions,
@@ -3396,10 +3394,10 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       // Get current user information if authenticated
       let currentUser = null;
       let hrEmployeeData = null;
-      
+
       console.log(`👤 Widget: Checking authentication - req.user exists: ${!!req.user}`);
       console.log(`👤 Widget: req.user structure:`, req.user ? Object.keys(req.user) : 'undefined');
-      
+
       // Try multiple authentication methods
       if (req.user) {
         // Method 1: Check for claims structure (Replit Auth)
@@ -3407,7 +3405,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           currentUser = req.user.claims;
           console.log(`👤 Widget: Authenticated via claims: ${currentUser.email}`);
         }
-        // Method 2: Check for direct email property 
+        // Method 2: Check for direct email property
         else if (req.user.email) {
           currentUser = req.user;
           console.log(`👤 Widget: Authenticated via direct email: ${currentUser.email}`);
@@ -3423,7 +3421,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       } else {
         console.log(`👤 Widget: No authenticated user found`);
       }
-      
+
       if (currentUser && currentUser.email) {
         // Try to find HR employee data for the authenticated user
         try {
@@ -3431,9 +3429,9 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           const hrEmployeeQuery = await db.query.hrEmployees.findFirst({
             where: (hrEmployees, { eq }) => eq(hrEmployees.email, currentUser.email),
           });
-          
+
           const employee = hrEmployeeQuery;
-          
+
           if (employee) {
             hrEmployeeData = employee;
             console.log(`👤 Widget: Found HR data for ${employee.name} (${employee.department})`);
@@ -3922,10 +3920,10 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       try {
         const userId = req.user.claims.sub;
         const dateRange = req.query.dateRange || '7d';
-        
+
         // Get user's social integrations
         const integrations = await storage.getSocialIntegrations(userId);
-        
+
         // Build analytics data
         const analytics = {
           dateRange,
@@ -3938,7 +3936,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           })),
           lastUpdated: new Date().toISOString()
         };
-        
+
         res.json(analytics);
       } catch (error) {
         console.error("Error fetching omnichannel analytics:", error);
@@ -4905,6 +4903,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
         JOIN agent_chatbots ac ON si.agent_id = ac.id
         WHERE si.is_verified = true
         AND ac.user_id = $1
+        AND si.type IN ('lineoa', 'facebook', 'tiktok')
         ORDER BY si.type, si.name
       `;
 

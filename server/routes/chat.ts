@@ -679,8 +679,8 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
             content: msg.content
           }));
 
-          // Use agentBot service for smart response generation
-          const { processMessage, saveAssistantResponse } = await import('../agentBot');
+          // Use agentChatService for smart response generation
+          const { chatService } = await import('../services/agentChatService');
 
           // Create bot context for agentBot with HR employee data
           const botContext = {

@@ -1,4 +1,3 @@
-
 import type { Express } from "express";
 import { isAuthenticated, isAdmin } from "../replitAuth";
 import { isMicrosoftAuthenticated } from "../microsoftAuth";
@@ -31,7 +30,7 @@ export function registerAgentRoutes(app: Express) {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
-      
+
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid agent ID" });
       }
@@ -85,7 +84,7 @@ export function registerAgentRoutes(app: Express) {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
-      
+
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid agent ID" });
       }
@@ -142,7 +141,7 @@ export function registerAgentRoutes(app: Express) {
       }
 
       console.log(`Fetching documents for agent ${agentId}...`);
-      
+
       // Use a simpler approach without orderBy to test if that's the issue
       const associatedDocuments = await db
         .select()
@@ -288,7 +287,7 @@ export function registerAgentRoutes(app: Express) {
       });
 
       // Import chat service and generate response using the provided config
-      const { chatService } = await import("../services/widgetChatService");
+      const { chatService } = await import("../services/agentChatService");
 
       const response = await chatService.generateResponseWithConfig({
         message: message.trim(),
@@ -338,7 +337,7 @@ export function registerAgentRoutes(app: Express) {
       }
 
       // Import chat service and generate response
-      const { chatService } = await import("../services/widgetChatService");
+      const { chatService } = await import("../services/agentChatService");
 
       const response = await chatService.generateResponse({
         message: message.trim(),
@@ -390,7 +389,7 @@ export function registerAgentRoutes(app: Express) {
       }
 
       // Import chat service and generate response
-      const { chatService } = await import("../services/widgetChatService");
+      const { chatService } = await import("../services/agentChatService");
 
       const response = await chatService.generateResponse({
         message: message.trim(),
