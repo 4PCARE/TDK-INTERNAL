@@ -403,19 +403,23 @@ async function generateResponseWithConfig(params: {
     if (documentIds.length > 0) {
       console.log(`🔍 Searching ${documentIds.length} documents for context`);
 
-      const searchService = await import('./semanticSearchV2');
-      const searchOptions = {
-        userId: userId,
-        documentIds: documentIds,
-        searchConfiguration: tempAgent.searchConfiguration
-      };
+      const { searchSmartHybridDebug } = await import('./newSearch');
+      const searchResults = await searchSmartHybridDebug(
+        message,
+        userId,
+        {
+          specificDocumentIds: documentIds,
+          keywordWeight: tempAgent.searchConfiguration?.keywordWeight || 0.4,
+          vectorWeight: tempAgent.searchConfiguration?.vectorWeight || 0.6,
+          massSelectionPercentage: tempAgent.searchConfiguration?.documentMass || 0.3,
+          limit: 8
+        }
+      );
 
-      const searchResults = await searchService.searchDocuments(message, searchOptions);
-
-      if (searchResults.chunks && searchResults.chunks.length > 0) {
-        console.log(`📄 Found ${searchResults.chunks.length} relevant document chunks`);
+      if (searchResults && searchResults.rankedChunks && searchResults.rankedChunks.length > 0) {
+        console.log(`📄 Found ${searchResults.rankedChunks.length} relevant document chunks`);
         documentContext = '\nRelevant information:\n' +
-          searchResults.chunks.map((chunk: any) => chunk.content).join('\n\n') + '\n';
+          searchResults.rankedChunks.map((chunk: any) => chunk.content).join('\n\n') + '\n';
       }
     }
 
@@ -423,10 +427,26 @@ async function generateResponseWithConfig(params: {
     console.log(`📝 Full prompt length: ${fullPrompt.length} characters`);
 
     // Generate response using OpenAI
-    const openaiService = await import('./openai');
+    const { OpenAI } = await import('openai');
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
     const startTime = Date.now();
 
     let response;
+
+    // Build messages for OpenAI
+    const messages = [
+      {
+        role: "system" as const,
+        content: fullPrompt
+      },
+      {
+        role: "user" as const,
+        content: message
+      }
+    ];
 
     // Apply guardrails if enabled
     if (tempAgent.guardrailsConfig) {
@@ -438,7 +458,14 @@ async function generateResponseWithConfig(params: {
         guardrailsConfig: tempAgent.guardrailsConfig
       });
     } else {
-      response = await openaiService.generateChatResponse(fullPrompt, message);
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: messages,
+        max_tokens: 1000,
+        temperature: 0.7,
+      });
+
+      response = completion.choices[0].message.content || "ขออภัย ไม่สามารถสร้างคำตอบได้ในขณะนี้";
     }
 
     const responseTime = Date.now() - startTime;
