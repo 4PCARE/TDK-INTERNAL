@@ -7,7 +7,7 @@ import { storage } from "../storage";
 import { db } from "../db";
 import {
   agentChatbots,
-  agentDocuments as agentDocumentsTable,
+  agentChatbotDocuments as agentDocumentsTable,
   users,
   departments,
   documents
