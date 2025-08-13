@@ -382,8 +382,6 @@ async function generateResponseWithConfig(params: {
       systemPrompts.push(`Additional context: ${tempAgent.searchConfiguration.additionalSearchDetail}`);
     }
 
-    const systemPrompt = systemPrompts.join('\n\n');
-
     // Memory handling for chat history
     let memoryContext = '';
     if (tempAgent.memoryEnabled && chatHistory.length > 0) {
@@ -423,7 +421,29 @@ async function generateResponseWithConfig(params: {
       }
     }
 
-    const fullPrompt = systemPrompt + memoryContext + documentContext;
+    // Build the full prompt with agent configuration
+    const basePrompt = `You are ${tempAgent.name}, a ${tempAgent.profession} AI assistant.
+
+Personality: ${tempAgent.personality}
+Response Style: ${tempAgent.responseStyle}
+${tempAgent.specialSkills ? `Special Skills: ${tempAgent.specialSkills}` : ''}
+
+${tempAgent.systemPrompt || `You are a helpful AI assistant. Please provide accurate and helpful responses based on the available information.`}`;
+
+    const fullPrompt = documentContext.length > 0 
+      ? `${basePrompt}
+
+${documentContext}
+
+IMPORTANT: Base your response primarily on the information provided in the RELEVANT DOCUMENTS section above. If the documents contain relevant information to answer the user's question, use that information and mention that you found it in the available documents. If the documents don't contain relevant information, clearly state that you couldn't find specific information about their question in the available documents.
+
+Please respond in a helpful and professional manner.`
+      : `${basePrompt}
+
+No specific documents were found relevant to this query. Please provide a helpful general response based on your knowledge as a ${tempAgent.profession} assistant.
+
+Please respond in a helpful and professional manner.`;
+
     console.log(`📝 Full prompt length: ${fullPrompt.length} characters`);
 
     // Generate response using OpenAI
