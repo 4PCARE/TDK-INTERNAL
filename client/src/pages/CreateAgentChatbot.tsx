@@ -175,7 +175,7 @@ export default function CreateAgentChatbot() {
     content: string;
     timestamp: Date;
   }>>([]);
-  const [isTestChatMode, setIsTestChatMode] = useState(false);
+  const [isTestChatMode, setIsTestChatMode] = useState(true);
   const chatHistoryRef = useRef<HTMLDivElement>(null);
 
   // Check if we're editing an existing agent
@@ -2519,79 +2519,10 @@ export default function CreateAgentChatbot() {
                             </CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-6">
-                            {/* Test Mode Toggle */}
-                            <div className="flex items-center justify-between p-4 border rounded-lg">
-                              <div>
-                                <h4 className="font-medium">Test Mode</h4>
-                                <p className="text-sm text-slate-500">
-                                  {isTestChatMode ? "Interactive chat mode" : "Single message mode"}
-                                </p>
-                              </div>
-                              <div className="flex gap-2">
-                                {!isTestChatMode ? (
-                                  <Button 
-                                    type="button" 
-                                    variant="outline" 
-                                    onClick={startChatTest}
-                                    className="flex items-center gap-2"
-                                  >
-                                    <MessageCircle className="w-4 h-4" />
-                                    Start Chat Test
-                                  </Button>
-                                ) : (
-                                  <Button 
-                                    type="button" 
-                                    variant="outline" 
-                                    onClick={stopChatTest}
-                                    className="flex items-center gap-2"
-                                  >
-                                    <X className="w-4 h-4" />
-                                    Stop Chat Test
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
+                            
 
-                            {/* Test Input - Only show for single message mode */}
-                            {!isTestChatMode && (
-                              <div className="space-y-4">
-                                <div className="flex gap-2">
-                                  <Input
-                                    placeholder="Enter a test message to see how your agent responds..."
-                                    value={testMessage}
-                                    onChange={(e) => setTestMessage(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault();
-                                        handleTestAgent();
-                                      }
-                                    }}
-                                    disabled={isTestingAgent}
-                                  />
-                                  <Button
-                                    type="button"
-                                    onClick={handleTestAgent}
-                                    disabled={isTestingAgent || !testMessage.trim()}
-                                    className="shrink-0"
-                                  >
-                                    {isTestingAgent ? (
-                                      <>
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                        Testing...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <MessageSquare className="w-4 h-4 mr-2" />
-                                        Test
-                                      </>
-                                    )}
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Chat History (for chat mode) */}
-                            {isTestChatMode && (
+                            {/* Chat History */}
+                            {(
                               <div className="border rounded-lg flex flex-col h-96">
                                 <div className="p-3 bg-slate-50 border-b">
                                   <h4 className="font-medium text-sm">Chat Conversation</h4>
@@ -2688,26 +2619,7 @@ export default function CreateAgentChatbot() {
                               </div>
                             )}
 
-                            {/* Single Response (for single mode) */}
-                            {!isTestChatMode && (testResponse || isTestingAgent) && (
-                              <div className="border rounded-lg">
-                                <div className="p-3 bg-slate-50 border-b">
-                                  <h4 className="font-medium text-sm">Agent Response</h4>
-                                </div>
-                                <div className="p-4">
-                                  {isTestingAgent ? (
-                                    <div className="flex items-center gap-2 text-slate-500">
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-400"></div>
-                                      <p>Agent is generating response...</p>
-                                    </div>
-                                  ) : (
-                                    <div className="prose max-w-none">
-                                      <p className="text-slate-700 whitespace-pre-wrap">{testResponse}</p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
+                            
 
                             {/* Test Information */}
                             <div className="bg-blue-50 rounded-lg p-4">
@@ -2718,7 +2630,7 @@ export default function CreateAgentChatbot() {
                                   <ul className="space-y-1 ml-4">
                                     <li>• Make sure to fill out the Overview tab with required fields before testing</li>
                                     <li>• Test with different types of questions to verify your agent's responses</li>
-                                    <li>• Use the chat mode to test conversation flow and memory retention</li>
+                                    <li>• Test conversation flow and memory retention with multiple messages</li>
                                     <li>• Try questions related to your selected documents to test knowledge retrieval</li>
                                     {form.watch("memoryEnabled") && (
                                       <li>• Memory is enabled - the agent will remember up to {form.watch("memoryLimit") || 10} previous messages in chat mode</li>
