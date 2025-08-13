@@ -12,7 +12,7 @@ import {
   departments,
   documents
 } from "@shared/schema";
-import { eq, sql, and, desc } from "drizzle-orm";
+import { eq, sql, and, desc as descOrder } from "drizzle-orm";
 
 export function registerAgentRoutes(app: Express) {
   // Agent chatbot routes
@@ -145,7 +145,7 @@ export function registerAgentRoutes(app: Express) {
         .select()
         .from(agentDocumentsTable)
         .where(eq(agentDocumentsTable.agentId, agentId))
-        .orderBy(desc(agentDocumentsTable.addedAt));
+        .orderBy(descOrder(agentDocumentsTable.addedAt));
 
       res.json(associatedDocuments);
     } catch (error) {
