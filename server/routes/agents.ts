@@ -1,3 +1,4 @@
+
 import type { Express } from "express";
 import { isAuthenticated, isAdmin } from "../replitAuth";
 import { isMicrosoftAuthenticated } from "../microsoftAuth";
@@ -6,7 +7,7 @@ import { storage } from "../storage";
 import { db } from "../db";
 import {
   agentChatbots,
-  agentDocuments,
+  agentDocuments as agentDocumentsTable,
   users,
   departments,
   documents
@@ -30,6 +31,11 @@ export function registerAgentRoutes(app: Express) {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid agent ID" });
+      }
+
       const agent = await storage.getAgentChatbot(id, userId);
 
       if (!agent) {
@@ -46,9 +52,25 @@ export function registerAgentRoutes(app: Express) {
   app.post("/api/agent-chatbots", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const { name, description, personality, profession, responseStyle, specialSkills, channels } = req.body;
+
+      // Validate required fields
+      if (!name || !name.trim()) {
+        return res.status(400).json({ message: "Agent name is required" });
+      }
+
       const agentData = {
-        ...req.body,
+        name: name.trim(),
+        description: description || "",
+        personality: personality || "",
+        profession: profession || "",
+        responseStyle: responseStyle || "helpful",
+        specialSkills: specialSkills || "",
+        channels: channels || [],
         userId,
+        isPublic: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       const agent = await storage.createAgentChatbot(agentData);
@@ -63,7 +85,15 @@ export function registerAgentRoutes(app: Express) {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
-      const agentData = req.body;
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid agent ID" });
+      }
+
+      const agentData = {
+        ...req.body,
+        updatedAt: new Date()
+      };
 
       const agent = await storage.updateAgentChatbot(id, userId, agentData);
 
@@ -83,6 +113,10 @@ export function registerAgentRoutes(app: Express) {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
 
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid agent ID" });
+      }
+
       await storage.deleteAgentChatbot(id, userId);
       res.json({ success: true, message: "Agent chatbot deleted successfully" });
     } catch (error) {
@@ -97,24 +131,28 @@ export function registerAgentRoutes(app: Express) {
       const agentId = parseInt(req.params.id);
       const userId = req.user.claims.sub;
 
+      if (isNaN(agentId)) {
+        return res.status(400).json({ message: "Invalid agent ID" });
+      }
+
       // Verify agent ownership
       const agent = await storage.getAgentChatbot(agentId, userId);
       if (!agent) {
         return res.status(404).json({ message: "Agent not found" });
       }
 
-      const agentDocuments = await db
+      const associatedDocuments = await db
         .select({
-          id: agentDocuments.id,
-          agentId: agentDocuments.agentId,
-          documentId: agentDocuments.documentId,
-          addedAt: agentDocuments.addedAt,
+          id: agentDocumentsTable.id,
+          agentId: agentDocumentsTable.agentId,
+          documentId: agentDocumentsTable.documentId,
+          addedAt: agentDocumentsTable.addedAt,
         })
-        .from(agentDocuments)
-        .where(eq(agentDocuments.agentId, agentId))
-        .orderBy(desc(agentDocuments.addedAt));
+        .from(agentDocumentsTable)
+        .where(eq(agentDocumentsTable.agentId, agentId))
+        .orderBy(desc(agentDocumentsTable.addedAt));
 
-      res.json(agentDocuments);
+      res.json(associatedDocuments);
     } catch (error) {
       console.error("Error fetching agent documents:", error);
       res.status(500).json({ message: "Failed to fetch agent documents" });
@@ -127,6 +165,10 @@ export function registerAgentRoutes(app: Express) {
       const documentId = parseInt(req.params.documentId);
       const userId = req.user.claims.sub;
 
+      if (isNaN(agentId) || isNaN(documentId)) {
+        return res.status(400).json({ message: "Invalid agent or document ID" });
+      }
+
       // Verify agent ownership
       const agent = await storage.getAgentChatbot(agentId, userId);
       if (!agent) {
@@ -136,17 +178,17 @@ export function registerAgentRoutes(app: Express) {
       // Verify document access
       const document = await storage.getDocument(documentId, userId);
       if (!document) {
-        return res.status(404).json({ message: "Document not found" });
+        return res.status(404).json({ message: "Document not found or access denied" });
       }
 
       // Check if association already exists
       const [existingAssociation] = await db
         .select()
-        .from(agentDocuments)
+        .from(agentDocumentsTable)
         .where(
           and(
-            eq(agentDocuments.agentId, agentId),
-            eq(agentDocuments.documentId, documentId)
+            eq(agentDocumentsTable.agentId, agentId),
+            eq(agentDocumentsTable.documentId, documentId)
           )
         )
         .limit(1);
@@ -157,7 +199,7 @@ export function registerAgentRoutes(app: Express) {
 
       // Create association
       const [association] = await db
-        .insert(agentDocuments)
+        .insert(agentDocumentsTable)
         .values({
           agentId,
           documentId,
@@ -178,6 +220,10 @@ export function registerAgentRoutes(app: Express) {
       const documentId = parseInt(req.params.documentId);
       const userId = req.user.claims.sub;
 
+      if (isNaN(agentId) || isNaN(documentId)) {
+        return res.status(400).json({ message: "Invalid agent or document ID" });
+      }
+
       // Verify agent ownership
       const agent = await storage.getAgentChatbot(agentId, userId);
       if (!agent) {
@@ -185,14 +231,19 @@ export function registerAgentRoutes(app: Express) {
       }
 
       // Remove association
-      await db
-        .delete(agentDocuments)
+      const result = await db
+        .delete(agentDocumentsTable)
         .where(
           and(
-            eq(agentDocuments.agentId, agentId),
-            eq(agentDocuments.documentId, documentId)
+            eq(agentDocumentsTable.agentId, agentId),
+            eq(agentDocumentsTable.documentId, documentId)
           )
-        );
+        )
+        .returning();
+
+      if (result.length === 0) {
+        return res.status(404).json({ message: "Document association not found" });
+      }
 
       res.json({ success: true, message: "Document removed from agent" });
     } catch (error) {
@@ -208,6 +259,10 @@ export function registerAgentRoutes(app: Express) {
       const userId = req.user.claims.sub;
       const { message } = req.body;
 
+      if (isNaN(agentId)) {
+        return res.status(400).json({ message: "Invalid agent ID" });
+      }
+
       if (!message || message.trim().length === 0) {
         return res.status(400).json({ message: "Message is required" });
       }
@@ -222,7 +277,7 @@ export function registerAgentRoutes(app: Express) {
       const { chatService } = await import("../services/widgetChatService");
 
       const response = await chatService.generateResponse({
-        message: message,
+        message: message.trim(),
         agentId: agentId,
         userId: userId,
         sessionId: `test_${Date.now()}`,
@@ -245,11 +300,15 @@ export function registerAgentRoutes(app: Express) {
     }
   });
 
-  // Agent chat endpoint
+  // Agent chat endpoint (public)
   app.post("/api/agent-chatbots/:id/chat", async (req: any, res) => {
     try {
       const agentId = parseInt(req.params.id);
       const { message, sessionId } = req.body;
+
+      if (isNaN(agentId)) {
+        return res.status(400).json({ message: "Invalid agent ID" });
+      }
 
       if (!message || message.trim().length === 0) {
         return res.status(400).json({ message: "Message is required" });
@@ -270,7 +329,7 @@ export function registerAgentRoutes(app: Express) {
       const { chatService } = await import("../services/widgetChatService");
 
       const response = await chatService.generateResponse({
-        message: message,
+        message: message.trim(),
         agentId: agentId,
         sessionId: sessionId || `public_${Date.now()}`,
         isPublic: true
@@ -296,6 +355,10 @@ export function registerAgentRoutes(app: Express) {
   app.get("/api/agent-chatbots/:id/public", async (req, res) => {
     try {
       const agentId = parseInt(req.params.id);
+
+      if (isNaN(agentId)) {
+        return res.status(400).json({ message: "Invalid agent ID" });
+      }
 
       const [agent] = await db
         .select({
@@ -334,6 +397,10 @@ export function registerAgentRoutes(app: Express) {
       const agentId = parseInt(req.params.id);
       const userId = req.user.claims.sub;
 
+      if (isNaN(agentId)) {
+        return res.status(400).json({ message: "Invalid agent ID" });
+      }
+
       // Verify agent ownership
       const agent = await storage.getAgentChatbot(agentId, userId);
       if (!agent) {
@@ -353,8 +420,8 @@ export function registerAgentRoutes(app: Express) {
       // Get document count
       const documentCount = await db
         .select({ count: sql<number>`count(*)` })
-        .from(agentDocuments)
-        .where(eq(agentDocuments.agentId, agentId));
+        .from(agentDocumentsTable)
+        .where(eq(agentDocumentsTable.agentId, agentId));
 
       stats.documentsCount = documentCount[0]?.count || 0;
 
@@ -370,6 +437,10 @@ export function registerAgentRoutes(app: Express) {
     try {
       const sourceAgentId = parseInt(req.params.id);
       const userId = req.user.claims.sub;
+
+      if (isNaN(sourceAgentId)) {
+        return res.status(400).json({ message: "Invalid agent ID" });
+      }
 
       // Get source agent
       const sourceAgent = await storage.getAgentChatbot(sourceAgentId, userId);
@@ -396,8 +467,8 @@ export function registerAgentRoutes(app: Express) {
       // Copy document associations
       const sourceDocuments = await db
         .select()
-        .from(agentDocuments)
-        .where(eq(agentDocuments.agentId, sourceAgentId));
+        .from(agentDocumentsTable)
+        .where(eq(agentDocumentsTable.agentId, sourceAgentId));
 
       if (sourceDocuments.length > 0) {
         const documentAssociations = sourceDocuments.map(doc => ({
@@ -406,7 +477,7 @@ export function registerAgentRoutes(app: Express) {
           addedAt: new Date()
         }));
 
-        await db.insert(agentDocuments).values(documentAssociations);
+        await db.insert(agentDocumentsTable).values(documentAssociations);
       }
 
       res.json({
@@ -427,6 +498,10 @@ export function registerAgentRoutes(app: Express) {
       const agentId = parseInt(req.params.id);
       const userId = req.user.claims.sub;
 
+      if (isNaN(agentId)) {
+        return res.status(400).json({ message: "Invalid agent ID" });
+      }
+
       // Get agent with documents
       const agent = await storage.getAgentChatbot(agentId, userId);
       if (!agent) {
@@ -436,13 +511,13 @@ export function registerAgentRoutes(app: Express) {
       // Get associated documents
       const associatedDocs = await db
         .select({
-          documentId: agentDocuments.documentId,
+          documentId: agentDocumentsTable.documentId,
           documentName: documents.name,
-          addedAt: agentDocuments.addedAt
+          addedAt: agentDocumentsTable.addedAt
         })
-        .from(agentDocuments)
-        .leftJoin(documents, eq(agentDocuments.documentId, documents.id))
-        .where(eq(agentDocuments.agentId, agentId));
+        .from(agentDocumentsTable)
+        .leftJoin(documents, eq(agentDocumentsTable.documentId, documents.id))
+        .where(eq(agentDocumentsTable.agentId, agentId));
 
       const exportData = {
         agent: {
