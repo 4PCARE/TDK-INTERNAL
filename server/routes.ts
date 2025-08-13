@@ -797,7 +797,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (req.path.startsWith("/api/")) {
       return res.status(404).json({ message: "API endpoint not found" });
     }
-    res.sendFile(path.join(__dirname, "../client/index.html"));
+    res.sendFile(path.join(import.meta.dirname, "../client/index.html"));
   });
 
   // Create HTTP server
