@@ -101,20 +101,17 @@ export const chatService = {
       }
 
       try {
-        // Use agentBot to process the message
-        // Extract agent ID from config if it's an object, otherwise use as-is
-    const agentId = typeof agentConfig === 'object' ? agentConfig.id || agentConfig : agentConfig;
-
-    const response = await processMessage({
-      message: message,
-      userId: userId,
-      sessionId: sessionId,
-      channelType: 'chat_widget',
-      channelId: `widget_${sessionId}`,
-      agentConfig: agentId, // Pass only the ID
-      documentIds: documentIds,
-      isTest: false
-    });
+        // Use agentBot to process the message with the temporary agent ID
+        const response = await processMessage({
+          message: message,
+          userId: userId,
+          sessionId: sessionId,
+          channelType: 'chat_widget',
+          channelId: `widget_${sessionId}`,
+          agentConfig: tempAgent.id, // Use the temporary agent's ID
+          documentIds: documentIds,
+          isTest: false
+        });
 
         return {
           message: response.response,

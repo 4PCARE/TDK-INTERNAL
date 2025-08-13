@@ -900,9 +900,35 @@ ${imageAnalysisResult}
  * Main bot function to process a message and return a response
  */
 export async function processMessage(
-  message: BotMessage,
-  context: BotContext,
+  message: BotMessage | { message: string; userId: string; sessionId: string; channelType: string; channelId: string; agentConfig: number; documentIds: number[]; isTest: boolean },
+  context?: BotContext,
 ): Promise<BotResponse> {
+  // Handle both old and new calling conventions
+  if ('message' in message && typeof message.message === 'string') {
+    // New calling convention from agentChatService
+    const params = message as { message: string; userId: string; sessionId: string; channelType: string; channelId: string; agentConfig: number; documentIds: number[]; isTest: boolean };
+    
+    const botMessage: BotMessage = {
+      type: 'text',
+      content: params.message
+    };
+    
+    const botContext: BotContext = {
+      userId: params.userId,
+      channelType: params.channelType,
+      channelId: params.channelId,
+      agentId: params.agentConfig, // agentConfig contains the agent ID
+      messageId: `${params.channelType}_${Date.now()}`,
+      lineIntegration: null
+    };
+    
+    return processMessage(botMessage, botContext);
+  }
+  
+  // Original calling convention
+  if (!context) {
+    throw new Error("Context is required for BotMessage processing");
+  }
   try {
     console.log(`🤖 AgentBot: Processing ${message.type} message from ${context.channelType}:${context.channelId}`);
 
