@@ -101,23 +101,36 @@ export const chatService = {
       }
 
       try {
-        // Use agentBot to process the message with the temporary agent ID
-        const response = await processMessage({
-          message: message,
-          userId: userId,
-          sessionId: sessionId,
+        // Import processMessage function for internal use
+        const { processMessage } = await import('../agentBot');
+        
+        // Create bot context and message as expected by agentBot
+        const botContext = {
+          userId: sessionId,
           channelType: 'chat_widget',
           channelId: `widget_${sessionId}`,
-          agentConfig: tempAgent.id, // Use the temporary agent's ID
-          documentIds: documentIds,
-          isTest: false
-        });
-
-        return {
-          message: response.response,
-          sources: [],
-          responseTime: 0
+          agentId: tempAgent.id, // Use the temporary agent's ID
+          messageId: `test_${Date.now()}`,
+          lineIntegration: null
         };
+
+        const botMessage = {
+          type: 'text',
+          content: message
+        };
+
+        // Use agentBot to process the message with the temporary agent ID
+        const response = await processMessage(botMessage, botContext);
+
+        if (response.success) {
+          return {
+            message: response.response,
+            sources: [],
+            responseTime: 0
+          };
+        } else {
+          throw new Error(response.error || 'Agent processing failed');
+        }
       } finally {
         // Clean up temporary agent
         try {
