@@ -102,13 +102,19 @@ export const chatService = {
 
       try {
         // Use agentBot to process the message
-        const response = await this.generateAgentResponse(
-          message,
-          tempAgent.id,
-          userId,
-          sessionId,
-          chatHistory
-        );
+        // Extract agent ID from config if it's an object, otherwise use as-is
+    const agentId = typeof agentConfig === 'object' ? agentConfig.id || agentConfig : agentConfig;
+
+    const response = await processMessage({
+      message: message,
+      userId: userId,
+      sessionId: sessionId,
+      channelType: 'chat_widget',
+      channelId: `widget_${sessionId}`,
+      agentConfig: agentId, // Pass only the ID
+      documentIds: documentIds,
+      isTest: false
+    });
 
         return {
           message: response.response,

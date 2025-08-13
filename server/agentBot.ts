@@ -133,6 +133,7 @@ async function getAiResponseDirectly(
       try {
         // For widget contexts (web channel), use getAgentChatbotForWidget which doesn't require user ownership
         if (channelType === 'web' || channelType === 'chat_widget') {
+          // Pass the agentId directly to the storage function
           agentData = await storage.getAgentChatbotForWidget(agentId);
         } else {
           agentData = await storage.getAgentChatbot(agentId, userId);

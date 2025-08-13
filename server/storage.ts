@@ -1303,11 +1303,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAgentChatbotForWidget(id: number): Promise<AgentChatbot | undefined> {
-    const [agent] = await db
-      .select()
-      .from(agentChatbots)
-      .where(eq(agentChatbots.id, id));
-    return agent;
+    console.log(`🔍 Storage: getAgentChatbotForWidget called with ID: ${id} (type: ${typeof id})`);
+    
+    // Ensure id is a valid integer
+    const agentId = parseInt(String(id));
+    if (isNaN(agentId)) {
+      console.error(`❌ Invalid agent ID provided: ${id}`);
+      return undefined;
+    }
+    
+    try {
+      const [agent] = await db
+        .select()
+        .from(agentChatbots)
+        .where(eq(agentChatbots.id, agentId));
+      
+      console.log(`✅ Storage: Found agent: ${agent ? agent.name : 'not found'}`);
+      return agent;
+    } catch (error) {
+      console.error(`💥 Error in getAgentChatbotForWidget:`, error);
+      throw error;
+    }
   }
 
   async getAgentChatbotDocumentsForWidget(agentId: number): Promise<AgentChatbotDocument[]> {
