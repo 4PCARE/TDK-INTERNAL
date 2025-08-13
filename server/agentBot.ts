@@ -908,6 +908,8 @@ export async function processMessage(
     // New calling convention from agentChatService
     const params = message as { message: string; userId: string; sessionId: string; channelType: string; channelId: string; agentConfig: number; documentIds: number[]; isTest: boolean };
     
+    console.log(`🔍 Debug: agentConfig received:`, params.agentConfig, `(type: ${typeof params.agentConfig})`);
+    
     const botMessage: BotMessage = {
       type: 'text',
       content: params.message
@@ -917,7 +919,7 @@ export async function processMessage(
       userId: params.userId,
       channelType: params.channelType,
       channelId: params.channelId,
-      agentId: params.agentConfig, // agentConfig contains the agent ID
+      agentId: typeof params.agentConfig === 'number' ? params.agentConfig : (params.agentConfig?.id || params.agentConfig),
       messageId: `${params.channelType}_${Date.now()}`,
       lineIntegration: null
     };
