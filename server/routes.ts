@@ -93,9 +93,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/webhook/lineoa/:token", handleLineWebhook);
 
   // Category routes
-  app.get("/api/categories", (req: any, res: any, next: any) => {
-    const { isMicrosoftAuthenticated } = require("./microsoftAuth");
-    const { isAuthenticated } = require("./replitAuth");
+  app.get("/api/categories", async (req: any, res: any, next: any) => {
+    const { isMicrosoftAuthenticated } = await import("./microsoftAuth");
+    const { isAuthenticated } = await import("./replitAuth");
 
     // Try Microsoft auth first, then fallback to Replit auth
     isMicrosoftAuthenticated(req, res, (err: any) => {
@@ -290,9 +290,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Re-vectorize all documents endpoint
-  app.post("/api/vector/reindex-all", (req: any, res: any, next: any) => {
-    const { isMicrosoftAuthenticated } = require("./microsoftAuth");
-    const { isAuthenticated } = require("./replitAuth");
+  app.post("/api/vector/reindex-all", async (req: any, res: any, next: any) => {
+    const { isMicrosoftAuthenticated } = await import("./microsoftAuth");
+    const { isAuthenticated } = await import("./replitAuth");
 
     // Try Microsoft auth first, then fallback to Replit auth
     isMicrosoftAuthenticated(req, res, (err: any) => {
@@ -381,9 +381,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Test Gemini embeddings endpoint
-  app.post("/api/test/gemini-embedding", (req: any, res: any, next: any) => {
-    const { isMicrosoftAuthenticated } = require("./microsoftAuth");
-    const { isAuthenticated } = require("./replitAuth");
+  app.post("/api/test/gemini-embedding", async (req: any, res: any, next: any) => {
+    const { isMicrosoftAuthenticated } = await import("./microsoftAuth");
+    const { isAuthenticated } = await import("./replitAuth");
 
     // Try Microsoft auth first, then fallback to Replit auth
     isMicrosoftAuthenticated(req, res, (err: any) => {
