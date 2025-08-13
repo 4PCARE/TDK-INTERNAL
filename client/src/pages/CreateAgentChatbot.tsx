@@ -2552,51 +2552,53 @@ export default function CreateAgentChatbot() {
                               </div>
                             </div>
 
-                            {/* Test Input */}
-                            <div className="space-y-4">
-                              <div className="flex gap-2">
-                                <Input
-                                  placeholder="Enter a test message to see how your agent responds..."
-                                  value={testMessage}
-                                  onChange={(e) => setTestMessage(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                      e.preventDefault();
-                                      handleTestAgent();
-                                    }
-                                  }}
-                                  disabled={isTestingAgent}
-                                />
-                                <Button
-                                  type="button"
-                                  onClick={handleTestAgent}
-                                  disabled={isTestingAgent || !testMessage.trim()}
-                                  className="shrink-0"
-                                >
-                                  {isTestingAgent ? (
-                                    <>
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                      Testing...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <MessageSquare className="w-4 h-4 mr-2" />
-                                      Test
-                                    </>
-                                  )}
-                                </Button>
+                            {/* Test Input - Only show for single message mode */}
+                            {!isTestChatMode && (
+                              <div className="space-y-4">
+                                <div className="flex gap-2">
+                                  <Input
+                                    placeholder="Enter a test message to see how your agent responds..."
+                                    value={testMessage}
+                                    onChange={(e) => setTestMessage(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleTestAgent();
+                                      }
+                                    }}
+                                    disabled={isTestingAgent}
+                                  />
+                                  <Button
+                                    type="button"
+                                    onClick={handleTestAgent}
+                                    disabled={isTestingAgent || !testMessage.trim()}
+                                    className="shrink-0"
+                                  >
+                                    {isTestingAgent ? (
+                                      <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                        Testing...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <MessageSquare className="w-4 h-4 mr-2" />
+                                        Test
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
+                            )}
 
                             {/* Chat History (for chat mode) */}
                             {isTestChatMode && (
-                              <div className="border rounded-lg">
+                              <div className="border rounded-lg flex flex-col h-96">
                                 <div className="p-3 bg-slate-50 border-b">
                                   <h4 className="font-medium text-sm">Chat Conversation</h4>
                                 </div>
                                 <div
                                   ref={chatHistoryRef}
-                                  className="h-96 overflow-y-auto p-4 space-y-4"
+                                  className="flex-1 overflow-y-auto p-4 space-y-4"
                                 >
                                   {testChatHistory.length === 0 ? (
                                     <div className="text-center text-slate-500 py-8">
@@ -2607,24 +2609,24 @@ export default function CreateAgentChatbot() {
                                     testChatHistory.map((msg, index) => (
                                       <div
                                         key={index}
-                                        className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}
+                                        className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                                       >
                                         {msg.role === 'assistant' && (
                                           <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shrink-0">
                                             <Bot className="w-4 h-4 text-white" />
                                           </div>
                                         )}
-                                        <div className={`max-w-xs lg:max-w-md ${msg.role === 'user' ? 'order-first' : ''}`}>
+                                        <div className={`max-w-xs lg:max-w-md`}>
                                           <div
                                             className={`rounded-lg px-4 py-2 ${
                                               msg.role === 'user'
-                                                ? 'bg-blue-600 text-white rounded-tr-none'
-                                                : 'bg-slate-100 text-slate-700 rounded-tl-none'
+                                                ? 'bg-blue-600 text-white rounded-br-none'
+                                                : 'bg-slate-100 text-slate-700 rounded-bl-none'
                                             }`}
                                           >
                                             <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                                           </div>
-                                          <p className={`text-xs text-slate-500 mt-1 ${msg.role === 'user' ? 'text-right' : ''}`}>
+                                          <p className={`text-xs text-slate-500 mt-1 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
                                             {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                           </p>
                                         </div>
@@ -2639,11 +2641,11 @@ export default function CreateAgentChatbot() {
                                   
                                   {/* Loading indicator */}
                                   {isTestingAgent && (
-                                    <div className="flex gap-3">
+                                    <div className="flex gap-3 justify-start">
                                       <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shrink-0">
                                         <Bot className="w-4 h-4 text-white" />
                                       </div>
-                                      <div className="bg-slate-100 rounded-lg rounded-tl-none px-4 py-2">
+                                      <div className="bg-slate-100 rounded-lg rounded-bl-none px-4 py-2">
                                         <div className="flex items-center gap-2">
                                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-400"></div>
                                           <p className="text-sm text-slate-500">Agent is thinking...</p>
@@ -2651,6 +2653,37 @@ export default function CreateAgentChatbot() {
                                       </div>
                                     </div>
                                   )}
+                                </div>
+                                
+                                {/* Chat Input at bottom of chat container */}
+                                <div className="border-t p-3">
+                                  <div className="flex gap-2">
+                                    <Input
+                                      placeholder="Type your test message here..."
+                                      value={testMessage}
+                                      onChange={(e) => setTestMessage(e.target.value)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                          e.preventDefault();
+                                          handleTestAgent();
+                                        }
+                                      }}
+                                      disabled={isTestingAgent}
+                                      className="flex-1"
+                                    />
+                                    <Button
+                                      type="button"
+                                      onClick={handleTestAgent}
+                                      disabled={isTestingAgent || !testMessage.trim()}
+                                      className="shrink-0"
+                                    >
+                                      {isTestingAgent ? (
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                      ) : (
+                                        <MessageSquare className="w-4 h-4" />
+                                      )}
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             )}
