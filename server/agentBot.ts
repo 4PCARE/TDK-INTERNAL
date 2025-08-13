@@ -243,7 +243,7 @@ async function getAiResponseDirectly(
 
     if (!skipSearch) {
       let agentDocs;
-      
+
       // For widget contexts, use widget-specific methods that don't require user ownership
       if (channelType === 'web' || channelType === 'chat_widget') {
         agentDocs = await storage.getAgentChatbotDocumentsForWidget(agentId);
@@ -827,7 +827,7 @@ async function processImageMessage(
 ): Promise<string> {
   console.log("🖼️ AgentBot: Starting image processing...");
   const imageService = LineImageService.getInstance();
-  
+
   try {
     // Wait for image processing to complete
     await imageService.processImageMessage(
@@ -908,7 +908,7 @@ export async function processMessage(
     // Handle different message types
     if (message.type === "image") {
       console.log("🖼️ AgentBot: Image message detected - processing image analysis");
-      
+
       // Return immediate acknowledgment and set up image processing
       return {
         success: true,
@@ -1022,13 +1022,13 @@ export async function checkCarouselIntents(
 ): Promise<{ matched: boolean; template?: any; similarity?: number }> {
   try {
     console.log(`🎠 AgentBot: Checking carousel intents for: "${userMessage}"`);
-    
+
     // Use the carousel service
     const { checkCarouselIntents: carouselServiceCheck } = await import("./services/carouselService");
-    
+
     // Call the carousel service function
     const result = await carouselServiceCheck(userMessage, integrationId, userId);
-    
+
     console.log(`🎠 AgentBot: Carousel intent check result: ${result.matched}`);
     return {
       matched: result.matched,

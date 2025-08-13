@@ -286,10 +286,10 @@ export function registerAgentRoutes(app: Express) {
         memoryEnabled: agentConfig.memoryEnabled
       });
 
-      // Import chat service and generate response using the provided config
-      const { chatService } = await import("../services/agentChatService");
+      // Import agentBot and generate response using the provided config
+      const { agentBot } = await import("../agentBot");
 
-      const response = await chatService.generateResponseWithConfig({
+      const response = await agentBot.generateResponseWithConfig({
         message: message.trim(),
         agentConfig: agentConfig,
         documentIds: documentIds,
@@ -336,10 +336,10 @@ export function registerAgentRoutes(app: Express) {
         return res.status(404).json({ message: "Agent not found" });
       }
 
-      // Import chat service and generate response
-      const { chatService } = await import("../services/agentChatService");
+      // Import agentBot and generate response
+      const { agentBot } = await import("../agentBot");
 
-      const response = await chatService.generateResponse({
+      const response = await agentBot.generateResponse({
         message: message.trim(),
         agentId: agentId,
         userId: userId,
@@ -388,10 +388,10 @@ export function registerAgentRoutes(app: Express) {
         return res.status(404).json({ message: "Agent not found" });
       }
 
-      // Import chat service and generate response
-      const { chatService } = await import("../services/agentChatService");
+      // Import agentBot and generate response
+      const { agentBot } = await import("../agentBot");
 
-      const response = await chatService.generateResponse({
+      const response = await agentBot.generateResponse({
         message: message.trim(),
         agentId: agentId,
         sessionId: sessionId || `public_${Date.now()}`,
