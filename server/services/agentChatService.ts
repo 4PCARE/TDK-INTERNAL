@@ -416,35 +416,55 @@ async function generateResponseWithConfig(params: {
 
       if (searchResults && searchResults.rankedChunks && searchResults.rankedChunks.length > 0) {
         console.log(`📄 Found ${searchResults.rankedChunks.length} relevant document chunks`);
-        documentContext = '\nRelevant information:\n' +
-          searchResults.rankedChunks.map((chunk: any) => chunk.content).join('\n\n') + '\n';
+        // Build context from search results with better formatting for AI comprehension
+        let contextParts = [];
+        for (let i = 0; i < searchResults.rankedChunks.length; i++) {
+          const chunk = searchResults.rankedChunks[i];
+
+          contextParts.push(`DOCUMENT ${i + 1}: ${chunk.name}
+Relevance Score: ${chunk.similarity.toFixed(3)}
+Content: ${chunk.content}
+
+---`);
+        }
+
+        documentContext = `The following documents contain specific information relevant to the user's question:
+
+${contextParts.join('\n')}
+
+END OF KNOWLEDGE BASE INFORMATION`;
       }
     }
 
-    // Build the full prompt with agent configuration
-    const basePrompt = `You are ${tempAgent.name}, a ${tempAgent.profession} AI assistant.
+    // Build comprehensive prompt with better document emphasis
+    const systemPrompt = `You are ${tempAgent.name}, a ${tempAgent.profession} AI assistant with a ${tempAgent.personality} personality.
 
-Personality: ${tempAgent.personality}
+${tempAgent.description ? `About you: ${tempAgent.description}` : ''}
+
 Response Style: ${tempAgent.responseStyle}
 ${tempAgent.specialSkills ? `Special Skills: ${tempAgent.specialSkills}` : ''}
 
-${tempAgent.systemPrompt || `You are a helpful AI assistant. Please provide accurate and helpful responses based on the available information.`}`;
+${memoryContext}
 
-    const fullPrompt = documentContext.length > 0 
-      ? `${basePrompt}
+${documentContext ? `=== KNOWLEDGE BASE INFORMATION ===
+You have access to the following specific information from your knowledge base:
 
 ${documentContext}
 
-IMPORTANT: Base your response primarily on the information provided in the RELEVANT DOCUMENTS section above. If the documents contain relevant information to answer the user's question, use that information and mention that you found it in the available documents. If the documents don't contain relevant information, clearly state that you couldn't find specific information about their question in the available documents.
+=== RESPONSE INSTRUCTIONS ===
+- ALWAYS check if the user's question can be answered using the knowledge base information above
+- When information is available in the knowledge base, provide SPECIFIC details, prices, product names, and facts
+- DO NOT give generic or vague responses when specific information is available
+- If you find relevant information, cite it directly and provide exact details
+- Only give general advice if the specific information is not available in your knowledge base` : ''}
 
-Please respond in a helpful and professional manner.`
-      : `${basePrompt}
+Please respond in a helpful and ${tempAgent.personality} manner as a ${tempAgent.profession}.`;
 
-No specific documents were found relevant to this query. Please provide a helpful general response based on your knowledge as a ${tempAgent.profession} assistant.
+    const userPrompt = `User question: ${message}
 
-Please respond in a helpful and professional manner.`;
+Based on the knowledge base information provided above, please give a specific and detailed response. If you have exact information available, use it instead of giving general advice.`;
 
-    console.log(`📝 Full prompt length: ${fullPrompt.length} characters`);
+    console.log('📝 Full prompt length:', (systemPrompt + userPrompt).length, 'characters');
 
     // Generate response using OpenAI
     const { OpenAI } = await import('openai');
@@ -460,11 +480,11 @@ Please respond in a helpful and professional manner.`;
     const messages = [
       {
         role: "system" as const,
-        content: fullPrompt
+        content: systemPrompt
       },
       {
         role: "user" as const,
-        content: message
+        content: userPrompt
       }
     ];
 
@@ -473,8 +493,8 @@ Please respond in a helpful and professional manner.`;
       console.log(`🛡️ Applying guardrails to response`);
       const guardrailsService = await import('./guardrails');
       response = await guardrailsService.generateGuardedResponse({
-        prompt: fullPrompt,
-        userMessage: message,
+        prompt: systemPrompt, // Pass systemPrompt as the base prompt
+        userMessage: userPrompt, // Pass userPrompt as the user message
         guardrailsConfig: tempAgent.guardrailsConfig
       });
     } else {
