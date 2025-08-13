@@ -7,7 +7,9 @@ import { storage } from "../storage";
 import { db } from "../db";
 import { 
   socialIntegrations, 
-  lineOaTemplates as lineTemplates, 
+  lineMessageTemplates, 
+  lineCarouselColumns,
+  lineTemplateActions,
   users, 
   departments,
   agentChatbots
@@ -77,7 +79,7 @@ export function registerIntegrationRoutes(app: Express) {
           isActive: true,
           isVerified: false,
           webhookUrl,
-          webhookToken,
+          config: { webhookToken }, // Store webhook token in config JSON field
           createdAt: new Date(),
           updatedAt: new Date(),
         })
@@ -158,9 +160,33 @@ export function registerIntegrationRoutes(app: Express) {
 
       // Delete associated Line templates if it's a Line OA integration
       if (existingIntegration.type === 'lineoa') {
+        // Get all templates for this integration
+        const templates = await db
+          .select({ id: lineMessageTemplates.id })
+          .from(lineMessageTemplates)
+          .where(eq(lineMessageTemplates.integrationId, integrationId));
+        
+        // Delete cascade: actions -> columns -> templates
+        for (const template of templates) {
+          const columns = await db
+            .select({ id: lineCarouselColumns.id })
+            .from(lineCarouselColumns)
+            .where(eq(lineCarouselColumns.templateId, template.id));
+          
+          for (const column of columns) {
+            await db
+              .delete(lineTemplateActions)
+              .where(eq(lineTemplateActions.columnId, column.id));
+          }
+          
+          await db
+            .delete(lineCarouselColumns)
+            .where(eq(lineCarouselColumns.templateId, template.id));
+        }
+        
         await db
-          .delete(lineTemplates)
-          .where(eq(lineTemplates.integrationId, integrationId));
+          .delete(lineMessageTemplates)
+          .where(eq(lineMessageTemplates.integrationId, integrationId));
       }
 
       // Delete the integration
@@ -239,9 +265,9 @@ export function registerIntegrationRoutes(app: Express) {
 
       const templates = await db
         .select()
-        .from(lineTemplates)
-        .where(eq(lineTemplates.integrationId, integrationId))
-        .orderBy(desc(lineTemplates.createdAt));
+        .from(lineMessageTemplates)
+        .where(eq(lineMessageTemplates.integrationId, integrationId))
+        .orderBy(desc(lineMessageTemplates.createdAt));
 
       res.json(templates);
     } catch (error) {
@@ -403,9 +429,10 @@ export function registerIntegrationRoutes(app: Express) {
         return res.status(404).json({ message: "Integration not found" });
       }
 
+      const webhookToken = integration.config?.webhookToken || null;
       res.json({
         webhookUrl: integration.webhookUrl,
-        webhookToken: integration.webhookToken,
+        webhookToken: webhookToken,
       });
     } catch (error) {
       console.error("Error fetching webhook URL:", error);
@@ -442,7 +469,7 @@ export function registerIntegrationRoutes(app: Express) {
       const [updatedIntegration] = await db
         .update(socialIntegrations)
         .set({
-          webhookToken,
+          config: { ...existingIntegration.config, webhookToken },
           webhookUrl,
           updatedAt: new Date(),
         })
@@ -451,7 +478,7 @@ export function registerIntegrationRoutes(app: Express) {
 
       res.json({
         webhookUrl: updatedIntegration.webhookUrl,
-        webhookToken: updatedIntegration.webhookToken,
+        webhookToken: webhookToken,
       });
     } catch (error) {
       console.error("Error regenerating webhook:", error);
