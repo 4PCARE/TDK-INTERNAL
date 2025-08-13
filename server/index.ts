@@ -9,6 +9,17 @@ import debugChunkTest from "./debug-chunk-test";
 import { registerHrApiRoutes } from "./hrApi";
 import { setupVite, serveStatic, log } from "./vite";
 
+// Skip authentication for static assets and WebSocket connections
+const skipAuthPaths = [
+  '/assets/',
+  '/public/',
+  '/widget/',
+  '/@vite/',
+  '/@fs/',
+  '/node_modules/',
+  '/favicon.ico'
+];
+
 const app = express();
 
 // Session configuration is handled in setupAuth

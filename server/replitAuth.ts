@@ -32,12 +32,12 @@ export function getSession() {
     tableName: "sessions",
     pruneSessionInterval: 60 * 60, // Prune expired sessions every hour
   });
-  
+
   // Handle store errors gracefully
   sessionStore.on('error', (err) => {
     console.error('Session store error:', err);
   });
-  
+
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
@@ -110,7 +110,13 @@ export async function setupAuth(app: Express) {
   }
 
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+  passport.deserializeUser((user: any, done: any) => {
+    // Only log if debug mode is enabled
+    if (process.env.NODE_ENV === 'development' && process.env.DEBUG_AUTH) {
+      console.log("Deserializing user from session:", user.claims?.email);
+    }
+    done(null, user);
+  });
 
   app.get("/api/login", (req, res, next) => {
     passport.authenticate(`replitauth:${req.hostname}`, {
@@ -206,7 +212,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   }
 
   const now = Math.floor(Date.now() / 1000);
-  
+
   // If token is still valid, proceed
   if (now <= currentUser.expires_at) {
     // Update session activity
@@ -227,7 +233,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(currentUser, tokenResponse);
-    
+
     // Update both req.user and session
     req.user = currentUser;
     if (req.session) {
@@ -238,7 +244,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
         }
       });
     }
-    
+
     console.log("Token refreshed successfully for user:", currentUser.claims?.email);
     return next();
   } catch (error) {
@@ -256,7 +262,7 @@ export const isAdmin: RequestHandler = async (req, res, next) => {
 
     const { storage } = await import('./storage');
     const user = await storage.getUser(userId);
-    
+
     if (!user || user.role !== 'admin') {
       return res.status(403).json({ message: "Access denied. Admin role required." });
     }

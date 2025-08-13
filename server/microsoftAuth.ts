@@ -24,7 +24,10 @@ export async function setupMicrosoftAuth(app: Express) {
   });
 
   passport.deserializeUser((user: any, done: any) => {
-    console.log("Deserializing user from session:", user.claims?.email);
+    // Only log if debug mode is enabled
+    if (process.env.NODE_ENV === 'development' && process.env.DEBUG_AUTH) {
+      console.log("Deserializing user from session:", user.claims?.email);
+    }
     done(null, user);
   });
 
