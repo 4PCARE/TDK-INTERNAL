@@ -111,6 +111,7 @@ export default function LiveChatWidget() {
         primaryColor: "#3B82F6",
         textColor: "#FFFFFF",
         enableHrLookup: false,
+        hrApiEndpoint: "",
         agentId: null
       });
       setDialogOpen(false); // Close dialog after success
@@ -144,6 +145,7 @@ export default function LiveChatWidget() {
         primaryColor: "#3B82F6",
         textColor: "#FFFFFF",
         enableHrLookup: false,
+        hrApiEndpoint: "",
         agentId: null
       });
       setDialogOpen(false); // Close dialog after success
