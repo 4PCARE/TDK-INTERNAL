@@ -914,23 +914,25 @@ export async function searchSmartHybridV1(
       const mimeType = doc?.mimeType;
       const name = doc?.name || `Document ${docId}`;
 
-      const hybridScore = Math.max(
-        vectorScore * adaptedVectorWeight + keywordScore * adaptedKeywordWeight,
-        vectorScore,
-        keywordScore
-      );
+      // Temporary scores before adaptive weighting
+      const initialKeywordScore = keywordScore;
+      const initialVectorScore = vectorScore;
 
       combinedChunkMap.set(chunkId, {
         docId,
         chunkIndex,
         content,
-        keywordScore,
-        vectorScore,
-        finalScore: hybridScore,
+        keywordScore: initialKeywordScore, // Store raw keyword score for normalization later
+        vectorScore: initialVectorScore,
+        finalScore: 0, // Will be calculated after adaptive weighting
         mimeType,
         name
       });
     }
+
+    // Declare adapted weights before use
+    let adaptedVectorWeight = vectorWeight;
+    let adaptedKeywordWeight = keywordWeight;
 
     // 4. Adaptive weighting based on search results
     const hasKeywordResults = Object.keys(keywordChunks).length > 0;
@@ -952,97 +954,70 @@ export async function searchSmartHybridV1(
       console.log(`🔄 ADAPTIVE WEIGHTING: Both search methods found results, using original weights`);
     }
 
-    // Declare adapted weights before use
-    let adaptedVectorWeight = vectorWeight;
-    let adaptedKeywordWeight = keywordWeight;
-    }
-
     // Recalculate final scores with adaptive weights
     for (const [chunkId, chunkData] of combinedChunkMap.entries()) {
+      // Collect keyword scores for normalization *after* adaptive weights are decided
+      // This ensures that if keyword search is entirely disabled, normalization doesn't happen
+      if (adaptedKeywordWeight > 0 && chunkData.keywordScore > 0) {
+        // Normalize keyword scores for better distribution
+        const keywordScores = Array.from(combinedChunkMap.values())
+          .filter(c => adaptedKeywordWeight > 0 && c.keywordScore > 0)
+          .map(c => c.keywordScore);
+
+        const bm25Stats = {
+          min: keywordScores.length > 0 ? Math.min(...keywordScores) : 0,
+          max: keywordScores.length > 0 ? Math.max(...keywordScores) : 0,
+          mean: keywordScores.length > 0 ? keywordScores.reduce((a, b) => a + b, 0) / keywordScores.length : 0,
+          std: 0,
+        };
+
+        if (keywordScores.length > 0) {
+          bm25Stats.std = Math.sqrt(keywordScores.reduce((sum, s) => sum + (s - bm25Stats.mean) ** 2, 0) / keywordScores.length);
+        }
+
+        let normalizedKeywordScore = 0;
+        if (bm25Stats.max > bm25Stats.min) {
+          // Use MIN-MAX normalization for better score distribution
+          if ((bm25Stats.std / bm25Stats.mean) < 0.1) { // Low variability
+            normalizedKeywordScore = (chunkData.keywordScore - bm25Stats.min) / (bm25Stats.max - bm25Stats.min);
+            console.log(`📊 Using MIN-MAX normalization for chunk ${chunkId}`);
+          } else { // High variability
+            normalizedKeywordScore = Math.max(0, (chunkData.keywordScore - bm25Stats.mean) / bm25Stats.std);
+            console.log(`📊 Using Z-SCORE normalization for chunk ${chunkId}`);
+          }
+        } else if (keywordScores.length === 1) {
+          normalizedKeywordScore = chunkData.keywordScore; // Single score, use as is
+          console.log(`📊 Single keyword score, using raw score for chunk ${chunkId}`);
+        } else {
+          normalizedKeywordScore = chunkData.keywordScore; // All scores are identical or no scores
+          console.log(`📊 Identical keyword scores or no scores, using raw score for chunk ${chunkId}`);
+        }
+
+        // Apply normalization if it makes sense (e.g., prevents zero scores when there's a match)
+        if (normalizedKeywordScore > 0 && normalizedKeywordScore < 1e-5) {
+           normalizedKeywordScore = 0; // Treat very small scores as zero
+        }
+
+        chunkData.normalizedKeywordScore = normalizedKeywordScore;
+      }
+
+      // Calculate final score
       const keywordComponent = (chunkData.normalizedKeywordScore || 0) * adaptedKeywordWeight;
       const vectorComponent = (chunkData.vectorScore || 0) * adaptedVectorWeight;
       chunkData.finalScore = keywordComponent + vectorComponent;
 
-      // If keyword weight is high but no good keyword matches, fall back to vector scores
-      if (keywordWeight > 0.7 && chunkData.finalScore === 0 && chunkData.vectorScore > 0.25) {
+      // Fallback for high keyword weight but weak keyword matches
+      if (keywordWeight > 0.7 && chunkData.finalScore === 0 && chunkData.vectorScore > 0.25 && adaptedKeywordWeight > 0) {
         chunkData.finalScore = chunkData.vectorScore * 0.3; // Give it a fighting chance
         console.log(`📊 FALLBACK: Chunk ${chunkData.docId}-${chunkData.chunkIndex} boosted from vector score: ${chunkData.finalScore.toFixed(3)}`);
       }
+
       console.log(`📊 CHUNK ${chunkData.docId}-${chunkData.chunkIndex}: Keyword=${(chunkData.keywordScore || 0).toFixed(4)}→${(chunkData.normalizedKeywordScore || 0).toFixed(3)}, Vector=${(chunkData.vectorScore || 0).toFixed(3)}, Final=${chunkData.finalScore.toFixed(3)}`);
     }
-
 
     // Step 3: Rank and select using 60% mass selection for better coverage
     const sortedChunks = Array.from(combinedChunkMap.values());
     sortedChunks.sort((a, b) => b.finalScore - a.finalScore);
-
-    // Collect BM25 statistics for normalization
-    const keywordScores = sortedChunks.map(chunk => chunk.keywordScore).filter(score => score > 0);
-    const bm25Stats = {
-      min: keywordScores.length > 0 ? Math.min(...keywordScores) : 0,
-      max: keywordScores.length > 0 ? Math.max(...keywordScores) : 0,
-      mean: keywordScores.length > 0 ? keywordScores.reduce((a, b) => a + b, 0) / keywordScores.length : 0,
-      std: 0,
-    };
-
-    if(keywordScores.length > 0) {
-      bm25Stats.std = Math.sqrt(keywordScores.reduce((sum, s) => sum + (s - bm25Stats.mean) ** 2, 0) / keywordScores.length);
-    }
-
-    // Normalize keyword scores
-    sortedChunks.forEach(chunk => {
-      chunk.normalizedKeywordScore = 0; // Initialize
-    });
-
-    // Apply BM25 normalization (prevent division by zero)
-    if (bm25Stats.max > bm25Stats.min) {
-      // Use MIN-MAX normalization for better score distribution
-      if (bm25Stats.std / bm25Stats.mean < 0.1) {
-        console.log(`📊 Using MIN-MAX normalization (low variability detected: CV=${(bm25Stats.std / bm25Stats.mean).toFixed(2)})`);
-        sortedChunks.forEach(chunk => {
-          if (chunk.keywordScore > 0) {
-            chunk.normalizedKeywordScore = (chunk.keywordScore - bm25Stats.min) / (bm25Stats.max - bm25Stats.min);
-          }
-        });
-      } else {
-        console.log(`📊 Using Z-SCORE normalization (high variability detected: CV=${(bm25Stats.std / bm25Stats.mean).toFixed(2)})`);
-        sortedChunks.forEach(chunk => {
-          if (chunk.keywordScore > 0) {
-            chunk.normalizedKeywordScore = Math.max(0, (chunk.keywordScore - bm25Stats.mean) / bm25Stats.std);
-          }
-        });
-      }
-    } else {
-      console.log(`📊 All keyword scores identical (${bm25Stats.max}), using raw scores`);
-      sortedChunks.forEach(chunk => {
-        if (chunk.keywordScore > 0) {
-          // When keyword weight is high but scores are low, boost them slightly
-          if (keywordWeight > 0.7 && bm25Stats.max < 0.1) {
-            chunk.normalizedKeywordScore = Math.min(1.0, chunk.keywordScore * 10); // Boost weak keyword matches
-            console.log(`📊 BOOSTING weak keyword match: ${chunk.keywordScore.toFixed(4)} -> ${chunk.normalizedKeywordScore.toFixed(4)}`);
-          } else {
-            chunk.normalizedKeywordScore = chunk.keywordScore;
-          }
-        }
-      });
-    }
-
-    // Calculate final combined scores
-    console.log(`📐 FORMULA: Final Score = (Keyword Score × ${adaptedKeywordWeight}) + (Vector Score × ${adaptedVectorWeight})`);
-
-    sortedChunks.forEach(chunk => {
-      const keywordComponent = (chunk.normalizedKeywordScore || 0) * adaptedKeywordWeight;
-      const vectorComponent = (chunk.vectorScore || 0) * adaptedVectorWeight;
-      chunk.finalScore = keywordComponent + vectorComponent;
-
-      // If keyword weight is high but no good keyword matches, fall back to vector scores
-      if (keywordWeight > 0.7 && chunk.finalScore === 0 && chunk.vectorScore > 0.25) {
-        chunk.finalScore = chunk.vectorScore * 0.3; // Give it a fighting chance
-        console.log(`📊 FALLBACK: Chunk ${chunk.docId}-${chunk.chunkIndex} boosted from vector score: ${chunk.finalScore.toFixed(3)}`);
-      }
-
-      console.log(`📊 CHUNK ${chunk.docId}-${chunk.chunkIndex}: Keyword=${(chunk.keywordScore || 0).toFixed(4)}→${(chunk.normalizedKeywordScore || 0).toFixed(3)}, Vector=${(chunk.vectorScore || 0).toFixed(3)}, Final=${chunk.finalScore.toFixed(3)}`);
-    });
 
     const totalScore = sortedChunks.reduce((sum, c) => sum + c.finalScore, 0);
     const massSelectionPercentage = options.massSelectionPercentage || MASS_SELECTION_PERCENTAGE;
