@@ -1,0 +1,35 @@
+openapi: 3.1.0
+info:
+  title: nlp-svc
+  version: 0.0.1
+servers:
+  - url: http://localhost
+
+paths:
+  /healthz:
+    get:
+      summary: Liveness check
+      responses:
+        "200":
+          description: OK
+
+  /readyz:
+    get:
+      summary: Readiness check
+      responses:
+        "200":
+          description: Ready
+
+  /nlp/analyze:
+    post:
+      summary: NLP analysis
+      responses:
+        "200":
+          description: Analysis results
+        "400":
+          description: Invalid input
+
+components:
+  schemas:
+    Error:
+      $ref: "../common/schemas.yaml#/components/schemas/Error"

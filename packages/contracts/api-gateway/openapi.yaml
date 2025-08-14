@@ -1,0 +1,26 @@
+openapi: 3.1.0
+info:
+  title: api-gateway
+  version: 0.0.1
+servers:
+  - url: http://localhost
+
+paths:
+  /healthz:
+    get:
+      summary: Liveness check
+      responses:
+        "200":
+          description: OK
+
+  /readyz:
+    get:
+      summary: Readiness check
+      responses:
+        "200":
+          description: Ready
+
+components:
+  schemas:
+    Error:
+      $ref: "../common/schemas.yaml#/components/schemas/Error"

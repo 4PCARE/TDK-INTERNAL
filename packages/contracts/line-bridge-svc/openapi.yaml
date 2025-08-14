@@ -1,0 +1,35 @@
+openapi: 3.1.0
+info:
+  title: line-bridge-svc
+  version: 0.0.1
+servers:
+  - url: http://localhost
+
+paths:
+  /healthz:
+    get:
+      summary: Liveness check
+      responses:
+        "200":
+          description: OK
+
+  /readyz:
+    get:
+      summary: Readiness check
+      responses:
+        "200":
+          description: Ready
+
+  /webhook:
+    post:
+      summary: LINE webhook
+      responses:
+        "200":
+          description: Webhook processed
+        "400":
+          description: Invalid webhook
+
+components:
+  schemas:
+    Error:
+      $ref: "../common/schemas.yaml#/components/schemas/Error"

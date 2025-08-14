@@ -1,0 +1,52 @@
+openapi: 3.1.0
+info:
+  title: doc-ingest-svc
+  version: 0.0.1
+servers:
+  - url: http://localhost
+
+paths:
+  /healthz:
+    get:
+      summary: Liveness check
+      responses:
+        "200":
+          description: OK
+
+  /readyz:
+    get:
+      summary: Readiness check
+      responses:
+        "200":
+          description: Ready
+
+  /documents:
+    post:
+      summary: Upload document
+      responses:
+        "201":
+          description: Document uploaded
+        "400":
+          description: Invalid upload
+
+  /documents/{id}:
+    get:
+      summary: Get document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "../common/schemas.yaml#/components/schemas/Id"
+      responses:
+        "200":
+          description: Document found
+        "404":
+          description: Document not found
+
+components:
+  schemas:
+    Error:
+      $ref: "../common/schemas.yaml#/components/schemas/Error"
+    Document:
+      $ref: "../common/schemas.yaml#/components/schemas/Document"

@@ -1,0 +1,42 @@
+openapi: 3.1.0
+info:
+  title: csat-svc
+  version: 0.0.1
+servers:
+  - url: http://localhost
+
+paths:
+  /healthz:
+    get:
+      summary: Liveness check
+      responses:
+        "200":
+          description: OK
+
+  /readyz:
+    get:
+      summary: Readiness check
+      responses:
+        "200":
+          description: Ready
+
+  /score:
+    post:
+      summary: Score conversation sentiment
+      responses:
+        "200":
+          description: CSAT score
+        "400":
+          description: Invalid conversation
+
+  /aggregate:
+    get:
+      summary: Get aggregated CSAT data
+      responses:
+        "200":
+          description: CSAT aggregates
+
+components:
+  schemas:
+    Error:
+      $ref: "../common/schemas.yaml#/components/schemas/Error"

@@ -1,0 +1,99 @@
+PHASE 1 — SECTION E (Contract Stubs) — BUDGET: $1 MAX (AIM $0)
+
+Goal
+Create minimal, provider-agnostic **OpenAPI 3.1** stubs for EVERY service, plus shared schemas. 
+NO business logic, NO SDKs, NO network calls, NO installs.
+
+Create these files (text-only stubs):
+- /packages/contracts/
+  - /api-gateway/openapi.yaml
+  - /auth-svc/openapi.yaml
+  - /doc-ingest-svc/openapi.yaml
+  - /embedding-svc/openapi.yaml
+  - /search-svc/openapi.yaml
+  - /agent-svc/openapi.yaml
+  - /csat-svc/openapi.yaml
+  - /realtime-svc/openapi.yaml
+  - /line-bridge-svc/openapi.yaml
+  - /nlp-svc/openapi.yaml
+  - /common/schemas.yaml         # shared objects: User, Role, Document, Message, Error, etc.
+  - /ai/LLMClient.ts             # already exists; do not modify
+  - /ai/EmbeddingsClient.ts      # already exists; do not modify
+
+Stub content (keep tiny; just enough shape to run contract tests later):
+- Each openapi.yaml must include:
+  openapi: 3.1.0
+  info: { title: "<service-name>", version: "0.0.1" }
+  servers: [{ url: "http://localhost" }]
+  paths:
+    /healthz:
+      get:
+        summary: Liveness
+        responses: { "200": { description: OK } }
+    /readyz:
+      get:
+        summary: Readiness
+        responses: { "200": { description: Ready } }
+  components:
+    schemas:
+      Error:
+        $ref: "../common/schemas.yaml#/components/schemas/Error"
+- For services with obvious core routes, add placeholders ONLY (no full models yet):
+  - auth-svc: /login (POST), /refresh (POST), /me (GET)
+  - doc-ingest-svc: /documents (POST), /documents/{id} (GET)
+  - embedding-svc: /vectors/search (POST), /vectors/upsert (POST)
+  - search-svc: /search (POST)
+  - agent-svc: /chat (POST), /eval (POST)
+  - csat-svc: /score (POST), /aggregate (GET)
+  - realtime-svc: (health endpoints only)
+  - line-bridge-svc: /webhook (POST)
+  - nlp-svc: /nlp/analyze (POST)   # placeholder
+- /packages/contracts/common/schemas.yaml:
+  openapi: 3.1.0
+  info: { title: "common-schemas", version: "0.0.1" }
+  components:
+    schemas:
+      Id: { type: string, format: uuid }
+      Error:
+        type: object
+        properties:
+          message: { type: string }
+          code: { type: string }
+        required: [message]
+      User:
+        type: object
+        properties:
+          id: { $ref: "#/components/schemas/Id" }
+          email: { type: string, format: email }
+          roles: { type: array, items: { type: string } }
+        required: [id, email]
+      Document:
+        type: object
+        properties:
+          id: { $ref: "#/components/schemas/Id" }
+          title: { type: string }
+          mimeType: { type: string }
+        required: [id, title]
+      Message:
+        type: object
+        properties:
+          id: { $ref: "#/components/schemas/Id" }
+          role: { type: string, enum: ["user","assistant","system"] }
+          content: { type: string }
+        required: [id, role, content]
+
+Rules (HARD)
+- Keep each YAML ≤ 120 lines. If approaching 100, split shared pieces into /common/schemas.yaml.
+- No provider names or SDK-specific fields. These are provider-agnostic contracts.
+- Do NOT edit service code. Contracts only.
+- Do NOT import from runtime .ts files; contracts are standalone.
+
+Checks (local only)
+- After creation, print the list of files and line counts.
+- Run a simple YAML lint if available locally; otherwise, just ensure valid YAML structure.
+- Confirm $0 cost.
+
+Output (then STOP and wait)
+- Files created (full paths) + line counts
+- Any deviations or open questions
+- Confirmation of $0.00 spend

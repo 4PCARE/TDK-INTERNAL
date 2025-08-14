@@ -1,0 +1,44 @@
+openapi: 3.1.0
+info:
+  title: embedding-svc
+  version: 0.0.1
+servers:
+  - url: http://localhost
+
+paths:
+  /healthz:
+    get:
+      summary: Liveness check
+      responses:
+        "200":
+          description: OK
+
+  /readyz:
+    get:
+      summary: Readiness check
+      responses:
+        "200":
+          description: Ready
+
+  /vectors/search:
+    post:
+      summary: Vector similarity search
+      responses:
+        "200":
+          description: Search results
+        "400":
+          description: Invalid query
+
+  /vectors/upsert:
+    post:
+      summary: Upsert vectors
+      responses:
+        "200":
+          description: Vectors upserted
+        "400":
+          description: Invalid vectors
+
+components:
+  schemas:
+    Error:
+      $ref: "../common/schemas.yaml#/components/schemas/Error"

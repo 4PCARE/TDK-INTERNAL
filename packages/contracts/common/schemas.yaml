@@ -1,0 +1,67 @@
+openapi: 3.1.0
+info:
+  title: common-schemas
+  version: 0.0.1
+
+components:
+  schemas:
+    Id:
+      type: string
+      format: uuid
+    
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+      required:
+        - message
+    
+    User:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        email:
+          type: string
+          format: email
+        roles:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - email
+    
+    Document:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        title:
+          type: string
+        mimeType:
+          type: string
+      required:
+        - id
+        - title
+    
+    Message:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        role:
+          type: string
+          enum:
+            - user
+            - assistant
+            - system
+        content:
+          type: string
+      required:
+        - id
+        - role
+        - content

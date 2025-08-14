@@ -1,0 +1,51 @@
+openapi: 3.1.0
+info:
+  title: auth-svc
+  version: 0.0.1
+servers:
+  - url: http://localhost
+
+paths:
+  /healthz:
+    get:
+      summary: Liveness check
+      responses:
+        "200":
+          description: OK
+
+  /readyz:
+    get:
+      summary: Readiness check
+      responses:
+        "200":
+          description: Ready
+
+  /login:
+    post:
+      summary: User login
+      responses:
+        "200":
+          description: Login successful
+        "401":
+          description: Authentication failed
+
+  /refresh:
+    post:
+      summary: Refresh token
+      responses:
+        "200":
+          description: Token refreshed
+
+  /me:
+    get:
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user info
+
+components:
+  schemas:
+    Error:
+      $ref: "../common/schemas.yaml#/components/schemas/Error"
+    User:
+      $ref: "../common/schemas.yaml#/components/schemas/User"
