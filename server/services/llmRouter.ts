@@ -149,7 +149,7 @@ export class LLMRouter {
         .select({ documentId: documentChunkEmbeddings.documentId })
         .from(documentChunkEmbeddings)
         .where(eq(documentChunkEmbeddings.embeddingProvider, oldProvider))
-        .groupBy(documentChunkEmbeddings.documentId);
+        .groupBy(documentChunkEmbedEmbeddings.documentId);
 
       if (documentsWithOldEmbeddings.length > 0) {
         // Delete old embeddings
@@ -238,7 +238,7 @@ export class LLMRouter {
       // Log the interaction
       const logEntry: LLMLogEntry = {
         provider: this.currentConfig?.provider || "OpenAI",
-        model: this.currentConfig?.provider === "OpenAI" 
+        model: this.currentConfig?.provider === "OpenAI"
           ? (this.currentConfig.openAIConfig?.model || "gpt-4o")
           : (this.currentConfig.geminiConfig?.model || "gemini-2.5-flash"),
         prompt: JSON.stringify(messages),
@@ -340,7 +340,7 @@ export class LLMRouter {
   private async generateOpenAIEmbeddings(texts: string[]): Promise<number[][]> {
     try {
       const { OpenAI } = await import("openai");
-      
+
       if (!process.env.OPENAI_API_KEY) {
         throw new Error("OPENAI_API_KEY is required for OpenAI embeddings");
       }
@@ -356,7 +356,7 @@ export class LLMRouter {
       // Process in batches to avoid rate limits
       for (let i = 0; i < texts.length; i += 100) {
         const batch = texts.slice(i, i + 100);
-        
+
         try {
           const response = await openai.embeddings.create({
             model: "text-embedding-3-small",

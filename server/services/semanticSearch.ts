@@ -132,7 +132,10 @@ export class SemanticSearchService {
       }
 
       if (dateRange) {
-        documentsQuery = documentsQuery.where(
+        // If your query builder type doesn't expose .where here, use a safe filter wrapper:
+    // documentsQuery = documentsQuery.where(...)
+    // or guard with sql`` expression compatible with your builder.
+    documentsQuery = documentsQuery.where(
           and(
             eq(documents.userId, userId),
             sql`${documents.embedding} IS NOT NULL`,
