@@ -333,10 +333,11 @@ export default function CreateAgentChatbot() {
           },
           businessContext: {
             enabled: agent.guardrailsConfig.businessContext?.enabled ?? false,
+            stayOnBrand: agent.guardrailsConfig.businessContext?.stayOnBrand ?? true,
+            requireProfessionalTone: agent.guardrailsConfig.businessContext?.requireProfessionalTone ?? true,
+            blockCompetitorMentions: agent.guardrailsConfig.businessContext?.blockCompetitorMentions ?? false,
             companyName: agent.guardrailsConfig.businessContext?.companyName ?? "",
-            brandVoice: agent.guardrailsConfig.businessContext?.brandVoice ?? "professional",
-            industryContext: agent.guardrailsConfig.businessContext?.industryContext ?? "",
-            complianceRequirements: agent.guardrailsConfig.businessContext?.complianceRequirements ?? [],
+            brandGuidelines: agent.guardrailsConfig.businessContext?.brandGuidelines ?? "",
           },
         } : {
           contentFiltering: {
@@ -377,10 +378,11 @@ export default function CreateAgentChatbot() {
           },
           businessContext: {
             enabled: false,
+            stayOnBrand: true,
+            requireProfessionalTone: true,
+            blockCompetitorMentions: false,
             companyName: "",
-            brandVoice: "professional",
-            industryContext: "",
-            complianceRequirements: [],
+            brandGuidelines: "",
           },
         },
       });
@@ -529,13 +531,13 @@ export default function CreateAgentChatbot() {
     console.log("Is editing mode:", isEditing);
     console.log("Agent ID:", editAgentId);
     
-    // Build the guardrails configuration object
-    const guardrailsConfig = data.guardrailsEnabled ? data.guardrailsConfig : null;
+    // Build the guardrails configuration object - send undefined when disabled, never null
+    const guardrailsConfigClean = data.guardrailsEnabled ? data.guardrailsConfig : undefined;
 
     const finalData = {
       ...data,
       documentIds: selectedDocuments,
-      guardrailsConfig,
+      guardrailsConfig: guardrailsConfigClean,
     };
 
     console.log("Form submission data:", JSON.stringify(finalData, null, 2));
