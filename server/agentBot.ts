@@ -41,19 +41,16 @@ export interface BotResponse {
   imageProcessingPromise?: Promise<string>;
 }
 
-interface MinimalMsg {
-  role: string;
-  content: string;
-  messageType?: string;
-  metadata?: any;
-  createdAt?: Date | string;
-}
+type ChatTurn = { role: 'user'|'assistant'|'system'; content: string; timestamp?: string|Date };
+type ChatMessage = { role: 'user'|'assistant'|'system'; content: string; messageType: 'text'|'image'|'sticker'; createdAt: Date };
 
-interface ChatTurn {
-  role: "user" | "assistant" | "system";
-  content: string;
-  timestamp?: Date | string;
-}
+const adaptHistory = (turns: ChatTurn[]): ChatMessage[] =>
+  turns.map(t => ({ role: t.role, content: t.content, messageType: 'text' as const, createdAt: new Date(t.timestamp ?? Date.now()) }));
+
+type MinimalMsg = { type?: string; content?: string };
+const isBotMessage = (m: unknown): m is MinimalMsg => !!m && typeof (m as any).type === 'string';
+
+const getAgentId = (v: unknown): number => typeof v === 'number' ? v : Number((v as any)?.id ?? v ?? 0);
 
 /**
  * Check if a message is image-related based on keywords
@@ -382,25 +379,11 @@ async function getAiResponseDirectly(
         `🤖 AgentBot: Sending ${messages.length} messages to OpenAI (no document search)`,
       );
 
-      // Helper function to check if guardrails are configured
-      const hasGuardrails = (config: any): boolean => {
-        return config && typeof config === 'object' && (
-          'contentFiltering' in config ||
-          'topicControl' in config ||
-          'privacyProtection' in config ||
-          'responseQuality' in config ||
-          'toxicityPrevention' in config ||
-          'businessContext' in config
-        );
-      };
-
       // Initialize guardrails service if configured
       let guardrailsService: GuardrailsService | null = null;
-      if (hasGuardrails(agentData.guardrailsConfig)) {
-        guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
-        console.log(
-          `🛡️ AgentBot: Guardrails enabled for conversation without documents`,
-        );
+      const hasGR = (x: unknown): x is { guardrailsConfig: any } => !!x && typeof x === 'object' && 'guardrailsConfig' in x;
+      if (hasGR(agentData) && (agentData as any).guardrailsConfig) {
+        guardrailsService = new GuardrailsService((agentData as any).guardrailsConfig);
       }
 
       // Validate input
@@ -494,8 +477,10 @@ async function getAiResponseDirectly(
           userId,
           {
             specificDocumentIds: agentDocIds,
-            keywordWeight: searchConfig.keywordWeight ?? 0.5, // Default to 0.5 if not provided
-            vectorWeight: searchConfig.vectorWeight ?? 0.5,   // Default to 0.5 if not provided
+            ...(() => {
+              const { keywordWeight = 0.5, vectorWeight = 0.5 } = (searchConfig ?? {}) as any;
+              return { keywordWeight, vectorWeight };
+            })(),
             threshold: 0.3,
             massSelectionPercentage: searchConfig.documentMass || 0.6,
             enhancedQuery: queryAnalysis.enhancedQuery || userMessage,
@@ -589,10 +574,10 @@ async function getAiResponseDirectly(
 
         // Apply final token limit if enabled
         if (tokenLimitEnabled && tokenLimitType === 'final') {
-          const finalTokenLimitValue = searchConfig.finalTokenLimit || 4000; // Use configured finalTokenLimit or default
-          const finalCharLimit = finalTokenLimitValue * 4; // Convert tokens to characters
+          const { finalTokenLimit } = (searchConfig ?? {}) as any;
+          const finalCharLimit = (finalTokenLimit ?? 2048) * 4; // Use configured finalTokenLimit or default
           if (documentContext.length > finalCharLimit) {
-            console.log(`📄 AgentBot: Final context exceeds ${finalTokenLimitValue} tokens (${finalCharLimit} chars), current: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens), truncating...`);
+            console.log(`📄 AgentBot: Final context exceeds ${finalTokenLimit} tokens (${finalCharLimit} chars), current: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens), truncating...`);
             // Truncate the document context while preserving system prompt and user message
             const maxDocumentChars = finalCharLimit - (agentData.systemPrompt?.length || 0) - (userMessage?.length || 0) - 200; // Buffer for formatting
             if (maxDocumentChars > 0) {
@@ -602,7 +587,7 @@ async function getAiResponseDirectly(
               documentContext = "[Content truncated due to token limit]";
             }
           }
-          console.log(`📄 AgentBot: Final context: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens, limit: ${finalTokenLimitValue} tokens/${finalCharLimit} chars)`);
+          console.log(`📄 AgentBot: Final context: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens, limit: ${finalTokenLimit} tokens/${finalCharLimit} chars)`);
         }
 
         const now = new Date();
@@ -759,11 +744,9 @@ ${documentContext}
 
         // Initialize guardrails service if configured
         let guardrailsService: GuardrailsService | null = null;
-        if (agentData.guardrailsConfig && typeof agentData.guardrailsConfig === 'object' && 'contentFiltering' in agentData.guardrailsConfig) {
-          guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
-          console.log(
-            `🛡️ AgentBot: Guardrails enabled for agent ${agentData.name}`,
-          );
+        const hasGR = (x: unknown): x is { guardrailsConfig: any } => !!x && typeof x === 'object' && 'guardrailsConfig' in x;
+        if (hasGR(agentData) && (agentData as any).guardrailsConfig) {
+          guardrailsService = new GuardrailsService((agentData as any).guardrailsConfig);
         }
 
         // Apply guardrails if configured
@@ -842,6 +825,97 @@ ${documentContext}
     return "ขออภัย เกิดข้อผิดพลาดในการประมวลผลคำถาม กรุณาลองใหม่อีกครั้ง";
   }
 }
+
+/**
+ * Process agent message and return a response
+ */
+export async function processAgentMessage(params: {
+  message: BotMessage | { message: string; userId: string; sessionId: string; channelType: string; channelId: string; agentConfig: unknown; documentIds: number[]; isTest: boolean };
+  context?: BotContext;
+}): Promise<BotResponse> {
+  // Handle both old and new calling conventions
+  if ('message' in params && typeof params.message === 'string') {
+    // New calling convention from agentChatService
+    const p = params as unknown as { message: string; userId: string; sessionId: string; channelType: string; channelId: string; agentConfig: unknown; documentIds: number[]; isTest: boolean };
+
+    console.log(`🔍 Debug: agentConfig received:`, p.agentConfig, `(type: ${typeof p.agentConfig})`);
+
+    const botMessage: BotMessage = {
+      type: 'text',
+      content: p.message
+    };
+
+    const botContext: BotContext = {
+      userId: p.userId,
+      channelType: p.channelType,
+      channelId: p.channelId,
+      agentId: getAgentId(p.agentConfig),
+      messageId: `${p.channelType}_${Date.now()}`,
+      lineIntegration: null
+    };
+
+    return processMessage(botMessage, botContext);
+  }
+
+  // Original calling convention
+  if (!params.context) {
+    throw new Error("Context is required for BotMessage processing");
+  }
+
+  const { message, context } = params;
+  const userId = context.userId;
+  const agentId = context.agentId;
+
+  const kind = isBotMessage(message) ? (message.type ?? 'text') : 'text';
+  console.log(`🤖 AgentBot: Processing ${kind} message from user:`, userId);
+
+  // Handle different message types
+  if (kind === "image") {
+    console.log("🖼️ AgentBot: Image message detected - processing image analysis");
+
+    // Return immediate acknowledgment and set up image processing
+    return {
+      success: true,
+      response: "ได้รับรูปภาพแล้ว ขอเวลาตรวจสอบสักครู่นะคะ",
+      needsImageProcessing: true,
+      imageProcessingPromise: (async () => {
+        // Process image in background and return the AI response
+        const chatHistoryId = await saveChatHistory(message, context, "user");
+        return await processImageMessage(
+          context.messageId,
+          context.lineIntegration.channelAccessToken,
+          context,
+          chatHistoryId,
+        );
+      })(),
+    };
+  }
+
+  // Handle text and other message types
+  let contextMessage = message.content;
+  if (kind === "sticker") {
+    contextMessage = "ผู้ใช้ส่งสติ๊กเกอร์มา กรุณาตอบอย่างเป็นมิตรและถามว่ามีอะไรให้ช่วย";
+  }
+
+  // Get AI response with HR employee context
+  const aiResponse = await getAiResponseDirectly(
+    contextMessage,
+    agentId,
+    userId,
+    context.channelType,
+    context.channelId,
+    false, // skipSearch
+    context.hrEmployeeData // Pass HR employee data
+  );
+
+  console.log(`✅ AgentBot: Generated response for ${kind} message (${aiResponse.length} chars)`);
+
+  return {
+    success: true,
+    response: aiResponse,
+  };
+}
+
 
 /**
  * Process image message with analysis
@@ -926,27 +1000,27 @@ ${imageAnalysisResult}
  * Main bot function to process a message and return a response
  */
 export async function processMessage(
-  message: BotMessage | { message: string; userId: string; sessionId: string; channelType: string; channelId: string; agentConfig: number; documentIds: number[]; isTest: boolean },
+  message: BotMessage | { message: string; userId: string; sessionId: string; channelType: string; channelId: string; agentConfig: unknown; documentIds: number[]; isTest: boolean },
   context?: BotContext,
 ): Promise<BotResponse> {
   // Handle both old and new calling conventions
   if ('message' in message && typeof message.message === 'string') {
     // New calling convention from agentChatService
-    const params = message as { message: string; userId: string; sessionId: string; channelType: string; channelId: string; agentConfig: number; documentIds: number[]; isTest: boolean };
+    const p = message as unknown as { message: string; userId: string; sessionId: string; channelType: string; channelId: string; agentConfig: unknown; documentIds: number[]; isTest: boolean };
 
-    console.log(`🔍 Debug: agentConfig received:`, params.agentConfig, `(type: ${typeof params.agentConfig})`);
+    console.log(`🔍 Debug: agentConfig received:`, p.agentConfig, `(type: ${typeof p.agentConfig})`);
 
     const botMessage: BotMessage = {
       type: 'text',
-      content: params.message
+      content: p.message
     };
 
     const botContext: BotContext = {
-      userId: params.userId,
-      channelType: params.channelType,
-      channelId: params.channelId,
-      agentId: typeof params.agentConfig === 'number' ? params.agentConfig : (params.agentConfig?.id || params.agentConfig),
-      messageId: `${params.channelType}_${Date.now()}`,
+      userId: p.userId,
+      channelType: p.channelType,
+      channelId: p.channelId,
+      agentId: getAgentId(p.agentConfig),
+      messageId: `${p.channelType}_${Date.now()}`,
       lineIntegration: null
     };
 

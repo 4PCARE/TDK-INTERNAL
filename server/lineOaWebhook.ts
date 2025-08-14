@@ -694,11 +694,9 @@ async function getAiResponseDirectly(
 
       // Initialize guardrails service if configured
       let guardrailsService: GuardrailsService | null = null;
-      if (hasGuardrails(agentData.guardrailsConfig)) {
-        guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
-        console.log(
-          `🛡️ LINE OA: Guardrails enabled for conversation without documents`,
-        );
+      const hasGR = (x: unknown): x is { guardrailsConfig: any } => !!x && typeof x === 'object' && 'guardrailsConfig' in x;
+      if (hasGR(agentData) && (agentData as any).guardrailsConfig) {
+        guardrailsService = new GuardrailsService((agentData as any).guardrailsConfig);
       }
 
       // Validate input
@@ -788,10 +786,9 @@ async function getAiResponseDirectly(
       const tokenLimitType = searchConfig.tokenLimitType || 'document';
       const documentTokenLimit = searchConfig.documentTokenLimit || 12000;
       const finalTokenLimit = searchConfig.finalTokenLimit || 4000;
-      
+
       // Default search weights if not configured
-      const keywordWeight = searchConfig.keywordWeight ?? 0.3;
-      const vectorWeight = searchConfig.vectorWeight ?? 0.7;
+      const { keywordWeight = 0.3, vectorWeight = 0.7 } = (searchConfig ?? {}) as any;
 
       console.log(`🔧 LINE OA: Using agent's search config - ${chunkMaxType}=${chunkMaxValue}, mass=${Math.round(documentMass * 100)}%${tokenLimitEnabled ? `, token limit: ${tokenLimitType}=${tokenLimitType === 'document' ? documentTokenLimit : finalTokenLimit}` : ''}`);
 
@@ -1059,11 +1056,9 @@ ${documentContext}
 
         // Initialize guardrails service if configured
         let guardrailsService: GuardrailsService | null = null;
-        if (agentData.guardrailsConfig && typeof agentData.guardrailsConfig === 'object' && 'contentFiltering' in agentData.guardrailsConfig) {
-          guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
-          console.log(
-            `🛡️ LINE OA: Guardrails enabled for agent ${agentData.name}`,
-          );
+        const hasGR = (x: unknown): x is { guardrailsConfig: any } => !!x && typeof x === 'object' && 'guardrailsConfig' in x;
+        if (hasGR(agentData) && (agentData as any).guardrailsConfig) {
+          guardrailsService = new GuardrailsService((agentData as any).guardrailsConfig);
         }
 
         // Step 6: Apply guardrails if configured
@@ -1605,7 +1600,7 @@ export async function handleLineWebhook(req: Request, res: Response) {
 
         // Import and use AgentBot
         const { processMessage, saveAssistantResponse, checkCarouselIntents } = await import("./agentBot");
-        
+
         const botResponse = await processMessage(botMessage, botContext);
 
         if (!botResponse.success) {
@@ -1634,7 +1629,7 @@ export async function handleLineWebhook(req: Request, res: Response) {
         // Handle image processing if needed
         if (botResponse.needsImageProcessing && botResponse.imageProcessingPromise) {
           console.log("🖼️ Handling image processing in background...");
-          
+
           // Process image analysis in background
           botResponse.imageProcessingPromise.then(async (imageAiResponse) => {
             if (lineIntegration.channelAccessToken) {
