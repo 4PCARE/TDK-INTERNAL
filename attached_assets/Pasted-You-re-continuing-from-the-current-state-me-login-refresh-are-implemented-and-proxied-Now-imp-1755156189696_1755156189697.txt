@@ -1,0 +1,44 @@
+You’re continuing from the current state. /me, /login, /refresh are implemented and proxied. Now implement MICRO-BATCH E — finish auth-svc contract stubs and gateway routes, no DB logic.
+
+Scope:
+- Add GET /roles (returns a stub array of role strings)
+- Add POST /policies/:id/check (accepts { subject: string; action: string; resource?: string } and returns { allow: boolean })
+- Wire both routes through api-gateway
+
+auth-svc changes
+1) services/auth-svc/src/infrastructure/http/validate.ts  (+~35 lines)
+   Add validators (zod-if-available; fallback if zod missing):
+   - export function validateRolesRes(d:any): d is string[]
+   - export function validatePolicyCheckReq(d:any): d is { subject:string; action:string; resource?:string }
+   - export function validatePolicyCheckRes(d:any): d is { allow:boolean }
+
+2) services/auth-svc/src/infrastructure/http/routes.ts  (+~35 lines)
+   Append:
+   app.get("/roles", (_req, res) => {
+     const payload = ["admin","editor","viewer"];
+     if (!validateRolesRes(payload)) return res.status(500).json({ message: "Contract violation" });
+     return res.status(200).json(payload);
+   });
+
+   app.post("/policies/:id/check", (req, res) => {
+     const body = req.body ?? {};
+     if (!validatePolicyCheckReq(body)) return res.status(400).json({ message: "Invalid policy check payload" });
+     const payload = { allow: true };
+     if (!validatePolicyCheckRes(payload)) return res.status(500).json({ message: "Contract violation" });
+     return res.status(200).json(payload);
+   });
+
+api-gateway changes
+3) services/api-gateway/src/infrastructure/http/routing.ts  (+~25 lines)
+   Reuse existing pattern with proxy():
+   - GET  /roles           → AUTH_SVC_URL + /roles
+   - POST /policies/:id/check → AUTH_SVC_URL + /policies/:id/check
+
+Verify
+- cd services/auth-svc && npx tsc --noEmit
+- cd services/api-gateway && npx tsc --noEmit
+
+Report (then STOP):
+- Files changed with line counts
+- TypeScript results for both services
+- Confirmation no unrelated files were modified
