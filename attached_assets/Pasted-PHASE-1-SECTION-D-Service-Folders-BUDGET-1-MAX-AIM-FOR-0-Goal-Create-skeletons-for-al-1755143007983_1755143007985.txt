@@ -1,0 +1,61 @@
+PHASE 1 — SECTION D (Service Folders) — BUDGET: $1 MAX (AIM FOR $0)
+
+Goal
+Create skeletons for all backend services with OOP layering, health routes, and zero business logic.
+NO external calls, NO installs, NO Docker pulls, NO endpoint changes.
+
+Services to scaffold
+/services/{api-gateway,auth-svc,doc-ingest-svc,embedding-svc,search-svc,agent-svc,csat-svc,realtime-svc,line-bridge-svc,nlp-svc}
+
+For each service, create exactly:
+- src/
+  - domain/                (entities, value objects; empty placeholder)
+  - application/           (use-cases; empty placeholder)
+  - infrastructure/
+    - http/
+      - controllers/       (empty)
+      - routes.ts          (export a function registerRoutes(app) with only /healthz & /readyz stubs)
+    - db/                  (empty)
+    - messaging/           (empty)
+  - index.ts               (bootstrap wiring that only mounts routes; no server start, no network IO)
+- test/                    (empty or README)
+- package.json             (name, private:true, scripts: "typecheck","lint","build" as placeholders)
+- tsconfig.json            (extends ../../packages/ts-config/base.json)
+- Dockerfile               (stub with a comment "to be defined")
+- .env.example             (already created for some; ensure present)
+- README.md                (1-liner purpose)
+
+Special cases
+- /services/realtime-svc: routes.ts should only register GET /healthz and /readyz; DO NOT open WebSocket servers yet.
+- /services/nlp-svc: create a Python-friendly folder structure only (no venv, no installs):
+  - src_py/
+    - app/ (FastAPI placeholder: main.py with a single GET /healthz returning {"ok":true})
+  - pyproject.toml (stub with [project] name and version only)
+  - README.md ("Python FastAPI service; LangChain to be added in Phase 2+")
+
+Coding constraints (hard)
+- Keep every new file ≤ 100 lines. If approaching 90, split.
+- No business logic. No third-party SDKs. No DB connections. No env reading.
+- Do not delete or edit legacy /server/* yet.
+- Do not touch the temporary /client compatibility layer.
+
+Batching & checks
+- Work in batches of ≤ 2 services, then STOP and report.
+- After each batch, run locally:
+  - `tsc --noEmit` at repo root (or per service if needed)
+  - `eslint .` (ignore warnings if config not fully wired yet)
+- Confirm $0 cost after each batch.
+
+Output per batch (then WAIT)
+- Services scaffolded (list)
+- Files created (full paths)
+- Any deviations from the template
+- Results of `tsc --noEmit` and `eslint .`
+- Current spend: confirm $0.00
+
+End-of-Section deliverables
+- Full list of scaffolded services and files
+- Proof that health routes compile
+- Any risks/blockers for Section E (Contract stubs)
+
+Begin with api-gateway + auth-svc as batch 1. STOP after reporting.
