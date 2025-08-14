@@ -79,7 +79,7 @@ export function registerIntegrationRoutes(app: Express) {
           isActive: true,
           isVerified: false,
           webhookUrl,
-          config: { webhookToken }, // Store webhook token in config JSON field
+          webhookToken,
           createdAt: new Date(),
           updatedAt: new Date(),
         })
@@ -300,9 +300,10 @@ export function registerIntegrationRoutes(app: Express) {
       }
 
       const [template] = await db
-        .insert(lineTemplates)
+        .insert(lineMessageTemplates)
         .values({
           integrationId,
+          userId,
           name,
           type,
           content: typeof content === 'string' ? content : JSON.stringify(content),
@@ -330,14 +331,14 @@ export function registerIntegrationRoutes(app: Express) {
       // Verify template ownership through integration
       const [template] = await db
         .select({
-          template: lineTemplates,
+          template: lineMessageTemplates,
           integration: socialIntegrations,
         })
-        .from(lineTemplates)
-        .leftJoin(socialIntegrations, eq(lineTemplates.integrationId, socialIntegrations.id))
+        .from(lineMessageTemplates)
+        .leftJoin(socialIntegrations, eq(lineMessageTemplates.integrationId, socialIntegrations.id))
         .where(
           and(
-            eq(lineTemplates.id, templateId),
+            eq(lineMessageTemplates.id, templateId),
             eq(socialIntegrations.userId, userId)
           )
         )
@@ -348,7 +349,7 @@ export function registerIntegrationRoutes(app: Express) {
       }
 
       const [updatedTemplate] = await db
-        .update(lineTemplates)
+        .update(lineMessageTemplates)
         .set({
           name,
           type,
@@ -357,7 +358,7 @@ export function registerIntegrationRoutes(app: Express) {
           isActive: isActive !== undefined ? isActive : true,
           updatedAt: new Date(),
         })
-        .where(eq(lineTemplates.id, templateId))
+        .where(eq(lineMessageTemplates.id, templateId))
         .returning();
 
       res.json(updatedTemplate);
@@ -376,14 +377,14 @@ export function registerIntegrationRoutes(app: Express) {
       // Verify template ownership through integration
       const [template] = await db
         .select({
-          template: lineTemplates,
+          template: lineMessageTemplates,
           integration: socialIntegrations,
         })
-        .from(lineTemplates)
-        .leftJoin(socialIntegrations, eq(lineTemplates.integrationId, socialIntegrations.id))
+        .from(lineMessageTemplates)
+        .leftJoin(socialIntegrations, eq(lineMessageTemplates.integrationId, socialIntegrations.id))
         .where(
           and(
-            eq(lineTemplates.id, templateId),
+            eq(lineMessageTemplates.id, templateId),
             eq(socialIntegrations.userId, userId)
           )
         )
@@ -394,8 +395,8 @@ export function registerIntegrationRoutes(app: Express) {
       }
 
       await db
-        .delete(lineTemplates)
-        .where(eq(lineTemplates.id, templateId));
+        .delete(lineMessageTemplates)
+        .where(eq(lineMessageTemplates.id, templateId));
 
       res.json({ success: true, message: "Template deleted successfully" });
     } catch (error) {
@@ -429,10 +430,9 @@ export function registerIntegrationRoutes(app: Express) {
         return res.status(404).json({ message: "Integration not found" });
       }
 
-      const webhookToken = integration.config?.webhookToken || null;
       res.json({
         webhookUrl: integration.webhookUrl,
-        webhookToken: webhookToken,
+        webhookToken: integration.webhookToken,
       });
     } catch (error) {
       console.error("Error fetching webhook URL:", error);
@@ -469,7 +469,7 @@ export function registerIntegrationRoutes(app: Express) {
       const [updatedIntegration] = await db
         .update(socialIntegrations)
         .set({
-          config: { ...existingIntegration.config, webhookToken },
+          webhookToken,
           webhookUrl,
           updatedAt: new Date(),
         })
@@ -478,7 +478,7 @@ export function registerIntegrationRoutes(app: Express) {
 
       res.json({
         webhookUrl: updatedIntegration.webhookUrl,
-        webhookToken: webhookToken,
+        webhookToken: updatedIntegration.webhookToken,
       });
     } catch (error) {
       console.error("Error regenerating webhook:", error);
