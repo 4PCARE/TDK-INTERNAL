@@ -1,0 +1,4 @@
+[project]
+name = "nlp-svc"
+version = "1.0.0"
+description = "NLP Service with FastAPI and LangChain"

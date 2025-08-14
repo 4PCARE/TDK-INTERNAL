@@ -1,0 +1,62 @@
+PHASE 1 — SECTION D — BATCH 4 (FINAL SCAFFOLD)
+Services to scaffold now: csat-svc, realtime-svc, line-bridge-svc, nlp-svc
+Budget: $1 max (aim $0). No installs, no external calls, no Docker pulls.
+
+For EACH TypeScript service (csat-svc, realtime-svc, line-bridge-svc) create:
+- src/
+  - domain/                      (README.md placeholder)
+  - application/                 (README.md placeholder)
+  - infrastructure/
+    - http/
+      - controllers/             (empty)
+      - routes.ts                (ONLY GET /healthz and /readyz stubs)
+    - db/                        (README.md placeholder)
+    - messaging/                 (README.md placeholder)
+  - index.ts                     (createServiceApp() that registers routes; no listen(), no IO)
+- test/                          (README.md placeholder)
+- package.json                   (name, private:true, scripts: typecheck/lint/build placeholders)
+- tsconfig.json                  (extends ../../packages/ts-config/base.json; include ./src)
+- Dockerfile                     (stub comment)
+- .env.example                   (ensure present)
+- README.md                      (one-liner purpose)
+
+Special notes:
+- realtime-svc: DO NOT open WebSocket servers here; only HTTP health stubs.
+- line-bridge-svc: No LINE SDKs; HTTP stubs only.
+- csat-svc: No ML/LLM logic; just skeleton.
+
+For Python service (nlp-svc) create:
+- src_py/
+  - app/
+    - main.py        # FastAPI placeholder with GET /healthz -> {"ok": true}, GET /readyz -> {"ready": true}
+- pyproject.toml     # stub with [project] name/version only
+- README.md          # "Python FastAPI service; LangChain added in Phase 2+"
+- Dockerfile         # stub, comment only
+- .env.example       # placeholder vars (no secrets)
+
+Example (keep tiny and ≤ 30 lines):
+# src_py/app/main.py
+from fastapi import FastAPI
+app = FastAPI()
+@app.get("/healthz")
+def healthz(): return {"ok": True}
+@app.get("/readyz")
+def readyz(): return {"ready": True}
+
+Constraints (HARD):
+- Every file ≤ 100 lines; if ~90 lines, split.
+- No business logic; no provider SDKs; no DB connections; no env reads.
+- Do NOT touch legacy /server/* or the temporary /client shim.
+- No port changes or restarts; just create files.
+
+Checks after scaffolding:
+- Run: `tsc --noEmit` (root or per-service) for TS services.
+- (Python files don’t need to run; just ensure they exist.)
+- Run: `eslint .` if available; if not, note it.
+
+Output (then STOP and wait):
+- Services scaffolded
+- Files created (full paths)
+- Any deviations from template
+- Results of `tsc --noEmit` and `eslint`
+- Current spend: confirm $0.00
