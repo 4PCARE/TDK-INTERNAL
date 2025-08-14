@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { Express } from 'express';
 import { validateHealth, validateReady } from './validate';
+import { registerLegacyRoutes } from './routing';
 
 /**
  * Register health check routes for API Gateway
@@ -23,4 +24,7 @@ export function registerRoutes(app: Express): void {
     }
     return res.status(200).json(payload);
   });
+
+  // NEW: temporary legacy proxies (small set)
+  registerLegacyRoutes(app);
 }
