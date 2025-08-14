@@ -1,0 +1,45 @@
+Title: FE fixes — guardrails null & authUser typing
+Plan:
+1) In apps/admin-ui/src/pages/CreateAgentChatbot.tsx:
+   - Introduce normalizeGuardrails(...) that returns undefined when input is null/empty.
+   - Ensure BOTH the preview/test object (testConfigData) AND the final payload use normalizeGuardrails(...).
+2) In apps/admin-ui/src/pages/Settings.tsx and UserManagement.tsx:
+   - Define a tiny AuthUser type and type the auth user so authUser?.role is legal.
+
+Edits:
+--- a/apps/admin-ui/src/pages/CreateAgentChatbot.tsx
++++ b/apps/admin-ui/src/pages/CreateAgentChatbot.tsx
+@@
++type Guardrails = {
++  contentFiltering?: { enabled: boolean; blockProfanity: boolean; blockHateSpeech: boolean; blockSexualContent: boolean; blockViolence: boolean; customBlockedWords: string[] };
++  topicControl?: { enabled: boolean; allowedTopics?: string[]; blockedTopics?: string[] };
++  privacyProtection?: { enabled: boolean; scrubPII?: boolean };
++  responseQuality?: { enabled: boolean; minScore?: number };
++  businessContext?: { enabled: boolean; stayOnBrand: boolean; requireProfessionalTone: boolean; blockCompetitorMentions: boolean; companyName?: string; brandGuidelines?: string };
++};
++const normalizeGuardrails = (gc: Guardrails | null | undefined): Guardrails | undefined =>
++  gc && Object.keys(gc).length ? gc : undefined;
+@@
+- const testConfigData = { ...agent, guardrailsConfig: agent.guardrailsConfig };
++ const testConfigData = { ...agent, guardrailsConfig: normalizeGuardrails(agent.guardrailsConfig) };
+@@
+- const finalData = { ...agent, guardrailsConfig: agent.guardrailsConfig /* may be null */ };
++ const finalData = { ...agent, guardrailsConfig: normalizeGuardrails(agent.guardrailsConfig) };
+  saveAgentMutation.mutate(finalData);
+
+--- a/apps/admin-ui/src/pages/Settings.tsx
++++ b/apps/admin-ui/src/pages/Settings.tsx
+@@
++type AuthUser = { role?: string; email?: string };
+- const { user: authUser } = useAuth();
++ const { user: authUser } = useAuth() as { user?: AuthUser };
+
+--- a/apps/admin-ui/src/pages/UserManagement.tsx
++++ b/apps/admin-ui/src/pages/UserManagement.tsx
+@@
++type AuthUser = { role?: string; email?: string };
+- const { user: authUser } = useAuth();
++ const { user: authUser } = useAuth() as { user?: AuthUser };
+
+After:
+- Run `npx tsc --noEmit` and report new error count only.
