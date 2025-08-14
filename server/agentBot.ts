@@ -370,7 +370,7 @@ async function getAiResponseDirectly(
 
       // Initialize guardrails service if configured
       let guardrailsService: GuardrailsService | null = null;
-      if (agentData.guardrailsConfig) {
+      if (agentData.guardrailsConfig && typeof agentData.guardrailsConfig === 'object' && 'contentFiltering' in agentData.guardrailsConfig) {
         guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
         console.log(
           `🛡️ AgentBot: Guardrails enabled for conversation without documents`,
@@ -468,8 +468,8 @@ async function getAiResponseDirectly(
           userId,
           {
             specificDocumentIds: agentDocIds,
-            keywordWeight: searchConfig.keywordWeight,
-            vectorWeight: searchConfig.vectorWeight,
+            keywordWeight: searchConfig.keywordWeight ?? 0.5, // Default to 0.5 if not provided
+            vectorWeight: searchConfig.vectorWeight ?? 0.5,   // Default to 0.5 if not provided
             threshold: 0.3,
             massSelectionPercentage: searchConfig.documentMass || 0.6,
             enhancedQuery: queryAnalysis.enhancedQuery || userMessage,
@@ -563,12 +563,12 @@ async function getAiResponseDirectly(
 
         // Apply final token limit if enabled
         if (tokenLimitEnabled && tokenLimitType === 'final') {
-          const finalTokenLimit = searchConfig.finalTokenLimit;
-          const finalCharLimit = finalTokenLimit * 4; // Convert tokens to characters
+          const finalTokenLimitValue = searchConfig.finalTokenLimit || 4000; // Use configured finalTokenLimit or default
+          const finalCharLimit = finalTokenLimitValue * 4; // Convert tokens to characters
           if (documentContext.length > finalCharLimit) {
-            console.log(`📄 AgentBot: Final context exceeds ${finalTokenLimit} tokens (${finalCharLimit} chars), current: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens), truncating...`);
+            console.log(`📄 AgentBot: Final context exceeds ${finalTokenLimitValue} tokens (${finalCharLimit} chars), current: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens), truncating...`);
             // Truncate the document context while preserving system prompt and user message
-            const maxDocumentChars = finalCharLimit - agentData.systemPrompt.length - userMessage.length - 200; // Buffer for formatting
+            const maxDocumentChars = finalCharLimit - (agentData.systemPrompt?.length || 0) - (userMessage?.length || 0) - 200; // Buffer for formatting
             if (maxDocumentChars > 0) {
               documentContext = documentContext.substring(0, maxDocumentChars) + "\n[Content truncated due to token limit]";
             } else {
@@ -576,7 +576,7 @@ async function getAiResponseDirectly(
               documentContext = "[Content truncated due to token limit]";
             }
           }
-          console.log(`📄 AgentBot: Final context: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens, limit: ${finalTokenLimit} tokens/${finalCharLimit} chars)`);
+          console.log(`📄 AgentBot: Final context: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens, limit: ${finalTokenLimitValue} tokens/${finalCharLimit} chars)`);
         }
 
         const now = new Date();
@@ -733,7 +733,7 @@ ${documentContext}
 
         // Initialize guardrails service if configured
         let guardrailsService: GuardrailsService | null = null;
-        if (agentData.guardrailsConfig) {
+        if (agentData.guardrailsConfig && typeof agentData.guardrailsConfig === 'object' && 'contentFiltering' in agentData.guardrailsConfig) {
           guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
           console.log(
             `🛡️ AgentBot: Guardrails enabled for agent ${agentData.name}`,
@@ -907,14 +907,14 @@ export async function processMessage(
   if ('message' in message && typeof message.message === 'string') {
     // New calling convention from agentChatService
     const params = message as { message: string; userId: string; sessionId: string; channelType: string; channelId: string; agentConfig: number; documentIds: number[]; isTest: boolean };
-    
+
     console.log(`🔍 Debug: agentConfig received:`, params.agentConfig, `(type: ${typeof params.agentConfig})`);
-    
+
     const botMessage: BotMessage = {
       type: 'text',
       content: params.message
     };
-    
+
     const botContext: BotContext = {
       userId: params.userId,
       channelType: params.channelType,
@@ -923,10 +923,10 @@ export async function processMessage(
       messageId: `${params.channelType}_${Date.now()}`,
       lineIntegration: null
     };
-    
+
     return processMessage(botMessage, botContext);
   }
-  
+
   // Original calling convention
   if (!context) {
     throw new Error("Context is required for BotMessage processing");
