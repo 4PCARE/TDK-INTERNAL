@@ -1,0 +1,58 @@
+BUDGET POLICY — $1 MAX (AIM $0) FOR REPLIT EDITING/COMPUTE
+
+This budget refers to Replit's own agent/edit time and background compute, not API calls.
+
+Hard limits:
+- Work in MICRO-BATCHES: ≤ 10 files OR ≤ 200 changed lines per batch (whichever hits first).
+- TIMEBOX per batch: ≤ 5 minutes of agent activity. If over, STOP and report.
+- RESTARTS: ≤ 1 app restart per batch (only if absolutely required).
+- FS OPERATIONS: No bulk search/replace across repo; target only files listed in the batch plan.
+- LSP/INDEXING: Avoid triggers that cause full re-index (no mass renames; no root tsconfig reshuffles).
+- INSTALLS/BUILDS: No `npm/pnpm install`, `docker`, or large builds without explicit approval.
+- WATCHERS: Do not run long-lived watchers that keep the session hot (vite/dev servers, nodemon). If already running, do not bounce them repeatedly.
+- DIFF SIZE: Keep each file change ≤ 80 added lines; split otherwise.
+
+Checkpoint workflow:
+1) PLAN: Output the exact file list to change (paths), expected line deltas, and whether a restart is needed. Then STOP.
+2) APPLY: Edit only the approved list. Produce a concise diff summary (path + +/- line counts). Then STOP.
+3) VERIFY: Run local, cheap checks only (e.g., `tsc --noEmit`, `eslint .` if already configured). No installs. Then STOP.
+
+If remaining budget is estimated < $0.20 at any point, STOP and report before proceeding.
+
+Report format each checkpoint:
+- Files touched (count + list)
+- Lines added/removed per file
+- Any restarts performed (0/1)
+- Elapsed agent time (self-estimate) and confirmation that no installs/builds were run
+- Current budget assessment: “on track” or “at risk”
+
+---
+
+PHASE 2 GATEWAY INSTRUCTIONS
+
+You have completed Phase 1 (scaffolding + contract stubs). You’ve already read `replit.md` and the repo structure.
+
+Goal: Begin Phase 2 — implement contract validation and basic endpoint scaffolds — using the budget policy above. This means minimal, targeted edits, pausing at every checkpoint.
+
+Step 0: Do not touch code yet. State:
+- Exact service(s) and file(s) you will touch in the next micro-batch.
+- For each file: expected +/- line count and if restart needed.
+- Any dependencies between files.
+- Estimated agent compute time impact.
+
+Step 1 onward: Follow the “PLAN → APPLY → VERIFY” loop from the budget policy. Always STOP after each stage for my approval.
+
+Priority order for Phase 2:
+1) Implement OpenAPI request/response schema validation for each service (fastest paths first).
+2) Map health endpoints to actual code if not done already.
+3) Connect each service to its contract without adding provider SDK logic.
+4) Keep TypeScript and Python changes in sync with existing templates.
+
+Do NOT:
+- Integrate any external APIs, LLMs, or SDKs yet.
+- Change service layering or folder structure.
+- Introduce business logic outside of validation/mapping.
+
+You must maintain LLM-agnostic architecture and LangChain-based Python NLP service.
+
+Begin with PLAN stage now.
