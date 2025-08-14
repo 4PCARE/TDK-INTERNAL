@@ -1,0 +1,65 @@
+You’re continuing where we left off. `/login` is implemented and proxied. Now implement MICRO-BATCH D — `/refresh` in auth-svc and wire it through api-gateway.
+
+Scope: minimal stub with request/response validation. No DB/session logic.
+
+1) auth-svc changes
+- File: services/auth-svc/src/infrastructure/http/validate.ts
+  Add two validators using the same zod-if-available pattern as existing ones:
+  export function validateRefreshReq(d: any): d is { refreshToken: string } {
+    try {
+      const z: typeof import("zod") = require("zod");
+      z.object({ refreshToken: z.string().min(1) }).parse(d);
+      return true;
+    } catch {
+      return !!(d && typeof d.refreshToken === "string" && d.refreshToken.length > 0);
+    }
+  }
+  export function validateRefreshRes(d: any): d is { accessToken: string } {
+    try {
+      const z: typeof import("zod") = require("zod");
+      z.object({ accessToken: z.string().min(1) }).parse(d);
+      return true;
+    } catch {
+      return !!(d && typeof d.accessToken === "string" && d.accessToken.length > 0);
+    }
+  }
+
+- File: services/auth-svc/src/infrastructure/http/routes.ts
+  Add a POST /refresh handler:
+  import { validateRefreshReq, validateRefreshRes } from "./validate";
+
+  app.post("/refresh", (req, res) => {
+    const body = req.body ?? {};
+    if (!validateRefreshReq(body)) {
+      return res.status(400).json({ message: "Invalid refresh payload" });
+    }
+    const payload = { accessToken: "stub-access-token-2" };
+    if (!validateRefreshRes(payload)) {
+      return res.status(500).json({ message: "Contract violation" });
+    }
+    return res.status(200).json(payload);
+  });
+
+2) api-gateway changes
+- File: services/api-gateway/src/infrastructure/http/routing.ts
+  Add a proxy for POST /refresh to auth-svc (same pattern as /login):
+  const authBase = process?.env?.AUTH_SVC_URL ?? "http://localhost:3001";
+  app.post("/refresh", async (req, res) => {
+    try {
+      const r = await proxy(req, authBase, "/refresh");
+      res.status(r.status).set(r.headers).send(r.data);
+    } catch (e: any) {
+      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
+    }
+  });
+
+3) Verify
+- Run:
+  - cd services/auth-svc && npx tsc --noEmit
+  - cd services/api-gateway && npx tsc --noEmit
+- Then report:
+  - Files changed with line counts
+  - TypeScript results for both services
+  - Confirmation that no unrelated files were modified
+
+STOP after the report.
