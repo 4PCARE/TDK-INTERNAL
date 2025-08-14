@@ -158,6 +158,76 @@ interface Document {
   categoryName?: string;
 }
 
+// Helper function to normalize guardrails config
+function normalizeGuardrails(config: any): any {
+  if (!config) return undefined;
+
+  const normalized: any = {};
+
+  if (config.contentFiltering) {
+    normalized.contentFiltering = {
+      enabled: config.contentFiltering.enabled ?? true,
+      blockProfanity: config.contentFiltering.blockProfanity ?? true,
+      blockHateSpeech: config.contentFiltering.blockHateSpeech ?? true,
+      blockSexualContent: config.contentFiltering.blockSexualContent ?? true,
+      blockViolence: config.contentFiltering.blockViolence ?? true,
+      customBlockedWords: config.contentFiltering.customBlockedWords ?? [],
+    };
+  }
+
+  if (config.topicControl) {
+    normalized.topicControl = {
+      enabled: config.topicControl.enabled ?? false,
+      allowedTopics: config.topicControl.allowedTopics ?? [],
+      blockedTopics: config.topicControl.blockedTopics ?? [],
+      strictMode: config.topicControl.strictMode ?? false,
+    };
+  }
+
+  if (config.privacyProtection) {
+    normalized.privacyProtection = {
+      enabled: config.privacyProtection.enabled ?? true,
+      blockPersonalInfo: config.privacyProtection.blockPersonalInfo ?? true,
+      blockFinancialInfo: config.privacyProtection.blockFinancialInfo ?? true,
+      blockHealthInfo: config.privacyProtection.blockHealthInfo ?? true,
+      maskPhoneNumbers: config.privacyProtection.maskPhoneNumbers ?? true,
+      maskEmails: config.privacyProtection.maskEmails ?? true,
+    };
+  }
+
+  if (config.responseQuality) {
+    normalized.responseQuality = {
+      enabled: config.responseQuality.enabled ?? true,
+      maxResponseLength: config.responseQuality.maxResponseLength ?? 1000,
+      minResponseLength: config.responseQuality.minResponseLength ?? 10,
+      requireSourceCitation: config.responseQuality.requireSourceCitation ?? false,
+      preventHallucination: config.responseQuality.preventHallucination ?? true,
+    };
+  }
+
+  if (config.toxicityPrevention) {
+    normalized.toxicityPrevention = {
+      enabled: config.toxicityPrevention.enabled ?? true,
+      toxicityThreshold: config.toxicityPrevention.toxicityThreshold ?? 0.3,
+      blockSarcasm: config.toxicityPrevention.blockSarcasm ?? false,
+      blockInsults: config.toxicityPrevention.blockInsults ?? true,
+      blockAggressiveLanguage: config.toxicityPrevention.blockAggressiveLanguage ?? true,
+    };
+  }
+
+  if (config.businessContext) {
+    normalized.businessContext = {
+      enabled: config.businessContext.enabled ?? false,
+      stayOnBrand: config.businessContext.stayOnBrand ?? true,
+      requireProfessionalTone: config.businessContext.requireProfessionalTone ?? true,
+      blockCompetitorMentions: config.businessContext.blockCompetitorMentions ?? false,
+      companyName: config.businessContext.companyName ?? "",
+    };
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
 export default function CreateAgentChatbot() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -537,7 +607,7 @@ export default function CreateAgentChatbot() {
     const finalData = {
       ...data,
       documentIds: selectedDocuments,
-      guardrailsConfig: guardrailsConfigClean,
+      guardrailsConfig: normalizeGuardrails(data.guardrailsConfig),
     };
 
     console.log("Form submission data:", JSON.stringify(finalData, null, 2));
@@ -617,9 +687,9 @@ export default function CreateAgentChatbot() {
     const guardrailsConfig = currentFormData.guardrailsEnabled ? currentFormData.guardrailsConfig : null;
 
     const testConfigData = {
-      ...currentFormData,
-      guardrailsConfig: guardrailsConfig, // Include guardrails config for testing
-    };
+        ...currentFormData,
+        guardrailsConfig: normalizeGuardrails(currentFormData.guardrailsConfig),
+      };
 
     console.log("🚀 Starting test agent with:", {
       message: testMessage,

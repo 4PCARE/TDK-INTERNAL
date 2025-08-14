@@ -77,11 +77,11 @@ interface SettingsData {
 }
 
 
-type User = { email?: string; role?: 'admin' | 'user' | string };
+type AuthUser = { role?: string; email?: string; firstName?: string; lastName?: string; profileImageUrl?: string };
 
 export default function Settings() {
   const { toast } = useToast();
-  const { user: authUser, isAuthenticated, isLoading } = useAuth();
+  const { user: authUser, isAuthenticated, isLoading } = useAuth() as { user?: AuthUser; isAuthenticated: boolean; isLoading: boolean };
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'profile' | 'system' | 'security' | 'llm'>('profile');
 

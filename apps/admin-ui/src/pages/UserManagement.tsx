@@ -74,10 +74,12 @@ interface UserQueryType {
   status: string;
 }
 
+type AuthUser = { role?: string; email?: string; firstName?: string; lastName?: string; profileImageUrl?: string };
+
 
 export default function UserManagement() {
   const { toast } = useToast();
-  const { user: authUser, isAuthenticated, isLoading } = useAuth();
+  const { user: authUser } = useAuth() as { user?: AuthUser };
   const queryClient = useQueryClient();
   const [isCreating, setIsCreating] = useState(false);
   const [showBootstrap, setShowBootstrap] = useState(false);
