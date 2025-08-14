@@ -1,0 +1,46 @@
+PHASE 1 — SECTION C (Frontend Move) — BUDGET: $1 MAX (AIM FOR $0)
+
+You are approved to proceed with Section C ONLY. 
+Goal: Move the existing React app to /apps/admin-ui with minimal changes. 
+NO business logic edits, NO external API calls, NO installs unless I explicitly approve.
+
+Move plan (do exactly this):
+1) Moves (batch size ≤ 20 files, then STOP for report)
+   - Move: client/ → apps/admin-ui/
+   - Move: client/src/ → apps/admin-ui/src/
+   - Move: client/index.html → apps/admin-ui/index.html
+   - Move: components.json → apps/admin-ui/components.json
+   - Move (if present): client public assets → apps/admin-ui/public/
+   - DO NOT touch server code, ports, or runtime in this step.
+
+2) Vite and paths (local edits only, no new deps)
+   - Create or update apps/admin-ui/vite.config.ts so it resolves from the new location.
+   - Update FE-only path aliases here (e.g., "@/..." → "src/..."). 
+   - Do NOT introduce repo-wide tsconfig path hacks; keep FE aliases inside vite.config.ts.
+   - If any imports reference @shared/schema, LEAVE THEM for now and list them in the report as “to-be-remapped in Phase 2”.
+
+3) Package and scripts (no install)
+   - Ensure apps/admin-ui/package.json exists with scripts: dev, build, test (placeholders ok).
+   - Do NOT run npm/pnpm install. Do NOT fetch network resources.
+
+4) Checks after each batch (local only)
+   - Run: `tsc --noEmit` from repo root (or within apps/admin-ui if needed).
+   - Run: `eslint .` locally.
+   - If typecheck/lint fail due to path moves, make the minimal relative import fixes in FE files ONLY.
+   - If any single file nears 550 lines due to import reflow, split it without behavioral changes.
+
+5) Cost & runtime guardrails (hard)
+   - MAX total spend (entire Phase 1): $1. Aim for $0. 
+   - NO external API calls, embeddings, LLM, or Docker pulls.
+   - Do NOT start/stop servers; avoid port changes. If port conflicts occur, just note them in the report.
+   - If estimated cost approaches $0.80 at any point, STOP and report.
+
+Output after each micro-batch (then WAIT):
+- Files moved (list full paths)
+- Any import path fixes (before → after examples)
+- Results of `tsc --noEmit` and `eslint .`
+- Any @shared/schema references that will need remapping
+- Current spend: confirm $0.00
+
+STOP after completing the full FE move and initial checks. 
+Wait for my approval before starting Section D.

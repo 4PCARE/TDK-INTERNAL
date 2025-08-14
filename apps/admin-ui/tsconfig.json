@@ -1,0 +1,12 @@
+{
+  "extends": "../../packages/ts-config/base.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "@shared/*": ["../../shared/*"],
+      "@assets/*": ["../../attached_assets/*"]
+    }
+  },
+  "include": ["src/**/*", "../../shared/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
