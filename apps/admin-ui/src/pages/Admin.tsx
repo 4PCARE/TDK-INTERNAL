@@ -32,6 +32,10 @@ interface SystemStats {
   processingQueue: number;
 }
 
+interface User {
+  role?: string;
+}</interface>
+
 interface QuickAction {
   id: string;
   title: string;
@@ -43,7 +47,7 @@ interface QuickAction {
 }
 
 export default function Admin() {
-  const { user } = useAuth();
+  const { user } = useAuth() as { user: User | null };
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ["/api/admin/stats"],

@@ -32,6 +32,36 @@ import {
 import { format } from "date-fns";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
 
+interface AuditStats {
+  totalActions?: number;
+  todayActions?: number;
+  failedActions?: number;
+  topActions?: Array<{ action: string; count: number }>;
+}
+
+interface FilterOptions {
+  actions?: string[];
+  resourceTypes?: string[];
+  users?: Array<{ id: string; email: string }>;
+}
+
+interface AuditLog {
+  id: number;
+  timestamp?: string;
+  userFirstName?: string;
+  userLastName?: string;
+  userEmail?: string;
+  action?: string;
+  resourceType?: string;
+  success?: boolean;
+  duration?: number;
+  ipAddress?: string;
+  details?: any;
+  errorMessage?: string;
+  userAgent?: string;
+  sessionId?: string;
+}
+
 export default function AuditMonitoring() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -68,14 +98,14 @@ export default function AuditMonitoring() {
     queryKey: ['/api/audit/stats'],
     enabled: isAuthenticated,
     retry: false,
-  });
+  }) as { data: AuditStats | undefined; isLoading: boolean };
 
   // Fetch filter options
   const { data: filterOptions } = useQuery({
     queryKey: ['/api/audit/filters'],
     enabled: isAuthenticated,
     retry: false,
-  });
+  }) as { data: FilterOptions | undefined };
 
   // Fetch audit logs
   const { data: auditLogs = [], isLoading: logsLoading, refetch } = useQuery({
@@ -90,7 +120,7 @@ export default function AuditMonitoring() {
     }],
     enabled: isAuthenticated,
     retry: false,
-  });
+  }) as { data: AuditLog[]; isLoading: boolean; refetch: () => void };
 
   const handleSearch = () => {
     setOffset(0);
@@ -223,7 +253,7 @@ export default function AuditMonitoring() {
                   <div className="ml-4">
                     <p className="text-sm font-medium text-slate-500">Total Actions</p>
                     <p className="text-2xl font-bold text-slate-900">
-                      {statsLoading ? "..." : auditStats?.totalActions || 0}
+                      {statsLoading ? "..." : (auditStats?.totalActions ?? 0)}
                     </p>
                   </div>
                 </div>
@@ -237,7 +267,7 @@ export default function AuditMonitoring() {
                   <div className="ml-4">
                     <p className="text-sm font-medium text-slate-500">Today's Actions</p>
                     <p className="text-2xl font-bold text-slate-900">
-                      {statsLoading ? "..." : auditStats?.todayActions || 0}
+                      {statsLoading ? "..." : (auditStats?.todayActions ?? 0)}
                     </p>
                   </div>
                 </div>
@@ -251,7 +281,7 @@ export default function AuditMonitoring() {
                   <div className="ml-4">
                     <p className="text-sm font-medium text-slate-500">Failed Actions</p>
                     <p className="text-2xl font-bold text-slate-900">
-                      {statsLoading ? "..." : auditStats?.failedActions || 0}
+                      {statsLoading ? "..." : (auditStats?.failedActions ?? 0)}
                     </p>
                   </div>
                 </div>
@@ -266,8 +296,8 @@ export default function AuditMonitoring() {
                     <p className="text-sm font-medium text-slate-500">Success Rate</p>
                     <p className="text-2xl font-bold text-slate-900">
                       {statsLoading ? "..." : 
-                        auditStats?.totalActions 
-                          ? `${Math.round(((auditStats.totalActions - auditStats.failedActions) / auditStats.totalActions) * 100)}%`
+                        (auditStats?.totalActions ?? 0) > 0
+                          ? `${Math.round((((auditStats?.totalActions ?? 0) - (auditStats?.failedActions ?? 0)) / (auditStats?.totalActions ?? 1)) * 100)}%`
                           : "100%"
                       }
                     </p>
@@ -431,7 +461,7 @@ export default function AuditMonitoring() {
                       </tr>
                     </thead>
                     <tbody>
-                      {auditLogs.map((log: any, index) => (
+                      {auditLogs.map((log: AuditLog, index) => (
                         <>
                           <tr key={log.id} className="border-b hover:bg-slate-50">
                             <td className="p-2">
