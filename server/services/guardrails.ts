@@ -105,7 +105,7 @@ export class GuardrailsService {
     const results: GuardrailResult[] = [];
 
     // Content filtering
-    if (this.config.contentFiltering?.enabled) {
+    if (this.config?.contentFiltering?.enabled) {
       console.log("🔍 Checking Content Filtering...");
       const contentResult = await this.checkContentFiltering(userInput);
       console.log("📊 Content Filtering Result:", JSON.stringify(contentResult, null, 2));
@@ -115,7 +115,7 @@ export class GuardrailsService {
     }
 
     // Topic control
-    if (this.config.topicControl?.enabled) {
+    if (this.config?.topicControl?.enabled) {
       console.log("🎯 Checking Topic Control...");
       const topicResult = await this.checkTopicControl(userInput, context);
       console.log("📊 Topic Control Result:", JSON.stringify(topicResult, null, 2));
@@ -125,7 +125,7 @@ export class GuardrailsService {
     }
 
     // Privacy protection
-    if (this.config.privacyProtection?.enabled) {
+    if (this.config?.privacyProtection?.enabled) {
       console.log("🔒 Checking Privacy Protection...");
       const privacyResult = await this.checkPrivacyProtection(userInput);
       console.log("📊 Privacy Protection Result:", JSON.stringify(privacyResult, null, 2));
@@ -135,7 +135,7 @@ export class GuardrailsService {
     }
 
     // Toxicity prevention
-    if (this.config.toxicityPrevention?.enabled) {
+    if (this.config?.toxicityPrevention?.enabled) {
       console.log("☢️ Checking Toxicity Prevention...");
       const toxicityResult = await this.checkToxicity(userInput);
       console.log("📊 Toxicity Prevention Result:", JSON.stringify(toxicityResult, null, 2));
@@ -163,7 +163,7 @@ export class GuardrailsService {
     const results: GuardrailResult[] = [];
 
     // Response quality
-    if (this.config.responseQuality?.enabled) {
+    if (this.config?.responseQuality?.enabled) {
       console.log("📏 Checking Response Quality...");
       const qualityResult = await this.checkResponseQuality(aiResponse, context);
       console.log("📊 Response Quality Result:", JSON.stringify(qualityResult, null, 2));
@@ -173,7 +173,7 @@ export class GuardrailsService {
     }
 
     // Business context
-    if (this.config.businessContext?.enabled) {
+    if (this.config?.businessContext?.enabled) {
       console.log("🏢 Checking Business Context...");
       const businessResult = await this.checkBusinessContext(aiResponse, context);
       console.log("📊 Business Context Result:", JSON.stringify(businessResult, null, 2));
@@ -183,7 +183,7 @@ export class GuardrailsService {
     }
 
     // Content filtering for output
-    if (this.config.contentFiltering?.enabled) {
+    if (this.config?.contentFiltering?.enabled) {
       console.log("🔍 Checking Output Content Filtering...");
       const contentResult = await this.checkContentFiltering(aiResponse);
       console.log("📊 Output Content Filtering Result:", JSON.stringify(contentResult, null, 2));
@@ -293,8 +293,9 @@ export class GuardrailsService {
         triggeredRules: result.categories || [],
         suggestions: result.allowed ? undefined : ['Please rephrase your message appropriately']
       };
-    } catch (error) {
-      console.error('OpenAI content filtering error:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('OpenAI content filtering error:', errorMessage);
       return {
         allowed: true,
         confidence: 0.5,
@@ -423,8 +424,9 @@ export class GuardrailsService {
         triggeredRules: isToxic ? result.categories || ['high_toxicity'] : [],
         suggestions: isToxic ? ['Please communicate in a more respectful manner'] : undefined
       };
-    } catch (error) {
-      console.error('Toxicity check error:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Toxicity check error:', errorMessage);
       return {
         allowed: true,
         confidence: 0.5,
@@ -546,8 +548,9 @@ export class GuardrailsService {
         triggeredRules: result.is_supported ? [] : ['hallucination_detected'],
         suggestions: result.is_supported ? undefined : ['Please base your response on the provided documents only']
       };
-    } catch (error) {
-      console.error('Hallucination check error:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Hallucination check error:', errorMessage);
       return {
         allowed: true,
         confidence: 0.5,
@@ -596,8 +599,9 @@ export class GuardrailsService {
         triggeredRules: result.is_professional ? [] : result.issues || ['unprofessional_tone'],
         suggestions: result.suggestions || undefined
       };
-    } catch (error) {
-      console.error('Professional tone check error:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Professional tone check error:', errorMessage);
       return {
         allowed: true,
         confidence: 0.5,

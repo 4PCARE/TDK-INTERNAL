@@ -465,6 +465,8 @@ export async function searchSmartHybridDebug(
     isLineOAContext?: boolean; // Flag to indicate context
     documentTokenLimit?: number; // Token limit for document content
     finalTokenLimit?: number; // Token limit for final context
+    chunkMaxType?: 'percentage' | 'number';
+    chunkMaxValue?: number;
   }
 ): Promise<SearchResult[]> {
   const keywordWeight = options.keywordWeight ?? 0.5;
@@ -472,6 +474,8 @@ export async function searchSmartHybridDebug(
   const threshold = options.threshold ?? 0.3;
   const massSelectionPercentage = options.massSelectionPercentage || MASS_SELECTION_PERCENTAGE;
   const isLineOAContext = options.isLineOAContext ?? false; // Get context flag
+  const chunkMaxType = options.chunkMaxType ?? 'percentage';
+  const chunkMaxValue = options.chunkMaxValue ?? 30;
 
   // Use enhanced query from preprocessor if provided, otherwise use original
   const searchQuery = options.enhancedQuery || query;
@@ -673,17 +677,17 @@ export async function searchSmartHybridDebug(
 
   if (isLineOAContext) {
     // LINE OA context: Use agent's chunk configuration properly
-    if (options.chunkMaxType === 'percentage' && options.chunkMaxValue > 0) {
+    if (chunkMaxType === 'percentage' && chunkMaxValue > 0) {
       // Calculate percentage based on total available chunks
       const totalAvailableChunks = scoredChunks.length;
-      const maxChunks = Math.max(1, Math.ceil(totalAvailableChunks * (options.chunkMaxValue / 100)));
+      const maxChunks = Math.max(1, Math.ceil(totalAvailableChunks * (chunkMaxValue / 100)));
       minResults = Math.min(2, maxChunks);
       maxResults = Math.min(maxChunks, scoredChunks.length);
-      console.log(`📊 LINE OA: Using ${options.chunkMaxValue}% limit: ${options.chunkMaxValue}% of ${totalAvailableChunks} total chunks = ${maxResults} max chunks`);
-    } else if (options.chunkMaxType === 'number' && options.chunkMaxValue > 0) {
+      console.log(`📊 LINE OA: Using ${chunkMaxValue}% limit: ${chunkMaxValue}% of ${totalAvailableChunks} total chunks = ${maxResults} max chunks`);
+    } else if (chunkMaxType === 'number' && chunkMaxValue > 0) {
       // Use fixed number of chunks
-      minResults = Math.min(2, options.chunkMaxValue);
-      maxResults = Math.min(options.chunkMaxValue, scoredChunks.length);
+      minResults = Math.min(2, chunkMaxValue);
+      maxResults = Math.min(chunkMaxValue, scoredChunks.length);
       console.log(`📊 LINE OA: Using fixed limit: ${maxResults} max chunks`);
     } else {
       // Fallback to default LINE OA limits
@@ -1051,9 +1055,12 @@ export async function searchSmartHybridV1(
     console.log(`✅ SmartHybrid: Returning ${results.length} chunks from ${combinedChunkMap.size} scored`);
     return results;
 
-  } catch (error) {
-    console.error("❌ SmartHybrid Search Failed:", error);
-    throw new Error("SmartHybrid Search Error");
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error("❌ SmartHybrid Search Failed:", errorMessage);
+    if (errorStack) console.error("Stack:", errorStack);
+    throw new Error(`SmartHybrid Search Error: ${errorMessage}`);
   }
 }
 
