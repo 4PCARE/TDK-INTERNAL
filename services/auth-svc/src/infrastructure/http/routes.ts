@@ -1,4 +1,6 @@
 import { Express } from 'express';
+import type { Request, Response } from "express";
+import { validateUser } from "./validate";
 
 /**
  * Register health check routes for Auth Service
@@ -16,5 +18,20 @@ export function registerRoutes(app: Express): void {
       service: 'auth-svc',
       timestamp: new Date().toISOString()
     });
+  });
+
+  // User profile endpoint - stubbed for contract compliance
+  app.get("/me", (_req: Request, res: Response) => {
+    const payload = {
+      id: "00000000-0000-4000-8000-000000000000",
+      email: "dev@example.com",
+      roles: ["admin"]
+    };
+
+    if (!validateUser(payload)) {
+      return res.status(500).json({ message: "Contract violation" });
+    }
+
+    return res.status(200).json(payload);
   });
 }
