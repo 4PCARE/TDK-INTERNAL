@@ -193,8 +193,8 @@ export default function AIAssistant() {
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
               </div>
-            ) : messages && messages.length > 0 ? (
-              messages.map((message: Message) => (
+            ) : messages && (messages as any[])?.length > 0 ? (
+              (messages as any[])?.map((message: any) => (
                 <div key={message.id} className={`flex space-x-3 ${message.role === 'user' ? 'justify-end' : ''}`}>
                   {message.role === 'assistant' && (
                     <Avatar className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 flex-shrink-0">

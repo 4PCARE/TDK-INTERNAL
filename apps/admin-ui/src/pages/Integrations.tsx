@@ -456,7 +456,7 @@ export default function Integrations() {
     }
   ];
 
-  const lineOaIntegrations = integrations.filter(int => int.type === 'lineoa');
+  const lineOaIntegrations = integrations.filter((int: any) => int.type === 'lineoa');
 
     // Early return for error state
   if (integrationsError) {

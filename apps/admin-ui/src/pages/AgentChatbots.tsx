@@ -64,6 +64,7 @@ export default function AgentChatbots() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
   const queryClient = useQueryClient();
+  const [expandedAgents, setExpandedAgents] = useState<string[]>([]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -354,7 +355,7 @@ export default function AgentChatbots() {
                 <div className="pt-3 border-t border-gray-100">
                   {/* Conditionally render AgentDocumentList only when agent is expanded */}
                   <div onClick={() => {
-                    setExpandedAgents(prev => {
+                    setExpandedAgents((prev: any[]) => {
                       const next = new Set(prev);
                       if (next.has(agent.id)) {
                         next.delete(agent.id);

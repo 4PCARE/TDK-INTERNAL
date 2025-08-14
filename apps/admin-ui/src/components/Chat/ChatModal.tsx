@@ -227,7 +227,7 @@ export default function ChatModal({ isOpen, onClose }: ChatModalProps) {
                             <div className="mt-2">
                               <FeedbackButtons
                                 messageId={msg.id}
-                                userQuery={messages[messages.findIndex(m => m.id === msg.id) - 1]?.content || ''}
+                                userQuery={messages[messages.findIndex((m: any) => m.id === msg.id) - 1]?.content || ''}
                                 assistantResponse={msg.content}
                                 conversationId={currentConversationId!}
                                 documentContext={{ mode: 'documents' }}

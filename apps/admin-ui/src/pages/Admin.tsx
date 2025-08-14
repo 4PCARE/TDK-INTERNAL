@@ -18,8 +18,7 @@ import {
   Clock,
   TrendingUp,
   HardDrive,
-  Cpu,
-  Memory
+  Cpu
 } from "lucide-react";
 
 interface SystemStats {

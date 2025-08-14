@@ -60,7 +60,7 @@ export default function ShareDocumentDialog({
   });
 
   // Filter existing permissions for this document
-  const documentPermissions = existingPermissions.filter(
+  const documentPermissions = (existingPermissions as any[])?.filter(
     (perm: any) => perm.documentId === documentId
   );
 
@@ -161,14 +161,14 @@ export default function ShareDocumentDialog({
                         <>
                           <Users className="w-4 h-4 text-blue-500" />
                           <span className="text-sm">
-                            {users.find((u: any) => u.id === perm.userId)?.firstName || "Unknown User"}
+                            {(users as any[])?.find((u: any) => u.id === perm.userId)?.firstName || "Unknown User"}
                           </span>
                         </>
                       ) : (
                         <>
                           <Building className="w-4 h-4 text-green-500" />
                           <span className="text-sm">
-                            {departments.find((d: any) => d.id === perm.departmentId)?.name || "Unknown Department"}
+                            {(departments as any[])?.find((d: any) => d.id === perm.departmentId)?.name || "Unknown Department"}
                           </span>
                         </>
                       )}
@@ -203,7 +203,7 @@ export default function ShareDocumentDialog({
                     <SelectValue placeholder="Choose a user to share with" />
                   </SelectTrigger>
                   <SelectContent>
-                    {users.map((user: any) => (
+                    {(users as any[])?.map((user: any) => (
                       <SelectItem key={user.id} value={user.id}>
                         {user.firstName} {user.lastName} ({user.email})
                       </SelectItem>
@@ -243,7 +243,7 @@ export default function ShareDocumentDialog({
                     <SelectValue placeholder="Choose a department to share with" />
                   </SelectTrigger>
                   <SelectContent>
-                    {departments.map((dept: any) => (
+                    {(departments as any[])?.map((dept: any) => (
                       <SelectItem key={dept.id} value={dept.id.toString()}>
                         {dept.name}
                       </SelectItem>

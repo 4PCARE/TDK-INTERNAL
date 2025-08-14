@@ -43,7 +43,7 @@ export default function DocumentGrid() {
         </a>
       </div>
 
-      {documents.length === 0 ? (
+      {(documents as any[])?.length === 0 ? (
         <div className="text-center py-12">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
@@ -55,7 +55,7 @@ export default function DocumentGrid() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {documents.map((document: any) => (
+          {(documents as any[])?.map((document: any) => (
             <DocumentCard key={document.id} document={document} />
           ))}
         </div>

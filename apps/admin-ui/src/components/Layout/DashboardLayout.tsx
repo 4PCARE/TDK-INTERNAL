@@ -55,7 +55,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       >
         <TopBar 
           onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          isMobile={isMobile}
+
           isSidebarCollapsed={isCollapsed}
         />
 
