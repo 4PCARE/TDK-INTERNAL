@@ -349,81 +349,13 @@ export class SemanticSearchService {
         })
         .where(eq(documents.id, documentId));
 
-      // Generate chunk embeddings for better search granularity
-      await this.generateChunkEmbeddings(documentId, document.content || "");
+      console.log(`Generated embedding for document ${documentId}`);
     } catch (error) {
       console.error(
         `Error generating embedding for document ${documentId}:`,
         error,
       );
       throw error;
-    }
-  }
-
-  private async generateChunkEmbeddings(
-    documentId: number,
-    content: string,
-  ): Promise<void> {
-    try {
-      if (!content || content.trim().length === 0) {
-        return;
-      }
-
-      // Delete existing chunks
-      await db
-        .delete(documentChunks)
-        .where(eq(documentChunks.documentId, documentId));
-
-      // Chunk the content
-      const chunks = embeddingService.chunkText(content);
-
-      if (chunks.length === 0) {
-        return;
-      }
-
-      // Generate embeddings for chunks
-      const embeddings = await embeddingService.generateEmbeddings(chunks);
-
-      // Insert chunks with embeddings
-      const chunkInserts = chunks.map((chunk, index) => ({
-        documentId,
-        chunkIndex: index,
-        content: chunk,
-        embedding: JSON.stringify(embeddings[index]),
-        startPosition: 0, // TODO: Calculate actual positions
-        endPosition: chunk.length,
-        tokenCount: Math.ceil(chunk.length / 4), // Rough token estimate
-      }));
-
-      if (chunkInserts.length > 0) {
-        await db.insert(documentChunks).values(chunkInserts);
-      }
-    } catch (error) {
-      console.error(
-        `Error generating chunk embeddings for document ${documentId}:`,
-        error,
-      );
-    }
-  }
-
-  private async logSearchSession(
-    query: string,
-    userId: string,
-    searchType: string,
-  ): Promise<void> {
-    try {
-      const queryEmbedding = await embeddingService.generateEmbedding(query);
-
-      await db.insert(searchSessions).values({
-        userId,
-        query,
-        searchType,
-        queryEmbedding: JSON.stringify(queryEmbedding),
-        resultsCount: 0, // Will be updated later
-      });
-    } catch (error) {
-      console.error("Error logging search session:", error);
-      // Don't throw error for logging failures
     }
   }
 

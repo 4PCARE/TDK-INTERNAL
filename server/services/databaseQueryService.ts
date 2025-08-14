@@ -26,9 +26,9 @@ export interface DatabaseSchema {
 export class DatabaseQueryService {
   private connections: Map<number, any> = new Map();
 
-  async executeQuery(connectionId: number, query: string, userId: string): Promise<QueryResult> {
+  async executeQuery(connectionId: number, userId: string, query: string): Promise<QueryResult> {
     const startTime = Date.now();
-    
+
     try {
       // Get connection details from storage
       const connection = await storage.getDataConnection(connectionId, userId);
@@ -75,10 +75,10 @@ export class DatabaseQueryService {
       const client = await pool.connect();
       const result = await client.query(query);
       client.release();
-      
+
       // Extract column names
       const columns = result.fields ? result.fields.map(field => field.name) : [];
-      
+
       return {
         success: true,
         data: result.rows,
@@ -105,10 +105,10 @@ export class DatabaseQueryService {
 
     try {
       const [rows, fields] = await mysqlConnection.execute(query);
-      
+
       // Extract column names
       const columns = Array.isArray(fields) ? fields.map((field: any) => field.name) : [];
-      
+
       return {
         success: true,
         data: Array.isArray(rows) ? rows : [],
@@ -157,7 +157,7 @@ export class DatabaseQueryService {
 
     try {
       const client = await pool.connect();
-      
+
       // Get tables
       const tablesResult = await client.query(`
         SELECT table_name 
@@ -168,10 +168,10 @@ export class DatabaseQueryService {
       `);
 
       const tables = [];
-      
+
       for (const tableRow of tablesResult.rows) {
         const tableName = tableRow.table_name;
-        
+
         // Get columns for each table
         const columnsResult = await client.query(`
           SELECT 
@@ -221,13 +221,13 @@ export class DatabaseQueryService {
       // Get tables
       const [tablesResult] = await mysqlConnection.execute('SHOW TABLES');
       const tables = [];
-      
+
       for (const tableRow of tablesResult as any[]) {
         const tableName = Object.values(tableRow)[0] as string;
-        
+
         // Get columns for each table
         const [columnsResult] = await mysqlConnection.execute(`DESCRIBE ${tableName}`);
-        
+
         const columns = (columnsResult as any[]).map(col => ({
           name: col.Field,
           type: col.Type,
@@ -249,31 +249,34 @@ export class DatabaseQueryService {
     }
   }
 
-  async suggestQueries(connectionId: number, userId: string, userQuestion: string): Promise<string[]> {
+  async suggestQueries(connectionId: number, userId: string, userQuestion?: string): Promise<string[]> {
     try {
+      const connection = await this.getConnection(connectionId, userId);
+      if (!connection) {
+        throw new Error("Database connection not found");
+      }
+
+      // Generate sample queries based on schema
       const schema = await this.getDatabaseSchema(connectionId, userId);
       if (!schema) {
         return [];
       }
 
-      // Generate sample queries based on schema and user question
-      const queries: string[] = [];
-      
-      // Add some basic exploratory queries
-      if (schema.tables.length > 0) {
-        const firstTable = schema.tables[0];
-        queries.push(`SELECT * FROM ${firstTable.name} LIMIT 10;`);
-        queries.push(`SELECT COUNT(*) FROM ${firstTable.name};`);
-        
-        // If there are multiple tables, suggest a join
-        if (schema.tables.length > 1) {
-          queries.push(`SELECT t1.*, t2.* FROM ${schema.tables[0].name} t1 JOIN ${schema.tables[1].name} t2 ON t1.id = t2.id LIMIT 10;`);
-        }
+      // Simple query suggestions based on tables and optional user question
+      const suggestions = [
+        "SELECT * FROM users LIMIT 10",
+        "SELECT COUNT(*) FROM orders",
+        "SELECT * FROM products WHERE price > 100"
+      ];
+
+      if (userQuestion) {
+        // Add context-specific suggestions based on user question
+        suggestions.unshift(`-- Query related to: ${userQuestion}`);
       }
 
-      return queries;
+      return suggestions;
     } catch (error) {
-      console.error('Error suggesting queries:', error);
+      console.error("Error suggesting queries:", error);
       return [];
     }
   }

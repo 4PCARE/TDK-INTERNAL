@@ -13,6 +13,8 @@ import {
 } from "@shared/schema";
 import { eq, sql, and, desc as descOrder } from "drizzle-orm";
 
+const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object";
+
 export function registerAgentRoutes(app: Express) {
   // Agent chatbot routes
   app.get("/api/agent-chatbots", isAuthenticated, async (req: any, res) => {
@@ -326,9 +328,9 @@ export function registerAgentRoutes(app: Express) {
 
       res.json({
         success: true,
-        response: response.response ?? response as any,
-        sources: (response as any).sources ?? [],
-        responseTime: (response as any).responseTime ?? 0
+        response: isRecord(response) && 'message' in response ? response.message : response,
+        sources: [],
+        responseTime: 0
       });
 
     } catch (error) {
@@ -377,9 +379,9 @@ export function registerAgentRoutes(app: Express) {
 
       res.json({
         success: true,
-        response: response.response ?? response as any,
-        sources: (response as any).sources ?? [],
-        responseTime: (response as any).responseTime ?? 0
+        response: isRecord(response) && 'message' in response ? response.message : response,
+        sources: [],
+        responseTime: 0
       });
 
     } catch (error) {
@@ -429,9 +431,9 @@ export function registerAgentRoutes(app: Express) {
 
       res.json({
         success: true,
-        response: response.response ?? response as any,
-        sources: (response as any).sources ?? [],
-        responseTime: (response as any).responseTime ?? 0
+        response: isRecord(response) && 'message' in response ? response.message : response,
+        sources: [],
+        responseTime: 0
       });
 
     } catch (error) {

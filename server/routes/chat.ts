@@ -258,6 +258,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       const suggestions = await databaseQueryService.suggestQueries(
         connectionId,
         userId,
+        message
       );
 
       // Use OpenAI to generate a response and SQL query

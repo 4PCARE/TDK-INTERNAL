@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { storage } from "./storage";
 import { LineImageService } from "./lineImageService";
 import { GuardrailsService, GuardrailConfig } from "./services/guardrails";
+import { isRecord, hasProp, isBotMessage } from "../shared/utils/typeGuards";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -47,10 +48,9 @@ type ChatMessage = { role: 'user'|'assistant'|'system'; content: string; message
 const adaptHistory = (turns: ChatTurn[]): ChatMessage[] =>
   turns.map(t => ({ role: t.role, content: t.content, messageType: 'text' as const, createdAt: new Date(t.timestamp ?? Date.now()) }));
 
-type MinimalMsg = { type?: string; content?: string };
-const isBotMessage = (m: unknown): m is MinimalMsg => !!m && typeof (m as any).type === 'string';
-
-const getAgentId = (v: unknown): number => typeof v === 'number' ? v : Number((v as any)?.id ?? v ?? 0);
+// Removed the old isBotMessage and getAgentId as they are now imported from typeGuards
+// const isBotMessage = (m: unknown): m is MinimalMsg => !!m && typeof (m as any).type === 'string';
+// const getAgentId = (v: unknown): number => typeof v === 'number' ? v : Number((v as any)?.id ?? v ?? 0);
 
 /**
  * Check if a message is image-related based on keywords
@@ -381,9 +381,11 @@ async function getAiResponseDirectly(
 
       // Initialize guardrails service if configured
       let guardrailsService: GuardrailsService | null = null;
-      const hasGR = (x: unknown): x is { guardrailsConfig: any } => !!x && typeof x === 'object' && 'guardrailsConfig' in x;
-      if (hasGR(agentData) && (agentData as any).guardrailsConfig) {
-        guardrailsService = new GuardrailsService((agentData as any).guardrailsConfig);
+      // Use type guards for guardrails config check
+      if (hasProp(agentData, 'guardrailsConfig') &&
+          hasProp(agentData.guardrailsConfig, 'enabled') &&
+          agentData.guardrailsConfig.enabled) {
+        guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
       }
 
       // Validate input
@@ -744,9 +746,11 @@ ${documentContext}
 
         // Initialize guardrails service if configured
         let guardrailsService: GuardrailsService | null = null;
-        const hasGR = (x: unknown): x is { guardrailsConfig: any } => !!x && typeof x === 'object' && 'guardrailsConfig' in x;
-        if (hasGR(agentData) && (agentData as any).guardrailsConfig) {
-          guardrailsService = new GuardrailsService((agentData as any).guardrailsConfig);
+        // Use type guards for guardrails config check
+        if (hasProp(agentData, 'guardrailsConfig') &&
+            hasProp(agentData.guardrailsConfig, 'enabled') &&
+            agentData.guardrailsConfig.enabled) {
+          guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
         }
 
         // Apply guardrails if configured
@@ -866,7 +870,12 @@ export async function processAgentMessage(params: {
   const userId = context.userId;
   const agentId = context.agentId;
 
-  const kind = isBotMessage(message) ? (message.type ?? 'text') : 'text';
+  // Validate bot message using the imported type guard
+  if (!isBotMessage(message)) {
+    throw new Error('Invalid bot message format');
+  }
+
+  const kind = message.type ?? 'text';
   console.log(`🤖 AgentBot: Processing ${kind} message from user:`, userId);
 
   // Handle different message types
@@ -956,8 +965,11 @@ async function processImageMessage(
       (msg) =>
         msg.messageType === "system" &&
         msg.metadata &&
-        (msg.metadata as any).messageType === "image_analysis" &&
-        (msg.metadata as any).relatedImageMessageId === messageId,
+        isRecord(msg.metadata) && // Use type guard for metadata
+        hasProp(msg.metadata, "messageType") && // Use type guard for messageType property
+        msg.metadata.messageType === "image_analysis" &&
+        hasProp(msg.metadata, "relatedImageMessageId") && // Use type guard for relatedImageMessageId
+        msg.metadata.relatedImageMessageId === messageId,
     );
 
     if (imageAnalysisMessage) {
