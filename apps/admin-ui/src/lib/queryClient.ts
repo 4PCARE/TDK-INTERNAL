@@ -13,7 +13,7 @@ export async function apiRequest(
   data?: unknown | undefined,
 ): Promise<Response> {
   const isFormData = data instanceof FormData;
-  
+
   const res = await fetch(url, {
     method,
     headers: data && !isFormData ? { "Content-Type": "application/json" } : {},
@@ -52,7 +52,7 @@ export const queryClient = new QueryClient({
       staleTime: 2 * 60 * 1000, // 2 minutes default instead of Infinity
       retry: false,
       // Add deduplication window
-      cacheTime: 10 * 60 * 1000, // 10 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes
     },
     mutations: {
       retry: false,

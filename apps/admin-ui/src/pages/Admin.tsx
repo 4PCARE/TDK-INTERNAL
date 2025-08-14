@@ -32,15 +32,22 @@ interface SystemStats {
   processingQueue: number;
 }
 
+type Role = "admin" | "editor" | "viewer";
+
 interface User {
-  role?: string;
+  id: string;
+  email: string;
+  role: Role;
 }
 
 interface QuickAction {
   id: string;
-  label: string;
-  icon?: React.ReactNode;
-  onClick: () => void;
+  title: string;
+  description?: string;
+  href?: string;
+  badge?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  onClick?: () => void;
 }
 
 export default function Admin() {
