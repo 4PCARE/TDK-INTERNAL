@@ -1,4 +1,6 @@
+import type { Request, Response } from 'express';
 import { Express } from 'express';
+import { validateHealth, validateReady } from './validate';
 
 /**
  * Register health check routes for API Gateway
@@ -6,15 +8,19 @@ import { Express } from 'express';
  */
 export function registerRoutes(app: Express): void {
   // Health check endpoints
-  app.get('/healthz', (_req, res) => {
-    res.status(200).json({ status: 'ok', service: 'api-gateway' });
+  app.get('/healthz', (_req: Request, res: Response) => {
+    const payload = { ok: true };
+    if (!validateHealth(payload)) {
+      return res.status(500).json({ message: 'Contract violation' });
+    }
+    return res.status(200).json(payload);
   });
 
-  app.get('/readyz', (_req, res) => {
-    res.status(200).json({ 
-      status: 'ready', 
-      service: 'api-gateway',
-      timestamp: new Date().toISOString()
-    });
+  app.get('/readyz', (_req: Request, res: Response) => {
+    const payload = { ready: true };
+    if (!validateReady(payload)) {
+      return res.status(500).json({ message: 'Contract violation' });
+    }
+    return res.status(200).json(payload);
   });
 }
