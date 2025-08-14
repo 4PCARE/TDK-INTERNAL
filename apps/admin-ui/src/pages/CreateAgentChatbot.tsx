@@ -337,7 +337,6 @@ export default function CreateAgentChatbot() {
             requireProfessionalTone: agent.guardrailsConfig.businessContext?.requireProfessionalTone ?? true,
             blockCompetitorMentions: agent.guardrailsConfig.businessContext?.blockCompetitorMentions ?? false,
             companyName: agent.guardrailsConfig.businessContext?.companyName ?? "",
-            brandGuidelines: agent.guardrailsConfig.businessContext?.brandGuidelines ?? "",
           },
         } : {
           contentFiltering: {
@@ -382,7 +381,6 @@ export default function CreateAgentChatbot() {
             requireProfessionalTone: true,
             blockCompetitorMentions: false,
             companyName: "",
-            brandGuidelines: "",
           },
         },
       });
@@ -532,8 +530,9 @@ export default function CreateAgentChatbot() {
     console.log("Agent ID:", editAgentId);
 
     // Build the guardrails configuration object - send undefined when disabled, never null
-    const gc = data.guardrailsConfig;
-    const guardrailsConfigClean = gc && Object.keys(gc).length ? gc : undefined;
+    const guardrailsConfigClean = data.guardrailsEnabled && data.guardrailsConfig 
+      ? data.guardrailsConfig 
+      : undefined;
 
     const finalData = {
       ...data,
@@ -543,7 +542,7 @@ export default function CreateAgentChatbot() {
 
     console.log("Form submission data:", JSON.stringify(finalData, null, 2));
     console.log("Guardrails enabled:", data.guardrailsEnabled);
-    console.log("Guardrails config:", data.guardrailsConfig);
+    console.log("Guardrails config clean:", guardrailsConfigClean);
     console.log("Selected documents:", selectedDocuments);
 
     saveAgentMutation.mutate(finalData);
