@@ -92,6 +92,8 @@ router.post('/api/debug/ai-input', async (req, res) => {
 
     try {
       let searchResults: any[] = [];
+      let vectorResults: any[] = [];
+      let combinedContent: Array<{ weightedScore: number; [k: string]: any }> = [];
 
       if (searchType === 'chunk_split_rank') {
         // Use the enhanced chunk split and rank search
@@ -103,24 +105,35 @@ router.post('/api/debug/ai-input', async (req, res) => {
 
         // Get keyword candidates first
         console.log("=== GETTING KEYWORD CANDIDATES ===");
-        const keywordResults = await searchService.performAdvancedKeywordSearch(userMessage, userId, {
-          maxResults: 20,
-          specificDocumentIds: specificDocumentIds
-        });
+        // If performAdvancedKeywordSearch doesn't exist, call the available method or skip this section for now.
+        const keywordResults: any[] = [];
+        try {
+          const keywordSearchPossible = typeof searchService.performAdvancedKeywordSearch === 'function';
+          if (keywordSearchPossible) {
+            const keywordResults = await searchService.performAdvancedKeywordSearch(userMessage, userId, {
+              maxResults: 20,
+              specificDocumentIds: specificDocumentIds
+            });
+            searchWorkflow.keywordCandidates = keywordResults.map((result: any, index: number) => ({
+              id: result.id,
+              documentId: result.id,
+              content: result.content,
+              score: result.keywordScore || result.score || 0,
+              matchType: result.matchType || 'unknown'
+            }));
+          } else {
+            console.warn("performAdvancedKeywordSearch is not available on semanticSearchServiceV2.");
+          }
+        } catch (kwError) {
+          console.error("Error during keyword search:", kwError);
+          debugLogs.push(`[WARN] Keyword search failed: ${kwError.message}`);
+        }
 
-        // Get vector candidates 
+
+        // Get vector candidates
         console.log("=== GETTING VECTOR CANDIDATES ===");
         const { vectorService } = await import('./services/vectorService');
         const vectorResults = await vectorService.searchDocuments(userMessage, userId, 20, specificDocumentIds);
-
-        // Store workflow details
-        searchWorkflow.keywordCandidates = keywordResults.map((result: any, index: number) => ({
-          id: result.id,
-          documentId: result.id,
-          content: result.content,
-          score: result.keywordScore || result.score || 0,
-          matchType: result.matchType || 'unknown'
-        }));
 
         searchWorkflow.vectorCandidates = vectorResults.map((result: any, index: number) => ({
           id: result.document.id,
@@ -175,7 +188,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
           // Console log with concise chunk info
           console.log(`📊 SEARCH RESULTS: Found ${searchResults.length} chunks from ${searchType} search`);
           searchResults.forEach((result, index) => {
-            const source = (result.keywordScore > 0 && result.vectorScore > 0) ? 'HYBRID' : 
+            const source = (result.keywordScore > 0 && result.vectorScore > 0) ? 'HYBRID' :
                           (result.keywordScore > 0) ? 'KEYWORD' : 'SEMANTIC';
             const score = result.combinedScore || result.similarity;
             const preview = result.content.substring(0, 80).replace(/\n/g, ' ') + (result.content.length > 80 ? '...' : '');
@@ -494,7 +507,7 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
     }
 
     let documentContext = "";
-    let chunkDetails = [];
+    let chunkDetails: any[] = [];
     let searchMetrics = {
       searchType,
       keywordResults: 0,
@@ -509,7 +522,7 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
         console.log(`DEBUG: Performing keyword search for "${userMessage}"`);
 
         // For Thai text, be more flexible with search terms
-        const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+        const searchTerms = userMessage.toLowerCase().split(/\s+/).filter((term: string) => term.length > 0);
         const docContent = doc.content || '';
         const docContentLower = docContent.toLowerCase();
 
@@ -559,9 +572,8 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
         if (hasMatches && matchingSegments.length > 0) {
           console.log(`DEBUG: Found ${matchingSegments.length} keyword matches`);
           matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);
-
           const uniqueSegments = [];
-          const usedRanges = [];
+          const usedRanges: Array<{start: number; end: number}> = [];
 
           for (const match of matchingSegments) {
             const start = Math.max(0, match.position - 1000);
@@ -690,11 +702,11 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
         console.log(`DEBUG: Performing ${searchType} search`);
 
         let keywordMatches = [];
-        let vectorResults = [];
-        let combinedContent = [];
+        let vectorResults: any[] = [];
+        let combinedContent: Array<{ weightedScore: number; [k: string]: any }> = [];
 
         // First, get keyword matches using the same logic as pure keyword search
-        const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+        const searchTerms = userMessage.toLowerCase().split(/\s+/).filter((term: string) => term.length > 0);
         const docContent = doc.content || '';
         const docContentLower = docContent.toLowerCase();
 
@@ -751,9 +763,10 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
           console.log(`DEBUG: Found ${matchingSegments.length} keyword matches`);
 
           // Sort by score (exact phrases first) then by position
-          matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);                    // Take best matches and remove overlaps
+          matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);
+          // Take best matches and remove overlaps
           const uniqueSegments = [];
-          const usedRanges = [];
+          const usedRanges: Array<{start: number; end: number}> = [];
 
           for (const match of matchingSegments) {
             const start = Math.max(0, match.position - 1000); // Expand context window
