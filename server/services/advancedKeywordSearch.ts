@@ -106,7 +106,7 @@ export class AdvancedKeywordSearchService {
               summary: document.summary,
               aiCategory: document.aiCategory,
               similarity: Math.min(chunkScore.score / 10, 1.0), // Normalize to 0-1
-              createdAt: (document.createdAt ?? new Date()).toISOString(),
+              createdAt: document.createdAt?.toISOString() ?? new Date().toISOString(),
               matchedTerms: chunkScore.matchedTerms,
               matchDetails: chunkScore.matchDetails
             });
@@ -533,7 +533,7 @@ export class AdvancedKeywordSearchService {
               summary: document.summary,
               aiCategory: document.aiCategory,
               similarity: Math.min(chunkScore.score / 10, 1.0), // Normalize to 0-1
-              createdAt: (document.createdAt ?? new Date()).toISOString(),
+              createdAt: document.createdAt?.toISOString() ?? new Date().toISOString(),
               matchedTerms: chunkScore.matchedTerms,
               matchDetails: chunkScore.matchDetails,
               aiKeywordExpansion: {

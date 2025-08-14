@@ -900,10 +900,6 @@ export async function searchSmartHybridV1(
 
     const allChunkIds = new Set([...Object.keys(keywordChunks), ...Object.keys(vectorChunks)]);
 
-    // Declare adapted weights before use
-    let adaptedVectorWeight = vectorWeight;
-    let adaptedKeywordWeight = keywordWeight;
-
     for (const chunkId of allChunkIds) {
       const [docIdStr, chunkIdxStr] = chunkId.split("-");
       const docId = parseInt(docIdStr);
@@ -954,6 +950,11 @@ export async function searchSmartHybridV1(
       console.log(`🔄 ADAPTIVE WEIGHTING: No results from either search method`);
     } else {
       console.log(`🔄 ADAPTIVE WEIGHTING: Both search methods found results, using original weights`);
+    }
+
+    // Declare adapted weights before use
+    let adaptedVectorWeight = vectorWeight;
+    let adaptedKeywordWeight = keywordWeight;
     }
 
     // Recalculate final scores with adaptive weights

@@ -22,7 +22,10 @@ export function registerAnalyticsRoutes(app: Express) {
   // AI Response Analysis routes
   app.get("/api/ai-response-analysis", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
       const limit = req.query.limit ? parseInt(req.query.limit) : undefined;
       const offset = req.query.offset ? parseInt(req.query.offset) : undefined;
       const analysisResult = req.query.analysisResult;
@@ -41,7 +44,10 @@ export function registerAnalyticsRoutes(app: Express) {
 
   app.get("/api/ai-response-analysis/stats", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
       const dateRange = req.query.dateRange || '7d';
 
       let startDate = new Date();
@@ -114,7 +120,10 @@ export function registerAnalyticsRoutes(app: Express) {
   // Omnichannel Analytics
   app.get("/api/analytics/omnichannel", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
       const dateRange = req.query.dateRange || '7d';
 
       let startDate = new Date();
@@ -186,7 +195,10 @@ export function registerAnalyticsRoutes(app: Express) {
   // Document Analytics
   app.get("/api/analytics/documents", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
       const dateRange = req.query.dateRange || '7d';
 
       let startDate = new Date();
@@ -281,7 +293,10 @@ export function registerAnalyticsRoutes(app: Express) {
   // User Activity Analytics
   app.get("/api/analytics/user-activity", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
       const dateRange = req.query.dateRange || '7d';
 
       let startDate = new Date();
@@ -377,7 +392,10 @@ export function registerAnalyticsRoutes(app: Express) {
   // AI Interaction Analytics
   app.get("/api/analytics/ai-interactions", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
       const dateRange = req.query.dateRange || '7d';
 
       let startDate = new Date();
@@ -471,7 +489,10 @@ export function registerAnalyticsRoutes(app: Express) {
   // System Health Analytics
   app.get("/api/analytics/system-health", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
       const dateRange = req.query.dateRange || '7d';
 
       let startDate = new Date();
@@ -563,7 +584,10 @@ export function registerAnalyticsRoutes(app: Express) {
   // Export analytics data
   app.get("/api/analytics/export", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
       const type = req.query.type || 'all';
       const format = req.query.format || 'json';
       const dateRange = req.query.dateRange || '7d';

@@ -91,11 +91,12 @@ export class LLMRouter {
 
   async updateUserConfig(userId: string, config: Partial<LLMRouterConfig>): Promise<void> {
     try {
-      const updatedConfig = { ...this.currentConfig, ...config };
+      this.currentConfig = { provider: 'OpenAI', embeddingProvider: 'OpenAI', ...this.currentConfig, ...config };
 
       // Check if provider changed - if so, we need to invalidate embeddings
       const oldEmbeddingProvider = this.currentConfig?.embeddingProvider;
-      const newEmbeddingProvider = updatedConfig.embeddingProvider;
+      const newEmbeddingProvider = config.embeddingProvider || this.currentConfig?.embeddingProvider;
+
 
       if (oldEmbeddingProvider && oldEmbeddingProvider !== newEmbeddingProvider) {
         console.log(`🔄 LLM provider changed from ${oldEmbeddingProvider} to ${newEmbeddingProvider} - flagging embeddings for re-processing`);
@@ -109,16 +110,16 @@ export class LLMRouter {
         .where(eq(llmConfig.userId, userId));
 
       const configData = {
-        openAIConfig: updatedConfig.openAIConfig,
-        geminiConfig: updatedConfig.geminiConfig,
+        openAIConfig: this.currentConfig.openAIConfig,
+        geminiConfig: this.currentConfig.geminiConfig,
       };
 
       if (existingConfig) {
         await db
           .update(llmConfig)
           .set({
-            provider: updatedConfig.provider,
-            embeddingProvider: updatedConfig.embeddingProvider,
+            provider: this.currentConfig.provider,
+            embeddingProvider: this.currentConfig.embeddingProvider,
             configData: configData,
             updatedAt: new Date(),
           })
@@ -126,16 +127,16 @@ export class LLMRouter {
       } else {
         await db.insert(llmConfig).values({
           userId,
-          provider: updatedConfig.provider,
-          embeddingProvider: updatedConfig.embeddingProvider,
+          provider: this.currentConfig.provider,
+          embeddingProvider: this.currentConfig.embeddingProvider,
           configData: configData,
         });
       }
 
-      this.currentConfig = updatedConfig;
+      this.currentConfig = this.currentConfig; // Ensure currentConfig is updated
       this.updateModels();
 
-      console.log(`✅ LLM configuration updated for user ${userId}: ${updatedConfig.provider} (embeddings: ${updatedConfig.embeddingProvider})`);
+      console.log(`✅ LLM configuration updated for user ${userId}: ${this.currentConfig.provider} (embeddings: ${this.currentConfig.embeddingProvider})`);
     } catch (error) {
       console.error("Error updating user LLM config:", error);
       throw new Error("Failed to update LLM configuration");
@@ -149,7 +150,7 @@ export class LLMRouter {
         .select({ documentId: documentChunkEmbeddings.documentId })
         .from(documentChunkEmbeddings)
         .where(eq(documentChunkEmbeddings.embeddingProvider, oldProvider))
-        .groupBy(documentChunkEmbedEmbeddings.documentId);
+        .groupBy(documentChunkEmbeddings.documentId);
 
       if (documentsWithOldEmbeddings.length > 0) {
         // Delete old embeddings

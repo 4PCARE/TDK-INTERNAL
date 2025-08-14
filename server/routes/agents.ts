@@ -17,7 +17,10 @@ export function registerAgentRoutes(app: Express) {
   // Agent chatbot routes
   app.get("/api/agent-chatbots", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const agents = await storage.getAgentChatbots(userId);
       res.json(agents);
     } catch (error) {
@@ -28,7 +31,10 @@ export function registerAgentRoutes(app: Express) {
 
   app.get("/api/agent-chatbots/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const id = parseInt(req.params.id);
 
       if (isNaN(id)) {
@@ -50,7 +56,10 @@ export function registerAgentRoutes(app: Express) {
 
   app.post("/api/agent-chatbots", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const { name, description, personality, profession, responseStyle, specialSkills, channels } = req.body;
 
       // Validate required fields
@@ -80,7 +89,10 @@ export function registerAgentRoutes(app: Express) {
 
   app.put("/api/agent-chatbots/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const id = parseInt(req.params.id);
 
       if (isNaN(id)) {
@@ -107,7 +119,10 @@ export function registerAgentRoutes(app: Express) {
 
   app.delete("/api/agent-chatbots/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const id = parseInt(req.params.id);
 
       if (isNaN(id)) {
@@ -126,7 +141,10 @@ export function registerAgentRoutes(app: Express) {
   app.get("/api/agent-chatbots/:id/documents", isAuthenticated, async (req: any, res) => {
     try {
       const agentId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
 
       if (isNaN(agentId)) {
         return res.status(400).json({ message: "Invalid agent ID" });
@@ -167,7 +185,10 @@ export function registerAgentRoutes(app: Express) {
     try {
       const agentId = parseInt(req.params.agentId);
       const documentId = parseInt(req.params.documentId);
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
 
       if (isNaN(agentId) || isNaN(documentId)) {
         return res.status(400).json({ message: "Invalid agent or document ID" });
@@ -221,7 +242,10 @@ export function registerAgentRoutes(app: Express) {
     try {
       const agentId = parseInt(req.params.agentId);
       const documentId = parseInt(req.params.documentId);
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
 
       if (isNaN(agentId) || isNaN(documentId)) {
         return res.status(400).json({ message: "Invalid agent or document ID" });
@@ -258,7 +282,10 @@ export function registerAgentRoutes(app: Express) {
   // Agent test-chat endpoint (for testing during creation/editing)
   app.post("/api/agent-chatbots/test-chat", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const { message, agentConfig, documentIds = [], chatHistory = [] } = req.body;
 
       if (!message || message.trim().length === 0) {
@@ -317,7 +344,10 @@ export function registerAgentRoutes(app: Express) {
   app.post("/api/agent-chatbots/:id/test", isAuthenticated, async (req: any, res) => {
     try {
       const agentId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const { message } = req.body;
 
       if (isNaN(agentId)) {
@@ -456,7 +486,10 @@ export function registerAgentRoutes(app: Express) {
   app.get("/api/agent-chatbots/:id/stats", isAuthenticated, async (req: any, res) => {
     try {
       const agentId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
 
       if (isNaN(agentId)) {
         return res.status(400).json({ message: "Invalid agent ID" });
@@ -497,7 +530,10 @@ export function registerAgentRoutes(app: Express) {
   app.post("/api/agent-chatbots/:id/duplicate", isAuthenticated, async (req: any, res) => {
     try {
       const sourceAgentId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
 
       if (isNaN(sourceAgentId)) {
         return res.status(400).json({ message: "Invalid agent ID" });
@@ -553,7 +589,10 @@ export function registerAgentRoutes(app: Express) {
   app.get("/api/agent-chatbots/:id/export", isAuthenticated, async (req: any, res) => {
     try {
       const agentId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
 
       if (isNaN(agentId)) {
         return res.status(400).json({ message: "Invalid agent ID" });

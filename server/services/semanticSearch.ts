@@ -88,6 +88,28 @@ export class SemanticSearchService {
       dateRange,
     } = options;
 
+    let whereConditions = and(
+      eq(documents.userId, userId),
+      sql`${documents.content} IS NOT NULL AND LENGTH(${documents.content}) > 0`,
+    );
+
+    // Apply category filter
+    if (categoryFilter && categoryFilter !== "all") {
+      whereConditions = and(
+        whereConditions,
+        eq(documents.aiCategory, categoryFilter),
+      );
+    }
+
+    // Apply date range filter
+    if (dateRange) {
+      whereConditions = and(
+        whereConditions,
+        sql`${documents.createdAt} >= ${dateRange.from}`,
+        sql`${documents.createdAt} <= ${dateRange.to}`
+      );
+    }
+
     try {
       // Generate embedding for the query
       const queryEmbedding = await embeddingService.generateEmbedding(query);
@@ -101,49 +123,11 @@ export class SemanticSearchService {
           summary: documents.summary,
           aiCategory: documents.aiCategory,
           createdAt: documents.createdAt,
+          embedding: documents.embedding, // Include embedding for similarity calculation
         })
         .from(documents)
-        .where(
-          and(
-            eq(documents.userId, userId),
-            sql`${documents.content} IS NOT NULL AND LENGTH(${documents.content}) > 0`,
-          ),
-        );
+        .where(whereConditions);
 
-      // Apply category filter by rebuilding the query
-      if (categoryFilter && categoryFilter !== "all") {
-        documentsQuery = db
-          .select({
-            id: documents.id,
-            name: documents.name,
-            content: documents.content,
-            summary: documents.summary,
-            aiCategory: documents.aiCategory,
-            createdAt: documents.createdAt,
-          })
-          .from(documents)
-          .where(
-            and(
-              eq(documents.userId, userId),
-              sql`${documents.content} IS NOT NULL AND LENGTH(${documents.content}) > 0`,
-              eq(documents.aiCategory, categoryFilter),
-            ),
-          );
-      }
-
-      if (dateRange) {
-        // If your query builder type doesn't expose .where here, use a safe filter wrapper:
-    // documentsQuery = documentsQuery.where(...)
-    // or guard with sql`` expression compatible with your builder.
-    documentsQuery = documentsQuery.where(
-          and(
-            eq(documents.userId, userId),
-            sql`${documents.embedding} IS NOT NULL`,
-            sql`${documents.createdAt} >= ${dateRange.from}`,
-            sql`${documents.createdAt} <= ${dateRange.to}`,
-          ),
-        );
-      }
 
       const documentsWithEmbeddings = await documentsQuery;
 

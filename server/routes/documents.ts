@@ -93,7 +93,10 @@ export function registerDocumentRoutes(app: Express) {
   // Document routes
   app.get("/api/documents", smartAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const categoryId = req.query.categoryId
         ? parseInt(req.query.categoryId as string)
         : undefined;
@@ -118,7 +121,10 @@ export function registerDocumentRoutes(app: Express) {
 
   app.get("/api/documents/search", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const query = req.query.query as string;
       const searchType = req.query.type as string || "hybrid";
       const searchFileName = req.query.fileName === "true";
@@ -258,7 +264,10 @@ export function registerDocumentRoutes(app: Express) {
 
   app.get("/api/documents/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const id = parseInt(req.params.id);
 
       // Get basic document first
@@ -306,7 +315,10 @@ export function registerDocumentRoutes(app: Express) {
     isAuthenticated,
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
         const id = parseInt(req.params.id);
         const document = await storage.getDocument(id, userId);
 
@@ -335,7 +347,10 @@ export function registerDocumentRoutes(app: Express) {
     isAuthenticated,
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
         const documentId = parseInt(req.params.id);
         const { targetLanguage } = req.body;
 
@@ -447,7 +462,10 @@ ${document.summary}`;
     upload.array("files", 10),
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
         const files = req.files as Express.Multer.File[];
 
         // Parse metadata if provided
@@ -622,7 +640,10 @@ ${document.summary}`;
     isAuthenticated,
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
         const id = parseInt(req.params.id);
         const document = await storage.getDocument(id, userId);
 
@@ -678,7 +699,10 @@ ${document.summary}`;
     isAuthenticated,
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
         const id = parseInt(req.params.id);
         const document = await storage.toggleDocumentFavorite(id, userId);
         res.json(document);
@@ -702,7 +726,10 @@ ${document.summary}`;
     },
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
         const id = parseInt(req.params.id);
         const { preserveExistingEmbeddings = false } = req.body;
         const document = await storage.getDocument(id, userId);
@@ -753,7 +780,10 @@ ${document.summary}`;
     },
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
         const { preserveExistingEmbeddings = false } = req.body;
         const documents = await storage.getDocuments(userId);
 
@@ -817,7 +847,10 @@ ${document.summary}`;
     },
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
 
         console.log(`Starting revert vectorization for user ${userId}`);
 
@@ -880,7 +913,10 @@ ${document.summary}`;
   // Document endorsement endpoint
   app.post("/api/documents/:id/endorse", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const documentId = parseInt(req.params.id);
       const { effectiveStartDate, effectiveEndDate } = req.body;
 
@@ -955,7 +991,10 @@ ${document.summary}`;
 
   app.delete("/api/documents/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const id = parseInt(req.params.id);
 
       console.log(`Delete request for document ${id} by user ${userId}`);
@@ -1020,6 +1059,10 @@ ${document.summary}`;
     isAuthenticated,
     async (req: any, res) => {
       try {
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
         const documentId = parseInt(req.params.id);
 
         // Get user permissions
@@ -1069,13 +1112,21 @@ ${document.summary}`;
     isAuthenticated,
     async (req: any, res) => {
       try {
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
         const documentId = parseInt(req.params.id);
-        const { userId, permissionType = "read" } = req.body;
+        const { userId: targetUserId, permissionType = "read" } = req.body;
         const grantedBy = req.user.claims.sub;
+
+        if (!targetUserId) {
+          return res.status(400).json({ message: "Target user ID is required" });
+        }
 
         const [permission] = await db
           .insert(documentUserPermissions)
-          .values({ documentId, userId, permissionType, grantedBy })
+          .values({ documentId, userId: targetUserId, permissionType, grantedBy })
           .returning();
 
         res.json(permission);
@@ -1091,9 +1142,17 @@ ${document.summary}`;
     isAuthenticated,
     async (req: any, res) => {
       try {
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
         const documentId = parseInt(req.params.id);
         const { departmentId, permissionType = "read" } = req.body;
         const grantedBy = req.user.claims.sub;
+
+        if (!departmentId) {
+          return res.status(400).json({ message: "Department ID is required" });
+        }
 
         const [permission] = await db
           .insert(documentDepartmentPermissions)
@@ -1115,6 +1174,10 @@ ${document.summary}`;
     isAuthenticated,
     async (req: any, res) => {
       try {
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
         const permissionId = parseInt(req.params.permissionId);
 
         await db
@@ -1134,6 +1197,10 @@ ${document.summary}`;
     isAuthenticated,
     async (req: any, res) => {
       try {
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
         const permissionId = parseInt(req.params.permissionId);
 
         await db
@@ -1156,7 +1223,10 @@ ${document.summary}`;
     isAuthenticated,
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
         const documentId = parseInt(req.params.id);
         const feedbackData = await storage.getDocumentFeedback(
           documentId,
@@ -1176,7 +1246,10 @@ ${document.summary}`;
     isAuthenticated,
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ error: 'Unauthorized' });
+        }
         const documentId = parseInt(req.params.id);
 
         const { documentProcessor } = await import('../services/documentProcessor');

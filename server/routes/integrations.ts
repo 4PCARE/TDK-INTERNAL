@@ -20,7 +20,10 @@ export function registerIntegrationRoutes(app: Express) {
   // Get all social integrations for user
   app.get("/api/social-integrations", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
 
       const integrations = await db
         .select({
@@ -54,7 +57,10 @@ export function registerIntegrationRoutes(app: Express) {
   // Create new social integration
   app.post("/api/social-integrations", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const { type, name, channelId, channelSecret, channelAccessToken, agentId } = req.body;
 
       if (!type || !name) {
@@ -93,7 +99,10 @@ export function registerIntegrationRoutes(app: Express) {
   // Update social integration
   app.put("/api/social-integrations/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const integrationId = parseInt(req.params.id);
       const { name, channelId, channelSecret, channelAccessToken, agentId, isActive } = req.body;
 
@@ -137,7 +146,10 @@ export function registerIntegrationRoutes(app: Express) {
   // Delete social integration
   app.delete("/api/social-integrations/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const integrationId = parseInt(req.params.id);
 
       // Verify ownership
@@ -202,7 +214,10 @@ export function registerIntegrationRoutes(app: Express) {
   // Verify integration
   app.post("/api/social-integrations/:id/verify", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const integrationId = parseInt(req.params.id);
 
       // Verify ownership
@@ -242,7 +257,10 @@ export function registerIntegrationRoutes(app: Express) {
   // Get Line OA templates for integration
   app.get("/api/social-integrations/:id/line-templates", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const integrationId = parseInt(req.params.id);
 
       // Verify integration ownership
@@ -277,7 +295,10 @@ export function registerIntegrationRoutes(app: Express) {
   // Create Line OA template
   app.post("/api/social-integrations/:id/line-templates", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const integrationId = parseInt(req.params.id);
       const { name, type, content, triggers } = req.body;
 
@@ -322,7 +343,10 @@ export function registerIntegrationRoutes(app: Express) {
   // Update Line OA template
   app.put("/api/line-templates/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const templateId = parseInt(req.params.id);
       const { name, type, content, triggers, isActive } = req.body;
 
@@ -369,7 +393,10 @@ export function registerIntegrationRoutes(app: Express) {
   // Delete Line OA template
   app.delete("/api/line-templates/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const templateId = parseInt(req.params.id);
 
       // Verify template ownership through integration
@@ -406,7 +433,10 @@ export function registerIntegrationRoutes(app: Express) {
   // Get webhook URL for integration
   app.get("/api/social-integrations/:id/webhook-url", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const integrationId = parseInt(req.params.id);
 
       const [integration] = await db
@@ -440,7 +470,10 @@ export function registerIntegrationRoutes(app: Express) {
   // Regenerate webhook token
   app.post("/api/social-integrations/:id/regenerate-webhook", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const integrationId = parseInt(req.params.id);
 
       // Verify ownership
@@ -485,7 +518,10 @@ export function registerIntegrationRoutes(app: Express) {
   // Get integration statistics
   app.get("/api/social-integrations/:id/stats", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const integrationId = parseInt(req.params.id);
 
       // Verify ownership
@@ -524,7 +560,10 @@ export function registerIntegrationRoutes(app: Express) {
   // Test integration
   app.post("/api/social-integrations/:id/test", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
       const integrationId = parseInt(req.params.id);
       const { message } = req.body;
 

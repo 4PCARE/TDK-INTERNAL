@@ -101,7 +101,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
         const searchService = new SemanticSearchServiceV2();
 
         // Parse specific document IDs if provided
-        const specificDocumentIds = req.body.specificDocumentIds || options.specificDocumentIds;
+        const specificDocumentIds: number[] = req.body.specificDocumentIds || [];
 
         // Get keyword candidates first
         console.log("=== GETTING KEYWORD CANDIDATES ===");
@@ -315,10 +315,14 @@ router.post('/api/debug/ai-input', async (req, res) => {
       documentContext = searchResults.map((result, index) =>
         `Document ${index + 1}: ${result.name || `Document ${index + 1}`}\n\nContent:\n${result.content}`
       ).join('\n\n---\n\n');
-    } catch (searchError) {
-      console.error("Search error:", searchError);
-      debugLogs.push(`[ERROR] Search failed: ${searchError.message}`);
-    } finally {
+    } catch (error: unknown) {
+        console.error('Debug search error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        res.status(500).json({
+          error: 'Debug search failed',
+          details: errorMessage
+        });
+      } finally {
       // Restore original console methods
       console.log = originalLog;
       console.warn = originalWarn;
@@ -376,15 +380,20 @@ Answer questions specifically about this document. Provide detailed analysis, ex
 
     res.json(responseData);
 
-  } catch (error) {
+  } catch (error: unknown) {
     // Restore console methods in case of error
     console.log = originalLog;
     console.error = originalError;
 
-    console.error('FATAL ERROR in AI input debug:', error.message);
-    console.error('FATAL ERROR stack:', error.stack);
-    console.error('FATAL ERROR type:', typeof error);
-    console.error('FATAL ERROR constructor:', error.constructor.name);
+    console.error('FATAL ERROR in AI input debug:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : 'N/A';
+    const errorType = error instanceof Error ? error.constructor.name : typeof error;
+    const errorConstructor = error instanceof Error ? error.constructor.name : 'N/A';
+
+    console.error('FATAL ERROR stack:', errorStack);
+    console.error('FATAL ERROR type:', errorType);
+    console.error('FATAL ERROR constructor:', errorConstructor);
     console.error('FATAL ERROR occurred at:', new Date().toISOString());
     console.error('FATAL ERROR request body:', JSON.stringify(req.body, null, 2));
 
@@ -394,9 +403,9 @@ Answer questions specifically about this document. Provide detailed analysis, ex
     // Ensure we always return JSON, never HTML
     try {
       const errorResponse = {
-        error: error.message || 'Unknown error occurred',
-        errorType: error.constructor.name,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        error: errorMessage || 'Unknown error occurred',
+        errorType: errorType,
+        stack: process.env.NODE_ENV === 'development' ? errorStack : undefined,
         timestamp: new Date().toISOString(),
         endpoint: '/api/debug/ai-input',
         requestBody: req.body,
@@ -408,14 +417,15 @@ Answer questions specifically about this document. Provide detailed analysis, ex
     } catch (jsonError) {
       // If even JSON response fails, send plain text
       console.error('CRITICAL: Failed to send JSON error response:', jsonError);
-      console.error('CRITICAL: jsonError stack:', jsonError.stack);
-      res.status(500).send('Internal server error - failed to generate proper error response');
+      const jsonErrorMessage = jsonError instanceof Error ? jsonError.message : 'Unknown JSON error';
+      console.error('CRITICAL: jsonError stack:', jsonError instanceof Error ? jsonError.stack : 'N/A');
+      res.status(500).send(`Internal server error - failed to generate proper error response. Original error: ${errorMessage}. JSON error: ${jsonErrorMessage}`);
     }
   }
 });
 
 // Utility function to escape HTML to prevent XSS
-function escapeHtml(unsafe) {
+function escapeHtml(unsafe: string): string {
   return unsafe
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -484,9 +494,10 @@ router.get("/debug/view-ai-input/:userId/:documentId", async (req, res) => {
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("View AI input error:", error);
-    res.status(500).send("Error displaying AI input");
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).send(`Error displaying AI input: ${errorMessage}`);
   }
 });
 
@@ -630,7 +641,7 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
       } else if (searchType === 'smart_hybrid') {
         // Use the new smart hybrid search
         const smartResults = await searchSmartHybridV1(userMessage, userId, {
-          specificDocumentIds: specificDocumentIds,
+          specificDocumentIds: req.body.specificDocumentIds || [],
           keywordWeight,
           vectorWeight,
           threshold: 0.3
@@ -823,8 +834,10 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
           const { vectorService } = await import('./services/vectorService');
           vectorResults = await vectorService.searchDocuments(userMessage, userId, 3, [parseInt(documentId)]);
           console.log(`DEBUG: Found ${vectorResults.length} vector results for hybrid search`);
-        } catch (vectorError) {
+        } catch (vectorError: unknown) {
           console.error("Vector search failed in hybrid mode:", vectorError);
+          const errorMessage = vectorError instanceof Error ? vectorError.message : 'Unknown vector error';
+          console.error(`Vector search error details: ${errorMessage}`);
           vectorResults = [];
         }
 
@@ -900,10 +913,11 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
         });
       }
 
-    } catch (searchError) {
-      console.error("Search failed:", searchError);
+    } catch (error: unknown) {
+      console.error("Search failed:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       documentContext = `Document: ${doc.name}\nSummary: ${doc.summary || 'No summary'}\nTags: ${doc.tags?.join(", ") || 'No tags'}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
-      searchMetrics.error = searchError.message;
+      searchMetrics.error = errorMessage;
 
       chunkDetails.push({
               chunkId: `error-${doc.id}`,
@@ -999,9 +1013,10 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Analyze document debug error:", error);
-    res.status(500).json({ error: "Analyze document debug failed" });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: "Analyze document debug failed", details: errorMessage });
   }
 });
 
@@ -1082,13 +1097,14 @@ router.get("/debug/find-xolo/:userId", async (req, res) => {
         }
       });
 
-    } catch (vectorError) {
+    } catch (vectorError: unknown) {
       console.error("Vector search failed:", vectorError);
+      const errorMessage = vectorError instanceof Error ? vectorError.message : 'Unknown vector error';
       res.json({
         totalDocuments: documents.length,
         documentsWithXolo: xoloResults,
         vectorResults: [],
-        vectorError: vectorError.message,
+        vectorError: errorMessage,
         summary: {
           foundInDocuments: xoloResults.length,
           foundInVector: 0
@@ -1096,9 +1112,10 @@ router.get("/debug/find-xolo/:userId", async (req, res) => {
       });
     }
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("XOLO search debug error:", error);
-    res.status(500).json({ error: "XOLO search debug failed" });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: "XOLO search debug failed", details: errorMessage });
   }
 });
 
@@ -1129,9 +1146,10 @@ router.post("/debug/ai-keyword-expansion", async (req, res) => {
       expandedKeywords
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("AI keyword expansion debug error:", error);
-    res.status(500).json({ error: "AI keyword expansion debug failed", details: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: "AI keyword expansion debug failed", details: errorMessage });
   }
 });
 
@@ -1177,9 +1195,10 @@ router.get('/test-advanced-keyword-search', async (req, res) => {
       }
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Test advanced keyword search error:', error);
-    res.status(500).json({ error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: errorMessage });
   }
 });
 
@@ -1208,9 +1227,10 @@ router.get('/test-vector-search', async (req, res) => {
       }))
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Test vector search error:', error);
-    res.status(500).json({ error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: errorMessage });
   }
 });
 
