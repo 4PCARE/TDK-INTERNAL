@@ -579,7 +579,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createDocument(document: InsertDocument): Promise<Document> {
-    const [newDocument] = await db.insert(documents).values(document).returning();
+    const [newDocument] = await db.insert(documents).values({
+      ...document,
+      userId: document.userId,
+      processedAt: new Date(),
+    }).returning();
     return newDocument;
   }
 
@@ -1304,20 +1308,20 @@ export class DatabaseStorage implements IStorage {
 
   async getAgentChatbotForWidget(id: number): Promise<AgentChatbot | undefined> {
     console.log(`🔍 Storage: getAgentChatbotForWidget called with ID: ${id} (type: ${typeof id})`);
-    
+
     // Ensure id is a valid integer
     const agentId = parseInt(String(id));
     if (isNaN(agentId)) {
       console.error(`❌ Invalid agent ID provided: ${id}`);
       return undefined;
     }
-    
+
     try {
       const [agent] = await db
         .select()
         .from(agentChatbots)
         .where(eq(agentChatbots.id, agentId));
-      
+
       console.log(`✅ Storage: Found agent: ${agent ? agent.name : 'not found'}`);
       return agent;
     } catch (error) {
@@ -1428,6 +1432,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(agentChatbotDocuments.agentId, agentId));
   }
 
+  async createAgentChatbotDocument(data: InsertAgentChatbotDocument): Promise<AgentChatbotDocument> {
+    const [newDocument] = await db.insert(agentChatbotDocuments).values(data).returning();
+    return newDocument;
+  }
 
 
   // AI Response Analysis operations
@@ -1924,12 +1932,8 @@ export class DatabaseStorage implements IStorage {
 
   // Chat History operations
   async createChatHistory(history: InsertChatHistory): Promise<ChatHistory> {
-    const { chatHistory } = await import('@shared/schema');
-    const [chatHistoryRecord] = await db
-      .insert(chatHistory)
-      .values(history)
-      .returning();
-    return chatHistoryRecord;
+    const [newHistory] = await db.insert(chatHistory).values(history).returning();
+    return newHistory;
   }
 
   async updateChatHistoryMetadata(chatHistoryId: number, metadata: any): Promise<void> {
@@ -2048,12 +2052,9 @@ export class DatabaseStorage implements IStorage {
     return template;
   }
 
-  async createLineMessageTemplate(template: InsertLineMessageTemplate): Promise<LineMessageTemplate> {
-    const [newTemplate] = await db
-      .insert(lineMessageTemplates)
-      .values(template)
-      .returning();
-    return newTemplate;
+  async createLineMessageTemplate(data: InsertLineMessageTemplate): Promise<LineMessageTemplate> {
+    const [template] = await db.insert(lineMessageTemplates).values(data).returning();
+    return template;
   }
 
   async updateLineMessageTemplate(id: number, template: Partial<InsertLineMessageTemplate>, userId: string): Promise<LineMessageTemplate> {
@@ -2086,12 +2087,9 @@ export class DatabaseStorage implements IStorage {
       .orderBy(lineCarouselColumns.order);
   }
 
-  async createLineCarouselColumn(column: InsertLineCarouselColumn): Promise<LineCarouselColumn> {
-    const [newColumn] = await db
-      .insert(lineCarouselColumns)
-      .values(column)
-      .returning();
-    return newColumn;
+  async createLineCarouselColumn(data: InsertLineCarouselColumn): Promise<LineCarouselColumn> {
+    const [column] = await db.insert(lineCarouselColumns).values(data).returning();
+    return column;
   }
 
   async updateLineCarouselColumn(id: number, column: Partial<InsertLineCarouselColumn>): Promise<LineCarouselColumn> {
@@ -2118,12 +2116,9 @@ export class DatabaseStorage implements IStorage {
       .orderBy(lineTemplateActions.order);
   }
 
-  async createLineTemplateAction(action: InsertLineTemplateAction): Promise<LineTemplateAction> {
-    const [newAction] = await db
-      .insert(lineTemplateActions)
-      .values(action)
-      .returning();
-    return newAction;
+  async createLineTemplateAction(data: InsertLineTemplateAction): Promise<LineTemplateAction> {
+    const [action] = await db.insert(lineTemplateActions).values(data).returning();
+    return action;
   }
 
   async updateLineTemplateAction(id: number, action: Partial<InsertLineTemplateAction>): Promise<LineTemplateAction> {
