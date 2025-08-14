@@ -56,7 +56,8 @@ type User = { email?: string; role?: 'admin' | 'user' | string };
 
 export default function LiveChatWidget() {
   const { toast } = useToast();
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const queryClient = useQueryClient();
+  const { user: authUser, isAuthenticated, isLoading } = useAuth();
 
   const { data: user } = useQuery<User>({
     queryKey: ["/api/me"],

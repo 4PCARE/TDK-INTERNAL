@@ -77,31 +77,33 @@ interface SettingsData {
 }
 
 
+type User = { email?: string; role?: 'admin' | 'user' | string };
+
 export default function Settings() {
   const { toast } = useToast();
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user: authUser, isAuthenticated, isLoading } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'profile' | 'system' | 'security' | 'llm'>('profile');
 
   const { data: userProfile, isLoading: profileLoading } = useQuery({
     queryKey: ["/api/user/profile"],
-    enabled: !!user,
+    enabled: !!authUser,
   }) as { data: UserProfile | undefined; isLoading: boolean };
 
   const { data: systemSettings, isLoading: systemLoading } = useQuery({
     queryKey: ["/api/admin/settings"],
-    enabled: user?.role === 'admin',
+    enabled: authUser?.role === 'admin',
   }) as { data: SystemSettings | undefined; isLoading: boolean };
 
   // Added useQuery generic and default object for llmConfig
   const { data: llmConfig = {} as LLMConfig, isLoading: llmLoading } = useQuery<LLMConfig>({
     queryKey: ["/api/llm/config"],
-    enabled: !!user,
+    enabled: !!authUser,
   });
 
   const { data: documents } = useQuery({
     queryKey: ["/api/documents"],
-    enabled: !!user,
+    enabled: !!authUser,
   });
 
   const updateProfileMutation = useMutation({
@@ -425,7 +427,7 @@ export default function Settings() {
             isActive={activeTab === 'llm'}
             onClick={() => setActiveTab('llm')}
           />
-          {user?.role === 'admin' && (
+          {authUser?.role === 'admin' && (
             <>
               <TabButton
                 id="system"
@@ -558,7 +560,7 @@ export default function Settings() {
           </Card>
         )}
 
-        {activeTab === 'system' && user?.role === 'admin' && (
+        {activeTab === 'system' && authUser?.role === 'admin' && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -938,7 +940,7 @@ export default function Settings() {
           </Card>
         )}
 
-        {activeTab === 'security' && user?.role === 'admin' && (
+        {activeTab === 'security' && authUser?.role === 'admin' && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">

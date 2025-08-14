@@ -77,7 +77,7 @@ interface UserQueryType {
 
 export default function UserManagement() {
   const { toast } = useToast();
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user: authUser, isAuthenticated, isLoading } = useAuth();
   const queryClient = useQueryClient();
   const [isCreating, setIsCreating] = useState(false);
   const [showBootstrap, setShowBootstrap] = useState(false);
@@ -262,10 +262,10 @@ export default function UserManagement() {
     if (usersLoading) return;
 
     // If we get 401 on admin endpoints, check if we can bootstrap
-    if (users && users.length === 0 && user && user.role !== 'admin') {
+    if (users && users.length === 0 && authUser && authUser.role !== 'admin') {
       setShowBootstrap(true);
     }
-  }, [users, usersLoading, user]);
+  }, [users, usersLoading, authUser]);
 
   const handleEditUser = (user: UserData) => {
     setEditingUser(user);
