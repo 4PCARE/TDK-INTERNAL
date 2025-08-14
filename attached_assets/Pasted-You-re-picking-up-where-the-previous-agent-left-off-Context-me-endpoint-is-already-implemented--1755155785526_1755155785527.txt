@@ -1,0 +1,57 @@
+You’re picking up where the previous agent left off. Context: `/me` endpoint is already implemented in auth-svc and proxied through api-gateway. Both services compile and pass TypeScript checks.
+
+Your task: Implement **MICRO-BATCH C** – `/login` endpoint in both auth-svc and api-gateway.
+
+Requirements:
+
+1. **auth-svc changes**
+   - File: `services/auth-svc/src/infrastructure/http/validate.ts`
+     - Add:
+       ```ts
+       export function validateLoginReq(d: any): d is { email: string; password: string }
+       export function validateLoginRes(d: any): d is { accessToken: string; refreshToken: string }
+       ```
+       Follow same zod-if-available or shape-check pattern as existing validators.
+   - File: `services/auth-svc/src/infrastructure/http/routes.ts`
+     - Add:
+       ```ts
+       app.post("/login", (req, res) => {
+         const body = req.body ?? {};
+         if (!validateLoginReq(body)) {
+           return res.status(400).json({ message: "Invalid credentials payload" });
+         }
+         const payload = {
+           accessToken: "stub-access-token",
+           refreshToken: "stub-refresh-token"
+         };
+         if (!validateLoginRes(payload)) {
+           return res.status(500).json({ message: "Contract violation" });
+         }
+         return res.status(200).json(payload);
+       });
+       ```
+
+2. **api-gateway changes**
+   - File: `services/api-gateway/src/infrastructure/http/routing.ts`
+     - Add:
+       ```ts
+       const authBase = process?.env?.AUTH_SVC_URL ?? "http://localhost:3001";
+       app.post("/login", async (req, res) => {
+         try {
+           const r = await proxy(req, authBase, "/login");
+           res.status(r.status).set(r.headers).send(r.data);
+         } catch (e: any) {
+           res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
+         }
+       });
+       ```
+
+3. **Verification**
+   - Run `cd services/auth-svc && npx tsc --noEmit`
+   - Run `cd services/api-gateway && npx tsc --noEmit`
+   - If both pass, output:
+     - Files changed with line counts
+     - Confirmation of successful TypeScript build
+     - No unrelated files changed
+
+4. **Stop** after the report. Do not test `/login` yet.
