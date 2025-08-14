@@ -69,3 +69,43 @@ export function validateLoginRes(data: any): data is { accessToken: string; refr
     );
   }
 }
+
+export function validateRefreshReq(data: any): data is { refreshToken: string } {
+  try {
+    // Try to use Zod for proper validation
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const z: typeof import("zod") = require("zod");
+    const RefreshReqSchema = z.object({
+      refreshToken: z.string().min(1),
+    });
+    RefreshReqSchema.parse(data);
+    return true;
+  } catch {
+    // Fallback to basic type checking
+    return !!(
+      data &&
+      typeof data.refreshToken === "string" &&
+      data.refreshToken.length > 0
+    );
+  }
+}
+
+export function validateRefreshRes(data: any): data is { accessToken: string } {
+  try {
+    // Try to use Zod for proper validation
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const z: typeof import("zod") = require("zod");
+    const RefreshResSchema = z.object({
+      accessToken: z.string().min(1),
+    });
+    RefreshResSchema.parse(data);
+    return true;
+  } catch {
+    // Fallback to basic type checking
+    return !!(
+      data &&
+      typeof data.accessToken === "string" &&
+      data.accessToken.length > 0
+    );
+  }
+}

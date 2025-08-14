@@ -67,4 +67,14 @@ export function registerLegacyRoutes(app: any) {
       res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
     }
   });
+
+  // POST /refresh -> auth-svc
+  app.post("/refresh", async (req: Request, res: Response) => {
+    try {
+      const r = await proxy(req, authBase, "/refresh");
+      res.status(r.status).set(r.headers).send(r.data);
+    } catch (e: any) {
+      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
+    }
+  });
 }
