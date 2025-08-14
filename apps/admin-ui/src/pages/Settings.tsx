@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -67,6 +68,15 @@ interface LLMConfig {
   };
 }
 
+// Added interface for settings data
+interface SettingsData {
+  aiProvider: string;
+  embeddingsProvider: string;
+  maxTokens: number;
+  temperature: number;
+}
+
+
 export default function Settings() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -83,10 +93,11 @@ export default function Settings() {
     enabled: user?.role === 'admin',
   }) as { data: SystemSettings | undefined; isLoading: boolean };
 
-  const { data: llmConfig, isLoading: llmLoading } = useQuery({
+  // Added useQuery generic and default object for llmConfig
+  const { data: llmConfig = {} as LLMConfig, isLoading: llmLoading } = useQuery<LLMConfig>({
     queryKey: ["/api/llm/config"],
     enabled: !!user,
-  }) as { data: LLMConfig | undefined; isLoading: boolean };
+  });
 
   const { data: documents } = useQuery({
     queryKey: ["/api/documents"],
@@ -161,7 +172,7 @@ export default function Settings() {
     mutationFn: async ({ preserveExistingEmbeddings }: { preserveExistingEmbeddings: boolean }) => {
       // Reset progress
       setRevectorizeProgress({ current: 0, total: 0, percentage: 0 });
-      
+
       // Create abort controller for cancellation
       const controller = new AbortController();
       setRevectorizeController(controller);
@@ -186,7 +197,7 @@ export default function Settings() {
     onError: (error: any) => {
       setRevectorizeProgress({ current: 0, total: 0, percentage: 0 });
       setRevectorizeController(null);
-      
+
       if (error.name === 'AbortError') {
         toast({
           title: "Re-vectorization Cancelled",
@@ -253,10 +264,10 @@ export default function Settings() {
             clearInterval(progressInterval);
             return prev;
           }
-          
+
           const newCurrent = Math.min(prev.current + 1, prev.total);
           const newPercentage = Math.round((newCurrent / prev.total) * 100);
-          
+
           return {
             current: newCurrent,
             total: prev.total,

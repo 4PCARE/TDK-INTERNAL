@@ -130,7 +130,13 @@ export default function Integrations() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
-
+  interface Integration {
+    id: string;
+    name: string;
+    type: string;
+    enabled: boolean;
+    status: string;
+  }
 
   interface LineOaFormData {
   name: string;
@@ -302,7 +308,7 @@ export default function Integrations() {
       }
       throw new Error('Unsupported integration type');
     },
-    onSuccess: (response, integration) => {
+    onSuccess: (result: any, integration) => { // Added 'result' parameter
       toast({
         title: "Verification Successful",
         description: `${integration.name} has been verified successfully!`,

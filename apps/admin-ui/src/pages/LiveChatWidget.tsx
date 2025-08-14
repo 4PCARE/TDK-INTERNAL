@@ -44,6 +44,14 @@ interface ChatWidget {
   createdAt: string;
 }
 
+interface WidgetConfig {
+  id: string;
+  enabled: boolean;
+  theme: string;
+  position: string;
+  welcomeMessage: string;
+}
+
 export default function LiveChatWidget() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();

@@ -238,7 +238,7 @@ export default function AuditMonitoring() {
             </div>
           </div>
 
-          <Button className="flex items-center space-x-2">
+          <Button className="flex items-center space-x-2" onClick={handleExport} disabled={isExporting}>
             <Download className="w-4 h-4" />
             <span>Export Logs</span>
           </Button>
@@ -482,7 +482,7 @@ export default function AuditMonitoring() {
                             </td>
                             <td className="p-2">
                               <div className="flex items-center">
-                                {getActionIcon(log.action)}
+                                {getActionIcon(log.action ?? '')}
                                 <span className="ml-2 capitalize">
                                   {log.action?.replace('_', ' ') || 'Unknown'}
                                 </span>
@@ -494,7 +494,7 @@ export default function AuditMonitoring() {
                               </Badge>
                             </td>
                             <td className="p-2">
-                              {getStatusBadge(log.success)}
+                              {getStatusBadge(Boolean(log.success))}
                             </td>
                             <td className="p-2">
                               {log.duration ? `${log.duration}ms` : 'N/A'}

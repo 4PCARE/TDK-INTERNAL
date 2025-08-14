@@ -65,6 +65,16 @@ interface Permission {
   type: 'user' | 'department';
 }
 
+// Interface for generic useQuery calls (as per changes)
+interface UserQueryType {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+}
+
+
 export default function UserManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -89,19 +99,19 @@ export default function UserManagement() {
   const [permissionType, setPermissionType] = useState<string>("read");
 
   // Queries
-  const { data: users = [], isLoading: usersLoading } = useQuery({
+  const { data: users = [], isLoading: usersLoading } = useQuery<UserData[]>({
     queryKey: ["/api/admin/users"],
   });
 
-  const { data: departments = [], isLoading: departmentsLoading } = useQuery({
+  const { data: departments = [], isLoading: departmentsLoading } = useQuery<Department[]>({
     queryKey: ["/api/admin/departments"],
   });
 
-  const { data: permissions = [], isLoading: permissionsLoading } = useQuery({
+  const { data: permissions = [], isLoading: permissionsLoading } = useQuery<Permission[]>({
     queryKey: ["/api/admin/permissions"],
   });
 
-  const { data: documents = [] } = useQuery({
+  const { data: documents = [] } = useQuery<Document[]>({
     queryKey: ["/api/documents"],
   });
 
@@ -250,7 +260,7 @@ export default function UserManagement() {
   // Check if user needs admin bootstrap
   React.useEffect(() => {
     if (usersLoading) return;
-    
+
     // If we get 401 on admin endpoints, check if we can bootstrap
     if (users && users.length === 0 && user && user.role !== 'admin') {
       setShowBootstrap(true);
