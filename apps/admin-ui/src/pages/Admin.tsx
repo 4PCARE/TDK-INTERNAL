@@ -38,12 +38,9 @@ interface User {
 
 interface QuickAction {
   id: string;
-  title: string;
-  description: string;
-  icon: any;
-  href: string;
-  badge?: string;
-  variant?: 'default' | 'destructive' | 'warning';
+  label: string;
+  icon?: React.ReactNode;
+  onClick: () => void;
 }
 
 export default function Admin() {
