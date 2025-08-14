@@ -1,0 +1,80 @@
+Title: Routes/DB alignment — required fields, phantom columns, analytics self-ref
+Plan:
+1) agents.ts:
+   - When inserting into agentDocumentsTable, include userId (required).
+   - Remove .isPublic selects/filters (column doesn’t exist).
+   - Make delete operand optional via type change or index access.
+   - Response object: access known fields (e.g., response.response) not nonexistent .message/.sources/.responseTime.
+2) integrations.ts:
+   - Remove 'type'/'integrationId' from .values(...) and UPDATE sets unless they’re actual columns.
+3) documents.ts:
+   - Declare arrays with types; use doc.name instead of originalName; convert Date→ISOString; drop originalDocumentId fields.
+4) analytics.ts:
+   - Split the self-referencing query into two steps to avoid using documentAccess before declaration.
+
+Edits (representative):
+--- a/server/routes/agents.ts
++++ b/server/routes/agents.ts
+@@
+- await db.insert(agentDocumentsTable).values(documentAssociations);
++ await db.insert(agentDocumentsTable).values(
++   documentAssociations.map(d => ({ userId, agentId: d.agentId, documentId: d.documentId }))
++ );
+@@
+- where(eq(agentChatbots.isPublic, true))
++ // removed isPublic filter (column not present)
+@@
+- delete duplicateData?.id;
++ delete (duplicateData as any).id;
+@@
+- response: response.message,
+- sources: response.sources || [],
+- responseTime: response.responseTime || 0
++ response: response.response ?? response as any,
++ sources: (response as any).sources ?? [],
++ responseTime: (response as any).responseTime ?? 0
+
+--- a/server/routes/integrations.ts
++++ b/server/routes/integrations.ts
+@@
+- .values({ type, integrationId, name, userId })
++ .values({ name, userId })
+@@
+- type,
++ // removed: type (not a column)
+
+--- a/server/routes/documents.ts
++++ b/server/routes/documents.ts
+@@
+- let filenameResults = [];
+- let keywordResults = [];
+- let semanticResults = [];
++ let filenameResults: any[] = [];
++ let keywordResults: any[] = [];
++ let semanticResults: any[] = [];
+@@
+- (doc.name || doc.originalName || "")
++ (doc.name || "")
+@@
+- const document = await storage.createDocument(documentData);
++ const document = await storage.createDocument({
++   ...documentData,
++   effectiveStartDate: documentData.effectiveStartDate ? documentData.effectiveStartDate.toISOString() : null,
++   effectiveEndDate: documentData.effectiveEndDate ? documentData.effectiveEndDate.toISOString() : null,
++ });
+@@
+- originalDocumentId: document.id.toString(),
++ // removed: originalDocumentId (not in type)
+
+--- a/server/routes/analytics.ts
++++ b/server/routes/analytics.ts
+@@
+- const documentAccess = await db ... where(eq(documentAccess.createdAt, ...)) ...
++ const base = db.select({/* fields */}).from(documentAccess);
++ const documentAccessRows = await base
++   .innerJoin(documents, eq(documentAccess.documentId, documents.id))
++   .where(gte(documentAccess.createdAt, startDate))
++   .orderBy(desc(documentAccess.createdAt));
+
+After:
+- Run `npx tsc --noEmit` and report new error count only.
