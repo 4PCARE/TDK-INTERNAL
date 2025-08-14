@@ -1,6 +1,6 @@
 import { Express } from 'express';
 import type { Request, Response } from "express";
-import { validateUser } from "./validate";
+import { validateUser, validateLoginReq, validateLoginRes } from "./validate";
 
 /**
  * Register health check routes for Auth Service
@@ -32,6 +32,22 @@ export function registerRoutes(app: Express): void {
       return res.status(500).json({ message: "Contract violation" });
     }
 
+    return res.status(200).json(payload);
+  });
+
+  // Login endpoint - stubbed for contract compliance
+  app.post("/login", (req: Request, res: Response) => {
+    const body = req.body ?? {};
+    if (!validateLoginReq(body)) {
+      return res.status(400).json({ message: "Invalid credentials payload" });
+    }
+    const payload = {
+      accessToken: "stub-access-token",
+      refreshToken: "stub-refresh-token"
+    };
+    if (!validateLoginRes(payload)) {
+      return res.status(500).json({ message: "Contract violation" });
+    }
     return res.status(200).json(payload);
   });
 }

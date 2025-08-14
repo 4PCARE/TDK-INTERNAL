@@ -27,3 +27,45 @@ export function validateUser(data: any): data is { id: string; email: string; ro
     );
   }
 }
+
+export function validateLoginReq(data: any): data is { email: string; password: string } {
+  try {
+    // Try to use Zod for proper validation
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const z: typeof import("zod") = require("zod");
+    const LoginReqSchema = z.object({
+      email: z.string().email(),
+      password: z.string(),
+    });
+    LoginReqSchema.parse(data);
+    return true;
+  } catch {
+    // Fallback to basic type checking
+    return !!(
+      data &&
+      typeof data.email === "string" &&
+      typeof data.password === "string"
+    );
+  }
+}
+
+export function validateLoginRes(data: any): data is { accessToken: string; refreshToken: string } {
+  try {
+    // Try to use Zod for proper validation
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const z: typeof import("zod") = require("zod");
+    const LoginResSchema = z.object({
+      accessToken: z.string(),
+      refreshToken: z.string(),
+    });
+    LoginResSchema.parse(data);
+    return true;
+  } catch {
+    // Fallback to basic type checking
+    return !!(
+      data &&
+      typeof data.accessToken === "string" &&
+      typeof data.refreshToken === "string"
+    );
+  }
+}
