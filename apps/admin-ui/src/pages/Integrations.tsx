@@ -35,11 +35,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
 
+interface WebhookData {
+  webhookUrl: string;
+  legacyWebhookUrl?: string;
+}
+
 // WebhookUrlDisplay component for showing webhook URLs  
 function WebhookUrlDisplay({ integrationId }: { integrationId: number }) {
   const { toast } = useToast();
 
-  const { data: webhookData } = useQuery({
+  const { data: webhookData } = useQuery<WebhookData>({
     queryKey: [`/api/social-integrations/${integrationId}/webhook-url`],
     retry: false,
   });
@@ -64,7 +69,7 @@ function WebhookUrlDisplay({ integrationId }: { integrationId: number }) {
           <Globe className="w-3 h-3 text-blue-600 flex-shrink-0" />
           <span className="font-medium text-blue-700 dark:text-blue-300">Webhook URL:</span>
           <code className="text-blue-800 dark:text-blue-200 bg-blue-100 dark:bg-blue-900 px-1 py-0.5 rounded text-xs truncate">
-            {webhookData.webhookUrl}
+            {webhookData?.webhookUrl}
           </code>
         </div>
         <Button
@@ -78,7 +83,7 @@ function WebhookUrlDisplay({ integrationId }: { integrationId: number }) {
       </div>
 
       {/* Legacy Webhook URL */}
-      {webhookData.legacyWebhookUrl && (
+      {webhookData && webhookData.legacyWebhookUrl && (
         <div className="flex items-center justify-between text-xs bg-orange-50 dark:bg-orange-950 p-2 rounded">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <LinkIcon className="w-3 h-3 text-orange-600 flex-shrink-0" />
@@ -91,7 +96,7 @@ function WebhookUrlDisplay({ integrationId }: { integrationId: number }) {
             variant="ghost"
             size="sm"
             className="h-6 w-6 p-0 text-orange-600 hover:text-orange-800"
-            onClick={() => copyToClipboard(webhookData.legacyWebhookUrl, "Legacy")}
+            onClick={() => copyToClipboard(webhookData.legacyWebhookUrl!, "Legacy")}
           >
             <Copy className="w-3 h-3" />
           </Button>

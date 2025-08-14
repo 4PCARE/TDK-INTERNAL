@@ -530,9 +530,10 @@ export default function CreateAgentChatbot() {
     console.log("Form data received:", data);
     console.log("Is editing mode:", isEditing);
     console.log("Agent ID:", editAgentId);
-    
+
     // Build the guardrails configuration object - send undefined when disabled, never null
-    const guardrailsConfigClean = data.guardrailsEnabled ? data.guardrailsConfig : undefined;
+    const gc = data.guardrailsConfig;
+    const guardrailsConfigClean = gc && Object.keys(gc).length ? gc : undefined;
 
     const finalData = {
       ...data,
@@ -2521,7 +2522,7 @@ export default function CreateAgentChatbot() {
                             </CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-6">
-                            
+
 
                             {/* Chat History */}
                             {(
@@ -2571,7 +2572,7 @@ export default function CreateAgentChatbot() {
                                       </div>
                                     ))
                                   )}
-                                  
+
                                   {/* Loading indicator */}
                                   {isTestingAgent && (
                                     <div className="flex gap-3 justify-start">
@@ -2587,7 +2588,7 @@ export default function CreateAgentChatbot() {
                                     </div>
                                   )}
                                 </div>
-                                
+
                                 {/* Chat Input at bottom of chat container */}
                                 <div className="border-t p-3">
                                   <div className="flex gap-2">
@@ -2621,7 +2622,7 @@ export default function CreateAgentChatbot() {
                               </div>
                             )}
 
-                            
+
 
                             {/* Test Information */}
                             <div className="bg-blue-50 rounded-lg p-4">

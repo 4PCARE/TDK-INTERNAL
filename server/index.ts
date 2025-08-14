@@ -100,7 +100,7 @@ app.use((req, res, next) => {
   app.use(debugRoutes);
   app.use("/api", debugRoutes);
   app.use("/api", debugChunkTest);
-  
+
   // Register HR API routes
   registerHrApiRoutes(app);
 
@@ -143,17 +143,17 @@ app.use((req, res, next) => {
   // Handle graceful shutdown
   const gracefulShutdown = (signal: string) => {
     log(`Received ${signal}. Starting graceful shutdown...`);
-    
+
     httpServer.close((err) => {
       if (err) {
         console.error('Error during server shutdown:', err);
         process.exit(1);
       }
-      
+
       log('Server closed successfully');
       process.exit(0);
     });
-    
+
     // Force close after 10 seconds
     setTimeout(() => {
       console.error('Forced shutdown after timeout');

@@ -34,11 +34,17 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
 
+interface ConnectionData {
+  connectionString: string;
+  host?: string;
+  port?: number;
+}
+
 // ConnectionUrlDisplay component for showing connection URLs  
 function ConnectionUrlDisplay({ connectionId }: { connectionId: number }) {
   const { toast } = useToast();
 
-  const { data: connectionData } = useQuery({
+  const { data: connectionData } = useQuery<ConnectionData>({
     queryKey: [`/api/database-connections/${connectionId}/details`],
     retry: false,
   });
@@ -63,7 +69,7 @@ function ConnectionUrlDisplay({ connectionId }: { connectionId: number }) {
           <Database className="w-3 h-3 text-blue-600 flex-shrink-0" />
           <span className="font-medium text-blue-700 dark:text-blue-300">Connection:</span>
           <code className="text-blue-800 dark:text-blue-200 bg-blue-100 dark:bg-blue-900 px-1 py-0.5 rounded text-xs truncate">
-            {connectionData.connectionString}
+            {connectionData?.connectionString}
           </code>
         </div>
         <Button
@@ -77,7 +83,7 @@ function ConnectionUrlDisplay({ connectionId }: { connectionId: number }) {
       </div>
 
       {/* Host/Port Info */}
-      {connectionData.host && (
+      {connectionData && connectionData.host && (
         <div className="flex items-center justify-between text-xs bg-green-50 dark:bg-green-950 p-2 rounded">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <Server className="w-3 h-3 text-green-600 flex-shrink-0" />

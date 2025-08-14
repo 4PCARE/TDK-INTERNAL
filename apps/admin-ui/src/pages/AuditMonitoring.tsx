@@ -193,7 +193,7 @@ export default function AuditMonitoring() {
   };
 
   const getActionIcon = (action: string) => {
-    switch (action) {
+    switch (action || '') {
       case 'login':
       case 'logout':
         return <User className="w-4 h-4" />;
