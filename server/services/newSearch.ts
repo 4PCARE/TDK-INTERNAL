@@ -766,7 +766,7 @@ export async function searchSmartHybridDebug(
       createdAt: doc?.createdAt?.toISOString() ?? new Date().toISOString(),
       categoryId: doc?.categoryId ?? null,
       tags: doc?.tags ?? null,
-      fileSize: doc?.fileSize ?? null,
+      fileSize: doc?.fileSize ?? undefined, // Coerce null to undefined
       mimeType: doc?.mimeType ?? null,
       isFavorite: doc?.isFavorite ?? null,
       updatedAt: doc?.updatedAt?.toISOString() ?? null,
@@ -885,8 +885,9 @@ export async function searchSmartHybridV1(
       const docId = parseInt(docIdStr);
       const chunkIndex = parseInt(chunkIdxStr);
       const keywordScore = keywordChunks[chunkId]?.score ?? 0;
-      const vectorScore = vectorChunks[chunkId]?.score ?? 0;
-      const content = keywordChunks[chunkId]?.content || vectorChunks[chunkId]?.content || "";
+      const vectorInfo = vectorChunks[chunkId];
+      const vectorScore = vectorInfo?.score ?? 0;
+      const content = vectorInfo?.content ?? keywordChunks[chunkId]?.content ?? "";
 
       const hybridScore = Math.max(
         vectorScore * adaptedVectorWeight + keywordScore * adaptedKeywordWeight,
@@ -1044,7 +1045,7 @@ export async function searchSmartHybridV1(
         createdAt: doc?.createdAt?.toISOString() ?? new Date().toISOString(),
         categoryId: doc?.categoryId ?? null,
         tags: doc?.tags ?? null,
-        fileSize: doc?.fileSize ?? null,
+        fileSize: doc?.fileSize ?? undefined, // Coerce null to undefined
         mimeType: doc?.mimeType ?? null,
         isFavorite: doc?.isFavorite ?? null,
         updatedAt: doc?.updatedAt?.toISOString() ?? null,

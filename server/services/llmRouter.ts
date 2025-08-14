@@ -6,7 +6,7 @@ import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import type { Embeddings } from "@langchain/core/embeddings";
 import { storage } from "../storage";
 import { db } from "../db";
-import { llmConfig, documentChunkEmbeddings } from "@shared/schema";
+import { llmConfig, documentChunkEmbeddings, documentVectors } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 
 export type LLMProvider = "OpenAI" | "Gemini";
@@ -421,6 +421,17 @@ export class LLMRouter {
   }
 
   getCurrentConfig(): LLMRouterConfig | null {
+    if (!this.currentConfig) {
+      return {
+        provider: "OpenAI",
+        embeddingProvider: "OpenAI",
+        openAIConfig: {
+          model: "gpt-4o",
+          temperature: 0.7,
+          maxTokens: 4000,
+        },
+      };
+    }
     return this.currentConfig;
   }
 

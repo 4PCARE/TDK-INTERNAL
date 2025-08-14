@@ -118,7 +118,7 @@ export class DocumentProcessor {
     }
   }
 
-  private async extractTextFromFile(
+  async extractTextFromFile(
     filePath: string,
     fileType: string,
   ): Promise<string> {
@@ -385,7 +385,6 @@ export class DocumentProcessor {
       const parser = new LlamaParseReader({
         apiKey: process.env.LLAMA_CLOUD_API_KEY!,
         resultType: "markdown",
-        verboseMode: true,
         fastMode: false,
         parsingInstruction: `
           COMPREHENSIVE TEXT EXTRACTION - Extract ALL visible text content including:
