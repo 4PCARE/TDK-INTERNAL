@@ -1,0 +1,72 @@
+Got it. Let’s squash the **highest-impact** TS errors first with a tiny, surgical micro-batch. Here’s a ready-to-paste prompt for your Replit assistant.
+
+````txt
+MICRO-BATCH F1 — Fix top TS errors in UI (icons, QuickAction, TanStack Query)
+
+Goal: Resolve the most frequent errors from `npx tsc --noEmit` by fixing
+1) TanStack Query v5 option rename
+2) Admin icons typing + QuickAction shape
+
+Changes (exact):
+
+A) apps/admin-ui/src/lib/queryClient.ts
+- Replace the deprecated TanStack Query v5 option:
+  - `cacheTime` → `gcTime`
+- No other changes.
+
+B) apps/admin-ui/src/pages/Admin.tsx
+1. Fix the QuickAction interface so it matches actual usage later in the file:
+   ```ts
+   // near the top with other types
+   type Role = "admin" | "editor" | "viewer";
+
+   interface User {
+     id: string;
+     email: string;
+     role: Role;
+   }
+
+   interface QuickAction {
+     id: string;
+     title: string;
+     description?: string;
+     href?: string;
+     badge?: string;
+     icon: React.ComponentType<{ className?: string }>;
+     onClick?: () => void;
+   }
+````
+
+2. Where quick actions are defined (the array you render later), keep `icon` as the Lucide component (e.g., `Users`, `Shield`, etc.) — DO NOT instantiate it there.
+
+3. Where you render each action’s icon, replace the generic `<Icon />` usage with:
+
+   ```tsx
+   const Icon = action.icon;
+   <Icon className="w-5 h-5 text-gray-500" />
+   ```
+
+   And the other render location:
+
+   ```tsx
+   const Icon = action.icon;
+   <Icon className="w-5 h-5 text-blue-500" />
+   ```
+
+4. Remove any stray invalid tokens like `</interface>` if still present; the interface should close with just `}`.
+
+Verify:
+
+1. Run `npx tsc --noEmit`
+2. Report:
+
+   * Files changed with line deltas
+   * Whether the icon/QuickAction errors (TS2322, TS2786, TS2604, TS2339 on badge/title/description/href) and the TanStack error (TS2353 on cacheTime) are gone
+   * STOP after the report (no other edits)
+
+```
+
+If you want a follow-up micro-batch after that, I’ll prep one for the `AgentChatbots` updater and a couple of tiny UI defaults to knock out another big chunk quickly.
+
+(And for posterity, I saw your error list in full; we’ll chip away steadily. :contentReference[oaicite:0]{index=0})
+```
