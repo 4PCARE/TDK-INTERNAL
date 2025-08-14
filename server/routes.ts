@@ -141,6 +141,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register public HR API routes (no authentication required)
   registerHrApiRoutes(app);
 
+  // Add basic auth test endpoints
+  app.get('/me', (req, res) => {
+    res.json({ message: 'GET /me - auth endpoint', user: req.user || null });
+  });
+
+  app.post('/login', (req, res) => {
+    res.json({ message: 'POST /login - auth endpoint', body: req.body });
+  });
+
+  app.post('/refresh', (req, res) => {
+    res.json({ message: 'POST /refresh - auth endpoint', body: req.body });
+  });
+
+  app.get('/roles', (req, res) => {
+    res.json({ message: 'GET /roles - auth endpoint', roles: ['admin', 'user', 'viewer'] });
+  });
+
   // Register all route modules
   try {
     registerAuthRoutes(app);
@@ -807,6 +824,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   if (!global.wsClients) {
     global.wsClients = new Set();
   }
+  
+  // Log client count changes
+  const logClientCount = () => {
+    console.log(`🔌 WebSocket clients connected: ${global.wsClients.size}`);
+  };
 
   wss.on('connection', (ws: WebSocket, req) => {
     console.log('🔌 WebSocket client connected:', {
@@ -818,7 +840,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Add client to global set
     global.wsClients.add(ws);
-    console.log('📊 WebSocket clients count:', global.wsClients.size);
+    logClientCount();
 
     // Handle client messages
     ws.on('message', (message: Buffer) => {
@@ -837,8 +859,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Handle client disconnect
     ws.on('close', () => {
+      console.log('🔌 WebSocket client disconnected');
       global.wsClients.delete(ws);
-      console.log('🔌 WebSocket client disconnected, remaining clients:', global.wsClients.size);
+      logClientCount();
     });
 
     // Handle errors
