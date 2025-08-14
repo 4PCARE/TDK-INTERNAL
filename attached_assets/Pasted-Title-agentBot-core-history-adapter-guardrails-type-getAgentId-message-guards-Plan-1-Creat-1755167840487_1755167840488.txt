@@ -1,0 +1,52 @@
+Title: agentBot core — history adapter, guardrails type, getAgentId, message guards
+Plan:
+1) Create ChatMessage adapter so recentChatHistory matches required shape.
+2) Add getAgentId(...) to normalize number|string|object to number.
+3) Use safe guard for guardrails; map loose objects to GuardrailConfig.
+4) Narrow BotMessage union via isBotMessage before reading .type/.content.
+
+Edits:
+--- a/server/agentBot.ts
++++ b/server/agentBot.ts
+@@
++ type ChatTurn = { role: 'user'|'assistant'|'system'; content: string; timestamp?: string|Date };
++ type ChatMessage = { role: 'user'|'assistant'|'system'; content: string; messageType: 'text'|'image'|'sticker'; createdAt: Date };
++ const adaptHistory = (turns: ChatTurn[]): ChatMessage[] =>
++   turns.map(t => ({ role: t.role, content: t.content, messageType: 'text', createdAt: new Date(t.timestamp ?? Date.now()) }));
++ const getAgentId = (v: unknown): number =>
++   typeof v === 'number' ? v : Number((v as any)?.id ?? v ?? 0);
++ const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object';
++ const hasProp = <K extends string>(o: unknown, k: K): o is Record<K, unknown> => isRecord(o) && k in o;
++ type GuardrailConfig = { enabled: boolean; [k: string]: unknown };
++ const toGuardrailConfig = (v: unknown): GuardrailConfig | undefined =>
++   isRecord(v) && 'enabled' in v ? ({ ...(v as any) } as GuardrailConfig) : undefined;
++ type MinimalMsg = { type?: string; content?: string };
++ const isBotMessage = (m: unknown): m is MinimalMsg => isRecord(m) && typeof (m as any).type === 'string';
+@@
+-  recentChatHistory,
++  recentChatHistory: adaptHistory(recentChatHistory as any),
+@@
+- if (hasGuardrails(agentData.guardrailsConfig)) {
+-   guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
+- }
++ if (hasProp(agentData, 'guardrailsConfig')) {
++   const cfg = toGuardrailConfig((agentData as any).guardrailsConfig);
++   if (cfg) guardrailsService = new GuardrailsService(cfg);
++ }
+@@
+- agentId: getAgentId(p.agentConfig),
++ agentId: getAgentId(p.agentConfig),
+@@
+- console.log(`🤖 AgentBot: Processing ${message.type} message ...`);
+- if (message.type === "image") { /* ... */ }
+- let contextMessage = message.content;
+- if (message.type === "sticker") { /* ... */ }
++ const kind = isBotMessage(message) ? (message.type ?? 'text') : 'text';
++ console.log(`🤖 AgentBot: Processing ${kind} message ...`);
++ if (kind === "image") { /* ... */ }
++ let contextMessage = isBotMessage(message) ? (message.content ?? '') : (message as any).message;
++ if (kind === "sticker") { /* ... */ }
+@@
+- const { keywordWeight = 0.5, vectorWeight = 0.5, finalTokenLimit } = searchConfig ?? {};
++ const { keywordWeight = 0.5, vectorWeight = 0.5, finalTokenLimit } = (searchConfig ?? {}) as any;
+  const finalCharLimit = (finalTokenLimit ?? 2048) * 4;
