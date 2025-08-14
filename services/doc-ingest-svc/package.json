@@ -1,0 +1,11 @@
+{
+  "name": "doc-ingest-svc",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'lint to be configured'",
+    "build": "echo 'build to be configured'"
+  }
+}
