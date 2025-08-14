@@ -1,6 +1,6 @@
 import { Express } from 'express';
 import type { Request, Response } from "express";
-import { validateUser, validateLoginReq, validateLoginRes, validateRefreshReq, validateRefreshRes } from "./validate";
+import { validateUser, validateLoginReq, validateLoginRes, validateRefreshReq, validateRefreshRes, validateRolesRes, validatePolicyCheckReq, validatePolicyCheckRes } from "./validate";
 
 /**
  * Register health check routes for Auth Service
@@ -59,6 +59,28 @@ export function registerRoutes(app: Express): void {
     }
     const payload = { accessToken: "stub-access-token-2" };
     if (!validateRefreshRes(payload)) {
+      return res.status(500).json({ message: "Contract violation" });
+    }
+    return res.status(200).json(payload);
+  });
+
+  // Roles endpoint - stubbed for contract compliance
+  app.get("/roles", (_req: Request, res: Response) => {
+    const payload = ["admin", "editor", "viewer"];
+    if (!validateRolesRes(payload)) {
+      return res.status(500).json({ message: "Contract violation" });
+    }
+    return res.status(200).json(payload);
+  });
+
+  // Policy check endpoint - stubbed for contract compliance
+  app.post("/policies/:id/check", (req: Request, res: Response) => {
+    const body = req.body ?? {};
+    if (!validatePolicyCheckReq(body)) {
+      return res.status(400).json({ message: "Invalid policy check payload" });
+    }
+    const payload = { allow: true };
+    if (!validatePolicyCheckRes(payload)) {
       return res.status(500).json({ message: "Contract violation" });
     }
     return res.status(200).json(payload);

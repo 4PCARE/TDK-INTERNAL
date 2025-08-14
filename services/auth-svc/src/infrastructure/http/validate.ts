@@ -1,4 +1,3 @@
-
 /**
  * Validation utilities for auth-svc responses
  * Uses Zod if available, fallback to basic type checking
@@ -106,6 +105,65 @@ export function validateRefreshRes(data: any): data is { accessToken: string } {
       data &&
       typeof data.accessToken === "string" &&
       data.accessToken.length > 0
+    );
+  }
+}
+
+export function validateRolesRes(data: any): data is string[] {
+  try {
+    // Try to use Zod for proper validation
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const z: typeof import("zod") = require("zod");
+    const RolesResSchema = z.array(z.string());
+    RolesResSchema.parse(data);
+    return true;
+  } catch {
+    // Fallback to basic type checking
+    return !!(
+      Array.isArray(data) &&
+      data.every((role: any) => typeof role === "string")
+    );
+  }
+}
+
+export function validatePolicyCheckReq(data: any): data is { subject: string; action: string; resource?: string } {
+  try {
+    // Try to use Zod for proper validation
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const z: typeof import("zod") = require("zod");
+    const PolicyCheckReqSchema = z.object({
+      subject: z.string(),
+      action: z.string(),
+      resource: z.string().optional(),
+    });
+    PolicyCheckReqSchema.parse(data);
+    return true;
+  } catch {
+    // Fallback to basic type checking
+    return !!(
+      data &&
+      typeof data.subject === "string" &&
+      typeof data.action === "string" &&
+      (data.resource === undefined || typeof data.resource === "string")
+    );
+  }
+}
+
+export function validatePolicyCheckRes(data: any): data is { allow: boolean } {
+  try {
+    // Try to use Zod for proper validation
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const z: typeof import("zod") = require("zod");
+    const PolicyCheckResSchema = z.object({
+      allow: z.boolean(),
+    });
+    PolicyCheckResSchema.parse(data);
+    return true;
+  } catch {
+    // Fallback to basic type checking
+    return !!(
+      data &&
+      typeof data.allow === "boolean"
     );
   }
 }

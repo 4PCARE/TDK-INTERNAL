@@ -77,4 +77,24 @@ export function registerLegacyRoutes(app: any) {
       res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
     }
   });
+
+  // GET /roles -> auth-svc
+  app.get("/roles", async (req: Request, res: Response) => {
+    try {
+      const r = await proxy(req, authBase, "/roles");
+      res.status(r.status).set(r.headers).send(r.data);
+    } catch (e: any) {
+      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
+    }
+  });
+
+  // POST /policies/:id/check -> auth-svc
+  app.post("/policies/:id/check", async (req: Request, res: Response) => {
+    try {
+      const r = await proxy(req, authBase, `/policies/${req.params.id}/check`);
+      res.status(r.status).set(r.headers).send(r.data);
+    } catch (e: any) {
+      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
+    }
+  });
 }
