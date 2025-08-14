@@ -39,8 +39,8 @@ router.post('/api/debug/ai-input', async (req, res) => {
 
   // Capture logs for the debug response
   const debugLogs: string[] = [];
-  const originalLog = console.log;
-  const originalError = console.error;
+  let originalLog = console.log;
+  let originalError = console.error;
 
   // Override console methods to capture logs
   console.log = (...args) => {
@@ -95,6 +95,9 @@ router.post('/api/debug/ai-input', async (req, res) => {
       if (searchType === 'chunk_split_rank') {
         // Use the enhanced chunk split and rank search
         const searchService = new semanticSearchServiceV2.SemanticSearchService();
+
+        // Parse specific document IDs if provided
+        const specificDocumentIds = req.body.specificDocumentIds || options.specificDocumentIds;
 
         // Get keyword candidates first
         console.log("=== GETTING KEYWORD CANDIDATES ===");
@@ -210,7 +213,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
 
         // Build additional context with search configuration
         let additionalContext = `Document scope: ${specificDocumentIds ? specificDocumentIds.join(', ') : 'All documents'}`;
-        
+
         // For debug, we can simulate search configuration
         if (req.query.searchConfig) {
           additionalContext += `\n\nSearch Configuration: ${req.query.searchConfig}`;
@@ -897,7 +900,7 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
     const documentName = doc.name || `Document ${doc.id}`;
     const systemMessage = `You are an AI assistant helping users analyze and understand the document: ${documentName}.\n\nDocument context:\n${documentContext}`;
     const aiInput = { systemMessage, userMessage, documentContext };
-    
+
     console.log(`📋 Document Analysis Summary:`);
     console.log(`📄 Document: ${documentName} (ID: ${doc.id})`);
     console.log(`🔍 Search Type: ${searchType}`);
