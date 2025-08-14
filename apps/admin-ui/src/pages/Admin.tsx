@@ -34,7 +34,7 @@ interface SystemStats {
 
 interface User {
   role?: string;
-}</interface>
+}
 
 interface QuickAction {
   id: string;
