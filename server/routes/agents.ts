@@ -61,15 +61,13 @@ export function registerAgentRoutes(app: Express) {
       const agentData = {
         name: name.trim(),
         description: description || "",
+        systemPrompt: req.body.systemPrompt || `You are a ${personality || 'helpful'} ${profession || 'assistant'}.`,
         personality: personality || "",
         profession: profession || "",
         responseStyle: responseStyle || "helpful",
-        specialSkills: specialSkills || "",
+        specialSkills: specialSkills || [],
         channels: channels || [],
-        userId,
-        isPublic: false,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        userId
       };
 
       const agent = await storage.createAgentChatbot(agentData);
@@ -517,14 +515,11 @@ export function registerAgentRoutes(app: Express) {
       const duplicateData = {
         ...sourceAgent,
         name: `${sourceAgent.name} (Copy)`,
-        userId: userId,
-        isPublic: false, // Always make duplicates private initially
-        createdAt: new Date(),
-        updatedAt: new Date()
+        userId: userId
       };
 
       // Remove fields that shouldn't be copied
-      delete duplicateData.id;
+      delete duplicateData?.id;
 
       // Create new agent
       const newAgent = await storage.createAgentChatbot(duplicateData);
@@ -539,7 +534,7 @@ export function registerAgentRoutes(app: Express) {
         const documentAssociations = sourceDocuments.map(doc => ({
           agentId: newAgent.id,
           documentId: doc.documentId,
-          addedAt: new Date()
+          userId: userId
         }));
 
         await db.insert(agentDocumentsTable).values(documentAssociations);

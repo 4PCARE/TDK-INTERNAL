@@ -530,8 +530,8 @@ export default function CreateAgentChatbot() {
     console.log("Agent ID:", editAgentId);
 
     // Build the guardrails configuration object - send undefined when disabled, never null
-    const guardrailsConfigClean = data.guardrailsEnabled && data.guardrailsConfig 
-      ? data.guardrailsConfig 
+    const guardrailsConfigClean = data.guardrailsEnabled && data.guardrailsConfig
+      ? data.guardrailsConfig
       : undefined;
 
     const finalData = {
@@ -621,16 +621,16 @@ export default function CreateAgentChatbot() {
       guardrailsConfig: guardrailsConfig, // Include guardrails config for testing
     };
 
-    console.log("🚀 Starting test agent with:", { 
-      message: testMessage, 
+    console.log("🚀 Starting test agent with:", {
+      message: testMessage,
       config: {
         name: testConfigData.name,
         personality: testConfigData.personality,
         profession: testConfigData.profession,
         systemPrompt: testConfigData.systemPrompt?.substring(0, 100) + "...",
         guardrailsEnabled: testConfigData.guardrailsEnabled
-      }, 
-      documents: selectedDocuments 
+      },
+      documents: selectedDocuments
     });
 
     setIsTestingAgent(true);

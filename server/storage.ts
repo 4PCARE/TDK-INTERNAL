@@ -1397,12 +1397,28 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Document not found or no access");
     }
 
-    const [agentDocument] = await db
+    // Check if association already exists
+    const [existingAssociation] = await db
+      .select()
+      .from(agentChatbotDocuments)
+      .where(
+        and(
+          eq(agentChatbotDocuments.agentId, agentId),
+          eq(agentChatbotDocuments.documentId, documentId)
+        )
+      )
+      .limit(1);
+
+    if (existingAssociation) {
+      return existingAssociation;
+    }
+
+    const [newDocument] = await db
       .insert(agentChatbotDocuments)
       .values({ agentId, documentId, userId })
       .returning();
 
-    return agentDocument;
+    return newDocument;
   }
 
   async removeDocumentFromAgent(agentId: number, documentId: number, userId: string): Promise<void> {
