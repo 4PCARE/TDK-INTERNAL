@@ -1,0 +1,38 @@
+You are a precise code editor. Follow this sequence exactly. 
+Do not change files outside of those mentioned for each step. 
+For each step: 
+- PLAN the edits in bullets
+- Apply them
+- Show unified diffs
+- Run `npx tsc --noEmit` and report the new error count
+- Only proceed to the next step when error count drops or that category is clean.
+
+1) UI helpers & generics sweep
+- Fix AuditMonitoring helper calls: getActionIcon(log.action ?? ''), getStatusBadge(Boolean(log.success)).
+- Add small interfaces + useQuery<T>() generics for DataConnections, Integrations, LiveChatWidget, Settings, UserManagement, dashboards.
+- Default arrays/objects, coerce numbers/strings for Progress, etc.
+
+2) CreateAgentChatbot
+- Remove unrecognized fields (brandVoice unless exists in shared types).
+- Ensure guardrailsConfig is undefined when empty (never null).
+
+3) Server bootstrap fixes
+- Match import/exports for replitAuth, lineImageService, vite.
+- Add server/global.d.ts with var wsClients: Set<any> | undefined; initialize with global.wsClients ||= new Set();
+- Add declare module 'passport-azure-ad'; or install @types/passport-azure-ad.
+
+4) AgentBot & Line webhook
+- Make guardrailsConfig access conditional.
+- Supply defaults for keywordWeight/vectorWeight; guard finalTokenLimit with const finalCharLimit = (finalTokenLimit ?? 2048) * 4.
+- Narrow message unions before reading .type/.content.
+
+5) DB alignment
+- Remove createdBy/isPublic/addedAt/originalDocumentId from inserts/selections unless actually in schema; if intended, add migration later.
+- Fix agents.create to provide required systemPrompt.
+- Replace hrEmployees.firstName/lastName with name.
+
+6) Leftovers
+- Provide missing args (e.g., suggestQueries(connectionId, userId, userQuestion)).
+- Define undeclared vars (specificDocumentIds, searchResults) or remove those debug code paths.
+- Change Set spreads to be ES2015+ or add --target es2015/downlevelIteration.
+- Remove config fields that don’t exist (verboseMode on LlamaParseReader options).
