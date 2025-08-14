@@ -299,9 +299,9 @@ export function registerAgentRoutes(app: Express) {
 
       res.json({
         success: true,
-        response: response.message,
-        sources: response.sources || [],
-        responseTime: response.responseTime || 0
+        response: response.response ?? response as any,
+        sources: (response as any).sources ?? [],
+        responseTime: (response as any).responseTime ?? 0
       });
 
     } catch (error) {
@@ -347,9 +347,9 @@ export function registerAgentRoutes(app: Express) {
 
       res.json({
         success: true,
-        response: response.message,
-        sources: response.sources || [],
-        responseTime: response.responseTime || 0
+        response: response.response ?? response as any,
+        sources: (response as any).sources ?? [],
+        responseTime: (response as any).responseTime ?? 0
       });
 
     } catch (error) {
@@ -399,9 +399,9 @@ export function registerAgentRoutes(app: Express) {
 
       res.json({
         success: true,
-        response: response.message,
-        sources: response.sources || [],
-        responseTime: response.responseTime || 0
+        response: response.response ?? response as any,
+        sources: (response as any).sources ?? [],
+        responseTime: (response as any).responseTime ?? 0
       });
 
     } catch (error) {
@@ -436,8 +436,7 @@ export function registerAgentRoutes(app: Express) {
         .from(agentChatbots)
         .where(
           and(
-            eq(agentChatbots.id, agentId),
-            eq(agentChatbots.isPublic, true)
+            eq(agentChatbots.id, agentId)
           )
         )
         .limit(1);

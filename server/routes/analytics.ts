@@ -1,11 +1,10 @@
-
 import type { Express } from "express";
 import { isAuthenticated, isAdmin } from "../replitAuth";
 import { isMicrosoftAuthenticated } from "../microsoftAuth";
 import { smartAuth } from "../smartAuth";
 import { storage } from "../storage";
 import { db } from "../db";
-import { 
+import {
   aiResponseAnalysis,
   auditLogs,
   documentAccess,
@@ -44,7 +43,7 @@ export function registerAnalyticsRoutes(app: Express) {
     try {
       const userId = req.user.claims.sub;
       const dateRange = req.query.dateRange || '7d';
-      
+
       let startDate = new Date();
       switch (dateRange) {
         case '1d':
@@ -117,7 +116,7 @@ export function registerAnalyticsRoutes(app: Express) {
     try {
       const userId = req.user.claims.sub;
       const dateRange = req.query.dateRange || '7d';
-      
+
       let startDate = new Date();
       switch (dateRange) {
         case '1d':
@@ -189,7 +188,7 @@ export function registerAnalyticsRoutes(app: Express) {
     try {
       const userId = req.user.claims.sub;
       const dateRange = req.query.dateRange || '7d';
-      
+
       let startDate = new Date();
       switch (dateRange) {
         case '1d':
@@ -284,7 +283,7 @@ export function registerAnalyticsRoutes(app: Express) {
     try {
       const userId = req.user.claims.sub;
       const dateRange = req.query.dateRange || '7d';
-      
+
       let startDate = new Date();
       switch (dateRange) {
         case '1d':
@@ -380,7 +379,7 @@ export function registerAnalyticsRoutes(app: Express) {
     try {
       const userId = req.user.claims.sub;
       const dateRange = req.query.dateRange || '7d';
-      
+
       let startDate = new Date();
       switch (dateRange) {
         case '1d':
@@ -474,7 +473,7 @@ export function registerAnalyticsRoutes(app: Express) {
     try {
       const userId = req.user.claims.sub;
       const dateRange = req.query.dateRange || '7d';
-      
+
       let startDate = new Date();
       switch (dateRange) {
         case '1d':
@@ -600,7 +599,7 @@ export function registerAnalyticsRoutes(app: Express) {
             )
           )
           .orderBy(desc(aiResponseAnalysis.createdAt));
-        
+
         exportData.aiResponses = aiResponses;
       }
 
@@ -615,20 +614,19 @@ export function registerAnalyticsRoutes(app: Express) {
             )
           )
           .orderBy(desc(auditLogs.createdAt));
-        
+
         exportData.userActivity = userActivity;
       }
 
       if (type === 'all' || type === 'document-access') {
-        const documentAccess = await db
-          .select({
-            id: documentAccess.id,
-            documentId: documentAccess.documentId,
-            documentName: documents.name,
-            accessType: documentAccess.accessType,
-            createdAt: documentAccess.createdAt,
-          })
-          .from(documentAccess)
+        const base = db.select({
+          id: documentAccess.id,
+          documentId: documentAccess.documentId,
+          createdAt: documentAccess.createdAt,
+          documentName: documents.name,
+        }).from(documentAccess);
+
+        const documentAccessRows = await base
           .innerJoin(documents, eq(documentAccess.documentId, documents.id))
           .where(
             and(
@@ -637,8 +635,11 @@ export function registerAnalyticsRoutes(app: Express) {
             )
           )
           .orderBy(desc(documentAccess.createdAt));
-        
-        exportData.documentAccess = documentAccess;
+
+        exportData.documentAccess = documentAccessRows.map((access) => ({
+          ...access,
+          documentName: access.documentName,
+        }));
       }
 
       if (format === 'csv') {
@@ -651,7 +652,7 @@ export function registerAnalyticsRoutes(app: Express) {
             const headers = Object.keys(data[0]).join(',');
             csvContent += headers + '\n';
             data.forEach((row: any) => {
-              const values = Object.values(row).map(v => 
+              const values = Object.values(row).map(v =>
                 typeof v === 'string' ? `"${v.replace(/"/g, '""')}"` : v
               ).join(',');
               csvContent += values + '\n';

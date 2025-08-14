@@ -134,10 +134,9 @@ export function registerDocumentRoutes(app: Express) {
         return res.json([]);
       }
 
-      let results = [];
-      let filenameResults = [];
-      let keywordResults = [];
-      let semanticResults = [];
+      let filenameResults: any[] = [];
+      let keywordResults: any[] = [];
+      let semanticResults: any[] = [];
 
       // Filename search
       if (searchFileName) {
@@ -221,7 +220,7 @@ export function registerDocumentRoutes(app: Express) {
       });
 
       // Sort by search score (highest first) then by relevance
-      results = Array.from(deduplicatedResults.values())
+      const results = Array.from(deduplicatedResults.values())
         .sort((a, b) => {
           if (b.searchScore !== a.searchScore) {
             return b.searchScore - a.searchScore;
@@ -522,7 +521,11 @@ ${document.summary}`;
               effectiveEndDate: fileMetadata?.effectiveEndDate ? new Date(fileMetadata.effectiveEndDate) : null,
             };
 
-            const document = await storage.createDocument(documentData);
+            const document = await storage.createDocument({
+                ...documentData,
+                effectiveStartDate: documentData.effectiveStartDate ? documentData.effectiveStartDate.toISOString() : null,
+                effectiveEndDate: documentData.effectiveEndDate ? documentData.effectiveEndDate.toISOString() : null,
+              });
             uploadedDocuments.push(document);
 
             // Auto-vectorize the document if it has content

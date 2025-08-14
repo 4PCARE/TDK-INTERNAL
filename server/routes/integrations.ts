@@ -1,16 +1,15 @@
-
 import type { Express } from "express";
 import { isAuthenticated, isAdmin } from "../replitAuth";
 import { isMicrosoftAuthenticated } from "../microsoftAuth";
 import { smartAuth } from "../smartAuth";
 import { storage } from "../storage";
 import { db } from "../db";
-import { 
-  socialIntegrations, 
-  lineMessageTemplates, 
+import {
+  socialIntegrations,
+  lineMessageTemplates,
   lineCarouselColumns,
   lineTemplateActions,
-  users, 
+  users,
   departments,
   agentChatbots
 } from "@shared/schema";
@@ -22,7 +21,7 @@ export function registerIntegrationRoutes(app: Express) {
   app.get("/api/social-integrations", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      
+
       const integrations = await db
         .select({
           id: socialIntegrations.id,
@@ -164,25 +163,25 @@ export function registerIntegrationRoutes(app: Express) {
           .select({ id: lineMessageTemplates.id })
           .from(lineMessageTemplates)
           .where(eq(lineMessageTemplates.integrationId, integrationId));
-        
+
         // Delete cascade: actions -> columns -> templates
         for (const template of templates) {
           const columns = await db
             .select({ id: lineCarouselColumns.id })
             .from(lineCarouselColumns)
             .where(eq(lineCarouselColumns.templateId, template.id));
-          
+
           for (const column of columns) {
             await db
               .delete(lineTemplateActions)
               .where(eq(lineTemplateActions.columnId, column.id));
           }
-          
+
           await db
             .delete(lineCarouselColumns)
             .where(eq(lineCarouselColumns.templateId, template.id));
         }
-        
+
         await db
           .delete(lineMessageTemplates)
           .where(eq(lineMessageTemplates.integrationId, integrationId));
