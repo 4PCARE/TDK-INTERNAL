@@ -26,4 +26,24 @@ export function registerLegacyRoutes(app: any) {
       res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
     }
   });
+
+  // POST /documents -> legacy
+  app.post("/documents", async (req: Request, res: Response) => {
+    try {
+      const r = await proxy(req, legacyBase, "/documents");
+      res.status(r.status).set(r.headers).send(r.data);
+    } catch (e: any) {
+      res.status(502).json({ message: "Upstream proxy error" });
+    }
+  });
+
+  // POST /webhook -> legacy
+  app.post("/webhook", async (req: Request, res: Response) => {
+    try {
+      const r = await proxy(req, legacyBase, "/webhook");
+      res.status(r.status).set(r.headers).send(r.data);
+    } catch (e: any) {
+      res.status(502).json({ message: "Upstream proxy error" });
+    }
+  });
 }
