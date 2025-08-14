@@ -76,8 +76,8 @@ interface UserQueryType {
 
 
 export default function UserManagement() {
-  const { user } = useAuth();
   const { toast } = useToast();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const queryClient = useQueryClient();
   const [isCreating, setIsCreating] = useState(false);
   const [showBootstrap, setShowBootstrap] = useState(false);

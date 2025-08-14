@@ -21,9 +21,10 @@ import {
 import {
   Command,
   CommandEmpty,
-  CommandGroup,
   CommandInput,
   CommandItem,
+  CommandGroup,
+  CommandList
 } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronDown } from "lucide-react";
@@ -69,6 +70,7 @@ import {
   Area,
   AreaChart,
 } from "recharts";
+import { Label } from "@/components/ui/label";
 
 export default function UserFeedback() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -81,6 +83,7 @@ export default function UserFeedback() {
   const [documentNameFilter, setDocumentNameFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   // Force refresh data when component mounts
   useEffect(() => {
@@ -151,13 +154,13 @@ interface FeedbackItem {
       console.log("Total feedback items:", allFeedback.length);
       const withDocumentName = allFeedback.filter((f: any) => f.documentName);
       console.log("Items with document name:", withDocumentName.length);
-      
+
       // Check for AI category and tags data
       const withAiCategory = allFeedback.filter((f: any) => f.aiCategory);
       const withTags = allFeedback.filter((f: any) => f.tags && f.tags.length > 0);
       console.log("Items with AI category:", withAiCategory.length);
       console.log("Items with tags:", withTags.length);
-      
+
       // Log detailed data for first few items
       allFeedback.slice(0, 5).forEach((feedback: any, index: number) => {
         console.log(`Feedback ${index} full object:`, feedback);
@@ -174,7 +177,7 @@ interface FeedbackItem {
           tagsValue: feedback.tags
         });
       });
-      
+
       // Check for problematic data types
       allFeedback.forEach((feedback: any, index: number) => {
         if (typeof feedback.documentName === 'object' && feedback.documentName !== null) {
@@ -637,24 +640,14 @@ interface FeedbackItem {
                     <CommandInput placeholder="Search categories..." />
                     <CommandEmpty>No categories found.</CommandEmpty>
                     <CommandGroup className="max-h-64 overflow-auto">
-                      {aiCategories.map((category: string) => (
-                        <CommandItem
-                          key={category}
-                          onSelect={() => {
-                            setCategoryFilter(prev =>
-                              prev.includes(category)
-                                ? prev.filter(c => c !== category)
-                                : [...prev, category]
-                            );
-                          }}
-                        >
-                          <Checkbox
-                            checked={categoryFilter.includes(category)}
-                            className="mr-2"
-                          />
-                          {category}
-                        </CommandItem>
-                      ))}
+                      {(() => {
+                        const safeCats = (aiCategories ?? []).filter(Boolean) as string[];
+                        return safeCats.map((category) => (
+                          <CommandItem key={category} value={category}>
+                            {category}
+                          </CommandItem>
+                        ));
+                      })()}
                     </CommandGroup>
                   </Command>
                 </PopoverContent>
@@ -672,24 +665,27 @@ interface FeedbackItem {
                     <CommandInput placeholder="Search tags..." />
                     <CommandEmpty>No tags found.</CommandEmpty>
                     <CommandGroup className="max-h-64 overflow-auto">
-                      {allTags.map((tag: string) => (
-                        <CommandItem
-                          key={tag}
-                          onSelect={() => {
-                            setTagFilter(prev =>
-                              prev.includes(tag)
-                                ? prev.filter(t => t !== tag)
-                                : [...prev, tag]
-                            );
-                          }}
-                        >
-                          <Checkbox
-                            checked={tagFilter.includes(tag)}
-                            className="mr-2"
-                          />
-                          {tag}
-                        </CommandItem>
-                      ))}
+                      {(() => {
+                        const safeTags = (allTags ?? []).filter(Boolean) as string[];
+                        return safeTags.map((tag) => (
+                          <CommandItem
+                            key={tag}
+                            onSelect={() => {
+                              setTagFilter(prev =>
+                                prev.includes(tag)
+                                  ? prev.filter(t => t !== tag)
+                                  : [...prev, tag]
+                              );
+                            }}
+                          >
+                            <Checkbox
+                              checked={tagFilter.includes(tag)}
+                              className="mr-2"
+                            />
+                            {tag}
+                          </CommandItem>
+                        ));
+                      })()}
                     </CommandGroup>
                   </Command>
                 </PopoverContent>
@@ -716,7 +712,7 @@ interface FeedbackItem {
               </div>
             ) : (
               <div className="space-y-4">
-                {filteredFeedback.slice(0, 10).map((feedback: any) => (
+                {filteredFeedback.slice(0, 10).map((feedback: FeedbackItem) => (
                   <div
                     key={feedback.id}
                     className="border border-slate-200 rounded-lg p-4"
@@ -733,18 +729,18 @@ interface FeedbackItem {
                           {!feedback.documentName && feedback.documentContext && (
                             <Badge variant="outline" className="text-xs text-orange-600">
                               <FileText className="w-3 h-3 mr-1" />
-                              {typeof feedback.documentContext === 'object' && feedback.documentContext.documentName
+                              {typeof feedback.documentContext === 'object' && feedback.documentContext !== null && 'documentName' in feedback.documentContext && typeof feedback.documentContext.documentName === 'string'
                                 ? feedback.documentContext.documentName
                                 : String(feedback.documentContext)}
                             </Badge>
                           )}
-                          
+
                           {/* AI Category Badge */}
                           {feedback.aiCategory && (
-                            <Badge 
-                              variant="outline" 
+                            <Badge
+                              variant="outline"
                               className="text-xs"
-                              style={{ 
+                              style={{
                                 backgroundColor: feedback.aiCategoryColor ? `${feedback.aiCategoryColor}15` : "#dbeafe",
                                 borderColor: feedback.aiCategoryColor || "#3b82f6",
                                 color: feedback.aiCategoryColor || "#1d4ed8"
@@ -753,14 +749,14 @@ interface FeedbackItem {
                               {feedback.aiCategory}
                             </Badge>
                           )}
-                          
+
                           {/* Tags */}
                           {feedback.tags && Array.isArray(feedback.tags) && feedback.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1">
-                              {feedback.tags.slice(0, 2).map((tag: string, index: number) => (
+                              {feedback.tags.slice(0, 2).map((tag: unknown, index: number) => (
                                 <Badge key={index} variant="outline" className="text-xs text-gray-600">
                                   <Hash className="w-2 h-2 mr-1" />
-                                  {tag}
+                                  {String(tag)}
                                 </Badge>
                               ))}
                               {feedback.tags.length > 2 && (

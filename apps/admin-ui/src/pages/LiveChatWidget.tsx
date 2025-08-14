@@ -52,10 +52,17 @@ interface WidgetConfig {
   welcomeMessage: string;
 }
 
+type User = { email?: string; role?: 'admin' | 'user' | string };
+
 export default function LiveChatWidget() {
-  const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  const { data: user } = useQuery<User>({
+    queryKey: ["/api/me"],
+    retry: false,
+  });
+
   const [selectedWidget, setSelectedWidget] = useState<ChatWidget | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [editingWidget, setEditingWidget] = useState<ChatWidget | null>(null);

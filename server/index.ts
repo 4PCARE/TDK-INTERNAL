@@ -1,9 +1,9 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { registerRoutes } from "./routes";
-import { createReplitAuthRouter } from "./replitAuth";
-import { imageAnalysisRoute } from './lineImageService';
-import viteRoute from "./vite";
+import createReplitAuthRouter from "./replitAuth";
+import imageAnalysisRoute from './lineImageService';
+import { viteRoute } from "./vite";
 import debugRoutes from "./debug-routes";
 import debugChunkTest from "./debug-chunk-test";
 import { registerHrApiRoutes } from "./hrApi";

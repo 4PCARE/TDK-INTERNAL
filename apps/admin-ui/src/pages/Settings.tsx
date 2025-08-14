@@ -34,7 +34,7 @@ import { Progress } from "@/components/ui/progress";
 
 interface UserProfile {
   id: string;
-  email: string;
+  email?: string;
   name?: string;
   department?: string;
   role: string;
@@ -79,7 +79,7 @@ interface SettingsData {
 
 export default function Settings() {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'profile' | 'system' | 'security' | 'llm'>('profile');
 
