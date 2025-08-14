@@ -1,14 +1,12 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { registerRoutes } from "./routes";
-import createReplitAuthRouter from "./replitAuth";
-import imageAnalysisRoute from './lineImageService';
-import { viteRoute } from "./vite";
+import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
+import { LineImageService } from './lineImageService';
+import { setupVite, serveStatic, log } from "./vite";
 import debugRoutes from "./debug-routes";
 import debugChunkTest from "./debug-chunk-test";
 import { registerHrApiRoutes } from "./hrApi";
-import { setupVite, serveStatic, log } from "./vite";
-
 // Initialize global wsClients
 global.wsClients ||= new Set();
 
