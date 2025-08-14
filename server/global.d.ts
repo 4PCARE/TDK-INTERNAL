@@ -1,11 +1,6 @@
 
 declare global {
-  var wsClients: Set<any> | undefined;
-}
-
-export {};
-declare global {
-  var wsClients: Set<any> | undefined;
+  var wsClients: Set<any>;
 }
 
 export {};

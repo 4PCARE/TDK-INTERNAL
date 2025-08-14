@@ -57,7 +57,8 @@ async function calculateCSATScore(userId: string, channelType: string, channelId
     }
 
     // Get recent chat history for analysis using the same memory strategy as agent
-    const messages = await storage.getChatHistoryWithMemoryStrategy(userId, channelType, channelId, agentId, messageLimit);
+    const safeAgentId = Number(agentId ?? 0);
+    const messages = await storage.getChatHistoryWithMemoryStrategy(userId, channelType, channelId, safeAgentId, messageLimit);
 
     console.log("📊 Retrieved messages for CSAT:", messages.length);
 
@@ -812,7 +813,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       url: req.url,
       origin: req.headers.origin,
       userAgent: req.headers['user-agent']?.substring(0, 50) + '...',
-      totalClients: global.wsClients.size + 1
+      totalClients: (global.wsClients?.size ?? 0) + 1
     });
 
     // Add client to global set

@@ -8,7 +8,7 @@ import debugRoutes from "./debug-routes";
 import debugChunkTest from "./debug-chunk-test";
 import { registerHrApiRoutes } from "./hrApi";
 // Initialize global wsClients
-global.wsClients ||= new Set();
+global.wsClients = global.wsClients || new Set();
 
 // Skip authentication for static assets and WebSocket connections
 const skipAuthPaths = [
