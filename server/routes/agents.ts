@@ -140,14 +140,14 @@ export function registerAgentRoutes(app: Express) {
 
       console.log(`Fetching documents for agent ${agentId}...`);
 
-      // Use a simpler approach without orderBy to test if that's the issue
+      // Get associated documents
       const associatedDocuments = await db
         .select()
         .from(agentDocumentsTable)
         .where(eq(agentDocumentsTable.agentId, agentId));
 
-      // Sort manually to avoid potential SQL issues
-      associatedDocuments.sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime());
+      // Sort manually by creation time
+      associatedDocuments.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
       console.log(`Found ${associatedDocuments.length} documents for agent ${agentId}`);
       res.json(associatedDocuments);
@@ -207,7 +207,6 @@ export function registerAgentRoutes(app: Express) {
         .values({
           agentId,
           documentId,
-          addedAt: new Date(),
         })
         .returning();
 
@@ -534,7 +533,6 @@ export function registerAgentRoutes(app: Express) {
         const documentAssociations = sourceDocuments.map(doc => ({
           agentId: newAgent.id,
           documentId: doc.documentId,
-          userId: userId
         }));
 
         await db.insert(agentDocumentsTable).values(documentAssociations);

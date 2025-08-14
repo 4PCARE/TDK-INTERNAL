@@ -257,7 +257,6 @@ export function registerAdminRoutes(app: Express) {
         .values({
           name,
           description,
-          createdBy: req.user.claims.sub,
         })
         .returning();
 

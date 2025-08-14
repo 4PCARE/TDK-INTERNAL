@@ -299,7 +299,6 @@ export default function CreateAgentChatbot() {
           businessContext: {
             enabled: agent.guardrailsConfig.businessContext?.enabled ?? false,
             companyName: agent.guardrailsConfig.businessContext?.companyName ?? "",
-            brandVoice: agent.guardrailsConfig.businessContext?.brandVoice ?? "professional",
             industryContext: agent.guardrailsConfig.businessContext?.industryContext ?? "",
             complianceRequirements: agent.guardrailsConfig.businessContext?.complianceRequirements ?? [],
           },
@@ -343,7 +342,6 @@ export default function CreateAgentChatbot() {
           businessContext: {
             enabled: false,
             companyName: "",
-            brandVoice: "professional",
             industryContext: "",
             complianceRequirements: [],
           },
@@ -488,9 +486,33 @@ export default function CreateAgentChatbot() {
     },
   });
 
+  // Normalize guardrails configuration
+  const normalizeGuardrails = (data: CreateAgentForm) => {
+    if (!data.guardrailsEnabled || !data.guardrailsConfig) {
+      return undefined;
+    }
+
+    const config = data.guardrailsConfig;
+    
+    // Check if any guardrails sections are actually configured
+    const hasContentFiltering = config.contentFiltering?.enabled;
+    const hasTopicControl = config.topicControl?.enabled;
+    const hasPrivacyProtection = config.privacyProtection?.enabled;
+    const hasResponseQuality = config.responseQuality?.enabled;
+    const hasToxicityPrevention = config.toxicityPrevention?.enabled;
+    const hasBusinessContext = config.businessContext?.enabled;
+
+    if (!hasContentFiltering && !hasTopicControl && !hasPrivacyProtection && 
+        !hasResponseQuality && !hasToxicityPrevention && !hasBusinessContext) {
+      return undefined;
+    }
+
+    return config;
+  };
+
   const onSubmit = (data: CreateAgentForm) => {
     // Build the guardrails configuration object
-    const guardrailsConfig = data.guardrailsEnabled ? data.guardrailsConfig : null;
+    const guardrailsConfig = normalizeGuardrails(data);
     
     const finalData = {
       ...data,

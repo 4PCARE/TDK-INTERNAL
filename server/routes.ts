@@ -288,7 +288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             LIMIT 1
           `;
           const firstMessageResult = await pool.query(firstMessageQuery, [targetUserId, channelType, channelId]);
-          let agentId = firstMessageResult.rows.length > 0 ? firstMessageResult.rows[0].agent_id : null;
+          let agentId = firstMessageResult.rows.length > 0 ? Number(firstMessageResult.rows[0].agent_id) : null;
 
           if (agentId) {
             csatScore = await calculateCSATScore(targetUserId, channelType, channelId, agentId);

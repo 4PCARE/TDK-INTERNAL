@@ -1,19 +1,18 @@
-
 import type { Express } from "express";
 import { isAuthenticated, isAdmin } from "../replitAuth";
 import { isMicrosoftAuthenticated } from "../microsoftAuth";
 import { smartAuth } from "../smartAuth";
 import { storage } from "../storage";
 import { db } from "../db";
-import { 
-  documents, 
-  users, 
+import {
+  documents,
+  users,
   departments,
   documentUserPermissions,
   documentDepartmentPermissions,
   documentVectors
 } from "@shared/schema";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, isNotNull } from "drizzle-orm";
 import multer from "multer";
 import path from "path";
 import fs from "fs/promises";

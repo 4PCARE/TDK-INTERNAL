@@ -38,6 +38,14 @@ import {
   Bot
 } from "lucide-react";
 
+interface AuthUser {
+  role?: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  profileImageUrl?: string;
+}
+
 interface DataConnection {
   id: number;
   name: string;
@@ -197,6 +205,7 @@ const connectionTemplates = [
 export default function Settings() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
+  const authUser = user as AuthUser;
   const queryClient = useQueryClient();
   
   const [activeTab, setActiveTab] = useState("general");
@@ -490,28 +499,28 @@ export default function Settings() {
                   <div className="flex flex-col items-center text-center">
                     <Avatar className="w-20 h-20 mb-4">
                       <AvatarImage 
-                        src={(user as any)?.profileImageUrl} 
-                        alt={`${(user as any)?.firstName || ''} ${(user as any)?.lastName || ''}`}
+                        src={authUser?.profileImageUrl} 
+                        alt={`${authUser?.firstName || ''} ${authUser?.lastName || ''}`}
                         className="object-cover"
                       />
                       <AvatarFallback className="text-lg">
-                        {(user as any)?.firstName?.[0] || 'U'}{(user as any)?.lastName?.[0] || 'S'}
+                        {authUser?.firstName?.[0] || 'U'}{authUser?.lastName?.[0] || 'S'}
                       </AvatarFallback>
                     </Avatar>
                     
                     <h3 className="text-lg font-semibold text-slate-800 mb-1">
-                      {(user as any)?.firstName || ''} {(user as any)?.lastName || ''}
+                      {authUser?.firstName || ''} {authUser?.lastName || ''}
                     </h3>
                     
                     <p className="text-sm text-slate-500 mb-3">
-                      {(user as any)?.email || ''}
+                      {authUser?.email || ''}
                     </p>
                     
                     <Badge 
-                      variant={(user as any)?.role === "admin" ? "default" : "secondary"}
+                      variant={authUser?.role === "admin" ? "default" : "secondary"}
                       className="mb-4"
                     >
-                      {(user as any)?.role === "admin" ? "Administrator" : "User"}
+                      {authUser?.role === "admin" ? "Administrator" : "User"}
                     </Badge>
                     
                     <Button 

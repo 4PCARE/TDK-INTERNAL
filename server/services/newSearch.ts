@@ -352,7 +352,7 @@ function normalizeThaiText(text: string): string {
     .toLowerCase();
 }
 
-async function tokenizeWithThaiNormalization(text: string): string[] {
+async function tokenizeWithThaiNormalization(text: string): Promise<string[]> {
   // Simple tokenization without Thai segmentation for documents
   // Thai segmentation should only be used for query processing
 

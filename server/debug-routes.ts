@@ -62,12 +62,13 @@ router.post('/api/debug/ai-input', async (req, res) => {
 
     console.log(`=== AI INPUT DEBUG FOR USER ${userId} ===`);
     console.log(`Search Type: ${searchType}, User Message: ${userMessage}`);
-    console.log(`Document IDs: ${specificDocumentIds ? specificDocumentIds.join(', ') : 'All documents'}`);
+    console.log(`Document IDs: ${specificDocumentIds ? (specificDocumentIds as number[]).join(', ') : 'All documents'}`);
 
     let documentContext = '';
     let searchMetrics: any = {};
     let chunkDetails: any[] = [];
     let searchWorkflow: any = {};
+    let searchResults: any[] = [];
 
     // Capture console output
     const originalLog = console.log;
@@ -94,7 +95,8 @@ router.post('/api/debug/ai-input', async (req, res) => {
 
       if (searchType === 'chunk_split_rank') {
         // Use the enhanced chunk split and rank search
-        const searchService = new semanticSearchServiceV2.SemanticSearchService();
+        const { SemanticSearchServiceV2 } = await import('./services/semanticSearchV2');
+        const searchService = new SemanticSearchServiceV2();
 
         // Parse specific document IDs if provided
         const specificDocumentIds = req.body.specificDocumentIds || options.specificDocumentIds;
@@ -112,7 +114,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
         const vectorResults = await vectorService.searchDocuments(userMessage, userId, 20, specificDocumentIds);
 
         // Store workflow details
-        searchWorkflow.keywordCandidates = keywordResults.map((result, index) => ({
+        searchWorkflow.keywordCandidates = keywordResults.map((result: any, index: number) => ({
           id: result.id,
           documentId: result.id,
           content: result.content,
@@ -120,7 +122,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
           matchType: result.matchType || 'unknown'
         }));
 
-        searchWorkflow.vectorCandidates = vectorResults.map((result, index) => ({
+        searchWorkflow.vectorCandidates = vectorResults.map((result: any, index: number) => ({
           id: result.document.id,
           documentId: result.document.metadata?.originalDocumentId,
           chunkIndex: result.document.chunkIndex,
@@ -151,7 +153,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
           ]
         };
 
-        chunkDetails = searchResults.map((result, index) => ({
+        chunkDetails = searchResults.map((result: any, index: number) => ({
             chunkId: result.chunkId || result.id,
             id: result.chunkId || result.id,
             type: 'chunk_split_rank',

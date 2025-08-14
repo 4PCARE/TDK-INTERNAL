@@ -42,6 +42,14 @@ import Sidebar from "@/components/Sidebar";
 import TopBar from "@/components/TopBar";
 import { apiRequest } from "@/lib/queryClient";
 
+interface AuthUser {
+  role?: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  profileImageUrl?: string;
+}
+
 interface UserData {
   id: string;
   email: string;
@@ -76,6 +84,7 @@ interface Permission {
 
 export default function UserManagement() {
   const { user } = useAuth();
+  const authUser = user as AuthUser;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

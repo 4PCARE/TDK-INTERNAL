@@ -41,6 +41,20 @@ export interface BotResponse {
   imageProcessingPromise?: Promise<string>;
 }
 
+interface MinimalMsg {
+  role: string;
+  content: string;
+  messageType?: string;
+  metadata?: any;
+  createdAt?: Date | string;
+}
+
+interface ChatTurn {
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp?: Date | string;
+}
+
 /**
  * Check if a message is image-related based on keywords
  */
@@ -269,7 +283,7 @@ async function getAiResponseDirectly(
     );
 
     // Get recent chat history if available (mock for now)
-    const recentChatHistory = []; // TODO: Integrate with actual chat history
+    const recentChatHistory: ChatTurn[] = []; // TODO: Integrate with actual chat history
 
     // Build additional context including search configuration
     let additionalContext = `Document scope: ${agentDocIds.length > 0 ? agentDocIds.join(', ') : 'All documents'}`;
@@ -368,9 +382,21 @@ async function getAiResponseDirectly(
         `🤖 AgentBot: Sending ${messages.length} messages to OpenAI (no document search)`,
       );
 
+      // Helper function to check if guardrails are configured
+      const hasGuardrails = (config: any): boolean => {
+        return config && typeof config === 'object' && (
+          'contentFiltering' in config ||
+          'topicControl' in config ||
+          'privacyProtection' in config ||
+          'responseQuality' in config ||
+          'toxicityPrevention' in config ||
+          'businessContext' in config
+        );
+      };
+
       // Initialize guardrails service if configured
       let guardrailsService: GuardrailsService | null = null;
-      if (agentData.guardrailsConfig && typeof agentData.guardrailsConfig === 'object' && 'contentFiltering' in agentData.guardrailsConfig) {
+      if (hasGuardrails(agentData.guardrailsConfig)) {
         guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
         console.log(
           `🛡️ AgentBot: Guardrails enabled for conversation without documents`,
@@ -477,7 +503,7 @@ async function getAiResponseDirectly(
             chunkMaxType: searchConfig.chunkMaxType || 'number',
             chunkMaxValue: searchConfig.chunkMaxValue || 16,
             documentTokenLimit: searchConfig.documentTokenLimit,
-            finalTokenLimit: searchConfig.finalTokenLimit,
+            finalTokenLimit: searchConfig.finalTokenLimit && searchConfig.finalTokenLimit > 0 ? searchConfig.finalTokenLimit : undefined,
           },
         );
 

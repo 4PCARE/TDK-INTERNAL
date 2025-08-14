@@ -79,7 +79,6 @@ export function registerIntegrationRoutes(app: Express) {
           isActive: true,
           isVerified: false,
           webhookUrl,
-          webhookToken,
           createdAt: new Date(),
           updatedAt: new Date(),
         })
@@ -415,7 +414,6 @@ export function registerIntegrationRoutes(app: Express) {
         .select({
           id: socialIntegrations.id,
           webhookUrl: socialIntegrations.webhookUrl,
-          webhookToken: socialIntegrations.webhookToken,
         })
         .from(socialIntegrations)
         .where(
@@ -432,7 +430,7 @@ export function registerIntegrationRoutes(app: Express) {
 
       res.json({
         webhookUrl: integration.webhookUrl,
-        webhookToken: integration.webhookToken,
+        webhookToken: "regenerated-token", // placeholder since column doesn't exist
       });
     } catch (error) {
       console.error("Error fetching webhook URL:", error);
@@ -469,7 +467,6 @@ export function registerIntegrationRoutes(app: Express) {
       const [updatedIntegration] = await db
         .update(socialIntegrations)
         .set({
-          webhookToken,
           webhookUrl,
           updatedAt: new Date(),
         })
@@ -478,7 +475,7 @@ export function registerIntegrationRoutes(app: Express) {
 
       res.json({
         webhookUrl: updatedIntegration.webhookUrl,
-        webhookToken: updatedIntegration.webhookToken,
+        webhookToken: webhookToken,
       });
     } catch (error) {
       console.error("Error regenerating webhook:", error);

@@ -600,8 +600,20 @@ async function getAiResponseDirectly(
       "./services/queryPreprocessor"
     );
 
+    // Helper function to check if guardrails are configured
+    const hasGuardrails = (config: any): boolean => {
+      return config && typeof config === 'object' && (
+        'contentFiltering' in config ||
+        'topicControl' in config ||
+        'privacyProtection' in config ||
+        'responseQuality' in config ||
+        'toxicityPrevention' in config ||
+        'businessContext' in config
+      );
+    };
+
     // Get recent chat history if available (mock for now)
-    const recentChatHistory: any[] = []; // TODO: Integrate with actual chat history
+    const recentChatHistory: Array<{ role: "user" | "assistant" | "system"; content: string; timestamp?: Date | string }> = []; // TODO: Integrate with actual chat history
 
     // Build additional context including search configuration
     let additionalContext = `Document scope: ${agentDocIds.length > 0 ? agentDocIds.join(', ') : 'All documents'}`;
@@ -682,7 +694,7 @@ async function getAiResponseDirectly(
 
       // Initialize guardrails service if configured
       let guardrailsService: GuardrailsService | null = null;
-      if (agentData.guardrailsConfig && typeof agentData.guardrailsConfig === 'object' && 'contentFiltering' in agentData.guardrailsConfig) {
+      if (hasGuardrails(agentData.guardrailsConfig)) {
         guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
         console.log(
           `🛡️ LINE OA: Guardrails enabled for conversation without documents`,
