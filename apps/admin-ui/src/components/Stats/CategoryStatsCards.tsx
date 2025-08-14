@@ -47,7 +47,7 @@ const getCategoryColor = (category: string) => {
 };
 
 export default function CategoryStatsCards() {
-  const { data: categoryStats = [], isLoading } = useQuery({
+  const { data: categoryStats = [] as any[], isLoading } = useQuery({
     queryKey: ["/api/stats/categories"],
   });
 
@@ -81,7 +81,7 @@ export default function CategoryStatsCards() {
   }
 
   // แก้ไขการคำนวณ totalDocuments โดยแปลง count เป็น number ก่อน
-  const totalDocuments = categoryStats.reduce(
+  const totalDocuments = (categoryStats as any[]).reduce(
     (sum: number, stat: CategoryStat) => {
       return sum + Number(stat.count);
     },
@@ -97,7 +97,7 @@ export default function CategoryStatsCards() {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden">
-        {categoryStats.length === 0 ? (
+        {(categoryStats as any[]).length === 0 ? (
           <div className="text-center py-8">
             <Folder className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-500">No documents categorized yet</p>
@@ -107,7 +107,7 @@ export default function CategoryStatsCards() {
           </div>
         ) : (
           <div className="h-full overflow-y-auto space-y-3 pr-2">
-            {categoryStats.map((stat: CategoryStat) => (
+            {(categoryStats as any[]).map((stat: any) => (
               <div
                 key={stat.category}
                 className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"

@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FileText, CheckCircle, HardDrive, Bot, TrendingUp } from "lucide-react";
 
 export default function StatsCards() {
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats = {} as any, isLoading } = useQuery({
     queryKey: ["/api/stats"],
   });
 

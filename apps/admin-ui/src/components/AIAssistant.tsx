@@ -217,7 +217,7 @@ export default function AIAssistant() {
                         <div className="border-t border-slate-200 pt-2 mt-3">
                           <p className="text-xs font-medium text-slate-600 mb-2">Sources:</p>
                           <div className="space-y-1">
-                            {message.sources.map((source, index) => (
+                            {message.sources.map((source: any, index: any) => (
                               <div key={index} className="flex items-center space-x-2 text-xs text-slate-500">
                                 <FileText className="w-3 h-3 text-blue-500" />
                                 <span className="truncate">{source.title}</span>
