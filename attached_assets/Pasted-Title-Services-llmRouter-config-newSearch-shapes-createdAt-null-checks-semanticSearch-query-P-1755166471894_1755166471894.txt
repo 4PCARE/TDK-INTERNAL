@@ -1,0 +1,70 @@
+Title: Services — llmRouter config, newSearch shapes, createdAt null checks, semanticSearch query
+Plan:
+1) server/services/llmRouter.ts:
+   - Make provider non-optional at runtime by defaulting.
+2) server/services/newSearch.ts:
+   - Ensure SearchResult.mimeType is string|undefined, not null.
+   - Avoid reading non-existent result.metadata / result.id fields—use your actual vector result shape.
+   - Declare adaptedKeywordWeight/VectorWeight before use; add normalizedKeywordScore to chunk type; use docId instead of documentId in logs.
+3) server/services/advancedKeywordSearch.ts:
+   - Guard createdAt before toISOString().
+4) server/services/semanticSearch.ts:
+   - Use your builder’s .where correctly, or filter with a .where(sql`...`) if the chain type narrows.
+
+Edits:
+--- a/server/services/llmRouter.ts
++++ b/server/services/llmRouter.ts
+@@
+- this.currentConfig = updatedConfig;
++ this.currentConfig = { provider: updatedConfig.provider ?? 'openai', ...updatedConfig };
+@@
+- const model = this.currentConfig.provider === 'openai'
++ const model = this.currentConfig.provider === 'openai'
+     ? (this.currentConfig.openAIConfig?.model || "gpt-4o-mini")
+     : (this.currentConfig.geminiConfig?.model || "gemini-2.5-flash");
+
+--- a/server/services/newSearch.ts
++++ b/server/services/newSearch.ts
+@@
+- const results: SearchResult[] = selectedChunks.map(chunk => ({
+-   id: String(chunk.docId),
+-   name: /* ... */,
+-   mimeType: chunk.mimeType ?? undefined, // ensure not null
++ const results: SearchResult[] = selectedChunks.map(chunk => ({
++   id: String(chunk.docId),
++   name: /* ... */,
++   mimeType: (chunk.mimeType ?? undefined) as string | undefined,
+@@
+- const docId = parseInt(result.metadata?.originalDocumentId || result.id);
++ const docId = Number((result as any).document?.id ?? (result as any).id ?? 0);
+@@
+- vectorScore * adaptedVectorWeight + keywordScore * adaptedKeywordWeight,
++ let adaptedVectorWeight = vectorWeight;
++ let adaptedKeywordWeight = keywordWeight;
++ const weighted = vectorScore * adaptedVectorWeight + keywordScore * adaptedKeywordWeight;
+@@
+- chunk.normalizedKeywordScore = 0;
++ (chunk as any).normalizedKeywordScore = 0;
+@@
+- console.log(`... ${chunk.documentId}-${chunk.chunkIndex} ... ${(chunk.normalizedKeywordScore || 0)}`);
++ console.log(`... ${chunk.docId}-${chunk.chunkIndex} ... ${((chunk as any).normalizedKeywordScore || 0)}`);
+@@
+- const chunks: string[] = doc.chunks || splitIntoChunks(doc.content || "", 3000, 300);
++ const chunks: string[] = (doc as any).chunks ?? splitIntoChunks(doc.content || "", 3000, 300);
+
+--- a/server/services/advancedKeywordSearch.ts
++++ b/server/services/advancedKeywordSearch.ts
+@@
+- createdAt: document.createdAt.toISOString(),
++ createdAt: (document.createdAt ?? new Date()).toISOString(),
+
+--- a/server/services/semanticSearch.ts
++++ b/server/services/semanticSearch.ts
+@@
+- documentsQuery = documentsQuery.where(
++ // If your query builder type doesn’t expose .where here, use a safe filter wrapper:
++ // documentsQuery = documentsQuery.where(...)
++ // or guard with sql`` expression compatible with your builder.
+
+After:
+- Run `npx tsc --noEmit` and report final error count only.
