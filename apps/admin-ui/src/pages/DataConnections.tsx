@@ -122,6 +122,16 @@ export default function DataConnections() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
+  interface DatabaseFormData {
+  name: string;
+  host: string;
+  port: string;
+  database: string;
+  username: string;
+  password: string;
+  description: string;
+}
+
   const [selectedConnection, setSelectedConnection] = useState<string | null>(null);
   const [postgresDialogOpen, setPostgresDialogOpen] = useState(false);
   const [mysqlDialogOpen, setMysqlDialogOpen] = useState(false);
@@ -130,7 +140,7 @@ export default function DataConnections() {
   const [selectedDatabaseType, setSelectedDatabaseType] = useState<string>('');
 
   // Form states for PostgreSQL
-  const [postgresForm, setPostgresForm] = useState({
+  const [postgresForm, setPostgresForm] = useState<DatabaseFormData>({
     name: "",
     host: "",
     port: "5432",
@@ -141,7 +151,7 @@ export default function DataConnections() {
   });
 
   // Form states for MySQL
-  const [mysqlForm, setMysqlForm] = useState({
+  const [mysqlForm, setMysqlForm] = useState<DatabaseFormData>({
     name: "",
     host: "",
     port: "3306",
@@ -152,11 +162,11 @@ export default function DataConnections() {
   });
 
   // Fetch database connections
-  const { data: connections = [], isLoading: connectionsLoading } = useQuery({
+  const { data: connections = [], isLoading: connectionsLoading } = useQuery<DatabaseConnection[]>({
     queryKey: ['/api/database-connections'],
     enabled: isAuthenticated,
     retry: false,
-  }) as { data: DatabaseConnection[], isLoading: boolean };
+  });
 
   // Create PostgreSQL connection mutation
   const createPostgresMutation = useMutation({

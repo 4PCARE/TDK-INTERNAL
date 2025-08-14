@@ -12,7 +12,24 @@ export default function DocumentDemandInsights() {
     queryClient.invalidateQueries({ queryKey: ["/api/analytics/document-demand"] });
   }, [queryClient]);
 
-  const { data, isLoading, error } = useQuery({
+  interface DocumentDemandData {
+  mostAccessedDocuments?: Array<{
+    documentId: string;
+    documentName: string;
+    category: string;
+    accessCount: number;
+  }>;
+  categoryStats?: Array<{
+    name: string;
+    count: number;
+  }>;
+  timelineData?: Array<{
+    date: string;
+    accessCount: number;
+  }>;
+}
+
+  const { data, isLoading, error } = useQuery<DocumentDemandData>({
     queryKey: ["/api/analytics/document-demand"],
     retry: false,
     refetchOnWindowFocus: false,

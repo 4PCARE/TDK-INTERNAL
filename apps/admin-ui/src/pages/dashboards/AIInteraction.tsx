@@ -18,11 +18,24 @@ export default function AIInteraction() {
     queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
   }, [queryClient]);
 
-  const { data: conversations = [] } = useQuery({
+  interface Conversation {
+  id: string;
+  createdAt: string;
+  [key: string]: any;
+}
+
+interface Document {
+  id: string;
+  name: string;
+  aiCategory?: string;
+  [key: string]: any;
+}
+
+  const { data: conversations = [] } = useQuery<Conversation[]>({
     queryKey: ["/api/chat/conversations"],
   });
 
-  const { data: documents = [] } = useQuery({
+  const { data: documents = [] } = useQuery<Document[]>({
     queryKey: ["/api/documents"],
   });
 

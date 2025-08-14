@@ -54,9 +54,20 @@ export default function LiveChatWidget() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [isDialogOpen, setDialogOpen] = useState(false); // State to control the dialog visibility
 
+  interface WidgetFormData {
+  name: string;
+  welcomeMessage: string;
+  primaryColor: string;
+  textColor: string;
+  position: string;
+  enableHrLookup: boolean;
+  hrApiEndpoint: string;
+  agentId: number | null;
+}
+
   // Form state for creating/editing widgets
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<WidgetFormData>({
     name: "",
     welcomeMessage: "Hi! How can I help you today?",
     primaryColor: "#2563eb",
@@ -64,18 +75,18 @@ export default function LiveChatWidget() {
     position: "bottom-right",
     enableHrLookup: false,
     hrApiEndpoint: '',
-    agentId: null as number | null,
+    agentId: null,
   });
 
   // Get chat widgets
-  const { data: widgets, isLoading: widgetsLoading } = useQuery({
+  const { data: widgets = [], isLoading: widgetsLoading } = useQuery<ChatWidget[]>({
     queryKey: ["/api/chat-widgets"],
     enabled: isAuthenticated,
     retry: false,
   });
 
   // Get available agents
-  const { data: agents, isLoading: agentsLoading } = useQuery({
+  const { data: agents = [], isLoading: agentsLoading } = useQuery<any[]>({
     queryKey: ["/api/agent-chatbots"],
     enabled: isAuthenticated,
     retry: false,
@@ -358,7 +369,7 @@ export default function LiveChatWidget() {
               <CardContent>
                 {widgetsLoading ? (
                   <div className="text-center py-8 text-gray-500">Loading widgets...</div>
-                ) : !widgets || widgets.length === 0 ? (
+                ) : widgets.length === 0 ? (
                   <div className="text-center py-8">
                     <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                     <p className="text-gray-500">No chat widgets yet</p>

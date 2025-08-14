@@ -9,36 +9,67 @@ import { SeededRandom } from "@/utils/seededRandom";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
+// Define interfaces for API responses
+interface SurveyResponse {
+  id: string;
+  satisfaction: string; // Expecting string numbers to be converted
+  easeOfUse: string; // Expecting string numbers to be converted
+  improvements: string;
+  suggestions: string;
+  createdAt: string;
+}
+
+interface SurveyStats {
+  totalResponses: number;
+  averageSatisfaction: number;
+  averageEaseOfUse: number;
+  helpfulCount: number;
+  notHelpfulCount: number;
+  totalFeedback: number;
+}
+
+interface FeedbackTheme {
+  theme: string;
+  count: number;
+  percentage: number;
+}
+
+interface ResponseTrendItem {
+  date: string;
+  responses: number;
+  avgSatisfaction: number;
+}
+
 export default function CustomerSurvey() {
-  const { data: surveyData = [] } = useQuery({
+  const { data: surveyData = [] } = useQuery<SurveyResponse[], Error>({
     queryKey: ["/api/survey/responses"],
   });
 
-  const { data: surveyStats = {} } = useQuery({
+  const { data: surveyStats } = useQuery<SurveyStats, Error>({
     queryKey: ["/api/survey/stats"],
   });
 
   // Calculate metrics
   const totalResponses = surveyData.length;
-  const averageSatisfaction = surveyData.length > 0 
-    ? (surveyData.reduce((sum: number, response: any) => sum + parseInt(response.satisfaction), 0) / surveyData.length).toFixed(1)
-    : 0;
+  const averageSatisfaction = surveyData.length > 0
+    ? (surveyData.reduce((sum: number, response) => sum + Number(response.satisfaction), 0) / surveyData.length).toFixed(1)
+    : "0";
 
   const averageEaseOfUse = surveyData.length > 0
-    ? (surveyData.reduce((sum: number, response: any) => sum + parseInt(response.easeOfUse), 0) / surveyData.length).toFixed(1)
-    : 0;
+    ? (surveyData.reduce((sum: number, response) => sum + Number(response.easeOfUse), 0) / surveyData.length).toFixed(1)
+    : "0";
 
   // Satisfaction distribution
   const satisfactionDistribution = [1, 2, 3, 4, 5].map(rating => ({
     rating: `${rating} Star${rating > 1 ? 's' : ''}`,
-    count: surveyData.filter((response: any) => parseInt(response.satisfaction) === rating).length,
+    count: surveyData.filter((response: SurveyResponse) => Number(response.satisfaction) === rating).length,
     color: COLORS[rating - 1]
   }));
 
   // Ease of use distribution
   const easeOfUseDistribution = [1, 2, 3, 4, 5].map(rating => ({
     rating: `${rating} Star${rating > 1 ? 's' : ''}`,
-    count: surveyData.filter((response: any) => parseInt(response.easeOfUse) === rating).length,
+    count: surveyData.filter((response: SurveyResponse) => Number(response.easeOfUse) === rating).length,
     color: COLORS[rating - 1]
   }));
 
@@ -46,26 +77,40 @@ export default function CustomerSurvey() {
   const responseTrend = Array.from({ length: 30 }, (_, i) => {
     const date = new Date();
     date.setDate(date.getDate() - (29 - i));
-    const dayResponses = surveyData.filter((response: any) => {
+    const dayResponses = surveyData.filter((response: SurveyResponse) => {
       const responseDate = new Date(response.createdAt);
       return responseDate.toDateString() === date.toDateString();
     });
     return {
       date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       responses: dayResponses.length,
-      avgSatisfaction: dayResponses.length > 0 
-        ? dayResponses.reduce((sum: number, r: any) => sum + parseInt(r.satisfaction), 0) / dayResponses.length 
+      avgSatisfaction: dayResponses.length > 0
+        ? dayResponses.reduce((sum: number, r: SurveyResponse) => sum + Number(r.satisfaction), 0) / dayResponses.length
         : 0
     };
   });
 
   // Common feedback themes (mock analysis)
-  const feedbackThemes = [
-    { theme: "UI/UX Improvements", count: 12, percentage: 35 },
-    { theme: "Search Functionality", count: 8, percentage: 24 },
+  const feedbackThemes: FeedbackTheme[] = [
+    { theme: "UI/UX Improvements", count: surveyStats?.helpfulCount || 12, percentage: 35 },
+    { theme: "Search Functionality", count: surveyStats?.notHelpfulCount || 8, percentage: 24 },
     { theme: "Performance", count: 6, percentage: 18 },
     { theme: "AI Features", count: 5, percentage: 15 },
     { theme: "Document Management", count: 3, percentage: 8 }
+  ];
+
+  // Category breakdown
+  const categoryData = [
+    {
+      name: "Helpful",
+      value: surveyStats?.helpfulCount || 0,
+      color: "#10b981",
+    },
+    {
+      name: "Not Helpful",
+      value: surveyStats?.notHelpfulCount || 0,
+      color: "#ef4444",
+    },
   ];
 
   return (
@@ -93,7 +138,7 @@ export default function CustomerSurvey() {
                 </div>
                 <Star className="w-8 h-8 text-yellow-500" />
               </div>
-              <Progress value={parseFloat(averageSatisfaction) * 20} className="mt-2" />
+              <Progress value={Number(averageSatisfaction) * 20} className="mt-2" />
             </CardContent>
           </Card>
 
@@ -106,7 +151,7 @@ export default function CustomerSurvey() {
                 </div>
                 <TrendingUp className="w-8 h-8 text-green-500" />
               </div>
-              <Progress value={parseFloat(averageEaseOfUse) * 20} className="mt-2" />
+              <Progress value={Number(averageEaseOfUse) * 20} className="mt-2" />
             </CardContent>
           </Card>
 
@@ -127,7 +172,7 @@ export default function CustomerSurvey() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Feedback Items</p>
-                  <p className="text-2xl font-bold text-gray-900">{feedbackThemes.reduce((sum, theme) => sum + theme.count, 0)}</p>
+                  <p className="text-2xl font-bold text-gray-900">{surveyStats?.totalFeedback || 0}</p>
                 </div>
                 <MessageSquare className="w-8 h-8 text-purple-500" />
               </div>
@@ -199,7 +244,7 @@ export default function CustomerSurvey() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={responseTrend}>
+                <LineChart data={responseTrend as ResponseTrendItem[]}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
@@ -218,7 +263,7 @@ export default function CustomerSurvey() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {feedbackThemes.map((theme, index) => (
+                {feedbackThemes.map((theme) => (
                   <div key={theme.theme} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">{theme.theme}</span>
@@ -239,7 +284,7 @@ export default function CustomerSurvey() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {surveyData.slice(0, 5).map((response: any, index: number) => (
+              {surveyData.slice(0, 5).map((response, index) => (
                 <div key={index} className="border-l-4 border-blue-500 pl-4 py-2">
                   <div className="flex items-center space-x-2 mb-2">
                     <div className="flex items-center">
@@ -247,7 +292,7 @@ export default function CustomerSurvey() {
                         <Star
                           key={star}
                           className={`w-4 h-4 ${
-                            star <= parseInt(response.satisfaction)
+                            star <= Number(response.satisfaction)
                               ? 'fill-yellow-400 text-yellow-400'
                               : 'text-gray-300'
                           }`}

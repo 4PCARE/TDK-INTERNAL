@@ -107,15 +107,36 @@ export default function UserFeedback() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
+  interface FeedbackStats {
+  totalFeedback: number;
+  helpfulCount: number;
+  notHelpfulCount: number;
+}
+
+interface FeedbackItem {
+  id: string;
+  feedbackType: 'helpful' | 'not_helpful';
+  userQuery: string;
+  assistantResponse: string;
+  userNote?: string;
+  documentName?: string;
+  documentId?: string;
+  aiCategory?: string;
+  aiCategoryColor?: string;
+  tags?: string[];
+  documentContext?: any;
+  createdAt: string;
+}
+
   // Fetch feedback statistics
-  const { data: feedbackStats, isLoading: statsLoading } = useQuery({
+  const { data: feedbackStats, isLoading: statsLoading } = useQuery<FeedbackStats>({
     queryKey: ["/api/ai-feedback/stats"],
     enabled: isAuthenticated,
     retry: false,
   });
 
   // Fetch all feedback data or document-specific feedback
-  const { data: allFeedback = [], isLoading: feedbackLoading } = useQuery({
+  const { data: allFeedback = [], isLoading: feedbackLoading } = useQuery<FeedbackItem[]>({
     queryKey: documentId
       ? [`/api/documents/${documentId}/feedback`]
       : ["/api/ai-feedback/export"],
@@ -204,19 +225,15 @@ export default function UserFeedback() {
   };
 
   // Get unique AI categories for filtering
-  const aiCategories = Array.isArray(allFeedback) 
-    ? Array.from(new Set(allFeedback.map((feedback: any) => feedback.aiCategory).filter(Boolean)))
-    : [];
+  const aiCategories = Array.from(new Set(allFeedback.map((feedback: FeedbackItem) => feedback.aiCategory).filter(Boolean)));
 
   // Get unique tags for filtering
-  const allTags = Array.isArray(allFeedback) 
-    ? Array.from(new Set(
-        allFeedback
-          .filter((feedback: any) => feedback.tags && Array.isArray(feedback.tags))
-          .flatMap((feedback: any) => feedback.tags)
-          .filter(Boolean)
-      ))
-    : [];
+  const allTags = Array.from(new Set(
+    allFeedback
+      .filter((feedback: FeedbackItem) => feedback.tags && Array.isArray(feedback.tags))
+      .flatMap((feedback: FeedbackItem) => feedback.tags || [])
+      .filter(Boolean)
+  ));
 
   const convertToCSV = (data: any[]) => {
     const headers = [
@@ -242,9 +259,7 @@ export default function UserFeedback() {
   };
 
   // Filter feedback based on search and filter criteria
-  const filteredFeedback = (
-    Array.isArray(allFeedback) ? allFeedback : []
-  ).filter((feedback: any) => {
+  const filteredFeedback = allFeedback.filter((feedback: FeedbackItem) => {
     const matchesType =
       filterType === "all" || feedback.feedbackType === filterType;
     const matchesSearch =
@@ -303,16 +318,16 @@ export default function UserFeedback() {
     date.setDate(date.getDate() - (6 - i));
     const dateStr = date.toISOString().split("T")[0];
 
-    const dayFeedback = (Array.isArray(allFeedback) ? allFeedback : []).filter(
-      (f: any) => f.createdAt.startsWith(dateStr),
+    const dayFeedback = allFeedback.filter(
+      (f: FeedbackItem) => f.createdAt.startsWith(dateStr),
     );
 
     return {
       date: format(date, "MM/dd"),
-      helpful: dayFeedback.filter((f: any) => f.feedbackType === "helpful")
+      helpful: dayFeedback.filter((f: FeedbackItem) => f.feedbackType === "helpful")
         .length,
       not_helpful: dayFeedback.filter(
-        (f: any) => f.feedbackType === "not_helpful",
+        (f: FeedbackItem) => f.feedbackType === "not_helpful",
       ).length,
       total: dayFeedback.length,
     };
@@ -322,12 +337,12 @@ export default function UserFeedback() {
   const categoryData = [
     {
       name: "Helpful",
-      value: (feedbackStats as any)?.helpfulCount || 0,
+      value: feedbackStats?.helpfulCount || 0,
       color: "#10b981",
     },
     {
       name: "Not Helpful",
-      value: (feedbackStats as any)?.notHelpfulCount || 0,
+      value: feedbackStats?.notHelpfulCount || 0,
       color: "#ef4444",
     },
   ];
@@ -401,7 +416,7 @@ export default function UserFeedback() {
                       Total Feedback
                     </p>
                     <p className="text-2xl font-bold text-slate-900">
-                      {(feedbackStats as any)?.totalFeedback || 0}
+                      {feedbackStats?.totalFeedback || 0}
                     </p>
                   </div>
                 </div>
@@ -419,7 +434,7 @@ export default function UserFeedback() {
                       Helpful
                     </p>
                     <p className="text-2xl font-bold text-green-600">
-                      {(feedbackStats as any)?.helpfulCount || 0}
+                      {feedbackStats?.helpfulCount || 0}
                     </p>
                   </div>
                 </div>
@@ -437,7 +452,7 @@ export default function UserFeedback() {
                       Not Helpful
                     </p>
                     <p className="text-2xl font-bold text-red-600">
-                      {(feedbackStats as any)?.notHelpfulCount || 0}
+                      {feedbackStats?.notHelpfulCount || 0}
                     </p>
                   </div>
                 </div>
@@ -455,10 +470,10 @@ export default function UserFeedback() {
                       Satisfaction Rate
                     </p>
                     <p className="text-2xl font-bold text-purple-600">
-                      {(feedbackStats as any)?.totalFeedback > 0
+                      {feedbackStats?.totalFeedback && feedbackStats.totalFeedback > 0
                         ? Math.round(
-                            ((feedbackStats as any).helpfulCount /
-                              (feedbackStats as any).totalFeedback) *
+                            ((feedbackStats.helpfulCount || 0) /
+                              feedbackStats.totalFeedback) *
                               100,
                           )
                         : 0}

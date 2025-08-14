@@ -132,6 +132,15 @@ export default function Integrations() {
 
 
 
+  interface LineOaFormData {
+  name: string;
+  channelId: string;
+  channelSecret: string;
+  channelAccessToken: string;
+  agentId: string;
+  description: string;
+}
+
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
   const [lineOaDialogOpen, setLineOaDialogOpen] = useState(false);
   const [editingIntegration, setEditingIntegration] = useState<SocialIntegration | null>(null);
@@ -140,7 +149,7 @@ export default function Integrations() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   // Form states for Line OA
-  const [lineOaForm, setLineOaForm] = useState({
+  const [lineOaForm, setLineOaForm] = useState<LineOaFormData>({
     name: "",
     channelId: "",
     channelSecret: "",
@@ -150,7 +159,7 @@ export default function Integrations() {
   });
 
   // Form states for editing
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<LineOaFormData>({
     name: "",
     channelId: "",
     channelSecret: "",
@@ -160,7 +169,7 @@ export default function Integrations() {
   });
 
   // Fetch social integrations
-  const { data: integrations = [], isLoading: integrationsLoading, error: integrationsError } = useQuery({
+  const { data: integrations = [], isLoading: integrationsLoading, error: integrationsError } = useQuery<SocialIntegration[]>({
     queryKey: ["/api/social-integrations"],
     retry: (failureCount, error: any) => {
       // Don't retry on auth errors
@@ -173,11 +182,11 @@ export default function Integrations() {
   });
 
   // Fetch agent chatbots for selection
-  const { data: agents = [] } = useQuery({
+  const { data: agents = [] } = useQuery<AgentChatbot[]>({
     queryKey: ['/api/agent-chatbots'],
     enabled: isAuthenticated,
     retry: false,
-  }) as { data: AgentChatbot[] };
+  });
 
   // Create Line OA integration mutation
   const createLineOaMutation = useMutation({

@@ -10,15 +10,25 @@ import type { Document } from "@shared/schema";
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
 export default function DocumentUsage() {
+  interface CategoryStat {
+  category: string;
+  count: number;
+}
+
+interface TagStat {
+  tag: string;
+  count: number;
+}
+
   const { data: documents = [] } = useQuery<Document[]>({
     queryKey: ["/api/documents"],
   });
 
-  const { data: categoryStats = [] } = useQuery({
+  const { data: categoryStats = [] } = useQuery<CategoryStat[]>({
     queryKey: ["/api/stats/categories"],
   });
 
-  const { data: tagStats = [] } = useQuery({
+  const { data: tagStats = [] } = useQuery<TagStat[]>({
     queryKey: ["/api/stats/tags"],
   });
 
@@ -200,7 +210,7 @@ export default function DocumentUsage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {Array.isArray(categoryStats) && categoryStats.length > 0 ? categoryStats.map((stat: any, index: number) => (
+                {categoryStats.length > 0 ? categoryStats.map((stat: CategoryStat, index: number) => (
                   <div key={stat.category} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <div 
@@ -248,7 +258,7 @@ export default function DocumentUsage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3 max-h-72 overflow-y-auto">
-                {Array.isArray(tagStats) && tagStats.length > 0 ? tagStats.slice(0, 15).map((stat: any, index: number) => (
+                {tagStats.length > 0 ? tagStats.slice(0, 15).map((stat: TagStat, index: number) => (
                   <div key={stat.tag} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <div 
