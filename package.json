@@ -4,7 +4,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "concurrently \"npm run legacy\" \"npm run gateway\" \"npm auth-svc\" \"npm run doc-ingest\"",
+    "dev": "concurrently \"npm run legacy\" \"npm run gateway\" \"npm run auth-svc\" \"npm run doc-ingest\"",
     "legacy": "cd server && npx tsx index.ts",
     "gateway": "cd services/api-gateway && npm run dev",
     "auth-svc": "cd services/auth-svc && npm run dev",

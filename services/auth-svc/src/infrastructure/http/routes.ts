@@ -34,7 +34,7 @@ export function registerRoutes(app: Express): void {
       }
 
       const roles = userRoles ? userRoles.split(',').map(r => r.trim()) : ['user'];
-      
+
       const payload = {
         id: userId,
         email: userEmail || `${userId}@replit.user`,
@@ -81,7 +81,7 @@ export function registerRoutes(app: Express): void {
 
     // Check if user is still authenticated via Replit headers
     const userId = req.headers['x-replit-user-id'] as string;
-    
+
     if (!userId) {
       return res.status(401).json({ message: "Session expired" });
     }

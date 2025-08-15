@@ -5,6 +5,7 @@ import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
+import { join } from "path";
 
 const viteLogger = createLogger();
 
@@ -38,6 +39,7 @@ export async function setupVite(app: Express, server: Server) {
     },
     server: serverOptions,
     appType: "custom",
+    root: join(import.meta.dirname, '..', 'apps', 'admin-ui'),
   });
 
   app.use(vite.middlewares);

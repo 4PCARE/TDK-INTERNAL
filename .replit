@@ -93,7 +93,7 @@ args = "npm run legacy"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run gateway  "
+args = "npm run gateway"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"

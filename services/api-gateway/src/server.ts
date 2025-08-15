@@ -1,4 +1,3 @@
-
 import { createApp } from './index.js';
 
 const PORT = process.env.API_GATEWAY_PORT || 8080;
@@ -6,7 +5,7 @@ const PORT = process.env.API_GATEWAY_PORT || 8080;
 async function startServer() {
   try {
     const app = createApp();
-    
+
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🌐 API Gateway running on port ${PORT}`);
       console.log(`📋 Health check: http://0.0.0.0:${PORT}/healthz`);
