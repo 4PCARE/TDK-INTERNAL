@@ -7,15 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     runtimeErrorOverlay(),
-    // Temporarily disabled cartographer plugin to fix HMR conflicts
-    // ...(process.env.NODE_ENV !== "production" &&
-    // process.env.REPL_ID !== undefined
-    //   ? [
-    //       await import("@replit/vite-plugin-cartographer").then((m) =>
-    //         m.cartographer(),
-    //       ),
-    //     ]
-    //   : []),
+    // Cartographer plugin disabled to prevent RefreshRuntime conflicts
   ],
   resolve: {
     alias: {
