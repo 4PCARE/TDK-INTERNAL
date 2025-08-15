@@ -7,7 +7,12 @@ export default defineConfig({
   plugins: [
     react(),
     runtimeErrorOverlay(),
-    // Cartographer plugin disabled to prevent RefreshRuntime conflicts
+    // Conditionally load Cartographer only in specific environments
+    ...(process.env.NODE_ENV === "development" && 
+        process.env.REPL_ID !== undefined && 
+        !process.env.DISABLE_CARTOGRAPHER
+      ? []  // Disabled for now to prevent conflicts
+      : []),
   ],
   resolve: {
     alias: {
@@ -26,5 +31,8 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+  },
+  define: {
+    __DEV__: process.env.NODE_ENV === "development",
   },
 });
