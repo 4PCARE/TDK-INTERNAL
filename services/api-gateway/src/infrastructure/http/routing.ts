@@ -138,23 +138,11 @@ export function registerLegacyRoutes(app: any) {
   }));
 
   // Agent service routes
-  app.use('/api/chat', createProxyMiddleware({
-    target: 'http://localhost:3005',
-    changeOrigin: true,
-    pathRewrite: {
-      '^/api/chat': '/chat'
-    },
-    logLevel: 'debug'
-  }));
+  app.use('/api/chat', createProxyMiddleware('http://localhost:3004'));
 
-  app.use('/api/sessions', createProxyMiddleware({
-    target: 'http://localhost:3005',
-    changeOrigin: true,
-    pathRewrite: {
-      '^/api/sessions': '/sessions'
-    },
-    logLevel: 'debug'
-  }));
+  // Embedding service routes
+  app.use('/api/embeddings', createProxyMiddleware('http://localhost:3005'));
+  app.use('/api/vectors', createProxyMiddleware('http://localhost:3005'));
 
   // Default: everything else -> legacy server
   app.use("*", async (req: Request, res: Response) => {
