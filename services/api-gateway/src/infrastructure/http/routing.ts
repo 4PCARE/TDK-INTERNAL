@@ -144,21 +144,19 @@ export function registerLegacyRoutes(app: any) {
   app.use('/api/embeddings', createProxyMiddleware('http://localhost:3005'));
   app.use('/api/vectors', createProxyMiddleware('http://localhost:3005'));
 
-  // CSAT Service
-    {
-      path: '/api/csat',
-      target: 'http://localhost:3006',
-      changeOrigin: true,
-      timeout: 30000
-    },
+  // CSAT Service routes
+  app.use('/api/csat', createProxyMiddleware({
+    target: 'http://localhost:3006',
+    changeOrigin: true,
+    timeout: 30000
+  }));
 
-    // Health Monitor Service
-    {
-      path: '/api/health',
-      target: 'http://localhost:3007',
-      changeOrigin: true,
-      timeout: 10000
-    }
+  // Health Monitor Service routes
+  app.use('/api/health', createProxyMiddleware({
+    target: 'http://localhost:3007',
+    changeOrigin: true,
+    timeout: 10000
+  }));
 
   // Default: everything else -> legacy server
   app.use("*", async (req: Request, res: Response) => {
