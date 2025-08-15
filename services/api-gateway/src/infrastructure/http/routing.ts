@@ -144,6 +144,9 @@ export function registerLegacyRoutes(app: any) {
   app.use('/api/embeddings', createProxyMiddleware('http://localhost:3005'));
   app.use('/api/vectors', createProxyMiddleware('http://localhost:3005'));
 
+  // CSAT service routes
+  app.use('/api/csat', createProxyMiddleware('http://localhost:3006'));
+
   // Default: everything else -> legacy server
   app.use("*", async (req: Request, res: Response) => {
     try {
