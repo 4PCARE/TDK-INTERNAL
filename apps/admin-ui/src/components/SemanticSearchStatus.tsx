@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Brain, Database, RefreshCw, CheckCircle, AlertCircle, Zap } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardHeader, CardTitle } from "./card";
+import { Button } from "./button";
+import { Progress } from "./progress";
+import { Badge } from "./badge";
+import { useToast } from "../../hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function SemanticSearchStatus() {

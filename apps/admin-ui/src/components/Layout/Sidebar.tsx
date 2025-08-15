@@ -1,12 +1,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { Button } from "./button";
+import { Badge } from "./badge";
+import { cn } from "../../lib/utils";
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/useAuth";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "../../hooks/useAuth";
+import { useIsMobile } from "../../hooks/use-mobile";
 import { 
   LayoutDashboard,
   FileText,

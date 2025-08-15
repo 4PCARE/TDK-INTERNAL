@@ -1,7 +1,7 @@
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "../../hooks/useAuth";
+import { Button } from "./button";
+import { Input } from "./input";
+import { Avatar, AvatarFallback, AvatarImage } from "./avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,8 +9,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
+} from "./dropdown-menu";
+import { Badge } from "./badge";
 import {
   Search,
   Plus,
@@ -24,7 +24,7 @@ import {
 import kingpowerLogo from "@assets/kingpower_1750867302870.webp";
 import { useState } from "react";
 import NotificationSystem from "./NotificationSystem";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "../../hooks/use-mobile";
 
 interface TopBarProps {
   isSidebarCollapsed?: boolean;

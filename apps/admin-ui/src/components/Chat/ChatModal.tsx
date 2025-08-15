@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "./button";
+import { Input } from "./input";
+import { ScrollArea } from "./scroll-area";
 import { X, Bot, User, Send } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { ResizableDialog } from "@/components/ui/resizable-dialog";
-import { FeedbackButtons } from "@/components/FeedbackButtons";
+import { useToast } from "../../hooks/use-toast";
+import { ResizableDialog } from "./resizable-dialog";
+import { FeedbackButtons } from "../components/FeedbackButtons";
 
 interface ChatModalProps {
   isOpen: boolean;

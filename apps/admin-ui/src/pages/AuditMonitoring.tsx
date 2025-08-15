@@ -1,17 +1,17 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "../../hooks/useAuth";
+import { useToast } from "../../hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import Sidebar from "@/components/Layout/Sidebar";
-import TopBar from "@/components/TopBar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import Sidebar from "../components/Layout/Sidebar";
+import TopBar from "../components/TopBar";
+import { Card, CardContent, CardHeader, CardTitle } from "./card";
+import { Button } from "./button";
+import { Input } from "./input";
+import { Badge } from "./badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
+import { Calendar } from "./calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import {
   Shield,
   Activity,
@@ -30,7 +30,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { format } from "date-fns";
-import DashboardLayout from "@/components/Layout/DashboardLayout";
+import DashboardLayout from "../components/Layout/DashboardLayout";
 
 interface AuditStats {
   totalActions?: number;

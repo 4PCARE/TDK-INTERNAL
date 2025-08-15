@@ -5,31 +5,31 @@ import {
   Eye, Trash2, MoreHorizontal, Calendar, HardDrive, Hash, Star, StarOff,
   BookOpen, Database, Plus, MessageSquare, ThumbsUp, Shield, Trophy
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "./card";
+import { Badge } from "./badge";
+import { Button } from "./button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "./dropdown-menu";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "./dialog";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { useToast } from "@/hooks/use-toast";
+} from "./tooltip";
+import { useToast } from "../../hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 import { format } from "date-fns";
 import DocumentChatModal from "./Chat/DocumentChatModal";
 import ContentSummaryModal from "./ContentSummaryModal";

@@ -1,11 +1,11 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
-import DashboardLayout from "@/components/Layout/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "./card";
+import { Badge } from "./badge";
+import { Button } from "./button";
+import { useAuth } from "../../hooks/useAuth";
+import DashboardLayout from "../components/Layout/DashboardLayout";
 import { 
   Settings, 
   Users, 

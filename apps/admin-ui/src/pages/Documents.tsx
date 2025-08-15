@@ -1,15 +1,15 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "../hooks/useAuth";
+import { useToast } from "../hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import DashboardLayout from "@/components/Layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import DashboardLayout from "../components/Layout/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Badge } from "../components/ui/badge";
+import { Avatar, AvatarFallback } from "../components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { 
   FileText, 
   Search, 
@@ -30,17 +30,17 @@ import {
   Users,
   Upload
 } from "lucide-react";
-import DocumentCard from "@/components/DocumentCard";
-import ShareDocumentDialog from "@/components/ShareDocumentDialog";
-import DocumentEndorsementDialog from "@/components/DocumentEndorsementDialog";
-import ContentSummaryModal from "@/components/ContentSummaryModal";
-import DocumentChatModal from "@/components/Chat/DocumentChatModal";
-import UploadZone from "@/components/Upload/UploadZone";
+import DocumentCard from "../components/DocumentCard";
+import ShareDocumentDialog from "../components/ShareDocumentDialog";
+import DocumentEndorsementDialog from "../components/DocumentEndorsementDialog";
+import ContentSummaryModal from "../components/ContentSummaryModal";
+import DocumentChatModal from "../components/Chat/DocumentChatModal";
+import UploadZone from "../components/Upload/UploadZone";
 import { ChevronDown, Star, Grid3X3, List as ListIcon, SortAsc, SortDesc } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
-import { Checkbox } from "@/components/ui/checkbox";
-import VectorizeAllButton from "@/components/VectorizeAllButton";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "../components/ui/command";
+import { Checkbox } from "../components/ui/checkbox";
+import VectorizeAllButton from "../components/VectorizeAllButton";
 
 export default function Documents() {
   const { toast } = useToast();

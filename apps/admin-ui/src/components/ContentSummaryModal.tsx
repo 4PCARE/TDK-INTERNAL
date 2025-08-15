@@ -7,10 +7,10 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+} from "./dialog";
+import { Button } from "./button";
+import { Badge } from "./badge";
+import { useToast } from "../../hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
 interface ContentSummaryModalProps {

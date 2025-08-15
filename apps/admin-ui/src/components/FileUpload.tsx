@@ -1,9 +1,9 @@
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
+import { Button } from "./button";
+import { Card, CardContent } from "./card";
+import { Progress } from "./progress";
+import { cn } from "../../lib/utils";
 import { 
   CloudUpload, 
   File, 

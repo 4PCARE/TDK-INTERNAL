@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import DocumentCard from "./DocumentCard";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "./skeleton";
 
 export default function DocumentGrid() {
   const { data: documents = [], isLoading } = useQuery({

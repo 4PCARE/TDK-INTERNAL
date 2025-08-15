@@ -1,23 +1,23 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useAuth } from "../hooks/useAuth";
+import { useToast } from "../hooks/use-toast";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+} from "../components/ui/select";
+import { Input } from "../components/ui/input";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from "../components/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -25,18 +25,18 @@ import {
   CommandItem,
   CommandGroup,
   CommandList
-} from "@/components/ui/command";
-import { Checkbox } from "@/components/ui/checkbox";
+} from "../components/ui/command";
+import { Checkbox } from "../components/ui/checkbox";
 import { ChevronDown } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "../components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "../components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import {
   ThumbsUp,
   ThumbsDown,
@@ -53,7 +53,7 @@ import {
   Hash,
 } from "lucide-react";
 import { format } from "date-fns";
-import DashboardLayout from "@/components/Layout/DashboardLayout";
+import DashboardLayout from "../components/Layout/DashboardLayout";
 import {
   BarChart,
   Bar,
@@ -70,7 +70,7 @@ import {
   Area,
   AreaChart,
 } from "recharts";
-import { Label } from "@/components/ui/label";
+import { Label } from "../components/ui/label";
 
 export default function UserFeedback() {
   const { isAuthenticated, isLoading } = useAuth();

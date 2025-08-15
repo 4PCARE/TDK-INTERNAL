@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { useAuth } from "../../hooks/useAuth";
+import { Button } from "./button";
+import { Input } from "./input";
+import { Avatar, AvatarFallback, AvatarImage } from "./avatar";
+import { Badge } from "./badge";
 import { Search, Bell, Plus, Menu, X } from "lucide-react";
 import Sidebar from "./Sidebar";
-import StatsCards from "@/components/Stats/StatsCards";
-import UploadZone from "@/components/Upload/UploadZone";
-import DocumentGrid from "@/components/Documents/DocumentGrid";
-import UploadModal from "@/components/Upload/UploadModal";
-import ChatModal from "@/components/Chat/ChatModal";
+import StatsCards from "../components/Stats/StatsCards";
+import UploadZone from "../components/Upload/UploadZone";
+import DocumentGrid from "../components/Documents/DocumentGrid";
+import UploadModal from "../components/Upload/UploadModal";
+import ChatModal from "../components/Chat/ChatModal";
 
 export default function AppShell() {
   const { user } = useAuth() as { user: { profileImageUrl?: string; firstName?: string; lastName?: string; role?: string } | undefined };

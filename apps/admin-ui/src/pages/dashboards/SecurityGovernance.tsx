@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
 import { Shield, Lock, UserCheck, AlertTriangle, Eye, FileText } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Cell, LineChart, Line, Legend, Pie } from "recharts";
-import DashboardLayout from "@/components/Layout/DashboardLayout";
-import { SeededRandom } from "@/utils/seededRandom";
+import DashboardLayout from "../components/Layout/DashboardLayout";
+import { SeededRandom } from "../../utils/seededRandom";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 

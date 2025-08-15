@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "./button";
+import { Input } from "./input";
+import { Card, CardContent } from "./card";
+import { Badge } from "./badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
 import { 
   Search, 
   Zap, 

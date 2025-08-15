@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "./card";
 import { FileText, CheckCircle, HardDrive, Bot, TrendingUp } from "lucide-react";
 
 export default function StatsCards() {
