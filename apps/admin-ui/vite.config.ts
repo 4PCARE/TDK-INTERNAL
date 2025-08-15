@@ -7,7 +7,6 @@ export default defineConfig({
   plugins: [
     react(),
     runtimeErrorOverlay(),
-    // Cartographer disabled to prevent React Fast Refresh conflicts
   ],
   resolve: {
     alias: {
