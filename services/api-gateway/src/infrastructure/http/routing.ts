@@ -131,7 +131,29 @@ export function registerLegacyRoutes(app: any) {
   app.use('/api/search', createProxyMiddleware({
     target: 'http://localhost:3004',
     changeOrigin: true,
-    pathRewrite: { '^/api/search': '' }
+    pathRewrite: {
+      '^/api/search': ''
+    },
+    logLevel: 'debug'
+  }));
+
+  // Agent service routes
+  app.use('/api/chat', createProxyMiddleware({
+    target: 'http://localhost:3005',
+    changeOrigin: true,
+    pathRewrite: {
+      '^/api/chat': '/chat'
+    },
+    logLevel: 'debug'
+  }));
+
+  app.use('/api/sessions', createProxyMiddleware({
+    target: 'http://localhost:3005',
+    changeOrigin: true,
+    pathRewrite: {
+      '^/api/sessions': '/sessions'
+    },
+    logLevel: 'debug'
   }));
 
   // Default: everything else -> legacy server

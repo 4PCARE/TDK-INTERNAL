@@ -107,5 +107,9 @@ args = "npm run doc-ingest"
 task = "shell.exec"
 args = "npm run search-svc"
 
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run agent-svc"
+
 [agent]
 integrations = ["javascript_gemini==1.0.0", "javascript_database==1.0.0", "javascript_websocket==1.0.0", "javascript_openai==1.0.0"]

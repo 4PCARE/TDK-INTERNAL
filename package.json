@@ -10,6 +10,7 @@
     "auth-svc": "cd services/auth-svc && npm run dev",
     "doc-ingest": "cd services/doc-ingest-svc && npm run dev",
     "search-svc": "cd services/search-svc && npm run dev",
+    "agent-svc": "cd services/agent-svc && npm run dev",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
