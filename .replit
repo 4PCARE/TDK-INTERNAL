@@ -19,6 +19,7 @@ localPort = 5001
 externalPort = 3000
 
 [workflows]
+runButton = "Dev Services"
 
 [[workflows.workflow]]
 name = "Project"
@@ -64,6 +65,23 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev"
+
+[[workflows.workflow]]
+name = "Dev Services"
+author = 43981095
+mode = "parallel"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run legacy"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run gateway  "
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run auth-svc"
 
 [agent]
 integrations = ["javascript_gemini==1.0.0", "javascript_database==1.0.0", "javascript_websocket==1.0.0", "javascript_openai==1.0.0"]

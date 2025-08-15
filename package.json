@@ -4,7 +4,9 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"npm run client\" \"npm run auth-svc\"",
+    "dev": "concurrently \"npm run legacy\" \"npm run gateway\" \"npm run auth-svc\"",
+    "legacy": "cd server && npx ts-node-esm index.ts",
+    "gateway": "cd services/api-gateway && npm run dev",
     "auth-svc": "cd services/auth-svc && npm run dev",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
