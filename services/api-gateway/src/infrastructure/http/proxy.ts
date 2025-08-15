@@ -1,3 +1,22 @@
+import { createProxyMiddleware } from 'http-proxy-middleware';
+
+export const proxyToLegacy = createProxyMiddleware({
+  target: process.env.LEGACY_BASE_URL || 'http://localhost:5000',
+  changeOrigin: true,
+  logLevel: 'debug'
+});
+
+export function proxyToService(serviceName: string, port: number) {
+  return createProxyMiddleware({
+    target: `http://localhost:${port}`,
+    changeOrigin: true,
+    pathRewrite: {
+      [`^/api/${serviceName.replace('-svc', '')}`]: ''
+    },
+    logLevel: 'debug'
+  });
+}
+
 export async function proxy(req: any, baseUrl: string, path: string) {
   const url = new URL(path, baseUrl).toString();
   const method = (req.method || "GET").toUpperCase();
