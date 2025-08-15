@@ -8,6 +8,9 @@ export default defineConfig({
     react(),
     runtimeErrorOverlay(),
   ],
+  css: {
+    postcss: "./postcss.config.js",
+  },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
@@ -23,22 +26,12 @@ export default defineConfig({
   },
   server: {
     host: "0.0.0.0",
-    port: 3003,
     fs: {
       strict: true,
       deny: ["**/.*"],
     },
-    proxy: {
-      '/api': {
-        target: 'http://0.0.0.0:5000',
-        changeOrigin: true,
-        secure: false
-      },
-      '/uploads': {
-        target: 'http://0.0.0.0:5000',
-        changeOrigin: true,
-        secure: false
-      }
+    hmr: {
+      port: 24678
     }
   },
   define: {
