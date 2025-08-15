@@ -8,5 +8,20 @@
     "typecheck": "tsc --noEmit",
     "lint": "echo 'lint to be configured'",
     "build": "echo 'build to be configured'"
+  },
+  "dependencies": {
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "http-proxy-middleware": "^3.0.5",
+    "morgan": "^1.10.1",
+    "tsx": "^4.20.4"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.8.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.2.1"
   }
 }
