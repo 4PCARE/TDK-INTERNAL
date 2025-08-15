@@ -5,7 +5,15 @@ import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 export default defineConfig({
   plugins: [
-    react(),
+    react({
+      fastRefresh: true,
+      jsxImportSource: '@emotion/react',
+      babel: {
+        plugins: [
+          ['@emotion/babel-plugin']
+        ]
+      }
+    }),
     runtimeErrorOverlay(),
   ],
   resolve: {
