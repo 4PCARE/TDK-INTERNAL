@@ -5,7 +5,7 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 const LEGACY_ENV_NAME = "LEGACY_BASE_URL"; // resolved later by real bootstrap
 // Placeholder resolver: read from process.env only if present; otherwise default to localhost.
 // This read is safe and cheap; no network. Keeps us runnable for local dev.
-const legacyBase = process?.env?.[LEGACY_ENV_NAME] ?? "http://localhost:5000";
+const legacyBase = process?.env?.[LEGACY_ENV_NAME] ?? "http://0.0.0.0:5000";
 const authBase = process?.env?.AUTH_SVC_URL ?? "http://0.0.0.0:3001";
 const docIngestBase = process?.env?.DOC_INGEST_SVC_URL ?? "http://0.0.0.0:3002";
 
@@ -122,38 +122,50 @@ export function registerLegacyRoutes(app: any) {
 
   // Document ingestion routes
   app.use('/api/documents', createProxyMiddleware({
-    target: 'http://localhost:3003',
+    target: 'http://0.0.0.0:3002',
     changeOrigin: true,
     pathRewrite: { '^/api/documents': '' }
   }));
 
   // Search service routes
   app.use('/api/search', createProxyMiddleware({
-    target: 'http://localhost:3004',
+    target: 'http://0.0.0.0:5000',
     changeOrigin: true,
     pathRewrite: {
-      '^/api/search': ''
+      '^/api/search': '/search'
     },
     logLevel: 'debug'
   }));
 
   // Agent service routes
-  app.use('/api/chat', createProxyMiddleware('http://localhost:3004'));
+  app.use('/api/chat', createProxyMiddleware({
+    target: 'http://0.0.0.0:5000',
+    changeOrigin: true,
+    pathRewrite: {
+      '^/api/chat': '/chat'
+    }
+  }));
 
   // Embedding service routes
-  app.use('/api/embeddings', createProxyMiddleware('http://localhost:3005'));
-  app.use('/api/vectors', createProxyMiddleware('http://localhost:3005'));
+  app.use('/api/embeddings', createProxyMiddleware({
+    target: 'http://0.0.0.0:5000',
+    changeOrigin: true
+  }));
+  app.use('/api/vectors', createProxyMiddleware({
+    target: 'http://0.0.0.0:5000',
+    changeOrigin: true
+  }));
 
   // CSAT Service routes
   app.use('/api/csat', createProxyMiddleware({
-    target: 'http://localhost:3006',
+    target: 'http://0.0.0.0:5000',
     changeOrigin: true,
     timeout: 30000
   }));
 
   // Health Monitor Service routes
   app.use('/api/health', createProxyMiddleware({
-    target: 'http://localhost:3007',
+    target: 'http://0.0.0.0:5000',
     changeOrigin: true,
     timeout: 10000
   }));
