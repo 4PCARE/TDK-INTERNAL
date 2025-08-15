@@ -6,7 +6,7 @@ const LEGACY_ENV_NAME = "LEGACY_BASE_URL"; // resolved later by real bootstrap
 // This read is safe and cheap; no network. Keeps us runnable for local dev.
 const legacyBase = process?.env?.[LEGACY_ENV_NAME] ?? "http://localhost:5000";
 const authBase = process?.env?.AUTH_SVC_URL ?? "http://0.0.0.0:3001";
-const ingestBase = process?.env?.DOC_INGEST_SVC_URL ?? "http://localhost:3002";
+const docIngestBase = process?.env?.DOC_INGEST_SVC_URL ?? "http://localhost:3002";
 
 export function registerLegacyRoutes(app: any) {
   // POST /chat -> legacy
@@ -93,6 +93,36 @@ export function registerLegacyRoutes(app: any) {
   app.post("/policies/:id/check", async (req: Request, res: Response) => {
     try {
       const r = await proxy(req, authBase, `/policies/${req.params.id}/check`);
+      res.status(r.status).set(r.headers).send(r.data);
+    } catch (e: any) {
+      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
+    }
+  });
+
+  // POST /api/documents -> doc-ingest-svc
+  app.post("/api/documents", async (req: Request, res: Response) => {
+    try {
+      const r = await proxy(req, docIngestBase, "/documents");
+      res.status(r.status).set(r.headers).send(r.data);
+    } catch (e: any) {
+      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
+    }
+  });
+
+  // GET /api/documents/:id -> doc-ingest-svc
+  app.get("/api/documents/:id", async (req: Request, res: Response) => {
+    try {
+      const r = await proxy(req, docIngestBase, `/documents/${req.params.id}`);
+      res.status(r.status).set(r.headers).send(r.data);
+    } catch (e: any) {
+      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
+    }
+  });
+
+  // Default: everything else -> legacy server
+  app.use("*", async (req: Request, res: Response) => {
+    try {
+      const r = await proxy(req, legacyBase, req.originalUrl);
       res.status(r.status).set(r.headers).send(r.data);
     } catch (e: any) {
       res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });

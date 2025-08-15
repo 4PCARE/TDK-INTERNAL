@@ -83,5 +83,9 @@ args = "npm run gateway  "
 task = "shell.exec"
 args = "npm run auth-svc"
 
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run doc-ingest"
+
 [agent]
 integrations = ["javascript_gemini==1.0.0", "javascript_database==1.0.0", "javascript_websocket==1.0.0", "javascript_openai==1.0.0"]

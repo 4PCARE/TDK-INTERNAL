@@ -1,20 +1,18 @@
+import express from 'express';
 import { registerRoutes } from './infrastructure/http/routes.js';
 
 /**
  * Bootstrap Document Ingestion Service
  */
-export function createServiceApp(express: any) {
+export function createApp(): express.Express {
   const app = express();
-  
-  // Add JSON middleware if available
-  try { 
-    app.use(express.json ? express.json() : (_: any, __: any, next: any) => next()); 
-  } catch {}
-  
+
+  // Middleware
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
   // Register routes
   registerRoutes(app);
-  
+
   return app;
 }
-
-export { registerRoutes };
