@@ -1,6 +1,7 @@
 import { Express } from 'express';
 import type { Request, Response } from "express";
 import { validateUser, validateLoginReq, validateLoginRes, validateRefreshReq, validateRefreshRes, validateRolesRes, validatePolicyCheckReq, validatePolicyCheckRes } from "./validate";
+import { replitAuthMiddleware, requireAdmin, type AuthenticatedRequest } from "./middleware";
 
 /**
  * Register health check routes for Auth Service
@@ -20,44 +21,75 @@ export function registerRoutes(app: Express): void {
     });
   });
 
-  // User profile endpoint - stubbed for contract compliance
-  app.get("/me", (_req: Request, res: Response) => {
-    const payload = {
-      id: "00000000-0000-4000-8000-000000000000",
-      email: "dev@example.com",
-      roles: ["admin"]
-    };
+  // User profile endpoint - get current authenticated user
+  app.get("/me", (req: Request, res: Response) => {
+    try {
+      // Check for Replit headers
+      const userId = req.headers['x-replit-user-id'] as string;
+      const userEmail = req.headers['x-replit-user-name'] as string;
+      const userRoles = req.headers['x-replit-user-roles'] as string;
 
-    if (!validateUser(payload)) {
-      return res.status(500).json({ message: "Contract violation" });
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const roles = userRoles ? userRoles.split(',').map(r => r.trim()) : ['user'];
+      
+      const payload = {
+        id: userId,
+        email: userEmail || `${userId}@replit.user`,
+        roles: roles
+      };
+
+      if (!validateUser(payload)) {
+        return res.status(500).json({ message: "Contract violation" });
+      }
+
+      return res.status(200).json(payload);
+    } catch (error) {
+      console.error("Error in /me endpoint:", error);
+      return res.status(500).json({ message: "Internal server error" });
     }
-
-    return res.status(200).json(payload);
   });
 
-  // Login endpoint - stubbed for contract compliance
+  // Login endpoint - redirect to Replit Auth
   app.post("/login", (req: Request, res: Response) => {
     const body = req.body ?? {};
     if (!validateLoginReq(body)) {
       return res.status(400).json({ message: "Invalid credentials payload" });
     }
+
+    // For Replit Auth, we return a redirect URL
     const payload = {
-      accessToken: "stub-access-token",
-      refreshToken: "stub-refresh-token"
+      accessToken: "replit-auth-required",
+      refreshToken: "replit-auth-required",
+      redirectUrl: "https://replit.com/auth/authenticate"
     };
+
     if (!validateLoginRes(payload)) {
       return res.status(500).json({ message: "Contract violation" });
     }
     return res.status(200).json(payload);
   });
 
-  // Refresh endpoint - stubbed for contract compliance
+  // Refresh endpoint - validate existing session
   app.post("/refresh", (req: Request, res: Response) => {
     const body = req.body ?? {};
     if (!validateRefreshReq(body)) {
       return res.status(400).json({ message: "Invalid refresh payload" });
     }
-    const payload = { accessToken: "stub-access-token-2" };
+
+    // Check if user is still authenticated via Replit headers
+    const userId = req.headers['x-replit-user-id'] as string;
+    
+    if (!userId) {
+      return res.status(401).json({ message: "Session expired" });
+    }
+
+    const payload = { 
+      accessToken: `replit-session-${userId}-${Date.now()}`
+    };
+
     if (!validateRefreshRes(payload)) {
       return res.status(500).json({ message: "Contract violation" });
     }
@@ -73,13 +105,43 @@ export function registerRoutes(app: Express): void {
     return res.status(200).json(payload);
   });
 
-  // Policy check endpoint - stubbed for contract compliance
-  app.post("/policies/:id/check", (req: Request, res: Response) => {
+  // Policy check endpoint - check user permissions
+  app.post("/policies/:id/check", replitAuthMiddleware, (req: AuthenticatedRequest, res: Response) => {
     const body = req.body ?? {};
     if (!validatePolicyCheckReq(body)) {
       return res.status(400).json({ message: "Invalid policy check payload" });
     }
-    const payload = { allow: true };
+
+    const policyId = req.params.id;
+    const { resource, action } = body;
+    const user = req.user!;
+
+    // Simple RBAC logic
+    let allow = false;
+
+    switch (policyId) {
+      case 'admin-only':
+        allow = user.roles.includes('admin');
+        break;
+      case 'user-read':
+        allow = user.roles.includes('user') || user.roles.includes('admin');
+        break;
+      case 'user-write':
+        allow = user.roles.includes('admin');
+        break;
+      case 'document-access':
+        // Users can read their own documents, admins can read all
+        if (action === 'read') {
+          allow = user.roles.includes('user') || user.roles.includes('admin');
+        } else if (action === 'write' || action === 'delete') {
+          allow = user.roles.includes('admin');
+        }
+        break;
+      default:
+        allow = false;
+    }
+
+    const payload = { allow };
     if (!validatePolicyCheckRes(payload)) {
       return res.status(500).json({ message: "Contract violation" });
     }
