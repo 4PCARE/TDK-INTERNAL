@@ -127,5 +127,14 @@ args = "npm run csat-svc"
 task = "shell.exec"
 args = "npm run health-monitor"
 
+[[workflows.workflow]]
+name = "Frontend Dev"
+author = 43981095
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd apps/admin-ui && npm install && npm run dev"
+
 [agent]
 integrations = ["javascript_gemini==1.0.0", "javascript_database==1.0.0", "javascript_websocket==1.0.0", "javascript_openai==1.0.0"]
