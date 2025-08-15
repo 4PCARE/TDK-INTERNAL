@@ -5,15 +5,7 @@ import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 export default defineConfig({
   plugins: [
-    react({
-      fastRefresh: true,
-      jsxImportSource: '@emotion/react',
-      babel: {
-        plugins: [
-          ['@emotion/babel-plugin']
-        ]
-      }
-    }),
+    react(),
     runtimeErrorOverlay(),
   ],
   resolve: {
@@ -30,12 +22,29 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    host: "0.0.0.0",
+    port: 3003,
     fs: {
       strict: true,
       deny: ["**/.*"],
     },
+    proxy: {
+      '/api': {
+        target: 'http://0.0.0.0:5000',
+        changeOrigin: true,
+        secure: false
+      },
+      '/uploads': {
+        target: 'http://0.0.0.0:5000',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   },
   define: {
     __DEV__: process.env.NODE_ENV === "development",
+  },
+  optimizeDeps: {
+    exclude: ['@emotion/react', '@emotion/babel-plugin']
   },
 });
