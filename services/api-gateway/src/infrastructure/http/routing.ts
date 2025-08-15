@@ -2,6 +2,8 @@ import type { Request, Response } from "express";
 import { proxy } from "./proxy";
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
+export { proxyToLegacy, proxyToService } from './proxy';
+
 const LEGACY_ENV_NAME = "LEGACY_BASE_URL"; // resolved later by real bootstrap
 // Placeholder resolver: read from process.env only if present; otherwise default to localhost.
 // This read is safe and cheap; no network. Keeps us runnable for local dev.
