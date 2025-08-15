@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { CSATController } from './controllers/CSATController.js';
 
@@ -10,6 +9,7 @@ router.get('/healthz', csatController.healthCheck.bind(csatController));
 
 // CSAT analysis endpoints
 router.post('/analyze', csatController.analyzeConversation.bind(csatController));
+router.post('/analyze-batch', csatController.analyzeBatch.bind(csatController));
 router.get('/metrics', csatController.getCSATMetrics.bind(csatController));
 
 export function registerRoutes(app: express.Application): void {
