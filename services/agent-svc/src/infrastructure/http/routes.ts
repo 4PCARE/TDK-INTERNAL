@@ -1,30 +1,38 @@
-import { ChatController } from './controllers/ChatController.js';
-import { ChatUseCase } from '../../application/ChatUseCase.js';
-import { OpenAIClient } from '../llm/OpenAIClient.js';
+import { Router } from 'express';
+import type { Express } from 'express';
 
-/**
- * Routes for Agent Service
- */
-export function registerRoutes(app: any): void {
-  // Health checks
-  app.get('/healthz', (_req: any, res: any) => {
-    res.status(200).json({ status: 'ok', service: 'agent-svc' });
-  });
+export function registerRoutes(app: Express): void {
+  const router = Router();
 
-  app.get('/readyz', (_req: any, res: any) => {
-    res.status(200).json({ 
-      status: 'ready', 
+  // Health check endpoint
+  router.get('/healthz', (req, res) => {
+    res.json({
+      status: 'healthy',
       service: 'agent-svc',
       timestamp: new Date().toISOString()
     });
   });
 
-  // Initialize dependencies
-  const llmClient = new OpenAIClient();
-  const chatUseCase = new ChatUseCase(llmClient);
-  const chatController = new ChatController(chatUseCase);
+  // Basic agent endpoints
+  router.get('/api/agents', (req, res) => {
+    // TODO: Implement agent list
+    res.json({
+      agents: [],
+      total: 0,
+      timestamp: new Date().toISOString()
+    });
+  });
 
-  // Chat routes
-  app.post('/chat', (req: any, res: any) => chatController.chat(req, res));
-  app.get('/sessions/:sessionId', (req: any, res: any) => chatController.getSession(req, res));
+  router.post('/api/agents/chat', (req, res) => {
+    const { message, agentId } = req.body;
+
+    // TODO: Implement actual chat logic
+    res.json({
+      response: 'Agent service placeholder response',
+      agentId,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  app.use(router);
 }

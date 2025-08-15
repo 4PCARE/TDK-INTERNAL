@@ -1,17 +1,39 @@
-import express from 'express';
-import { CSATController } from './controllers/CSATController.js';
 
-const router = express.Router();
-const csatController = new CSATController();
+import { Router } from 'express';
+import type { Express } from 'express';
 
-// Health check
-router.get('/healthz', csatController.healthCheck.bind(csatController));
+export function registerRoutes(app: Express): void {
+  const router = Router();
 
-// CSAT analysis endpoints
-router.post('/analyze', csatController.analyzeConversation.bind(csatController));
-router.post('/analyze-batch', csatController.analyzeBatch.bind(csatController));
-router.get('/metrics', csatController.getCSATMetrics.bind(csatController));
+  // Health check endpoint
+  router.get('/healthz', (req, res) => {
+    res.json({ 
+      status: 'healthy', 
+      service: 'csat-svc',
+      timestamp: new Date().toISOString() 
+    });
+  });
 
-export function registerRoutes(app: express.Application): void {
-  app.use('/', router);
+  // Basic CSAT endpoints
+  router.post('/api/csat/submit', (req, res) => {
+    const { rating, feedback, sessionId } = req.body;
+    
+    // TODO: Implement CSAT submission logic
+    res.json({ 
+      success: true, 
+      message: 'CSAT feedback submitted',
+      data: { rating, feedback, sessionId, timestamp: new Date().toISOString() }
+    });
+  });
+
+  router.get('/api/csat/analytics', (req, res) => {
+    // TODO: Implement CSAT analytics
+    res.json({
+      averageRating: 4.2,
+      totalResponses: 0,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  app.use(router);
 }

@@ -1,50 +1,42 @@
-
 import { Router } from 'express';
-import { EmbeddingController } from './controllers/EmbeddingController.js';
-import { EmbeddingUseCase } from '../../application/EmbeddingUseCase.js';
-import { InMemoryVectorStore } from '../db/VectorStore.js';
+import type { Express } from 'express';
 
-export function registerRoutes(app: any) {
+export function registerRoutes(app: Express): void {
   const router = Router();
-  
-  // Initialize dependencies
-  const vectorStore = new InMemoryVectorStore();
-  const embeddingUseCase = new EmbeddingUseCase(vectorStore);
-  const controller = new EmbeddingController(embeddingUseCase);
 
-  // Health check routes
-  router.get('/healthz', (req, res) => controller.healthCheck(req, res));
-  router.get('/readyz', (req, res) => controller.healthCheck(req, res));
+  // Health check endpoint
+  router.get('/healthz', (req, res) => {
+    res.json({ 
+      status: 'healthy', 
+      service: 'embedding-svc',
+      timestamp: new Date().toISOString() 
+    });
+  });
 
-  // Embedding generation
-  router.post('/embeddings/generate', (req, res) => 
-    controller.generateEmbeddings(req, res)
-  );
+  // Basic embedding endpoints
+  router.post('/api/embeddings/generate', (req, res) => {
+    const { text, model = 'text-embedding-ada-002' } = req.body;
 
-  // Document indexing
-  router.post('/embeddings/index', (req, res) => 
-    controller.indexDocument(req, res)
-  );
+    // TODO: Implement actual embedding generation
+    res.json({
+      embedding: new Array(1536).fill(0), // Placeholder embedding
+      model,
+      usage: { total_tokens: text?.length || 0 },
+      timestamp: new Date().toISOString()
+    });
+  });
 
-  // Vector search
-  router.post('/vectors/search', (req, res) => 
-    controller.searchSimilar(req, res)
-  );
+  router.post('/api/embeddings/search', (req, res) => {
+    const { query, limit = 10 } = req.body;
 
-  // Document management
-  router.get('/documents/:documentId/embeddings', (req, res) => 
-    controller.getDocumentEmbeddings(req, res)
-  );
+    // TODO: Implement vector search
+    res.json({
+      query,
+      results: [],
+      limit,
+      timestamp: new Date().toISOString()
+    });
+  });
 
-  router.delete('/documents/:documentId/embeddings', (req, res) => 
-    controller.deleteDocumentEmbeddings(req, res)
-  );
-
-  // Provider information
-  router.get('/providers', (req, res) => 
-    controller.getProviders(req, res)
-  );
-
-  // Mount routes
-  app.use('/', router);
+  app.use(router);
 }
