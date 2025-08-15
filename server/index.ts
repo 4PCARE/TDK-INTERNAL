@@ -6,7 +6,7 @@ import { LineImageService } from './lineImageService';
 import { setupVite, serveStatic, log } from "./vite";
 import debugRoutes from "./debug-routes";
 import debugChunkTest from "./debug-chunk-test";
-import { registerHrApiRoutes } from "./hrApi";
+// import { registerHrApiRoutes } from "./hrApi";
 // Initialize global wsClients
 global.wsClients = global.wsClients || new Set();
 
@@ -100,7 +100,7 @@ app.use((req, res, next) => {
   app.use("/api", debugChunkTest);
 
   // Register HR API routes
-  registerHrApiRoutes(app);
+  // registerHrApiRoutes(app);
 
   const server = await registerRoutes(app);
 

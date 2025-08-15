@@ -1,20 +1,18 @@
-import { registerRoutes } from './infrastructure/http/routes.js';
 
-/**
- * Bootstrap Embedding Service
- */
-export function createServiceApp(express: any) {
+import express from 'express';
+
+export function createApp() {
   const app = express();
   
-  // Add JSON middleware if available
-  try { 
-    app.use(express.json ? express.json() : (_: any, __: any, next: any) => next()); 
-  } catch {}
-  
-  // Register routes
-  registerRoutes(app);
-  
+  app.use(express.json());
+
+  app.get('/healthz', (req, res) => {
+    res.json({ status: 'healthy', service: 'embedding-svc' });
+  });
+
+  app.post('/embed', (req, res) => {
+    res.json({ embeddings: [], text: req.body.text });
+  });
+
   return app;
 }
-
-export { registerRoutes };
