@@ -51,7 +51,7 @@ localPort = 8080
 externalPort = 8080
 
 [workflows]
-runButton = "Full Stack Dev"
+runButton = "Microservices Stack"
 
 [[workflows.workflow]]
 name = "Project"
@@ -156,6 +156,47 @@ mode = "parallel"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run legacy"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run gateway"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run auth-svc"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run doc-ingest"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run search-svc"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run agent-svc"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run embedding-svc"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run csat-svc"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run health-monitor"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd apps/admin-ui && npm install && npm run dev"
+
+[[workflows.workflow]]
+name = "Microservices Stack"
+author = 43981095
+mode = "parallel"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
