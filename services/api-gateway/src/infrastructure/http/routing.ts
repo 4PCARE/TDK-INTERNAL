@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { proxy } from "./proxy";
+import { createProxyMiddleware } from 'http-proxy-middleware';
 
 const LEGACY_ENV_NAME = "LEGACY_BASE_URL"; // resolved later by real bootstrap
 // Placeholder resolver: read from process.env only if present; otherwise default to localhost.
@@ -118,6 +119,20 @@ export function registerLegacyRoutes(app: any) {
       res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
     }
   });
+
+  // Document ingestion routes
+  app.use('/api/documents', createProxyMiddleware({
+    target: 'http://localhost:3003',
+    changeOrigin: true,
+    pathRewrite: { '^/api/documents': '' }
+  }));
+
+  // Search service routes
+  app.use('/api/search', createProxyMiddleware({
+    target: 'http://localhost:3004',
+    changeOrigin: true,
+    pathRewrite: { '^/api/search': '' }
+  }));
 
   // Default: everything else -> legacy server
   app.use("*", async (req: Request, res: Response) => {
