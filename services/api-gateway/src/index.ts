@@ -11,26 +11,36 @@ import { registerRoutes } from './infrastructure/http/routes.js';
 export function createApp(): express.Express {
   const app = express();
 
-  // Body parsing middleware - must come first
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  // Middleware
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
 
-  // Security and middleware
-  app.use(helmet());
-  app.use(cors({ origin: true }));
-
-  // Request logging
-  app.use((req, res, next) => {
-    console.log(`${req.method} ${req.path}`, req.body ? `Body: ${JSON.stringify(req.body).substring(0, 100)}...` : '');
-    next();
+  // Root route
+  app.get('/', (req, res) => {
+    res.json({ 
+      message: 'AI-KMS API Gateway', 
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+      services: {
+        auth: '/api/auth',
+        documents: '/api/documents', 
+        agents: '/api/agents',
+        search: '/api/search',
+        chat: '/api/chat'
+      }
+    });
   });
 
-  // Health check
+  // Health check endpoint
   app.get('/healthz', (req, res) => {
-    res.json({ status: 'healthy', service: 'api-gateway' });
+    res.json({ 
+      status: 'healthy', 
+      timestamp: new Date().toISOString(),
+      service: 'api-gateway' 
+    });
   });
 
-  // Service health checks
+  // Proxy routes
   app.use('/health/auth', createProxyMiddleware({
     target: 'http://localhost:3001',
     changeOrigin: true,
