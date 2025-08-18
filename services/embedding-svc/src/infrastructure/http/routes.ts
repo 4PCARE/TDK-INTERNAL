@@ -13,8 +13,8 @@ export function registerRoutes(app: Express): void {
     });
   });
 
-  // Basic embedding endpoints
-  router.post('/api/embeddings/generate', (req, res) => {
+  // Basic embedding endpoints - fixed route patterns
+  router.post('/embeddings/generate', (req, res) => {
     const { text, model = 'text-embedding-ada-002' } = req.body;
 
     // TODO: Implement actual embedding generation
@@ -26,7 +26,7 @@ export function registerRoutes(app: Express): void {
     });
   });
 
-  router.post('/api/embeddings/search', (req, res) => {
+  router.post('/embeddings/search', (req, res) => {
     const { query, limit = 10 } = req.body;
 
     // TODO: Implement vector search

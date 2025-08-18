@@ -29,7 +29,12 @@ app.use((req, res, next) => {
 });
 
 // Register routes
-registerRoutes(app);
+try {
+  registerRoutes(app);
+} catch (error) {
+  console.error('Error registering routes:', error);
+  process.exit(1);
+}
 
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
