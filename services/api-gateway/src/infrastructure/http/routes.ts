@@ -1,21 +1,30 @@
-import { Router, Application } from 'express';
+import type { Request, Response } from 'express';
+import { Express } from 'express';
+import { validateHealth, validateReady } from './validate';
+import { setupRouting } from './routing';
 
 /**
  * Register health check routes for API Gateway
  * Business logic routes to be added in Phase 2+
  */
-export function registerRoutes(app: Application): void {
-  const router = Router();
-
-  // Health check endpoint
-  router.get('/healthz', (req, res) => {
-    res.json({
-      status: 'healthy',
-      service: 'api-gateway',
-      timestamp: new Date().toISOString()
-    });
+export function registerRoutes(app: Express): void {
+  // Health check endpoints
+  app.get('/healthz', (_req: Request, res: Response) => {
+    const payload = { ok: true };
+    if (!validateHealth(payload)) {
+      return res.status(500).json({ message: 'Contract violation' });
+    }
+    return res.status(200).json(payload);
   });
 
-  // Mount router
-  app.use('/', router);
+  app.get('/readyz', (_req: Request, res: Response) => {
+    const payload = { ready: true };
+    if (!validateReady(payload)) {
+      return res.status(500).json({ message: 'Contract violation' });
+    }
+    return res.status(200).json(payload);
+  });
+
+  // Use the setupRouting function to configure all routes
+  setupRouting(app);
 }
