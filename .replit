@@ -212,6 +212,10 @@ mode = "parallel"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
+args = "npm run legacy"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
 args = "npm run gateway"
 
 [[workflows.workflow.tasks]]
