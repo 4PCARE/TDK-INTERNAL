@@ -68,6 +68,11 @@ export function setupRouting(app: Express): void {
     pathRewrite: {
       '^/api/agents': '/agents'
     },
+    onProxyReq: (proxyReq, req, res) => {
+      console.log(`🔀 Proxying ${req.method} ${req.originalUrl} to http://localhost:3005${proxyReq.path}`);
+      console.log(`📍 Original URL: ${req.originalUrl}, Target path: ${proxyReq.path}`);
+      logRequestBody(proxyReq, req);
+    },
     onError: (err, req, res) => {
       console.error('🚨 Agent service proxy error:', err.message);
       if (!res.headersSent) {
