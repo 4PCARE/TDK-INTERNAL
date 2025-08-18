@@ -154,9 +154,12 @@ export class EmbeddingController {
     try {
       const providers = this.embeddingUseCase.getAvailableProviders();
       
+      // Ensure providers is always an array
+      const providersArray = Array.isArray(providers) ? providers : ['openai'];
+      
       res.json({
-        providers,
-        default: providers.includes('openai') ? 'openai' : providers[0]
+        providers: providersArray,
+        default: providersArray.includes('openai') ? 'openai' : providersArray[0]
       });
     } catch (error) {
       console.error('Error getting available providers:', error);

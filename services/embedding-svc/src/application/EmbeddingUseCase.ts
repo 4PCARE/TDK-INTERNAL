@@ -37,14 +37,14 @@ export class EmbeddingUseCase {
           throw new Error('OpenAI API key not configured');
         }
         return new OpenAIEmbeddingsClient(openaiKey);
-      
+
       case 'gemini':
         const geminiKey = process.env.GEMINI_API_KEY;
         if (!geminiKey) {
           throw new Error('Gemini API key not configured');
         }
         return new GeminiEmbeddingsClient(geminiKey);
-      
+
       default:
         throw new Error(`Unsupported embedding provider: ${provider}`);
     }
@@ -145,11 +145,18 @@ export class EmbeddingUseCase {
     return Math.floor(Math.random() * 10) + 1;
   }
 
-  getAvailableProviders() {
-    return {
-      providers: ['openai', 'gemini'],
-      default: 'openai'
-    };
+  getAvailableProviders(): string[] {
+    const providers: string[] = [];
+
+    if (process.env.OPENAI_API_KEY) {
+      providers.push('openai');
+    }
+
+    if (process.env.GEMINI_API_KEY) {
+      providers.push('gemini');
+    }
+
+    return providers.length > 0 ? providers : ['openai']; // Default fallback
   }
 
   async getStats() {
