@@ -54,13 +54,12 @@ export function setupRouting(app: Express): void {
   });
 
   // Agent service routes
-  app.use('/api/agents', (req, res) => {
+  app.get('/api/agents', (req, res) => {
     const serviceUrl = getServiceUrl('agent');
     if (!serviceUrl) {
       return res.status(503).json({ error: 'Agent service unavailable' });
     }
-    const targetUrl = `${serviceUrl}${req.originalUrl.replace('/api/agents', '/agents')}`;
-    const proxyHandler = createProxyHandler(targetUrl);
+    const proxyHandler = createProxyHandler(`${serviceUrl}/agents`);
     proxyHandler(req, res);
   });
 
