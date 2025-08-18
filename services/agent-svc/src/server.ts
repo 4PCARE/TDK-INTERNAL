@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { router } from './infrastructure/http/routes.js';
 
-const PORT = process.env.AGENT_SVC_PORT || 3003;
+const PORT = process.env.AGENT_SVC_PORT || 3005;
 
 async function startServer() {
   try {
