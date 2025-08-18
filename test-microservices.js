@@ -11,7 +11,7 @@ const tests = [
   { name: 'Agent List', url: 'http://localhost:8080/api/agents' },
 ];
 
-async function testEndpoint(test) {
+async function testEndpoint(test, retries = 3) {
   return new Promise((resolve) => {
     const url = new URL(test.url);
     const options = {
@@ -19,6 +19,7 @@ async function testEndpoint(test) {
       port: url.port,
       path: url.pathname,
       method: test.method || 'GET',
+      timeout: 10000, // 10 second timeout
       headers: {
         'Content-Type': 'application/json'
       }
@@ -38,12 +39,23 @@ async function testEndpoint(test) {
       });
     });
 
-    req.on('error', (err) => {
-      resolve({
-        ...test,
-        success: false,
-        error: err.message
-      });
+    req.on('error', async (err) => {
+      if (retries > 0 && (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT')) {
+        console.log(`   Retrying ${test.name} (${retries} attempts left)...`);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+        const result = await testEndpoint(test, retries - 1);
+        resolve(result);
+      } else {
+        resolve({
+          ...test,
+          success: false,
+          error: err.message
+        });
+      }
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
     });
 
     if (test.data) {
@@ -56,6 +68,32 @@ async function testEndpoint(test) {
 
 async function runTests() {
   console.log('🧪 Running microservices smoke tests...\n');
+  console.log('⏳ Waiting for services to start...');
+  
+  // Wait for API Gateway to be ready
+  let gatewayReady = false;
+  for (let i = 0; i < 10; i++) {
+    try {
+      const result = await testEndpoint({ name: 'Gateway Check', url: 'http://localhost:8080/healthz' }, 0);
+      if (result.success) {
+        gatewayReady = true;
+        console.log('✅ API Gateway is ready!');
+        break;
+      }
+    } catch (e) {
+      // Continue waiting
+    }
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    console.log(`   Still waiting... (${i + 1}/10)`);
+  }
+
+  if (!gatewayReady) {
+    console.log('❌ API Gateway not responding after 30 seconds');
+    console.log('💡 Make sure the "Microservices Stack" workflow is running');
+    return;
+  }
+
+  console.log('\n🧪 Running tests...\n');
 
   for (const test of tests) {
     try {
@@ -75,13 +113,13 @@ async function runTests() {
     }
 
     // Small delay between tests
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
 
   console.log('\n🏁 Tests completed!');
   console.log('\nNext steps:');
-  console.log('1. Ensure all services are running via "Microservices Stack" workflow');
-  console.log('2. Test the frontend at http://localhost:3003');
+  console.log('1. All services should be running via "Microservices Stack" workflow');
+  console.log('2. Test the frontend at http://localhost:3003');  
   console.log('3. Test API Gateway at http://localhost:8080');
 }
 
