@@ -1,4 +1,3 @@
-
 import { Request, Response } from 'express';
 import { EmbeddingUseCase } from '../../../application/EmbeddingUseCase.js';
 
@@ -45,98 +44,6 @@ export class EmbeddingController {
         documentId,
         chunks
       });
-
-      res.json(result);
-    } catch (error) {
-      console.error('Error indexing document:', error);
-      res.status(500).json({
-        error: 'Failed to index document',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
-
-  async searchSimilar(req: Request, res: Response) {
-    try {
-      const { query, limit, threshold, filter, provider } = req.body;
-
-      if (!query || typeof query !== 'string') {
-        return res.status(400).json({
-          error: 'query string is required'
-        });
-      }
-
-      const result = await this.embeddingUseCase.searchSimilar(query, {
-        limit,
-        threshold,
-        filter,
-        provider
-      });
-
-      res.json({ results: result });
-    } catch (error) {
-      console.error('Error searching embeddings:', error);
-      res.status(500).json({
-        error: 'Failed to search embeddings',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
-
-  async getDocumentEmbeddings(req: Request, res: Response) {
-    try {
-      const documentId = parseInt(req.params.documentId);
-
-      if (isNaN(documentId)) {
-        return res.status(400).json({
-          error: 'Valid documentId is required'
-        });
-      }
-
-      const result = await this.embeddingUseCase.getDocumentEmbeddings(documentId);
-      res.json(result);
-    } catch (error) {
-      console.error('Error fetching document embeddings:', error);
-      res.status(500).json({
-        error: 'Failed to fetch document embeddings',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
-
-  async deleteDocumentEmbeddings(req: Request, res: Response) {
-    try {
-      const documentId = parseInt(req.params.documentId);
-
-      if (isNaN(documentId)) {
-        return res.status(400).json({
-          error: 'Valid documentId is required'
-        });
-      }
-
-      const result = await this.embeddingUseCase.deleteDocumentEmbeddings(documentId);
-      res.json({ deletedCount: result });
-    } catch (error) {
-      console.error('Error deleting document embeddings:', error);
-      res.status(500).json({
-        error: 'Failed to delete document embeddings',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
-
-  async getAvailableProviders(req: Request, res: Response) {
-    try {
-      const providers = this.embeddingUseCase.getAvailableProviders();
-      res.json({ providers });
-    } catch (error) {
-      console.error('Error fetching providers:', error);
-      res.status(500).json({
-        error: 'Failed to fetch providers',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  }
 
       res.json(result);
     } catch (error) {
