@@ -11,9 +11,19 @@ import { setupRouting } from './infrastructure/http/routing.js';
 export function createApp(): express.Express {
   const app = express();
 
-  // Middleware
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  // Body parsing middleware - must come first
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+  // Security and middleware
+  app.use(helmet());
+  app.use(cors({ origin: true }));
+
+  // Request logging
+  app.use((req, res, next) => {
+    console.log(`${req.method} ${req.path}`, req.body ? `Body: ${JSON.stringify(req.body).substring(0, 100)}...` : '');
+    next();
+  });
 
   // Health check
   app.get('/healthz', (req, res) => {

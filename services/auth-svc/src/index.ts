@@ -6,16 +6,16 @@ import { router } from './infrastructure/http/routes.js';
 export function createApp() {
   const app = express();
 
+  // Body parsing middleware - must come before routes
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
   // Security middleware
   app.use(helmet());
   app.use(cors({
     origin: ['http://localhost:3003', 'http://localhost:5000', 'http://localhost:8080'],
     credentials: true
   }));
-
-  // Body parsing
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
 
   // Request logging
   app.use((req, res, next) => {
