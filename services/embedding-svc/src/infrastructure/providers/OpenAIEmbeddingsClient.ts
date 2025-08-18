@@ -1,4 +1,3 @@
-
 import OpenAI from 'openai';
 import { EmbeddingsClient, EmbeddingOptions, EmbeddingResult } from '../../../../packages/contracts/ai/EmbeddingsClient.js';
 
@@ -11,7 +10,7 @@ export class OpenAIEmbeddingsClient implements EmbeddingsClient {
     if (!process.env.OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY environment variable is required');
     }
-    
+
     this.client = new OpenAI({ 
       apiKey: process.env.OPENAI_API_KEY 
     });
@@ -152,96 +151,6 @@ export class OpenAIEmbeddingsClient implements EmbeddingsClient {
     }
 
     return text.substring(0, cutoff).trim();
-  }
-
-  getModel(): string {
-    return this.model;
-  }
-}
-import { EmbeddingsClient, EmbeddingResult, EmbeddingOptions } from '../../../../packages/contracts/ai/EmbeddingsClient.js';
-import OpenAI from 'openai';
-
-export class OpenAIEmbeddingsClient implements EmbeddingsClient {
-  private client: OpenAI;
-  private model: string;
-
-  constructor(apiKey: string, model: string = 'text-embedding-3-small') {
-    this.client = new OpenAI({ apiKey });
-    this.model = model;
-  }
-
-  async embed(texts: string[], options?: EmbeddingOptions): Promise<EmbeddingResult> {
-    try {
-      const response = await this.client.embeddings.create({
-        model: options?.model || this.model,
-        input: texts,
-      });
-
-      const embeddings = response.data.map(item => item.embedding);
-      const dimensions = embeddings[0]?.length || 1536;
-
-      return {
-        embeddings,
-        dimensions,
-        usage: {
-          totalTokens: response.usage.total_tokens,
-          model: this.model
-        }
-      };
-    } catch (error) {
-      console.error('OpenAI embedding generation failed:', error);
-      throw new Error(`OpenAI embedding failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  calculateSimilarity(embedding1: number[], embedding2: number[]): number {
-    if (embedding1.length !== embedding2.length) {
-      throw new Error('Embeddings must have the same dimensions');
-    }
-
-    // Cosine similarity calculation
-    let dotProduct = 0;
-    let norm1 = 0;
-    let norm2 = 0;
-
-    for (let i = 0; i < embedding1.length; i++) {
-      dotProduct += embedding1[i] * embedding2[i];
-      norm1 += embedding1[i] * embedding1[i];
-      norm2 += embedding2[i] * embedding2[i];
-    }
-
-    return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
-  }
-
-  chunkText(text: string, maxTokens: number = 512, fileType?: string): string[] {
-    // Simple chunking by character count (approximate)
-    const maxChars = maxTokens * 4; // Rough approximation: 1 token ≈ 4 characters
-    const chunks: string[] = [];
-    
-    if (text.length <= maxChars) {
-      return [text];
-    }
-
-    // Split by sentences first, then by chunks
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    let currentChunk = '';
-
-    for (const sentence of sentences) {
-      if ((currentChunk + sentence).length <= maxChars) {
-        currentChunk += sentence + '. ';
-      } else {
-        if (currentChunk.trim()) {
-          chunks.push(currentChunk.trim());
-        }
-        currentChunk = sentence + '. ';
-      }
-    }
-
-    if (currentChunk.trim()) {
-      chunks.push(currentChunk.trim());
-    }
-
-    return chunks;
   }
 
   getModel(): string {
