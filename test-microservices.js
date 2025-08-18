@@ -3,9 +3,9 @@ import http from 'http';
 // Test configuration
 const tests = [
   { name: 'API Gateway Health', url: 'http://localhost:8080/healthz' },
-  { name: 'Auth Service Health', url: 'http://localhost:8080/health/auth' },
-  { name: 'Doc Ingest Health', url: 'http://localhost:8080/health/doc-ingest' },
-  { name: 'Agent Service Health', url: 'http://localhost:8080/health/agent' },
+  { name: 'Auth Service Health', url: 'http://localhost:3001/healthz' },
+  { name: 'Doc Ingest Health', url: 'http://localhost:3002/healthz' },
+  { name: 'Agent Service Health', url: 'http://localhost:3005/healthz' },
   { name: 'User Info Endpoint', url: 'http://localhost:8080/me' },
   { name: 'Login Endpoint', url: 'http://localhost:8080/login', method: 'POST', data: { email: 'dev@example.com', password: 'dev' } },
   { name: 'Agent List', url: 'http://localhost:8080/api/agents' },
