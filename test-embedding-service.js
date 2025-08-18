@@ -7,11 +7,32 @@ const API_GATEWAY_URL = 'http://localhost:8080';
 async function testEmbeddingService() {
   console.log('🧪 Testing Embedding Service via API Gateway\n');
 
+  // First, check if the gateway is responding
+  try {
+    console.log('🔍 Checking API Gateway health...');
+    const gatewayHealth = await axios.get(`${API_GATEWAY_URL}/healthz`);
+    console.log('✅ API Gateway is healthy:', gatewayHealth.data);
+    console.log('');
+  } catch (error) {
+    console.error('❌ API Gateway is not responding:', error.message);
+    console.log('Make sure the "Microservices Stack" workflow is running');
+    return;
+  }
+
   try {
     // Test 1: Health Check
-    console.log('1️⃣ Testing Health Check...');
-    const healthResponse = await axios.get(`${EMBEDDING_SERVICE_URL}/healthz`);
-    console.log('✅ Health Check:', healthResponse.data);
+    console.log('1️⃣ Testing Embedding Service Health Check...');
+    try {
+      const healthResponse = await axios.get(`${EMBEDDING_SERVICE_URL}/healthz`);
+      console.log('✅ Health Check:', healthResponse.data);
+    } catch (error) {
+      console.error('❌ Embedding service health check failed:', error.response?.data || error.message);
+      console.log('This might mean:');
+      console.log('- The embedding service is not running');
+      console.log('- The service is starting up (wait a moment and try again)');
+      console.log('- There\'s a configuration issue');
+      throw error;
+    }
     console.log('');
 
     // Test 2: Get Available Providers
