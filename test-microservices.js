@@ -25,6 +25,11 @@ async function testEndpoint(test, retries = 3) {
       }
     };
 
+    // Add Authorization header for specific tests if token is available
+    if (test.name === 'User Info Endpoint' && global.authToken) {
+      options.headers['Authorization'] = `Bearer ${global.authToken}`;
+    }
+
     const req = http.request(options, (res) => {
       let data = '';
       res.on('data', (chunk) => data += chunk);
@@ -67,9 +72,10 @@ async function testEndpoint(test, retries = 3) {
 }
 
 async function runTests() {
+  console.log('node test-microservices.js');
   console.log('🧪 Running microservices smoke tests...\n');
   console.log('⏳ Waiting for services to start...');
-  
+
   // Wait for API Gateway to be ready
   let gatewayReady = false;
   for (let i = 0; i < 10; i++) {
@@ -108,6 +114,17 @@ async function runTests() {
       if (result.success && result.response) {
         console.log(`   Response: ${result.response.substring(0, 100)}...`);
       }
+      
+      // Store auth token if login is successful
+      if (test.name === 'Login Endpoint' && result.success) {
+        try {
+          const responseData = JSON.parse(result.response);
+          global.authToken = responseData.accessToken;
+        } catch (e) {
+          console.log('   Warning: Could not parse response to get auth token.');
+        }
+      }
+
     } catch (error) {
       console.log(`❌ ${test.name} (ERROR: ${error.message})`);
     }
