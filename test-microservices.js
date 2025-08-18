@@ -6,8 +6,8 @@ const tests = [
   { name: 'Auth Service Health', url: 'http://localhost:3001/healthz' },
   { name: 'Doc Ingest Health', url: 'http://localhost:3002/healthz' },
   { name: 'Agent Service Health', url: 'http://localhost:3005/healthz' },
-  { name: 'User Info Endpoint', url: 'http://localhost:8080/me' },
   { name: 'Login Endpoint', url: 'http://localhost:8080/login', method: 'POST', data: { email: 'dev@example.com', password: 'dev' } },
+  { name: 'User Info Endpoint', url: 'http://localhost:8080/me' },
   { name: 'Agent List', url: 'http://localhost:8080/api/agents' },
 ];
 
