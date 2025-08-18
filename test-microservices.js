@@ -34,13 +34,31 @@ async function testEndpoint(test, retries = 3) {
       let data = '';
       res.on('data', (chunk) => data += chunk);
       res.on('end', () => {
-        const success = res.statusCode >= 200 && res.statusCode < 400;
-        resolve({
-          ...test,
-          success,
-          status: res.statusCode,
-          response: data.substring(0, 200)
-        });
+        const statusCode = res.statusCode;
+        let responseText = '';
+        let parsedData = null;
+
+        try {
+          parsedData = JSON.parse(data);
+          responseText = JSON.stringify(parsedData).substring(0, 100) + '...';
+        } catch {
+          responseText = data.substring(0, 100) + '...';
+        }
+
+        // Extract token from login response
+        if (test.name === 'Login Endpoint' && statusCode >= 200 && statusCode < 300 && parsedData && parsedData.accessToken) {
+          global.authToken = parsedData.accessToken;
+          console.log(`🔑 Extracted auth token: ${global.authToken.substring(0, 20)}...`);
+        }
+
+        if (statusCode >= 200 && statusCode < 300) {
+          console.log(`✅ ${test.name} (${statusCode})\n   Response: ${responseText}`);
+          resolve({ success: true, status: statusCode, data });
+        } else {
+          console.log(`❌ ${test.name} (${statusCode}: ${parsedData?.error || 'Unknown error'})`);
+          console.log(`   Full response: ${data}`);
+          resolve({ success: false, status: statusCode, data });
+        }
       });
     });
 
@@ -114,7 +132,7 @@ async function runTests() {
       if (result.success && result.response) {
         console.log(`   Response: ${result.response.substring(0, 100)}...`);
       }
-      
+
       // Store auth token if login is successful
       if (test.name === 'Login Endpoint' && result.success) {
         try {
@@ -136,7 +154,7 @@ async function runTests() {
   console.log('\n🏁 Tests completed!');
   console.log('\nNext steps:');
   console.log('1. All services should be running via "Microservices Stack" workflow');
-  console.log('2. Test the frontend at http://localhost:3003');  
+  console.log('2. Test the frontend at http://localhost:3003');
   console.log('3. Test API Gateway at http://localhost:8080');
 }
 

@@ -29,6 +29,11 @@ router.get('/healthz', (req, res) => {
 
 // Get current user info
 router.get('/me', (req, res) => {
+  console.log('🔍 User info request:', {
+    headers: req.headers,
+    authHeader: req.headers.authorization
+  });
+  
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     return res.status(401).json({ error: 'No authorization header' });
@@ -62,6 +67,12 @@ router.get('/me', (req, res) => {
 
 // Login endpoint
 router.post('/login', (req, res) => {
+  console.log('🔍 Login attempt:', {
+    body: req.body,
+    headers: req.headers,
+    contentType: req.get('Content-Type')
+  });
+  
   const { email, password } = req.body;
 
   if (!email || !password) {
