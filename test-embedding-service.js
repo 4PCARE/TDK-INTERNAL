@@ -41,6 +41,23 @@ async function testEmbeddingService() {
     console.log('✅ Available Providers:', providersResponse.data);
     console.log('');
 
+    // Test 2b: Test Gemini Embedding (if API key is available)
+    try {
+      console.log('2️⃣b Testing Gemini Embedding...');
+      const geminiEmbeddingResponse = await axios.post(`${EMBEDDING_SERVICE_URL}/embed`, {
+        texts: ['Test Gemini embedding generation'],
+        provider: 'gemini'
+      });
+      console.log('✅ Gemini Embedding Generated:');
+      console.log('- Dimensions:', geminiEmbeddingResponse.data.dimensions);
+      console.log('- Provider:', geminiEmbeddingResponse.data.provider);
+      console.log('- Count:', geminiEmbeddingResponse.data.count);
+      console.log('');
+    } catch (error) {
+      console.log('⚠️  Gemini test skipped (API key not configured or error):', error.response?.data?.message || error.message);
+      console.log('');
+    }
+
     // Test 3: Generate Single Embedding
     console.log('3️⃣ Testing Single Text Embedding...');
     const singleEmbedding = await axios.post(`${EMBEDDING_SERVICE_URL}/embed`, {

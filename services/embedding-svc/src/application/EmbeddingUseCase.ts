@@ -1,5 +1,6 @@
 import { EmbeddingsClient } from '../../../packages/contracts/ai/EmbeddingsClient.js';
 import { OpenAIEmbeddingsClient } from '../infrastructure/providers/OpenAIEmbeddingsClient.js';
+import { GeminiEmbeddingsClient } from '../infrastructure/providers/GeminiEmbeddingsClient.js';
 import { VectorStore, VectorDocument } from '../infrastructure/db/VectorStore.js';
 
 export interface GenerateEmbeddingsRequest {
@@ -28,29 +29,50 @@ export interface SearchOptions {
 export class EmbeddingUseCase {
   constructor(private vectorStore: VectorStore) {}
 
+  private createEmbeddingsClient(provider: string): EmbeddingsClient {
+    switch (provider.toLowerCase()) {
+      case 'openai':
+        const openaiKey = process.env.OPENAI_API_KEY;
+        if (!openaiKey) {
+          throw new Error('OpenAI API key not configured');
+        }
+        return new OpenAIEmbeddingsClient(openaiKey);
+      
+      case 'gemini':
+        const geminiKey = process.env.GEMINI_API_KEY;
+        if (!geminiKey) {
+          throw new Error('Gemini API key not configured');
+        }
+        return new GeminiEmbeddingsClient(geminiKey);
+      
+      default:
+        throw new Error(`Unsupported embedding provider: ${provider}`);
+    }
+  }
+
   async generateEmbeddings(params: {
     texts: string[];
     documentId?: number;
     provider?: string;
     model?: string;
   }) {
-    const { texts, provider = 'openai' } = params;
+    const { texts, provider = 'openai', model } = params;
 
-    // Mock embedding generation for now
-    const mockEmbeddings = texts.map(() => 
-      Array.from({ length: 1536 }, () => Math.random() - 0.5)
-    );
+    try {
+      const client = this.createEmbeddingsClient(provider);
+      const result = await client.embed(texts, { model });
 
-    return {
-      embeddings: mockEmbeddings,
-      dimensions: 1536,
-      provider,
-      count: texts.length,
-      usage: {
-        promptTokens: texts.join(' ').length,
-        totalTokens: texts.join(' ').length
-      }
-    };
+      return {
+        embeddings: result.embeddings,
+        dimensions: result.dimensions,
+        provider,
+        count: texts.length,
+        usage: result.usage
+      };
+    } catch (error) {
+      console.error(`Error generating embeddings with ${provider}:`, error);
+      throw error;
+    }
   }
 
   async indexDocument(params: {
@@ -124,7 +146,10 @@ export class EmbeddingUseCase {
   }
 
   getAvailableProviders() {
-    return ['openai', 'azure-openai', 'huggingface'];
+    return {
+      providers: ['openai', 'gemini'],
+      default: 'openai'
+    };
   }
 
   async getStats() {
