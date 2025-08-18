@@ -17,20 +17,60 @@ export function createApp(): express.Express {
     res.json({ status: 'healthy', service: 'api-gateway' });
   });
 
-  // Proxy to auth service
-  app.use('/auth', createProxyMiddleware({
+  // Service health checks
+  app.use('/health/auth', createProxyMiddleware({
     target: 'http://localhost:3001',
     changeOrigin: true,
-    pathRewrite: { '^/auth': '' }
+    pathRewrite: { '^/health/auth': '/healthz' }
   }));
 
-  // Proxy to document ingestion service
-  app.use('/documents', createProxyMiddleware({
+  app.use('/health/doc-ingest', createProxyMiddleware({
     target: 'http://localhost:3002',
     changeOrigin: true,
-    pathRewrite: { '^/documents': '' }
+    pathRewrite: { '^/health/doc-ingest': '/healthz' }
   }));
 
+  app.use('/health/agent', createProxyMiddleware({
+    target: 'http://localhost:3005',
+    changeOrigin: true,
+    pathRewrite: { '^/health/agent': '/healthz' }
+  }));
+
+  // Auth endpoints
+  app.use('/me', createProxyMiddleware({
+    target: 'http://localhost:3001',
+    changeOrigin: true
+  }));
+
+  app.use('/login', createProxyMiddleware({
+    target: 'http://localhost:3001',
+    changeOrigin: true
+  }));
+
+  // Agent endpoints
+  app.use('/agents', createProxyMiddleware({
+    target: 'http://localhost:3005',
+    changeOrigin: true
+  }));
+
+  // API routes (existing functionality)
+  app.use('/api/auth', createProxyMiddleware({
+    target: 'http://localhost:3001',
+    changeOrigin: true,
+    pathRewrite: { '^/api/auth': '' }
+  }));
+
+  app.use('/api/documents', createProxyMiddleware({
+    target: 'http://localhost:3002',
+    changeOrigin: true,
+    pathRewrite: { '^/api/documents': '' }
+  }));
+
+  app.use('/api/agents', createProxyMiddleware({
+    target: 'http://localhost:3005',
+    changeOrigin: true,
+    pathRewrite: { '^/api/agents': '' }
+  }));
 
   return app;
 }

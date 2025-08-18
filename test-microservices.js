@@ -1,4 +1,3 @@
-
 import http from 'http';
 
 // Test configuration
@@ -50,7 +49,7 @@ async function testEndpoint(test) {
     if (test.data) {
       req.write(JSON.stringify(test.data));
     }
-    
+
     req.end();
   });
 }
@@ -62,19 +61,19 @@ async function runTests() {
     try {
       const result = await testEndpoint(test);
       const status = result.success ? '✅' : '❌';
-      const details = result.success 
+      const details = result.success
         ? `(${result.status})`
         : `(${result.status || 'ERROR'}: ${result.error || 'Unknown error'})`;
-      
+
       console.log(`${status} ${test.name} ${details}`);
-      
+
       if (result.success && result.response) {
         console.log(`   Response: ${result.response.substring(0, 100)}...`);
       }
     } catch (error) {
       console.log(`❌ ${test.name} (ERROR: ${error.message})`);
     }
-    
+
     // Small delay between tests
     await new Promise(resolve => setTimeout(resolve, 100));
   }

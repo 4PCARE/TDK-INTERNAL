@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { ChatController } from './controllers/ChatController.js';
 
@@ -16,7 +15,7 @@ router.get('/chat/history/:sessionId', chatController.getConversationHistory.bin
 // Agent management endpoints
 router.get('/agents', (req, res) => {
   const userId = req.headers['x-user-id'] || 'anonymous';
-  
+
   // Mock agent list
   const agents = [
     {
@@ -27,7 +26,7 @@ router.get('/agents', (req, res) => {
       userId
     },
     {
-      id: '2', 
+      id: '2',
       name: 'Document Assistant',
       description: 'AI assistant for document queries',
       status: 'active',
@@ -40,7 +39,7 @@ router.get('/agents', (req, res) => {
 
 router.get('/agents/:id', (req, res) => {
   const { id } = req.params;
-  
+
   // Mock agent details
   const agent = {
     id,

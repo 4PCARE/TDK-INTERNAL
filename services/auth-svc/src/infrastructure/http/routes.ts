@@ -1,23 +1,22 @@
-
 import { Router } from 'express';
 
 const router = Router();
 
 // Mock user database (replace with actual DB in production)
 const users = new Map([
-  ['dev@example.com', { 
-    id: 'dev-user', 
-    email: 'dev@example.com', 
-    firstName: 'Dev', 
+  ['dev@example.com', {
+    id: 'dev-user',
+    email: 'dev@example.com',
+    firstName: 'Dev',
     lastName: 'User',
-    roles: ['admin', 'user'] 
+    roles: ['admin', 'user']
   }],
-  ['user@example.com', { 
-    id: 'user-123', 
-    email: 'user@example.com', 
-    firstName: 'Test', 
+  ['user@example.com', {
+    id: 'user-123',
+    email: 'user@example.com',
+    firstName: 'Test',
     lastName: 'User',
-    roles: ['user'] 
+    roles: ['user']
   }]
 ]);
 
@@ -37,7 +36,7 @@ router.get('/me', (req, res) => {
 
   const token = authHeader.replace('Bearer ', '');
   const session = sessions.get(token);
-  
+
   if (!session) {
     return res.status(401).json({ error: 'Invalid token' });
   }
@@ -64,7 +63,7 @@ router.get('/me', (req, res) => {
 // Login endpoint
 router.post('/login', (req, res) => {
   const { email, password } = req.body;
-  
+
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password required' });
   }
@@ -77,7 +76,7 @@ router.post('/login', (req, res) => {
   // Generate mock JWT token
   const token = `jwt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  
+
   // Store session
   sessions.set(token, { email, userId: user.id, createdAt: new Date() });
   sessions.set(refreshToken, { email, userId: user.id, type: 'refresh', createdAt: new Date() });
@@ -97,7 +96,7 @@ router.post('/login', (req, res) => {
 // Refresh token endpoint
 router.post('/refresh', (req, res) => {
   const { refreshToken } = req.body;
-  
+
   if (!refreshToken) {
     return res.status(400).json({ error: 'Refresh token required' });
   }
@@ -115,7 +114,7 @@ router.post('/refresh', (req, res) => {
   // Generate new tokens
   const newToken = `jwt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const newRefreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  
+
   // Update sessions
   sessions.delete(refreshToken); // Remove old refresh token
   sessions.set(newToken, { email: session.email, userId: user.id, createdAt: new Date() });
@@ -141,7 +140,7 @@ router.post('/logout', (req, res) => {
     const token = authHeader.replace('Bearer ', '');
     sessions.delete(token);
   }
-  
+
   res.json({ message: 'Logged out successfully' });
 });
 
