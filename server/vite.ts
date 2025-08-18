@@ -37,7 +37,15 @@ export async function setupVite(app: Express, server: Server) {
         process.exit(1);
       },
     },
-    server: serverOptions,
+    server: {
+      ...serverOptions,
+      host: "0.0.0.0",
+      allowedHosts: "all",
+      hmr: {
+        port: 24678,
+        host: "0.0.0.0"
+      }
+    },
     appType: "custom",
     root: join(import.meta.dirname, '..', 'apps', 'admin-ui'),
     configFile: join(import.meta.dirname, '..', 'apps', 'admin-ui', 'vite.config.ts'),
