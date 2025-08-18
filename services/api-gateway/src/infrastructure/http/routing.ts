@@ -78,17 +78,11 @@ export function setupRouting(app: Express): void {
     
     console.log(`🔀 Manual proxy: ${req.method} ${req.originalUrl} -> ${serviceUrl}${targetPath}`);
     
-    // Create a modified request handler that uses the correct target path
-    const proxyHandler = createProxyHandler(serviceUrl);
-    
-    // Temporarily modify req.path for the proxy
-    const originalPath = req.path;
-    req.path = targetPath;
+    // Create proxy handler with the full target URL including the path
+    const fullTargetUrl = `${serviceUrl}${targetPath}`;
+    const proxyHandler = createProxyHandler(fullTargetUrl);
     
     proxyHandler(req, res);
-    
-    // Restore original path
-    req.path = originalPath;
   });
 
   // Add other service routes here as needed
