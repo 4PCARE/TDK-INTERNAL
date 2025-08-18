@@ -1,5 +1,5 @@
 
-const axios = require('axios');
+import axios from 'axios';
 
 const EMBEDDING_SERVICE_URL = 'http://localhost:8080/embedding';
 const API_GATEWAY_URL = 'http://localhost:8080';
