@@ -106,3 +106,47 @@ export class GeminiEmbeddingsClient implements EmbeddingsClient {
     return this.model;
   }
 }
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+export interface EmbeddingResponse {
+  embeddings: number[][];
+  usage?: {
+    totalTokens: number;
+  };
+}
+
+export class GeminiEmbeddingsClient {
+  private client: GoogleGenerativeAI;
+  
+  constructor(apiKey: string) {
+    this.client = new GoogleGenerativeAI(apiKey);
+  }
+
+  async generateEmbeddings(texts: string[]): Promise<EmbeddingResponse> {
+    try {
+      const model = this.client.getGenerativeModel({ model: 'embedding-001' });
+      
+      const embeddings: number[][] = [];
+      let totalTokens = 0;
+
+      for (const text of texts) {
+        const result = await model.embedContent(text);
+        embeddings.push(result.embedding.values);
+        totalTokens += text.split(' ').length; // Rough token estimation
+      }
+
+      return {
+        embeddings,
+        usage: { totalTokens }
+      };
+    } catch (error) {
+      console.error('Gemini embedding error:', error);
+      throw new Error(`Gemini embedding failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async generateEmbedding(text: string): Promise<number[]> {
+    const response = await this.generateEmbeddings([text]);
+    return response.embeddings[0];
+  }
+}

@@ -3,7 +3,7 @@ import express from 'express';
 import { registerRoutes } from './infrastructure/http/routes.js';
 
 const app = express();
-const PORT = process.env.PORT || 3006;
+const PORT = process.env.CSAT_SVC_PORT || 3008;
 
 // Middleware
 app.use(express.json());
