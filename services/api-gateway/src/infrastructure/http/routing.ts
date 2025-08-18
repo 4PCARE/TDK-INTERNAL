@@ -66,8 +66,7 @@ export function setupRouting(app: Express): void {
     target: 'http://localhost:3005',
     changeOrigin: true,
     pathRewrite: {
-      '^/api/agents$': '/agents',
-      '^/api/agents/(.*)': '/agents/$1'
+      '^/api/agents': '/agents'
     },
     onProxyReq: (proxyReq, req, res) => {
       console.log(`🔀 Proxying ${req.method} ${req.originalUrl} to http://localhost:3005${proxyReq.path}`);
@@ -81,16 +80,7 @@ export function setupRouting(app: Express): void {
       }
     },
     onProxyRes: (proxyRes, req, res) => {
-      // Log the response for debugging
       console.log(`📥 Agent service response: ${proxyRes.statusCode} for ${req.method} ${req.url}`);
-
-      // If we get HTML response, convert to JSON error
-      if (proxyRes.headers['content-type']?.includes('text/html') && proxyRes.statusCode >= 400) {
-        res.status(proxyRes.statusCode).json({
-          error: `Agent service error: ${proxyRes.statusCode}`,
-          message: 'Service returned HTML error page instead of JSON'
-        });
-      }
     }
   }));
 
