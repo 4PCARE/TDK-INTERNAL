@@ -20,29 +20,168 @@ paths:
         "200":
           description: Ready
 
-  /documents:
+  /upload:
     post:
-      summary: Upload document
+      summary: Upload single document
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                title:
+                  type: string
+                description:
+                  type: string
+                category:
+                  type: string
+                tags:
+                  type: string
+                isPublic:
+                  type: boolean
       responses:
         "201":
-          description: Document uploaded
+          description: Document uploaded successfully
         "400":
-          description: Invalid upload
+          description: Bad request
+        "500":
+          description: Upload failed
+
+  /upload/batch:
+    post:
+      summary: Upload multiple documents
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                category:
+                  type: string
+                isPublic:
+                  type: boolean
+      responses:
+        "201":
+          description: Documents uploaded successfully
+        "400":
+          description: Bad request
+        "500":
+          description: Upload failed
+
+  /documents:
+    get:
+      summary: Get all documents
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Documents retrieved successfully
 
   /documents/{id}:
     get:
-      summary: Get document
+      summary: Get document by ID
       parameters:
         - name: id
           in: path
           required: true
           schema:
-            $ref: "../common/schemas.yaml#/components/schemas/Id"
+            type: string
       responses:
         "200":
           description: Document found
         "404":
           description: Document not found
+    put:
+      summary: Update document metadata
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                category:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                isPublic:
+                  type: boolean
+      responses:
+        "200":
+          description: Document updated
+        "404":
+          description: Document not found
+    delete:
+      summary: Delete document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Document deleted
+        "404":
+          description: Document not found
+
+  /documents/{id}/status:
+    get:
+      summary: Get document processing status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Status retrieved
+        "404":
+          description: Document not found
+
+  /categories:
+    get:
+      summary: Get all document categories
+      responses:
+        "200":
+          description: Categories retrieved
 
 components:
   schemas:

@@ -61,6 +61,79 @@ export function setupRouting(app: Express): void {
     proxyHandler(req, res);
   });
 
+  // Document ingestion routes
+  app.post('/api/documents/upload', (req, res) => {
+    const serviceUrl = getServiceUrl('doc-ingest');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Document ingestion service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/upload`);
+    proxyHandler(req, res);
+  });
+
+  app.post('/api/documents/upload/batch', (req, res) => {
+    const serviceUrl = getServiceUrl('doc-ingest');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Document ingestion service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/upload/batch`);
+    proxyHandler(req, res);
+  });
+
+  app.get('/api/documents/:id', (req, res) => {
+    const serviceUrl = getServiceUrl('doc-ingest');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Document ingestion service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/documents/${req.params.id}`);
+    proxyHandler(req, res);
+  });
+
+  app.get('/api/documents', (req, res) => {
+    const serviceUrl = getServiceUrl('doc-ingest');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Document ingestion service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/documents`);
+    proxyHandler(req, res);
+  });
+
+  app.put('/api/documents/:id', (req, res) => {
+    const serviceUrl = getServiceUrl('doc-ingest');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Document ingestion service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/documents/${req.params.id}`);
+    proxyHandler(req, res);
+  });
+
+  app.delete('/api/documents/:id', (req, res) => {
+    const serviceUrl = getServiceUrl('doc-ingest');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Document ingestion service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/documents/${req.params.id}`);
+    proxyHandler(req, res);
+  });
+
+  app.get('/api/documents/:id/status', (req, res) => {
+    const serviceUrl = getServiceUrl('doc-ingest');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Document ingestion service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/documents/${req.params.id}/status`);
+    proxyHandler(req, res);
+  });
+
+  app.get('/api/categories', (req, res) => {
+    const serviceUrl = getServiceUrl('doc-ingest');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Document ingestion service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/categories`);
+    proxyHandler(req, res);
+  });
+
   // Agent service routes - manual proxy
   app.use('/api/agents', (req, res) => {
     const serviceUrl = getServiceUrl('agent');
