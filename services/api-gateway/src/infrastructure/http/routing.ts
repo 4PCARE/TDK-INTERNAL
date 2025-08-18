@@ -1,5 +1,6 @@
 import { Express, Request, Response } from 'express';
 import { createProxyHandler } from './proxy.js';
+import { createProxyMiddleware } from 'http-proxy-middleware'; // Import createProxyMiddleware
 
 // Helper function to get service URLs
 function getServiceUrl(service: string): string | null {
@@ -14,6 +15,13 @@ function getServiceUrl(service: string): string | null {
 
   return serviceMap[service] || null;
 }
+
+// Dummy function to simulate logging request body
+function logRequestBody(proxyReq: any, req: any) {
+  // In a real scenario, you would inspect req.body or the stream
+  // console.log('Request Body:', req.body);
+}
+
 
 export function setupRouting(app: Express): void {
   // Health check for the gateway itself
@@ -54,15 +62,19 @@ export function setupRouting(app: Express): void {
   });
 
   // Agent service routes
-  app.get('/api/agents', (req, res) => {
-    const serviceUrl = getServiceUrl('agent');
-    if (!serviceUrl) {
-      return res.status(503).json({ error: 'Agent service unavailable' });
+  app.use('/api/agents', createProxyMiddleware({
+    target: 'http://localhost:3005',
+    changeOrigin: true,
+    pathRewrite: {
+      '^/api/agents': '/agents'
+    },
+    onProxyReq: (proxyReq, req, res) => {
+      console.log(`🔀 Proxying ${req.method} /api/agents to http://localhost:3005/agents`);
+      logRequestBody(proxyReq, req);
     }
-    const proxyHandler = createProxyHandler(`${serviceUrl}/agents`);
-    proxyHandler(req, res);
-  });
+  }));
 
+  // Add other service routes here as needed
   // Document ingestion routes
   app.use('/api/documents', (req, res) => {
     const serviceUrl = getServiceUrl('doc-ingest');

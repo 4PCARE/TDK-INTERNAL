@@ -2,6 +2,7 @@ import express from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import cors from 'cors';
 import helmet from 'helmet';
+import { router } from './infrastructure/http/routes.js';
 import { setupRouting } from './infrastructure/http/routing.js';
 
 /**
@@ -49,8 +50,11 @@ export function createApp(): express.Express {
     pathRewrite: { '^/health/agent': '/healthz' }
   }));
 
-  // Register microservice routes
+  // Setup service routing
   setupRouting(app);
+
+  // Routes
+  app.use('/', router);
 
   return app;
 }
