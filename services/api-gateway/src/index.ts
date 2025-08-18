@@ -2,7 +2,7 @@ import express from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import cors from 'cors';
 import helmet from 'helmet';
-import { registerRoutes } from './infrastructure/http/routing.js';
+import { setupRouting } from './infrastructure/http/routing.js';
 
 /**
  * Bootstrap API Gateway service
@@ -39,44 +39,8 @@ export function createApp(): express.Express {
     pathRewrite: { '^/health/agent': '/healthz' }
   }));
 
-  // Auth endpoints
-  app.use('/me', createProxyMiddleware({
-    target: 'http://localhost:3001',
-    changeOrigin: true
-  }));
-
-  app.use('/login', createProxyMiddleware({
-    target: 'http://localhost:3001',
-    changeOrigin: true
-  }));
-
-  // Agent endpoints
-  app.use('/agents', createProxyMiddleware({
-    target: 'http://localhost:3005',
-    changeOrigin: true
-  }));
-
-  // API routes (existing functionality)
-  app.use('/api/auth', createProxyMiddleware({
-    target: 'http://localhost:3001',
-    changeOrigin: true,
-    pathRewrite: { '^/api/auth': '' }
-  }));
-
-  app.use('/api/documents', createProxyMiddleware({
-    target: 'http://localhost:3002',
-    changeOrigin: true,
-    pathRewrite: { '^/api/documents': '' }
-  }));
-
-  app.use('/api/agents', createProxyMiddleware({
-    target: 'http://localhost:3005',
-    changeOrigin: true,
-    pathRewrite: { '^/api/agents': '' }
-  }));
-
   // Register microservice routes
-  registerRoutes(app);
+  setupRouting(app);
 
   return app;
 }

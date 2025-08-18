@@ -6,9 +6,9 @@ function getServiceUrl(service: string): string | null {
   const serviceMap: Record<string, string> = {
     'auth': 'http://localhost:3001',
     'doc-ingest': 'http://localhost:3002',
-    'agent': 'http://localhost:3003', // Corrected port for agent service
+    'agent': 'http://localhost:3005', // Corrected port for agent service
     'embedding': 'http://localhost:3004',
-    'search': 'http://localhost:3005', // Corrected port for search service
+    'search': 'http://localhost:3003', // Corrected port for search service
     'csat': 'http://localhost:3006'
   };
 
