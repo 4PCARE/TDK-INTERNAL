@@ -8,7 +8,7 @@ export function createProxyHandler(targetUrl: string) {
     console.log(`📦 Request body:`, req.body);
     console.log(`📋 Content-Type:`, req.get('Content-Type'));
 
-    const url = new URL(req.path, targetUrl);
+    const url = new URL(targetUrl);
     const options: http.RequestOptions = {
       hostname: url.hostname,
       port: url.port,
