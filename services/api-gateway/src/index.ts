@@ -1,5 +1,8 @@
 import express from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import cors from 'cors';
+import helmet from 'helmet';
+import { registerRoutes } from './infrastructure/http/routing.js';
 
 /**
  * Bootstrap API Gateway service
@@ -71,6 +74,9 @@ export function createApp(): express.Express {
     changeOrigin: true,
     pathRewrite: { '^/api/agents': '' }
   }));
+
+  // Register microservice routes
+  registerRoutes(app);
 
   return app;
 }
