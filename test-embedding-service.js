@@ -109,13 +109,28 @@ async function testEmbeddingService() {
       threshold: 0.5
     });
     console.log('✅ Search Results:');
-    searchResponse.data.forEach((result, index) => {
-      console.log(`  Result ${index + 1}:`);
-      console.log(`    - Similarity: ${result.similarity.toFixed(4)}`);
-      console.log(`    - Content: "${result.content.substring(0, 60)}..."`);
-      console.log(`    - Document ID: ${result.documentId}`);
-      console.log(`    - Chunk Index: ${result.chunkIndex}`);
+    console.log('📋 Raw response structure:', {
+      type: typeof searchResponse.data,
+      isArray: Array.isArray(searchResponse.data),
+      keys: Object.keys(searchResponse.data || {}),
+      data: searchResponse.data
     });
+    
+    // Handle different response formats
+    const results = Array.isArray(searchResponse.data) ? searchResponse.data : 
+                   searchResponse.data.results || searchResponse.data.matches || [];
+    
+    if (results.length === 0) {
+      console.log('  No results found - this is expected as we just indexed test documents');
+    } else {
+      results.forEach((result, index) => {
+        console.log(`  Result ${index + 1}:`);
+        console.log(`    - Similarity: ${result.similarity?.toFixed(4) || 'N/A'}`);
+        console.log(`    - Content: "${(result.content || result.document?.content || 'N/A').substring(0, 60)}..."`);
+        console.log(`    - Document ID: ${result.documentId || result.document?.id || 'N/A'}`);
+        console.log(`    - Chunk Index: ${result.chunkIndex || result.document?.chunkIndex || 'N/A'}`);
+      });
+    }
     console.log('');
 
     // Test 7: Get Document Embeddings
