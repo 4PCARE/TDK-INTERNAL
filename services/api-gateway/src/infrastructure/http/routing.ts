@@ -191,6 +191,17 @@ export function setupRouting(app: Express): void {
     proxyHandler(req, res);
   });
 
+  // Direct embedding service routes (for testing)
+  app.use('/embedding', (req, res) => {
+    const serviceUrl = getServiceUrl('embedding');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Embedding service unavailable' });
+    }
+    const targetUrl = `${serviceUrl}${req.originalUrl.replace('/embedding', '')}`;
+    const proxyHandler = createProxyHandler(targetUrl);
+    proxyHandler(req, res);
+  });
+
   // CSAT service routes
   app.use('/api/csat', (req, res) => {
     const serviceUrl = getServiceUrl('csat');

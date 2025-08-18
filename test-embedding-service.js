@@ -1,7 +1,7 @@
 
 import axios from 'axios';
 
-const EMBEDDING_SERVICE_URL = 'http://localhost:8080/embedding';
+const EMBEDDING_SERVICE_URL = 'http://localhost:8080/api/embeddings';
 const API_GATEWAY_URL = 'http://localhost:8080';
 
 async function testEmbeddingService() {

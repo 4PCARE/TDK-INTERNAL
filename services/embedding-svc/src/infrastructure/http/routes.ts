@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import { EmbeddingController } from './controllers/EmbeddingController.js';
 
-export function setupRoutes(app: any) {
+export function registerRoutes(app: any) {
   const router = Router();
   const embeddingController = new EmbeddingController();
 
