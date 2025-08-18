@@ -29,12 +29,34 @@ paths:
         "401":
           description: Authentication failed
 
+  /register:
+    post:
+      summary: User registration
+      responses:
+        "201":
+          description: User registered successfully
+        "400":
+          description: Invalid input
+        "409":
+          description: User already exists
+
   /refresh:
     post:
       summary: Refresh token
       responses:
         "200":
           description: Token refreshed
+        "401":
+          description: Invalid refresh token
+
+  /validate:
+    post:
+      summary: Validate token
+      responses:
+        "200":
+          description: Token is valid
+        "401":
+          description: Invalid token
 
   /me:
     get:
@@ -42,6 +64,32 @@ paths:
       responses:
         "200":
           description: Current user info
+        "401":
+          description: Not authenticated
+
+  /users/{id}:
+    get:
+      summary: Get user by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User found
+        "404":
+          description: User not found
+
+  /profile:
+    put:
+      summary: Update user profile
+      responses:
+        "200":
+          description: Profile updated
+        "401":
+          description: Not authenticated
 
 components:
   schemas:
