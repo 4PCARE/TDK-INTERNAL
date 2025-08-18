@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { EmbeddingController } from './controllers/EmbeddingController.js';
 
 export function registerRoutes(app: any) {
+  console.log('🔧 Registering embedding service routes...');
   const router = Router();
   const embeddingController = new EmbeddingController();
 
@@ -29,4 +30,11 @@ export function registerRoutes(app: any) {
   router.get('/stats', embeddingController.getStats.bind(embeddingController));
 
   app.use('/', router);
+  console.log('✅ Embedding service routes registered successfully');
+  console.log('📋 Routes available:');
+  console.log('   GET  /healthz');
+  console.log('   GET  /providers');
+  console.log('   POST /embed');
+  console.log('   POST /search');
+  console.log('   GET  /stats');
 }

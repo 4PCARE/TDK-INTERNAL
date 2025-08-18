@@ -183,10 +183,13 @@ export function setupRouting(app: Express): void {
   // Embedding service routes
   app.use('/api/embeddings', (req, res) => {
     const serviceUrl = getServiceUrl('embedding');
+    console.log('🔍 Embedding service URL:', serviceUrl);
     if (!serviceUrl) {
+      console.error('❌ Embedding service not found in service discovery');
       return res.status(503).json({ error: 'Embedding service unavailable' });
     }
     const targetUrl = `${serviceUrl}${req.originalUrl.replace('/api/embeddings', '')}`;
+    console.log('🎯 Target URL:', targetUrl);
     const proxyHandler = createProxyHandler(targetUrl);
     proxyHandler(req, res);
   });
