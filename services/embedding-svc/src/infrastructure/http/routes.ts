@@ -33,9 +33,3 @@ export function registerRoutes(app: Application): void {
 
   app.use('/', router);
 }
-
-  // Provider management
-  router.get('/providers', embeddingController.getAvailableProviders.bind(embeddingController));
-
-  app.use('/', router);
-}
