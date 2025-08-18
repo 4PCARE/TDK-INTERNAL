@@ -66,7 +66,8 @@ export function setupRouting(app: Express): void {
     target: 'http://localhost:3005',
     changeOrigin: true,
     pathRewrite: {
-      '^/api/agents(.*)': '/agents$1'
+      '^/api/agents$': '/agents',
+      '^/api/agents/(.*)': '/agents/$1'
     },
     onProxyReq: (proxyReq, req, res) => {
       console.log(`🔀 Proxying ${req.method} ${req.originalUrl} to http://localhost:3005${proxyReq.path}`);
