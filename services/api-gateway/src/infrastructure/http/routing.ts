@@ -69,7 +69,12 @@ export function setupRouting(app: Express): void {
     }
     
     // Rewrite the path from /api/agents to /agents
-    const targetPath = req.originalUrl.replace('/api/agents', '/agents');
+    let targetPath = req.url; // Use req.url instead of req.originalUrl
+    if (targetPath === '/') {
+      targetPath = '/agents'; // Root of /api/agents should map to /agents
+    } else {
+      targetPath = `/agents${targetPath}`; // Sub-paths should be /agents/...
+    }
     const targetUrl = `${serviceUrl}${targetPath}`;
     
     console.log(`🔀 Manual proxy: ${req.method} ${req.originalUrl} -> ${targetUrl}`);
