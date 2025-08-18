@@ -24,6 +24,9 @@ export function setupRoutes(app: any) {
   
   // Provider management
   router.get('/providers', embeddingController.getAvailableProviders.bind(embeddingController));
+  
+  // Stats and monitoring
+  router.get('/stats', embeddingController.getStats.bind(embeddingController));
 
   app.use('/', router);
 }

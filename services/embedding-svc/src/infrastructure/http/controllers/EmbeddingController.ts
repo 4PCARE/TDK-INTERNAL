@@ -167,11 +167,31 @@ export class EmbeddingController {
     }
   }
 
+  async getStats(req: Request, res: Response) {
+    try {
+      const stats = await this.embeddingUseCase.getStats();
+      res.json(stats);
+    } catch (error) {
+      console.error('Error getting embedding stats:', error);
+      res.status(500).json({ 
+        error: 'Failed to get embedding stats',
+        details: error.message 
+      });
+    }
+  }
+
   async healthCheck(req: Request, res: Response) {
-    res.json({ 
-      status: 'healthy',
-      service: 'embedding-svc',
-      timestamp: new Date().toISOString()
-    });
+    try {
+      const health = await this.embeddingUseCase.healthCheck();
+      res.json(health);
+    } catch (error) {
+      console.error('Error in health check:', error);
+      res.json({ 
+        status: 'unhealthy',
+        service: 'embedding-svc',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
   }
 }
