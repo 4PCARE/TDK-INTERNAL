@@ -1,5 +1,5 @@
 import { Express, Request, Response } from 'express';
-import { proxyRequest } from './proxy.js';
+import { createProxyHandler } from './proxy.js';
 
 // Helper function to get service URLs
 function getServiceUrl(service: string): string | null {
@@ -30,7 +30,8 @@ export function setupRouting(app: Express): void {
       return res.status(404).json({ error: `Service ${service} not found` });
     }
 
-    proxyRequest(req, res, `${serviceUrl}/healthz`);
+    const proxyHandler = createProxyHandler(`${serviceUrl}/healthz`);
+    proxyHandler(req, res);
   });
 
   // Auth service routes
@@ -39,7 +40,8 @@ export function setupRouting(app: Express): void {
     if (!serviceUrl) {
       return res.status(503).json({ error: 'Auth service unavailable' });
     }
-    proxyRequest(req, res, `${serviceUrl}/me`);
+    const proxyHandler = createProxyHandler(`${serviceUrl}/me`);
+    proxyHandler(req, res);
   });
 
   app.post('/login', (req, res) => {
@@ -47,7 +49,8 @@ export function setupRouting(app: Express): void {
     if (!serviceUrl) {
       return res.status(503).json({ error: 'Auth service unavailable' });
     }
-    proxyRequest(req, res, `${serviceUrl}/login`);
+    const proxyHandler = createProxyHandler(`${serviceUrl}/login`);
+    proxyHandler(req, res);
   });
 
   // Agent service routes
@@ -56,7 +59,8 @@ export function setupRouting(app: Express): void {
     if (!serviceUrl) {
       return res.status(503).json({ error: 'Agent service unavailable' });
     }
-    proxyRequest(req, res, `${serviceUrl}/agents`);
+    const proxyHandler = createProxyHandler(`${serviceUrl}/agents`);
+    proxyHandler(req, res);
   });
 
   // Document ingestion routes
@@ -66,7 +70,8 @@ export function setupRouting(app: Express): void {
       return res.status(503).json({ error: 'Document ingestion service unavailable' });
     }
     const targetUrl = `${serviceUrl}${req.originalUrl.replace('/api/documents', '')}`;
-    proxyRequest(req, res, targetUrl);
+    const proxyHandler = createProxyHandler(targetUrl);
+    proxyHandler(req, res);
   });
 
   // Search service routes
@@ -76,7 +81,8 @@ export function setupRouting(app: Express): void {
       return res.status(503).json({ error: 'Search service unavailable' });
     }
     const targetUrl = `${serviceUrl}${req.originalUrl.replace('/api/search', '')}`;
-    proxyRequest(req, res, targetUrl);
+    const proxyHandler = createProxyHandler(targetUrl);
+    proxyHandler(req, res);
   });
 
   // Embedding service routes
@@ -86,7 +92,8 @@ export function setupRouting(app: Express): void {
       return res.status(503).json({ error: 'Embedding service unavailable' });
     }
     const targetUrl = `${serviceUrl}${req.originalUrl.replace('/api/embeddings', '')}`;
-    proxyRequest(req, res, targetUrl);
+    const proxyHandler = createProxyHandler(targetUrl);
+    proxyHandler(req, res);
   });
 
   // CSAT service routes
@@ -96,7 +103,8 @@ export function setupRouting(app: Express): void {
       return res.status(503).json({ error: 'CSAT service unavailable' });
     }
     const targetUrl = `${serviceUrl}${req.originalUrl.replace('/api/csat', '')}`;
-    proxyRequest(req, res, targetUrl);
+    const proxyHandler = createProxyHandler(targetUrl);
+    proxyHandler(req, res);
   });
 
   // Fallback for unmatched routes
