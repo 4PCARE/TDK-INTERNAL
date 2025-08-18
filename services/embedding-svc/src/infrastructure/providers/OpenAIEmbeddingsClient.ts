@@ -1,77 +1,64 @@
 
-import OpenAI from 'openai';
-import { EmbeddingsClient, EmbeddingResponse, EmbeddingOptions } from '../../../../packages/contracts/ai/EmbeddingsClient.js';
+import { EmbeddingsClient, EmbeddingOptions, EmbeddingResult } from '../../../../packages/contracts/ai/EmbeddingsClient.js';
 
 export class OpenAIEmbeddingsClient implements EmbeddingsClient {
-  private client: OpenAI;
-  private defaultModel = 'text-embedding-3-small';
-  private defaultDimensions = 1536;
+  private apiKey: string;
+  private baseURL: string = 'https://api.openai.com/v1';
 
   constructor() {
-    this.client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
+    this.apiKey = process.env.OPENAI_API_KEY || '';
+    if (!this.apiKey) {
+      throw new Error('OPENAI_API_KEY environment variable is required');
+    }
   }
 
-  async embed(texts: string[], options: EmbeddingOptions = {}): Promise<EmbeddingResponse> {
-    const {
-      model = this.defaultModel,
-      dimensions = this.defaultDimensions,
-      batchSize = 100
-    } = options;
-
-    const embeddings: number[][] = [];
+  async embed(texts: string[], options: EmbeddingOptions = {}): Promise<EmbeddingResult> {
+    const { model = 'text-embedding-3-small', batchSize = 50 } = options;
+    
+    const batches = this.createBatches(texts, batchSize);
+    const allEmbeddings: number[][] = [];
     let totalTokens = 0;
-
-    // Process in batches to handle rate limits
-    for (let i = 0; i < texts.length; i += batchSize) {
-      const batch = texts.slice(i, i + batchSize);
-      
-      try {
-        const response = await this.client.embeddings.create({
+    
+    for (const batch of batches) {
+      const response = await fetch(`${this.baseURL}/embeddings`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          input: batch,
           model,
-          input: batch.map(text => text.trim()),
-          dimensions: model.includes('3-') ? dimensions : undefined
-        });
+        }),
+      });
 
-        embeddings.push(...response.data.map(item => item.embedding));
-        totalTokens += response.usage.total_tokens;
-
-        // Small delay between batches to avoid rate limits
-        if (i + batchSize < texts.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      } catch (error) {
-        console.error(`Error in OpenAI embedding batch ${Math.floor(i/batchSize) + 1}:`, error);
-        throw new Error(`Failed to generate embeddings: ${error}`);
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
       }
+
+      const result = await response.json();
+      
+      const embeddings = result.data.map((item: any) => item.embedding);
+      allEmbeddings.push(...embeddings);
+      totalTokens += result.usage.total_tokens;
     }
 
     return {
-      embeddings,
-      dimensions: embeddings[0]?.length || dimensions,
+      embeddings: allEmbeddings,
+      dimensions: allEmbeddings[0]?.length || 0,
       usage: {
-        totalTokens
-      }
+        totalTokens,
+        promptTokens: totalTokens,
+        completionTokens: 0,
+      },
     };
   }
 
-  async getDimensions(model?: string): Promise<number> {
-    const modelName = model || this.defaultModel;
-    
-    // Return known dimensions for OpenAI models
-    if (modelName.includes('text-embedding-3-small')) return 1536;
-    if (modelName.includes('text-embedding-3-large')) return 3072;
-    if (modelName.includes('text-embedding-ada-002')) return 1536;
-    
-    return this.defaultDimensions;
-  }
-
-  async getAvailableModels(): Promise<string[]> {
-    return [
-      'text-embedding-3-small',
-      'text-embedding-3-large',
-      'text-embedding-ada-002'
-    ];
+  private createBatches<T>(array: T[], batchSize: number): T[][] {
+    const batches: T[][] = [];
+    for (let i = 0; i < array.length; i += batchSize) {
+      batches.push(array.slice(i, i + batchSize));
+    }
+    return batches;
   }
 }
