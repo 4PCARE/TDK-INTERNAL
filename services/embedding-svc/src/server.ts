@@ -4,11 +4,6 @@ import { registerRoutes } from './infrastructure/http/routes.js';
 
 const app = express();
 const port = parseInt(process.env.PORT || '3005');
-const debugUrl = process.env.DEBUG_URL;
-
-if (debugUrl) {
-  console.log(`🐛 Debug URL configured: ${debugUrl}`);
-}
 
 // Middleware
 app.use(express.json({ limit: '50mb' }));
