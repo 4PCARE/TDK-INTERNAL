@@ -22,7 +22,7 @@ export function setupRouting(app: Express): void {
   });
 
   // Health routes for individual services
-  app.get('/health/:service', async (req, res) => {
+  app.get('/health/:service', (req, res) => {
     const { service } = req.params;
     const serviceUrl = getServiceUrl(service);
 
@@ -30,93 +30,72 @@ export function setupRouting(app: Express): void {
       return res.status(404).json({ error: `Service ${service} not found` });
     }
 
-    try {
-      // Assuming proxyRequest can handle a URL string directly or an options object
-      const response = await proxyRequest({
-        method: 'GET',
-        url: `${serviceUrl}/healthz`,
-        headers: req.headers as Record<string, string>
-      });
-
-      res.status(response.status).json(response.data);
-    } catch (error) {
-      console.error(`Health check failed for ${service}:`, error);
-      res.status(503).json({ error: `Service ${service} unavailable` });
-    }
+    proxyRequest(req, res, `${serviceUrl}/healthz`);
   });
 
   // Auth service routes
-  app.get('/me', async (req, res) => {
-    try {
-      const response = await proxyRequest({
-        method: 'GET',
-        url: `${getServiceUrl('auth')}/me`,
-        headers: req.headers as Record<string, string>
-      });
-      res.status(response.status).json(response.data);
-    } catch (error) {
-      console.error('Auth /me proxy error:', error);
-      res.status(503).json({ error: 'Auth service unavailable' });
+  app.get('/me', (req, res) => {
+    const serviceUrl = getServiceUrl('auth');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
     }
+    proxyRequest(req, res, `${serviceUrl}/me`);
   });
 
-  app.post('/login', async (req, res) => {
-    try {
-      const response = await proxyRequest({
-        method: 'POST',
-        url: `${getServiceUrl('auth')}/login`,
-        headers: req.headers as Record<string, string>,
-        data: req.body
-      });
-      res.status(response.status).json(response.data);
-    } catch (error) {
-      console.error('Auth /login proxy error:', error);
-      res.status(503).json({ error: 'Auth service unavailable' });
+  app.post('/login', (req, res) => {
+    const serviceUrl = getServiceUrl('auth');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
     }
+    proxyRequest(req, res, `${serviceUrl}/login`);
   });
 
   // Agent service routes
-  app.get('/api/agents', async (req, res) => {
-    try {
-      const response = await proxyRequest({
-        method: 'GET',
-        url: `${getServiceUrl('agent')}/agents`, // Proxy to /agents endpoint of agent service
-        headers: req.headers as Record<string, string>
-      });
-      res.status(response.status).json(response.data);
-    } catch (error) {
-      console.error('Agent /agents proxy error:', error);
-      res.status(503).json({ error: 'Agent service unavailable' });
+  app.get('/api/agents', (req, res) => {
+    const serviceUrl = getServiceUrl('agent');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Agent service unavailable' });
     }
+    proxyRequest(req, res, `${serviceUrl}/agents`);
   });
 
   // Document ingestion routes
   app.use('/api/documents', (req, res) => {
-    const targetUrl = `http://localhost:3002${req.originalUrl.replace('/api/documents', '/documents')}`;
+    const serviceUrl = getServiceUrl('doc-ingest');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Document ingestion service unavailable' });
+    }
+    const targetUrl = `${serviceUrl}${req.originalUrl.replace('/api/documents', '')}`;
     proxyRequest(req, res, targetUrl);
   });
 
   // Search service routes
   app.use('/api/search', (req, res) => {
-    const targetUrl = `http://localhost:3005${req.originalUrl.replace('/api/search', '/search')}`; // Corrected port for search service
+    const serviceUrl = getServiceUrl('search');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Search service unavailable' });
+    }
+    const targetUrl = `${serviceUrl}${req.originalUrl.replace('/api/search', '')}`;
     proxyRequest(req, res, targetUrl);
   });
 
   // Embedding service routes
   app.use('/api/embeddings', (req, res) => {
-    const targetUrl = `http://localhost:3004${req.originalUrl.replace('/api/embeddings', '/embeddings')}`;
+    const serviceUrl = getServiceUrl('embedding');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Embedding service unavailable' });
+    }
+    const targetUrl = `${serviceUrl}${req.originalUrl.replace('/api/embeddings', '')}`;
     proxyRequest(req, res, targetUrl);
   });
 
   // CSAT service routes
   app.use('/api/csat', (req, res) => {
-    const targetUrl = `http://localhost:3006${req.originalUrl.replace('/api/csat', '/csat')}`;
-    proxyRequest(req, res, targetUrl);
-  });
-
-  // Health monitor routes
-  app.use('/api/health', (req, res) => {
-    const targetUrl = `http://localhost:3007${req.originalUrl.replace('/api/health', '/health')}`;
+    const serviceUrl = getServiceUrl('csat');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'CSAT service unavailable' });
+    }
+    const targetUrl = `${serviceUrl}${req.originalUrl.replace('/api/csat', '')}`;
     proxyRequest(req, res, targetUrl);
   });
 
