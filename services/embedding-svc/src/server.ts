@@ -1,58 +1,53 @@
 import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
 import { registerRoutes } from './infrastructure/http/routes.js';
 
 const app = express();
-const port = parseInt(process.env.PORT || '3004');
+const PORT = process.env.PORT || 3004;
 
 // Middleware
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(helmet());
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// CORS for development
+// Add request logging
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
-  }
-});
-
-// Request logging
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  console.log(`📥 ${req.method} ${req.path}`);
   next();
 });
 
-// Register routes
-try {
-  registerRoutes(app);
-} catch (error) {
-  console.error('Error registering routes:', error);
-  process.exit(1);
-}
+// Routes
+registerRoutes(app);
 
 // Error handling
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Unhandled error:', err);
+app.use((error: any, req: any, res: any, next: any) => {
+  console.error('🚨 Embedding Service Error:', error);
   res.status(500).json({
     error: 'Internal server error',
-    details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    service: 'embedding-svc',
+    message: error.message
   });
 });
 
 // 404 handler
-app.use('*', (req, res) => {
+app.use((req, res) => {
   res.status(404).json({
     error: 'Not found',
-    path: req.originalUrl
+    service: 'embedding-svc',
+    path: req.path
   });
 });
 
-app.listen(port, '0.0.0.0', () => {
-  console.log(`🚀 Embedding Service running on port ${port}`);
-  console.log(`🔗 Health check: http://0.0.0.0:${port}/healthz`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🔮 Embedding Service running on port ${PORT}`);
+  console.log(`📋 Health check: http://0.0.0.0:${PORT}/healthz`);
+  console.log(`🧠 Embedding endpoints available`);
+  console.log(`🌐 Available routes:`);
+  console.log(`   GET  /healthz - Health check`);
+  console.log(`   GET  /providers - Available providers`);
+  console.log(`   POST /embed - Generate embeddings`);
+  console.log(`   POST /index - Index document`);
+  console.log(`   POST /search - Vector similarity search`);
 });
