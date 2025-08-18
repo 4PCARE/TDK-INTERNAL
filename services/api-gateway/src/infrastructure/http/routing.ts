@@ -1,184 +1,76 @@
-import type { Request, Response } from "express";
-import { proxy } from "./proxy";
-import { createProxyMiddleware } from 'http-proxy-middleware';
 
-export { proxyToLegacy, proxyToService } from './proxy';
+import { Request, Response } from 'express';
 
-const LEGACY_ENV_NAME = "LEGACY_BASE_URL"; // resolved later by real bootstrap
-// Placeholder resolver: read from process.env only if present; otherwise default to localhost.
-// This read is safe and cheap; no network. Keeps us runnable for local dev.
-const legacyBase = process?.env?.[LEGACY_ENV_NAME] ?? "http://0.0.0.0:5000";
-const authBase = process?.env?.AUTH_SVC_URL ?? "http://0.0.0.0:3001";
-const docIngestBase = process?.env?.DOC_INGEST_SVC_URL ?? "http://0.0.0.0:3002";
+// Service URLs - these should be environment variables in production
+const SERVICE_URLS = {
+  auth: process.env.AUTH_SVC_URL || 'http://localhost:3001',
+  docIngest: process.env.DOC_INGEST_SVC_URL || 'http://localhost:3002',
+  search: process.env.SEARCH_SVC_URL || 'http://localhost:3004',
+  agent: process.env.AGENT_SVC_URL || 'http://localhost:3005',
+  embedding: process.env.EMBEDDING_SVC_URL || 'http://localhost:3006',
+  csat: process.env.CSAT_SVC_URL || 'http://localhost:3008',
+  legacy: process.env.LEGACY_BASE_URL || 'http://localhost:5000'
+};
 
-export function registerLegacyRoutes(app: any) {
-  // POST /chat -> legacy
-  app.post("/chat", async (req: Request, res: Response) => {
-    try {
-      const r = await proxy(req, legacyBase, "/chat");
-      res.status(r.status).set(r.headers).send(r.data);
-    } catch (e: any) {
-      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
-    }
-  });
+export interface RouteConfig {
+  pattern: RegExp;
+  service: string;
+  rewrite?: (path: string) => string;
+  requireAuth?: boolean;
+}
 
-  // POST /search -> legacy
-  app.post("/search", async (req: Request, res: Response) => {
-    try {
-      const r = await proxy(req, legacyBase, "/search");
-      res.status(r.status).set(r.headers).send(r.data);
-    } catch (e: any) {
-      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
-    }
-  });
+export const routes: RouteConfig[] = [
+  // Health check routes
+  { pattern: /^\/healthz$/, service: 'gateway', requireAuth: false },
+  { pattern: /^\/health\/(auth|doc-ingest|search|agent|embedding|csat)$/, service: 'health', requireAuth: false },
 
-  // POST /documents -> doc-ingest-svc
-  app.post("/documents", async (req: Request, res: Response) => {
-    try {
-      const r = await proxy(req, docIngestBase, "/documents");
-      res.status(r.status).set(r.headers).send(r.data);
-    } catch (e: any) {
-      res.status(502).json({ message: "Upstream proxy error" });
-    }
-  });
-
-  // POST /webhook -> legacy
-  app.post("/webhook", async (req: Request, res: Response) => {
-    try {
-      const r = await proxy(req, legacyBase, "/webhook");
-      res.status(r.status).set(r.headers).send(r.data);
-    } catch (e: any) {
-      res.status(502).json({ message: "Upstream proxy error" });
-    }
-  });
-
-  // GET /me -> auth-svc
-  app.get("/me", async (req: Request, res: Response) => {
-    try {
-      const r = await proxy(req, authBase, "/me");
-      res.status(r.status).set(r.headers).send(r.data);
-    } catch (e: any) {
-      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
-    }
-  });
-
-  // POST /login -> auth-svc
-  app.post("/login", async (req: Request, res: Response) => {
-    try {
-      const r = await proxy(req, authBase, "/login");
-      res.status(r.status).set(r.headers).send(r.data);
-    } catch (e: any) {
-      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
-    }
-  });
-
-  // POST /refresh -> auth-svc
-  app.post("/refresh", async (req: Request, res: Response) => {
-    try {
-      const r = await proxy(req, authBase, "/refresh");
-      res.status(r.status).set(r.headers).send(r.data);
-    } catch (e: any) {
-      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
-    }
-  });
-
-  // GET /roles -> auth-svc
-  app.get("/roles", async (req: Request, res: Response) => {
-    try {
-      const r = await proxy(req, authBase, "/roles");
-      res.status(r.status).set(r.headers).send(r.data);
-    } catch (e: any) {
-      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
-    }
-  });
-
-  // POST /policies/:id/check -> auth-svc
-  app.post("/policies/:id/check", async (req: Request, res: Response) => {
-    try {
-      const r = await proxy(req, authBase, `/policies/${req.params.id}/check`);
-      res.status(r.status).set(r.headers).send(r.data);
-    } catch (e: any) {
-      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
-    }
-  });
-
-  // POST /api/documents -> doc-ingest-svc
-  app.post("/api/documents", async (req: Request, res: Response) => {
-    try {
-      const r = await proxy(req, docIngestBase, "/documents");
-      res.status(r.status).set(r.headers).send(r.data);
-    } catch (e: any) {
-      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
-    }
-  });
-
-  // GET /api/documents/:id -> doc-ingest-svc
-  app.get("/api/documents/:id", async (req: Request, res: Response) => {
-    try {
-      const r = await proxy(req, docIngestBase, `/documents/${req.params.id}`);
-      res.status(r.status).set(r.headers).send(r.data);
-    } catch (e: any) {
-      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
-    }
-  });
+  // Authentication routes (direct to auth service)
+  { pattern: /^\/me$/, service: SERVICE_URLS.auth, requireAuth: false },
+  { pattern: /^\/login$/, service: SERVICE_URLS.auth, requireAuth: false },
+  { pattern: /^\/refresh$/, service: SERVICE_URLS.auth, requireAuth: false },
+  { pattern: /^\/logout$/, service: SERVICE_URLS.auth, requireAuth: false },
+  { pattern: /^\/roles$/, service: SERVICE_URLS.auth, requireAuth: false },
 
   // Document ingestion routes
-  app.use('/api/documents', createProxyMiddleware({
-    target: 'http://0.0.0.0:3002',
-    changeOrigin: true,
-    pathRewrite: { '^/api/documents': '' }
-  }));
+  { pattern: /^\/api\/documents/, service: SERVICE_URLS.docIngest, rewrite: (path) => path.replace('/api', ''), requireAuth: true },
 
-  // Search service routes
-  app.use('/api/search', createProxyMiddleware({
-    target: 'http://0.0.0.0:5000',
-    changeOrigin: true,
-    pathRewrite: {
-      '^/api/search': '/search'
-    },
-    logLevel: 'debug'
-  }));
+  // Agent/Chat routes
+  { pattern: /^\/api\/chat/, service: SERVICE_URLS.agent, rewrite: (path) => path.replace('/api', ''), requireAuth: true },
+  { pattern: /^\/api\/agents/, service: SERVICE_URLS.agent, rewrite: (path) => path.replace('/api', ''), requireAuth: true },
 
-  // Agent service routes
-  app.use('/api/chat', createProxyMiddleware({
-    target: 'http://0.0.0.0:5000',
-    changeOrigin: true,
-    pathRewrite: {
-      '^/api/chat': '/chat'
+  // Search routes (will be implemented next)
+  { pattern: /^\/api\/search/, service: SERVICE_URLS.search, rewrite: (path) => path.replace('/api', ''), requireAuth: true },
+
+  // Embedding routes (will be implemented next)
+  { pattern: /^\/api\/embeddings/, service: SERVICE_URLS.embedding, rewrite: (path) => path.replace('/api', ''), requireAuth: true },
+
+  // CSAT routes (will be implemented next)
+  { pattern: /^\/api\/csat/, service: SERVICE_URLS.csat, rewrite: (path) => path.replace('/api', ''), requireAuth: true },
+
+  // Legacy fallback (everything else goes to legacy server for now)
+  { pattern: /.*/, service: SERVICE_URLS.legacy, requireAuth: false }
+];
+
+export function findRoute(path: string): RouteConfig | null {
+  for (const route of routes) {
+    if (route.pattern.test(path)) {
+      return route;
     }
-  }));
+  }
+  return null;
+}
 
-  // Embedding service routes
-  app.use('/api/embeddings', createProxyMiddleware({
-    target: 'http://0.0.0.0:5000',
-    changeOrigin: true
-  }));
-  app.use('/api/vectors', createProxyMiddleware({
-    target: 'http://0.0.0.0:5000',
-    changeOrigin: true
-  }));
+export function getTargetUrl(route: RouteConfig, originalPath: string): string {
+  if (route.service === 'gateway') {
+    return ''; // Handle locally
+  }
+  
+  if (route.service === 'health') {
+    const serviceName = originalPath.split('/')[2];
+    const serviceUrl = SERVICE_URLS[serviceName as keyof typeof SERVICE_URLS];
+    return `${serviceUrl}/healthz`;
+  }
 
-  // CSAT Service routes
-  app.use('/api/csat', createProxyMiddleware({
-    target: 'http://0.0.0.0:5000',
-    changeOrigin: true,
-    timeout: 30000
-  }));
-
-  // Health Monitor Service routes
-  app.use('/api/health', createProxyMiddleware({
-    target: 'http://0.0.0.0:5000',
-    changeOrigin: true,
-    timeout: 10000
-  }));
-
-  // Default: everything else -> legacy server
-  app.use("*", async (req: Request, res: Response) => {
-    try {
-      const r = await proxy(req, legacyBase, req.originalUrl);
-      res.status(r.status).set(r.headers).send(r.data);
-    } catch (e: any) {
-      res.status(502).json({ message: "Upstream proxy error", detail: String(e?.message || e) });
-    }
-  });
+  const targetPath = route.rewrite ? route.rewrite(originalPath) : originalPath;
+  return `${route.service}${targetPath}`;
 }

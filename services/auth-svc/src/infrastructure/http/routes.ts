@@ -1,150 +1,148 @@
-import { Express } from 'express';
-import type { Request, Response } from "express";
-import { validateUser, validateLoginReq, validateLoginRes, validateRefreshReq, validateRefreshRes, validateRolesRes, validatePolicyCheckReq, validatePolicyCheckRes } from "./validate";
-import { replitAuthMiddleware, requireAdmin, type AuthenticatedRequest } from "./middleware";
 
-/**
- * Register health check routes for Auth Service
- * Authentication routes to be added in Phase 2+
- */
-export function registerRoutes(app: Express): void {
-  // Health check endpoints
-  app.get('/healthz', (_req, res) => {
-    res.status(200).json({ status: 'ok', service: 'auth-svc' });
-  });
+import { Router } from 'express';
 
-  app.get('/readyz', (_req, res) => {
-    res.status(200).json({ 
-      status: 'ready', 
-      service: 'auth-svc',
-      timestamp: new Date().toISOString()
-    });
-  });
+const router = Router();
 
-  // User profile endpoint - get current authenticated user
-  app.get("/me", (req: Request, res: Response) => {
-    try {
-      // Check for Replit headers
-      const userId = req.headers['x-replit-user-id'] as string;
-      const userEmail = req.headers['x-replit-user-name'] as string;
-      const userRoles = req.headers['x-replit-user-roles'] as string;
+// Mock user database (replace with actual DB in production)
+const users = new Map([
+  ['dev@example.com', { 
+    id: 'dev-user', 
+    email: 'dev@example.com', 
+    firstName: 'Dev', 
+    lastName: 'User',
+    roles: ['admin', 'user'] 
+  }],
+  ['user@example.com', { 
+    id: 'user-123', 
+    email: 'user@example.com', 
+    firstName: 'Test', 
+    lastName: 'User',
+    roles: ['user'] 
+  }]
+]);
 
-      if (!userId) {
-        return res.status(401).json({ message: "Not authenticated" });
+// Mock sessions
+const sessions = new Map();
+
+router.get('/healthz', (req, res) => {
+  res.json({ status: 'healthy', service: 'auth-svc' });
+});
+
+// Get current user info
+router.get('/me', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ error: 'No authorization header' });
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const session = sessions.get(token);
+  
+  if (!session) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+
+  const user = users.get(session.email);
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  res.json({
+    user: {
+      id: user.id,
+      email: user.email,
+      claims: {
+        sub: user.id,
+        email: user.email,
+        first_name: user.firstName,
+        last_name: user.lastName
       }
-
-      const roles = userRoles ? userRoles.split(',').map(r => r.trim()) : ['user'];
-
-      const payload = {
-        id: userId,
-        email: userEmail || `${userId}@replit.user`,
-        roles: roles
-      };
-
-      if (!validateUser(payload)) {
-        return res.status(500).json({ message: "Contract violation" });
-      }
-
-      return res.status(200).json(payload);
-    } catch (error) {
-      console.error("Error in /me endpoint:", error);
-      return res.status(500).json({ message: "Internal server error" });
     }
   });
+});
 
-  // Login endpoint - redirect to Replit Auth
-  app.post("/login", (req: Request, res: Response) => {
-    const body = req.body ?? {};
-    if (!validateLoginReq(body)) {
-      return res.status(400).json({ message: "Invalid credentials payload" });
+// Login endpoint
+router.post('/login', (req, res) => {
+  const { email, password } = req.body;
+  
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password required' });
+  }
+
+  const user = users.get(email);
+  if (!user || password !== 'dev') { // Simple password check for dev
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  // Generate mock JWT token
+  const token = `jwt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  // Store session
+  sessions.set(token, { email, userId: user.id, createdAt: new Date() });
+  sessions.set(refreshToken, { email, userId: user.id, type: 'refresh', createdAt: new Date() });
+
+  res.json({
+    accessToken: token,
+    refreshToken: refreshToken,
+    user: {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName
     }
-
-    // For Replit Auth, we return a redirect URL
-    const payload = {
-      accessToken: "replit-auth-required",
-      refreshToken: "replit-auth-required",
-      redirectUrl: "https://replit.com/auth/authenticate"
-    };
-
-    if (!validateLoginRes(payload)) {
-      return res.status(500).json({ message: "Contract violation" });
-    }
-    return res.status(200).json(payload);
   });
+});
 
-  // Refresh endpoint - validate existing session
-  app.post("/refresh", (req: Request, res: Response) => {
-    const body = req.body ?? {};
-    if (!validateRefreshReq(body)) {
-      return res.status(400).json({ message: "Invalid refresh payload" });
-    }
+// Refresh token endpoint
+router.post('/refresh', (req, res) => {
+  const { refreshToken } = req.body;
+  
+  if (!refreshToken) {
+    return res.status(400).json({ error: 'Refresh token required' });
+  }
 
-    // Check if user is still authenticated via Replit headers
-    const userId = req.headers['x-replit-user-id'] as string;
+  const session = sessions.get(refreshToken);
+  if (!session || session.type !== 'refresh') {
+    return res.status(401).json({ error: 'Invalid refresh token' });
+  }
 
-    if (!userId) {
-      return res.status(401).json({ message: "Session expired" });
-    }
+  const user = users.get(session.email);
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
 
-    const payload = { 
-      accessToken: `replit-session-${userId}-${Date.now()}`
-    };
+  // Generate new tokens
+  const newToken = `jwt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const newRefreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  // Update sessions
+  sessions.delete(refreshToken); // Remove old refresh token
+  sessions.set(newToken, { email: session.email, userId: user.id, createdAt: new Date() });
+  sessions.set(newRefreshToken, { email: session.email, userId: user.id, type: 'refresh', createdAt: new Date() });
 
-    if (!validateRefreshRes(payload)) {
-      return res.status(500).json({ message: "Contract violation" });
-    }
-    return res.status(200).json(payload);
+  res.json({
+    accessToken: newToken,
+    refreshToken: newRefreshToken
   });
+});
 
-  // Roles endpoint - stubbed for contract compliance
-  app.get("/roles", (_req: Request, res: Response) => {
-    const payload = ["admin", "editor", "viewer"];
-    if (!validateRolesRes(payload)) {
-      return res.status(500).json({ message: "Contract violation" });
-    }
-    return res.status(200).json(payload);
+// Get available roles
+router.get('/roles', (req, res) => {
+  res.json({
+    roles: ['admin', 'user', 'viewer']
   });
+});
 
-  // Policy check endpoint - check user permissions
-  app.post("/policies/:id/check", replitAuthMiddleware, (req: AuthenticatedRequest, res: Response) => {
-    const body = req.body ?? {};
-    if (!validatePolicyCheckReq(body)) {
-      return res.status(400).json({ message: "Invalid policy check payload" });
-    }
+// Logout endpoint
+router.post('/logout', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader) {
+    const token = authHeader.replace('Bearer ', '');
+    sessions.delete(token);
+  }
+  
+  res.json({ message: 'Logged out successfully' });
+});
 
-    const policyId = req.params.id;
-    const { resource, action } = body;
-    const user = req.user!;
-
-    // Simple RBAC logic
-    let allow = false;
-
-    switch (policyId) {
-      case 'admin-only':
-        allow = user.roles.includes('admin');
-        break;
-      case 'user-read':
-        allow = user.roles.includes('user') || user.roles.includes('admin');
-        break;
-      case 'user-write':
-        allow = user.roles.includes('admin');
-        break;
-      case 'document-access':
-        // Users can read their own documents, admins can read all
-        if (action === 'read') {
-          allow = user.roles.includes('user') || user.roles.includes('admin');
-        } else if (action === 'write' || action === 'delete') {
-          allow = user.roles.includes('admin');
-        }
-        break;
-      default:
-        allow = false;
-    }
-
-    const payload = { allow };
-    if (!validatePolicyCheckRes(payload)) {
-      return res.status(500).json({ message: "Contract violation" });
-    }
-    return res.status(200).json(payload);
-  });
-}
+export { router };

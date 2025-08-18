@@ -1,40 +1,37 @@
-import express from 'express';
-import { registerRoutes } from './infrastructure/http/routes.js';
 
-/**
- * Bootstrap Auth Service
- * Only mounts routes - server startup handled externally
- */
-export function createApp(): express.Express {
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import { router } from './infrastructure/http/routes.js';
+
+export function createApp() {
   const app = express();
 
-  // Middleware
+  // Security middleware
+  app.use(helmet());
+  app.use(cors({
+    origin: ['http://localhost:3003', 'http://localhost:5000', 'http://localhost:8080'],
+    credentials: true
+  }));
+
+  // Body parsing
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // Health check
-  app.get('/healthz', (req, res) => {
-    res.json({ status: 'healthy', service: 'auth-svc' });
+  // Request logging
+  app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    next();
   });
 
-  // Basic auth endpoints
-  app.get('/me', (req, res) => {
-    res.json({ user: null, authenticated: false });
-  });
+  // Routes
+  app.use('/', router);
 
-  app.post('/login', (req, res) => {
-    res.json({ success: true, token: 'mock-token' });
+  // Error handling
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error('Auth service error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   });
-
-  app.post('/refresh', (req, res) => {
-    res.json({ success: true, token: 'mock-refreshed-token' });
-  });
-
-  // Register routes
-  registerRoutes(app);
 
   return app;
 }
-
-// Export for external server startup
-export { registerRoutes };

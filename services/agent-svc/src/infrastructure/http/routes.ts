@@ -1,38 +1,59 @@
+
 import { Router } from 'express';
-import type { Express } from 'express';
+import { ChatController } from './controllers/ChatController.js';
 
-export function registerRoutes(app: Express): void {
-  const router = Router();
+const router = Router();
+const chatController = new ChatController();
 
-  // Health check endpoint
-  router.get('/healthz', (req, res) => {
-    res.json({
-      status: 'healthy',
-      service: 'agent-svc',
-      timestamp: new Date().toISOString()
-    });
-  });
+router.get('/healthz', (req, res) => {
+  res.json({ status: 'healthy', service: 'agent-svc' });
+});
 
-  // Basic agent endpoints
-  router.get('/api/agents', (req, res) => {
-    // TODO: Implement agent list
-    res.json({
-      agents: [],
-      total: 0,
-      timestamp: new Date().toISOString()
-    });
-  });
+// Chat endpoints
+router.post('/chat', chatController.processMessage.bind(chatController));
+router.get('/chat/history/:sessionId', chatController.getConversationHistory.bind(chatController));
 
-  router.post('/api/agents/chat', (req, res) => {
-    const { message, agentId } = req.body;
+// Agent management endpoints
+router.get('/agents', (req, res) => {
+  const userId = req.headers['x-user-id'] || 'anonymous';
+  
+  // Mock agent list
+  const agents = [
+    {
+      id: '1',
+      name: 'Customer Support Bot',
+      description: 'AI assistant for customer support',
+      status: 'active',
+      userId
+    },
+    {
+      id: '2', 
+      name: 'Document Assistant',
+      description: 'AI assistant for document queries',
+      status: 'active',
+      userId
+    }
+  ];
 
-    // TODO: Implement actual chat logic
-    res.json({
-      response: 'Agent service placeholder response',
-      agentId,
-      timestamp: new Date().toISOString()
-    });
-  });
+  res.json({ agents });
+});
 
-  app.use(router);
-}
+router.get('/agents/:id', (req, res) => {
+  const { id } = req.params;
+  
+  // Mock agent details
+  const agent = {
+    id,
+    name: 'Customer Support Bot',
+    description: 'AI assistant for customer support',
+    status: 'active',
+    systemPrompt: 'You are a helpful AI assistant that provides customer support.',
+    model: 'gpt-4',
+    temperature: 0.7,
+    maxTokens: 1000
+  };
+
+  res.json({ agent });
+});
+
+export { router };

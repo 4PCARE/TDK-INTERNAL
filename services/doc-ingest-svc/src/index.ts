@@ -1,32 +1,36 @@
 
 import express from 'express';
-import multer from 'multer';
-import path from 'path';
-
-const upload = multer({ dest: 'uploads/' });
+import cors from 'cors';
+import helmet from 'helmet';
+import { router } from './infrastructure/http/routes.js';
 
 export function createApp() {
   const app = express();
-  
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
 
-  // Health check
-  app.get('/healthz', (req, res) => {
-    res.json({ status: 'healthy', service: 'doc-ingest-svc' });
+  // Security middleware
+  app.use(helmet());
+  app.use(cors({
+    origin: ['http://localhost:3003', 'http://localhost:5000', 'http://localhost:8080'],
+    credentials: true
+  }));
+
+  // Body parsing (with larger limits for file uploads)
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+  // Request logging
+  app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    next();
   });
 
-  // Document upload endpoint
-  app.post('/documents', upload.single('file'), (req, res) => {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-    
-    res.json({ 
-      success: true, 
-      filename: req.file.filename,
-      originalName: req.file.originalname
-    });
+  // Routes
+  app.use('/', router);
+
+  // Error handling
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error('Document ingestion service error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   });
 
   return app;

@@ -1,0 +1,91 @@
+
+#!/usr/bin/env node
+
+const http = require('http');
+
+// Test configuration
+const tests = [
+  { name: 'API Gateway Health', url: 'http://localhost:8080/healthz' },
+  { name: 'Auth Service Health', url: 'http://localhost:8080/health/auth' },
+  { name: 'Doc Ingest Health', url: 'http://localhost:8080/health/doc-ingest' },
+  { name: 'Agent Service Health', url: 'http://localhost:8080/health/agent' },
+  { name: 'User Info Endpoint', url: 'http://localhost:8080/me' },
+  { name: 'Login Endpoint', url: 'http://localhost:8080/login', method: 'POST', data: { email: 'dev@example.com', password: 'dev' } },
+  { name: 'Agent List', url: 'http://localhost:8080/api/agents' },
+];
+
+async function testEndpoint(test) {
+  return new Promise((resolve) => {
+    const url = new URL(test.url);
+    const options = {
+      hostname: url.hostname,
+      port: url.port,
+      path: url.pathname,
+      method: test.method || 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    };
+
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        const success = res.statusCode >= 200 && res.statusCode < 400;
+        resolve({
+          ...test,
+          success,
+          status: res.statusCode,
+          response: data.substring(0, 200)
+        });
+      });
+    });
+
+    req.on('error', (err) => {
+      resolve({
+        ...test,
+        success: false,
+        error: err.message
+      });
+    });
+
+    if (test.data) {
+      req.write(JSON.stringify(test.data));
+    }
+    
+    req.end();
+  });
+}
+
+async function runTests() {
+  console.log('🧪 Running microservices smoke tests...\n');
+
+  for (const test of tests) {
+    try {
+      const result = await testEndpoint(test);
+      const status = result.success ? '✅' : '❌';
+      const details = result.success 
+        ? `(${result.status})`
+        : `(${result.status || 'ERROR'}: ${result.error || 'Unknown error'})`;
+      
+      console.log(`${status} ${test.name} ${details}`);
+      
+      if (result.success && result.response) {
+        console.log(`   Response: ${result.response.substring(0, 100)}...`);
+      }
+    } catch (error) {
+      console.log(`❌ ${test.name} (ERROR: ${error.message})`);
+    }
+    
+    // Small delay between tests
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  console.log('\n🏁 Tests completed!');
+  console.log('\nNext steps:');
+  console.log('1. Ensure all services are running via "Microservices Stack" workflow');
+  console.log('2. Test the frontend at http://localhost:3003');
+  console.log('3. Test API Gateway at http://localhost:8080');
+}
+
+runTests().catch(console.error);
