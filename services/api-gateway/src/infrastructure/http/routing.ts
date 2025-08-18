@@ -75,12 +75,20 @@ export function setupRouting(app: Express): void {
     } else {
       targetPath = `/agents${targetPath}`; // Sub-paths should be /agents/...
     }
-    const targetUrl = `${serviceUrl}${targetPath}`;
     
-    console.log(`🔀 Manual proxy: ${req.method} ${req.originalUrl} -> ${targetUrl}`);
+    console.log(`🔀 Manual proxy: ${req.method} ${req.originalUrl} -> ${serviceUrl}${targetPath}`);
     
-    const proxyHandler = createProxyHandler(targetUrl);
+    // Create a modified request handler that uses the correct target path
+    const proxyHandler = createProxyHandler(serviceUrl);
+    
+    // Temporarily modify req.path for the proxy
+    const originalPath = req.path;
+    req.path = targetPath;
+    
     proxyHandler(req, res);
+    
+    // Restore original path
+    req.path = originalPath;
   });
 
   // Add other service routes here as needed
