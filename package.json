@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm run legacy\" \"npm run gateway\" \"npm run auth-svc\" \"npm run doc-ingest\"",
     "legacy": "cd server && npx tsx index.ts",
+    "modern": "cd server && npx tsx modern-server.ts",
     "gateway": "cd services/api-gateway && npm run dev",
     "auth-svc": "cd services/auth-svc && npm run dev",
     "doc-ingest": "cd services/doc-ingest-svc && npm run dev",

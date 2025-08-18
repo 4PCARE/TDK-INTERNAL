@@ -212,7 +212,7 @@ mode = "parallel"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run legacy"
+args = "npm run modern"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
