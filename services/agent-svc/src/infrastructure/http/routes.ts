@@ -28,10 +28,16 @@ const agents = [
 
 // Get agents list
 router.get('/agents', (req, res) => {
-  res.json({
-    agents,
-    total: agents.length
-  });
+  console.log('🤖 Agent service: GET /agents called');
+  try {
+    res.json({
+      agents,
+      total: agents.length
+    });
+  } catch (error) {
+    console.error('🚨 Error in /agents endpoint:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
 });
 
 // Chat endpoints
@@ -54,6 +60,16 @@ router.get('/agents/:id', (req, res) => {
   };
 
   res.json({ agent });
+});
+
+// Catch-all for unmatched routes - return JSON instead of HTML
+router.use('*', (req, res) => {
+  console.log(`🚨 Agent service: Route not found: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ 
+    error: 'Route not found',
+    message: `Cannot ${req.method} ${req.originalUrl}`,
+    service: 'agent-svc'
+  });
 });
 
 export { router };

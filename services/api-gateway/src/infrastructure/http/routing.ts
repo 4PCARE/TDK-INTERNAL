@@ -61,16 +61,30 @@ export function setupRouting(app: Express): void {
     proxyHandler(req, res);
   });
 
-  // Agent service routes
+  // Agent service routes - proxy to agent-svc
   app.use('/api/agents', createProxyMiddleware({
     target: 'http://localhost:3005',
     changeOrigin: true,
     pathRewrite: {
       '^/api/agents': '/agents'
     },
-    onProxyReq: (proxyReq, req, res) => {
-      console.log(`🔀 Proxying ${req.method} /api/agents to http://localhost:3005/agents`);
-      logRequestBody(proxyReq, req);
+    onError: (err, req, res) => {
+      console.error('🚨 Agent service proxy error:', err.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Agent service unavailable', details: err.message });
+      }
+    },
+    onProxyRes: (proxyRes, req, res) => {
+      // Log the response for debugging
+      console.log(`📥 Agent service response: ${proxyRes.statusCode} for ${req.method} ${req.url}`);
+
+      // If we get HTML response, convert to JSON error
+      if (proxyRes.headers['content-type']?.includes('text/html') && proxyRes.statusCode >= 400) {
+        res.status(proxyRes.statusCode).json({
+          error: `Agent service error: ${proxyRes.statusCode}`,
+          message: 'Service returned HTML error page instead of JSON'
+        });
+      }
     }
   }));
 
