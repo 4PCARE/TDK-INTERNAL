@@ -1,21 +1,29 @@
+
 import { Request, Response } from 'express';
 import { EmbeddingUseCase } from '../../../application/EmbeddingUseCase.js';
+import { VectorStore } from '../../db/VectorStore.js';
 
 export class EmbeddingController {
-  constructor(private embeddingUseCase: EmbeddingUseCase) {}
+  private embeddingUseCase: EmbeddingUseCase;
+
+  constructor() {
+    const vectorStore = new VectorStore();
+    this.embeddingUseCase = new EmbeddingUseCase(vectorStore);
+  }
 
   async generateEmbeddings(req: Request, res: Response) {
     try {
-      const { texts, provider, model } = req.body;
+      const { texts, documentId, provider, model } = req.body;
 
       if (!texts || !Array.isArray(texts) || texts.length === 0) {
-        return res.status(400).json({
-          error: 'texts array is required and must not be empty'
+        return res.status(400).json({ 
+          error: 'texts array is required and cannot be empty' 
         });
       }
 
       const result = await this.embeddingUseCase.generateEmbeddings({
         texts,
+        documentId,
         provider,
         model
       });
@@ -23,9 +31,9 @@ export class EmbeddingController {
       res.json(result);
     } catch (error) {
       console.error('Error generating embeddings:', error);
-      res.status(500).json({
+      res.status(500).json({ 
         error: 'Failed to generate embeddings',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error.message 
       });
     }
   }
@@ -35,8 +43,8 @@ export class EmbeddingController {
       const { documentId, chunks } = req.body;
 
       if (!documentId || !chunks || !Array.isArray(chunks)) {
-        return res.status(400).json({
-          error: 'documentId and chunks array are required'
+        return res.status(400).json({ 
+          error: 'documentId and chunks array are required' 
         });
       }
 
@@ -48,9 +56,9 @@ export class EmbeddingController {
       res.json(result);
     } catch (error) {
       console.error('Error indexing document:', error);
-      res.status(500).json({
+      res.status(500).json({ 
         error: 'Failed to index document',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error.message 
       });
     }
   }
@@ -60,14 +68,14 @@ export class EmbeddingController {
       const { query, limit, threshold, filter, provider } = req.body;
 
       if (!query || typeof query !== 'string') {
-        return res.status(400).json({
-          error: 'query string is required'
+        return res.status(400).json({ 
+          error: 'query string is required' 
         });
       }
 
       const results = await this.embeddingUseCase.searchSimilar(query, {
-        limit: limit ? parseInt(limit) : undefined,
-        threshold: threshold ? parseFloat(threshold) : undefined,
+        limit,
+        threshold,
         filter,
         provider
       });
@@ -78,10 +86,10 @@ export class EmbeddingController {
         count: results.length
       });
     } catch (error) {
-      console.error('Error searching vectors:', error);
-      res.status(500).json({
-        error: 'Failed to search vectors',
-        details: error instanceof Error ? error.message : 'Unknown error'
+      console.error('Error searching similar chunks:', error);
+      res.status(500).json({ 
+        error: 'Failed to search similar chunks',
+        details: error.message 
       });
     }
   }
@@ -90,9 +98,9 @@ export class EmbeddingController {
     try {
       const { documentId } = req.params;
 
-      if (!documentId) {
-        return res.status(400).json({
-          error: 'documentId parameter is required'
+      if (!documentId || isNaN(parseInt(documentId))) {
+        return res.status(400).json({ 
+          error: 'Valid documentId is required' 
         });
       }
 
@@ -107,9 +115,9 @@ export class EmbeddingController {
       });
     } catch (error) {
       console.error('Error getting document embeddings:', error);
-      res.status(500).json({
+      res.status(500).json({ 
         error: 'Failed to get document embeddings',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error.message 
       });
     }
   }
@@ -118,25 +126,26 @@ export class EmbeddingController {
     try {
       const { documentId } = req.params;
 
-      if (!documentId) {
-        return res.status(400).json({
-          error: 'documentId parameter is required'
+      if (!documentId || isNaN(parseInt(documentId))) {
+        return res.status(400).json({ 
+          error: 'Valid documentId is required' 
         });
       }
 
-      const deleted = await this.embeddingUseCase.deleteDocumentEmbeddings(
+      const deletedCount = await this.embeddingUseCase.deleteDocumentEmbeddings(
         parseInt(documentId)
       );
 
       res.json({
         documentId: parseInt(documentId),
-        deleted
+        deletedCount,
+        success: true
       });
     } catch (error) {
       console.error('Error deleting document embeddings:', error);
-      res.status(500).json({
+      res.status(500).json({ 
         error: 'Failed to delete document embeddings',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error.message 
       });
     }
   }
@@ -144,12 +153,16 @@ export class EmbeddingController {
   async getAvailableProviders(req: Request, res: Response) {
     try {
       const providers = this.embeddingUseCase.getAvailableProviders();
-      res.json({ providers });
+      
+      res.json({
+        providers,
+        default: providers.includes('openai') ? 'openai' : providers[0]
+      });
     } catch (error) {
-      console.error('Error getting providers:', error);
-      res.status(500).json({
-        error: 'Failed to get providers',
-        details: error instanceof Error ? error.message : 'Unknown error'
+      console.error('Error getting available providers:', error);
+      res.status(500).json({ 
+        error: 'Failed to get available providers',
+        details: error.message 
       });
     }
   }

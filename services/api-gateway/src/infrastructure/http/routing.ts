@@ -140,7 +140,7 @@ export function setupRouting(app: Express): void {
     if (!serviceUrl) {
       return res.status(503).json({ error: 'Agent service unavailable' });
     }
-    
+
     // Rewrite the path from /api/agents to /agents
     let targetPath = req.url; // Use req.url instead of req.originalUrl
     if (targetPath === '/') {
@@ -148,17 +148,16 @@ export function setupRouting(app: Express): void {
     } else {
       targetPath = `/agents${targetPath}`; // Sub-paths should be /agents/...
     }
-    
+
     console.log(`🔀 Manual proxy: ${req.method} ${req.originalUrl} -> ${serviceUrl}${targetPath}`);
-    
+
     // Create proxy handler with the full target URL including the path
     const fullTargetUrl = `${serviceUrl}${targetPath}`;
     const proxyHandler = createProxyHandler(fullTargetUrl);
-    
+
     proxyHandler(req, res);
   });
 
-  // Add other service routes here as needed
   // Document ingestion routes
   app.use('/api/documents', (req, res) => {
     const serviceUrl = getServiceUrl('doc-ingest');

@@ -3,17 +3,17 @@
  * Supports OpenAI, Hugging Face, Voyage, Jina, Nomic, Ollama
  */
 
-export interface EmbeddingResponse {
+export interface EmbeddingResult {
   embeddings: number[][];
   dimensions: number;
   usage?: {
     totalTokens: number;
+    model: string;
   };
 }
 
 export interface EmbeddingOptions {
   model?: string;
-  dimensions?: number;
   batchSize?: number;
 }
 
@@ -24,15 +24,20 @@ export interface EmbeddingsClient {
   /**
    * Generate embeddings for one or more texts
    */
-  embed(texts: string[], options?: EmbeddingOptions): Promise<EmbeddingResponse>;
-  
+  embed(texts: string[], options?: EmbeddingOptions): Promise<EmbeddingResult>;
+
   /**
-   * Get embedding dimensions for the specified model
+   * Calculate cosine similarity between two embeddings
    */
-  getDimensions(model?: string): Promise<number>;
-  
+  calculateSimilarity(embedding1: number[], embedding2: number[]): number;
+
   /**
-   * Get available models for this provider
+   * Chunk text into smaller pieces based on max tokens
    */
-  getAvailableModels(): Promise<string[]>;
+  chunkText(text: string, maxTokens?: number, fileType?: string): string[];
+
+  /**
+   * Get the model name for this provider
+   */
+  getModel(): string;
 }
