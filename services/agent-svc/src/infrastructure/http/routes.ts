@@ -8,34 +8,35 @@ router.get('/healthz', (req, res) => {
   res.json({ status: 'healthy', service: 'agent-svc' });
 });
 
+// Mock agents data
+const agents = [
+  {
+    id: 'agent-1',
+    name: 'Customer Support Agent',
+    description: 'Handles customer inquiries and support requests',
+    status: 'active',
+    type: 'support'
+  },
+  {
+    id: 'agent-2',
+    name: 'Sales Assistant',
+    description: 'Assists with sales inquiries and product information',
+    status: 'active',
+    type: 'sales'
+  }
+];
+
+// Get agents list
+router.get('/agents', (req, res) => {
+  res.json({
+    agents,
+    total: agents.length
+  });
+});
+
 // Chat endpoints
 router.post('/chat', chatController.processMessage.bind(chatController));
 router.get('/chat/history/:sessionId', chatController.getConversationHistory.bind(chatController));
-
-// Agent management endpoints
-router.get('/agents', (req, res) => {
-  const userId = req.headers['x-user-id'] || 'anonymous';
-
-  // Mock agent list
-  const agents = [
-    {
-      id: '1',
-      name: 'Customer Support Bot',
-      description: 'AI assistant for customer support',
-      status: 'active',
-      userId
-    },
-    {
-      id: '2',
-      name: 'Document Assistant',
-      description: 'AI assistant for document queries',
-      status: 'active',
-      userId
-    }
-  ];
-
-  res.json({ agents });
-});
 
 router.get('/agents/:id', (req, res) => {
   const { id } = req.params;

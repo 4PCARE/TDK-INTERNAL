@@ -1,37 +1,93 @@
 import { Express, Request, Response } from 'express';
 import { proxyRequest } from './proxy.js';
 
+// Helper function to get service URLs
+function getServiceUrl(service: string): string | null {
+  const serviceMap: Record<string, string> = {
+    'auth': 'http://localhost:3001',
+    'doc-ingest': 'http://localhost:3002',
+    'agent': 'http://localhost:3003', // Corrected port for agent service
+    'embedding': 'http://localhost:3004',
+    'search': 'http://localhost:3005', // Corrected port for search service
+    'csat': 'http://localhost:3006'
+  };
+
+  return serviceMap[service] || null;
+}
+
 export function setupRouting(app: Express): void {
   // Health check for the gateway itself
   app.get('/healthz', (req: Request, res: Response) => {
     res.json({ status: 'healthy', service: 'api-gateway' });
   });
 
-  // Service health checks
-  app.get('/health/auth', (req, res) => {
-    proxyRequest(req, res, 'http://localhost:3001/healthz');
-  });
+  // Health routes for individual services
+  app.get('/health/:service', async (req, res) => {
+    const { service } = req.params;
+    const serviceUrl = getServiceUrl(service);
 
-  app.get('/health/doc-ingest', (req, res) => {
-    proxyRequest(req, res, 'http://localhost:3002/healthz');
-  });
+    if (!serviceUrl) {
+      return res.status(404).json({ error: `Service ${service} not found` });
+    }
 
-  app.get('/health/agent', (req, res) => {
-    proxyRequest(req, res, 'http://localhost:3005/healthz');
+    try {
+      // Assuming proxyRequest can handle a URL string directly or an options object
+      const response = await proxyRequest({
+        method: 'GET',
+        url: `${serviceUrl}/healthz`,
+        headers: req.headers as Record<string, string>
+      });
+
+      res.status(response.status).json(response.data);
+    } catch (error) {
+      console.error(`Health check failed for ${service}:`, error);
+      res.status(503).json({ error: `Service ${service} unavailable` });
+    }
   });
 
   // Auth service routes
-  app.get('/me', (req, res) => {
-    proxyRequest(req, res, 'http://localhost:3001/me');
+  app.get('/me', async (req, res) => {
+    try {
+      const response = await proxyRequest({
+        method: 'GET',
+        url: `${getServiceUrl('auth')}/me`,
+        headers: req.headers as Record<string, string>
+      });
+      res.status(response.status).json(response.data);
+    } catch (error) {
+      console.error('Auth /me proxy error:', error);
+      res.status(503).json({ error: 'Auth service unavailable' });
+    }
   });
 
-  app.post('/login', (req, res) => {
-    proxyRequest(req, res, 'http://localhost:3001/login');
+  app.post('/login', async (req, res) => {
+    try {
+      const response = await proxyRequest({
+        method: 'POST',
+        url: `${getServiceUrl('auth')}/login`,
+        headers: req.headers as Record<string, string>,
+        data: req.body
+      });
+      res.status(response.status).json(response.data);
+    } catch (error) {
+      console.error('Auth /login proxy error:', error);
+      res.status(503).json({ error: 'Auth service unavailable' });
+    }
   });
 
   // Agent service routes
-  app.get('/api/agents', (req, res) => {
-    proxyRequest(req, res, 'http://localhost:3005/api/agents');
+  app.get('/api/agents', async (req, res) => {
+    try {
+      const response = await proxyRequest({
+        method: 'GET',
+        url: `${getServiceUrl('agent')}/agents`, // Proxy to /agents endpoint of agent service
+        headers: req.headers as Record<string, string>
+      });
+      res.status(response.status).json(response.data);
+    } catch (error) {
+      console.error('Agent /agents proxy error:', error);
+      res.status(503).json({ error: 'Agent service unavailable' });
+    }
   });
 
   // Document ingestion routes
@@ -42,7 +98,7 @@ export function setupRouting(app: Express): void {
 
   // Search service routes
   app.use('/api/search', (req, res) => {
-    const targetUrl = `http://localhost:3003${req.originalUrl.replace('/api/search', '/search')}`;
+    const targetUrl = `http://localhost:3005${req.originalUrl.replace('/api/search', '/search')}`; // Corrected port for search service
     proxyRequest(req, res, targetUrl);
   });
 
