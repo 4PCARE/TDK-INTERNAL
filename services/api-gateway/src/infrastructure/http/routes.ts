@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { Express } from 'express';
 import { validateHealth, validateReady } from './validate';
-import { registerLegacyRoutes, proxyToService, proxyToLegacy } from './routing';
+import { setupRouting } from './routing';
 
 /**
  * Register health check routes for API Gateway
@@ -25,14 +25,6 @@ export function registerRoutes(app: Express): void {
     return res.status(200).json(payload);
   });
 
-  // API routes
-  app.use('/api/auth', proxyToService('auth-svc', 3001));
-  app.use('/api/documents', proxyToService('doc-ingest-svc', 3002));
-  app.use('/api/search', proxyToService('search-svc', 3003));
-  app.use('/api/agents', proxyToService('agent-svc', 3004));
-  app.use('/api/embeddings', proxyToService('embedding-svc', 3005));
-  app.use('/api/csat', proxyToService('csat-svc', 3006));
-
-  // Legacy proxy - catch all other routes
-  app.use('/', proxyToLegacy);
+  // Use the setupRouting function to configure all routes
+  setupRouting(app);
 }
