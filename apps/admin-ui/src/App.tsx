@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Router, Route, Switch, Redirect } from 'wouter';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from './components/ui/toaster';
 import { useAuth } from './hooks/useAuth';
@@ -56,52 +56,109 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
-        <Routes>
-          {!isAuthenticated ? (
-            <>
-              <Route path="/" element={<Landing />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </>
-          ) : (
-            <>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
-              <Route path="/documents" element={<DashboardLayout><Documents /></DashboardLayout>} />
-              <Route path="/upload" element={<DashboardLayout><Upload /></DashboardLayout>} />
-              <Route path="/search" element={<DashboardLayout><Search /></DashboardLayout>} />
-              <Route path="/agent-chatbots" element={<DashboardLayout><AgentChatbots /></DashboardLayout>} />
-              <Route path="/agent-chatbots/create" element={<DashboardLayout><CreateAgentChatbot /></DashboardLayout>} />
-              <Route path="/categories" element={<DashboardLayout><Categories /></DashboardLayout>} />
-              <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
-              <Route path="/admin" element={<DashboardLayout><Admin /></DashboardLayout>} />
-              <Route path="/admin/users" element={<DashboardLayout><UserManagement /></DashboardLayout>} />
-              <Route path="/admin/roles" element={<DashboardLayout><RoleManagement /></DashboardLayout>} />
-              <Route path="/admin/audit" element={<DashboardLayout><AuditMonitoring /></DashboardLayout>} />
-              <Route path="/integrations" element={<DashboardLayout><Integrations /></DashboardLayout>} />
-              <Route path="/integrations/line" element={<DashboardLayout><LineConfiguration /></DashboardLayout>} />
-              <Route path="/live-chat" element={<DashboardLayout><LiveChatWidget /></DashboardLayout>} />
-              <Route path="/agent-console" element={<DashboardLayout><AgentConsole /></DashboardLayout>} />
-              <Route path="/ai-assistant" element={<DashboardLayout><AIAssistant /></DashboardLayout>} />
-              <Route path="/survey" element={<DashboardLayout><Survey /></DashboardLayout>} />
-              <Route path="/meeting-notes" element={<DashboardLayout><MeetingNotes /></DashboardLayout>} />
-              <Route path="/data-connections" element={<DashboardLayout><DataConnections /></DashboardLayout>} />
-
-              {/* Dashboard routes */}
-              <Route path="/dashboards/ai-interaction" element={<DashboardLayout><AIInteraction /></DashboardLayout>} />
-              <Route path="/dashboards/ai-response-analysis" element={<DashboardLayout><AiResponseAnalysis /></DashboardLayout>} />
-              <Route path="/dashboards/customer-survey" element={<DashboardLayout><CustomerSurvey /></DashboardLayout>} />
-              <Route path="/dashboards/document-demand-insights" element={<DashboardLayout><DocumentDemandInsights /></DashboardLayout>} />
-              <Route path="/dashboards/document-usage" element={<DashboardLayout><DocumentUsage /></DashboardLayout>} />
-              <Route path="/dashboards/omnichannel-summarization" element={<DashboardLayout><OmnichannelSummarization /></DashboardLayout>} />
-              <Route path="/dashboards/security-governance" element={<DashboardLayout><SecurityGovernance /></DashboardLayout>} />
-              <Route path="/dashboards/system-health" element={<DashboardLayout><SystemHealth /></DashboardLayout>} />
-              <Route path="/dashboards/user-activity" element={<DashboardLayout><UserActivity /></DashboardLayout>} />
-              <Route path="/dashboards/user-feedback" element={<DashboardLayout><UserFeedback /></DashboardLayout>} />
-
-              <Route path="*" element={<DashboardLayout><NotFound /></DashboardLayout>} />
-            </>
-          )}
-        </Routes>
+        {!isAuthenticated ? (
+          <Switch>
+            <Route path="/" component={Landing} />
+            <Route>{() => <Redirect to="/" />}</Route>
+          </Switch>
+        ) : (
+          <Switch>
+            <Route path="/" exact>{() => <Redirect to="/dashboard" />}</Route>
+            <Route path="/dashboard">
+              <DashboardLayout><Dashboard /></DashboardLayout>
+            </Route>
+            <Route path="/documents">
+              <DashboardLayout><Documents /></DashboardLayout>
+            </Route>
+            <Route path="/upload">
+              <DashboardLayout><Upload /></DashboardLayout>
+            </Route>
+            <Route path="/search">
+              <DashboardLayout><Search /></DashboardLayout>
+            </Route>
+            <Route path="/agent-chatbots" exact>
+              <DashboardLayout><AgentChatbots /></DashboardLayout>
+            </Route>
+            <Route path="/agent-chatbots/create">
+              <DashboardLayout><CreateAgentChatbot /></DashboardLayout>
+            </Route>
+            <Route path="/categories">
+              <DashboardLayout><Categories /></DashboardLayout>
+            </Route>
+            <Route path="/settings">
+              <DashboardLayout><Settings /></DashboardLayout>
+            </Route>
+            <Route path="/admin" exact>
+              <DashboardLayout><Admin /></DashboardLayout>
+            </Route>
+            <Route path="/admin/users">
+              <DashboardLayout><UserManagement /></DashboardLayout>
+            </Route>
+            <Route path="/admin/roles">
+              <DashboardLayout><RoleManagement /></DashboardLayout>
+            </Route>
+            <Route path="/admin/audit">
+              <DashboardLayout><AuditMonitoring /></DashboardLayout>
+            </Route>
+            <Route path="/integrations" exact>
+              <DashboardLayout><Integrations /></DashboardLayout>
+            </Route>
+            <Route path="/integrations/line">
+              <DashboardLayout><LineConfiguration /></DashboardLayout>
+            </Route>
+            <Route path="/live-chat">
+              <DashboardLayout><LiveChatWidget /></DashboardLayout>
+            </Route>
+            <Route path="/agent-console">
+              <DashboardLayout><AgentConsole /></DashboardLayout>
+            </Route>
+            <Route path="/ai-assistant">
+              <DashboardLayout><AIAssistant /></DashboardLayout>
+            </Route>
+            <Route path="/survey">
+              <DashboardLayout><Survey /></DashboardLayout>
+            </Route>
+            <Route path="/meeting-notes">
+              <DashboardLayout><MeetingNotes /></DashboardLayout>
+            </Route>
+            <Route path="/data-connections">
+              <DashboardLayout><DataConnections /></DashboardLayout>
+            </Route>
+            <Route path="/dashboards/ai-interaction">
+              <DashboardLayout><AIInteraction /></DashboardLayout>
+            </Route>
+            <Route path="/dashboards/ai-response-analysis">
+              <DashboardLayout><AiResponseAnalysis /></DashboardLayout>
+            </Route>
+            <Route path="/dashboards/customer-survey">
+              <DashboardLayout><CustomerSurvey /></DashboardLayout>
+            </Route>
+            <Route path="/dashboards/document-demand-insights">
+              <DashboardLayout><DocumentDemandInsights /></DashboardLayout>
+            </Route>
+            <Route path="/dashboards/document-usage">
+              <DashboardLayout><DocumentUsage /></DashboardLayout>
+            </Route>
+            <Route path="/dashboards/omnichannel-summarization">
+              <DashboardLayout><OmnichannelSummarization /></DashboardLayout>
+            </Route>
+            <Route path="/dashboards/security-governance">
+              <DashboardLayout><SecurityGovernance /></DashboardLayout>
+            </Route>
+            <Route path="/dashboards/system-health">
+              <DashboardLayout><SystemHealth /></DashboardLayout>
+            </Route>
+            <Route path="/dashboards/user-activity">
+              <DashboardLayout><UserActivity /></DashboardLayout>
+            </Route>
+            <Route path="/dashboards/user-feedback">
+              <DashboardLayout><UserFeedback /></DashboardLayout>
+            </Route>
+            <Route>
+              <DashboardLayout><NotFound /></DashboardLayout>
+            </Route>
+          </Switch>
+        )}
       </Router>
       <Toaster />
     </QueryClientProvider>
