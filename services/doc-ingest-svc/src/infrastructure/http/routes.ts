@@ -1,10 +1,14 @@
-
 import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
 const router = Router();
+
+// Health check endpoint
+router.get('/healthz', (req, res) => {
+  res.json({ status: 'healthy', service: 'doc-ingest-svc' });
+});
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -21,7 +25,7 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage,
   limits: {
     fileSize: 50 * 1024 * 1024 // 50MB limit
@@ -40,7 +44,7 @@ const upload = multer({
       'image/png',
       'image/gif'
     ];
-    
+
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -51,10 +55,6 @@ const upload = multer({
 
 // Mock document database
 const documents = new Map();
-
-router.get('/healthz', (req, res) => {
-  res.json({ status: 'healthy', service: 'doc-ingest-svc' });
-});
 
 // Upload document endpoint
 router.post('/documents', upload.single('file'), async (req, res) => {
@@ -121,7 +121,7 @@ router.post('/documents', upload.single('file'), async (req, res) => {
 router.get('/documents/:id', (req, res) => {
   const { id } = req.params;
   const document = documents.get(id);
-  
+
   if (!document) {
     return res.status(404).json({ error: 'Document not found' });
   }
