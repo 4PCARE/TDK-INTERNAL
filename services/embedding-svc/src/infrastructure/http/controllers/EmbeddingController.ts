@@ -141,7 +141,7 @@ export class EmbeddingController {
     }
   }
 
-  async getProviders(req: Request, res: Response) {
+  async getAvailableProviders(req: Request, res: Response) {
     try {
       const providers = this.embeddingUseCase.getAvailableProviders();
       res.json({ providers });
