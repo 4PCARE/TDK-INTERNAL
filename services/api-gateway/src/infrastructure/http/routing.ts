@@ -61,28 +61,22 @@ export function setupRouting(app: Express): void {
     proxyHandler(req, res);
   });
 
-  // Agent service routes - proxy to agent-svc
-  app.use('/api/agents', createProxyMiddleware({
-    target: 'http://localhost:3005',
-    changeOrigin: true,
-    pathRewrite: {
-      '^/api/agents': '/agents'
-    },
-    onProxyReq: (proxyReq, req, res) => {
-      console.log(`🔀 Proxying ${req.method} ${req.originalUrl} to http://localhost:3005${proxyReq.path}`);
-      console.log(`📍 Original URL: ${req.originalUrl}, Target path: ${proxyReq.path}`);
-      logRequestBody(proxyReq, req);
-    },
-    onError: (err, req, res) => {
-      console.error('🚨 Agent service proxy error:', err.message);
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Agent service unavailable', details: err.message });
-      }
-    },
-    onProxyRes: (proxyRes, req, res) => {
-      console.log(`📥 Agent service response: ${proxyRes.statusCode} for ${req.method} ${req.url}`);
+  // Agent service routes - manual proxy
+  app.use('/api/agents', (req, res) => {
+    const serviceUrl = getServiceUrl('agent');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Agent service unavailable' });
     }
-  }));
+    
+    // Rewrite the path from /api/agents to /agents
+    const targetPath = req.originalUrl.replace('/api/agents', '/agents');
+    const targetUrl = `${serviceUrl}${targetPath}`;
+    
+    console.log(`🔀 Manual proxy: ${req.method} ${req.originalUrl} -> ${targetUrl}`);
+    
+    const proxyHandler = createProxyHandler(targetUrl);
+    proxyHandler(req, res);
+  });
 
   // Add other service routes here as needed
   // Document ingestion routes
