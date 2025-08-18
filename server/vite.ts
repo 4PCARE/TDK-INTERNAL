@@ -38,12 +38,13 @@ export async function setupVite(app: Express, server: Server) {
       },
     },
     server: {
-      ...serverOptions,
+      middlewareMode: true,
       host: "0.0.0.0",
       allowedHosts: "all",
       hmr: {
         port: 24678,
-        host: "0.0.0.0"
+        host: "0.0.0.0",
+        server
       }
     },
     appType: "custom",
