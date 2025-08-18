@@ -2,8 +2,7 @@ import express from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import cors from 'cors';
 import helmet from 'helmet';
-import { router } from './infrastructure/http/routes.js';
-import { setupRouting } from './infrastructure/http/routing.js';
+import { registerRoutes } from './infrastructure/http/routes.js';
 
 /**
  * Bootstrap API Gateway service
@@ -50,11 +49,8 @@ export function createApp(): express.Express {
     pathRewrite: { '^/health/agent': '/healthz' }
   }));
 
-  // Setup service routing
-  setupRouting(app);
-
-  // Routes
-  app.use('/', router);
+  // Register all routes (health checks + service routing)
+  registerRoutes(app);
 
   return app;
 }
