@@ -1,91 +1,56 @@
-
 import { Request, Response } from 'express';
-import fetch from 'node-fetch';
+import http from 'http';
 
-export async function proxyRequest(req: Request, res: Response, targetUrl: string) {
-  try {
-    console.log(`🔀 Proxying ${req.method} ${req.path} -> ${targetUrl}`);
+export function proxyRequest(req: Request, res: Response, targetUrl: string): void {
+  console.log(`Proxying ${req.method} ${req.originalUrl} to ${targetUrl}`);
 
-    // Prepare headers
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'User-Agent': 'AI-KMS-Gateway/1.0'
-    };
+  const url = new URL(targetUrl);
 
-    // Forward auth header if present
-    if (req.headers.authorization) {
-      headers['Authorization'] = req.headers.authorization;
-    }
+  const options = {
+    hostname: url.hostname,
+    port: url.port,
+    path: url.pathname + url.search,
+    method: req.method,
+    headers: {
+      ...req.headers,
+      host: url.host,
+      'content-type': req.headers['content-type'] || 'application/json'
+    },
+    timeout: 5000
+  };
 
-    // Add user context from auth middleware
-    if ((req as any).user?.id) {
-      headers['x-user-id'] = (req as any).user.id;
-    }
+  const proxyReq = http.request(options, (proxyRes) => {
+    // Forward status code and headers
+    res.writeHead(proxyRes.statusCode || 500, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
 
-    // Forward other relevant headers
-    const forwardHeaders = ['content-type', 'accept', 'user-agent'];
-    forwardHeaders.forEach(header => {
-      if (req.headers[header]) {
-        headers[header] = req.headers[header] as string;
-      }
-    });
-
-    // Prepare request options
-    const requestOptions: any = {
-      method: req.method,
-      headers
-    };
-
-    // Add body for POST/PUT/PATCH requests
-    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
-      if (req.headers['content-type']?.includes('multipart/form-data')) {
-        // For file uploads, we need special handling
-        requestOptions.body = req.body;
-      } else {
-        requestOptions.body = JSON.stringify(req.body);
-      }
-    }
-
-    // Add query parameters
-    const url = new URL(targetUrl);
-    Object.keys(req.query).forEach(key => {
-      url.searchParams.append(key, req.query[key] as string);
-    });
-
-    // Make the request
-    const response = await fetch(url.toString(), requestOptions);
-    
-    // Forward response headers
-    response.headers.forEach((value, key) => {
-      if (!['transfer-encoding', 'connection'].includes(key.toLowerCase())) {
-        res.setHeader(key, value);
-      }
-    });
-
-    // Set status code
-    res.status(response.status);
-
-    // Stream response body
-    const responseText = await response.text();
-    
-    try {
-      // Try to parse as JSON
-      const jsonResponse = JSON.parse(responseText);
-      res.json(jsonResponse);
-    } catch {
-      // If not JSON, send as text
-      res.send(responseText);
-    }
-
-  } catch (error) {
-    console.error(`❌ Proxy error for ${req.method} ${req.path}:`, error);
-    
+  proxyReq.on('error', (err) => {
+    console.error(`Proxy error for ${targetUrl}:`, err.message);
     if (!res.headersSent) {
-      res.status(502).json({
-        error: 'Service unavailable',
-        message: 'The requested service is currently unavailable',
-        service: targetUrl.split('//')[1]?.split('/')[0] || 'unknown'
+      res.status(502).json({ 
+        error: 'Bad Gateway', 
+        target: targetUrl,
+        message: err.message 
       });
     }
+  });
+
+  proxyReq.on('timeout', () => {
+    console.error(`Proxy timeout for ${targetUrl}`);
+    if (!res.headersSent) {
+      res.status(504).json({ 
+        error: 'Gateway Timeout', 
+        target: targetUrl 
+      });
+    }
+    proxyReq.destroy();
+  });
+
+  // Handle request body
+  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+    req.pipe(proxyReq);
+  } else {
+    proxyReq.end();
   }
 }

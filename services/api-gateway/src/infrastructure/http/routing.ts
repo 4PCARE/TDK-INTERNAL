@@ -1,76 +1,71 @@
+import { Express, Request, Response } from 'express';
+import { proxyRequest } from './proxy.js';
 
-import { Request, Response } from 'express';
+export function setupRouting(app: Express): void {
+  // Health check for the gateway itself
+  app.get('/healthz', (req: Request, res: Response) => {
+    res.json({ status: 'healthy', service: 'api-gateway' });
+  });
 
-// Service URLs - these should be environment variables in production
-const SERVICE_URLS = {
-  auth: process.env.AUTH_SVC_URL || 'http://localhost:3001',
-  docIngest: process.env.DOC_INGEST_SVC_URL || 'http://localhost:3002',
-  search: process.env.SEARCH_SVC_URL || 'http://localhost:3004',
-  agent: process.env.AGENT_SVC_URL || 'http://localhost:3005',
-  embedding: process.env.EMBEDDING_SVC_URL || 'http://localhost:3006',
-  csat: process.env.CSAT_SVC_URL || 'http://localhost:3008',
-  legacy: process.env.LEGACY_BASE_URL || 'http://localhost:5000'
-};
+  // Service health checks
+  app.get('/health/auth', (req, res) => {
+    proxyRequest(req, res, 'http://localhost:3001/healthz');
+  });
 
-export interface RouteConfig {
-  pattern: RegExp;
-  service: string;
-  rewrite?: (path: string) => string;
-  requireAuth?: boolean;
-}
+  app.get('/health/doc-ingest', (req, res) => {
+    proxyRequest(req, res, 'http://localhost:3002/healthz');
+  });
 
-export const routes: RouteConfig[] = [
-  // Health check routes
-  { pattern: /^\/healthz$/, service: 'gateway', requireAuth: false },
-  { pattern: /^\/health\/(auth|doc-ingest|search|agent|embedding|csat)$/, service: 'health', requireAuth: false },
+  app.get('/health/agent', (req, res) => {
+    proxyRequest(req, res, 'http://localhost:3005/healthz');
+  });
 
-  // Authentication routes (direct to auth service)
-  { pattern: /^\/me$/, service: SERVICE_URLS.auth, requireAuth: false },
-  { pattern: /^\/login$/, service: SERVICE_URLS.auth, requireAuth: false },
-  { pattern: /^\/refresh$/, service: SERVICE_URLS.auth, requireAuth: false },
-  { pattern: /^\/logout$/, service: SERVICE_URLS.auth, requireAuth: false },
-  { pattern: /^\/roles$/, service: SERVICE_URLS.auth, requireAuth: false },
+  // Auth service routes
+  app.get('/me', (req, res) => {
+    proxyRequest(req, res, 'http://localhost:3001/me');
+  });
+
+  app.post('/login', (req, res) => {
+    proxyRequest(req, res, 'http://localhost:3001/login');
+  });
+
+  // Agent service routes
+  app.get('/api/agents', (req, res) => {
+    proxyRequest(req, res, 'http://localhost:3005/api/agents');
+  });
 
   // Document ingestion routes
-  { pattern: /^\/api\/documents/, service: SERVICE_URLS.docIngest, rewrite: (path) => path.replace('/api', ''), requireAuth: true },
+  app.use('/api/documents', (req, res) => {
+    const targetUrl = `http://localhost:3002${req.originalUrl.replace('/api/documents', '/documents')}`;
+    proxyRequest(req, res, targetUrl);
+  });
 
-  // Agent/Chat routes
-  { pattern: /^\/api\/chat/, service: SERVICE_URLS.agent, rewrite: (path) => path.replace('/api', ''), requireAuth: true },
-  { pattern: /^\/api\/agents/, service: SERVICE_URLS.agent, rewrite: (path) => path.replace('/api', ''), requireAuth: true },
+  // Search service routes
+  app.use('/api/search', (req, res) => {
+    const targetUrl = `http://localhost:3003${req.originalUrl.replace('/api/search', '/search')}`;
+    proxyRequest(req, res, targetUrl);
+  });
 
-  // Search routes (will be implemented next)
-  { pattern: /^\/api\/search/, service: SERVICE_URLS.search, rewrite: (path) => path.replace('/api', ''), requireAuth: true },
+  // Embedding service routes
+  app.use('/api/embeddings', (req, res) => {
+    const targetUrl = `http://localhost:3004${req.originalUrl.replace('/api/embeddings', '/embeddings')}`;
+    proxyRequest(req, res, targetUrl);
+  });
 
-  // Embedding routes (will be implemented next)
-  { pattern: /^\/api\/embeddings/, service: SERVICE_URLS.embedding, rewrite: (path) => path.replace('/api', ''), requireAuth: true },
+  // CSAT service routes
+  app.use('/api/csat', (req, res) => {
+    const targetUrl = `http://localhost:3006${req.originalUrl.replace('/api/csat', '/csat')}`;
+    proxyRequest(req, res, targetUrl);
+  });
 
-  // CSAT routes (will be implemented next)
-  { pattern: /^\/api\/csat/, service: SERVICE_URLS.csat, rewrite: (path) => path.replace('/api', ''), requireAuth: true },
+  // Health monitor routes
+  app.use('/api/health', (req, res) => {
+    const targetUrl = `http://localhost:3007${req.originalUrl.replace('/api/health', '/health')}`;
+    proxyRequest(req, res, targetUrl);
+  });
 
-  // Legacy fallback (everything else goes to legacy server for now)
-  { pattern: /.*/, service: SERVICE_URLS.legacy, requireAuth: false }
-];
-
-export function findRoute(path: string): RouteConfig | null {
-  for (const route of routes) {
-    if (route.pattern.test(path)) {
-      return route;
-    }
-  }
-  return null;
-}
-
-export function getTargetUrl(route: RouteConfig, originalPath: string): string {
-  if (route.service === 'gateway') {
-    return ''; // Handle locally
-  }
-  
-  if (route.service === 'health') {
-    const serviceName = originalPath.split('/')[2];
-    const serviceUrl = SERVICE_URLS[serviceName as keyof typeof SERVICE_URLS];
-    return `${serviceUrl}/healthz`;
-  }
-
-  const targetPath = route.rewrite ? route.rewrite(originalPath) : originalPath;
-  return `${route.service}${targetPath}`;
+  // Fallback for unmatched routes
+  app.use((req, res) => {
+    res.status(404).json({ error: 'Route not found', path: req.path });
+  });
 }
