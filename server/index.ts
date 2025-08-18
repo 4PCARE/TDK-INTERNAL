@@ -126,12 +126,11 @@ app.use((req, res, next) => {
   // ALWAYS serve the app on port 80 for production or 5000 for development
   // this serves both the API and the client.
   // const port = process.env.NODE_ENV === 'production' ? 80 : 5000;
-  const port = parseInt(process.env.PORT || "5000", 10);
-  const host = process.env.HOST || "0.0.0.0";
+  const port = process.env.PORT || 5000;
   const httpServer = server.listen(
     {
       port,
-      host,
+      host: "0.0.0.0",
       reusePort: true,
     },
     () => {
