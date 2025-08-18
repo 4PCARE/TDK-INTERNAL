@@ -1,7 +1,5 @@
 
-#!/usr/bin/env node
-
-const http = require('http');
+import http from 'http';
 
 // Test configuration
 const tests = [
