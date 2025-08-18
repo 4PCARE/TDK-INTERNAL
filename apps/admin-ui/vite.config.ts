@@ -27,7 +27,7 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5173,
-    allowedHosts: "372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev",
+    allowedHosts: "all",
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
