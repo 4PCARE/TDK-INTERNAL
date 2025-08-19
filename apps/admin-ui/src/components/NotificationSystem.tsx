@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
-import { Badge } from "./badge";
+import { Badge } from "./ui/badge";
 import { 
   DropdownMenu,
   DropdownMenuContent,

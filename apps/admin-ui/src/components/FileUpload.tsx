@@ -3,7 +3,7 @@ import { useDropzone } from "react-dropzone";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { Progress } from "./ui/progress";
-import { cn } from "../../lib/utils";
+import { cn } from "../lib/utils";
 import { 
   CloudUpload, 
   File, 

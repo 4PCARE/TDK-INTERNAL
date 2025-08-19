@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "./ui/button";
 import { Database, Loader2 } from "lucide-react";
-import { useToast } from "../../hooks/use-toast";
+import { useToast } from "../hooks/use-toast";
 import { apiRequest } from "../lib/queryClient";
 
 export default function VectorizeAllButton() {
