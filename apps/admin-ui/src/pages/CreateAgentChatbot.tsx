@@ -40,7 +40,7 @@ import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Separator } from "../components/ui/separator";
 import { Switch } from "../components/ui/switch";
-import { Slider } from "./slider";
+import { Slider } from "../components/ui/slider";
 import {
   Bot,
   Settings,
