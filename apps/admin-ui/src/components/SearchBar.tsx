@@ -1,8 +1,8 @@
 import { useState, useCallback, useMemo } from "react";
-import { Button } from "./button";
-import { Input } from "./input";
-import { Card, CardContent } from "./card";
-import { Badge } from "./badge";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Card, CardContent } from "./ui/card";
+import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { 
   Search, 

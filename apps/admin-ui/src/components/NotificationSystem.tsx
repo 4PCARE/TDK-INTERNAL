@@ -169,3 +169,45 @@ export const addGlobalNotification = (notification: {
     (window as any).addNotification(notification);
   }
 };
+import { useState } from "react";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { Bell } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+
+export default function NotificationSystem() {
+  const [notifications] = useState([]);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="w-5 h-5" />
+          {notifications.length > 0 && (
+            <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs">
+              {notifications.length}
+            </Badge>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        {notifications.length === 0 ? (
+          <div className="p-4 text-center text-muted-foreground">
+            No new notifications
+          </div>
+        ) : (
+          notifications.map((notification: any, index) => (
+            <DropdownMenuItem key={index}>
+              {notification.message}
+            </DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}

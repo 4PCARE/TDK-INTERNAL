@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "./card";
-import { Badge } from "./badge";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Badge } from "../ui/badge";
 import { FileText, Folder, TrendingUp, BarChart3 } from "lucide-react";
 
 interface CategoryStat {

@@ -1,6 +1,6 @@
-import { useAuth } from "../../hooks/useAuth";
-import { Button } from "./button";
-import { Input } from "./input";
+import { useAuth } from "../hooks/useAuth";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
   DropdownMenu,
@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { Badge } from "./badge";
+import { Badge } from "./ui/badge";
 import {
   Search,
   Plus,
