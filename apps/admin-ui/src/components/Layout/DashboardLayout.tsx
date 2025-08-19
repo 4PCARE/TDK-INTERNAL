@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Sidebar from "./Sidebar";
-import TopBar from "../components/TopBar";
+import TopBar from "../TopBar";
 import { useIsMobile } from "../../hooks/use-mobile";
 
 // Global type declaration for widget loading state

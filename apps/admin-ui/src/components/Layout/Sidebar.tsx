@@ -1,8 +1,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "./button";
-import { Badge } from "./badge";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import { cn } from "../../lib/utils";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "../../hooks/useAuth";
