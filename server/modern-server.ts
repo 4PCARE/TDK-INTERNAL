@@ -73,7 +73,7 @@ app.use('/api', createProxyMiddleware({
 
 // Proxy to frontend for all other routes
 app.use('*', createProxyMiddleware({
-  target: 'http://localhost:5000',
+  target: 'http://localhost:5001',
   changeOrigin: true
 }));
 
@@ -81,5 +81,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Modern Server running on port ${PORT}`);
   console.log(`📋 Health check: http://0.0.0.0:${PORT}/healthz`);
   console.log(`🔀 Proxying /api/* to API Gateway (${GATEWAY_PORT})`);
-  console.log(`🔀 Proxying everything else to Frontend (5000)`);
+  console.log(`🔀 Proxying everything else to Frontend (5001)`);
 });
