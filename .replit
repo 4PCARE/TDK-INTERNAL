@@ -137,5 +137,35 @@ args = "npm run health-monitor"
 task = "shell.exec"
 args = "cd apps/admin-ui && npm install && npm run dev"
 
+[[workflows.workflow]]
+name = "Frontend Only"
+author = 43981095
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd apps/admin-ui && npm install && npm run dev"
+
+[[workflows.workflow]]
+name = "Backend Services"
+author = 43981095
+mode = "parallel"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run gateway"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run auth-svc"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run doc-ingest"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run search-svc"
+
 [agent]
 integrations = ["javascript_gemini==1.0.0", "javascript_database==1.0.0", "javascript_websocket==1.0.0", "javascript_openai==1.0.0"]
