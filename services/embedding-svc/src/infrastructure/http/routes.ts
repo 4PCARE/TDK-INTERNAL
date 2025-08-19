@@ -1,13 +1,8 @@
-import { Router } from 'express';
 import type { Express } from 'express';
 
-// Simplified routing without path-to-regexp
-
 export function registerRoutes(app: Express): void {
-  const router = Router();
-
   // Health check endpoint
-  router.get('/healthz', (req, res) => {
+  app.get('/healthz', (req, res) => {
     res.json({
       status: 'healthy',
       service: 'embedding-svc',
@@ -16,7 +11,7 @@ export function registerRoutes(app: Express): void {
   });
 
   // Basic embedding endpoints
-  router.post('/api/embeddings/generate', (req, res) => {
+  app.post('/api/embeddings/generate', (req, res) => {
     const { text, model = 'text-embedding-ada-002' } = req.body;
 
     // TODO: Implement actual embedding generation
@@ -28,7 +23,7 @@ export function registerRoutes(app: Express): void {
     });
   });
 
-  router.post('/api/embeddings/search', (req, res) => {
+  app.post('/api/embeddings/search', (req, res) => {
     const { query, limit = 10 } = req.body;
 
     // TODO: Implement vector search
@@ -39,6 +34,4 @@ export function registerRoutes(app: Express): void {
       timestamp: new Date().toISOString()
     });
   });
-
-  app.use(router);
 }
