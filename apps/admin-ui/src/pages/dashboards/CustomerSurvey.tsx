@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
+import { useStandardQuery } from "../../hooks/useStandardQuery";
+import { QUERY_KEYS } from "../../utils/queryKeys";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { Progress } from "../../components/ui/progress";
 import { Star, TrendingUp, Users, MessageSquare, BarChart3 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import DashboardLayout from "../components/Layout/DashboardLayout";
-import { SeededRandom } from "../../utils/seededRandom";
+import DashboardLayout from "../../components/Layout/DashboardLayout";
+
 
 const CHART_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
@@ -41,12 +43,12 @@ interface ResponseTrendItem {
 }
 
 export default function CustomerSurvey() {
-  const { data: surveyData = [] } = useQuery<SurveyResponse[], Error>({
-    queryKey: ["/api/survey/responses"],
+  const { data: surveyData = [] } = useStandardQuery<SurveyResponse[]>({
+    queryKey: [QUERY_KEYS.SURVEY_RESPONSES],
   });
 
-  const { data: surveyStats } = useQuery<SurveyStats, Error>({
-    queryKey: ["/api/survey/stats"],
+  const { data: surveyStats } = useStandardQuery<SurveyStats>({
+    queryKey: [QUERY_KEYS.SURVEY_STATS],
   });
 
   // Calculate metrics

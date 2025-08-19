@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useStandardQuery } from "../../hooks/useStandardQuery";
 import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
@@ -8,6 +9,7 @@ import DashboardLayout from "../../components/Layout/DashboardLayout";
 import { SeededRandom } from "../../utils/seededRandom";
 
 import { CHART_COLORS } from "../../utils/chartConstants";
+import { QUERY_KEYS } from "../../utils/queryKeys";
 
 export default function AIInteraction() {
   const queryClient = useQueryClient();
@@ -31,13 +33,11 @@ interface Document {
   [key: string]: any;
 }
 
-  import { QUERY_KEYS } from "../../utils/queryKeys";
-
-  const { data: conversations = [] } = useQuery<Conversation[]>({
+  const { data: conversations = [] } = useStandardQuery<Conversation[]>({
     queryKey: [QUERY_KEYS.CHAT_CONVERSATIONS],
   });
 
-  const { data: documents = [] } = useQuery<Document[]>({
+  const { data: documents = [] } = useStandardQuery<Document[]>({
     queryKey: [QUERY_KEYS.DOCUMENTS],
   });
 
