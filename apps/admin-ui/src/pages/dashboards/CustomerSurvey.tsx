@@ -7,7 +7,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import DashboardLayout from "../components/Layout/DashboardLayout";
 import { SeededRandom } from "../../utils/seededRandom";
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+const CHART_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 // Define interfaces for API responses
 interface SurveyResponse {
@@ -63,14 +63,14 @@ export default function CustomerSurvey() {
   const satisfactionDistribution = [1, 2, 3, 4, 5].map(rating => ({
     rating: `${rating} Star${rating > 1 ? 's' : ''}`,
     count: surveyData.filter((response: SurveyResponse) => Number(response.satisfaction) === rating).length,
-    color: COLORS[rating - 1]
+    color: CHART_COLORS[rating - 1]
   }));
 
   // Ease of use distribution
   const easeOfUseDistribution = [1, 2, 3, 4, 5].map(rating => ({
     rating: `${rating} Star${rating > 1 ? 's' : ''}`,
     count: surveyData.filter((response: SurveyResponse) => Number(response.easeOfUse) === rating).length,
-    color: COLORS[rating - 1]
+    color: CHART_COLORS[rating - 1]
   }));
 
   // Response trend over time (last 30 days)

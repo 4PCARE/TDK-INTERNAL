@@ -3,11 +3,11 @@ import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { Bot, MessageSquare, Clock, Target, Zap, TrendingUp } from "lucide-react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, Legend, PieChart as RechartsPieChart, Cell } from "recharts";
-import DashboardLayout from "../components/Layout/DashboardLayout";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, Legend, PieChart, Pie, Cell } from "recharts";
+import DashboardLayout from "../../components/Layout/DashboardLayout";
 import { SeededRandom } from "../../utils/seededRandom";
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+import { CHART_COLORS } from "../../utils/chartConstants";
 
 export default function AIInteraction() {
   const queryClient = useQueryClient();
@@ -31,12 +31,14 @@ interface Document {
   [key: string]: any;
 }
 
+  import { QUERY_KEYS } from "../../utils/queryKeys";
+
   const { data: conversations = [] } = useQuery<Conversation[]>({
-    queryKey: ["/api/chat/conversations"],
+    queryKey: [QUERY_KEYS.CHAT_CONVERSATIONS],
   });
 
   const { data: documents = [] } = useQuery<Document[]>({
-    queryKey: ["/api/documents"],
+    queryKey: [QUERY_KEYS.DOCUMENTS],
   });
 
   // Mock data for AI interaction metrics (in real implementation, this would come from API)
