@@ -2,7 +2,7 @@ import express from 'express';
 import { registerRoutes } from './infrastructure/http/routes.js';
 
 const app = express();
-const port = parseInt(process.env.PORT || '3005');
+const port = parseInt(process.env.PORT || '3009');
 
 // Middleware
 app.use(express.json({ limit: '50mb' }));
@@ -22,7 +22,7 @@ app.use((req, res, next) => {
 });
 
 // Request logging
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   next();
 });
@@ -31,7 +31,7 @@ app.use((req, res, next) => {
 registerRoutes(app);
 
 // Error handling
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled error:', err);
   res.status(500).json({
     error: 'Internal server error',

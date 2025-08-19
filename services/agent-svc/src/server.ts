@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { router } from './infrastructure/http/routes.js';
 
-const PORT = process.env.AGENT_SVC_PORT || 3005;
+const PORT = parseInt(process.env.AGENT_SVC_PORT || '3005');
 
 async function startServer() {
   try {
@@ -18,7 +18,7 @@ async function startServer() {
     app.use(express.urlencoded({ extended: true }));
 
     // Request logging
-    app.use((req, res, next) => {
+    app.use((req, _res, next) => {
       console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
       next();
     });
@@ -27,7 +27,7 @@ async function startServer() {
     app.use('/', router);
 
     // Error handling
-    app.use((err: any, req: any, res: any, next: any) => {
+    app.use((err: any, _req: any, res: any, _next: any) => {
       console.error('Agent service error:', err);
       res.status(500).json({ error: 'Internal server error' });
     });

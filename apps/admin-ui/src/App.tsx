@@ -42,7 +42,8 @@ import UserFeedback from './pages/dashboards/UserFeedback';
 import DashboardLayout from './components/Layout/DashboardLayout';
 import { queryClient } from './lib/queryClient';
 
-function App() {
+// Separate component for authenticated content
+function AuthenticatedApp() {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
@@ -54,7 +55,7 @@ function App() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <>
       <Router>
         {!isAuthenticated ? (
           <Switch>
@@ -161,6 +162,14 @@ function App() {
         )}
       </Router>
       <Toaster />
+    </>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthenticatedApp />
     </QueryClientProvider>
   );
 }

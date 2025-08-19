@@ -2,7 +2,7 @@ import type { Express } from 'express';
 
 export function registerRoutes(app: Express): void {
   // Health check endpoint
-  app.get('/healthz', (req, res) => {
+  app.get('/healthz', (_req, res) => {
     res.json({
       status: 'healthy',
       service: 'embedding-svc',
