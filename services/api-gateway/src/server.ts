@@ -1,6 +1,6 @@
 import { createApp } from './index.js';
 
-const PORT = process.env.API_GATEWAY_PORT || 8080;
+const PORT = Number(process.env.API_GATEWAY_PORT) || 8080;
 
 async function startServer() {
   try {

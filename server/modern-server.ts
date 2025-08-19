@@ -41,21 +41,13 @@ app.get('/', (req, res) => {
 // Proxy to API Gateway for all /api routes
 app.use('/api', createProxyMiddleware({
   target: 'http://localhost:8080',
-  changeOrigin: true,
-  onError: (err, req, res) => {
-    console.error('Proxy error:', err.message);
-    res.status(502).json({ error: 'Gateway unavailable' });
-  }
+  changeOrigin: true
 }));
 
-// Proxy to frontend for all other routes
+// Proxy to frontend for all other routes  
 app.use('*', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
-  onError: (err, req, res) => {
-    console.error('Frontend proxy error:', err.message);
-    res.status(502).json({ error: 'Frontend unavailable' });
-  }
+  target: 'http://localhost:5000',
+  changeOrigin: true
 }));
 
 app.listen(PORT, '0.0.0.0', () => {
