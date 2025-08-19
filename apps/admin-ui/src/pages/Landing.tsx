@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -14,8 +15,11 @@ import {
   Shield,
   Zap,
 } from "lucide-react";
+import { LoginModal } from "../components/Auth/LoginModal";
 
 export default function Landing() {
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
   const handleReplitLogin = () => {
     window.location.href = "/api/login";
   };
@@ -43,17 +47,10 @@ export default function Landing() {
             </div>
             <div className="flex gap-3">
               <Button
-                onClick={handleReplitLogin}
+                onClick={() => setIsLoginModalOpen(true)}
                 className="bg-blue-500 hover:bg-blue-600"
               >
-                Sign In with Replit
-              </Button>
-              <Button
-                onClick={handleMicrosoftLogin}
-                variant="outline"
-                className="border-blue-500 text-blue-500 hover:bg-blue-50"
-              >
-                Sign In with Microsoft
+                Sign In
               </Button>
             </div>
           </div>
@@ -190,6 +187,11 @@ export default function Landing() {
           </p>
         </div>
       </footer>
+
+      <LoginModal 
+        open={isLoginModalOpen} 
+        onOpenChange={setIsLoginModalOpen}
+      />
     </div>
   );
 }

@@ -52,12 +52,39 @@ export function setupRouting(app: Express): void {
     proxyHandler(req, res);
   });
 
+  app.get('/api/me', (req, res) => {
+    const serviceUrl = getServiceUrl('auth');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/me`);
+    proxyHandler(req, res);
+  });
+
   app.post('/login', (req, res) => {
     const serviceUrl = getServiceUrl('auth');
     if (!serviceUrl) {
       return res.status(503).json({ error: 'Auth service unavailable' });
     }
     const proxyHandler = createProxyHandler(`${serviceUrl}/login`);
+    proxyHandler(req, res);
+  });
+
+  app.post('/api/login', (req, res) => {
+    const serviceUrl = getServiceUrl('auth');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/login`);
+    proxyHandler(req, res);
+  });
+
+  app.post('/api/register', (req, res) => {
+    const serviceUrl = getServiceUrl('auth');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/register`);
     proxyHandler(req, res);
   });
 
