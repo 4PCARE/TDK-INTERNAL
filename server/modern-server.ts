@@ -5,7 +5,7 @@ import helmet from 'helmet';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
 const app = express();
-const PORT = 5000;
+const PORT = 4000;
 
 // Basic middleware
 app.use(helmet());
@@ -46,7 +46,7 @@ app.use('/api', createProxyMiddleware({
 
 // Proxy to frontend for all other routes  
 app.use('*', createProxyMiddleware({
-  target: 'http://localhost:5000',
+  target: 'http://localhost:5001',
   changeOrigin: true
 }));
 
