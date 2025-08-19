@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/ta
 import { Progress } from "../../components/ui/progress";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Brain, TrendingUp, MessageSquare, Clock, Filter, CheckCircle, XCircle } from "lucide-react";
-import DashboardLayout from "../components/Layout/DashboardLayout";
+import DashboardLayout from "../../components/Layout/DashboardLayout";
 
 export default function AiResponseAnalysis() {
   const [filterResult, setFilterResult] = useState<string>("all");

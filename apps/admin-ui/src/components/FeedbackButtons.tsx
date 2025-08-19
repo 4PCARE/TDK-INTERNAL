@@ -5,7 +5,7 @@ import { Textarea } from "./ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { apiRequest } from "../lib/queryClient";
-import { useToast } from "../../hooks/use-toast";
+import { useToast } from "../hooks/use-toast";
 
 interface FeedbackButtonsProps {
   messageId: number;

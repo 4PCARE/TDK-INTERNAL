@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { Badge } from "../../components/ui/badge";
 import { FileText, TrendingUp, PieChart, BarChart3, Upload, Calendar } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart as RechartsPieChart, Cell, LineChart, Line, Legend, Pie } from "recharts";
-import DashboardLayout from "../components/Layout/DashboardLayout";
+import DashboardLayout from "../../components/Layout/DashboardLayout";
 import { SeededRandom } from "../../utils/seededRandom";
 import type { Document } from "@shared/schema";
 
