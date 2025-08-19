@@ -71,7 +71,7 @@ export default function DocumentDemandInsights() {
             <p className="text-xs text-muted-foreground">Last 30 days</p>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Documents</CardTitle>
@@ -84,7 +84,7 @@ export default function DocumentDemandInsights() {
             <p className="text-xs text-muted-foreground">With recent activity</p>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Categories</CardTitle>
@@ -215,89 +215,6 @@ export default function DocumentDemandInsights() {
               </ResponsiveContainer>
             </div>
           )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-
-export default function DocumentDemandInsights() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Document Demand Insights</h1>
-        <p className="text-muted-foreground">
-          Analyze document usage patterns and demand trends
-        </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Most Requested Documents
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">127</div>
-            <p className="text-xs text-muted-foreground">
-              +20% from last month
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Search Frequency
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+12%</div>
-            <p className="text-xs text-muted-foreground">
-              Increase in document searches
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Peak Hours
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">9-11 AM</div>
-            <p className="text-xs text-muted-foreground">
-              Highest demand period
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Content Gaps
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">8</div>
-            <p className="text-xs text-muted-foreground">
-              Topics needing more content
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Document Demand Insights Dashboard</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            Document demand insights and analytics will be displayed here.
-          </p>
         </CardContent>
       </Card>
     </div>
