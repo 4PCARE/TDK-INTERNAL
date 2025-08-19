@@ -27,9 +27,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./ui/tooltip";
-import { useToast } from "../../hooks/use-toast";
+import { useToast } from "../hooks/use-toast";
 import { apiRequest } from "../lib/queryClient";
-import { cn } from "../../lib/utils";
+import { cn } from "../lib/utils";
 import { format } from "date-fns";
 import DocumentChatModal from "./Chat/DocumentChatModal";
 import ContentSummaryModal from "./ContentSummaryModal";

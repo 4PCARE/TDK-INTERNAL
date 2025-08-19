@@ -53,7 +53,7 @@ import {
   Hash,
 } from "lucide-react";
 import { format } from "date-fns";
-import DashboardLayout from "../components/Layout/DashboardLayout";
+import DashboardLayout from "../../components/Layout/DashboardLayout";
 import {
   BarChart,
   Bar,

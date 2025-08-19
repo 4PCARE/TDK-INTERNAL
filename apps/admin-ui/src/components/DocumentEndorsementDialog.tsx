@@ -24,7 +24,7 @@ import { Label } from "./ui/label";
 import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { CalendarIcon, ThumbsUp, AlertTriangle } from "lucide-react";
-import { useToast } from "../../hooks/use-toast";
+import { useToast } from "../hooks/use-toast";
 import { apiRequest } from "../lib/queryClient";
 import { cn } from "../../lib/utils";
 

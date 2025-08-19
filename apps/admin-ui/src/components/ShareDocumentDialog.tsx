@@ -16,7 +16,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "./select";
+} from "./ui/select";
 import { Label } from "./ui/label";
 import { Badge } from "./badge";
 import { useToast } from "../../hooks/use-toast";
@@ -29,15 +29,15 @@ interface ShareDocumentDialogProps {
   documentName: string;
 }
 
-export default function ShareDocumentDialog({ 
-  open, 
-  onOpenChange, 
-  documentId, 
-  documentName 
+export default function ShareDocumentDialog({
+  open,
+  onOpenChange,
+  documentId,
+  documentName
 }: ShareDocumentDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
   const [userPermission, setUserPermission] = useState("read");
@@ -66,7 +66,7 @@ export default function ShareDocumentDialog({
 
   // Share with user mutation
   const shareWithUserMutation = useMutation({
-    mutationFn: () => 
+    mutationFn: () =>
       apiRequest('POST', '/api/admin/permissions', {
         userId: selectedUserId,
         documentId,
@@ -92,7 +92,7 @@ export default function ShareDocumentDialog({
 
   // Share with department mutation
   const shareWithDepartmentMutation = useMutation({
-    mutationFn: () => 
+    mutationFn: () =>
       apiRequest('POST', '/api/admin/permissions', {
         departmentId: parseInt(selectedDepartmentId),
         documentId,
@@ -226,7 +226,7 @@ export default function ShareDocumentDialog({
                 </Select>
               </div>
 
-              <Button 
+              <Button
                 onClick={handleShareWithUser}
                 disabled={shareWithUserMutation.isPending || !selectedUserId}
                 className="w-full"
@@ -266,7 +266,7 @@ export default function ShareDocumentDialog({
                 </Select>
               </div>
 
-              <Button 
+              <Button
                 onClick={handleShareWithDepartment}
                 disabled={shareWithDepartmentMutation.isPending || !selectedDepartmentId}
                 className="w-full"

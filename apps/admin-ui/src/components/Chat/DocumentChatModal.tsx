@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "../ui/button";
-import { Input } from "./input";
+import { Input } from "../ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { X, Bot, User, Send, FileText } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "./button";
-import { Textarea } from "./textarea";
+import { Button } from "./ui/button";
+import { Textarea } from "./ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import { apiRequest } from "../lib/queryClient";
