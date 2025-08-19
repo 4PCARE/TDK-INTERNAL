@@ -78,6 +78,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "connect-pg-simple": "^10.0.0",
+    "cors": "^2.8.5",
     "date-fns": "^3.6.0",
     "drizzle-orm": "^0.39.1",
     "drizzle-zod": "^0.7.0",
@@ -85,6 +86,7 @@
     "express": "^4.21.2",
     "express-session": "^1.18.1",
     "framer-motion": "^11.13.1",
+    "helmet": "^8.1.0",
     "http-proxy-middleware": "^3.0.5",
     "input-otp": "^1.4.2",
     "jsforce": "^3.9.1",
@@ -139,9 +141,10 @@
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "^4.1.3",
     "@types/connect-pg-simple": "^7.0.3",
-    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.23",
     "@types/express-session": "^1.18.0",
-    "@types/node": "20.16.11",
+    "@types/node": "^20.19.11",
     "@types/passport": "^1.0.17",
     "@types/passport-local": "^1.0.38",
     "@types/react": "^18.3.11",
@@ -155,7 +158,7 @@
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.20.4",
-    "typescript": "^5.6.3",
+    "typescript": "^5.9.2",
     "vite": "^5.4.14"
   },
   "optionalDependencies": {
@@ -165,5 +168,12 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-refresh": "^0.14.0"
-  }
+  },
+  "description": "A microservices-based knowledge management system with AI-powered search, chat, and document processing capabilities.",
+  "main": "debug-query-preprocessor.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "keywords": [],
+  "author": ""
 }

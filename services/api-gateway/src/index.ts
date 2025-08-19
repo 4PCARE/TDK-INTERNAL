@@ -1,7 +1,5 @@
 import express from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import cors from 'cors';
-import helmet from 'helmet';
 import { registerRoutes } from './infrastructure/http/routes.js';
 
 /**
@@ -16,7 +14,7 @@ export function createApp(): express.Express {
   app.use(express.urlencoded({ extended: true }));
 
   // Root route
-  app.get('/', (req, res) => {
+  app.get('/', (_req, res) => {
     res.json({ 
       message: 'AI-KMS API Gateway', 
       version: '1.0.0',
@@ -32,7 +30,7 @@ export function createApp(): express.Express {
   });
 
   // Health check endpoint
-  app.get('/healthz', (req, res) => {
+  app.get('/healthz', (_req, res) => {
     res.json({ 
       status: 'healthy', 
       timestamp: new Date().toISOString(),
