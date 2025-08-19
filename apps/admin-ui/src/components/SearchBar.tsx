@@ -3,7 +3,7 @@ import { Button } from "./button";
 import { Input } from "./input";
 import { Card, CardContent } from "./card";
 import { Badge } from "./badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { 
   Search, 
   Zap, 

@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "./button";
 import { Input } from "./input";
-import { ScrollArea } from "./scroll-area";
+import { ScrollArea } from "./ui/scroll-area";
 import { X, Bot, User, Send } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "../lib/queryClient";
 import { useToast } from "../../hooks/use-toast";
 import { ResizableDialog } from "./resizable-dialog";
 import { FeedbackButtons } from "../components/FeedbackButtons";

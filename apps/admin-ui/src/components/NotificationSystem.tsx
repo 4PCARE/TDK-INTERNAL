@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
-} from "./dropdown-menu";
+} from "./ui/dropdown-menu";
 import { Bell, X, FileText, Trash2, Upload } from "lucide-react";
 
 interface Notification {

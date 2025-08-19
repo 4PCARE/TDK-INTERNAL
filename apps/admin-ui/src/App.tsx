@@ -63,7 +63,7 @@ function App() {
           </Switch>
         ) : (
           <Switch>
-            <Route path="/" exact>{() => <Redirect to="/dashboard" />}</Route>
+            <Route path="/">{() => <Redirect to="/dashboard" />}</Route>
             <Route path="/dashboard">
               <DashboardLayout><Dashboard /></DashboardLayout>
             </Route>
@@ -76,7 +76,7 @@ function App() {
             <Route path="/search">
               <DashboardLayout><Search /></DashboardLayout>
             </Route>
-            <Route path="/agent-chatbots" exact>
+            <Route path="/agent-chatbots">
               <DashboardLayout><AgentChatbots /></DashboardLayout>
             </Route>
             <Route path="/agent-chatbots/create">
@@ -88,7 +88,7 @@ function App() {
             <Route path="/settings">
               <DashboardLayout><Settings /></DashboardLayout>
             </Route>
-            <Route path="/admin" exact>
+            <Route path="/admin">
               <DashboardLayout><Admin /></DashboardLayout>
             </Route>
             <Route path="/admin/users">
@@ -100,7 +100,7 @@ function App() {
             <Route path="/admin/audit">
               <DashboardLayout><AuditMonitoring /></DashboardLayout>
             </Route>
-            <Route path="/integrations" exact>
+            <Route path="/integrations">
               <DashboardLayout><Integrations /></DashboardLayout>
             </Route>
             <Route path="/integrations/line">

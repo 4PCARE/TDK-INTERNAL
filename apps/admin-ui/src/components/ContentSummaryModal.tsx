@@ -7,11 +7,11 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "./dialog";
+} from "./ui/dialog";
 import { Button } from "./button";
 import { Badge } from "./badge";
 import { useToast } from "../../hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "../lib/queryClient";
 
 interface ContentSummaryModalProps {
   isOpen: boolean;

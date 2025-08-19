@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Button } from "./button";
 import { Database, Loader2 } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "../lib/queryClient";
 
 export default function VectorizeAllButton() {
   const { toast } = useToast();

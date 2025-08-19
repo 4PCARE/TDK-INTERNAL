@@ -1,33 +1,31 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "../../hooks/useAuth";
-import { useToast } from "../../hooks/use-toast";
-import { Button } from "./button";
-import { Card, CardContent, CardHeader, CardTitle } from "./card";
-import { Badge } from "./badge";
-import { Progress } from "./progress";
-import { Separator } from "./separator";
+import { useAuth } from "../hooks/useAuth";
+import { useToast } from "../hooks/use-toast";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { Progress } from "../components/ui/progress";
+import { Separator } from "../components/ui/separator";
 import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "./dropdown-menu";
+} from "../components/ui/dropdown-menu";
 import { 
   FileText, 
   Upload, 
   MoreVertical, 
-  Eye, 
   Download,
-  Star,
-  Trash2
+  Star
 } from "lucide-react";
 import DashboardLayout from "../components/Layout/DashboardLayout";
 import StatsCards from "../components/Stats/StatsCards";
 import CategoryStatsCards from "../components/Stats/CategoryStatsCards";
 import UploadZone from "../components/Upload/UploadZone";
 import ChatModal from "../components/Chat/ChatModal";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "../lib/queryClient";
 
 interface UploadFile {
   file: File;

@@ -1,12 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
-
 export default defineConfig({
   plugins: [
     react(),
-    runtimeErrorOverlay(),
   ],
   css: {
     postcss: "./postcss.config.js",
@@ -26,8 +23,7 @@ export default defineConfig({
   },
   server: {
     host: "0.0.0.0",
-    port: 5173,
-    allowedHosts: "all",
+    port: 3000,
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

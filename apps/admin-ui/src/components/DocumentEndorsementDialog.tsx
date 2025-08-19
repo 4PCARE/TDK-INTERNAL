@@ -7,7 +7,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "./dialog";
+} from "./ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,15 +17,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "./alert-dialog";
+} from "./ui/alert-dialog";
 import { Button } from "./button";
 import { Input } from "./input";
-import { Label } from "./label";
-import { Calendar } from "./calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import { Label } from "./ui/label";
+import { Calendar } from "./ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { CalendarIcon, ThumbsUp, AlertTriangle } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "../lib/queryClient";
 import { cn } from "../../lib/utils";
 
 interface DocumentEndorsementDialogProps {

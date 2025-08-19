@@ -30,7 +30,7 @@ import {
   Link as LinkIcon,
   Eye
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "../lib/queryClient";
 import DashboardLayout from "../components/Layout/DashboardLayout";
 
 // Validation schemas

@@ -7,9 +7,9 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "./dialog";
+} from "./ui/dialog";
 import { Button } from "./button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import {
   Select,
   SelectContent,
@@ -17,10 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./select";
-import { Label } from "./label";
+import { Label } from "./ui/label";
 import { Badge } from "./badge";
 import { useToast } from "../../hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "../lib/queryClient";
 
 interface ShareDocumentDialogProps {
   open: boolean;

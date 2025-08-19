@@ -1,6 +1,6 @@
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./button";
-import { Progress } from "./progress";
+import { Progress } from "./ui/progress";
 import { X, FileText } from "lucide-react";
 
 interface UploadModalProps {

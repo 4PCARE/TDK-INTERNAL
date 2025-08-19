@@ -3,11 +3,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "./button";
 import { Card, CardContent, CardHeader, CardTitle } from "./card";
 import { Input } from "./input";
-import { Label } from "./label";
+import { Label } from "./ui/label";
 import { Textarea } from "./textarea";
 import { RadioGroup, RadioGroupItem } from "./radio-group";
 import { useToast } from "../../hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "../lib/queryClient";
 import { Star, Send } from "lucide-react";
 
 interface SurveyFormProps {

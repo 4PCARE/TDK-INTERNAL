@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { Button } from "./button";
 import { Input } from "./input";
-import { Avatar, AvatarFallback, AvatarImage } from "./avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Badge } from "./badge";
 import { Search, Bell, Plus, Menu, X } from "lucide-react";
 import Sidebar from "./Sidebar";

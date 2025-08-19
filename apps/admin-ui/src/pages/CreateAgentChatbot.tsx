@@ -1,9 +1,9 @@
-import { useAuth } from "../../hooks/useAuth";
-import { useToast } from "../../hooks/use-toast";
+import { useAuth } from "../hooks/useAuth";
+import { useToast } from "../hooks/use-toast";
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { apiRequest } from "../lib/queryClient";
+import { isUnauthorizedError } from "../lib/authUtils";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,19 +14,19 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-} from "./card";
-import { Button } from "./button";
-import { Input } from "./input";
-import { Label } from "./label";
-import { Textarea } from "./textarea";
-import { Checkbox } from "./checkbox";
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Textarea } from "../components/ui/textarea";
+import { Checkbox } from "../components/ui/checkbox";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "./select";
+} from "../components/ui/select";
 import {
   Form,
   FormControl,
@@ -35,11 +35,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "./form";
-import { Badge } from "./badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
-import { Separator } from "./separator";
-import { Switch } from "./switch";
+} from "../components/ui/form";
+import { Badge } from "../components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Separator } from "../components/ui/separator";
+import { Switch } from "../components/ui/switch";
 import { Slider } from "./slider";
 import {
   Bot,

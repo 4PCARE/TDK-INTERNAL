@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "./button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";
 import { Badge } from "./badge";
-import { Separator } from "./separator";
+import { Separator } from "./ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./collapsible";
 import { Textarea } from "./textarea";
 import { 

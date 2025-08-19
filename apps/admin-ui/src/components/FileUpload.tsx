@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { Button } from "./button";
 import { Card, CardContent } from "./card";
-import { Progress } from "./progress";
+import { Progress } from "./ui/progress";
 import { cn } from "../../lib/utils";
 import { 
   CloudUpload, 
