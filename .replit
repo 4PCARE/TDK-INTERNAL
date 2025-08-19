@@ -67,7 +67,7 @@ localPort = 24678
 externalPort = 6800
 
 [workflows]
-runButton = "Frontend Dev"
+runButton = "Microservices Stack"
 
 [[workflows.workflow]]
 name = "Project"
