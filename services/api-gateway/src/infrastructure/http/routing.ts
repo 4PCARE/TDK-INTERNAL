@@ -61,6 +61,37 @@ export function setupRouting(app: Express): void {
     proxyHandler(req, res);
   });
 
+  // Auth service routes (including login, callback, etc.)
+  app.use('/api/login', (req, res) => {
+    const serviceUrl = getServiceUrl('auth');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+    const targetUrl = `${serviceUrl}/login`;
+    const proxyHandler = createProxyHandler(targetUrl);
+    proxyHandler(req, res);
+  });
+
+  app.use('/api/callback', (req, res) => {
+    const serviceUrl = getServiceUrl('auth');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+    const targetUrl = `${serviceUrl}/callback`;
+    const proxyHandler = createProxyHandler(targetUrl);
+    proxyHandler(req, res);
+  });
+
+  app.use('/api/auth', (req, res) => {
+    const serviceUrl = getServiceUrl('auth');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+    const targetUrl = `${serviceUrl}${req.originalUrl.replace('/api/auth', '')}`;
+    const proxyHandler = createProxyHandler(targetUrl);
+    proxyHandler(req, res);
+  });
+
   // Document ingestion routes
   app.post('/api/documents/upload', (req, res) => {
     const serviceUrl = getServiceUrl('doc-ingest');

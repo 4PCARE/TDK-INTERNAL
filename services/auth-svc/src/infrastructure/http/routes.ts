@@ -40,7 +40,7 @@ function isTokenExpired(session: any): boolean {
   const created = new Date(session.createdAt).getTime();
   const accessTokenExpiry = 15 * 60 * 1000; // 15 minutes
   const refreshTokenExpiry = 7 * 24 * 60 * 60 * 1000; // 7 days
-  
+
   if (session.type === 'refresh') {
     return (now - created) > refreshTokenExpiry;
   }
@@ -57,7 +57,7 @@ router.get('/me', (req, res) => {
     headers: req.headers,
     authHeader: req.headers.authorization
   });
-  
+
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     return res.status(401).json({ error: 'No authorization header' });
@@ -96,7 +96,7 @@ router.post('/login', (req, res) => {
     headers: req.headers,
     contentType: req.get('Content-Type')
   });
-  
+
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -178,7 +178,7 @@ router.post('/register', (req, res) => {
     body: req.body,
     headers: req.headers
   });
-  
+
   const { email, password, firstName, lastName } = req.body;
 
   if (!email || !password || !firstName || !lastName) {
@@ -263,10 +263,10 @@ router.post('/validate', (req, res) => {
 // Get user by ID endpoint
 router.get('/users/:id', (req, res) => {
   const { id } = req.params;
-  
+
   // Find user by ID
   const user = Array.from(users.values()).find(u => u.id === id);
-  
+
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
@@ -327,10 +327,10 @@ router.post('/logout', (req, res) => {
   if (authHeader) {
     const token = authHeader.replace('Bearer ', '');
     const session = sessions.get(token);
-    
+
     // Remove both access token and refresh token if they exist
     sessions.delete(token);
-    
+
     if (session && session.email) {
       // Find and remove associated refresh tokens
       for (const [key, value] of sessions.entries()) {
