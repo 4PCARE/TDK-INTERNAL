@@ -10,7 +10,7 @@ import {
 } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { useToast } from "../../hooks/use-toast";
+import { useToast } from "../hooks/use-toast";
 import { apiRequest } from "../lib/queryClient";
 
 interface ContentSummaryModalProps {

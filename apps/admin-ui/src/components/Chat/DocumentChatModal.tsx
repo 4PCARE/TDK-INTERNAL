@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { ScrollArea } from "./ui/scroll-area";
+import { ScrollArea } from "../ui/scroll-area";
 import { X, Bot, User, Send, FileText } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "../lib/queryClient";
+import { apiRequest } from "../../lib/queryClient";
 import { useToast } from "../../hooks/use-toast";
-import { FeedbackButtons } from "../components/FeedbackButtons";
-import { ResizableDialog } from "./resizable-dialog";
+import { FeedbackButtons } from "../FeedbackButtons";
+import { ResizableDialog } from "../ui/resizable-dialog";
 import ReactMarkdown from "react-markdown";
 
 interface DocumentChatModalProps {

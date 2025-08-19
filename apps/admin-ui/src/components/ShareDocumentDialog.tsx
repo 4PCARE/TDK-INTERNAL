@@ -18,8 +18,8 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Label } from "./ui/label";
-import { Badge } from "./badge";
-import { useToast } from "../../hooks/use-toast";
+import { Badge } from "./ui/badge";
+import { useToast } from "../hooks/use-toast";
 import { apiRequest } from "../lib/queryClient";
 
 interface ShareDocumentDialogProps {

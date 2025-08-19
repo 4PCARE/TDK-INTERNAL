@@ -19,14 +19,14 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { Button } from "./ui/button";
-import { Input } from "./input";
+import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { CalendarIcon, ThumbsUp, AlertTriangle } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
 import { apiRequest } from "../lib/queryClient";
-import { cn } from "../../lib/utils";
+import { cn } from "../lib/utils";
 
 interface DocumentEndorsementDialogProps {
   isOpen: boolean;
