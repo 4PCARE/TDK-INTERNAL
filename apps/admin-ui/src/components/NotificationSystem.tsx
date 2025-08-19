@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Button } from "./button";
+import { Button } from "./ui/button";
 import { Badge } from "./badge";
 import { 
   DropdownMenu,

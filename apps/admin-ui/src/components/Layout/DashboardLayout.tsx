@@ -24,7 +24,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   useEffect(() => {
     if (typeof window !== 'undefined' && !window.askHRWidgetLoaded) {
       window.askHRWidgetLoaded = true;
-      
+
       const script = document.createElement('script');
       script.src = '/widget/YmnYTsTPY0A1HG-Z/embed.js?v=' + Date.now();
       script.async = true;
@@ -40,20 +40,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Sidebar 
-        isMobileOpen={isMobileMenuOpen} 
+      <Sidebar
+        isMobileOpen={isMobileMenuOpen}
         onMobileClose={() => setIsMobileMenuOpen(false)}
         onOpenChat={() => setIsChatModalOpen(true)}
         isCollapsed={isCollapsed}
         onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
       />
 
-      <div 
+      <div
         className={`transition-all duration-300 ${
           !isMobile && !isCollapsed ? 'lg:ml-64' : !isMobile && isCollapsed ? 'lg:ml-16' : ''
         }`}
       >
-        <TopBar 
+        <TopBar
           onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
 
           isSidebarCollapsed={isCollapsed}
@@ -66,7 +66,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </main>
       </div>
 
-    
+
   </div>
   );
 }

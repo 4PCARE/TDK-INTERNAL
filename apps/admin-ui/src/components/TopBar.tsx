@@ -24,7 +24,7 @@ import {
 import kingpowerLogo from "@assets/kingpower_1750867302870.webp";
 import { useState } from "react";
 import NotificationSystem from "./NotificationSystem";
-import { useIsMobile } from "../../hooks/use-mobile";
+import { useIsMobile } from "../hooks/use-mobile";
 
 interface TopBarProps {
   isSidebarCollapsed?: boolean;
