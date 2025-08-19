@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "./ui/alert-dialog";
-import { Button } from "./button";
+import { Button } from "./ui/button";
 import { Input } from "./input";
 import { Label } from "./ui/label";
 import { Calendar } from "./ui/calendar";

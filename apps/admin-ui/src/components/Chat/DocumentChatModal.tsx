@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Button } from "./button";
+import { Button } from "../ui/button";
 import { Input } from "./input";
 import { ScrollArea } from "./ui/scroll-area";
 import { X, Bot, User, Send, FileText } from "lucide-react";

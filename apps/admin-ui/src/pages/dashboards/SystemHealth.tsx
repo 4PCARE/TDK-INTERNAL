@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { Badge } from "../../components/ui/badge";
 import { Server, Zap, AlertTriangle, CheckCircle, Clock, TrendingUp } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, Legend } from "recharts";
-import DashboardLayout from "../components/Layout/DashboardLayout";
+import DashboardLayout from "../../components/Layout/DashboardLayout";
 import { SeededRandom } from "../../utils/seededRandom";
 
 export default function SystemHealth() {

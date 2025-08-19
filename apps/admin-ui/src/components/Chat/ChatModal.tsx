@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "../../lib/queryClient";
 import { useToast } from "../../hooks/use-toast";
 import { ResizableDialog } from "../ui/resizable-dialog";
-import { FeedbackButtons } from "../components/FeedbackButtons";
+import { FeedbackButtons } from "../FeedbackButtons";
 
 interface ChatModalProps {
   isOpen: boolean;

@@ -22,7 +22,7 @@ import {
   ArrowUpDown
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, Legend, PieChart as RechartsPieChart, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Pie } from "recharts";
-import DashboardLayout from "../components/Layout/DashboardLayout";
+import DashboardLayout from "../../components/Layout/DashboardLayout";
 import type { SocialIntegration } from "@shared/schema";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];

@@ -5,9 +5,9 @@ import {
   Eye, Trash2, MoreHorizontal, Calendar, HardDrive, Hash, Star, StarOff,
   BookOpen, Database, Plus, MessageSquare, ThumbsUp, Shield, Trophy
 } from "lucide-react";
-import { Card, CardContent } from "./card";
-import { Badge } from "./badge";
-import { Button } from "./button";
+import { Card, CardContent } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,

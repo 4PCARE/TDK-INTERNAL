@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { Button } from "./button";
+import { Button } from "./ui/button";
 import { Badge } from "./badge";
 import { useToast } from "../../hooks/use-toast";
 import { apiRequest } from "../lib/queryClient";
