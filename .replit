@@ -178,7 +178,7 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd apps/admin-ui && npm run dev -- --port 5000 --host 0.0.0.0"
+args = "cd apps/admin-ui && npm install && npm run dev -- --port 5000 --host 0.0.0.0"
 
 [agent]
 integrations = ["javascript_gemini==1.0.0", "javascript_database==1.0.0", "javascript_websocket==1.0.0", "javascript_openai==1.0.0"]
