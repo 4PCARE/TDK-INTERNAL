@@ -565,3 +565,86 @@ export default function OmnichannelSummarization() {
     </DashboardLayout>
   );
 }
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+
+export default function OmnichannelSummarization() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Omnichannel Summarization</h1>
+        <p className="text-muted-foreground">
+          Cross-channel conversation summaries and insights
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total Channels
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">5</div>
+            <p className="text-xs text-muted-foreground">
+              LINE, Web, Email, Phone, Chat
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Conversations Summarized
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">1,234</div>
+            <p className="text-xs text-muted-foreground">
+              +18% from last period
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Average Summary Time
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">2.3s</div>
+            <p className="text-xs text-muted-foreground">
+              -0.5s improvement
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Cross-Channel Sessions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">189</div>
+            <p className="text-xs text-muted-foreground">
+              Multi-channel conversations
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Omnichannel Summarization Dashboard</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">
+            Cross-channel conversation summaries and analytics will be displayed here.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
