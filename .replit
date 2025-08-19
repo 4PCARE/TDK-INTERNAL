@@ -71,7 +71,7 @@ localPort = 24678
 externalPort = 6800
 
 [workflows]
-runButton = "Microservices Stack"
+runButton = "Simple Dev"
 
 [[workflows.workflow]]
 name = "Project"
@@ -183,6 +183,15 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd apps/admin-ui && npm install && npm run dev -- --port 5000 --host 0.0.0.0"
+
+[[workflows.workflow]]
+name = "Simple Dev"
+author = 43981095
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
 
 [agent]
 integrations = ["javascript_gemini==1.0.0", "javascript_database==1.0.0", "javascript_websocket==1.0.0", "javascript_openai==1.0.0"]
