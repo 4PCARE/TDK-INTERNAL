@@ -2,6 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import { setupMicrosoftAuth } from "./microsoftAuth";
+import { setupGoogleAuth } from "./googleAuth";
+import { setupAuth } from "./auth";
 
 const app = express();
 const PORT = 4000;
@@ -89,9 +92,14 @@ app.use('/api', createProxyMiddleware({
 // Proxy to frontend for all other routes
 app.use('*', proxyToFrontend);
 
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Modern Server running on port ${PORT}`);
   console.log(`📋 Health check: http://0.0.0.0:${PORT}/healthz`);
   console.log(`🔀 Proxying /api/* to API Gateway (${GATEWAY_PORT})`);
   console.log(`🔀 Proxying everything else to Frontend (5000)`);
+
+  // Setup authentication
+  await setupAuth(app);
+  await setupMicrosoftAuth(app);
+  await setupGoogleAuth(app);
 });

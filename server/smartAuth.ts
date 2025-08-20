@@ -2,6 +2,7 @@ import { RequestHandler } from "express";
 import { storage } from "./storage";
 import { isAuthenticated as replitAuth } from "./replitAuth";
 import { isMicrosoftAuthenticated } from "./microsoftAuth";
+import { isGoogleAuthenticated } from "./googleAuth";
 
 export const smartAuth: RequestHandler = async (req, res, next) => {
   // Skip auth for static assets and development resources
@@ -52,6 +53,8 @@ export const smartAuth: RequestHandler = async (req, res, next) => {
       // Route to the correct authentication middleware
       if (user?.loginMethod === "microsoft") {
         return isMicrosoftAuthenticated(req, res, next);
+      } else if (user?.loginMethod === "google") {
+        return isGoogleAuthenticated(req, res, next);
       } else {
         return replitAuth(req, res, next);
       }
@@ -59,12 +62,17 @@ export const smartAuth: RequestHandler = async (req, res, next) => {
     } catch (error) {
       console.error("Smart auth error:", error);
 
-      // Fallback: try Microsoft first, then Replit
+      // Fallback: try Microsoft first, then Google, then Replit
       isMicrosoftAuthenticated(req, res, (err: any) => {
         if (!err) {
           return next();
         }
-        replitAuth(req, res, next);
+        isGoogleAuthenticated(req, res, (errGoogle: any) => {
+          if (!errGoogle) {
+            return next();
+          }
+          replitAuth(req, res, next);
+        });
       });
     }
   } catch (error) {
@@ -73,10 +81,10 @@ export const smartAuth: RequestHandler = async (req, res, next) => {
   }
 };
 
-// Assuming replitAuth is defined elsewhere and imported.
+// Assuming replitAuth, isMicrosoftAuthenticated, and isGoogleAuthenticated are defined elsewhere and imported.
 // The following is a placeholder for the modification requested.
-// If the original code for replitAuth was provided, it would be modified directly.
-// For the purpose of this example, we'll assume the change is applied to the imported function.
+// If the original code for these functions was provided, it would be modified directly.
+// For the purpose of this example, we'll assume the change is applied to the imported functions.
 
 // Placeholder for the modification in replitAuth:
 // export function isAuthenticated(req: any, res: any, next: any) {

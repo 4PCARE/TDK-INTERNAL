@@ -121,6 +121,16 @@ export async function setupAuth(app: Express) {
                 authed="handleAuth()"
                 src="https://auth.util.repl.co/script.js">
               </script>
+              
+              <div style="margin: 1rem 0; color: #666;">or</div>
+              
+              <a href="/api/auth/microsoft" style="display: block; margin: 0.5rem 0; padding: 0.75rem; background: #0078d4; color: white; text-decoration: none; border-radius: 4px; text-align: center;">
+                Sign in with Microsoft
+              </a>
+              
+              <a href="/api/auth/google" style="display: block; margin: 0.5rem 0; padding: 0.75rem; background: #4285f4; color: white; text-decoration: none; border-radius: 4px; text-align: center;">
+                Sign in with Google
+              </a>
             </div>
             
             <div id="status"></div>
