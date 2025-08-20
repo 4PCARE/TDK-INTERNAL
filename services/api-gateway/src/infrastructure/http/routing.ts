@@ -72,6 +72,17 @@ export function setupRouting(app: Express): void {
     proxyHandler(req, res);
   });
 
+  // User info endpoint
+  app.get('/api/me', (req, res) => {
+    console.log('🔀 Proxying GET /api/me to auth service');
+    const serviceUrl = getServiceUrl('auth');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/me`);
+    proxyHandler(req, res);
+  });
+
   // API login endpoints
   app.get('/api/login', (req, res) => {
     const serviceUrl = getServiceUrl('auth');
@@ -98,6 +109,26 @@ export function setupRouting(app: Express): void {
       return res.status(503).json({ error: 'Auth service unavailable' });
     }
     const proxyHandler = createProxyHandler(`${serviceUrl}/api/dev-login`);
+    proxyHandler(req, res);
+  });
+
+  // Logout endpoint
+  app.get('/api/logout', (req, res) => {
+    const serviceUrl = getServiceUrl('auth');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/api/logout`);
+    proxyHandler(req, res);
+  });
+
+  // Token validation endpoint (for internal service-to-service calls)
+  app.post('/api/auth/validate', (req, res) => {
+    const serviceUrl = getServiceUrl('auth');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/validate`);
     proxyHandler(req, res);
   });
 

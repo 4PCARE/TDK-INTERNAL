@@ -1,64 +1,49 @@
-
-import type { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
+    name: string;
     email: string;
-    roles: string[];
+    authenticated: boolean;
   };
 }
 
-/**
- * Middleware to extract and validate Replit authentication headers
- */
-export function replitAuthMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  try {
-    const userId = req.headers['x-replit-user-id'] as string;
-    const userEmail = req.headers['x-replit-user-name'] as string;
-    const userRoles = req.headers['x-replit-user-roles'] as string;
+export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const userId = req.headers['x-replit-user-id'] as string;
+  const userName = req.headers['x-replit-user-name'] as string;
+  const userEmail = req.headers['x-replit-user-email'] as string;
 
-    if (!userId) {
-      return res.status(401).json({ message: "Authentication required" });
-    }
+  if (!userId || !userName) {
+    return res.status(401).json({ 
+      message: "Authentication required",
+      authenticated: false 
+    });
+  }
 
-    // Parse roles, default to 'user' if none provided
-    const roles = userRoles ? userRoles.split(',').map(r => r.trim()) : ['user'];
+  req.user = {
+    id: userId,
+    name: userName,
+    email: userEmail || `${userName}@replit.com`,
+    authenticated: true
+  };
 
-    // Attach user info to request
+  next();
+}
+
+export function optionalAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const userId = req.headers['x-replit-user-id'] as string;
+  const userName = req.headers['x-replit-user-name'] as string;
+  const userEmail = req.headers['x-replit-user-email'] as string;
+
+  if (userId && userName) {
     req.user = {
       id: userId,
-      email: userEmail || `${userId}@replit.user`,
-      roles: roles
+      name: userName,
+      email: userEmail || `${userName}@replit.com`,
+      authenticated: true
     };
-
-    next();
-  } catch (error) {
-    console.error("Auth middleware error:", error);
-    return res.status(500).json({ message: "Authentication error" });
   }
-}
 
-/**
- * Middleware to check if user has required role
- */
-export function requireRole(role: string) {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      return res.status(401).json({ message: "Authentication required" });
-    }
-
-    if (!req.user.roles.includes(role) && !req.user.roles.includes('admin')) {
-      return res.status(403).json({ message: "Insufficient permissions" });
-    }
-
-    next();
-  };
-}
-
-/**
- * Middleware to check if user is admin
- */
-export function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
-  return requireRole('admin')(req, res, next);
+  next();
 }
