@@ -72,7 +72,48 @@ router.get('/methods', (req, res) => {
 // Login page route - Replit Auth integration
 router.get('/login', (req, res) => {
   // Check if user is already authenticated via Replit headers
-  if (req.headers['x-replit-user-id']) {
+  const replitUserId = req.headers['x-replit-user-id'];
+  const replitUserName = req.headers['x-replit-user-name'];
+  
+  if (replitUserId && replitUserName) {
+    // Create or get user from Replit auth
+    const email = `${replitUserId}@replit.user`;
+    let user = users.get(email);
+    
+    if (!user) {
+      // Create new Replit user
+      user = {
+        id: `replit_${replitUserId}`,
+        email: email,
+        firstName: replitUserName as string,
+        lastName: '',
+        roles: ['user'],
+        passwordHash: 'replit_auth',
+        createdAt: new Date(),
+        lastLogin: new Date()
+      };
+      users.set(email, user);
+    } else {
+      // Update last login
+      user.lastLogin = new Date();
+      users.set(email, user);
+    }
+    
+    // Generate tokens for this session
+    const token = generateToken('jwt');
+    const refreshToken = generateToken('refresh');
+    
+    // Store session
+    sessions.set(token, { email, userId: user.id, createdAt: new Date() });
+    sessions.set(refreshToken, { email, userId: user.id, type: 'refresh', createdAt: new Date() });
+    
+    // Set session cookie and redirect to dashboard
+    res.cookie('auth_token', token, { 
+      httpOnly: true, 
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    });
+    
     return res.redirect('/');
   }
   
@@ -141,7 +182,7 @@ router.get('/login', (req, res) => {
           <p class="subtitle">Knowledge Management System</p>
           <div class="auth-section">
             <p>Please authenticate with your Replit account to continue</p>
-            <script authed="window.location.reload()" src="https://auth.util.repl.co/script.js"></script>
+            <script authed="handleAuthComplete()" src="https://auth.util.repl.co/script.js"></script>
             <div class="loading">
               <p>Redirecting after authentication...</p>
             </div>
@@ -149,17 +190,92 @@ router.get('/login', (req, res) => {
         </div>
         
         <script>
+          // Handle authentication completion
+          function handleAuthComplete() {
+            document.querySelector('.auth-section').style.display = 'none';
+            document.querySelector('.loading').style.display = 'block';
+            
+            // Call our auth endpoint to create session
+            fetch('/api/replit-auth', {
+              method: 'GET',
+              credentials: 'include'
+            })
+            .then(response => response.json())
+            .then(data => {
+              if (data.accessToken) {
+                // Store token in localStorage for frontend use
+                localStorage.setItem('auth_token', data.accessToken);
+                localStorage.setItem('refresh_token', data.refreshToken);
+                // Redirect to dashboard
+                window.location.href = '/';
+              } else {
+                console.error('Auth failed:', data);
+                window.location.reload();
+              }
+            })
+            .catch(error => {
+              console.error('Auth error:', error);
+              window.location.reload();
+            });
+          }
+          
           // Show loading state after auth completes
           window.addEventListener('message', function(event) {
             if (event.data === 'auth_complete') {
-              document.querySelector('.auth-section').style.display = 'none';
-              document.querySelector('.loading').style.display = 'block';
+              handleAuthComplete();
             }
           });
         </script>
       </body>
     </html>
   `);
+});
+
+// API endpoint for Replit auth completion
+router.get('/api/replit-auth', (req, res) => {
+  const replitUserId = req.headers['x-replit-user-id'];
+  const replitUserName = req.headers['x-replit-user-name'];
+  
+  if (!replitUserId || !replitUserName) {
+    return res.status(401).json({ error: 'Replit authentication required' });
+  }
+  
+  const email = `${replitUserId}@replit.user`;
+  let user = users.get(email);
+  
+  if (!user) {
+    user = {
+      id: `replit_${replitUserId}`,
+      email: email,
+      firstName: replitUserName as string,
+      lastName: '',
+      roles: ['user'],
+      passwordHash: 'replit_auth',
+      createdAt: new Date(),
+      lastLogin: new Date()
+    };
+    users.set(email, user);
+  } else {
+    user.lastLogin = new Date();
+    users.set(email, user);
+  }
+  
+  const token = generateToken('jwt');
+  const refreshToken = generateToken('refresh');
+  
+  sessions.set(token, { email, userId: user.id, createdAt: new Date() });
+  sessions.set(refreshToken, { email, userId: user.id, type: 'refresh', createdAt: new Date() });
+  
+  res.json({
+    accessToken: token,
+    refreshToken: refreshToken,
+    user: {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName
+    }
+  });
 });
 
 // Get current user info
