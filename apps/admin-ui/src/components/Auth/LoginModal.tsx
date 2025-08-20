@@ -78,7 +78,7 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (isSignUp) {
       if (!firstName || !lastName) {
         toast({
@@ -108,13 +108,13 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
         <DialogHeader>
           <DialogTitle>{isSignUp ? "Create Account" : "Sign In"}</DialogTitle>
           <DialogDescription>
-            {isSignUp 
+            {isSignUp
               ? "Create a new account to access the TDK Knowledge Management Platform"
               : "Sign in to access the TDK Knowledge Management Platform"
             }
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           {/* OAuth Providers */}
           <div className="space-y-2">
@@ -133,6 +133,15 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
             >
               Sign In with Microsoft
             </Button>
+            {/* Added Google Login Button */}
+            <Button
+              onClick={() => window.location.href = "/api/auth/google"}
+              variant="outline"
+              className="w-full border-gray-300 text-gray-700 hover:bg-gray-100"
+              type="button"
+            >
+              Sign In with Google
+            </Button>
           </div>
 
           <div className="relative">
@@ -150,7 +159,7 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignUp && (
               <>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name</Label>
                     <Input
@@ -174,7 +183,7 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                 </div>
               </>
             )}
-            
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -182,11 +191,11 @@ export function LoginModal({ open, onOpenChange }: LoginModalProps) {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder={isSignUp ? "Enter your email address" : "dev@example.com"}
                 required
-                placeholder="dev@example.com"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
