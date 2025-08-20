@@ -1,7 +1,7 @@
 
 import { createApp } from './index.js';
 
-const PORT = process.env.AUTH_SVC_PORT || 3001;
+const PORT = Number(process.env.AUTH_SVC_PORT) || 3001;
 
 async function startServer() {
   try {

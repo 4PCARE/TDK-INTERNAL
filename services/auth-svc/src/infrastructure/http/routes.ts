@@ -77,7 +77,7 @@ router.get('/login', (req, res) => {
   const replitUserId = req.headers['x-replit-user-id'];
   const replitUserName = req.headers['x-replit-user-name'];
 
-  if (replitUserId && replitUserName && replitUserId.trim() !== '') {
+  if (replitUserId && replitUserName && typeof replitUserId === 'string' && replitUserId.trim() !== '') {
     console.log('✅ User already authenticated, redirecting to home');
     return res.redirect('/');
   }
