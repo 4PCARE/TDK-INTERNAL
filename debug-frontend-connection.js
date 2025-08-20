@@ -1,4 +1,5 @@
-const http = require('http');
+
+import http from 'http';
 
 console.log('🔍 Testing all services...\n');
 
@@ -39,10 +40,10 @@ function testService(host, port, path = '/') {
 
 async function runDiagnostics() {
   const tests = [
-    { name: 'Frontend Direct (Port 5000)', host: 'localhost', port: 5000 },
-    { name: 'Modern Server Direct (Port 4000)', host: 'localhost', port: 4000 },
-    { name: 'Health Check', host: 'localhost', port: 4000, path: '/healthz' },
-    { name: 'API Gateway (Port 8080)', host: 'localhost', port: 8080, path: '/healthz' }
+    { name: 'Frontend Direct (Port 5000)', host: '0.0.0.0', port: 5000 },
+    { name: 'Modern Server Direct (Port 4000)', host: '0.0.0.0', port: 4000 },
+    { name: 'Health Check', host: '0.0.0.0', port: 4000, path: '/healthz' },
+    { name: 'API Gateway (Port 8080)', host: '0.0.0.0', port: 8080, path: '/healthz' }
   ];
 
   for (const test of tests) {
