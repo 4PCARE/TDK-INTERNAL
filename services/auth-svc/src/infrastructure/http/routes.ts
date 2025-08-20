@@ -12,6 +12,21 @@ router.get('/healthz', (req, res) => {
   });
 });
 
+// Google OAuth routes
+router.get('/api/auth/google', (req, res) => {
+  console.log('🔐 Google OAuth login requested');
+  // For now, redirect to the main server's Google auth
+  const baseUrl = req.protocol + '://' + req.get('host');
+  res.redirect(`${baseUrl.replace(':3001', ':4000')}/api/auth/google`);
+});
+
+router.get('/api/auth/google/callback', (req, res) => {
+  console.log('🔐 Google OAuth callback requested');
+  // For now, redirect to the main server's Google auth callback
+  const baseUrl = req.protocol + '://' + req.get('host');
+  res.redirect(`${baseUrl.replace(':3001', ':4000')}/api/auth/google/callback${req.url.substring(req.url.indexOf('?'))}`);
+});
+
 // Login page with proper CSP for Replit Auth
 router.get('/login', (req, res) => {
   console.log('🔐 Login page requested');
