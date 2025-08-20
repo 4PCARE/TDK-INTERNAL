@@ -1,8 +1,5 @@
 
-#!/usr/bin/env node
-
 const http = require('http');
-const https = require('https');
 
 // Test configuration
 const tests = [
@@ -33,7 +30,7 @@ const tests = [
   }
 ];
 
-async function testEndpoint(test) {
+function testEndpoint(test) {
   return new Promise((resolve) => {
     const url = new URL(test.url);
     const options = {
