@@ -11,7 +11,18 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 // Get the base URL for redirect
 function getBaseUrl(req: any): string {
   const protocol = req.headers['x-forwarded-proto'] || 'https';
-  const host = req.headers['x-replit-domain'] || req.headers['host'];
+  
+  // For Replit, use the replit domain or fallback to host
+  let host = req.headers['x-replit-domain'] || req.headers['host'];
+  
+  // If we get 0.0.0.0 or localhost, try to construct the proper Replit URL
+  if (host && (host.includes('0.0.0.0') || host.includes('localhost'))) {
+    // Extract just the port if present
+    const port = host.split(':')[1];
+    // Use the current repl's domain - this will be filled in by Replit
+    host = `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+  }
+  
   return `${protocol}://${host}`;
 }
 
