@@ -122,6 +122,37 @@ export function setupRouting(app: Express): void {
     proxyHandler(req, res);
   });
 
+  // Google OAuth routes
+  app.get('/google', (req, res) => {
+    console.log('🔀 Proxying GET /google to auth service');
+    const serviceUrl = getServiceUrl('auth');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/api/auth/google`);
+    proxyHandler(req, res);
+  });
+
+  app.get('/api/auth/google', (req, res) => {
+    console.log('🔀 Proxying GET /api/auth/google to auth service');
+    const serviceUrl = getServiceUrl('auth');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/api/auth/google`);
+    proxyHandler(req, res);
+  });
+
+  app.get('/api/auth/google/callback', (req, res) => {
+    console.log('🔀 Proxying GET /api/auth/google/callback to auth service');
+    const serviceUrl = getServiceUrl('auth');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+    const proxyHandler = createProxyHandler(`${serviceUrl}/api/auth/google/callback`);
+    proxyHandler(req, res);
+  });
+
   // Token validation endpoint (for internal service-to-service calls)
   app.post('/api/auth/validate', (req, res) => {
     const serviceUrl = getServiceUrl('auth');

@@ -1,5 +1,5 @@
 
-import { OAuth2Strategy } from "passport-google-oauth20";
+import { Strategy as OAuth2Strategy } from "passport-google-oauth20";
 import passport from "passport";
 import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
