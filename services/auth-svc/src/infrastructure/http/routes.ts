@@ -194,17 +194,16 @@ router.get('/me', (req, res) => {
 
   // Check if user is authenticated via Replit headers
   if (!userId || userId.trim() === '' || !userName || userName.trim() === '') {
-    console.log('❌ No valid Replit headers found:', { userId, userName });
-    console.log('💡 Make sure you are logged into Replit and accessing via the Replit webview');
+    console.log('ℹ️ User not authenticated (this is normal):', { userId, userName });
     return res.status(401).json({
-      error: 'Not authenticated',
-      message: 'Please login with Replit to continue. Make sure you are logged into Replit.',
       authenticated: false,
-      redirectTo: '/api/login'
+      message: 'Not authenticated - please login',
+      loginUrl: '/api/login'
     });
   }
 
   // Return user info from Replit headers
+  console.log('✅ User authenticated:', userName);
   res.json({
     id: userId,
     username: userName,
