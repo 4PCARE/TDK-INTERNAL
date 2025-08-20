@@ -16,6 +16,16 @@ function getBaseUrl(req: any): string {
 }
 
 export async function setupGoogleAuth(app: Express) {
+  // Check if Google OAuth credentials are available
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    console.log('⚠️ Google OAuth credentials not found, skipping Google auth setup');
+    console.log('GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID ? 'present' : 'missing');
+    console.log('GOOGLE_CLIENT_SECRET:', GOOGLE_CLIENT_SECRET ? 'present' : 'missing');
+    return;
+  }
+
+  console.log('✅ Google OAuth credentials found, setting up Google auth');
+
   // Configure Google OAuth Strategy
   passport.use('google', new OAuth2Strategy({
     clientID: GOOGLE_CLIENT_ID,

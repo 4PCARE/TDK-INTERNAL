@@ -97,9 +97,20 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log(`📋 Health check: http://0.0.0.0:${PORT}/healthz`);
   console.log(`🔀 Proxying /api/* to API Gateway (${GATEWAY_PORT})`);
   console.log(`🔀 Proxying everything else to Frontend (5000)`);
+  
+  // Debug environment variables
+  console.log('🔍 Environment check:');
+  console.log('GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? 'present' : 'missing');
+  console.log('GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? 'present' : 'missing');
 
   // Setup authentication
   await setupAuth(app);
   await setupMicrosoftAuth(app);
-  await setupGoogleAuth(app);
+  
+  try {
+    await setupGoogleAuth(app);
+  } catch (error) {
+    console.error('⚠️ Failed to setup Google auth:', error.message);
+    console.log('Google authentication will be disabled');
+  }
 });
