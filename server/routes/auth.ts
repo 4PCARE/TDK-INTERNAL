@@ -31,6 +31,46 @@ export function registerAuthRoutes(app: Express) {
     });
   });
 
+  // Login route - redirect to Replit auth
+  app.get("/api/login", (req, res) => {
+    // Redirect to Replit auth - this will be handled by the setupAuth middleware
+    res.redirect("/login");
+  });
+
+  // Main login route that serves the auth page
+  app.get("/login", (req, res) => {
+    // For Replit auth, we can redirect to a simple auth page or handle it directly
+    // Check if user is already authenticated
+    if (req.headers['x-replit-user-id']) {
+      return res.redirect('/');
+    }
+    
+    // Serve a simple login page with Replit auth
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Login - AI-KMS</title>
+          <style>
+            body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
+            .login-container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
+            .btn { background: #0066cc; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
+            .btn:hover { background: #0052a3; }
+          </style>
+        </head>
+        <body>
+          <div class="login-container">
+            <h1>AI-KMS Login</h1>
+            <p>Please authenticate to continue</p>
+            <div>
+              <script authed="window.location.href = '/'" src="https://auth.util.repl.co/script.js"></script>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+  });
+
   // Auth routes - support both Replit and Microsoft authentication
   app.get("/api/auth/user", smartAuth, async (req: any, res) => {
     try {
