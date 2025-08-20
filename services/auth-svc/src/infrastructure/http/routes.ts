@@ -141,7 +141,7 @@ router.get('/login', (req, res) => {
           <p class="subtitle">Knowledge Management System</p>
           <div class="auth-section">
             <p>Please authenticate with your Replit account to continue</p>
-            <script authed="window.location.href = '/'" src="https://auth.util.repl.co/script.js"></script>
+            <script authed="window.location.reload()" src="https://auth.util.repl.co/script.js"></script>
             <div class="loading">
               <p>Redirecting after authentication...</p>
             </div>
