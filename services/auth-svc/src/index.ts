@@ -10,8 +10,19 @@ export function createApp() {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-  // Security middleware
-  app.use(helmet());
+  // Security middleware with CSP configuration for Replit auth
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "https://auth.util.repl.co"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "https://auth.util.repl.co"],
+        frameSrc: ["'self'", "https://auth.util.repl.co"],
+      },
+    },
+  }));
   app.use(cors({
     origin: ['http://localhost:3003', 'http://localhost:5000', 'http://localhost:8080'],
     credentials: true
