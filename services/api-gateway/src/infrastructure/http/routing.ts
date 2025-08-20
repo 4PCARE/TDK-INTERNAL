@@ -5,12 +5,12 @@ import { createProxyMiddleware } from 'http-proxy-middleware'; // Import createP
 // Helper function to get service URLs
 function getServiceUrl(service: string): string | null {
   const serviceMap: Record<string, string> = {
-    'auth': 'http://localhost:3001',
-    'doc-ingest': 'http://localhost:3002',
-    'agent': 'http://localhost:3005', // Corrected port for agent service
-    'embedding': 'http://localhost:3004',
-    'search': 'http://localhost:3003', // Corrected port for search service
-    'csat': 'http://localhost:3006'
+    'auth': 'http://0.0.0.0:3001',
+    'doc-ingest': 'http://0.0.0.0:3002',
+    'agent': 'http://0.0.0.0:3005',
+    'embedding': 'http://0.0.0.0:3009', // Updated to match console output
+    'search': 'http://0.0.0.0:3006', // Updated to match console output
+    'csat': 'http://0.0.0.0:3008' // Updated to match console output
   };
 
   return serviceMap[service] || null;
