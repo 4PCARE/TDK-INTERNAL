@@ -59,8 +59,8 @@ function AuthenticatedApp() {
       <Router>
         {!isAuthenticated ? (
           <Switch>
-            <Route path="/" component={Landing} />
-            <Route>{() => <Redirect to="/" />}</Route>
+            <Route path="/" exact component={Landing} />
+            <Route component={Landing} />
           </Switch>
         ) : (
           <Switch>

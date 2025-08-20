@@ -74,7 +74,18 @@ app.use('/api', createProxyMiddleware({
 // Proxy to frontend for all other routes
 app.use('*', createProxyMiddleware({
   target: 'http://localhost:5000',
-  changeOrigin: true
+  changeOrigin: true,
+  ws: true,
+  onError: (err, req, res) => {
+    console.error('Frontend proxy error:', err.message);
+    if (!res.headersSent) {
+      res.status(502).json({
+        error: 'Frontend service unavailable',
+        message: 'Could not connect to React app',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
 }));
 
 app.listen(PORT, '0.0.0.0', () => {
