@@ -2,98 +2,72 @@ import { RequestHandler } from "express";
 import { storage } from "./storage";
 import { isAuthenticated as replitAuth } from "./replitAuth";
 import { isMicrosoftAuthenticated } from "./microsoftAuth";
-import { isGoogleAuthenticated } from "./googleAuth";
 
 export const smartAuth: RequestHandler = async (req, res, next) => {
-  // Skip auth for static assets and development resources
-  const skipPaths = ['/assets/', '/public/', '/widget/', '/@vite/', '/@fs/', '/node_modules/', '/favicon.ico'];
-  if (skipPaths.some(path => req.path.startsWith(path))) {
-    return next();
+  // First, try to get user ID from either auth method without failing
+  let userId: string | undefined;
+
+  // Check if user is authenticated with either method
+  const user = req.user as any;
+  const sessionUser = (req.session as any)?.passport?.user || (req.session as any)?.user;
+  const currentUser = user || sessionUser;
+
+  if (currentUser?.claims?.sub) {
+    userId = currentUser.claims.sub;
+  }
+
+  if (!userId) {
+    console.log("Smart auth: No user ID found, unauthorized - Session ID:", req.sessionID);
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  // Log device info for debugging multi-device issues
+  const deviceInfo = (req.session as any)?.deviceInfo;
+  if (deviceInfo) {
+    console.log(`Smart auth: Device session for user ${userId}:`, {
+      lastAccess: new Date(deviceInfo.lastAccess).toISOString(),
+      userAgent: deviceInfo.userAgent?.substring(0, 50),
+      authMethod: deviceInfo.authMethod
+    });
   }
 
   try {
-    // First, try to get user ID from either auth method without failing
-    let userId: string | undefined;
-
-    // Check if user is authenticated with either method
-    const user = req.user as any;
-    const sessionUser = (req.session as any)?.passport?.user;
-    const currentUser = user || sessionUser;
-
-    if (currentUser?.claims?.sub) {
-      userId = currentUser.claims.sub;
-    }
-
-    if (!userId) {
-      console.log("Smart auth: No user ID found, unauthorized");
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
+    // Get user's preferred login method from database
+    let user;
     try {
-      // Get user's preferred login method from database
-      let user;
-      try {
-        user = await storage.getUser(userId);
-      } catch (error: any) {
-        // Handle missing login_method column gracefully
-        if (error.message && error.message.includes('column "login_method" does not exist')) {
-          console.log("Smart auth - handling missing login_method column, proceeding with fallback");
-          user = null; // Will fall back to auth provider data
-        } else {
-          throw error;
-        }
-      }
-
-      if (!user) {
-        console.log("Smart auth - user not found in database or column missing, using auth provider data");
-      }
-
-      console.log(`Smart auth: User ${userId} uses ${user?.loginMethod} authentication`);
-
-      // Route to the correct authentication middleware
-      if (user?.loginMethod === "microsoft") {
-        return isMicrosoftAuthenticated(req, res, next);
-      } else if (user?.loginMethod === "google") {
-        return isGoogleAuthenticated(req, res, next);
+      user = await storage.getUser(userId);
+    } catch (error: any) {
+      // Handle missing login_method column gracefully
+      if (error.message && error.message.includes('column "login_method" does not exist')) {
+        console.log("Smart auth - handling missing login_method column, proceeding with fallback");
+        user = null; // Will fall back to auth provider data
       } else {
-        return replitAuth(req, res, next);
+        throw error;
       }
-
-    } catch (error) {
-      console.error("Smart auth error:", error);
-
-      // Fallback: try Microsoft first, then Google, then Replit
-      isMicrosoftAuthenticated(req, res, (err: any) => {
-        if (!err) {
-          return next();
-        }
-        isGoogleAuthenticated(req, res, (errGoogle: any) => {
-          if (!errGoogle) {
-            return next();
-          }
-          replitAuth(req, res, next);
-        });
-      });
     }
+
+    if (!user) {
+      console.log("Smart auth - user not found in database or column missing, using auth provider data");
+    }
+
+    console.log(`Smart auth: User ${userId} uses ${user?.loginMethod} authentication`);
+
+    // Route to the correct authentication middleware
+    if (user?.loginMethod === "microsoft") {
+      return isMicrosoftAuthenticated(req, res, next);
+    } else {
+      return replitAuth(req, res, next);
+    }
+
   } catch (error) {
-    console.error("Smart auth critical error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    console.error("Smart auth error:", error);
+
+    // Fallback: try Microsoft first, then Replit
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      replitAuth(req, res, next);
+    });
   }
 };
-
-// Assuming replitAuth, isMicrosoftAuthenticated, and isGoogleAuthenticated are defined elsewhere and imported.
-// The following is a placeholder for the modification requested.
-// If the original code for these functions was provided, it would be modified directly.
-// For the purpose of this example, we'll assume the change is applied to the imported functions.
-
-// Placeholder for the modification in replitAuth:
-// export function isAuthenticated(req: any, res: any, next: any) {
-//   // Skip auth for paths that don't need it
-//   if (req.skipAuth) {
-//     return next();
-//   }
-//
-//   if (!req.session || !req.session.passport || !req.session.passport.user) {
-//     // ... rest of the original replitAuth function
-//   }
-// }

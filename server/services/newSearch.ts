@@ -352,7 +352,7 @@ function normalizeThaiText(text: string): string {
     .toLowerCase();
 }
 
-async function tokenizeWithThaiNormalization(text: string): Promise<string[]> {
+async function tokenizeWithThaiNormalization(text: string): string[] {
   // Simple tokenization without Thai segmentation for documents
   // Thai segmentation should only be used for query processing
 
@@ -465,8 +465,6 @@ export async function searchSmartHybridDebug(
     isLineOAContext?: boolean; // Flag to indicate context
     documentTokenLimit?: number; // Token limit for document content
     finalTokenLimit?: number; // Token limit for final context
-    chunkMaxType?: 'percentage' | 'number';
-    chunkMaxValue?: number;
   }
 ): Promise<SearchResult[]> {
   const keywordWeight = options.keywordWeight ?? 0.5;
@@ -474,8 +472,6 @@ export async function searchSmartHybridDebug(
   const threshold = options.threshold ?? 0.3;
   const massSelectionPercentage = options.massSelectionPercentage || MASS_SELECTION_PERCENTAGE;
   const isLineOAContext = options.isLineOAContext ?? false; // Get context flag
-  const chunkMaxType = options.chunkMaxType ?? 'percentage';
-  const chunkMaxValue = options.chunkMaxValue ?? 30;
 
   // Use enhanced query from preprocessor if provided, otherwise use original
   const searchQuery = options.enhancedQuery || query;
@@ -532,12 +528,12 @@ export async function searchSmartHybridDebug(
 
   // Calculate BM25 scores for all chunks at once
   const bm25Results = await calculateBM25(searchTerms, chunks);
-  const keywordMatches: Record<string, { score: number, matchedTerms: string[] }> = {};
+  const keywordMatches: Record<string, number> = {};
   let totalMatches = 0;
 
   for (const [chunkId, bm25Match] of Array.from(bm25Results.entries())) {
     if (bm25Match.score > 0) {
-      keywordMatches[chunkId] = bm25Match;
+      keywordMatches[chunkId] = bm25Match.score;
       totalMatches++;
 
       const [docId, chunkIndex] = chunkId.split('-');
@@ -584,9 +580,6 @@ export async function searchSmartHybridDebug(
     finalScore: number;
     keywordScore: number;
     vectorScore: number;
-    normalizedKeywordScore?: number; // Add normalized score
-    mimeType?: string; // Add mimeType
-    name?: string; // Add name for result formatting
   }[] = [];
 
   console.log(`🧮 SCORING CALCULATION: Combining ${allChunkIds.size} unique chunks`);
@@ -594,7 +587,7 @@ export async function searchSmartHybridDebug(
   console.log(`📐 FORMULA: Final Score = (Keyword Score × ${keywordWeight}) + (Vector Score × ${vectorWeight})`);
 
   // Step 1: Collect all BM25 scores for statistical normalization
-  const allBM25Scores = Object.values(keywordMatches).map(m => m.score).filter(score => score > 0);
+  const allBM25Scores = Object.values(keywordMatches).filter(score => score > 0);
 
   let normalizeKeywordScore = (score: number) => score;
 
@@ -640,33 +633,23 @@ export async function searchSmartHybridDebug(
     const docIdStr = parts.slice(0, -1).join("-");
     const docId = parseInt(docIdStr);
     const chunkIndex = parseInt(chunkIndexStr);
-    const keywordScore = keywordMatches[chunkId]?.score ?? 0;
+    const keywordScore = keywordMatches[chunkId] ?? 0;
     const vectorInfo = vectorMatches[chunkId];
     const vectorScore = vectorInfo?.score ?? 0;
 
     // Get content from vector search, or fallback to chunk map
     let content = vectorInfo?.content ?? "";
-    let mimeType = undefined;
-    let chunkName = "";
-
     if (!content && keywordScore > 0) {
       // Get the chunk content from the chunk map for keyword-only matches
       const chunk = chunkMap.get(chunkId);
       content = chunk?.content ?? "";
-      mimeType = chunk?.mimeType;
-      chunkName = chunk?.documentName;
-    } else if (vectorInfo) {
-      // If vector search provided content, use its associated metadata if available
-      const vectorChunkMeta = vectorResults.find(vr => `${parseInt(vr.document.metadata.originalDocumentId || vr.document.id)}-${vr.document.chunkIndex ?? 0}` === chunkId)?.document;
-      mimeType = vectorChunkMeta?.mimeType;
-      chunkName = vectorChunkMeta?.name;
     }
 
     // Apply statistical normalization to TF-IDF scores
     const normalizedKeywordScore = normalizeKeywordScore(keywordScore);
     const finalScore = normalizedKeywordScore * keywordWeight + vectorScore * vectorWeight;
 
-    console.log(`📊 CHUNK ${docId}-${chunkIndex}: Keyword=${keywordScore.toFixed(4)}→${normalizedKeywordScore.toFixed(3)}, Vector=${vectorScore.toFixed(3)}, Final=${finalScore.toFixed(3)}`);
+    console.log(`📊 CHUNK ${chunkId}: Keyword=${keywordScore.toFixed(4)}→${normalizedKeywordScore.toFixed(3)}, Vector=${vectorScore.toFixed(3)}, Final=${finalScore.toFixed(3)}`);
 
     if (finalScore > 0 && content.length > 0) {
       scoredChunks.push({
@@ -675,9 +658,7 @@ export async function searchSmartHybridDebug(
         content,
         finalScore,
         keywordScore: normalizedKeywordScore, // Store normalized score
-        vectorScore,
-        mimeType,
-        name: chunkName
+        vectorScore
       });
     }
   }
@@ -692,17 +673,17 @@ export async function searchSmartHybridDebug(
 
   if (isLineOAContext) {
     // LINE OA context: Use agent's chunk configuration properly
-    if (chunkMaxType === 'percentage' && chunkMaxValue > 0) {
+    if (options.chunkMaxType === 'percentage' && options.chunkMaxValue > 0) {
       // Calculate percentage based on total available chunks
       const totalAvailableChunks = scoredChunks.length;
-      const maxChunks = Math.max(1, Math.ceil(totalAvailableChunks * (chunkMaxValue / 100)));
+      const maxChunks = Math.max(1, Math.ceil(totalAvailableChunks * (options.chunkMaxValue / 100)));
       minResults = Math.min(2, maxChunks);
       maxResults = Math.min(maxChunks, scoredChunks.length);
-      console.log(`📊 LINE OA: Using ${chunkMaxValue}% limit: ${chunkMaxValue}% of ${totalAvailableChunks} total chunks = ${maxResults} max chunks`);
-    } else if (chunkMaxType === 'number' && chunkMaxValue > 0) {
+      console.log(`📊 LINE OA: Using ${options.chunkMaxValue}% limit: ${options.chunkMaxValue}% of ${totalAvailableChunks} total chunks = ${maxResults} max chunks`);
+    } else if (options.chunkMaxType === 'number' && options.chunkMaxValue > 0) {
       // Use fixed number of chunks
-      minResults = Math.min(2, chunkMaxValue);
-      maxResults = Math.min(chunkMaxValue, scoredChunks.length);
+      minResults = Math.min(2, options.chunkMaxValue);
+      maxResults = Math.min(options.chunkMaxValue, scoredChunks.length);
       console.log(`📊 LINE OA: Using fixed limit: ${maxResults} max chunks`);
     } else {
       // Fallback to default LINE OA limits
@@ -769,7 +750,7 @@ export async function searchSmartHybridDebug(
   const results: SearchResult[] = selectedChunks.map(chunk => {
     const doc = docMap.get(chunk.docId);
     const label = `(Chunk ${chunk.chunkIndex + 1})`;
-    const documentName = chunk.name || doc?.name || `Document ${chunk.docId}`;
+    const documentName = doc?.name || `Document ${chunk.docId}`;
     return {
       id: `${chunk.docId}-${chunk.chunkIndex}`,
       name: `${documentName} ${label}`,
@@ -781,8 +762,8 @@ export async function searchSmartHybridDebug(
       createdAt: doc?.createdAt?.toISOString() ?? new Date().toISOString(),
       categoryId: doc?.categoryId ?? null,
       tags: doc?.tags ?? null,
-      fileSize: doc?.fileSize ?? undefined, // Coerce null to undefined
-      mimeType: (chunk.mimeType ?? undefined) as string | undefined,
+      fileSize: doc?.fileSize ?? null,
+      mimeType: doc?.mimeType ?? null,
       isFavorite: doc?.isFavorite ?? null,
       updatedAt: doc?.updatedAt?.toISOString() ?? null,
       userId: doc?.userId ?? userId
@@ -847,9 +828,7 @@ export async function searchSmartHybridV1(
       const chunkObjects = chunks.map((chunk, i) => ({
         content: chunk,
         chunkIndex: i,
-        documentId: doc.id,
-        documentName: doc.name || `Document ${doc.id}`, // Include document name
-        mimeType: doc.mimeType // Include mimeType
+        documentId: doc.id
       }));
 
       // Use BM25 instead of fuzzy matching
@@ -893,9 +872,6 @@ export async function searchSmartHybridV1(
       keywordScore: number;
       vectorScore: number;
       finalScore: number;
-      normalizedKeywordScore?: number;
-      mimeType?: string;
-      name?: string;
     }>();
 
     const allChunkIds = new Set([...Object.keys(keywordChunks), ...Object.keys(vectorChunks)]);
@@ -905,38 +881,31 @@ export async function searchSmartHybridV1(
       const docId = parseInt(docIdStr);
       const chunkIndex = parseInt(chunkIdxStr);
       const keywordScore = keywordChunks[chunkId]?.score ?? 0;
-      const vectorInfo = vectorChunks[chunkId];
-      const vectorScore = vectorInfo?.score ?? 0;
-      const content = vectorInfo?.content ?? keywordChunks[chunkId]?.content ?? "";
+      const vectorScore = vectorChunks[chunkId]?.score ?? 0;
+      const content = keywordChunks[chunkId]?.content || vectorChunks[chunkId]?.content || "";
 
-      // Find the corresponding document and chunk details
-      const doc = allDocs.find(d => d.id === docId);
-      const mimeType = doc?.mimeType;
-      const name = doc?.name || `Document ${docId}`;
-
-      // Temporary scores before adaptive weighting
-      const initialKeywordScore = keywordScore;
-      const initialVectorScore = vectorScore;
+      const hybridScore = Math.max(
+        vectorScore * adaptedVectorWeight + keywordScore * adaptedKeywordWeight,
+        vectorScore,
+        keywordScore
+      );
 
       combinedChunkMap.set(chunkId, {
         docId,
         chunkIndex,
         content,
-        keywordScore: initialKeywordScore, // Store raw keyword score for normalization later
-        vectorScore: initialVectorScore,
-        finalScore: 0, // Will be calculated after adaptive weighting
-        mimeType,
-        name
+        keywordScore,
+        vectorScore,
+        finalScore: hybridScore
       });
     }
-
-    // Declare adapted weights before use
-    let adaptedVectorWeight = vectorWeight;
-    let adaptedKeywordWeight = keywordWeight;
 
     // 4. Adaptive weighting based on search results
     const hasKeywordResults = Object.keys(keywordChunks).length > 0;
     const hasVectorResults = Object.keys(vectorChunks).length > 0;
+
+    let adaptedKeywordWeight = keywordWeight;
+    let adaptedVectorWeight = vectorWeight;
 
     if (!hasKeywordResults && hasVectorResults) {
       // No keyword matches found - use vector-only search
@@ -956,68 +925,85 @@ export async function searchSmartHybridV1(
 
     // Recalculate final scores with adaptive weights
     for (const [chunkId, chunkData] of combinedChunkMap.entries()) {
-      // Collect keyword scores for normalization *after* adaptive weights are decided
-      // This ensures that if keyword search is entirely disabled, normalization doesn't happen
-      if (adaptedKeywordWeight > 0 && chunkData.keywordScore > 0) {
-        // Normalize keyword scores for better distribution
-        const keywordScores = Array.from(combinedChunkMap.values())
-          .filter(c => adaptedKeywordWeight > 0 && c.keywordScore > 0)
-          .map(c => c.keywordScore);
-
-        const bm25Stats = {
-          min: keywordScores.length > 0 ? Math.min(...keywordScores) : 0,
-          max: keywordScores.length > 0 ? Math.max(...keywordScores) : 0,
-          mean: keywordScores.length > 0 ? keywordScores.reduce((a, b) => a + b, 0) / keywordScores.length : 0,
-          std: 0,
-        };
-
-        if (keywordScores.length > 0) {
-          bm25Stats.std = Math.sqrt(keywordScores.reduce((sum, s) => sum + (s - bm25Stats.mean) ** 2, 0) / keywordScores.length);
-        }
-
-        let normalizedKeywordScore = 0;
-        if (bm25Stats.max > bm25Stats.min) {
-          // Use MIN-MAX normalization for better score distribution
-          if ((bm25Stats.std / bm25Stats.mean) < 0.1) { // Low variability
-            normalizedKeywordScore = (chunkData.keywordScore - bm25Stats.min) / (bm25Stats.max - bm25Stats.min);
-            console.log(`📊 Using MIN-MAX normalization for chunk ${chunkId}`);
-          } else { // High variability
-            normalizedKeywordScore = Math.max(0, (chunkData.keywordScore - bm25Stats.mean) / bm25Stats.std);
-            console.log(`📊 Using Z-SCORE normalization for chunk ${chunkId}`);
-          }
-        } else if (keywordScores.length === 1) {
-          normalizedKeywordScore = chunkData.keywordScore; // Single score, use as is
-          console.log(`📊 Single keyword score, using raw score for chunk ${chunkId}`);
-        } else {
-          normalizedKeywordScore = chunkData.keywordScore; // All scores are identical or no scores
-          console.log(`📊 Identical keyword scores or no scores, using raw score for chunk ${chunkId}`);
-        }
-
-        // Apply normalization if it makes sense (e.g., prevents zero scores when there's a match)
-        if (normalizedKeywordScore > 0 && normalizedKeywordScore < 1e-5) {
-           normalizedKeywordScore = 0; // Treat very small scores as zero
-        }
-
-        chunkData.normalizedKeywordScore = normalizedKeywordScore;
-      }
-
-      // Calculate final score
-      const keywordComponent = (chunkData.normalizedKeywordScore || 0) * adaptedKeywordWeight;
-      const vectorComponent = (chunkData.vectorScore || 0) * adaptedVectorWeight;
-      chunkData.finalScore = keywordComponent + vectorComponent;
-
-      // Fallback for high keyword weight but weak keyword matches
-      if (keywordWeight > 0.7 && chunkData.finalScore === 0 && chunkData.vectorScore > 0.25 && adaptedKeywordWeight > 0) {
-        chunkData.finalScore = chunkData.vectorScore * 0.3; // Give it a fighting chance
-        console.log(`📊 FALLBACK: Chunk ${chunkData.docId}-${chunkData.chunkIndex} boosted from vector score: ${chunkData.finalScore.toFixed(3)}`);
-      }
-
-      console.log(`📊 CHUNK ${chunkData.docId}-${chunkData.chunkIndex}: Keyword=${(chunkData.keywordScore || 0).toFixed(4)}→${(chunkData.normalizedKeywordScore || 0).toFixed(3)}, Vector=${(chunkData.vectorScore || 0).toFixed(3)}, Final=${chunkData.finalScore.toFixed(3)}`);
+      const hybridScore = Math.max(
+        chunkData.vectorScore * adaptedVectorWeight + chunkData.keywordScore * adaptedKeywordWeight,
+        chunkData.vectorScore,
+        chunkData.keywordScore
+      );
+      chunkData.finalScore = hybridScore;
     }
 
     // Step 3: Rank and select using 60% mass selection for better coverage
     const sortedChunks = Array.from(combinedChunkMap.values());
     sortedChunks.sort((a, b) => b.finalScore - a.finalScore);
+
+    // Collect BM25 statistics for normalization
+    const keywordScores = sortedChunks.map(chunk => chunk.keywordScore).filter(score => score > 0);
+    const bm25Stats = {
+      min: keywordScores.length > 0 ? Math.min(...keywordScores) : 0,
+      max: keywordScores.length > 0 ? Math.max(...keywordScores) : 0,
+      mean: keywordScores.length > 0 ? keywordScores.reduce((a, b) => a + b, 0) / keywordScores.length : 0,
+      std: 0,
+    };
+
+    if(keywordScores.length > 0) {
+      bm25Stats.std = Math.sqrt(keywordScores.reduce((sum, s) => sum + (s - bm25Stats.mean) ** 2, 0) / keywordScores.length);
+    }
+
+    // Normalize keyword scores
+    sortedChunks.forEach(chunk => {
+      chunk.normalizedKeywordScore = 0; // Initialize
+    });
+
+    // Apply BM25 normalization (prevent division by zero)
+    if (bm25Stats.max > bm25Stats.min) {
+      // Use MIN-MAX normalization for better score distribution
+      if (bm25Stats.std / bm25Stats.mean < 0.1) {
+        console.log(`📊 Using MIN-MAX normalization (low variability detected: CV=${(bm25Stats.std / bm25Stats.mean).toFixed(2)})`);
+        sortedChunks.forEach(chunk => {
+          if (chunk.keywordScore > 0) {
+            chunk.normalizedKeywordScore = (chunk.keywordScore - bm25Stats.min) / (bm25Stats.max - bm25Stats.min);
+          }
+        });
+      } else {
+        console.log(`📊 Using Z-SCORE normalization (high variability detected: CV=${(bm25Stats.std / bm25Stats.mean).toFixed(2)})`);
+        sortedChunks.forEach(chunk => {
+          if (chunk.keywordScore > 0) {
+            chunk.normalizedKeywordScore = Math.max(0, (chunk.keywordScore - bm25Stats.mean) / bm25Stats.std);
+          }
+        });
+      }
+    } else {
+      console.log(`📊 All keyword scores identical (${bm25Stats.max}), using raw scores`);
+      sortedChunks.forEach(chunk => {
+        if (chunk.keywordScore > 0) {
+          // When keyword weight is high but scores are low, boost them slightly
+          if (keywordWeight > 0.7 && bm25Stats.max < 0.1) {
+            chunk.normalizedKeywordScore = Math.min(1.0, chunk.keywordScore * 10); // Boost weak keyword matches
+            console.log(`📊 BOOSTING weak keyword match: ${chunk.keywordScore.toFixed(4)} -> ${chunk.normalizedKeywordScore.toFixed(4)}`);
+          } else {
+            chunk.normalizedKeywordScore = chunk.keywordScore;
+          }
+        }
+      });
+    }
+
+    // Calculate final combined scores
+    console.log(`📐 FORMULA: Final Score = (Keyword Score × ${adaptedKeywordWeight}) + (Vector Score × ${adaptedVectorWeight})`);
+
+    sortedChunks.forEach(chunk => {
+      const keywordComponent = (chunk.normalizedKeywordScore || 0) * adaptedKeywordWeight;
+      const vectorComponent = (chunk.vectorScore || 0) * adaptedVectorWeight;
+      chunk.finalScore = keywordComponent + vectorComponent;
+
+      // If keyword weight is high but no good keyword matches, fall back to vector scores
+      if (keywordWeight > 0.7 && chunk.finalScore === 0 && chunk.vectorScore > 0.25) {
+        chunk.finalScore = chunk.vectorScore * 0.3; // Give it a fighting chance
+        console.log(`📊 FALLBACK: Chunk ${chunk.documentId}-${chunk.chunkIndex} boosted from vector score: ${chunk.finalScore.toFixed(3)}`);
+      }
+
+      console.log(`📊 CHUNK ${chunk.documentId}-${chunk.chunkIndex}: Keyword=${(chunk.keywordScore || 0).toFixed(4)}→${(chunk.normalizedKeywordScore || 0).toFixed(3)}, Vector=${(chunk.vectorScore || 0).toFixed(3)}, Final=${chunk.finalScore.toFixed(3)}`);
+    });
 
     const totalScore = sortedChunks.reduce((sum, c) => sum + c.finalScore, 0);
     const massSelectionPercentage = options.massSelectionPercentage || MASS_SELECTION_PERCENTAGE;
@@ -1042,7 +1028,7 @@ export async function searchSmartHybridV1(
     const results: SearchResult[] = selectedChunks.map(chunk => {
       const doc = docMap.get(chunk.docId);
       const chunkLabel = chunk.chunkIndex !== undefined ? ` (Chunk ${chunk.chunkIndex + 1})` : "";
-      const documentName = chunk.name || doc?.name || `Document ${chunk.docId}`;
+      const documentName = doc?.name || `Document ${chunk.docId}`;
       return {
         id: `${chunk.docId}-${chunk.chunkIndex}`,
         name: documentName + chunkLabel,
@@ -1054,23 +1040,20 @@ export async function searchSmartHybridV1(
         createdAt: doc?.createdAt?.toISOString() ?? new Date().toISOString(),
         categoryId: doc?.categoryId ?? null,
         tags: doc?.tags ?? null,
-        fileSize: doc?.fileSize ?? undefined, // Coerce null to undefined
-        mimeType: (chunk.mimeType ?? undefined) as string | undefined,
+        fileSize: doc?.fileSize ?? null,
+        mimeType: doc?.mimeType ?? null,
         isFavorite: doc?.isFavorite ?? null,
         updatedAt: doc?.updatedAt?.toISOString() ?? null,
         userId: doc?.userId ?? userId
       };
     });
 
-    console.log(`✅ SmartHybrid V1: Returning ${results.length} chunks from ${combinedChunkMap.size} scored`);
+    console.log(`✅ SmartHybrid: Returning ${results.length} chunks from ${combinedChunkMap.size} scored`);
     return results;
 
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    console.error("❌ SmartHybrid V1 Search Failed:", errorMessage);
-    if (errorStack) console.error("Stack:", errorStack);
-    throw new Error(`SmartHybrid V1 Search Error: ${errorMessage}`);
+  } catch (error) {
+    console.error("❌ SmartHybrid Search Failed:", error);
+    throw new Error("SmartHybrid Search Error");
   }
 }
 

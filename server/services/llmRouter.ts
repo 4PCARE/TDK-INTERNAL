@@ -6,7 +6,7 @@ import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import type { Embeddings } from "@langchain/core/embeddings";
 import { storage } from "../storage";
 import { db } from "../db";
-import { llmConfig, documentChunkEmbeddings, documentVectors } from "@shared/schema";
+import { llmConfig, documentChunkEmbeddings } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 
 export type LLMProvider = "OpenAI" | "Gemini";
@@ -91,12 +91,11 @@ export class LLMRouter {
 
   async updateUserConfig(userId: string, config: Partial<LLMRouterConfig>): Promise<void> {
     try {
-      this.currentConfig = { provider: 'OpenAI', embeddingProvider: 'OpenAI', ...this.currentConfig, ...config };
+      const updatedConfig = { ...this.currentConfig, ...config };
 
       // Check if provider changed - if so, we need to invalidate embeddings
       const oldEmbeddingProvider = this.currentConfig?.embeddingProvider;
-      const newEmbeddingProvider = config.embeddingProvider || this.currentConfig?.embeddingProvider;
-
+      const newEmbeddingProvider = updatedConfig.embeddingProvider;
 
       if (oldEmbeddingProvider && oldEmbeddingProvider !== newEmbeddingProvider) {
         console.log(`🔄 LLM provider changed from ${oldEmbeddingProvider} to ${newEmbeddingProvider} - flagging embeddings for re-processing`);
@@ -110,16 +109,16 @@ export class LLMRouter {
         .where(eq(llmConfig.userId, userId));
 
       const configData = {
-        openAIConfig: this.currentConfig.openAIConfig,
-        geminiConfig: this.currentConfig.geminiConfig,
+        openAIConfig: updatedConfig.openAIConfig,
+        geminiConfig: updatedConfig.geminiConfig,
       };
 
       if (existingConfig) {
         await db
           .update(llmConfig)
           .set({
-            provider: this.currentConfig.provider,
-            embeddingProvider: this.currentConfig.embeddingProvider,
+            provider: updatedConfig.provider,
+            embeddingProvider: updatedConfig.embeddingProvider,
             configData: configData,
             updatedAt: new Date(),
           })
@@ -127,16 +126,16 @@ export class LLMRouter {
       } else {
         await db.insert(llmConfig).values({
           userId,
-          provider: this.currentConfig.provider,
-          embeddingProvider: this.currentConfig.embeddingProvider,
+          provider: updatedConfig.provider,
+          embeddingProvider: updatedConfig.embeddingProvider,
           configData: configData,
         });
       }
 
-      this.currentConfig = this.currentConfig; // Ensure currentConfig is updated
+      this.currentConfig = updatedConfig;
       this.updateModels();
 
-      console.log(`✅ LLM configuration updated for user ${userId}: ${this.currentConfig.provider} (embeddings: ${this.currentConfig.embeddingProvider})`);
+      console.log(`✅ LLM configuration updated for user ${userId}: ${updatedConfig.provider} (embeddings: ${updatedConfig.embeddingProvider})`);
     } catch (error) {
       console.error("Error updating user LLM config:", error);
       throw new Error("Failed to update LLM configuration");
@@ -239,7 +238,7 @@ export class LLMRouter {
       // Log the interaction
       const logEntry: LLMLogEntry = {
         provider: this.currentConfig?.provider || "OpenAI",
-        model: this.currentConfig?.provider === "OpenAI"
+        model: this.currentConfig?.provider === "OpenAI" 
           ? (this.currentConfig.openAIConfig?.model || "gpt-4o")
           : (this.currentConfig.geminiConfig?.model || "gemini-2.5-flash"),
         prompt: JSON.stringify(messages),
@@ -341,7 +340,7 @@ export class LLMRouter {
   private async generateOpenAIEmbeddings(texts: string[]): Promise<number[][]> {
     try {
       const { OpenAI } = await import("openai");
-
+      
       if (!process.env.OPENAI_API_KEY) {
         throw new Error("OPENAI_API_KEY is required for OpenAI embeddings");
       }
@@ -357,7 +356,7 @@ export class LLMRouter {
       // Process in batches to avoid rate limits
       for (let i = 0; i < texts.length; i += 100) {
         const batch = texts.slice(i, i + 100);
-
+        
         try {
           const response = await openai.embeddings.create({
             model: "text-embedding-3-small",
@@ -422,17 +421,6 @@ export class LLMRouter {
   }
 
   getCurrentConfig(): LLMRouterConfig | null {
-    if (!this.currentConfig) {
-      return {
-        provider: "OpenAI",
-        embeddingProvider: "OpenAI",
-        openAIConfig: {
-          model: "gpt-4o",
-          temperature: 0.7,
-          maxTokens: 4000,
-        },
-      };
-    }
     return this.currentConfig;
   }
 

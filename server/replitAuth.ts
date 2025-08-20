@@ -1,5 +1,6 @@
 import * as client from "openid-client";
 import { Strategy, type VerifyFunction } from "openid-client/passport";
+import crypto from "crypto";
 
 import passport from "passport";
 import session from "express-session";
@@ -32,12 +33,12 @@ export function getSession() {
     tableName: "sessions",
     pruneSessionInterval: 60 * 60, // Prune expired sessions every hour
   });
-
+  
   // Handle store errors gracefully
   sessionStore.on('error', (err) => {
     console.error('Session store error:', err);
   });
-
+  
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
@@ -45,6 +46,17 @@ export function getSession() {
     saveUninitialized: false, // Don't save uninitialized sessions
     rolling: true, // Reset expiration on activity
     name: 'replit.sid', // Custom session name
+    genid: function(req) {
+      // Generate unique session IDs that include device fingerprinting
+      const userAgent = req.headers['user-agent'] || '';
+      const forwarded = req.headers['x-forwarded-for'] || req.connection.remoteAddress || '';
+      const deviceFingerprint = crypto
+        .createHash('md5')
+        .update(userAgent + forwarded + Date.now().toString())
+        .digest('hex')
+        .substring(0, 8);
+      return crypto.randomBytes(16).toString('hex') + '_' + deviceFingerprint;
+    },
     cookie: {
       httpOnly: true,
       secure: false, // Always false for Replit environment
@@ -109,14 +121,15 @@ export async function setupAuth(app: Express) {
     passport.use(strategy);
   }
 
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: any, done: any) => {
-    // Only log if debug mode is enabled
-    if (process.env.NODE_ENV === 'development' && process.env.DEBUG_AUTH) {
-      console.log("Deserializing user from session:", user.claims?.email);
-    }
-    done(null, user);
+  passport.serializeUser((user: Express.User, cb) => {
+    // Store minimal user info in session to avoid conflicts
+    const sessionUser = {
+      ...(user as any),
+      sessionId: Math.random().toString(36).substring(2, 15) // Unique session identifier
+    };
+    cb(null, sessionUser);
   });
+  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
     passport.authenticate(`replitauth:${req.hostname}`, {
@@ -212,12 +225,18 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   }
 
   const now = Math.floor(Date.now() / 1000);
-
+  
   // If token is still valid, proceed
   if (now <= currentUser.expires_at) {
-    // Update session activity
+    // Update session activity with device-specific touch
     if (req.session) {
       req.session.touch();
+      // Store device info for session management
+      (req.session as any).deviceInfo = {
+        userAgent: req.headers['user-agent'],
+        lastAccess: Date.now(),
+        userId: currentUser.claims?.sub
+      };
     }
     return next();
   }
@@ -233,19 +252,25 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(currentUser, tokenResponse);
-
-    // Update both req.user and session
+    
+    // Update both req.user and session with device-specific data
     req.user = currentUser;
     if (req.session) {
       (req.session as any).passport = { user: currentUser };
+      (req.session as any).deviceInfo = {
+        userAgent: req.headers['user-agent'],
+        lastAccess: Date.now(),
+        userId: currentUser.claims?.sub,
+        refreshed: true
+      };
       req.session.save((err) => {
         if (err) {
           console.error("Failed to save refreshed session:", err);
         }
       });
     }
-
-    console.log("Token refreshed successfully for user:", currentUser.claims?.email);
+    
+    console.log("Token refreshed successfully for user:", currentUser.claims?.email, "on device:", req.headers['user-agent']?.substring(0, 50));
     return next();
   } catch (error) {
     console.log("Replit auth failed - token refresh failed:", error);
@@ -262,7 +287,7 @@ export const isAdmin: RequestHandler = async (req, res, next) => {
 
     const { storage } = await import('./storage');
     const user = await storage.getUser(userId);
-
+    
     if (!user || user.role !== 'admin') {
       return res.status(403).json({ message: "Access denied. Admin role required." });
     }

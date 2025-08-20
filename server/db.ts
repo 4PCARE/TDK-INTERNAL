@@ -11,14 +11,6 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Test the connection and provide better error messages
-try {
-  console.log('Attempting to connect to database...');
-} catch (error) {
-  console.error('Database connection failed:', error);
-  throw new Error('Database connection failed. Check if your Neon database is active.');
-}
-
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
   max: 20, // Maximum number of connections in the pool

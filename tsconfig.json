@@ -1,14 +1,12 @@
 {
-  "include": ["apps/admin-ui/src/**/*", "shared/**/*", "server/**/*"],
+  "include": ["client/src/**/*", "shared/**/*", "server/**/*"],
   "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
   "compilerOptions": {
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
     "noEmit": true,
-    "target": "ES2017",
     "module": "ESNext",
     "strict": true,
-    "downlevelIteration": true,
     "lib": ["esnext", "dom", "dom.iterable"],
     "jsx": "preserve",
     "esModuleInterop": true,
@@ -18,7 +16,7 @@
     "baseUrl": ".",
     "types": ["node", "vite/client"],
     "paths": {
-      "@/*": ["./apps/admin-ui/src/*"],
+      "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"]
     }
   }

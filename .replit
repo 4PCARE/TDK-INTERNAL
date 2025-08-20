@@ -11,70 +11,49 @@ build = ["npm", "run", "build"]
 run = ["npm", "run", "start"]
 
 [[ports]]
-localPort = 3000
-externalPort = 5000
-
-[[ports]]
-localPort = 3001
-externalPort = 3001
-
-[[ports]]
-localPort = 3002
-externalPort = 3002
-
-[[ports]]
-localPort = 3003
-externalPort = 5173
-
-[[ports]]
-localPort = 3004
-externalPort = 3003
-
-[[ports]]
-localPort = 3005
-externalPort = 6000
-
-[[ports]]
-localPort = 3006
-externalPort = 8000
-
-[[ports]]
-localPort = 3007
-externalPort = 4200
-
-[[ports]]
-localPort = 3008
-externalPort = 8008
-
-[[ports]]
-localPort = 3009
-externalPort = 8099
-
-[[ports]]
-localPort = 4000
-externalPort = 8081
-
-[[ports]]
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 5001
-externalPort = 3000
-
-[[ports]]
-localPort = 8080
-externalPort = 8080
-
-[[ports]]
-localPort = 24678
-externalPort = 6800
-
 [workflows]
-runButton = "Simple Dev"
 
 [[workflows.workflow]]
-name = "Simple Dev"
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Run"
+author = 43981095
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+
+[[workflows.workflow]]
+name = "Start Dev Server"
+author = 43981095
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+
+[[workflows.workflow]]
+name = "Main"
 author = 43981095
 mode = "sequential"
 

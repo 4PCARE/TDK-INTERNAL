@@ -39,8 +39,8 @@ router.post('/api/debug/ai-input', async (req, res) => {
 
   // Capture logs for the debug response
   const debugLogs: string[] = [];
-  let originalLog = console.log;
-  let originalError = console.error;
+  const originalLog = console.log;
+  const originalError = console.error;
 
   // Override console methods to capture logs
   console.log = (...args) => {
@@ -62,13 +62,12 @@ router.post('/api/debug/ai-input', async (req, res) => {
 
     console.log(`=== AI INPUT DEBUG FOR USER ${userId} ===`);
     console.log(`Search Type: ${searchType}, User Message: ${userMessage}`);
-    console.log(`Document IDs: ${specificDocumentIds ? (specificDocumentIds as number[]).join(', ') : 'All documents'}`);
+    console.log(`Document IDs: ${specificDocumentIds ? specificDocumentIds.join(', ') : 'All documents'}`);
 
     let documentContext = '';
     let searchMetrics: any = {};
     let chunkDetails: any[] = [];
     let searchWorkflow: any = {};
-    let searchResults: any[] = [];
 
     // Capture console output
     const originalLog = console.log;
@@ -92,50 +91,33 @@ router.post('/api/debug/ai-input', async (req, res) => {
 
     try {
       let searchResults: any[] = [];
-      let vectorResults: any[] = [];
-      let combinedContent: Array<{ weightedScore: number; [k: string]: any }> = [];
 
       if (searchType === 'chunk_split_rank') {
         // Use the enhanced chunk split and rank search
-        const { SemanticSearchServiceV2 } = await import('./services/semanticSearchV2');
-        const searchService = new SemanticSearchServiceV2();
-
-        // Parse specific document IDs if provided
-        const specificDocumentIds: number[] = req.body.specificDocumentIds || [];
+        const searchService = new semanticSearchServiceV2.SemanticSearchService();
 
         // Get keyword candidates first
         console.log("=== GETTING KEYWORD CANDIDATES ===");
-        // If performAdvancedKeywordSearch doesn't exist, call the available method or skip this section for now.
-        const keywordResults: any[] = [];
-        try {
-          const keywordSearchPossible = typeof searchService.performAdvancedKeywordSearch === 'function';
-          if (keywordSearchPossible) {
-            const keywordResults = await searchService.performAdvancedKeywordSearch(userMessage, userId, {
-              maxResults: 20,
-              specificDocumentIds: specificDocumentIds
-            });
-            searchWorkflow.keywordCandidates = keywordResults.map((result: any, index: number) => ({
-              id: result.id,
-              documentId: result.id,
-              content: result.content,
-              score: result.keywordScore || result.score || 0,
-              matchType: result.matchType || 'unknown'
-            }));
-          } else {
-            console.warn("performAdvancedKeywordSearch is not available on semanticSearchServiceV2.");
-          }
-        } catch (kwError) {
-          console.error("Error during keyword search:", kwError);
-          debugLogs.push(`[WARN] Keyword search failed: ${kwError.message}`);
-        }
+        const keywordResults = await searchService.performAdvancedKeywordSearch(userMessage, userId, {
+          maxResults: 20,
+          specificDocumentIds: specificDocumentIds
+        });
 
-
-        // Get vector candidates
+        // Get vector candidates 
         console.log("=== GETTING VECTOR CANDIDATES ===");
         const { vectorService } = await import('./services/vectorService');
         const vectorResults = await vectorService.searchDocuments(userMessage, userId, 20, specificDocumentIds);
 
-        searchWorkflow.vectorCandidates = vectorResults.map((result: any, index: number) => ({
+        // Store workflow details
+        searchWorkflow.keywordCandidates = keywordResults.map((result, index) => ({
+          id: result.id,
+          documentId: result.id,
+          content: result.content,
+          score: result.keywordScore || result.score || 0,
+          matchType: result.matchType || 'unknown'
+        }));
+
+        searchWorkflow.vectorCandidates = vectorResults.map((result, index) => ({
           id: result.document.id,
           documentId: result.document.metadata?.originalDocumentId,
           chunkIndex: result.document.chunkIndex,
@@ -166,7 +148,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
           ]
         };
 
-        chunkDetails = searchResults.map((result: any, index: number) => ({
+        chunkDetails = searchResults.map((result, index) => ({
             chunkId: result.chunkId || result.id,
             id: result.chunkId || result.id,
             type: 'chunk_split_rank',
@@ -188,7 +170,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
           // Console log with concise chunk info
           console.log(`📊 SEARCH RESULTS: Found ${searchResults.length} chunks from ${searchType} search`);
           searchResults.forEach((result, index) => {
-            const source = (result.keywordScore > 0 && result.vectorScore > 0) ? 'HYBRID' :
+            const source = (result.keywordScore > 0 && result.vectorScore > 0) ? 'HYBRID' : 
                           (result.keywordScore > 0) ? 'KEYWORD' : 'SEMANTIC';
             const score = result.combinedScore || result.similarity;
             const preview = result.content.substring(0, 80).replace(/\n/g, ' ') + (result.content.length > 80 ? '...' : '');
@@ -228,7 +210,7 @@ router.post('/api/debug/ai-input', async (req, res) => {
 
         // Build additional context with search configuration
         let additionalContext = `Document scope: ${specificDocumentIds ? specificDocumentIds.join(', ') : 'All documents'}`;
-
+        
         // For debug, we can simulate search configuration
         if (req.query.searchConfig) {
           additionalContext += `\n\nSearch Configuration: ${req.query.searchConfig}`;
@@ -315,14 +297,10 @@ router.post('/api/debug/ai-input', async (req, res) => {
       documentContext = searchResults.map((result, index) =>
         `Document ${index + 1}: ${result.name || `Document ${index + 1}`}\n\nContent:\n${result.content}`
       ).join('\n\n---\n\n');
-    } catch (error: unknown) {
-        console.error('Debug search error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        res.status(500).json({
-          error: 'Debug search failed',
-          details: errorMessage
-        });
-      } finally {
+    } catch (searchError) {
+      console.error("Search error:", searchError);
+      debugLogs.push(`[ERROR] Search failed: ${searchError.message}`);
+    } finally {
       // Restore original console methods
       console.log = originalLog;
       console.warn = originalWarn;
@@ -380,20 +358,15 @@ Answer questions specifically about this document. Provide detailed analysis, ex
 
     res.json(responseData);
 
-  } catch (error: unknown) {
+  } catch (error) {
     // Restore console methods in case of error
     console.log = originalLog;
     console.error = originalError;
 
-    console.error('FATAL ERROR in AI input debug:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorStack = error instanceof Error ? error.stack : 'N/A';
-    const errorType = error instanceof Error ? error.constructor.name : typeof error;
-    const errorConstructor = error instanceof Error ? error.constructor.name : 'N/A';
-
-    console.error('FATAL ERROR stack:', errorStack);
-    console.error('FATAL ERROR type:', errorType);
-    console.error('FATAL ERROR constructor:', errorConstructor);
+    console.error('FATAL ERROR in AI input debug:', error.message);
+    console.error('FATAL ERROR stack:', error.stack);
+    console.error('FATAL ERROR type:', typeof error);
+    console.error('FATAL ERROR constructor:', error.constructor.name);
     console.error('FATAL ERROR occurred at:', new Date().toISOString());
     console.error('FATAL ERROR request body:', JSON.stringify(req.body, null, 2));
 
@@ -403,9 +376,9 @@ Answer questions specifically about this document. Provide detailed analysis, ex
     // Ensure we always return JSON, never HTML
     try {
       const errorResponse = {
-        error: errorMessage || 'Unknown error occurred',
-        errorType: errorType,
-        stack: process.env.NODE_ENV === 'development' ? errorStack : undefined,
+        error: error.message || 'Unknown error occurred',
+        errorType: error.constructor.name,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
         timestamp: new Date().toISOString(),
         endpoint: '/api/debug/ai-input',
         requestBody: req.body,
@@ -417,15 +390,14 @@ Answer questions specifically about this document. Provide detailed analysis, ex
     } catch (jsonError) {
       // If even JSON response fails, send plain text
       console.error('CRITICAL: Failed to send JSON error response:', jsonError);
-      const jsonErrorMessage = jsonError instanceof Error ? jsonError.message : 'Unknown JSON error';
-      console.error('CRITICAL: jsonError stack:', jsonError instanceof Error ? jsonError.stack : 'N/A');
-      res.status(500).send(`Internal server error - failed to generate proper error response. Original error: ${errorMessage}. JSON error: ${jsonErrorMessage}`);
+      console.error('CRITICAL: jsonError stack:', jsonError.stack);
+      res.status(500).send('Internal server error - failed to generate proper error response');
     }
   }
 });
 
 // Utility function to escape HTML to prevent XSS
-function escapeHtml(unsafe: string): string {
+function escapeHtml(unsafe) {
   return unsafe
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -494,10 +466,9 @@ router.get("/debug/view-ai-input/:userId/:documentId", async (req, res) => {
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
 
-  } catch (error: unknown) {
+  } catch (error) {
     console.error("View AI input error:", error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).send(`Error displaying AI input: ${errorMessage}`);
+    res.status(500).send("Error displaying AI input");
   }
 });
 
@@ -518,7 +489,7 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
     }
 
     let documentContext = "";
-    let chunkDetails: any[] = [];
+    let chunkDetails = [];
     let searchMetrics = {
       searchType,
       keywordResults: 0,
@@ -533,7 +504,7 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
         console.log(`DEBUG: Performing keyword search for "${userMessage}"`);
 
         // For Thai text, be more flexible with search terms
-        const searchTerms = userMessage.toLowerCase().split(/\s+/).filter((term: string) => term.length > 0);
+        const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
         const docContent = doc.content || '';
         const docContentLower = docContent.toLowerCase();
 
@@ -583,8 +554,9 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
         if (hasMatches && matchingSegments.length > 0) {
           console.log(`DEBUG: Found ${matchingSegments.length} keyword matches`);
           matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);
+
           const uniqueSegments = [];
-          const usedRanges: Array<{start: number; end: number}> = [];
+          const usedRanges = [];
 
           for (const match of matchingSegments) {
             const start = Math.max(0, match.position - 1000);
@@ -641,7 +613,7 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
       } else if (searchType === 'smart_hybrid') {
         // Use the new smart hybrid search
         const smartResults = await searchSmartHybridV1(userMessage, userId, {
-          specificDocumentIds: req.body.specificDocumentIds || [],
+          specificDocumentIds: specificDocumentIds,
           keywordWeight,
           vectorWeight,
           threshold: 0.3
@@ -713,11 +685,11 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
         console.log(`DEBUG: Performing ${searchType} search`);
 
         let keywordMatches = [];
-        let vectorResults: any[] = [];
-        let combinedContent: Array<{ weightedScore: number; [k: string]: any }> = [];
+        let vectorResults = [];
+        let combinedContent = [];
 
         // First, get keyword matches using the same logic as pure keyword search
-        const searchTerms = userMessage.toLowerCase().split(/\s+/).filter((term: string) => term.length > 0);
+        const searchTerms = userMessage.toLowerCase().split(/\s+/).filter(term => term.length > 0);
         const docContent = doc.content || '';
         const docContentLower = docContent.toLowerCase();
 
@@ -774,10 +746,9 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
           console.log(`DEBUG: Found ${matchingSegments.length} keyword matches`);
 
           // Sort by score (exact phrases first) then by position
-          matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);
-          // Take best matches and remove overlaps
+          matchingSegments.sort((a, b) => b.score - a.score || a.position - b.position);                    // Take best matches and remove overlaps
           const uniqueSegments = [];
-          const usedRanges: Array<{start: number; end: number}> = [];
+          const usedRanges = [];
 
           for (const match of matchingSegments) {
             const start = Math.max(0, match.position - 1000); // Expand context window
@@ -834,10 +805,8 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
           const { vectorService } = await import('./services/vectorService');
           vectorResults = await vectorService.searchDocuments(userMessage, userId, 3, [parseInt(documentId)]);
           console.log(`DEBUG: Found ${vectorResults.length} vector results for hybrid search`);
-        } catch (vectorError: unknown) {
+        } catch (vectorError) {
           console.error("Vector search failed in hybrid mode:", vectorError);
-          const errorMessage = vectorError instanceof Error ? vectorError.message : 'Unknown vector error';
-          console.error(`Vector search error details: ${errorMessage}`);
           vectorResults = [];
         }
 
@@ -913,11 +882,10 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
         });
       }
 
-    } catch (error: unknown) {
-      console.error("Search failed:", error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    } catch (searchError) {
+      console.error("Search failed:", searchError);
       documentContext = `Document: ${doc.name}\nSummary: ${doc.summary || 'No summary'}\nTags: ${doc.tags?.join(", ") || 'No tags'}\nContent: ${doc.content?.substring(0, 30000) || 'No content available'}`;
-      searchMetrics.error = errorMessage;
+      searchMetrics.error = searchError.message;
 
       chunkDetails.push({
               chunkId: `error-${doc.id}`,
@@ -929,7 +897,7 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
     const documentName = doc.name || `Document ${doc.id}`;
     const systemMessage = `You are an AI assistant helping users analyze and understand the document: ${documentName}.\n\nDocument context:\n${documentContext}`;
     const aiInput = { systemMessage, userMessage, documentContext };
-
+    
     console.log(`📋 Document Analysis Summary:`);
     console.log(`📄 Document: ${documentName} (ID: ${doc.id})`);
     console.log(`🔍 Search Type: ${searchType}`);
@@ -1013,10 +981,9 @@ router.post("/debug/analyze-document/:userId/:documentId", async (req, res) => {
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
 
-  } catch (error: unknown) {
+  } catch (error) {
     console.error("Analyze document debug error:", error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ error: "Analyze document debug failed", details: errorMessage });
+    res.status(500).json({ error: "Analyze document debug failed" });
   }
 });
 
@@ -1097,14 +1064,13 @@ router.get("/debug/find-xolo/:userId", async (req, res) => {
         }
       });
 
-    } catch (vectorError: unknown) {
+    } catch (vectorError) {
       console.error("Vector search failed:", vectorError);
-      const errorMessage = vectorError instanceof Error ? vectorError.message : 'Unknown vector error';
       res.json({
         totalDocuments: documents.length,
         documentsWithXolo: xoloResults,
         vectorResults: [],
-        vectorError: errorMessage,
+        vectorError: vectorError.message,
         summary: {
           foundInDocuments: xoloResults.length,
           foundInVector: 0
@@ -1112,10 +1078,9 @@ router.get("/debug/find-xolo/:userId", async (req, res) => {
       });
     }
 
-  } catch (error: unknown) {
+  } catch (error) {
     console.error("XOLO search debug error:", error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ error: "XOLO search debug failed", details: errorMessage });
+    res.status(500).json({ error: "XOLO search debug failed" });
   }
 });
 
@@ -1146,10 +1111,9 @@ router.post("/debug/ai-keyword-expansion", async (req, res) => {
       expandedKeywords
     });
 
-  } catch (error: unknown) {
+  } catch (error) {
     console.error("AI keyword expansion debug error:", error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ error: "AI keyword expansion debug failed", details: errorMessage });
+    res.status(500).json({ error: "AI keyword expansion debug failed", details: error.message });
   }
 });
 
@@ -1195,10 +1159,9 @@ router.get('/test-advanced-keyword-search', async (req, res) => {
       }
     });
 
-  } catch (error: unknown) {
+  } catch (error) {
     console.error('Test advanced keyword search error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ error: errorMessage });
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -1227,10 +1190,9 @@ router.get('/test-vector-search', async (req, res) => {
       }))
     });
 
-  } catch (error: unknown) {
+  } catch (error) {
     console.error('Test vector search error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ error: errorMessage });
+    res.status(500).json({ error: error.message });
   }
 });
 

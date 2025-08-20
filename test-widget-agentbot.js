@@ -1,5 +1,5 @@
 /**
- * Test script to verify live chat widget integration with agentChatService
+ * Test script to verify live chat widget integration with agentBot service
  */
 
 import axios from 'axios';
@@ -67,7 +67,7 @@ async function testWidgetAgentBotIntegration() {
 
     console.log('\n🎯 Integration Test Summary:');
     console.log('✅ Widget chat endpoint accessible');
-    console.log('✅ AgentChatService import working');
+    console.log('✅ AgentBot service import working');
     console.log('✅ Error handling for non-existent widgets working');
     console.log('\n📋 To fully test with real data:');
     console.log('1. Create a widget in the Live Chat Widget interface');

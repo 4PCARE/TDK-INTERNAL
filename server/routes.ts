@@ -3923,140 +3923,19 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
         const userId = req.user.claims.sub;
         const dateRange = req.query.dateRange || '7d';
         
-        // Calculate date range
-        const now = new Date();
-        const daysBack = dateRange === '1d' ? 1 : dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90;
-        const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
-        
         // Get user's social integrations
         const integrations = await storage.getSocialIntegrations(userId);
         
-        // Get all chat history for analytics
-        const { chatHistory } = await import('@shared/schema');
-        const { gte, eq, sql } = await import('drizzle-orm');
-        
-        // Get user's agent IDs from integrations and widgets
-        const userAgentIds = integrations.map(int => int.agentId).filter(Boolean);
-        
-        // Also get agent IDs from chat widgets
-        const { chatWidgets } = await import('@shared/schema');
-        const userWidgets = await db
-          .select({ agentId: chatWidgets.agentId })
-          .from(chatWidgets)
-          .where(and(
-            eq(chatWidgets.userId, userId),
-            eq(chatWidgets.isActive, true)
-          ));
-        
-        const widgetAgentIds = userWidgets.map(w => w.agentId).filter(Boolean);
-        const allUserAgentIds = [...new Set([...userAgentIds, ...widgetAgentIds])];
-        
-        // Get chat statistics by platform/channel for this user's agents only
-        const { inArray } = await import('drizzle-orm');
-        const chatStats = allUserAgentIds.length > 0 ? await db
-          .select({
-            channelType: chatHistory.channelType,
-            channelId: chatHistory.channelId,
-            agentId: chatHistory.agentId,
-            messageCount: sql<number>`count(*)`,
-            userMessages: sql<number>`count(*) filter (where ${chatHistory.messageType} = 'user')`,
-            agentMessages: sql<number>`count(*) filter (where ${chatHistory.messageType} = 'assistant' or ${chatHistory.messageType} = 'agent')`,
-            uniqueUsers: sql<number>`count(distinct ${chatHistory.userId})`,
-            lastActivity: sql<Date>`max(${chatHistory.createdAt})`,
-            avgResponseTimeSeconds: sql<number>`
-              with response_times as (
-                select 
-                  extract(epoch from (lead(created_at) over (partition by user_id, channel_id order by created_at) - created_at)) as response_time
-                from ${chatHistory}
-                where agent_id = any(${allUserAgentIds})
-                and message_type = 'user'
-                and created_at >= ${startDate}
-              )
-              select coalesce(avg(response_time), 0) from response_times where response_time is not null and response_time < 3600
-            `
-          })
-          .from(chatHistory)
-          .where(and(
-            inArray(chatHistory.agentId, allUserAgentIds),
-            gte(chatHistory.createdAt, startDate)
-          ))
-          .groupBy(chatHistory.channelType, chatHistory.channelId, chatHistory.agentId) : [];
-
-        // Calculate CSAT scores using the existing function for conversations with enough messages
-        const conversationGroups = allUserAgentIds.length > 0 ? await db
-          .select({
-            userId: chatHistory.userId,
-            channelType: chatHistory.channelType,
-            channelId: chatHistory.channelId,
-            agentId: chatHistory.agentId,
-            messageCount: sql<number>`count(*)`
-          })
-          .from(chatHistory)
-          .where(and(
-            inArray(chatHistory.agentId, allUserAgentIds),
-            gte(chatHistory.createdAt, startDate)
-          ))
-          .groupBy(chatHistory.userId, chatHistory.channelType, chatHistory.channelId, chatHistory.agentId)
-          .having(sql`count(*) >= 3`) : [];
-
-        // Calculate CSAT for conversations with enough messages
-        const csatPromises = conversationGroups.slice(0, 10).map(async (conv) => {
-          try {
-            const csat = await calculateCSATScore(conv.userId, conv.channelType, conv.channelId, conv.agentId);
-            return { agentId: conv.agentId, channelType: conv.channelType, csat };
-          } catch (error) {
-            console.log(`CSAT calculation failed for ${conv.channelType}:`, error.message);
-            return { agentId: conv.agentId, channelType: conv.channelType, csat: null };
-          }
-        });
-
-        const csatResults = await Promise.all(csatPromises);
-
-        // Get recent messages for topic analysis (only for this user's agents)
-        const recentMessages = allUserAgentIds.length > 0 ? await db
-          .select({
-            content: chatHistory.content,
-            messageType: chatHistory.messageType,
-            channelType: chatHistory.channelType,
-            createdAt: chatHistory.createdAt,
-            agentId: chatHistory.agentId
-          })
-          .from(chatHistory)
-          .where(and(
-            inArray(chatHistory.agentId, allUserAgentIds),
-            gte(chatHistory.createdAt, startDate),
-            eq(chatHistory.messageType, 'user')
-          ))
-          .orderBy(chatHistory.createdAt)
-          .limit(500) : [];
-
-        // Build analytics data with real statistics
+        // Build analytics data
         const analytics = {
           dateRange,
-          integrations: integrations.map((integration: any) => ({
+          platforms: integrations.map((integration: any) => ({
             platform: integration.type,
             name: integration.name,
             isActive: integration.isActive,
             agentId: integration.agentId,
-            agentName: integration.agentName,
-            channelId: integration.channelId
+            agentName: integration.agentName
           })),
-          chatStats: chatStats.map(stat => ({
-            ...stat,
-            // Calculate proper response rate (percentage of user messages that got responses)
-            responseRate: stat.userMessages > 0 ? Math.min(100, Math.round((stat.agentMessages / stat.userMessages) * 100)) : 0,
-            // Convert response time from seconds to minutes
-            avgResponseTimeMinutes: Number((stat.avgResponseTimeSeconds / 60).toFixed(1)),
-            // Calculate CSAT for this channel/agent
-            csatScore: csatResults.find(c => c.agentId === stat.agentId && c.channelType === stat.channelType)?.csat || null
-          })),
-          recentMessages,
-          totalMessages: recentMessages.length,
-          dateRange: {
-            start: startDate.toISOString(),
-            end: now.toISOString(),
-            days: daysBack
-          },
           lastUpdated: new Date().toISOString()
         };
         

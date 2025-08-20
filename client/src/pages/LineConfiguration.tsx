@@ -1,0 +1,1085 @@
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Save, 
+  ArrowLeft, 
+  Settings,
+  ExternalLink,
+  MessageSquare,
+  MousePointerClick,
+  Image,
+  Type,
+  Link as LinkIcon,
+  Eye
+} from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import DashboardLayout from "@/components/Layout/DashboardLayout";
+
+// Validation schemas
+const templateActionSchema = z.object({
+  type: z.enum(["uri", "postback", "message"]),
+  label: z.string().min(1, "Label is required").max(20, "Label must be 20 characters or less"),
+  uri: z.string().optional().default(""),
+  data: z.string().optional().default(""),
+  text: z.string().optional().default(""),
+}).refine((data) => {
+  // URI validation only when type is 'uri' and uri is not empty
+  if (data.type === "uri" && data.uri && data.uri.trim() !== "") {
+    try {
+      new URL(data.uri);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}, {
+  message: "URI must be a valid URL when type is 'uri'",
+  path: ["uri"]
+});
+
+const carouselColumnSchema = z.object({
+  thumbnailImageUrl: z.string().optional().default("").refine((url) => {
+    if (!url || url.trim() === "") return true;
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  }, {
+    message: "Thumbnail image URL must be a valid URL"
+  }),
+  title: z.string().min(1, "Title is required").max(40, "Title must be 40 characters or less"),
+  text: z.string().min(1, "Text is required").max(120, "Text must be 120 characters or less"),
+  actions: z.array(templateActionSchema).min(1, "At least one action is required").max(3, "Maximum 3 actions allowed"),
+});
+
+const templateSchema = z.object({
+  name: z.string().min(1, "Template name is required"),
+  description: z.string().min(1, "Template description is required for intent matching"),
+  tags: z.array(z.string()).default([]), // Intent tags for smart matching
+  type: z.literal("carousel"),
+  integrationId: z.number().optional(),
+  columns: z.array(carouselColumnSchema).min(1, "At least one column is required").max(10, "Maximum 10 columns allowed"),
+});
+
+type TemplateFormData = z.infer<typeof templateSchema>;
+
+interface LineTemplate {
+  template?: {
+    id: number;
+    name: string;
+    description?: string;
+    tags?: string[];
+    type: string;
+    integrationId: number | null;
+    userId: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  columns?: Array<{
+    column: {
+      id: number;
+      templateId: number;
+      order: number;
+      thumbnailImageUrl: string | null;
+      title: string;
+      text: string;
+    };
+    actions: Array<{
+      id: number;
+      columnId: number;
+      order: number;
+      type: string;
+      label: string;
+      uri: string | null;
+      data: string | null;
+      text: string | null;
+    }>;
+  }>;
+}
+
+export default function LineConfiguration() {
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [selectedTemplate, setSelectedTemplate] = useState<LineTemplate | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState<LineTemplate | null>(null);
+
+  // Get integrationId from URL params with better validation
+  const urlParams = new URLSearchParams(window.location.search);
+  const integrationIdParam = urlParams.get('integrationId');
+  const integrationId = integrationIdParam && !isNaN(parseInt(integrationIdParam)) && parseInt(integrationIdParam) > 0 
+    ? parseInt(integrationIdParam) 
+    : null;
+
+  console.log("🔍 LineConfiguration Debug - URL params:", window.location.search);
+  console.log("🔍 Integration ID param:", integrationIdParam);
+  console.log("🔍 Parsed integrationId:", integrationId);
+  console.log("LineConfiguration render - integrationId:", integrationId, "isCreating:", isCreating, "selectedTemplate:", selectedTemplate);
+
+  useEffect(() => {
+    console.log("useEffect - isCreating changed to:", isCreating);
+  }, [isCreating]);
+
+  useEffect(() => {
+    console.log("useEffect - selectedTemplate changed to:", selectedTemplate);
+  }, [selectedTemplate]);
+
+  // Fetch Line OA integrations
+  const { data: integrations = [], isLoading: integrationsLoading, error: integrationsError } = useQuery({
+    queryKey: ["/api/social-integrations"],
+  });
+
+  // Fetch Line message templates
+  const { data: templates = [], isLoading: templatesLoading, error: templatesError } = useQuery({
+    queryKey: ["/api/line-templates"],
+  });
+
+  const isLoading = integrationsLoading || templatesLoading;
+
+  // Form setup
+  const form = useForm<TemplateFormData>({
+    resolver: zodResolver(templateSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      tags: [],
+      type: "carousel",
+      integrationId: integrationId || undefined,
+      columns: [
+        {
+          title: "",
+          text: "",
+          thumbnailImageUrl: "",
+          actions: [
+            {
+              type: "uri",
+              label: "",
+              uri: "",
+            },
+          ],
+        },
+      ],
+    },
+  });
+
+  const { fields: columnFields, append: appendColumn, remove: removeColumn } = useFieldArray({
+    control: form.control,
+    name: "columns",
+  });
+
+  // Mutations
+  const createTemplateMutation = useMutation({
+    mutationFn: async (data: TemplateFormData) => {
+      console.log("New Template button clicked!", data);
+      // Ensure integrationId is included
+      const templateData = {
+        ...data,
+        integrationId: integrationId || data.integrationId
+      };
+      console.log("Template data with integrationId:", templateData);
+      const response = await apiRequest("POST", "/api/line-templates", templateData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/line-templates"] });
+      toast({
+        title: "Success",
+        description: "Template created successfully",
+      });
+      setIsCreating(false);
+      form.reset({
+        name: "",
+        description: "",
+        tags: [],
+        type: "carousel",
+        integrationId: integrationId || undefined,
+        columns: [
+          {
+            title: "",
+            text: "",
+            thumbnailImageUrl: "",
+            actions: [
+              {
+                type: "uri",
+                label: "",
+                uri: "",
+                data: "",
+                text: "",
+              },
+            ],
+          },
+        ],
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create template",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateTemplateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: TemplateFormData }) => {
+      console.log("🔍 FRONTEND UPDATE - Starting update with:", { id, data });
+      console.log("🔍 FRONTEND UPDATE - Tags specifically:", data.tags);
+      const response = await apiRequest("PUT", `/api/line-templates/${id}`, data);
+      const result = await response.json();
+      console.log("🔍 FRONTEND UPDATE - Response:", result);
+      return result;
+    },
+    onSuccess: (result) => {
+      console.log("🔍 FRONTEND UPDATE - Success:", result);
+      queryClient.invalidateQueries({ queryKey: ["/api/line-templates"] });
+      queryClient.refetchQueries({ queryKey: ["/api/line-templates"] }); // Force refetch
+      toast({
+        title: "Success",
+        description: "Template updated successfully",
+      });
+      setSelectedTemplate(null);
+      form.reset();
+    },
+    onError: (error: any) => {
+      console.log("🔍 updateTemplateMutation - Error:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update template",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await apiRequest("DELETE", `/api/line-templates/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/line-templates"] });
+      toast({
+        title: "Success",
+        description: "Template deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete template",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle form submission
+  const handleSubmit = (data: TemplateFormData) => {
+    console.log("🔍 handleSubmit called with data:", data);
+    console.log("🔍 selectedTemplate:", selectedTemplate);
+    
+    if (selectedTemplate?.template) {
+      console.log("🔍 Calling updateTemplateMutation with id:", selectedTemplate.template.id);
+      updateTemplateMutation.mutate({
+        id: selectedTemplate.template.id,
+        data,
+      });
+    } else {
+      console.log("🔍 Calling createTemplateMutation");
+      createTemplateMutation.mutate(data);
+    }
+  };
+
+  // Handle edit template
+  const handleEditTemplate = (template: LineTemplate) => {
+    console.log("🔍 DEBUG handleEditTemplate - Template received:", template);
+    
+    setSelectedTemplate(template);
+    setIsCreating(false);
+
+    // Transform template data for form
+    if (!template.template || !template.columns) {
+      console.log("❌ Template or columns missing:", { template: template.template, columns: template.columns });
+      return;
+    }
+    
+    const formData = {
+      name: template.template.name,
+      description: template.template.description || "",
+      tags: Array.isArray(template.template.tags) ? template.template.tags : [],
+      type: "carousel" as const,
+      integrationId: template.template.integrationId || undefined,
+      columns: template.columns.map((col, colIndex) => {
+        console.log(`🔍 Processing column ${colIndex}:`, col);
+        return {
+          title: col.column.title,
+          text: col.column.text,
+          thumbnailImageUrl: col.column.thumbnailImageUrl || "",
+          actions: col.actions.map((action, actionIndex) => {
+            console.log(`🔍 Processing action ${colIndex}-${actionIndex}:`, action);
+            const actionData = {
+              type: action.type as "uri" | "postback" | "message",
+              label: action.label,
+              uri: action.uri || "",
+              data: action.data || "",
+              text: action.text || "",
+            };
+            console.log(`✅ Transformed action ${colIndex}-${actionIndex}:`, actionData);
+            return actionData;
+          })
+        };
+      })
+    };
+    
+    console.log("📋 Final form data:", formData);
+    form.reset(formData);
+    console.log("✅ Form reset completed");
+  };
+
+  const getActionIcon = (type: string) => {
+    switch (type) {
+      case "uri":
+        return <ExternalLink className="w-4 h-4" />;
+      case "message":
+        return <MessageSquare className="w-4 h-4" />;
+      case "postback":
+        return <MousePointerClick className="w-4 h-4" />;
+      default:
+        return <MousePointerClick className="w-4 h-4" />;
+    }
+  };
+
+  // Safe filtering of Line OA integrations
+  const lineOaIntegrations = Array.isArray(integrations) 
+    ? integrations.filter((int: any) => int && int.type === "lineoa") 
+    : [];
+  
+  // Find the specific integration if integrationId is provided
+  const currentIntegration = integrationId 
+    ? lineOaIntegrations.find((int: any) => int && int.id === integrationId)
+    : null;
+  
+  console.log("🔍 Debug - All integrations:", integrations);
+  console.log("🔍 Debug - Line OA integrations:", lineOaIntegrations);
+  console.log("🔍 Debug - Looking for integration with ID:", integrationId);
+  console.log("🔍 Debug - Found current integration:", currentIntegration);
+
+  // Early return for loading state
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>Loading Line Configuration...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Early return for error state
+  if (integrationsError || templatesError) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <p className="text-destructive mb-4">Error loading data</p>
+            <Button onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Show warning if integrationId provided but not found
+  if (integrationId && !currentIntegration) {
+    console.warn("🚨 Integration ID provided but not found:", integrationId);
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLocation("/integrations")}
+              className="flex items-center space-x-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Integrations</span>
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Line Configuration</h1>
+              <p className="text-muted-foreground">
+                Manage Line OA message templates
+                {currentIntegration && (
+                  <span className="ml-2 text-primary">
+                    • {currentIntegration.name}
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => {
+              console.log("New Template button clicked!");
+              setIsCreating(true);
+              setSelectedTemplate(null);
+              form.reset();
+              console.log("isCreating set to:", true);
+            }}
+            className="flex items-center space-x-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Template</span>
+          </Button>
+        </div>
+
+        <div className="space-y-6">
+            {/* Templates List */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Settings className="w-5 h-5" />
+                  <span>Message Templates</span>
+                  <Badge variant="secondary">{Array.isArray(templates) ? templates.length : 0}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {templatesLoading ? (
+                  <div className="text-center py-8">Loading templates...</div>
+                ) : !Array.isArray(templates) || templates.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No templates created yet. Create your first carousel template to get started.
+                    {integrationId && (
+                      <div className="mt-2 text-sm">
+                        Templates will be created for integration: {currentIntegration?.name || `ID ${integrationId}`}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    {Array.isArray(templates) && templates
+                      .filter((template: LineTemplate) => {
+                        // If integrationId is provided, only show templates for that integration
+                        if (integrationId && template.template) {
+                          return template.template.integrationId === integrationId;
+                        }
+                        // Otherwise show all templates
+                        return template.template != null;
+                      })
+                      .map((template: LineTemplate) => {
+                        if (!template.template) return null;
+                        return (
+                      <div
+                        key={template.template.id}
+                        className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <h3 className="font-medium">{template.template.name}</h3>
+                              <Badge variant="outline">{template.template.type}</Badge>
+                              {template.template.integrationId && (
+                                <Badge variant="secondary">
+                                  {(() => {
+                                    try {
+                                      console.log("🔍 Template integration ID:", template.template.integrationId);
+                                      console.log("🔍 Available integrations for matching:", lineOaIntegrations.map(int => ({ id: int?.id, name: int?.name })));
+                                      
+                                      if (!Array.isArray(lineOaIntegrations) || lineOaIntegrations.length === 0) {
+                                        return `Integration ID: ${template.template.integrationId} (No integrations loaded)`;
+                                      }
+                                      
+                                      const integration = lineOaIntegrations.find((int: any) => int && int.id === template.template?.integrationId);
+                                      console.log("🔍 Found integration:", integration);
+                                      
+                                      return integration && integration.name ? integration.name : `Integration ID: ${template.template?.integrationId} (Not found)`;
+                                    } catch (error) {
+                                      console.error('❌ Error finding integration:', error);
+                                      return `Integration ID: ${template.template?.integrationId} (Error)`;
+                                    }
+                                  })()}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {template.columns?.length || 0} columns • Created {new Date(template.template.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setPreviewTemplate(template)}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditTemplate(template)}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => template.template && deleteTemplateMutation.mutate(template.template.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+        </div>
+
+        {/* Line Carousel Preview Modal */}
+        <Dialog open={previewTemplate !== null} onOpenChange={(open) => !open && setPreviewTemplate(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Line Carousel Preview: {previewTemplate?.template?.name}</DialogTitle>
+            </DialogHeader>
+            
+            {previewTemplate && previewTemplate.columns && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  This is how your carousel template will appear in Line OA
+                </p>
+                
+                {/* Carousel Container */}
+                <div className="bg-gray-100 p-4 rounded-lg">
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {previewTemplate.columns.map((column, index) => (
+                      <div key={column.column.id} className="flex-shrink-0 w-64 bg-white rounded-lg shadow-sm border">
+                        {/* Thumbnail Image */}
+                        {column.column.thumbnailImageUrl && (
+                          <div className="aspect-square bg-gray-200 rounded-t-lg overflow-hidden">
+                            <img 
+                              src={column.column.thumbnailImageUrl} 
+                              alt={column.column.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Content */}
+                        <div className="p-3 space-y-2">
+                          <h3 className="font-medium text-sm line-clamp-2">{column.column.title}</h3>
+                          <p className="text-xs text-gray-600 line-clamp-3">{column.column.text}</p>
+                          
+                          {/* Actions */}
+                          <div className="space-y-1">
+                            {column.actions.map((action, actionIndex) => (
+                              <div 
+                                key={action.id}
+                                className="flex items-center justify-center py-2 px-3 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 cursor-pointer transition-colors"
+                              >
+                                <span className="flex items-center gap-1">
+                                  {action.type === 'uri' && <ExternalLink className="w-3 h-3" />}
+                                  {action.type === 'message' && <MessageSquare className="w-3 h-3" />}
+                                  {action.type === 'postback' && <MousePointerClick className="w-3 h-3" />}
+                                  {action.label}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Template Info */}
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p><strong>Description:</strong> {previewTemplate.template?.description || 'No description'}</p>
+                  <p><strong>Columns:</strong> {previewTemplate.columns.length}</p>
+                  <p><strong>Created:</strong> {previewTemplate.template?.createdAt ? new Date(previewTemplate.template.createdAt).toLocaleString() : 'Unknown'}</p>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Template Creation/Edit Modal */}
+        <Dialog open={isCreating || selectedTemplate !== null} onOpenChange={(open) => {
+          console.log("Dialog onOpenChange called with:", open, "isCreating:", isCreating, "selectedTemplate:", selectedTemplate);
+          if (!open) {
+            setIsCreating(false);
+            setSelectedTemplate(null);
+            form.reset();
+          }
+        }}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="template-form-description">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedTemplate ? "Edit Template" : "Create New Template"}
+              </DialogTitle>
+              <div id="template-form-description" className="sr-only">
+                Form to create or edit Line OA message templates
+              </div>
+            </DialogHeader>
+
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleSubmit, (errors) => {
+                console.log("🔍 Form validation errors:", errors);
+              })} className="space-y-6">
+                {/* Template Name */}
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Template Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter template name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Template Description */}
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Template Description</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Describe when this template should be used (for AI intent matching)"
+                          rows={3}
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Intent Tags */}
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Intent Tags</FormLabel>
+                      <FormControl>
+                        <div className="space-y-2">
+                          <Input
+                            placeholder="Type a tag and press Enter (e.g., beauty, cosmetics, anti-aging)"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const input = e.target as HTMLInputElement;
+                                const value = input.value.trim().toLowerCase();
+                                if (value && !field.value.includes(value)) {
+                                  field.onChange([...field.value, value]);
+                                  input.value = '';
+                                }
+                              }
+                            }}
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            {field.value.map((tag, index) => (
+                              <span 
+                                key={index}
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                              >
+                                {tag}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newTags = field.value.filter((_, i) => i !== index);
+                                    field.onChange(newTags);
+                                  }}
+                                  className="hover:bg-blue-200 rounded-full p-0.5"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Add tags that describe the intent of this template (e.g., beauty, cosmetics, anti-aging)
+                          </p>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Integration Selection */}
+                <FormField
+                  control={form.control}
+                  name="integrationId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Line OA Integration (Optional)</FormLabel>
+                      <Select 
+                        value={field.value?.toString() || "none"} 
+                        onValueChange={(value) => field.onChange(value !== "none" ? parseInt(value) : undefined)}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a Line OA integration" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {lineOaIntegrations.map((integration: any) => (
+                            <SelectItem key={integration.id} value={integration.id.toString()}>
+                              {integration.name} (ID: {integration.id})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Columns */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-lg">Carousel Columns</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => appendColumn({
+                        title: "",
+                        text: "",
+                        thumbnailImageUrl: "",
+                        actions: [{ type: "uri", label: "", uri: "", data: "", text: "" }],
+                      })}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Column
+                    </Button>
+                  </div>
+
+                  {columnFields.map((column, columnIndex) => (
+                    <ColumnEditor
+                      key={column.id}
+                      columnIndex={columnIndex}
+                      form={form}
+                      onRemove={() => removeColumn(columnIndex)}
+                      canRemove={columnFields.length > 1}
+                    />
+                  ))}
+                </div>
+
+                {/* Submit Buttons */}
+                <div className="flex justify-end space-x-4 pt-4 border-t">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsCreating(false);
+                      setSelectedTemplate(null);
+                      form.reset();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}
+                    onClick={() => {
+                      console.log("🔍 Submit button clicked");
+                      console.log("🔍 Form validation state:", form.formState.errors);
+                      console.log("🔍 Form values:", form.getValues());
+                    }}
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    {selectedTemplate ? "Update Template" : "Create Template"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </DashboardLayout>
+  );
+}
+
+// Column Editor Component
+function ColumnEditor({
+  columnIndex,
+  form,
+  onRemove,
+  canRemove,
+}: {
+  columnIndex: number;
+  form: any;
+  onRemove: () => void;
+  canRemove: boolean;
+}) {
+  const { fields: actionFields, append: appendAction, remove: removeAction } = useFieldArray({
+    control: form.control,
+    name: `columns.${columnIndex}.actions`,
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg">Column {columnIndex + 1}</CardTitle>
+          {canRemove && (
+            <Button type="button" variant="outline" size="sm" onClick={onRemove}>
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Thumbnail Image URL */}
+        <FormField
+          control={form.control}
+          name={`columns.${columnIndex}.thumbnailImageUrl`}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Thumbnail Image URL (Optional)</FormLabel>
+              <FormControl>
+                <Input placeholder="https://example.com/image.jpg" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Title */}
+        <FormField
+          control={form.control}
+          name={`columns.${columnIndex}.title`}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Title (Max 40 chars)</FormLabel>
+              <FormControl>
+                <Input placeholder="Column title" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Text */}
+        <FormField
+          control={form.control}
+          name={`columns.${columnIndex}.text`}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Text (Max 120 chars)</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Column description" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Actions */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-base">Actions</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => appendAction({
+                type: "uri",
+                label: "",
+                uri: "",
+                data: "",
+                text: "",
+              })}
+              disabled={actionFields.length >= 3}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Action
+            </Button>
+          </div>
+
+          {actionFields.map((action, actionIndex) => (
+            <ActionEditor
+              key={action.id}
+              columnIndex={columnIndex}
+              actionIndex={actionIndex}
+              form={form}
+              onRemove={() => removeAction(actionIndex)}
+              canRemove={actionFields.length > 1}
+            />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Action Editor Component
+function ActionEditor({
+  columnIndex,
+  actionIndex,
+  form,
+  onRemove,
+  canRemove,
+}: {
+  columnIndex: number;
+  actionIndex: number;
+  form: any;
+  onRemove: () => void;
+  canRemove: boolean;
+}) {
+  const actionType = form.watch(`columns.${columnIndex}.actions.${actionIndex}.type`) || "uri";
+  
+  console.log(`🔍 ActionEditor DEBUG - Column ${columnIndex}, Action ${actionIndex}:`);
+  console.log(`   - actionType from watch:`, actionType);
+  console.log(`   - form values:`, form.getValues());
+
+  return (
+    <div className="border rounded-lg p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm">Action {actionIndex + 1}</Label>
+        {canRemove && (
+          <Button type="button" variant="outline" size="sm" onClick={onRemove}>
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <FormField
+          control={form.control}
+          name={`columns.${columnIndex}.actions.${actionIndex}.type`}
+          render={({ field }) => {
+            console.log(`🔍 Select field DEBUG - Column ${columnIndex}, Action ${actionIndex}:`);
+            console.log(`   - field.value:`, field.value);
+            console.log(`   - field object:`, field);
+            
+            return (
+            <FormItem>
+              <FormLabel>Type</FormLabel>
+              <Select value={field.value || "uri"} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="uri">URI (External Link)</SelectItem>
+                  <SelectItem value="postback">Postback (Data)</SelectItem>
+                  <SelectItem value="message">Message (Text)</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+            );
+          }}
+        />
+
+        <FormField
+          control={form.control}
+          name={`columns.${columnIndex}.actions.${actionIndex}.label`}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Label (Max 20 chars)</FormLabel>
+              <FormControl>
+                <Input placeholder="Button text" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+
+      {/* Conditional fields based on action type */}
+      {actionType === "uri" && (
+        <FormField
+          control={form.control}
+          name={`columns.${columnIndex}.actions.${actionIndex}.uri`}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>URL</FormLabel>
+              <FormControl>
+                <Input placeholder="https://example.com" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      {actionType === "postback" && (
+        <FormField
+          control={form.control}
+          name={`columns.${columnIndex}.actions.${actionIndex}.data`}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Postback Data</FormLabel>
+              <FormControl>
+                <Input placeholder="custom_data_value" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      {actionType === "message" && (
+        <FormField
+          control={form.control}
+          name={`columns.${columnIndex}.actions.${actionIndex}.text`}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Message Text</FormLabel>
+              <FormControl>
+                <Input placeholder="Text to send" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+    </div>
+  );
+}

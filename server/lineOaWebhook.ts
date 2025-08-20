@@ -600,20 +600,8 @@ async function getAiResponseDirectly(
       "./services/queryPreprocessor"
     );
 
-    // Helper function to check if guardrails are configured
-    const hasGuardrails = (config: any): boolean => {
-      return config && typeof config === 'object' && (
-        'contentFiltering' in config ||
-        'topicControl' in config ||
-        'privacyProtection' in config ||
-        'responseQuality' in config ||
-        'toxicityPrevention' in config ||
-        'businessContext' in config
-      );
-    };
-
     // Get recent chat history if available (mock for now)
-    const recentChatHistory: Array<{ role: "user" | "assistant" | "system"; content: string; timestamp?: Date | string }> = []; // TODO: Integrate with actual chat history
+    const recentChatHistory = []; // TODO: Integrate with actual chat history
 
     // Build additional context including search configuration
     let additionalContext = `Document scope: ${agentDocIds.length > 0 ? agentDocIds.join(', ') : 'All documents'}`;
@@ -694,9 +682,11 @@ async function getAiResponseDirectly(
 
       // Initialize guardrails service if configured
       let guardrailsService: GuardrailsService | null = null;
-      const hasGR = (x: unknown): x is { guardrailsConfig: any } => !!x && typeof x === 'object' && 'guardrailsConfig' in x;
-      if (hasGR(agentData) && (agentData as any).guardrailsConfig) {
-        guardrailsService = new GuardrailsService((agentData as any).guardrailsConfig);
+      if (agentData.guardrailsConfig) {
+        guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
+        console.log(
+          `🛡️ LINE OA: Guardrails enabled for conversation without documents`,
+        );
       }
 
       // Validate input
@@ -787,9 +777,6 @@ async function getAiResponseDirectly(
       const documentTokenLimit = searchConfig.documentTokenLimit || 12000;
       const finalTokenLimit = searchConfig.finalTokenLimit || 4000;
 
-      // Default search weights if not configured
-      const { keywordWeight = 0.3, vectorWeight = 0.7 } = (searchConfig ?? {}) as any;
-
       console.log(`🔧 LINE OA: Using agent's search config - ${chunkMaxType}=${chunkMaxValue}, mass=${Math.round(documentMass * 100)}%${tokenLimitEnabled ? `, token limit: ${tokenLimitType}=${tokenLimitType === 'document' ? documentTokenLimit : finalTokenLimit}` : ''}`);
 
       const searchOptions: any = {
@@ -811,8 +798,8 @@ async function getAiResponseDirectly(
           userId,
           {
             specificDocumentIds: agentDocIds,
-            keywordWeight,
-            vectorWeight,
+            keywordWeight: searchConfig.keywordWeight,
+            vectorWeight: searchConfig.vectorWeight,
             threshold: 0.3,
             massSelectionPercentage: searchConfig.documentMass || 0.6,
             enhancedQuery: queryAnalysis.enhancedQuery || userMessage,
@@ -820,7 +807,7 @@ async function getAiResponseDirectly(
             chunkMaxType: searchConfig.chunkMaxType || 'number',
             chunkMaxValue: searchConfig.chunkMaxValue || 16,
             documentTokenLimit: searchConfig.documentTokenLimit,
-            finalTokenLimit: searchConfig.finalTokenLimit || 4000,
+            finalTokenLimit: searchConfig.finalTokenLimit,
           },
         );
 
@@ -906,10 +893,10 @@ async function getAiResponseDirectly(
 
         // Apply final token limit if enabled
         if (tokenLimitEnabled && tokenLimitType === 'final') {
-          const finalTokenLimitValue = searchConfig.finalTokenLimit || 4000;
-          const finalCharLimit = finalTokenLimitValue * 4; // Convert tokens to characters
+          const finalTokenLimit = searchConfig.finalTokenLimit;
+          const finalCharLimit = finalTokenLimit * 4; // Convert tokens to characters
           if (documentContext.length > finalCharLimit) {
-            console.log(`📄 LINE OA: Final context exceeds ${finalTokenLimitValue} tokens (${finalCharLimit} chars), current: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens), truncating...`);
+            console.log(`📄 LINE OA: Final context exceeds ${finalTokenLimit} tokens (${finalCharLimit} chars), current: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens), truncating...`);
             // Truncate the document context while preserving system prompt and user message
             const maxDocumentChars = finalCharLimit - agentData.systemPrompt.length - userMessage.length - 200; // Buffer for formatting
             if (maxDocumentChars > 0) {
@@ -919,7 +906,7 @@ async function getAiResponseDirectly(
               documentContext = "[Content truncated due to token limit]";
             }
           }
-          console.log(`📄 LINE OA: Final context: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens, limit: ${finalTokenLimitValue} tokens/${finalCharLimit} chars)`);
+          console.log(`📄 LINE OA: Final context: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens, limit: ${finalTokenLimit} tokens/${finalCharLimit} chars)`);
         }
 
         const now = new Date();
@@ -1056,9 +1043,11 @@ ${documentContext}
 
         // Initialize guardrails service if configured
         let guardrailsService: GuardrailsService | null = null;
-        const hasGR = (x: unknown): x is { guardrailsConfig: any } => !!x && typeof x === 'object' && 'guardrailsConfig' in x;
-        if (hasGR(agentData) && (agentData as any).guardrailsConfig) {
-          guardrailsService = new GuardrailsService((agentData as any).guardrailsConfig);
+        if (agentData.guardrailsConfig) {
+          guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
+          console.log(
+            `🛡️ LINE OA: Guardrails enabled for agent ${agentData.name}`,
+          );
         }
 
         // Step 6: Apply guardrails if configured
@@ -1193,7 +1182,7 @@ ${documentContext}
 
         // Initialize guardrails service if configured
         let fallbackGuardrailsService: GuardrailsService | null = null;
-        if (agentData.guardrailsConfig && typeof agentData.guardrailsConfig === 'object' && 'contentFiltering' in agentData.guardrailsConfig) {
+        if (agentData.guardrailsConfig) {
           fallbackGuardrailsService = new GuardrailsService(
             agentData.guardrailsConfig,
           );
@@ -1600,7 +1589,7 @@ export async function handleLineWebhook(req: Request, res: Response) {
 
         // Import and use AgentBot
         const { processMessage, saveAssistantResponse, checkCarouselIntents } = await import("./agentBot");
-
+        
         const botResponse = await processMessage(botMessage, botContext);
 
         if (!botResponse.success) {
@@ -1629,7 +1618,7 @@ export async function handleLineWebhook(req: Request, res: Response) {
         // Handle image processing if needed
         if (botResponse.needsImageProcessing && botResponse.imageProcessingPromise) {
           console.log("🖼️ Handling image processing in background...");
-
+          
           // Process image analysis in background
           botResponse.imageProcessingPromise.then(async (imageAiResponse) => {
             if (lineIntegration.channelAccessToken) {

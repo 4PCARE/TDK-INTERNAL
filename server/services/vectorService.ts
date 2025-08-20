@@ -89,7 +89,7 @@ export class VectorService {
         try {
           // Generate embedding for this chunk using llmRouter
           let embedding: number[];
-
+          
           try {
             // Try to use the configured LLM router for embeddings
             embedding = await llmRouter.generateEmbedding(chunk, metadata.userId);
@@ -378,7 +378,7 @@ export class VectorService {
           let currentEmbedding: number[] = [];
           if (dbVector.embeddingMulti) {
             const embeddingJson = dbVector.embeddingMulti as { openai?: number[]; gemini?: number[] };
-
+            
             // Try to get user's current provider configuration
             let userProvider = "OpenAI"; // default fallback
             try {
@@ -388,7 +388,7 @@ export class VectorService {
             } catch (configError) {
               console.warn(`Could not load user config, using OpenAI as fallback`);
             }
-
+            
             // Extract embedding based on user's current provider
             if (userProvider === "Gemini") {
               currentEmbedding = embeddingJson.gemini || embeddingJson.openai || [];
@@ -487,21 +487,21 @@ export class VectorService {
     const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0);
     const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
     const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
-
+    
     // Handle zero magnitude vectors to prevent NaN
     if (magnitudeA === 0 || magnitudeB === 0) {
       console.warn('Zero magnitude vector detected in similarity calculation');
       return 0;
     }
-
+    
     const similarity = dotProduct / (magnitudeA * magnitudeB);
-
+    
     // Additional safeguard against NaN
     if (isNaN(similarity)) {
       console.warn('NaN similarity detected, returning 0');
       return 0;
     }
-
+    
     return similarity;
   }
 

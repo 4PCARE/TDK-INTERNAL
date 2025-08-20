@@ -1,27 +1,13 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { registerRoutes } from "./routes";
-import { requireAuth, requireAdmin, setupAuth } from "./auth";
-import { LineImageService } from './lineImageService';
-import { setupVite, serveStatic, log } from "./vite";
+import { createReplitAuthRouter } from "./replitAuth";
+import { imageAnalysisRoute } from './lineImageService';
+import viteRoute from "./vite";
 import debugRoutes from "./debug-routes";
 import debugChunkTest from "./debug-chunk-test";
-// import { registerHrApiRoutes } from "./hrApi";
-// Initialize global wsClients
-global.wsClients = global.wsClients || new Set();
-
-// Skip authentication for static assets and WebSocket connections
-const skipAuthPaths = [
-  '/assets/',
-  '/public/',
-  '/widget/',
-  '/@vite/',
-  '/@fs/',
-  '/node_modules/',
-  '/favicon.ico',
-  '/ws',
-  '/__vite_ping'
-];
+import { registerHrApiRoutes } from "./hrApi";
+import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
@@ -44,15 +30,6 @@ app.use((req, res, next) => {
       res.sendStatus(204);
       return;
     }
-  }
-  next();
-});
-
-// Skip auth middleware for specific paths
-app.use((req, res, next) => {
-  const shouldSkipAuth = skipAuthPaths.some(path => req.path.startsWith(path));
-  if (shouldSkipAuth) {
-    req.skipAuth = true;
   }
   next();
 });
@@ -94,18 +71,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Setup authentication
-  setupAuth(app);
-
   // Mount debug routes BEFORE registerRoutes to ensure higher priority
   app.use(debugRoutes);
   app.use("/api", debugRoutes);
   app.use("/api", debugChunkTest);
-  app.use("/api", requireAuth);
-
-
+  
   // Register HR API routes
-  // registerHrApiRoutes(app);
+  registerHrApiRoutes(app);
 
   const server = await registerRoutes(app);
 
@@ -120,12 +92,10 @@ app.use((req, res, next) => {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (process.env.API_ONLY !== "1") {
-    if (app.get("env") === "development") {
-      await setupVite(app, server);
-    } else {
-      serveStatic(app);
-    }
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
   }
 
   // ALWAYS serve the app on port 80 for production or 5000 for development
@@ -146,17 +116,17 @@ app.use((req, res, next) => {
   // Handle graceful shutdown
   const gracefulShutdown = (signal: string) => {
     log(`Received ${signal}. Starting graceful shutdown...`);
-
+    
     httpServer.close((err) => {
       if (err) {
         console.error('Error during server shutdown:', err);
         process.exit(1);
       }
-
+      
       log('Server closed successfully');
       process.exit(0);
     });
-
+    
     // Force close after 10 seconds
     setTimeout(() => {
       console.error('Forced shutdown after timeout');

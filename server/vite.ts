@@ -1,11 +1,10 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-import { createServer as createViteDevServer, createLogger } from "vite";
+import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
-import { join } from "path";
 
 const viteLogger = createLogger();
 
@@ -24,10 +23,10 @@ export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
-    allowedHosts: "all",
+    allowedHosts: true,
   };
 
-  const vite = await createViteDevServer({
+  const vite = await createViteServer({
     ...viteConfig,
     configFile: false,
     customLogger: {
@@ -37,19 +36,8 @@ export async function setupVite(app: Express, server: Server) {
         process.exit(1);
       },
     },
-    server: {
-      middlewareMode: true,
-      host: "0.0.0.0",
-      allowedHosts: "all",
-      hmr: {
-        port: 24678,
-        host: "0.0.0.0",
-        server
-      }
-    },
+    server: serverOptions,
     appType: "custom",
-    root: join(import.meta.dirname, '..', 'apps', 'admin-ui'),
-    configFile: join(import.meta.dirname, '..', 'apps', 'admin-ui', 'vite.config.ts'),
   });
 
   app.use(vite.middlewares);
@@ -60,8 +48,7 @@ export async function setupVite(app: Express, server: Server) {
       const clientTemplate = path.resolve(
         import.meta.dirname,
         "..",
-        "apps",
-        "admin-ui",
+        "client",
         "index.html",
       );
 

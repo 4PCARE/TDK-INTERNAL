@@ -2,7 +2,6 @@ import OpenAI from "openai";
 import { storage } from "./storage";
 import { LineImageService } from "./lineImageService";
 import { GuardrailsService, GuardrailConfig } from "./services/guardrails";
-import { isRecord, hasProp, isBotMessage } from "../shared/utils/typeGuards";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -41,16 +40,6 @@ export interface BotResponse {
   needsImageProcessing?: boolean;
   imageProcessingPromise?: Promise<string>;
 }
-
-type ChatTurn = { role: 'user'|'assistant'|'system'; content: string; timestamp?: string|Date };
-type ChatMessage = { role: 'user'|'assistant'|'system'; content: string; messageType: 'text'|'image'|'sticker'; createdAt: Date };
-
-const adaptHistory = (turns: ChatTurn[]): ChatMessage[] =>
-  turns.map(t => ({ role: t.role, content: t.content, messageType: 'text' as const, createdAt: new Date(t.timestamp ?? Date.now()) }));
-
-// Removed the old isBotMessage and getAgentId as they are now imported from typeGuards
-// const isBotMessage = (m: unknown): m is MinimalMsg => !!m && typeof (m as any).type === 'string';
-// const getAgentId = (v: unknown): number => typeof v === 'number' ? v : Number((v as any)?.id ?? v ?? 0);
 
 /**
  * Check if a message is image-related based on keywords
@@ -144,7 +133,6 @@ async function getAiResponseDirectly(
       try {
         // For widget contexts (web channel), use getAgentChatbotForWidget which doesn't require user ownership
         if (channelType === 'web' || channelType === 'chat_widget') {
-          // Pass the agentId directly to the storage function
           agentData = await storage.getAgentChatbotForWidget(agentId);
         } else {
           agentData = await storage.getAgentChatbot(agentId, userId);
@@ -255,7 +243,7 @@ async function getAiResponseDirectly(
 
     if (!skipSearch) {
       let agentDocs;
-
+      
       // For widget contexts, use widget-specific methods that don't require user ownership
       if (channelType === 'web' || channelType === 'chat_widget') {
         agentDocs = await storage.getAgentChatbotDocumentsForWidget(agentId);
@@ -280,7 +268,7 @@ async function getAiResponseDirectly(
     );
 
     // Get recent chat history if available (mock for now)
-    const recentChatHistory: ChatTurn[] = []; // TODO: Integrate with actual chat history
+    const recentChatHistory = []; // TODO: Integrate with actual chat history
 
     // Build additional context including search configuration
     let additionalContext = `Document scope: ${agentDocIds.length > 0 ? agentDocIds.join(', ') : 'All documents'}`;
@@ -381,11 +369,11 @@ async function getAiResponseDirectly(
 
       // Initialize guardrails service if configured
       let guardrailsService: GuardrailsService | null = null;
-      // Use type guards for guardrails config check
-      if (hasProp(agentData, 'guardrailsConfig') &&
-          hasProp(agentData.guardrailsConfig, 'enabled') &&
-          agentData.guardrailsConfig.enabled) {
+      if (agentData.guardrailsConfig) {
         guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
+        console.log(
+          `🛡️ AgentBot: Guardrails enabled for conversation without documents`,
+        );
       }
 
       // Validate input
@@ -479,10 +467,8 @@ async function getAiResponseDirectly(
           userId,
           {
             specificDocumentIds: agentDocIds,
-            ...(() => {
-              const { keywordWeight = 0.5, vectorWeight = 0.5 } = (searchConfig ?? {}) as any;
-              return { keywordWeight, vectorWeight };
-            })(),
+            keywordWeight: searchConfig.keywordWeight,
+            vectorWeight: searchConfig.vectorWeight,
             threshold: 0.3,
             massSelectionPercentage: searchConfig.documentMass || 0.6,
             enhancedQuery: queryAnalysis.enhancedQuery || userMessage,
@@ -490,7 +476,7 @@ async function getAiResponseDirectly(
             chunkMaxType: searchConfig.chunkMaxType || 'number',
             chunkMaxValue: searchConfig.chunkMaxValue || 16,
             documentTokenLimit: searchConfig.documentTokenLimit,
-            finalTokenLimit: searchConfig.finalTokenLimit && searchConfig.finalTokenLimit > 0 ? searchConfig.finalTokenLimit : undefined,
+            finalTokenLimit: searchConfig.finalTokenLimit,
           },
         );
 
@@ -576,12 +562,12 @@ async function getAiResponseDirectly(
 
         // Apply final token limit if enabled
         if (tokenLimitEnabled && tokenLimitType === 'final') {
-          const { finalTokenLimit } = (searchConfig ?? {}) as any;
-          const finalCharLimit = (finalTokenLimit ?? 2048) * 4; // Use configured finalTokenLimit or default
+          const finalTokenLimit = searchConfig.finalTokenLimit;
+          const finalCharLimit = finalTokenLimit * 4; // Convert tokens to characters
           if (documentContext.length > finalCharLimit) {
             console.log(`📄 AgentBot: Final context exceeds ${finalTokenLimit} tokens (${finalCharLimit} chars), current: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens), truncating...`);
             // Truncate the document context while preserving system prompt and user message
-            const maxDocumentChars = finalCharLimit - (agentData.systemPrompt?.length || 0) - (userMessage?.length || 0) - 200; // Buffer for formatting
+            const maxDocumentChars = finalCharLimit - agentData.systemPrompt.length - userMessage.length - 200; // Buffer for formatting
             if (maxDocumentChars > 0) {
               documentContext = documentContext.substring(0, maxDocumentChars) + "\n[Content truncated due to token limit]";
             } else {
@@ -746,11 +732,11 @@ ${documentContext}
 
         // Initialize guardrails service if configured
         let guardrailsService: GuardrailsService | null = null;
-        // Use type guards for guardrails config check
-        if (hasProp(agentData, 'guardrailsConfig') &&
-            hasProp(agentData.guardrailsConfig, 'enabled') &&
-            agentData.guardrailsConfig.enabled) {
+        if (agentData.guardrailsConfig) {
           guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
+          console.log(
+            `🛡️ AgentBot: Guardrails enabled for agent ${agentData.name}`,
+          );
         }
 
         // Apply guardrails if configured
@@ -831,102 +817,6 @@ ${documentContext}
 }
 
 /**
- * Process agent message and return a response
- */
-export async function processAgentMessage(params: {
-  message: BotMessage | { message: string; userId: string; sessionId: string; channelType: string; channelId: string; agentConfig: unknown; documentIds: number[]; isTest: boolean };
-  context?: BotContext;
-}): Promise<BotResponse> {
-  // Handle both old and new calling conventions
-  if ('message' in params && typeof params.message === 'string') {
-    // New calling convention from agentChatService
-    const p = params as unknown as { message: string; userId: string; sessionId: string; channelType: string; channelId: string; agentConfig: unknown; documentIds: number[]; isTest: boolean };
-
-    console.log(`🔍 Debug: agentConfig received:`, p.agentConfig, `(type: ${typeof p.agentConfig})`);
-
-    const botMessage: BotMessage = {
-      type: 'text',
-      content: p.message
-    };
-
-    const botContext: BotContext = {
-      userId: p.userId,
-      channelType: p.channelType,
-      channelId: p.channelId,
-      agentId: getAgentId(p.agentConfig),
-      messageId: `${p.channelType}_${Date.now()}`,
-      lineIntegration: null
-    };
-
-    return processMessage(botMessage, botContext);
-  }
-
-  // Original calling convention
-  if (!params.context) {
-    throw new Error("Context is required for BotMessage processing");
-  }
-
-  const { message, context } = params;
-  const userId = context.userId;
-  const agentId = context.agentId;
-
-  // Validate bot message using the imported type guard
-  if (!isBotMessage(message)) {
-    throw new Error('Invalid bot message format');
-  }
-
-  const kind = message.type ?? 'text';
-  console.log(`🤖 AgentBot: Processing ${kind} message from user:`, userId);
-
-  // Handle different message types
-  if (kind === "image") {
-    console.log("🖼️ AgentBot: Image message detected - processing image analysis");
-
-    // Return immediate acknowledgment and set up image processing
-    return {
-      success: true,
-      response: "ได้รับรูปภาพแล้ว ขอเวลาตรวจสอบสักครู่นะคะ",
-      needsImageProcessing: true,
-      imageProcessingPromise: (async () => {
-        // Process image in background and return the AI response
-        const chatHistoryId = await saveChatHistory(message, context, "user");
-        return await processImageMessage(
-          context.messageId,
-          context.lineIntegration.channelAccessToken,
-          context,
-          chatHistoryId,
-        );
-      })(),
-    };
-  }
-
-  // Handle text and other message types
-  let contextMessage = message.content;
-  if (kind === "sticker") {
-    contextMessage = "ผู้ใช้ส่งสติ๊กเกอร์มา กรุณาตอบอย่างเป็นมิตรและถามว่ามีอะไรให้ช่วย";
-  }
-
-  // Get AI response with HR employee context
-  const aiResponse = await getAiResponseDirectly(
-    contextMessage,
-    agentId,
-    userId,
-    context.channelType,
-    context.channelId,
-    false, // skipSearch
-    context.hrEmployeeData // Pass HR employee data
-  );
-
-  console.log(`✅ AgentBot: Generated response for ${kind} message (${aiResponse.length} chars)`);
-
-  return {
-    success: true,
-    response: aiResponse,
-  };
-}
-
-
-/**
  * Process image message with analysis
  */
 async function processImageMessage(
@@ -937,7 +827,7 @@ async function processImageMessage(
 ): Promise<string> {
   console.log("🖼️ AgentBot: Starting image processing...");
   const imageService = LineImageService.getInstance();
-
+  
   try {
     // Wait for image processing to complete
     await imageService.processImageMessage(
@@ -965,11 +855,8 @@ async function processImageMessage(
       (msg) =>
         msg.messageType === "system" &&
         msg.metadata &&
-        isRecord(msg.metadata) && // Use type guard for metadata
-        hasProp(msg.metadata, "messageType") && // Use type guard for messageType property
-        msg.metadata.messageType === "image_analysis" &&
-        hasProp(msg.metadata, "relatedImageMessageId") && // Use type guard for relatedImageMessageId
-        msg.metadata.relatedImageMessageId === messageId,
+        (msg.metadata as any).messageType === "image_analysis" &&
+        (msg.metadata as any).relatedImageMessageId === messageId,
     );
 
     if (imageAnalysisMessage) {
@@ -1012,44 +899,16 @@ ${imageAnalysisResult}
  * Main bot function to process a message and return a response
  */
 export async function processMessage(
-  message: BotMessage | { message: string; userId: string; sessionId: string; channelType: string; channelId: string; agentConfig: unknown; documentIds: number[]; isTest: boolean },
-  context?: BotContext,
+  message: BotMessage,
+  context: BotContext,
 ): Promise<BotResponse> {
-  // Handle both old and new calling conventions
-  if ('message' in message && typeof message.message === 'string') {
-    // New calling convention from agentChatService
-    const p = message as unknown as { message: string; userId: string; sessionId: string; channelType: string; channelId: string; agentConfig: unknown; documentIds: number[]; isTest: boolean };
-
-    console.log(`🔍 Debug: agentConfig received:`, p.agentConfig, `(type: ${typeof p.agentConfig})`);
-
-    const botMessage: BotMessage = {
-      type: 'text',
-      content: p.message
-    };
-
-    const botContext: BotContext = {
-      userId: p.userId,
-      channelType: p.channelType,
-      channelId: p.channelId,
-      agentId: getAgentId(p.agentConfig),
-      messageId: `${p.channelType}_${Date.now()}`,
-      lineIntegration: null
-    };
-
-    return processMessage(botMessage, botContext);
-  }
-
-  // Original calling convention
-  if (!context) {
-    throw new Error("Context is required for BotMessage processing");
-  }
   try {
     console.log(`🤖 AgentBot: Processing ${message.type} message from ${context.channelType}:${context.channelId}`);
 
     // Handle different message types
     if (message.type === "image") {
       console.log("🖼️ AgentBot: Image message detected - processing image analysis");
-
+      
       // Return immediate acknowledgment and set up image processing
       return {
         success: true,
@@ -1163,13 +1022,13 @@ export async function checkCarouselIntents(
 ): Promise<{ matched: boolean; template?: any; similarity?: number }> {
   try {
     console.log(`🎠 AgentBot: Checking carousel intents for: "${userMessage}"`);
-
+    
     // Use the carousel service
     const { checkCarouselIntents: carouselServiceCheck } = await import("./services/carouselService");
-
+    
     // Call the carousel service function
     const result = await carouselServiceCheck(userMessage, integrationId, userId);
-
+    
     console.log(`🎠 AgentBot: Carousel intent check result: ${result.matched}`);
     return {
       matched: result.matched,

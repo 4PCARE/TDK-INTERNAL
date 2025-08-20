@@ -434,7 +434,7 @@ export class SemanticSearchServiceV2 {
           fileSize: doc?.fileSize ?? null,
           mimeType: doc?.mimeType ?? null,
           isFavorite: doc?.isFavorite ?? null,
-          updatedAt: doc?.updatedAt ? doc.updatedAt.toISOString() : null,
+          updatedAt: doc?.updatedAt?.toISOString() ?? null,
           userId: doc?.userId ?? userId
         };
       });

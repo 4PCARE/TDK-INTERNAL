@@ -10,7 +10,7 @@ export function registerHrApiRoutes(app: Express) {
   app.get('/api/public/hr/employee/:citizenId', async (req, res) => {
     try {
       const { citizenId } = req.params;
-
+      
       // Validate Thai Citizen ID format (13 digits)
       if (!citizenId || !/^\d{13}$/.test(citizenId)) {
         return res.status(400).json({ 
@@ -43,10 +43,10 @@ export function registerHrApiRoutes(app: Express) {
       res.json({
         success: true,
         found: true,
-        message: `Yes, ${employee.employeeId} ${employee.name} is working in ${employee.department}`,
+        message: `Yes, ${employee.employeeId} ${employee.firstName} ${employee.lastName} is working in ${employee.department}`,
         data: {
           employeeId: employee.employeeId,
-          name: employee.name,
+          name: `${employee.firstName} ${employee.lastName}`,
           department: employee.department,
           position: employee.position
         }
@@ -65,7 +65,7 @@ export function registerHrApiRoutes(app: Express) {
   app.post('/api/public/hr/employees/lookup', async (req, res) => {
     try {
       const { citizenIds } = req.body;
-
+      
       if (!Array.isArray(citizenIds) || citizenIds.length === 0) {
         return res.status(400).json({ 
           success: false,
@@ -88,7 +88,8 @@ export function registerHrApiRoutes(app: Express) {
         .select({
           citizenId: hrEmployees.citizenId,
           employeeId: hrEmployees.employeeId,
-          name: hrEmployees.name,
+          firstName: hrEmployees.firstName,
+          lastName: hrEmployees.lastName,
           department: hrEmployees.department,
           position: hrEmployees.position,
           isActive: hrEmployees.isActive
@@ -105,14 +106,14 @@ export function registerHrApiRoutes(app: Express) {
             message: "No active employee found"
           };
         }
-
+        
         return {
           citizenId,
           found: true,
-          message: `Yes, ${employee.employeeId} ${employee.name} is working in ${employee.department}`,
+          message: `Yes, ${employee.employeeId} ${employee.firstName} ${employee.lastName} is working in ${employee.department}`,
           data: {
             employeeId: employee.employeeId,
-            name: employee.name,
+            name: `${employee.firstName} ${employee.lastName}`,
             department: employee.department,
             position: employee.position
           }
