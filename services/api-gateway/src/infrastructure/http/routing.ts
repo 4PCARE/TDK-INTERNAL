@@ -42,7 +42,7 @@ export function setupRouting(app: Express): void {
     proxyHandler(req, res);
   });
 
-  // Auth service routes
+  // Auth service routes - unified and clean
   app.get('/me', (req, res) => {
     const serviceUrl = getServiceUrl('auth');
     if (!serviceUrl) {
@@ -61,7 +61,9 @@ export function setupRouting(app: Express): void {
     proxyHandler(req, res);
   });
 
-  app.post('/login', (req, res) => {
+  // Login page route
+  app.get('/login', (req, res) => {
+    console.log('🔐 Login page request, proxying to auth service');
     const serviceUrl = getServiceUrl('auth');
     if (!serviceUrl) {
       return res.status(503).json({ error: 'Auth service unavailable' });
@@ -70,6 +72,7 @@ export function setupRouting(app: Express): void {
     proxyHandler(req, res);
   });
 
+  // API login endpoints
   app.post('/api/login', (req, res) => {
     const serviceUrl = getServiceUrl('auth');
     if (!serviceUrl) {
@@ -85,28 +88,6 @@ export function setupRouting(app: Express): void {
       return res.status(503).json({ error: 'Auth service unavailable' });
     }
     const proxyHandler = createProxyHandler(`${serviceUrl}/register`);
-    proxyHandler(req, res);
-  });
-
-  // Auth service routes (including login, callback, etc.)
-  app.get('/login', (req, res) => {
-    console.log('🔐 Login page request, proxying to auth service');
-    const serviceUrl = getServiceUrl('auth');
-    if (!serviceUrl) {
-      return res.status(503).json({ error: 'Auth service unavailable' });
-    }
-    const targetUrl = `${serviceUrl}/login`;
-    const proxyHandler = createProxyHandler(targetUrl);
-    proxyHandler(req, res);
-  });
-
-  app.use('/api/login', (req, res) => {
-    const serviceUrl = getServiceUrl('auth');
-    if (!serviceUrl) {
-      return res.status(503).json({ error: 'Auth service unavailable' });
-    }
-    const targetUrl = `${serviceUrl}/login`;
-    const proxyHandler = createProxyHandler(targetUrl);
     proxyHandler(req, res);
   });
 
@@ -285,31 +266,11 @@ export function setupRouting(app: Express): void {
     proxyHandler(req, res);
   });
 
-  // Login route - proxy to auth service
-  app.get('/login', (req, res) => {
-    const serviceUrl = getServiceUrl('auth');
-    if (!serviceUrl) {
-      return res.status(503).json({ error: 'Auth service unavailable' });
-    }
-    console.log(`🔐 Login page request, proxying to auth service: ${serviceUrl}/login`);
-    const proxyHandler = createProxyHandler(`${serviceUrl}/login`);
-    proxyHandler(req, res);
-  });
-
-  // Root route - check authentication and redirect appropriately  
+  // Root route - always serve frontend, let React handle auth
   app.get('/', (req, res) => {
-    // Check for authentication headers
-    const userId = req.headers['x-replit-user-id'] || req.headers['authorization'];
-
-    if (!userId) {
-      // Not authenticated - redirect to login
-      console.log(`🔀 Unauthenticated user, redirecting to login`);
-      return res.redirect('/login');
-    }
-
-    // Authenticated - serve frontend
+    // Always serve frontend - let React app handle authentication
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5000';
-    console.log(`🔀 Authenticated user, proxying to frontend: ${frontendUrl}`);
+    console.log(`🔀 Serving frontend: ${frontendUrl}`);
 
     const proxyHandler = createProxyHandler(frontendUrl);
     proxyHandler(req, res);

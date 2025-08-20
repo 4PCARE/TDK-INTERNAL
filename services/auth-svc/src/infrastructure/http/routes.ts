@@ -243,32 +243,8 @@ router.get('/api/replit-auth', (req, res) => {
 // Get current user info
 router.get('/me', (req, res) => {
   console.log('🔍 User info request:', {
-    headers: {
-      host: req.headers.host,
-      'user-agent': req.headers['user-agent'],
-      accept: req.headers.accept,
-      'accept-encoding': req.headers['accept-encoding'],
-      'accept-language': req.headers['accept-language'],
-      credentials: req.headers.credentials,
-      referer: req.headers.referer,
-      'sec-ch-ua': req.headers['sec-ch-ua'],
-      'sec-ch-ua-mobile': req.headers['sec-ch-ua-mobile'],
-      'sec-ch-ua-platform': req.headers['sec-ch-ua-platform'],
-      'sec-fetch-dest': req.headers['sec-fetch-dest'],
-      'sec-fetch-mode': req.headers['sec-fetch-mode'],
-      'sec-fetch-site': req.headers['sec-fetch-site'],
-      'x-forwarded-for': req.headers['x-forwarded-for'],
-      'x-forwarded-proto': req.headers['x-forwarded-proto'],
-      'x-replit-user-bio': req.headers['x-replit-user-bio'],
-      'x-replit-user-id': req.headers['x-replit-user-id'],
-      'x-replit-user-name': req.headers['x-replit-user-name'],
-      'x-replit-user-profile-image': req.headers['x-replit-user-profile-image'],
-      'x-replit-user-roles': req.headers['x-replit-user-roles'],
-      'x-replit-user-teams': req.headers['x-replit-user-teams'],
-      'x-replit-user-url': req.headers['x-replit-user-url'],
-      connection: req.headers.connection,
-      'content-type': req.headers['content-type']
-    },
+    'x-replit-user-id': req.headers['x-replit-user-id'],
+    'x-replit-user-name': req.headers['x-replit-user-name'],
     authHeader: req.headers.authorization
   });
 
@@ -278,10 +254,12 @@ router.get('/me', (req, res) => {
   const userProfileImage = req.headers['x-replit-user-profile-image'] as string;
   const userRoles = req.headers['x-replit-user-roles'] as string;
 
-  if (!userId || userId.trim() === '') {
+  // Check if user is authenticated via Replit headers
+  if (!userId || userId.trim() === '' || userName === '' || userName === undefined) {
     return res.status(401).json({
       error: 'Not authenticated',
       message: 'Please login with Replit to continue',
+      authenticated: false,
       redirectTo: '/login'
     });
   }
@@ -292,9 +270,9 @@ router.get('/me', (req, res) => {
     username: userName,
     name: userName,
     email: `${userName}@replit.com`, // Replit doesn't provide email in headers
-    bio: userBio,
-    profileImage: userProfileImage,
-    roles: userRoles?.split(',') || [],
+    bio: userBio || '',
+    profileImage: userProfileImage || '',
+    roles: userRoles?.split(',').filter(Boolean) || ['user'],
     authenticated: true,
     provider: 'replit'
   });
