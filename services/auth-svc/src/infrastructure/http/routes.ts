@@ -51,6 +51,55 @@ router.get('/healthz', (req, res) => {
   res.json({ status: 'healthy', service: 'auth-svc' });
 });
 
+// Auth methods endpoint
+router.get('/methods', (req, res) => {
+  res.json({
+    methods: [
+      {
+        name: "replit",
+        displayName: "Login with Replit",
+        endpoint: "/api/login"
+      },
+      {
+        name: "microsoft", 
+        displayName: "Login with Microsoft",
+        endpoint: "/api/auth/microsoft"
+      }
+    ]
+  });
+});
+
+// Login page route
+router.get('/login', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Login - AI-KMS</title>
+        <style>
+          body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
+          .login-container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
+          .btn { background: #0066cc; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; margin: 10px; }
+          .btn:hover { background: #0052a3; }
+        </style>
+      </head>
+      <body>
+        <div class="login-container">
+          <h1>AI-KMS Login</h1>
+          <p>Please choose your login method:</p>
+          <div>
+            <form method="post" action="/login" style="display: inline;">
+              <input type="email" name="email" placeholder="Email" required style="margin: 5px; padding: 8px;">
+              <input type="password" name="password" placeholder="Password" required style="margin: 5px; padding: 8px;">
+              <button type="submit" class="btn">Login with Email</button>
+            </form>
+          </div>
+        </div>
+      </body>
+    </html>
+  `);
+});
+
 // Get current user info
 router.get('/me', (req, res) => {
   console.log('🔍 User info request:', {

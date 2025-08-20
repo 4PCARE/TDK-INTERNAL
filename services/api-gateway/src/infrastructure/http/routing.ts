@@ -274,6 +274,25 @@ export function setupRouting(app: Express): void {
     proxyHandler(req, res);
   });
 
+  // Root route - check authentication and redirect appropriately  
+  app.get('/', (req, res) => {
+    // Check for authentication headers
+    const userId = req.headers['x-replit-user-id'] || req.headers['authorization'];
+
+    if (!userId) {
+      // Not authenticated - redirect to login
+      console.log(`🔀 Unauthenticated user, redirecting to login`);
+      return res.redirect('/login');
+    }
+
+    // Authenticated - serve frontend
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5000';
+    console.log(`🔀 Authenticated user, proxying to frontend: ${frontendUrl}`);
+
+    const proxyHandler = createProxyHandler(frontendUrl);
+    proxyHandler(req, res);
+  });
+
   // Fallback for unmatched routes
   app.use((req, res) => {
     res.status(404).json({ error: 'Route not found', path: req.path });
