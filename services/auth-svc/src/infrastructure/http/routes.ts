@@ -69,32 +69,94 @@ router.get('/methods', (req, res) => {
   });
 });
 
-// Login page route
+// Login page route - Replit Auth integration
 router.get('/login', (req, res) => {
+  // Check if user is already authenticated via Replit headers
+  if (req.headers['x-replit-user-id']) {
+    return res.redirect('/');
+  }
+  
+  // Serve Replit Auth login page
   res.send(`
     <!DOCTYPE html>
     <html>
       <head>
         <title>Login - AI-KMS</title>
         <style>
-          body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
-          .login-container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
-          .btn { background: #0066cc; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; margin: 10px; }
-          .btn:hover { background: #0052a3; }
+          body { 
+            font-family: Arial, sans-serif; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          }
+          .login-container { 
+            background: white; 
+            padding: 3rem; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2); 
+            text-align: center; 
+            max-width: 400px;
+            width: 90%;
+          }
+          .logo { 
+            width: 64px; 
+            height: 64px; 
+            margin: 0 auto 1rem; 
+            background: #667eea; 
+            border-radius: 12px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            color: white; 
+            font-size: 24px; 
+            font-weight: bold;
+          }
+          h1 { 
+            color: #333; 
+            margin-bottom: 0.5rem; 
+            font-size: 2rem;
+          }
+          .subtitle { 
+            color: #666; 
+            margin-bottom: 2rem; 
+            font-size: 1.1rem;
+          }
+          .auth-section {
+            margin: 2rem 0;
+          }
+          .loading {
+            display: none;
+            color: #666;
+            margin-top: 1rem;
+          }
         </style>
       </head>
       <body>
         <div class="login-container">
-          <h1>AI-KMS Login</h1>
-          <p>Please choose your login method:</p>
-          <div>
-            <form method="post" action="/login" style="display: inline;">
-              <input type="email" name="email" placeholder="Email" required style="margin: 5px; padding: 8px;">
-              <input type="password" name="password" placeholder="Password" required style="margin: 5px; padding: 8px;">
-              <button type="submit" class="btn">Login with Email</button>
-            </form>
+          <div class="logo">AI</div>
+          <h1>AI-KMS</h1>
+          <p class="subtitle">Knowledge Management System</p>
+          <div class="auth-section">
+            <p>Please authenticate with your Replit account to continue</p>
+            <script authed="window.location.href = '/'" src="https://auth.util.repl.co/script.js"></script>
+            <div class="loading">
+              <p>Redirecting after authentication...</p>
+            </div>
           </div>
         </div>
+        
+        <script>
+          // Show loading state after auth completes
+          window.addEventListener('message', function(event) {
+            if (event.data === 'auth_complete') {
+              document.querySelector('.auth-section').style.display = 'none';
+              document.querySelector('.loading').style.display = 'block';
+            }
+          });
+        </script>
       </body>
     </html>
   `);
