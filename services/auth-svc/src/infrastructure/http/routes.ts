@@ -61,7 +61,7 @@ router.get('/methods', (req, res) => {
         endpoint: "/api/login"
       },
       {
-        name: "microsoft", 
+        name: "microsoft",
         displayName: "Login with Microsoft",
         endpoint: "/api/auth/microsoft"
       }
@@ -74,12 +74,12 @@ router.get('/login', (req, res) => {
   // Check if user is already authenticated via Replit headers
   const replitUserId = req.headers['x-replit-user-id'];
   const replitUserName = req.headers['x-replit-user-name'];
-  
+
   if (replitUserId && replitUserName) {
     // Create or get user from Replit auth
     const email = `${replitUserId}@replit.user`;
     let user = users.get(email);
-    
+
     if (!user) {
       // Create new Replit user
       user = {
@@ -98,25 +98,25 @@ router.get('/login', (req, res) => {
       user.lastLogin = new Date();
       users.set(email, user);
     }
-    
+
     // Generate tokens for this session
     const token = generateToken('jwt');
     const refreshToken = generateToken('refresh');
-    
+
     // Store session
     sessions.set(token, { email, userId: user.id, createdAt: new Date() });
     sessions.set(refreshToken, { email, userId: user.id, type: 'refresh', createdAt: new Date() });
-    
+
     // Set session cookie and redirect to dashboard
-    res.cookie('auth_token', token, { 
-      httpOnly: true, 
+    res.cookie('auth_token', token, {
+      httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
-    
+
     return res.redirect('/');
   }
-  
+
   // Serve Replit Auth login page
   res.send(`
     <!DOCTYPE html>
@@ -124,45 +124,45 @@ router.get('/login', (req, res) => {
       <head>
         <title>Login - AI-KMS</title>
         <style>
-          body { 
-            font-family: Arial, sans-serif; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-            margin: 0; 
+          body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           }
-          .login-container { 
-            background: white; 
-            padding: 3rem; 
-            border-radius: 12px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2); 
-            text-align: center; 
+          .login-container {
+            background: white;
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
             max-width: 400px;
             width: 90%;
           }
-          .logo { 
-            width: 64px; 
-            height: 64px; 
-            margin: 0 auto 1rem; 
-            background: #667eea; 
-            border-radius: 12px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            color: white; 
-            font-size: 24px; 
+          .logo {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 1rem;
+            background: #667eea;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
             font-weight: bold;
           }
-          h1 { 
-            color: #333; 
-            margin-bottom: 0.5rem; 
+          h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
             font-size: 2rem;
           }
-          .subtitle { 
-            color: #666; 
-            margin-bottom: 2rem; 
+          .subtitle {
+            color: #666;
+            margin-bottom: 2rem;
             font-size: 1.1rem;
           }
           .auth-section {
@@ -182,19 +182,19 @@ router.get('/login', (req, res) => {
           <p class="subtitle">Knowledge Management System</p>
           <div class="auth-section">
             <p>Please authenticate with your Replit account to continue</p>
-            <script authed="handleAuthComplete()" src="https://auth.util.repl.co/script.js"></script>
+            <script authed="location.reload()" src="https://auth.util.repl.co/script.js"></script>
             <div class="loading">
               <p>Redirecting after authentication...</p>
             </div>
           </div>
         </div>
-        
+
         <script>
           // Handle authentication completion
           function handleAuthComplete() {
             document.querySelector('.auth-section').style.display = 'none';
             document.querySelector('.loading').style.display = 'block';
-            
+
             // Call our auth endpoint to create session
             fetch('/api/replit-auth', {
               method: 'GET',
@@ -218,7 +218,7 @@ router.get('/login', (req, res) => {
               window.location.reload();
             });
           }
-          
+
           // Show loading state after auth completes
           window.addEventListener('message', function(event) {
             if (event.data === 'auth_complete') {
@@ -235,14 +235,14 @@ router.get('/login', (req, res) => {
 router.get('/api/replit-auth', (req, res) => {
   const replitUserId = req.headers['x-replit-user-id'];
   const replitUserName = req.headers['x-replit-user-name'];
-  
+
   if (!replitUserId || !replitUserName) {
     return res.status(401).json({ error: 'Replit authentication required' });
   }
-  
+
   const email = `${replitUserId}@replit.user`;
   let user = users.get(email);
-  
+
   if (!user) {
     user = {
       id: `replit_${replitUserId}`,
@@ -259,13 +259,13 @@ router.get('/api/replit-auth', (req, res) => {
     user.lastLogin = new Date();
     users.set(email, user);
   }
-  
+
   const token = generateToken('jwt');
   const refreshToken = generateToken('refresh');
-  
+
   sessions.set(token, { email, userId: user.id, createdAt: new Date() });
   sessions.set(refreshToken, { email, userId: user.id, type: 'refresh', createdAt: new Date() });
-  
+
   res.json({
     accessToken: token,
     refreshToken: refreshToken,
@@ -409,8 +409,8 @@ router.post('/register', (req, res) => {
   const { email, password, firstName, lastName } = req.body;
 
   if (!email || !password || !firstName || !lastName) {
-    return res.status(400).json({ 
-      error: 'Email, password, firstName, and lastName are required' 
+    return res.status(400).json({
+      error: 'Email, password, firstName, and lastName are required'
     });
   }
 
