@@ -1,8 +1,6 @@
 
 import type { Express } from "express";
-import { setupAuth, isAuthenticated, isAdmin } from "../replitAuth";
-import { setupMicrosoftAuth, isMicrosoftAuthenticated } from "../microsoftAuth";
-import { smartAuth } from "../smartAuth";
+import { requireAuth, requireAdmin, setupAuth } from "../auth";
 import { storage } from "../storage";
 import { db } from "../db";
 import { users, departments } from "@shared/schema";
@@ -11,7 +9,6 @@ import { eq } from "drizzle-orm";
 export function registerAuthRoutes(app: Express) {
   // Setup authentication middleware
   setupAuth(app);
-  setupMicrosoftAuth(app);
 
   // Get authentication methods available
   app.get("/api/auth/methods", async (req, res) => {
@@ -21,61 +18,16 @@ export function registerAuthRoutes(app: Express) {
           name: "replit",
           displayName: "Login with Replit",
           endpoint: "/api/login"
-        },
-        {
-          name: "microsoft",
-          displayName: "Login with Microsoft",
-          endpoint: "/api/auth/microsoft"
         }
       ]
     });
   });
 
-  // Login route - redirect to Replit auth
-  app.get("/api/login", (req, res) => {
-    // Redirect to Replit auth - this will be handled by the setupAuth middleware
-    res.redirect("/login");
-  });
-
-  // Main login route that serves the auth page
-  app.get("/login", (req, res) => {
-    // For Replit auth, we can redirect to a simple auth page or handle it directly
-    // Check if user is already authenticated
-    if (req.headers['x-replit-user-id']) {
-      return res.redirect('/');
-    }
-    
-    // Serve a simple login page with Replit auth
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Login - AI-KMS</title>
-          <style>
-            body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
-            .login-container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
-            .btn { background: #0066cc; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
-            .btn:hover { background: #0052a3; }
-          </style>
-        </head>
-        <body>
-          <div class="login-container">
-            <h1>AI-KMS Login</h1>
-            <p>Please authenticate to continue</p>
-            <div>
-              <script authed="window.location.href = '/'" src="https://auth.util.repl.co/script.js"></script>
-            </div>
-          </div>
-        </body>
-      </html>
-    `);
-  });
-
-  // Auth routes - support both Replit and Microsoft authentication
-  app.get("/api/auth/user", smartAuth, async (req: any, res) => {
+  // Get current authenticated user
+  app.get("/api/auth/user", requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const userEmail = req.user.claims.email || req.user.claims.upn || req.user.claims.unique_name || req.user.claims.preferred_username;
+      const userId = req.user?.id;
+      const userEmail = req.user?.email;
 
       console.log("Getting user profile for:", { userId, userEmail });
 
@@ -98,15 +50,14 @@ export function registerAuthRoutes(app: Express) {
         .where(eq(users.id, userId));
 
       if (!userWithDept) {
-        console.log("User not found in database, returning user claims");
-        // Return user info from claims if not found in database
+        console.log("User not found in database, returning user from session");
         return res.json({
           id: userId,
           email: userEmail,
-          firstName: req.user.claims.given_name || req.user.claims.first_name || '',
-          lastName: req.user.claims.family_name || req.user.claims.last_name || '',
-          profileImageUrl: req.user.claims.profile_image_url || null,
-          role: 'user', // Default role
+          firstName: req.user.name?.split(' ')[0] || '',
+          lastName: req.user.name?.split(' ').slice(1).join(' ') || '',
+          profileImageUrl: null,
+          role: 'user',
           departmentId: null,
           departmentName: null,
           createdAt: new Date(),
@@ -122,10 +73,10 @@ export function registerAuthRoutes(app: Express) {
   });
 
   // Get user profile
-  app.get("/api/user/profile", smartAuth, async (req: any, res) => {
+  app.get("/api/user/profile", requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const userEmail = req.user.claims.email || req.user.claims.upn || req.user.claims.unique_name || req.user.claims.preferred_username;
+      const userId = req.user?.id;
+      const userEmail = req.user?.email;
 
       console.log("Getting user profile for:", { userId, userEmail });
 
@@ -148,15 +99,10 @@ export function registerAuthRoutes(app: Express) {
         .where(eq(users.id, userId));
 
       if (!userWithDept) {
-        console.log("User not found in database, returning user claims");
-        // Return user info from claims if not found in database
-        const firstName = req.user.claims.given_name || req.user.claims.first_name || '';
-        const lastName = req.user.claims.family_name || req.user.claims.last_name || '';
-        const fullName = req.user.claims.name || `${firstName} ${lastName}`.trim();
-        const displayName = fullName ||
-                         req.user.claims.display_name ||
-                         req.user.claims.name ||
-                         userEmail;
+        console.log("User not found in database, returning user from session");
+        const displayName = req.user.name || userEmail;
+        const firstName = req.user.name?.split(' ')[0] || '';
+        const lastName = req.user.name?.split(' ').slice(1).join(' ') || '';
 
         return res.json({
           id: userId,
@@ -165,7 +111,7 @@ export function registerAuthRoutes(app: Express) {
           display_name: displayName,
           firstName: firstName,
           lastName: lastName,
-          profileImageUrl: req.user.claims.profile_image_url || null,
+          profileImageUrl: null,
           role: 'user',
           department: null,
           departmentId: null,
@@ -177,38 +123,7 @@ export function registerAuthRoutes(app: Express) {
         });
       }
 
-      // Construct display name from database fields first, then fallback to claims
-      let displayName = `${userWithDept.firstName || ''} ${userWithDept.lastName || ''}`.trim();
-
-      // If no name in database, try to get from claims and update database
-      if (!displayName) {
-        displayName = req.user.claims.display_name ||
-                     req.user.claims.name ||
-                     userWithDept.email;
-
-        // If we have name from claims but not in database, extract and update
-        if (req.user.claims.name && !userWithDept.firstName && !userWithDept.lastName) {
-          const nameParts = req.user.claims.name.split(' ');
-          const firstName = nameParts[0] || '';
-          const lastName = nameParts.slice(1).join(' ') || '';
-
-          try {
-            // Update the database with extracted name parts
-            await db
-              .update(users)
-              .set({
-                firstName: firstName,
-                lastName: lastName,
-                updatedAt: new Date(),
-              })
-              .where(eq(users.id, userWithDept.id));
-
-            console.log(`Updated user ${userWithDept.id} with name: ${firstName} ${lastName}`);
-          } catch (error) {
-            console.error("Error updating user name:", error);
-          }
-        }
-      }
+      const displayName = `${userWithDept.firstName || ''} ${userWithDept.lastName || ''}`.trim() || userWithDept.email;
 
       res.json({
         id: userWithDept.id,
@@ -234,12 +149,11 @@ export function registerAuthRoutes(app: Express) {
   });
 
   // Update user profile
-  app.put("/api/user/profile", smartAuth, async (req: any, res) => {
+  app.put("/api/user/profile", requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
       const { name, department, preferences } = req.body;
 
-      // For now, just return success since we don't have a full user management system
       res.json({
         success: true,
         message: "Profile updated successfully",
@@ -254,8 +168,8 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
-  // Update user profile
-  app.put("/api/users/:id", isAuthenticated, async (req: any, res) => {
+  // Update user details
+  app.put("/api/users/:id", requireAuth, async (req: any, res) => {
     try {
       const userId = req.params.id;
       const { firstName, lastName, departmentId } = req.body;
@@ -279,9 +193,9 @@ export function registerAuthRoutes(app: Express) {
   });
 
   // User stats
-  app.get("/api/stats", smartAuth, async (req: any, res) => {
+  app.get("/api/stats", requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
       const stats = await storage.getUserStats(userId);
       res.json(stats);
     } catch (error) {
@@ -290,10 +204,10 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
-  // Bootstrap admin endpoint - allows first user to become admin
-  app.post("/api/bootstrap-admin", isAuthenticated, async (req: any, res) => {
+  // Bootstrap admin endpoint
+  app.post("/api/bootstrap-admin", requireAuth, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.id;
 
       // Check if any admin exists
       const [existingAdmin] = await db
@@ -330,123 +244,79 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
-  // Update user role
-  app.put(
-    "/api/admin/users/:userId/role",
-    (req: any, res: any, next: any) => {
-      // Try Microsoft auth first, then fallback to Replit auth
-      isMicrosoftAuthenticated(req, res, (err: any) => {
-        if (!err) {
-          return next();
-        }
-        isAuthenticated(req, res, next);
-      });
-    },
-    isAdmin,
-    async (req: any, res) => {
-      try {
-        const { userId } = req.params;
-        const { role } = req.body;
-        const adminUserId = req.user.claims.sub;
+  // Update user role (admin only)
+  app.put("/api/admin/users/:userId/role", requireAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { role } = req.body;
+      const adminUserId = req.user?.id;
 
-        console.log(`Role update request from admin ${adminUserId}: userId=${userId}, newRole=${role}`);
-        console.log("Request body:", req.body);
+      console.log(`Role update request from admin ${adminUserId}: userId=${userId}, newRole=${role}`);
 
-        // Validate required fields
-        if (!userId) {
-          console.log("Missing userId in request params");
-          return res.status(400).json({
-            message: "User ID is required",
-          });
-        }
-
-        if (!role) {
-          console.log("Missing role in request body");
-          return res.status(400).json({
-            message: "Role is required",
-          });
-        }
-
-        // Validate role
-        if (!["admin", "user", "viewer"].includes(role)) {
-          console.log(`Invalid role provided: ${role}`);
-          return res.status(400).json({
-            message: "Invalid role. Must be 'admin', 'user', or 'viewer'",
-          });
-        }
-
-        // Check if user exists
-        const [existingUser] = await db
-          .select()
-          .from(users)
-          .where(eq(users.id, userId))
-          .limit(1);
-
-        if (!existingUser) {
-          console.log(`User not found: ${userId}`);
-          return res.status(404).json({
-            message: "User not found",
-          });
-        }
-
-        console.log(`Updating user ${userId} role from ${existingUser.role} to ${role}`);
-
-        // Update user role
-        const [updatedUser] = await db
-          .update(users)
-          .set({
-            role: role,
-            updatedAt: new Date(),
-          })
-          .where(eq(users.id, userId))
-          .returning();
-
-        if (!updatedUser) {
-          console.log(`Failed to update user ${userId}`);
-          return res.status(500).json({
-            message: "Failed to update user role",
-          });
-        }
-
-        console.log(`Successfully updated user ${userId} role to ${role}`);
-
-        // Log role change for audit
-        try {
-          await storage.createAuditLog({
-            userId: adminUserId,
-            action: "role_change",
-            resourceType: "user",
-            resourceId: userId,
-            ipAddress: req.ip || req.connection.remoteAddress || "unknown",
-            userAgent: req.headers["user-agent"] || "unknown",
-            success: true,
-            details: {
-              targetUser: userId,
-              oldRole: existingUser.role,
-              newRole: role,
-            },
-          });
-        } catch (auditError) {
-          console.error(
-            "Failed to create audit log for role change:",
-            auditError,
-          );
-        }
-
-        res.json({
-          message: "User role updated successfully",
-          user: {
-            id: updatedUser.id,
-            role: updatedUser.role,
-          }
-        });
-      } catch (error) {
-        console.error("Error updating user role:", error);
-        res.status(500).json({
-          message: "Failed to update user role",
-          error: error instanceof Error ? error.message : "Unknown error"
-        });
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
       }
-    },
-  );
+
+      if (!role || !["admin", "user", "viewer"].includes(role)) {
+        return res.status(400).json({ message: "Invalid role. Must be 'admin', 'user', or 'viewer'" });
+      }
+
+      // Check if user exists
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!existingUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Update user role
+      const [updatedUser] = await db
+        .update(users)
+        .set({
+          role: role,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+        .returning();
+
+      console.log(`Successfully updated user ${userId} role to ${role}`);
+
+      // Log role change for audit
+      try {
+        await storage.createAuditLog({
+          userId: adminUserId,
+          action: "role_change",
+          resourceType: "user",
+          resourceId: userId,
+          ipAddress: req.ip || req.connection.remoteAddress || "unknown",
+          userAgent: req.headers["user-agent"] || "unknown",
+          success: true,
+          details: {
+            targetUser: userId,
+            oldRole: existingUser.role,
+            newRole: role,
+          },
+        });
+      } catch (auditError) {
+        console.error("Failed to create audit log for role change:", auditError);
+      }
+
+      res.json({
+        message: "User role updated successfully",
+        user: {
+          id: updatedUser.id,
+          role: updatedUser.role,
+        }
+      });
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({
+        message: "Failed to update user role",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
 }

@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { registerRoutes } from "./routes";
-import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
+import { requireAuth, requireAdmin, setupAuth } from "./auth";
 import { LineImageService } from './lineImageService';
 import { setupVite, serveStatic, log } from "./vite";
 import debugRoutes from "./debug-routes";
@@ -94,10 +94,15 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Setup authentication
+  setupAuth(app);
+
   // Mount debug routes BEFORE registerRoutes to ensure higher priority
   app.use(debugRoutes);
   app.use("/api", debugRoutes);
   app.use("/api", debugChunkTest);
+  app.use("/api", requireAuth);
+
 
   // Register HR API routes
   // registerHrApiRoutes(app);
