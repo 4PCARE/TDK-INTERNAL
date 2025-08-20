@@ -82,7 +82,7 @@ router.get('/login', (req, res) => {
     return res.redirect('/');
   }
 
-  // Serve Replit auth login page
+  // Serve Replit auth login page with updated authentication
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -114,18 +114,71 @@ router.get('/login', (req, res) => {
             cursor: pointer; 
             text-decoration: none; 
             display: inline-block; 
+            margin: 10px;
           }
           .btn:hover { background: #0052a3; }
+          .info { 
+            background: #e3f2fd; 
+            border-left: 4px solid #2196f3; 
+            padding: 1rem; 
+            margin: 1rem 0; 
+            text-align: left;
+          }
         </style>
       </head>
       <body>
         <div class="login-container">
           <h1>AI-KMS Login</h1>
-          <p>Please authenticate with Replit to continue</p>
-          <div>
-            <script authed="window.location.href = '/'" src="https://auth.util.repl.co/script.js"></script>
+          <div class="info">
+            <h3>Authentication Required</h3>
+            <p>This application requires Replit authentication. To access the dashboard:</p>
+            <ol>
+              <li>Make sure you're logged into Replit</li>
+              <li>Access this app through Replit's interface (not external URLs)</li>
+              <li>The authentication will happen automatically</li>
+            </ol>
           </div>
+          <button class="btn" onclick="window.location.reload()">Check Authentication Status</button>
+          <button class="btn" onclick="window.location.href = '/'">Go to Home</button>
+          <button class="btn" onclick="devLogin()" style="background: #f44336;">Development Login</button>
         </div>
+        <script>
+          // Check if we're in Replit environment and redirect if authenticated
+          setTimeout(() => {
+            fetch('/api/me')
+              .then(response => response.json())
+              .then(data => {
+                if (data.authenticated) {
+                  window.location.href = '/';
+                }
+              })
+              .catch(() => {
+                console.log('Authentication check failed - this is normal if not authenticated');
+              });
+          }, 1000);
+          
+          // Development login function
+          function devLogin() {
+            fetch('/api/dev-login', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                window.location.href = '/';
+              } else {
+                alert('Development login failed');
+              }
+            })
+            .catch(() => {
+              alert('Development login failed');
+            });
+          }
+        </script>
       </body>
     </html>
   `);
@@ -470,6 +523,54 @@ router.post('/logout', (req, res) => {
   }
 
   res.json({ message: 'Logged out successfully' });
+});
+
+// Development login endpoint
+router.post('/api/dev-login', (req, res) => {
+  console.log('🧪 Development login requested');
+  
+  // Create a development user
+  const devUser = {
+    id: 'dev-user-001',
+    email: 'dev@example.com',
+    firstName: 'Dev',
+    lastName: 'User',
+    roles: ['admin', 'user'],
+    passwordHash: 'dev',
+    createdAt: new Date(),
+    lastLogin: new Date()
+  };
+
+  // Generate tokens
+  const token = generateToken('jwt');
+  const refreshToken = generateToken('refresh');
+
+  // Store session
+  sessions.set(token, { 
+    email: devUser.email, 
+    userId: devUser.id, 
+    createdAt: new Date(),
+    isDevMode: true 
+  });
+  sessions.set(refreshToken, { 
+    email: devUser.email, 
+    userId: devUser.id, 
+    type: 'refresh', 
+    createdAt: new Date(),
+    isDevMode: true 
+  });
+
+  res.json({
+    success: true,
+    accessToken: token,
+    refreshToken: refreshToken,
+    user: {
+      id: devUser.id,
+      email: devUser.email,
+      firstName: devUser.firstName,
+      lastName: devUser.lastName
+    }
+  });
 });
 
 export { router };
