@@ -71,14 +71,64 @@ router.get('/methods', (req, res) => {
 
 // Login page route - Replit Auth integration
 router.get('/login', (req, res) => {
+  console.log('🔐 Login page requested');
+  
   // Check if user is already authenticated via Replit headers
   const replitUserId = req.headers['x-replit-user-id'];
   const replitUserName = req.headers['x-replit-user-name'];
 
-  if (replitUserId && replitUserName) {
-    // Create or get user from Replit auth
-    const email = `${replitUserId}@replit.user`;
-    let user = users.get(email);
+  if (replitUserId && replitUserName && replitUserId.trim() !== '') {
+    console.log('✅ User already authenticated, redirecting to home');
+    return res.redirect('/');
+  }
+
+  // Serve Replit auth login page
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Login - AI-KMS</title>
+        <style>
+          body { 
+            font-family: Arial, sans-serif; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+            background: #f5f5f5; 
+          }
+          .login-container { 
+            background: white; 
+            padding: 2rem; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+            text-align: center; 
+          }
+          .btn { 
+            background: #0066cc; 
+            color: white; 
+            padding: 12px 24px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            text-decoration: none; 
+            display: inline-block; 
+          }
+          .btn:hover { background: #0052a3; }
+        </style>
+      </head>
+      <body>
+        <div class="login-container">
+          <h1>AI-KMS Login</h1>
+          <p>Please authenticate with Replit to continue</p>
+          <div>
+            <script authed="window.location.href = '/'" src="https://auth.util.repl.co/script.js"></script>
+          </div>
+        </div>
+      </body>
+    </html>
+  `);
 
     if (!user) {
       // Create new Replit user
@@ -255,12 +305,13 @@ router.get('/me', (req, res) => {
   const userRoles = req.headers['x-replit-user-roles'] as string;
 
   // Check if user is authenticated via Replit headers
-  if (!userId || userId.trim() === '' || userName === '' || userName === undefined) {
+  if (!userId || userId.trim() === '' || !userName || userName.trim() === '') {
+    console.log('❌ No valid Replit headers found');
     return res.status(401).json({
       error: 'Not authenticated',
       message: 'Please login with Replit to continue',
       authenticated: false,
-      redirectTo: '/login'
+      redirectTo: '/api/login'
     });
   }
 
