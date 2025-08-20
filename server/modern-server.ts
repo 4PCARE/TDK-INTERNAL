@@ -28,15 +28,30 @@ app.get('/healthz', (req, res) => {
   });
 });
 
-// Root route
-app.get('/', (req, res) => {
-  res.json({
-    message: 'AI-KMS Modern Server',
-    version: '2.0.0',
-    timestamp: new Date().toISOString(),
-    port: PORT
-  });
+// Helper function to proxy requests to the frontend
+const proxyToFrontend = createProxyMiddleware({
+  target: 'http://localhost:5000',
+  changeOrigin: true,
+  ws: true,
+  onError: (err, req, res) => {
+    console.error('Frontend proxy error:', err.message);
+    if (!res.headersSent) {
+      res.status(502).json({
+        error: 'Frontend service unavailable',
+        message: 'Could not connect to React app',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
 });
+
+
+// Handle root route - serve frontend and let it handle auth
+  app.get('/', (req, res) => {
+    // Always serve the frontend - let the React app handle authentication
+    proxyToFrontend(req, res);
+  });
+
 
 // Proxy API routes to the API Gateway
 app.use('/api', createProxyMiddleware({
@@ -72,21 +87,7 @@ app.use('/api', createProxyMiddleware({
 }));
 
 // Proxy to frontend for all other routes
-app.use('*', createProxyMiddleware({
-  target: 'http://localhost:5000',
-  changeOrigin: true,
-  ws: true,
-  onError: (err, req, res) => {
-    console.error('Frontend proxy error:', err.message);
-    if (!res.headersSent) {
-      res.status(502).json({
-        error: 'Frontend service unavailable',
-        message: 'Could not connect to React app',
-        timestamp: new Date().toISOString()
-      });
-    }
-  }
-}));
+app.use('*', proxyToFrontend);
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Modern Server running on port ${PORT}`);

@@ -182,50 +182,12 @@ router.get('/login', (req, res) => {
           <p class="subtitle">Knowledge Management System</p>
           <div class="auth-section">
             <p>Please authenticate with your Replit account to continue</p>
-            <script authed="location.reload()" src="https://auth.util.repl.co/script.js"></script>
+            <script authed="window.location.href = '/'" src="https://auth.util.repl.co/script.js"></script>
             <div class="loading">
               <p>Redirecting after authentication...</p>
             </div>
           </div>
         </div>
-
-        <script>
-          // Handle authentication completion
-          function handleAuthComplete() {
-            document.querySelector('.auth-section').style.display = 'none';
-            document.querySelector('.loading').style.display = 'block';
-
-            // Call our auth endpoint to create session
-            fetch('/api/replit-auth', {
-              method: 'GET',
-              credentials: 'include'
-            })
-            .then(response => response.json())
-            .then(data => {
-              if (data.accessToken) {
-                // Store token in localStorage for frontend use
-                localStorage.setItem('auth_token', data.accessToken);
-                localStorage.setItem('refresh_token', data.refreshToken);
-                // Redirect to dashboard
-                window.location.href = '/';
-              } else {
-                console.error('Auth failed:', data);
-                window.location.reload();
-              }
-            })
-            .catch(error => {
-              console.error('Auth error:', error);
-              window.location.reload();
-            });
-          }
-
-          // Show loading state after auth completes
-          window.addEventListener('message', function(event) {
-            if (event.data === 'auth_complete') {
-              handleAuthComplete();
-            }
-          });
-        </script>
       </body>
     </html>
   `);
@@ -281,38 +243,60 @@ router.get('/api/replit-auth', (req, res) => {
 // Get current user info
 router.get('/me', (req, res) => {
   console.log('🔍 User info request:', {
-    headers: req.headers,
+    headers: {
+      host: req.headers.host,
+      'user-agent': req.headers['user-agent'],
+      accept: req.headers.accept,
+      'accept-encoding': req.headers['accept-encoding'],
+      'accept-language': req.headers['accept-language'],
+      credentials: req.headers.credentials,
+      referer: req.headers.referer,
+      'sec-ch-ua': req.headers['sec-ch-ua'],
+      'sec-ch-ua-mobile': req.headers['sec-ch-ua-mobile'],
+      'sec-ch-ua-platform': req.headers['sec-ch-ua-platform'],
+      'sec-fetch-dest': req.headers['sec-fetch-dest'],
+      'sec-fetch-mode': req.headers['sec-fetch-mode'],
+      'sec-fetch-site': req.headers['sec-fetch-site'],
+      'x-forwarded-for': req.headers['x-forwarded-for'],
+      'x-forwarded-proto': req.headers['x-forwarded-proto'],
+      'x-replit-user-bio': req.headers['x-replit-user-bio'],
+      'x-replit-user-id': req.headers['x-replit-user-id'],
+      'x-replit-user-name': req.headers['x-replit-user-name'],
+      'x-replit-user-profile-image': req.headers['x-replit-user-profile-image'],
+      'x-replit-user-roles': req.headers['x-replit-user-roles'],
+      'x-replit-user-teams': req.headers['x-replit-user-teams'],
+      'x-replit-user-url': req.headers['x-replit-user-url'],
+      connection: req.headers.connection,
+      'content-type': req.headers['content-type']
+    },
     authHeader: req.headers.authorization
   });
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ error: 'No authorization header' });
+  const userId = req.headers['x-replit-user-id'] as string;
+  const userName = req.headers['x-replit-user-name'] as string;
+  const userBio = req.headers['x-replit-user-bio'] as string;
+  const userProfileImage = req.headers['x-replit-user-profile-image'] as string;
+  const userRoles = req.headers['x-replit-user-roles'] as string;
+
+  if (!userId || userId.trim() === '') {
+    return res.status(401).json({
+      error: 'Not authenticated',
+      message: 'Please login with Replit to continue',
+      redirectTo: '/login'
+    });
   }
 
-  const token = authHeader.replace('Bearer ', '');
-  const session = sessions.get(token);
-
-  if (!session || isTokenExpired(session)) {
-    return res.status(401).json({ error: 'Invalid or expired token' });
-  }
-
-  const user = users.get(session.email);
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-
+  // Return user info from Replit headers
   res.json({
-    user: {
-      id: user.id,
-      email: user.email,
-      claims: {
-        sub: user.id,
-        email: user.email,
-        first_name: user.firstName,
-        last_name: user.lastName
-      }
-    }
+    id: userId,
+    username: userName,
+    name: userName,
+    email: `${userName}@replit.com`, // Replit doesn't provide email in headers
+    bio: userBio,
+    profileImage: userProfileImage,
+    roles: userRoles?.split(',') || [],
+    authenticated: true,
+    provider: 'replit'
   });
 });
 

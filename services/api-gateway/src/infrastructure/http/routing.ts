@@ -89,6 +89,17 @@ export function setupRouting(app: Express): void {
   });
 
   // Auth service routes (including login, callback, etc.)
+  app.get('/login', (req, res) => {
+    console.log('🔐 Login page request, proxying to auth service');
+    const serviceUrl = getServiceUrl('auth');
+    if (!serviceUrl) {
+      return res.status(503).json({ error: 'Auth service unavailable' });
+    }
+    const targetUrl = `${serviceUrl}/login`;
+    const proxyHandler = createProxyHandler(targetUrl);
+    proxyHandler(req, res);
+  });
+
   app.use('/api/login', (req, res) => {
     const serviceUrl = getServiceUrl('auth');
     if (!serviceUrl) {
