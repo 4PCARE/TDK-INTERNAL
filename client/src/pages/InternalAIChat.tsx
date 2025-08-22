@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
@@ -28,6 +30,13 @@ interface ChatMessage {
   timestamp: string;
 }
 
+interface Agent {
+  id: number;
+  name: string;
+  description?: string;
+  isActive: boolean;
+}
+
 export default function InternalAIChat() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -35,6 +44,7 @@ export default function InternalAIChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -51,6 +61,12 @@ export default function InternalAIChat() {
     retry: false,
   });
 
+  // Get available agents
+  const { data: agents = [] } = useQuery({
+    queryKey: ["/api/agents"],
+    retry: false,
+  }) as { data: Agent[] };
+
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
       const response = await fetch("/api/chat/message", {
@@ -59,7 +75,8 @@ export default function InternalAIChat() {
         body: JSON.stringify({ 
           message: content,
           conversationId: null,
-          documentId: null
+          documentId: null,
+          agentId: selectedAgentId ? parseInt(selectedAgentId) : null
         }),
       });
 
@@ -160,6 +177,42 @@ export default function InternalAIChat() {
           </Button>
         </div>
 
+        {/* Agent Selection */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-3">
+              <Label htmlFor="agent-select">Select AI Agent</Label>
+              <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
+                <SelectTrigger id="agent-select">
+                  <SelectValue placeholder="Choose an AI agent to chat with" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Default AI Assistant</SelectItem>
+                  {agents.filter(agent => agent.isActive).map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id.toString()}>
+                      <div className="flex items-center gap-2">
+                        <Bot className="w-4 h-4" />
+                        <div className="flex flex-col">
+                          <span className="font-medium">{agent.name}</span>
+                          {agent.description && (
+                            <span className="text-xs text-gray-500">{agent.description}</span>
+                          )}
+                        </div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500">
+                {selectedAgentId 
+                  ? `Chatting with ${agents.find(a => a.id.toString() === selectedAgentId)?.name || 'selected agent'}`
+                  : 'Using default AI assistant for general questions'
+                }
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Chat Interface */}
         <div className="flex-1 flex flex-col min-h-0">
           <Card className="flex-1 flex flex-col min-h-0">
@@ -167,6 +220,12 @@ export default function InternalAIChat() {
               <CardTitle className="flex items-center space-x-2">
                 <MessageSquare className="w-5 h-5" />
                 <span>Live AI Chat</span>
+                {selectedAgentId && (
+                  <div className="flex items-center space-x-1 text-sm text-purple-600">
+                    <Bot className="w-4 h-4" />
+                    <span>{agents.find(a => a.id.toString() === selectedAgentId)?.name}</span>
+                  </div>
+                )}
                 <div className="ml-auto text-sm text-gray-500">
                   {documents.length} documents available
                 </div>
@@ -179,12 +238,22 @@ export default function InternalAIChat() {
                 <div className="space-y-4">
                   {messages.length === 0 ? (
                     <div className="text-center py-8">
-                      <Brain className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      {selectedAgentId ? (
+                        <Bot className="w-12 h-12 text-purple-400 mx-auto mb-4" />
+                      ) : (
+                        <Brain className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      )}
                       <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        Welcome to AI Live Chat
+                        {selectedAgentId 
+                          ? `Chat with ${agents.find(a => a.id.toString() === selectedAgentId)?.name}`
+                          : 'Welcome to AI Live Chat'
+                        }
                       </h3>
                       <p className="text-gray-500 mb-4">
-                        Start a conversation with your AI assistant. I can help answer questions about your documents and provide insights from your knowledge base.
+                        {selectedAgentId 
+                          ? `Start a conversation with your selected AI agent. ${agents.find(a => a.id.toString() === selectedAgentId)?.description || 'This agent can help answer your questions using the knowledge base.'}`
+                          : 'Start a conversation with your AI assistant. I can help answer questions about your documents and provide insights from your knowledge base.'
+                        }
                       </p>
                       <div className="flex flex-wrap gap-2 justify-center">
                         <Button
@@ -203,6 +272,16 @@ export default function InternalAIChat() {
                           <MessageSquare className="w-4 h-4 mr-2" />
                           Help me search
                         </Button>
+                        {!selectedAgentId && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSendMessage("What can you help me with?")}
+                          >
+                            <Brain className="w-4 h-4 mr-2" />
+                            What can you help with?
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ) : (
