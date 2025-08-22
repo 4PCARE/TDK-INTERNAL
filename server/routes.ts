@@ -2124,7 +2124,10 @@ ${document.summary}`;
 
       console.log(`🔍 [DEBUG] Route hit: /api/internal-chat/sessions/${agentId}`);
       console.log(`🔍 [DEBUG] User ID: ${userId}`);
-      console.log(`🔍 [DEBUG] Agent ID param: ${agentId}`);</old_str>
+      console.log(`🔍 [DEBUG] Agent ID param: ${agentId}`);
+
+      // Parse and validate agent ID
+      const parsedAgentId = parseInt(agentId);</old_str>
 
       // Parse and validate agent ID
       const parsedAgentId = parseInt(agentId);
