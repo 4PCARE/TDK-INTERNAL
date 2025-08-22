@@ -99,6 +99,11 @@ export default function InternalAIChat() {
   // Fetch chat sessions for selected agent
   const { data: sessions = [] } = useQuery({
     queryKey: ["/api/internal-chat/sessions", selectedAgentId],
+    queryFn: async () => {
+      if (!selectedAgentId) return [];
+      const response = await apiRequest("GET", `/api/internal-chat/sessions/${selectedAgentId}`);
+      return response.json();
+    },
     enabled: isAuthenticated && !!selectedAgentId,
     retry: false,
   }) as { data: ChatSession[]; isLoading: boolean };
@@ -106,13 +111,23 @@ export default function InternalAIChat() {
   // Create new chat session mutation
   const createSessionMutation = useMutation({
     mutationFn: async (agentId: number) => {
+      const agentName = agents.find(a => a.id === agentId)?.name || 'Agent';
+      console.log('Creating session for agent:', agentId, agentName);
+      
       const response = await apiRequest("POST", "/api/internal-chat/sessions", {
         agentId,
-        title: `Chat with ${agents.find(a => a.id === agentId)?.name || 'Agent'} - ${new Date().toLocaleDateString()}`,
+        title: `Chat with ${agentName} - ${new Date().toLocaleDateString()}`,
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       return response.json();
     },
     onSuccess: (session) => {
+      console.log('Session created successfully:', session);
       setCurrentSessionId(session.id);
       setChatHistory([]);
       queryClient.invalidateQueries({
@@ -120,6 +135,7 @@ export default function InternalAIChat() {
       });
     },
     onError: (error) => {
+      console.error('Session creation failed:', error);
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -133,7 +149,7 @@ export default function InternalAIChat() {
       }
       toast({
         title: "Error",
-        description: "Failed to create chat session",
+        description: error.message || "Failed to create chat session",
         variant: "destructive",
       });
     },
@@ -146,11 +162,19 @@ export default function InternalAIChat() {
         throw new Error("No active session");
       }
 
+      console.log('Sending message:', { sessionId: currentSessionId, agentId: selectedAgentId, content });
+
       const response = await apiRequest("POST", "/api/internal-chat/message", {
         sessionId: currentSessionId,
         agentId: selectedAgentId,
         content,
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       return response.json();
     },
     onSuccess: (data) => {

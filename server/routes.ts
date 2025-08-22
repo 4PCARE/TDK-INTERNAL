@@ -2000,119 +2000,119 @@ ${document.summary}`;
 
 
 // Internal AI Chat Studio endpoints
-app.post("/api/internal-chat/sessions", requireAuth, async (req, res) => {
-  try {
-    const { agentId, title } = req.body;
-    const userId = req.user.id;
+  app.post("/api/internal-chat/sessions", isAuthenticated, async (req: any, res) => {
+    try {
+      const { agentId, title } = req.body;
+      const userId = req.user.claims.sub;
 
-    // Verify user owns the agent
-    const agent = await storage.getAgentChatbot(agentId, userId);
-    if (!agent) {
-      return res.status(404).json({ error: "Agent not found or access denied" });
-    }
+      // Verify user owns the agent
+      const agent = await storage.getAgentChatbot(agentId, userId);
+      if (!agent) {
+        return res.status(404).json({ error: "Agent not found or access denied" });
+      }
 
-    // Create new session
-    const sessionId = `internal_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-    
-    // Store session in database (you may want to create a dedicated table)
-    const session = {
-      id: sessionId,
-      agentId,
-      agentName: agent.name,
-      userId,
-      title: title || `Chat with ${agent.name}`,
-      createdAt: new Date().toISOString(),
-      messageCount: 0,
-    };
-
-    // For now, we'll store in memory or use existing chat history with special channel type
-    res.json(session);
-  } catch (error) {
-    console.error("Error creating internal chat session:", error);
-    res.status(500).json({ error: "Failed to create chat session" });
-  }
-});
-
-app.get("/api/internal-chat/sessions/:agentId", requireAuth, async (req, res) => {
-  try {
-    const { agentId } = req.params;
-    const userId = req.user.id;
-
-    // Verify user owns the agent
-    const agent = await storage.getAgentChatbot(parseInt(agentId), userId);
-    if (!agent) {
-      return res.status(404).json({ error: "Agent not found or access denied" });
-    }
-
-    // Get recent sessions (mock data for now - you can implement proper storage)
-    const sessions = [
-      {
-        id: `internal_${Date.now()}_demo`,
-        agentId: parseInt(agentId),
+      // Create new session
+      const sessionId = `internal_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+      
+      // Store session in database (you may want to create a dedicated table)
+      const session = {
+        id: sessionId,
+        agentId,
         agentName: agent.name,
+        userId,
+        title: title || `Chat with ${agent.name}`,
         createdAt: new Date().toISOString(),
         messageCount: 0,
+      };
+
+      // For now, we'll store in memory or use existing chat history with special channel type
+      res.json(session);
+    } catch (error) {
+      console.error("Error creating internal chat session:", error);
+      res.status(500).json({ error: "Failed to create chat session" });
+    }
+  });
+
+  app.get("/api/internal-chat/sessions/:agentId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { agentId } = req.params;
+      const userId = req.user.claims.sub;
+
+      // Verify user owns the agent
+      const agent = await storage.getAgentChatbot(parseInt(agentId), userId);
+      if (!agent) {
+        return res.status(404).json({ error: "Agent not found or access denied" });
       }
-    ];
 
-    res.json(sessions);
-  } catch (error) {
-    console.error("Error fetching internal chat sessions:", error);
-    res.status(500).json({ error: "Failed to fetch chat sessions" });
-  }
-});
+      // Get recent sessions (mock data for now - you can implement proper storage)
+      const sessions = [
+        {
+          id: `internal_${Date.now()}_demo`,
+          agentId: parseInt(agentId),
+          agentName: agent.name,
+          createdAt: new Date().toISOString(),
+          messageCount: 0,
+        }
+      ];
 
-app.post("/api/internal-chat/message", requireAuth, async (req, res) => {
-  try {
-    const { sessionId, agentId, content } = req.body;
-    const userId = req.user.id;
-
-    // Verify user owns the agent
-    const agent = await storage.getAgentChatbot(agentId, userId);
-    if (!agent) {
-      return res.status(404).json({ error: "Agent not found or access denied" });
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching internal chat sessions:", error);
+      res.status(500).json({ error: "Failed to fetch chat sessions" });
     }
+  });
 
-    console.log(`🤖 Internal Chat: User ${userId} sending message to agent ${agentId}: "${content}"`);
+  app.post("/api/internal-chat/message", isAuthenticated, async (req: any, res) => {
+    try {
+      const { sessionId, agentId, content } = req.body;
+      const userId = req.user.claims.sub;
 
-    // Import the agent bot functionality
-    const { processMessage } = await import("./agentBot");
+      // Verify user owns the agent
+      const agent = await storage.getAgentChatbot(agentId, userId);
+      if (!agent) {
+        return res.status(404).json({ error: "Agent not found or access denied" });
+      }
 
-    // Create bot context for internal chat
-    const botContext = {
-      userId: userId,
-      channelType: "internal_chat",
-      channelId: sessionId,
-      agentId: agentId,
-      messageId: `internal_${Date.now()}`,
-      lineIntegration: null, // Not needed for internal chat
-    };
+      console.log(`🤖 Internal Chat: User ${userId} sending message to agent ${agentId}: "${content}"`);
 
-    // Create bot message
-    const botMessage = {
-      type: "text",
-      content: content,
-      metadata: {},
-    };
+      // Import the agent bot functionality
+      const { processMessage } = await import("./agentBot");
 
-    // Process message with agent bot
-    const botResponse = await processMessage(botMessage, botContext);
+      // Create bot context for internal chat
+      const botContext = {
+        userId: userId,
+        channelType: "internal_chat",
+        channelId: sessionId,
+        agentId: agentId,
+        messageId: `internal_${Date.now()}`,
+        lineIntegration: null, // Not needed for internal chat
+      };
 
-    if (!botResponse.success) {
-      return res.status(500).json({ error: botResponse.error || "Failed to process message" });
+      // Create bot message
+      const botMessage = {
+        type: "text",
+        content: content,
+        metadata: {},
+      };
+
+      // Process message with agent bot
+      const botResponse = await processMessage(botMessage, botContext);
+
+      if (!botResponse.success) {
+        return res.status(500).json({ error: botResponse.error || "Failed to process message" });
+      }
+
+      console.log(`✅ Internal Chat: Agent ${agentId} response: "${botResponse.response}"`);
+
+      res.json({
+        response: botResponse.response,
+        sessionId: sessionId,
+      });
+    } catch (error) {
+      console.error("Error in internal chat message:", error);
+      res.status(500).json({ error: "Failed to send message" });
     }
-
-    console.log(`✅ Internal Chat: Agent ${agentId} response: "${botResponse.response}"`);
-
-    res.json({
-      response: botResponse.response,
-      sessionId: sessionId,
-    });
-  } catch (error) {
-    console.error("Error in internal chat message:", error);
-    res.status(500).json({ error: "Failed to send message" });
-  }
-});
+  });
 
         res.setHeader("Content-Length", fsSync.statSync(filePath).size);
 
