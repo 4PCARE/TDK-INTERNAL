@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -94,7 +95,6 @@ export default function Sidebar({
         { name: "Platform Integrations", href: "/integrations", icon: Share2 },
         { name: "Data Connections", href: "/data-connections", icon: Database },
         { name: "AI Assistant", href: "/ai-assistant", icon: Brain },
-        { name: "Internal AI Chat", href: "/internal-ai-chat", icon: Bot },
       ]
     },
     {

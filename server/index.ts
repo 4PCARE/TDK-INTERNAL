@@ -79,7 +79,7 @@ app.use((req, res, next) => {
   // Register HR API routes
   registerHrApiRoutes(app);
 
-  registerRoutes(app);
+  const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -89,11 +89,20 @@ app.use((req, res, next) => {
     throw err;
   });
 
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
+  }
+
   // ALWAYS serve the app on port 80 for production or 5000 for development
   // this serves both the API and the client.
   // const port = process.env.NODE_ENV === 'production' ? 80 : 5000;
   const port = process.env.PORT || 5000;
-  const httpServer = app.listen(
+  const httpServer = server.listen(
     {
       port,
       host: "0.0.0.0",
@@ -103,15 +112,6 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
     },
   );
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, httpServer);
-  } else {
-    serveStatic(app);
-  }
 
   // Handle graceful shutdown
   const gracefulShutdown = (signal: string) => {

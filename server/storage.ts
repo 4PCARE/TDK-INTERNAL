@@ -1916,44 +1916,6 @@ export class DatabaseStorage implements IStorage {
     return chatHistoryRecord;
   }
 
-  async getInternalChatSessions(userId: string, agentId: number): Promise<Array<{
-    id: string;
-    agentId: number;
-    agentName: string;
-    createdAt: string;
-    messageCount: number;
-  }>> {
-    const { chatHistory, agentChatbots } = await import('@shared/schema');
-    const { sql, desc, and, eq } = await import('drizzle-orm');
-
-    // Get unique sessions with message counts from chat_history
-    const sessions = await db
-      .select({
-        sessionId: chatHistory.channelId,
-        agentId: chatHistory.agentId,
-        agentName: agentChatbots.name,
-        createdAt: sql<string>`MIN(${chatHistory.createdAt})`.as('createdAt'),
-        messageCount: sql<number>`COUNT(*)`.as('messageCount'),
-      })
-      .from(chatHistory)
-      .leftJoin(agentChatbots, eq(chatHistory.agentId, agentChatbots.id))
-      .where(and(
-        eq(chatHistory.userId, userId),
-        eq(chatHistory.channelType, "internal_chat"),
-        eq(chatHistory.agentId, agentId)
-      ))
-      .groupBy(chatHistory.channelId, chatHistory.agentId, agentChatbots.name)
-      .orderBy(desc(sql`MIN(${chatHistory.createdAt})`));
-
-    return sessions.map(session => ({
-      id: session.sessionId,
-      agentId: session.agentId,
-      agentName: session.agentName || 'Unknown Agent',
-      createdAt: session.createdAt,
-      messageCount: Number(session.messageCount),
-    }));
-  }
-
   async updateChatHistoryMetadata(chatHistoryId: number, metadata: any): Promise<void> {
     const { chatHistory } = await import('@shared/schema');
     await db

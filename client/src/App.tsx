@@ -35,7 +35,6 @@ import UserFeedback from "@/pages/dashboards/UserFeedback";
 import AiResponseAnalysis from "@/pages/dashboards/AiResponseAnalysis";
 import OmnichannelSummarization from "@/pages/dashboards/OmnichannelSummarization";
 import AIAssistant from "@/pages/AIAssistant";
-import InternalAIChat from "@/pages/InternalAIChat";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -63,8 +62,6 @@ function Router() {
           <Route path="/search" component={Search} />
           <Route path="/categories" component={Categories} />
           <Route path="/ai-assistant" component={AIAssistant} />
-          <Route path="/internal-ai-chat" component={InternalAIChat} />
-          <Route path="/agent-chatbots" component={AgentChatbots} />
           <Route path="/meeting-notes" component={MeetingNotes} />
           <Route path="/integrations" component={Integrations} />
           <Route path="/data-connections" component={DataConnections} />
@@ -72,6 +69,8 @@ function Router() {
           <Route path="/admin" component={Admin} />
           <Route path="/user-management" component={UserManagement} />
           <Route path="/settings" component={Settings} />
+          <Route path="/agent-chatbots" component={AgentChatbots} />
+          <Route path="/create-agent-chatbot" component={CreateAgentChatbot} />
           <Route path="/agent-console" component={AgentConsole} />
           <Route path="/audit-monitoring" component={AuditMonitoring} />
           <Route path="/role-management" component={RoleManagement} />
