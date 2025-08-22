@@ -116,7 +116,9 @@ export default function InternalAIChat() {
     onError: (error) => {
       console.error(`🔍 [DEBUG] Sessions query error:`, error);
     }
-  }) as { data: ChatSession[]; isLoading: boolean };</old_str>
+  }) as { data: ChatSession[]; isLoading: boolean };
+
+  // Fetch messages for the currently selected session</old_str>
 
   // Fetch messages for the currently selected session
   const { data: sessionMessages = [], isLoading: isLoadingMessages } = useQuery({
