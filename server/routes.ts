@@ -1,16 +1,16 @@
 
 import { Express } from "express";
-import { authRoutes } from "./routes/authRoutes";
-import { documentRoutes } from "./routes/documentRoutes";
-import { agentRoutes } from "./routes/agentRoutes";
-import { widgetRoutes } from "./routes/widgetRoutes";
-import { adminRoutes } from "./routes/adminRoutes";
+import { registerAuthRoutes } from "./routes/authRoutes";
+import { registerDocumentRoutes } from "./routes/documentRoutes";
+import { registerAgentRoutes } from "./routes/agentRoutes";
+import { registerWidgetRoutes } from "./routes/widgetRoutes";
+import { registerAdminRoutes } from "./routes/adminRoutes";
 
 export function registerRoutes(app: Express): void {
   // Register all route modules
-  authRoutes(app);
-  documentRoutes(app);
-  agentRoutes(app);
-  widgetRoutes(app);
-  adminRoutes(app);
+  registerAuthRoutes(app);
+  registerDocumentRoutes(app);
+  registerAgentRoutes(app);
+  registerWidgetRoutes(app);
+  registerAdminRoutes(app);
 }
