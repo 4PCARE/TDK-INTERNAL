@@ -99,7 +99,7 @@ function Router() {
           <Route path="/user-activity" component={UserActivity} />
           <Route path="/survey" component={Survey} />
           <Route path="/audit-monitoring" component={AuditMonitoring} />
-          <Route path="/ai-live-chat" element={<InternalAIChat />} />
+          <Route path="/ai-live-chat" component={InternalAIChat} />
           <Route path="/not-found" component={NotFound} />
           <Route component={NotFound} />
         </Switch>
