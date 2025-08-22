@@ -2070,6 +2070,53 @@ ${document.summary}`;
     }
   });
 
+  // Get all internal chat sessions for user (without specific agent filter)
+  app.get("/api/internal-chat/sessions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+
+      console.log(`🔍 Fetching all internal chat sessions for user ${userId}`);
+
+      // Get all internal chat sessions across all agents
+      const { chatHistory, agentChatbots } = await import("@shared/schema");
+      const { eq, desc, sql, and } = await import('drizzle-orm');
+
+      const sessions = await db
+        .select({
+          sessionId: chatHistory.channelId,
+          agentId: chatHistory.agentId,
+          agentName: agentChatbots.name,
+          createdAt: sql<string>`MIN(${chatHistory.createdAt})`.as('createdAt'),
+          messageCount: sql<number>`COUNT(*)`.as('messageCount'),
+        })
+        .from(chatHistory)
+        .leftJoin(agentChatbots, eq(chatHistory.agentId, agentChatbots.id))
+        .where(and(
+          eq(chatHistory.userId, userId),
+          eq(chatHistory.channelType, "internal_chat")
+        ))
+        .groupBy(chatHistory.channelId, chatHistory.agentId, agentChatbots.name)
+        .orderBy(desc(sql`MIN(${chatHistory.createdAt})`));
+
+      const formattedSessions = sessions.map(session => ({
+        id: session.sessionId,
+        agentId: session.agentId,
+        agentName: session.agentName || 'Unknown Agent',
+        createdAt: session.createdAt,
+        messageCount: Number(session.messageCount),
+      }));
+
+      console.log(`📋 Returning ${formattedSessions.length} total sessions`);
+
+      res.setHeader('Content-Type', 'application/json');
+      res.json(formattedSessions);
+    } catch (error) {
+      console.error("❌ Error fetching all internal chat sessions:", error);
+      res.setHeader('Content-Type', 'application/json');
+      res.status(500).json({ error: "Failed to fetch chat sessions" });
+    }
+  });
+
   app.get("/api/internal-chat/sessions/:agentId", isAuthenticated, async (req: any, res) => {
     try {
       const { agentId } = req.params;
@@ -2105,6 +2152,35 @@ ${document.summary}`;
       console.error("❌ Error stack:", error.stack);
       res.setHeader('Content-Type', 'application/json');
       res.status(500).json({ error: "Failed to fetch chat sessions" });
+    }
+  });
+
+  // Get messages for a specific internal chat session (simplified endpoint)
+  app.get("/api/internal-chat/messages/:sessionId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { sessionId } = req.params;
+      const userId = req.user.claims.sub;
+
+      console.log(`📚 Fetching messages for session ${sessionId}, user ${userId}`);
+
+      // Get chat history for this session
+      const chatHistory = await storage.getChatHistory(
+        userId,
+        "internal_chat",
+        sessionId,
+        undefined, // agentId not required for this query
+        100 // Get up to 100 messages
+      );
+
+      console.log(`📚 Retrieved ${chatHistory.length} messages for session ${sessionId}`);
+
+      res.setHeader('Content-Type', 'application/json');
+      res.json(chatHistory);
+    } catch (error) {
+      console.error("❌ Error fetching chat messages:", error);
+      console.error("❌ Error stack:", error.stack);
+      res.setHeader('Content-Type', 'application/json');
+      res.status(500).json({ error: "Failed to fetch chat messages" });
     }
   });
 
