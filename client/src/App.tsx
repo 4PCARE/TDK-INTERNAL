@@ -35,6 +35,7 @@ import UserFeedback from "@/pages/dashboards/UserFeedback";
 import AiResponseAnalysis from "@/pages/dashboards/AiResponseAnalysis";
 import OmnichannelSummarization from "@/pages/dashboards/OmnichannelSummarization";
 import AIAssistant from "@/pages/AIAssistant";
+import InternalAIChat from "@/pages/InternalAIChat";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -98,6 +99,7 @@ function Router() {
           <Route path="/user-activity" component={UserActivity} />
           <Route path="/survey" component={Survey} />
           <Route path="/audit-monitoring" component={AuditMonitoring} />
+          <Route path="/ai-live-chat" element={<InternalAIChat />} />
           <Route path="/not-found" component={NotFound} />
           <Route component={NotFound} />
         </Switch>
