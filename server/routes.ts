@@ -2075,26 +2075,36 @@ ${document.summary}`;
       const { agentId } = req.params;
       const userId = req.user.claims.sub;
 
+      console.log(`🔍 Fetching sessions for agent ${agentId}, user ${userId}`);
+
+      // Parse and validate agent ID
+      const parsedAgentId = parseInt(agentId);
+      if (isNaN(parsedAgentId)) {
+        console.log("❌ Invalid agentId format:", agentId);
+        return res.status(400).json({ error: "Invalid agent ID format" });
+      }
+
       // Verify user owns the agent
-      const agent = await storage.getAgentChatbot(parseInt(agentId), userId);
+      const agent = await storage.getAgentChatbot(parsedAgentId, userId);
       if (!agent) {
+        console.log(`❌ Agent ${parsedAgentId} not found or access denied for user ${userId}`);
         return res.status(404).json({ error: "Agent not found or access denied" });
       }
 
-      // Get recent sessions (mock data for now - you can implement proper storage)
-      const sessions = [
-        {
-          id: `internal_${Date.now()}_demo`,
-          agentId: parseInt(agentId),
-          agentName: agent.name,
-          createdAt: new Date().toISOString(),
-          messageCount: 0,
-        }
-      ];
+      console.log(`✅ Agent verified: ${agent.name} (ID: ${agent.id})`);
 
+      // For now, return empty sessions array since we don't have persistent session storage yet
+      // This can be enhanced later to store and retrieve actual chat sessions
+      const sessions = [];
+
+      console.log(`📋 Returning ${sessions.length} sessions for agent ${parsedAgentId}`);
+
+      res.setHeader('Content-Type', 'application/json');
       res.json(sessions);
     } catch (error) {
-      console.error("Error fetching internal chat sessions:", error);
+      console.error("❌ Error fetching internal chat sessions:", error);
+      console.error("❌ Error stack:", error.stack);
+      res.setHeader('Content-Type', 'application/json');
       res.status(500).json({ error: "Failed to fetch chat sessions" });
     }
   });
