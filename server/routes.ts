@@ -2005,8 +2005,14 @@ ${document.summary}`;
       const { agentId, title } = req.body;
       const userId = req.user.claims.sub;
 
+      console.log("Creating internal chat session:", { agentId, title, userId });
+
+      if (!agentId) {
+        return res.status(400).json({ error: "Agent ID is required" });
+      }
+
       // Verify user owns the agent
-      const agent = await storage.getAgentChatbot(agentId, userId);
+      const agent = await storage.getAgentChatbot(parseInt(agentId), userId);
       if (!agent) {
         return res.status(404).json({ error: "Agent not found or access denied" });
       }
@@ -2017,7 +2023,7 @@ ${document.summary}`;
       // Store session in database (you may want to create a dedicated table)
       const session = {
         id: sessionId,
-        agentId,
+        agentId: parseInt(agentId),
         agentName: agent.name,
         userId,
         title: title || `Chat with ${agent.name}`,
@@ -2025,7 +2031,8 @@ ${document.summary}`;
         messageCount: 0,
       };
 
-      // For now, we'll store in memory or use existing chat history with special channel type
+      console.log("Internal chat session created successfully:", session);
+
       res.json(session);
     } catch (error) {
       console.error("Error creating internal chat session:", error);
