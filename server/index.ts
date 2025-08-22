@@ -79,7 +79,7 @@ app.use((req, res, next) => {
   // Register HR API routes
   registerHrApiRoutes(app);
 
-  const server = await registerRoutes(app);
+  registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -102,7 +102,7 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // const port = process.env.NODE_ENV === 'production' ? 80 : 5000;
   const port = process.env.PORT || 5000;
-  const httpServer = server.listen(
+  const httpServer = app.listen(
     {
       port,
       host: "0.0.0.0",
