@@ -75,7 +75,7 @@ export default function InternalAIChat() {
           message: content,
           conversationId: null,
           documentId: null,
-          agentId: selectedAgentId ? parseInt(selectedAgentId) : null
+          agentId: selectedAgentId && selectedAgentId !== "default" ? parseInt(selectedAgentId) : null
         }),
       });
 
@@ -186,7 +186,7 @@ export default function InternalAIChat() {
                   <SelectValue placeholder="Choose an AI agent to chat with" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Default AI Assistant</SelectItem>
+                  <SelectItem value="default">Default AI Assistant</SelectItem>
                   {agents.filter(agent => agent.isActive).map((agent) => (
                     <SelectItem key={agent.id} value={agent.id.toString()}>
                       <div className="flex items-center gap-2">
@@ -203,7 +203,7 @@ export default function InternalAIChat() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-gray-500">
-                {selectedAgentId 
+                {selectedAgentId && selectedAgentId !== "default"
                   ? `Chatting with ${agents.find(a => a.id.toString() === selectedAgentId)?.name || 'selected agent'}`
                   : 'Using default AI assistant for general questions'
                 }
@@ -219,7 +219,7 @@ export default function InternalAIChat() {
               <CardTitle className="flex items-center space-x-2">
                 <MessageSquare className="w-5 h-5" />
                 <span>Live AI Chat</span>
-                {selectedAgentId && (
+                {selectedAgentId && selectedAgentId !== "default" && (
                   <div className="flex items-center space-x-1 text-sm text-purple-600">
                     <Bot className="w-4 h-4" />
                     <span>{agents.find(a => a.id.toString() === selectedAgentId)?.name}</span>
@@ -243,13 +243,13 @@ export default function InternalAIChat() {
                         <Brain className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                       )}
                       <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        {selectedAgentId 
+                        {selectedAgentId && selectedAgentId !== "default"
                           ? `Chat with ${agents.find(a => a.id.toString() === selectedAgentId)?.name}`
                           : 'Welcome to AI Live Chat'
                         }
                       </h3>
                       <p className="text-gray-500 mb-4">
-                        {selectedAgentId 
+                        {selectedAgentId && selectedAgentId !== "default"
                           ? `Start a conversation with your selected AI agent. ${agents.find(a => a.id.toString() === selectedAgentId)?.description || 'This agent can help answer your questions using the knowledge base.'}`
                           : 'Start a conversation with your AI assistant. I can help answer questions about your documents and provide insights from your knowledge base.'
                         }
@@ -271,7 +271,7 @@ export default function InternalAIChat() {
                           <MessageSquare className="w-4 h-4 mr-2" />
                           Help me search
                         </Button>
-                        {!selectedAgentId && (
+                        {(!selectedAgentId || selectedAgentId === "default") && (
                           <Button
                             variant="outline"
                             size="sm"
