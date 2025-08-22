@@ -2008,14 +2008,34 @@ ${document.summary}`;
       console.log("Creating internal chat session:", { agentId, title, userId });
 
       if (!agentId) {
+        console.log("❌ Missing agentId in request body");
         return res.status(400).json({ error: "Agent ID is required" });
       }
 
-      // Verify user owns the agent
-      const agent = await storage.getAgentChatbot(parseInt(agentId), userId);
+      // Parse and validate agent ID
+      const parsedAgentId = parseInt(agentId);
+      if (isNaN(parsedAgentId)) {
+        console.log("❌ Invalid agentId format:", agentId);
+        return res.status(400).json({ error: "Invalid agent ID format" });
+      }
+
+      console.log(`🔍 Verifying agent ${parsedAgentId} for user ${userId}`);
+
+      // Verify user owns the agent with better error handling
+      let agent;
+      try {
+        agent = await storage.getAgentChatbot(parsedAgentId, userId);
+      } catch (dbError) {
+        console.error("❌ Database error fetching agent:", dbError);
+        return res.status(500).json({ error: "Database error while verifying agent" });
+      }
+
       if (!agent) {
+        console.log(`❌ Agent ${parsedAgentId} not found or access denied for user ${userId}`);
         return res.status(404).json({ error: "Agent not found or access denied" });
       }
+
+      console.log(`✅ Agent verified: ${agent.name} (ID: ${agent.id})`);
 
       // Create new session
       const sessionId = `internal_${Date.now()}_${Math.random().toString(36).substring(2)}`;
@@ -2023,7 +2043,7 @@ ${document.summary}`;
       // Store session in database (you may want to create a dedicated table)
       const session = {
         id: sessionId,
-        agentId: parseInt(agentId),
+        agentId: parsedAgentId,
         agentName: agent.name,
         userId,
         title: title || `Chat with ${agent.name}`,
@@ -2031,12 +2051,20 @@ ${document.summary}`;
         messageCount: 0,
       };
 
-      console.log("Internal chat session created successfully:", session);
+      console.log("✅ Internal chat session created successfully:", { 
+        sessionId: session.id, 
+        agentName: session.agentName,
+        title: session.title 
+      });
 
       res.json(session);
     } catch (error) {
-      console.error("Error creating internal chat session:", error);
-      res.status(500).json({ error: "Failed to create chat session" });
+      console.error("❌ Error creating internal chat session:", error);
+      console.error("❌ Error stack:", error.stack);
+      res.status(500).json({ 
+        error: "Failed to create chat session", 
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   });
 

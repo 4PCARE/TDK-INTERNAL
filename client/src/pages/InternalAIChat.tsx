@@ -112,19 +112,37 @@ export default function InternalAIChat() {
   const createSessionMutation = useMutation({
     mutationFn: async (agentId: number) => {
       const agentName = agents.find(a => a.id === agentId)?.name || 'Agent';
-      console.log('Creating session for agent:', agentId, agentName);
+      console.log('🚀 Creating session for agent:', agentId, agentName);
       
-      const response = await apiRequest("POST", "/api/internal-chat/sessions", {
-        agentId,
-        title: `Chat with ${agentName} - ${new Date().toLocaleDateString()}`,
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      try {
+        const response = await apiRequest("POST", "/api/internal-chat/sessions", {
+          agentId: agentId,
+          title: `Chat with ${agentName} - ${new Date().toLocaleDateString()}`,
+        });
+        
+        console.log('📡 Session creation response status:', response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Session creation failed - Response:', errorText);
+          
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { error: errorText || `HTTP ${response.status}: ${response.statusText}` };
+          }
+          
+          throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const sessionData = await response.json();
+        console.log('✅ Session created successfully:', sessionData);
+        return sessionData;
+      } catch (error) {
+        console.error('❌ Session creation error:', error);
+        throw error;
       }
-      
-      return response.json();
     },
     onSuccess: (session) => {
       console.log('Session created successfully:', session);
