@@ -2057,10 +2057,12 @@ ${document.summary}`;
         title: session.title 
       });
 
+      res.setHeader('Content-Type', 'application/json');
       res.json(session);
     } catch (error) {
       console.error("❌ Error creating internal chat session:", error);
-      console.error("❌ Error stack:", error.stack);
+      console.error("❌ Error stack:", error);
+      res.setHeader('Content-Type', 'application/json');
       res.status(500).json({ 
         error: "Failed to create chat session", 
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -2154,6 +2156,7 @@ ${document.summary}`;
 
       console.log(`✅ Internal Chat: Agent ${agentId} response: "${botResponse.response.substring(0, 100)}..."`);
 
+      res.setHeader('Content-Type', 'application/json');
       res.json({
         response: botResponse.response,
         sessionId: sessionId,
@@ -2162,6 +2165,7 @@ ${document.summary}`;
     } catch (error) {
       console.error("❌ Error in internal chat message:", error);
       console.error("❌ Error stack:", error.stack);
+      res.setHeader('Content-Type', 'application/json');
       res.status(500).json({ error: "Failed to send message", details: error.message });
     }
   });
