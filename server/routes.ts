@@ -2122,7 +2122,9 @@ ${document.summary}`;
       const { agentId } = req.params;
       const userId = req.user.claims.sub;
 
-      console.log(`🔍 Fetching sessions for agent ${agentId}, user ${userId}`);
+      console.log(`🔍 [DEBUG] Route hit: /api/internal-chat/sessions/${agentId}`);
+      console.log(`🔍 [DEBUG] User ID: ${userId}`);
+      console.log(`🔍 [DEBUG] Agent ID param: ${agentId}`);</old_str>
 
       // Parse and validate agent ID
       const parsedAgentId = parseInt(agentId);

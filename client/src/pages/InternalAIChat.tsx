@@ -101,12 +101,22 @@ export default function InternalAIChat() {
     queryKey: ["/api/internal-chat/sessions", selectedAgentId],
     queryFn: async () => {
       if (!selectedAgentId) return [];
+      console.log(`🔍 [DEBUG] Fetching sessions for agent: ${selectedAgentId}`);
       const response = await apiRequest("GET", `/api/internal-chat/sessions/${selectedAgentId}`);
+      console.log(`🔍 [DEBUG] Sessions response status: ${response.status}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`🔍 [DEBUG] Sessions error: ${errorText}`);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
       return response.json();
     },
     enabled: isAuthenticated && !!selectedAgentId,
     retry: false,
-  }) as { data: ChatSession[]; isLoading: boolean };
+    onError: (error) => {
+      console.error(`🔍 [DEBUG] Sessions query error:`, error);
+    }
+  }) as { data: ChatSession[]; isLoading: boolean };</old_str>
 
   // Fetch messages for the currently selected session
   const { data: sessionMessages = [], isLoading: isLoadingMessages } = useQuery({
