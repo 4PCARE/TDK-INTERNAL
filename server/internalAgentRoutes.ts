@@ -10,7 +10,7 @@ export function registerInternalAgentRoutes(app: Express) {
       const { agentId, title } = req.body;
       const userId = req.user.claims.sub;
 
-      console.log("Creating internal chat session:", { agentId, title, userId });
+      console.log("🚀 Creating internal chat session:", { agentId, title, userId });
 
       if (!agentId) {
         console.log("❌ Missing agentId in request body");
@@ -42,10 +42,10 @@ export function registerInternalAgentRoutes(app: Express) {
 
       console.log(`✅ Agent verified: ${agent.name} (ID: ${agent.id})`);
 
-      // Create new session
+      // Create new session with unique ID
       const sessionId = `internal_${Date.now()}_${Math.random().toString(36).substring(2)}`;
       
-      // Create session object
+      // Create session object with all required fields
       const session = {
         id: sessionId,
         agentId: parsedAgentId,
@@ -59,15 +59,15 @@ export function registerInternalAgentRoutes(app: Express) {
       console.log("✅ Internal chat session created successfully:", { 
         sessionId: session.id, 
         agentName: session.agentName,
-        title: session.title 
+        title: session.title,
+        agentId: session.agentId
       });
 
-      res.setHeader('Content-Type', 'application/json');
-      res.json(session);
+      // Return the session data
+      res.status(201).json(session);
     } catch (error) {
       console.error("❌ Error creating internal chat session:", error);
-      console.error("❌ Error stack:", error);
-      res.setHeader('Content-Type', 'application/json');
+      console.error("❌ Error stack:", error.stack);
       res.status(500).json({ 
         error: "Failed to create chat session", 
         details: process.env.NODE_ENV === 'development' ? error.message : undefined

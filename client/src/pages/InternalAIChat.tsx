@@ -122,16 +122,39 @@ export default function InternalAIChat() {
   const { data: sessionMessages = [], isLoading: isLoadingMessages } = useQuery({
     queryKey: ["/api/internal-chat/messages", currentSessionId],
     queryFn: async () => {
-      if (!currentSessionId) return [];
-      const response = await apiRequest("GET", `/api/internal-chat/messages/${currentSessionId}`);
-      return response.json();
+      if (!currentSessionId) {
+        console.log('📭 No current session ID, returning empty messages');
+        return [];
+      }
+      
+      console.log('📨 Fetching messages for session:', currentSessionId);
+      try {
+        const response = await apiRequest("GET", `/api/internal-chat/messages/${currentSessionId}`);
+        
+        if (!response.ok) {
+          console.error('❌ Failed to fetch messages:', response.status, response.statusText);
+          return [];
+        }
+        
+        const messages = await response.json();
+        console.log('📬 Received messages:', messages.length);
+        return messages;
+      } catch (error) {
+        console.error('❌ Error fetching messages:', error);
+        return [];
+      }
     },
     enabled: isAuthenticated && !!currentSessionId,
-    onSuccess: (data) => {
-      setChatHistory(data); // Set chat history when messages are loaded
-    },
     retry: false,
   });
+
+  // Update chat history when session messages change
+  useEffect(() => {
+    if (sessionMessages && Array.isArray(sessionMessages)) {
+      console.log('🔄 Updating chat history with session messages:', sessionMessages.length);
+      setChatHistory(sessionMessages);
+    }
+  }, [sessionMessages]);
 
 
   // Create new chat session mutation
@@ -170,13 +193,25 @@ export default function InternalAIChat() {
         throw error;
       }
     },
-    onSuccess: (session) => {
+    onSuccess: async (session) => {
       console.log('Session created successfully:', session);
+      
+      // Set the current session ID first
       setCurrentSessionId(session.id);
-      setChatHistory([]); // Clear history for new session
-      queryClient.invalidateQueries({
+      
+      // Clear chat history immediately for new session
+      setChatHistory([]);
+      
+      // Invalidate and refetch sessions list
+      await queryClient.invalidateQueries({
         queryKey: ["/api/internal-chat/sessions", selectedAgentId],
       });
+      
+      // Invalidate any existing messages query for this session
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/internal-chat/messages", session.id],
+      });
+      
       toast({
         title: "New Chat Created",
         description: `Started a new conversation with ${session.agentName}`,
@@ -207,25 +242,46 @@ export default function InternalAIChat() {
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
       if (!currentSessionId || !selectedAgentId) {
+        console.error('❌ Missing session or agent:', { currentSessionId, selectedAgentId });
         throw new Error("No active session or agent selected");
       }
 
-      console.log('Sending message:', { sessionId: currentSessionId, agentId: selectedAgentId, content });
+      console.log('📤 Sending message:', { sessionId: currentSessionId, agentId: selectedAgentId, content });
 
-      const response = await apiRequest("POST", "/api/internal-chat/message", {
-        sessionId: currentSessionId,
-        agentId: selectedAgentId,
-        content,
-      });
+      try {
+        const response = await apiRequest("POST", "/api/internal-chat/message", {
+          sessionId: currentSessionId,
+          agentId: selectedAgentId,
+          content,
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        console.log('📡 Send message response status:', response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Send message failed:', errorText);
+          
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { error: errorText || `HTTP ${response.status}: ${response.statusText}` };
+          }
+          
+          throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const responseData = await response.json();
+        console.log('✅ Message sent successfully:', responseData);
+        return responseData;
+      } catch (error) {
+        console.error('❌ Send message error:', error);
+        throw error;
       }
-
-      return response.json();
     },
     onSuccess: (data) => {
+      console.log('💬 Processing successful message response:', data);
+      
       // Add user message and AI response to chat history
       const userMessage: ChatMessage = {
         id: Date.now(),
@@ -237,11 +293,16 @@ export default function InternalAIChat() {
       const assistantMessage: ChatMessage = {
         id: Date.now() + 1,
         role: "assistant",
-        content: data.response,
+        content: data.response || data.message || "Response received",
         createdAt: new Date().toISOString(),
       };
 
-      setChatHistory(prev => [...prev, userMessage, assistantMessage]);
+      setChatHistory(prev => {
+        const newHistory = [...prev, userMessage, assistantMessage];
+        console.log('📝 Updated chat history length:', newHistory.length);
+        return newHistory;
+      });
+      
       setMessageInput("");
 
       // Auto-scroll to bottom
@@ -250,6 +311,8 @@ export default function InternalAIChat() {
       }, 100);
     },
     onError: (error) => {
+      console.error('❌ Send message mutation error:', error);
+      
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -261,9 +324,10 @@ export default function InternalAIChat() {
         }, 500);
         return;
       }
+      
       toast({
         title: "Error sending message",
-        description: error.message,
+        description: error.message || "Failed to send message",
         variant: "destructive",
       });
     },
@@ -322,8 +386,18 @@ export default function InternalAIChat() {
 
   // Function to select an existing session
   const selectSession = (sessionId: string) => {
+    console.log('🎯 Selecting session:', sessionId);
+    
+    // Clear current chat history first
+    setChatHistory([]);
+    
+    // Set the new session ID
     setCurrentSessionId(sessionId);
-    // Chat history will be loaded automatically by the useQuery hook for sessionMessages
+    
+    // Invalidate the messages query to force a refetch
+    queryClient.invalidateQueries({
+      queryKey: ["/api/internal-chat/messages", sessionId],
+    });
   };
 
   const selectedAgent = agents.find(a => a.id === selectedAgentId);
