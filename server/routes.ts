@@ -2074,13 +2074,23 @@ ${document.summary}`;
       const { sessionId, agentId, content } = req.body;
       const userId = req.user.claims.sub;
 
+      console.log(`🤖 Internal Chat: Received request - sessionId: ${sessionId}, agentId: ${agentId}, userId: ${userId}`);
+      console.log(`🤖 Internal Chat: Message content: "${content}"`);
+
+      // Validate required fields
+      if (!sessionId || !agentId || !content) {
+        console.log(`❌ Internal Chat: Missing required fields - sessionId: ${!!sessionId}, agentId: ${!!agentId}, content: ${!!content}`);
+        return res.status(400).json({ error: "Missing required fields: sessionId, agentId, and content are required" });
+      }
+
       // Verify user owns the agent
-      const agent = await storage.getAgentChatbot(agentId, userId);
+      const agent = await storage.getAgentChatbot(parseInt(agentId), userId);
       if (!agent) {
+        console.log(`❌ Internal Chat: Agent ${agentId} not found or access denied for user ${userId}`);
         return res.status(404).json({ error: "Agent not found or access denied" });
       }
 
-      console.log(`🤖 Internal Chat: User ${userId} sending message to agent ${agentId}: "${content}"`);
+      console.log(`✅ Internal Chat: Agent ${agent.name} verified for user ${userId}`);
 
       // Import the agent bot functionality
       const { processMessage } = await import("./agentBot");
@@ -2090,7 +2100,7 @@ ${document.summary}`;
         userId: userId,
         channelType: "internal_chat",
         channelId: sessionId,
-        agentId: agentId,
+        agentId: parseInt(agentId),
         messageId: `internal_${Date.now()}`,
         lineIntegration: null, // Not needed for internal chat
       };
@@ -2102,22 +2112,29 @@ ${document.summary}`;
         metadata: {},
       };
 
+      console.log(`🤖 Internal Chat: Processing message with agentBot...`);
+
       // Process message with agent bot
       const botResponse = await processMessage(botMessage, botContext);
 
+      console.log(`🤖 Internal Chat: AgentBot response:`, botResponse);
+
       if (!botResponse.success) {
+        console.log(`❌ Internal Chat: AgentBot failed - ${botResponse.error}`);
         return res.status(500).json({ error: botResponse.error || "Failed to process message" });
       }
 
-      console.log(`✅ Internal Chat: Agent ${agentId} response: "${botResponse.response}"`);
+      console.log(`✅ Internal Chat: Agent ${agentId} response: "${botResponse.response.substring(0, 100)}..."`);
 
       res.json({
         response: botResponse.response,
         sessionId: sessionId,
+        metadata: botResponse.metadata || {},
       });
     } catch (error) {
-      console.error("Error in internal chat message:", error);
-      res.status(500).json({ error: "Failed to send message" });
+      console.error("❌ Error in internal chat message:", error);
+      console.error("❌ Error stack:", error.stack);
+      res.status(500).json({ error: "Failed to send message", details: error.message });
     }
   });
 
