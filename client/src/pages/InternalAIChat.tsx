@@ -1,4 +1,3 @@
-
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState, useRef } from "react";
@@ -33,6 +32,7 @@ import {
   FileText,
   Trash2,
   Plus,
+  Loader2,
 } from "lucide-react";
 import { FeedbackButtons } from "@/components/FeedbackButtons";
 
@@ -108,34 +108,50 @@ export default function InternalAIChat() {
     retry: false,
   }) as { data: ChatSession[]; isLoading: boolean };
 
+  // Fetch messages for the currently selected session
+  const { data: sessionMessages = [], isLoading: isLoadingMessages } = useQuery({
+    queryKey: ["/api/internal-chat/messages", currentSessionId],
+    queryFn: async () => {
+      if (!currentSessionId) return [];
+      const response = await apiRequest("GET", `/api/internal-chat/messages/${currentSessionId}`);
+      return response.json();
+    },
+    enabled: isAuthenticated && !!currentSessionId,
+    onSuccess: (data) => {
+      setChatHistory(data); // Set chat history when messages are loaded
+    },
+    retry: false,
+  });
+
+
   // Create new chat session mutation
   const createSessionMutation = useMutation({
     mutationFn: async (agentId: number) => {
       const agentName = agents.find(a => a.id === agentId)?.name || 'Agent';
       console.log('🚀 Creating session for agent:', agentId, agentName);
-      
+
       try {
         const response = await apiRequest("POST", "/api/internal-chat/sessions", {
           agentId: agentId,
           title: `Chat with ${agentName} - ${new Date().toLocaleDateString()}`,
         });
-        
+
         console.log('📡 Session creation response status:', response.status);
-        
+
         if (!response.ok) {
           const errorText = await response.text();
           console.error('❌ Session creation failed - Response:', errorText);
-          
+
           let errorData;
           try {
             errorData = JSON.parse(errorText);
           } catch {
             errorData = { error: errorText || `HTTP ${response.status}: ${response.statusText}` };
           }
-          
+
           throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const sessionData = await response.json();
         console.log('✅ Session created successfully:', sessionData);
         return sessionData;
@@ -147,9 +163,13 @@ export default function InternalAIChat() {
     onSuccess: (session) => {
       console.log('Session created successfully:', session);
       setCurrentSessionId(session.id);
-      setChatHistory([]);
+      setChatHistory([]); // Clear history for new session
       queryClient.invalidateQueries({
         queryKey: ["/api/internal-chat/sessions", selectedAgentId],
+      });
+      toast({
+        title: "New Chat Created",
+        description: `Started a new conversation with ${session.agentName}`,
       });
     },
     onError: (error) => {
@@ -177,7 +197,7 @@ export default function InternalAIChat() {
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
       if (!currentSessionId || !selectedAgentId) {
-        throw new Error("No active session");
+        throw new Error("No active session or agent selected");
       }
 
       console.log('Sending message:', { sessionId: currentSessionId, agentId: selectedAgentId, content });
@@ -187,12 +207,12 @@ export default function InternalAIChat() {
         agentId: selectedAgentId,
         content,
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       return response.json();
     },
     onSuccess: (data) => {
@@ -203,10 +223,10 @@ export default function InternalAIChat() {
         content: messageInput,
         createdAt: new Date().toISOString(),
       };
-      
+
       const assistantMessage: ChatMessage = {
         id: Date.now() + 1,
-        role: "assistant", 
+        role: "assistant",
         content: data.response,
         createdAt: new Date().toISOString(),
       };
@@ -243,11 +263,11 @@ export default function InternalAIChat() {
   const handleAgentSelect = (agentId: string) => {
     const id = parseInt(agentId);
     setSelectedAgentId(id);
-    setCurrentSessionId(null);
-    setChatHistory([]);
+    setCurrentSessionId(null); // Reset session when agent changes
+    setChatHistory([]); // Clear history when agent changes
   };
 
-  // Handle new chat session
+  // Handle new chat session creation
   const handleNewChat = () => {
     if (!selectedAgentId) {
       toast({
@@ -268,7 +288,7 @@ export default function InternalAIChat() {
     if (!currentSessionId) {
       toast({
         title: "No Active Session",
-        description: "Please start a new chat first",
+        description: "Please start a new chat or select an existing session first",
         variant: "destructive",
       });
       return;
@@ -277,18 +297,24 @@ export default function InternalAIChat() {
     sendMessageMutation.mutate(messageInput.trim());
   };
 
-  // Handle key press
+  // Handle key press for sending messages
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage(e);
+      handleSendMessage(e as any); // Cast to any to satisfy onSubmit type
     }
   };
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive or history loads
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory]);
+
+  // Function to select an existing session
+  const selectSession = (sessionId: string) => {
+    setCurrentSessionId(sessionId);
+    // Chat history will be loaded automatically by the useQuery hook for sessionMessages
+  };
 
   const selectedAgent = agents.find(a => a.id === selectedAgentId);
 
@@ -373,7 +399,7 @@ export default function InternalAIChat() {
                       <p className="text-xs text-slate-600">{selectedAgent.description}</p>
                     )}
                   </div>
-                  
+
                   <div className="flex flex-wrap gap-1">
                     {selectedAgent.personality && (
                       <Badge variant="secondary" className="text-xs">
@@ -397,30 +423,59 @@ export default function InternalAIChat() {
               </Card>
             )}
 
-            {/* Recent Sessions */}
-            {selectedAgentId && sessions.length > 0 && (
+            {/* Chat Session Management */}
+            {selectedAgentId && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm">Recent Sessions</CardTitle>
+                  <CardTitle className="text-sm">Chat Management</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {sessions.slice(0, 5).map((session) => (
-                      <div
-                        key={session.id}
-                        className={`p-2 rounded cursor-pointer text-xs transition-colors ${
-                          currentSessionId === session.id
-                            ? "bg-blue-100 border border-blue-200"
-                            : "hover:bg-slate-50"
-                        }`}
-                        onClick={() => setCurrentSessionId(session.id)}
-                      >
-                        <div className="font-medium truncate">{session.agentName}</div>
-                        <div className="text-slate-500">
-                          {session.messageCount} messages • {new Date(session.createdAt).toLocaleDateString()}
+                  <div className="space-y-2">
+                    <Button
+                      onClick={() => createSessionMutation.mutate(selectedAgentId)}
+                      disabled={createSessionMutation.isPending}
+                      className="w-full"
+                    >
+                      {createSessionMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="mr-2 h-4 w-4" />
+                          New Chat
+                        </>
+                      )}
+                    </Button>
+
+                    {/* Existing Sessions */}
+                    {sessions.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300 px-1">
+                          Previous Sessions ({sessions.length})
+                        </div>
+                        <div className="max-h-48 overflow-y-auto space-y-1">
+                          {sessions.map((session) => (
+                            <Button
+                              key={session.id}
+                              variant={currentSessionId === session.id ? "secondary" : "ghost"}
+                              className="w-full justify-start text-left h-auto p-2"
+                              onClick={() => selectSession(session.id)}
+                            >
+                              <div className="flex flex-col items-start gap-1 min-w-0 flex-1">
+                                <div className="font-medium text-sm truncate max-w-full">
+                                  {session.agentName} - {new Date(session.createdAt).toLocaleDateString()}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {session.messageCount} messages
+                                </div>
+                              </div>
+                            </Button>
+                          ))}
                         </div>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -461,8 +516,12 @@ export default function InternalAIChat() {
                       <div className="flex items-center justify-center h-64 text-slate-500">
                         <div className="text-center">
                           <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                          <p>Click "New Chat" to start a conversation with {selectedAgent.name}</p>
+                          <p>Choose or create a chat session with {selectedAgent.name}</p>
                         </div>
+                      </div>
+                    ) : isLoadingMessages ? (
+                      <div className="flex items-center justify-center h-64">
+                         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
                       </div>
                     ) : chatHistory.length === 0 ? (
                       <div className="flex items-start space-x-3">
@@ -499,6 +558,7 @@ export default function InternalAIChat() {
                             </p>
                             {message.role === "assistant" && (
                               <div className="mt-2">
+                                {/* Assuming FeedbackButtons can handle null conversationId for internal chats */}
                                 <FeedbackButtons
                                   messageId={message.id}
                                   userQuery={chatHistory[chatHistory.findIndex(m => m.id === message.id) - 1]?.content || ""}

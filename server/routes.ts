@@ -2040,7 +2040,7 @@ ${document.summary}`;
       // Create new session
       const sessionId = `internal_${Date.now()}_${Math.random().toString(36).substring(2)}`;
       
-      // Store session in database (you may want to create a dedicated table)
+      // Create session object
       const session = {
         id: sessionId,
         agentId: parsedAgentId,
@@ -2093,9 +2093,8 @@ ${document.summary}`;
 
       console.log(`✅ Agent verified: ${agent.name} (ID: ${agent.id})`);
 
-      // For now, return empty sessions array since we don't have persistent session storage yet
-      // This can be enhanced later to store and retrieve actual chat sessions
-      const sessions = [];
+      // Get unique chat sessions for this user and agent from chat_history
+      const sessions = await storage.getInternalChatSessions(userId, parsedAgentId);
 
       console.log(`📋 Returning ${sessions.length} sessions for agent ${parsedAgentId}`);
 
@@ -2106,6 +2105,49 @@ ${document.summary}`;
       console.error("❌ Error stack:", error.stack);
       res.setHeader('Content-Type', 'application/json');
       res.status(500).json({ error: "Failed to fetch chat sessions" });
+    }
+  });
+
+  // Get chat history for a specific internal chat session
+  app.get("/api/internal-chat/sessions/:agentId/:sessionId/history", isAuthenticated, async (req: any, res) => {
+    try {
+      const { agentId, sessionId } = req.params;
+      const userId = req.user.claims.sub;
+
+      console.log(`📚 Fetching chat history for session ${sessionId}, agent ${agentId}, user ${userId}`);
+
+      // Parse and validate agent ID
+      const parsedAgentId = parseInt(agentId);
+      if (isNaN(parsedAgentId)) {
+        console.log("❌ Invalid agentId format:", agentId);
+        return res.status(400).json({ error: "Invalid agent ID format" });
+      }
+
+      // Verify user owns the agent
+      const agent = await storage.getAgentChatbot(parsedAgentId, userId);
+      if (!agent) {
+        console.log(`❌ Agent ${parsedAgentId} not found or access denied for user ${userId}`);
+        return res.status(404).json({ error: "Agent not found or access denied" });
+      }
+
+      // Get chat history for this session
+      const chatHistory = await storage.getChatHistory(
+        userId,
+        "internal_chat",
+        sessionId,
+        parsedAgentId,
+        100 // Get up to 100 messages
+      );
+
+      console.log(`📚 Retrieved ${chatHistory.length} messages for session ${sessionId}`);
+
+      res.setHeader('Content-Type', 'application/json');
+      res.json(chatHistory);
+    } catch (error) {
+      console.error("❌ Error fetching chat history:", error);
+      console.error("❌ Error stack:", error.stack);
+      res.setHeader('Content-Type', 'application/json');
+      res.status(500).json({ error: "Failed to fetch chat history" });
     }
   });
 
@@ -2131,6 +2173,22 @@ ${document.summary}`;
       }
 
       console.log(`✅ Internal Chat: Agent ${agent.name} verified for user ${userId}`);
+
+      // Save user message to chat history
+      const userChatHistory = await storage.createChatHistory({
+        userId: userId,
+        channelType: "internal_chat",
+        channelId: sessionId,
+        agentId: parseInt(agentId),
+        messageType: "user",
+        content: content,
+        metadata: {
+          messageType: "text",
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      console.log(`💾 Internal Chat: Saved user message with ID ${userChatHistory.id}`);
 
       // Import the agent bot functionality
       const { processMessage } = await import("./agentBot");
@@ -2164,6 +2222,23 @@ ${document.summary}`;
         return res.status(500).json({ error: botResponse.error || "Failed to process message" });
       }
 
+      // Save assistant response to chat history
+      const assistantChatHistory = await storage.createChatHistory({
+        userId: userId,
+        channelType: "internal_chat",
+        channelId: sessionId,
+        agentId: parseInt(agentId),
+        messageType: "assistant",
+        content: botResponse.response,
+        metadata: {
+          messageType: "text",
+          timestamp: new Date().toISOString(),
+          ...(botResponse.metadata || {}),
+        },
+      });
+
+      console.log(`💾 Internal Chat: Saved assistant response with ID ${assistantChatHistory.id}`);
+
       console.log(`✅ Internal Chat: Agent ${agentId} response: "${botResponse.response.substring(0, 100)}..."`);
 
       res.setHeader('Content-Type', 'application/json');
@@ -2171,6 +2246,8 @@ ${document.summary}`;
         response: botResponse.response,
         sessionId: sessionId,
         metadata: botResponse.metadata || {},
+        userMessageId: userChatHistory.id,
+        assistantMessageId: assistantChatHistory.id,
       });
     } catch (error) {
       console.error("❌ Error in internal chat message:", error);
