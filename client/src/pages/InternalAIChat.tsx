@@ -118,8 +118,6 @@ export default function InternalAIChat() {
     }
   }) as { data: ChatSession[]; isLoading: boolean };
 
-  // Fetch messages for the currently selected session</old_str>
-
   // Fetch messages for the currently selected session
   const { data: sessionMessages = [], isLoading: isLoadingMessages } = useQuery({
     queryKey: ["/api/internal-chat/messages", currentSessionId],
