@@ -10,17 +10,54 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
-import { 
-  Brain, 
-  Send, 
-  User, 
-  Bot, 
-  Copy, 
+import {
+  Brain,
+  Send,
+  User,
+  Bot,
+  Copy,
   RefreshCw,
   MessageSquare,
   Sparkles,
   Loader2
 } from "lucide-react";
+
+// Assuming apiRequest is defined elsewhere and imported, e.g.:
+// import { apiRequest } from "@/lib/api"; 
+
+// Mock apiRequest for demonstration if not provided
+const apiRequest = async (method: string, url: string, body?: any) => {
+  console.log(`Mock API Request: ${method} ${url}`, body);
+  // Simulate different responses based on URL
+  if (url === "/api/chat/message") {
+    // Simulate regular chat response
+    return {
+      ok: true,
+      json: async () => ({ response: "This is a mock response from the regular chat." }),
+    };
+  } else if (url === "/api/agent-chatbots/test-chat") {
+    // Simulate agent chat response
+    return {
+      ok: true,
+      json: async () => ({ response: `Mock response from agent ${body?.agentConfig?.id || 'unknown'}: ${body.message}` }),
+    };
+  } else if (url === "/api/agents") {
+     return {
+       ok: true,
+       json: async () => [
+         { id: 1, name: "Agent Alpha", description: "First agent", isActive: true },
+         { id: 2, name: "Agent Beta", description: "Second agent", isActive: false },
+       ]
+     }
+  } else if (url === "/api/documents") {
+    return {
+      ok: true,
+      json: async () => [{ id: "doc-1", name: "Document 1" }]
+    }
+  }
+  return { ok: false, json: async () => ({ message: "Not Found" }) };
+};
+
 
 interface ChatMessage {
   id: string;
@@ -66,17 +103,43 @@ export default function InternalAIChat() {
     retry: false,
   }) as { data: Agent[] };
 
+  // Using state to keep track of selected agent and document for clarity in mutations
+  const selectedBot = selectedAgentId ? parseInt(selectedAgentId) : null;
+  const selectedDocument = documents.length > 0 ? documents[0].id : null; // Assuming first document is selected for now
+
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
-      const response = await fetch("/api/chat/message", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+      // If a bot is selected, use agent chat endpoint
+      if (selectedBot) {
+        const response = await apiRequest("POST", "/api/agent-chatbots/test-chat", {
           message: content,
-          conversationId: null,
-          documentId: null,
-          agentId: selectedAgentId && selectedAgentId !== "default" ? parseInt(selectedAgentId) : null
-        }),
+          agentConfig: {
+            id: selectedBot,
+            name: agents.find(a => a.id === selectedBot)?.name || "Selected Agent"
+          },
+          documentIds: selectedDocument ? [selectedDocument] : [],
+          chatHistory: messages.map(msg => ({
+            role: msg.role,
+            content: msg.content
+          }))
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error("Unauthorized - Please log in again");
+          }
+          const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
+          throw new Error(errorData.message || "Failed to send message to agent");
+        }
+        return response.json();
+      }
+
+      // Otherwise use regular chat
+      const response = await apiRequest("POST", "/api/chat/message", {
+        message: content,
+        conversationId: null,
+        documentId: selectedDocument,
+        agentId: selectedBot && selectedBot !== null ? selectedBot : null
       });
 
       if (!response.ok) {
@@ -89,19 +152,47 @@ export default function InternalAIChat() {
       return response.json();
     },
     onSuccess: (data) => {
-      const assistantMessage: ChatMessage = {
+      // Add user message first
+      setMessages(prev => [...prev, {
+        id: Date.now().toString() + "-user",
+        role: "user" as const,
+        content: inputMessage,
+        timestamp: new Date().toISOString()
+      }]);
+
+      // Handle different response formats
+      let assistantContent = "";
+
+      if (data && typeof data.response === 'string') {
+        // Handle bot test response
+        assistantContent = data.response;
+      } else if (data && typeof data.content === 'string') {
+        // Handle other formats (e.g., from regular chat API)
+        assistantContent = data.content;
+      } else if (Array.isArray(data)) {
+        // Handle array response from regular chat API if it returns an array of messages
+        const assistantMsg = data.find(msg => msg.role === "assistant");
+        assistantContent = assistantMsg?.content || "No response received";
+      } else {
+        // Fallback for unexpected formats
+        assistantContent = "No response received";
+      }
+
+      // Add assistant response
+      setMessages(prev => [...prev, {
         id: Date.now().toString() + "-assistant",
-        role: 'assistant',
-        content: data.response || data.message || "No response received",
-        timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, assistantMessage]);
+        role: "assistant" as const,
+        content: assistantContent,
+        timestamp: new Date().toISOString()
+      }]);
+
+      setInputMessage(""); // Clear input after successful send
       setIsLoading(false);
     },
     onError: (error: any) => {
       console.error("Chat error:", error);
       toast({
-        title: "Message Failed", 
+        title: "Message Failed",
         description: error.message || "Failed to send message to AI assistant.",
         variant: "destructive",
       });
@@ -112,15 +203,7 @@ export default function InternalAIChat() {
   const handleSendMessage = (content: string = inputMessage) => {
     if (!content.trim()) return;
 
-    const userMessage: ChatMessage = {
-      id: Date.now().toString() + "-user",
-      role: 'user',
-      content: content.trim(),
-      timestamp: new Date().toISOString(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInputMessage("");
+    setInputMessage(""); // Clear input immediately
     setIsLoading(true);
     sendMessageMutation.mutate(content.trim());
   };
