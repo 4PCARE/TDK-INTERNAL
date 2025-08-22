@@ -3,6 +3,9 @@ import express from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import OpenAI from "openai";
+import { createServer } from "http";
+import { WebSocketServer } from "ws";
+import OpenAI from "openai";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 import { setupMicrosoftAuth, isMicrosoftAuthenticated } from "./microsoftAuth";
@@ -398,6 +401,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { widgetKey } = req.params;
       const { chatWidgets } = await import("@shared/schema");
+      const fs = await import("fs");
+      const path = await import("path");
 
       // Verify widget exists and is active
       const [widget] = await db
@@ -411,8 +416,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Read and serve the embed script
-      const fs = await import("fs");
-      const path = await import("path");
       const embedScript = fs.readFileSync(
         path.join(process.cwd(), "public", "widget", "embed.js"),
         "utf8",
@@ -1999,345 +2002,6 @@ ${document.summary}`;
         );
 
 
-// Internal AI Chat Studio endpoints
-  app.post("/api/internal-chat/sessions", isAuthenticated, async (req: any, res) => {
-    try {
-      const { agentId, title } = req.body;
-      const userId = req.user.claims.sub;
-
-      console.log("Creating internal chat session:", { agentId, title, userId });
-
-      if (!agentId) {
-        console.log("❌ Missing agentId in request body");
-        return res.status(400).json({ error: "Agent ID is required" });
-      }
-
-      // Parse and validate agent ID
-      const parsedAgentId = parseInt(agentId);
-      if (isNaN(parsedAgentId)) {
-        console.log("❌ Invalid agentId format:", agentId);
-        return res.status(400).json({ error: "Invalid agent ID format" });
-      }
-
-      console.log(`🔍 Verifying agent ${parsedAgentId} for user ${userId}`);
-
-      // Verify user owns the agent with better error handling
-      let agent;
-      try {
-        agent = await storage.getAgentChatbot(parsedAgentId, userId);
-      } catch (dbError) {
-        console.error("❌ Database error fetching agent:", dbError);
-        return res.status(500).json({ error: "Database error while verifying agent" });
-      }
-
-      if (!agent) {
-        console.log(`❌ Agent ${parsedAgentId} not found or access denied for user ${userId}`);
-        return res.status(404).json({ error: "Agent not found or access denied" });
-      }
-
-      console.log(`✅ Agent verified: ${agent.name} (ID: ${agent.id})`);
-
-      // Create new session
-      const sessionId = `internal_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-      
-      // Create session object
-      const session = {
-        id: sessionId,
-        agentId: parsedAgentId,
-        agentName: agent.name,
-        userId,
-        title: title || `Chat with ${agent.name}`,
-        createdAt: new Date().toISOString(),
-        messageCount: 0,
-      };
-
-      console.log("✅ Internal chat session created successfully:", { 
-        sessionId: session.id, 
-        agentName: session.agentName,
-        title: session.title 
-      });
-
-      res.setHeader('Content-Type', 'application/json');
-      res.json(session);
-    } catch (error) {
-      console.error("❌ Error creating internal chat session:", error);
-      console.error("❌ Error stack:", error);
-      res.setHeader('Content-Type', 'application/json');
-      res.status(500).json({ 
-        error: "Failed to create chat session", 
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-  });
-
-  // Get all internal chat sessions for user (without specific agent filter)
-  app.get("/api/internal-chat/sessions", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-
-      console.log(`🔍 Fetching all internal chat sessions for user ${userId}`);
-
-      // Get all internal chat sessions across all agents
-      const { chatHistory, agentChatbots } = await import("@shared/schema");
-      const { eq, desc, sql, and } = await import('drizzle-orm');
-
-      const sessions = await db
-        .select({
-          sessionId: chatHistory.channelId,
-          agentId: chatHistory.agentId,
-          agentName: agentChatbots.name,
-          createdAt: sql<string>`MIN(${chatHistory.createdAt})`.as('createdAt'),
-          messageCount: sql<number>`COUNT(*)`.as('messageCount'),
-        })
-        .from(chatHistory)
-        .leftJoin(agentChatbots, eq(chatHistory.agentId, agentChatbots.id))
-        .where(and(
-          eq(chatHistory.userId, userId),
-          eq(chatHistory.channelType, "internal_chat")
-        ))
-        .groupBy(chatHistory.channelId, chatHistory.agentId, agentChatbots.name)
-        .orderBy(desc(sql`MIN(${chatHistory.createdAt})`));
-
-      const formattedSessions = sessions.map(session => ({
-        id: session.sessionId,
-        agentId: session.agentId,
-        agentName: session.agentName || 'Unknown Agent',
-        createdAt: session.createdAt,
-        messageCount: Number(session.messageCount),
-      }));
-
-      console.log(`📋 Returning ${formattedSessions.length} total sessions`);
-
-      res.setHeader('Content-Type', 'application/json');
-      res.json(formattedSessions);
-    } catch (error) {
-      console.error("❌ Error fetching all internal chat sessions:", error);
-      res.setHeader('Content-Type', 'application/json');
-      res.status(500).json({ error: "Failed to fetch chat sessions" });
-    }
-  });
-
-  app.get("/api/internal-chat/sessions/:agentId", isAuthenticated, async (req: any, res) => {
-    try {
-      const { agentId } = req.params;
-      const userId = req.user.claims.sub;
-
-      console.log(`🔍 [DEBUG] Route hit: /api/internal-chat/sessions/${agentId}`);
-      console.log(`🔍 [DEBUG] User ID: ${userId}`);
-      console.log(`🔍 [DEBUG] Agent ID param: ${agentId}`);
-
-      // Parse and validate agent ID
-      const parsedAgentId = parseInt(agentId);</old_str>
-
-      // Parse and validate agent ID
-      const parsedAgentId = parseInt(agentId);
-      if (isNaN(parsedAgentId)) {
-        console.log("❌ Invalid agentId format:", agentId);
-        return res.status(400).json({ error: "Invalid agent ID format" });
-      }
-
-      // Verify user owns the agent
-      const agent = await storage.getAgentChatbot(parsedAgentId, userId);
-      if (!agent) {
-        console.log(`❌ Agent ${parsedAgentId} not found or access denied for user ${userId}`);
-        return res.status(404).json({ error: "Agent not found or access denied" });
-      }
-
-      console.log(`✅ Agent verified: ${agent.name} (ID: ${agent.id})`);
-
-      // Get unique chat sessions for this user and agent from chat_history
-      const sessions = await storage.getInternalChatSessions(userId, parsedAgentId);
-
-      console.log(`📋 Returning ${sessions.length} sessions for agent ${parsedAgentId}`);
-
-      res.setHeader('Content-Type', 'application/json');
-      res.json(sessions);
-    } catch (error) {
-      console.error("❌ Error fetching internal chat sessions:", error);
-      console.error("❌ Error stack:", error.stack);
-      res.setHeader('Content-Type', 'application/json');
-      res.status(500).json({ error: "Failed to fetch chat sessions" });
-    }
-  });
-
-  // Get messages for a specific internal chat session (simplified endpoint)
-  app.get("/api/internal-chat/messages/:sessionId", isAuthenticated, async (req: any, res) => {
-    try {
-      const { sessionId } = req.params;
-      const userId = req.user.claims.sub;
-
-      console.log(`📚 Fetching messages for session ${sessionId}, user ${userId}`);
-
-      // Get chat history for this session
-      const chatHistory = await storage.getChatHistory(
-        userId,
-        "internal_chat",
-        sessionId,
-        undefined, // agentId not required for this query
-        100 // Get up to 100 messages
-      );
-
-      console.log(`📚 Retrieved ${chatHistory.length} messages for session ${sessionId}`);
-
-      res.setHeader('Content-Type', 'application/json');
-      res.json(chatHistory);
-    } catch (error) {
-      console.error("❌ Error fetching chat messages:", error);
-      console.error("❌ Error stack:", error.stack);
-      res.setHeader('Content-Type', 'application/json');
-      res.status(500).json({ error: "Failed to fetch chat messages" });
-    }
-  });
-
-  // Get chat history for a specific internal chat session
-  app.get("/api/internal-chat/sessions/:agentId/:sessionId/history", isAuthenticated, async (req: any, res) => {
-    try {
-      const { agentId, sessionId } = req.params;
-      const userId = req.user.claims.sub;
-
-      console.log(`📚 Fetching chat history for session ${sessionId}, agent ${agentId}, user ${userId}`);
-
-      // Parse and validate agent ID
-      const parsedAgentId = parseInt(agentId);
-      if (isNaN(parsedAgentId)) {
-        console.log("❌ Invalid agentId format:", agentId);
-        return res.status(400).json({ error: "Invalid agent ID format" });
-      }
-
-      // Verify user owns the agent
-      const agent = await storage.getAgentChatbot(parsedAgentId, userId);
-      if (!agent) {
-        console.log(`❌ Agent ${parsedAgentId} not found or access denied for user ${userId}`);
-        return res.status(404).json({ error: "Agent not found or access denied" });
-      }
-
-      // Get chat history for this session
-      const chatHistory = await storage.getChatHistory(
-        userId,
-        "internal_chat",
-        sessionId,
-        parsedAgentId,
-        100 // Get up to 100 messages
-      );
-
-      console.log(`📚 Retrieved ${chatHistory.length} messages for session ${sessionId}`);
-
-      res.setHeader('Content-Type', 'application/json');
-      res.json(chatHistory);
-    } catch (error) {
-      console.error("❌ Error fetching chat history:", error);
-      console.error("❌ Error stack:", error.stack);
-      res.setHeader('Content-Type', 'application/json');
-      res.status(500).json({ error: "Failed to fetch chat history" });
-    }
-  });
-
-  app.post("/api/internal-chat/message", isAuthenticated, async (req: any, res) => {
-    try {
-      const { sessionId, agentId, content } = req.body;
-      const userId = req.user.claims.sub;
-
-      console.log(`🤖 Internal Chat: Received request - sessionId: ${sessionId}, agentId: ${agentId}, userId: ${userId}`);
-      console.log(`🤖 Internal Chat: Message content: "${content}"`);
-
-      // Validate required fields
-      if (!sessionId || !agentId || !content) {
-        console.log(`❌ Internal Chat: Missing required fields - sessionId: ${!!sessionId}, agentId: ${!!agentId}, content: ${!!content}`);
-        return res.status(400).json({ error: "Missing required fields: sessionId, agentId, and content are required" });
-      }
-
-      // Verify user owns the agent
-      const agent = await storage.getAgentChatbot(parseInt(agentId), userId);
-      if (!agent) {
-        console.log(`❌ Internal Chat: Agent ${agentId} not found or access denied for user ${userId}`);
-        return res.status(404).json({ error: "Agent not found or access denied" });
-      }
-
-      console.log(`✅ Internal Chat: Agent ${agent.name} verified for user ${userId}`);
-
-      // Save user message to chat history
-      const userChatHistory = await storage.createChatHistory({
-        userId: userId,
-        channelType: "internal_chat",
-        channelId: sessionId,
-        agentId: parseInt(agentId),
-        messageType: "user",
-        content: content,
-        metadata: {
-          messageType: "text",
-          timestamp: new Date().toISOString(),
-        },
-      });
-
-      console.log(`💾 Internal Chat: Saved user message with ID ${userChatHistory.id}`);
-
-      // Import the agent bot functionality
-      const { processMessage } = await import("./agentBot");
-
-      // Create bot context for internal chat
-      const botContext = {
-        userId: userId,
-        channelType: "internal_chat",
-        channelId: sessionId,
-        agentId: parseInt(agentId),
-        messageId: `internal_${Date.now()}`,
-        lineIntegration: null, // Not needed for internal chat
-      };
-
-      // Create bot message
-      const botMessage = {
-        type: "text",
-        content: content,
-        metadata: {},
-      };
-
-      console.log(`🤖 Internal Chat: Processing message with agentBot...`);
-
-      // Process message with agent bot
-      const botResponse = await processMessage(botMessage, botContext);
-
-      console.log(`🤖 Internal Chat: AgentBot response:`, botResponse);
-
-      if (!botResponse.success) {
-        console.log(`❌ Internal Chat: AgentBot failed - ${botResponse.error}`);
-        return res.status(500).json({ error: botResponse.error || "Failed to process message" });
-      }
-
-      // Save assistant response to chat history
-      const assistantChatHistory = await storage.createChatHistory({
-        userId: userId,
-        channelType: "internal_chat",
-        channelId: sessionId,
-        agentId: parseInt(agentId),
-        messageType: "assistant",
-        content: botResponse.response,
-        metadata: {
-          messageType: "text",
-          timestamp: new Date().toISOString(),
-          ...(botResponse.metadata || {}),
-        },
-      });
-
-      console.log(`💾 Internal Chat: Saved assistant response with ID ${assistantChatHistory.id}`);
-
-      console.log(`✅ Internal Chat: Agent ${agentId} response: "${botResponse.response.substring(0, 100)}..."`);
-
-      res.setHeader('Content-Type', 'application/json');
-      res.json({
-        response: botResponse.response,
-        sessionId: sessionId,
-        metadata: botResponse.metadata || {},
-        userMessageId: userChatHistory.id,
-        assistantMessageId: assistantChatHistory.id,
-      });
-    } catch (error) {
-      console.error("❌ Error in internal chat message:", error);
-      console.error("❌ Error stack:", error.stack);
-      res.setHeader('Content-Type', 'application/json');
-      res.status(500).json({ error: "Failed to send message", details: error.message });
-    }
-  });
-
         res.setHeader("Content-Length", fsSync.statSync(filePath).size);
 
         const fileStream = fsSync.createReadStream(filePath);
@@ -2740,7 +2404,7 @@ ${document.summary}`;
     }
   });
 
-  // Chat routes
+  // Chat conversation endpoints
   app.get("/api/chat/conversations", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -2919,248 +2583,6 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       res.status(500).json({ message: "Failed to process chat message" });
     }
   });
-
-  // Vector database management routes
-  app.get("/api/vector/stats", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const userDocuments = await vectorService.getDocumentsByUser(userId);
-      const totalDocuments = await vectorService.getDocumentCount();
-      const chunkStats = await vectorService.getDocumentChunkStats(userId);
-
-      // Group chunks by original document
-      const documentMap = new Map();
-      userDocuments.forEach((doc) => {
-        const originalDocId = doc.metadata.originalDocumentId || doc.id;
-        if (!documentMap.has(originalDocId)) {
-          documentMap.set(originalDocId, {
-            id: originalDocId,
-            name: doc.metadata.documentName,
-            type: doc.metadata.mimeType,
-            chunks: 0,
-            totalLength: 0,
-          });
-        }
-        const entry = documentMap.get(originalDocId);
-        entry.chunks++;
-        entry.totalLength += doc.content.length;
-      });
-
-      res.json({
-        userDocuments: userDocuments.length,
-        totalDocuments,
-        uniqueDocuments: documentMap.size,
-        chunkStats,
-        vectorized: Array.from(documentMap.values()),
-      });
-    } catch (error) {
-      console.error("Error getting vector stats:", error);
-      res.status(500).json({ message: "Failed to get vector database stats" });
-    }
-  });
-
-  // Re-vectorize all documents endpoint
-  app.post(
-    "/api/vector/reindex-all",
-    (req: any, res: any, next: any) => {
-      // Try Microsoft auth first, then fallback to Replit auth
-      isMicrosoftAuthenticated(req, res, (err: any) => {
-        if (!err) {
-          return next();
-        }
-        isAuthenticated(req, res, next);
-      });
-    },
-    async (req: any, res) => {
-      try {
-        const userId = req.user.claims.sub;
-        const { preserveExistingEmbeddings = true } = req.body; // Default to preserving for re-indexing
-        const documents = await storage.getDocuments(userId);
-
-        let processedCount = 0;
-        let errorCount = 0;
-        const results: any[] = [];
-
-        console.log(`Re-indexing ${documents.length} documents with preserve mode: ${preserveExistingEmbeddings}`);
-
-        for (const document of documents) {
-          if (document.content && document.content.trim().length > 0) {
-            try {
-              const result = await vectorService.addDocument(
-                document.id.toString(),
-                document.content,
-                {
-                  userId,
-                  documentName: document.name,
-                  mimeType: document.mimeType,
-                  tags: document.tags || [],
-                },
-                document.mimeType,
-                preserveExistingEmbeddings
-              );
-
-              processedCount++;
-              results.push({
-                id: document.id,
-                name: document.name,
-                status: "success",
-                result: result
-              });
-
-              // Add delay to avoid rate limiting
-              await new Promise((resolve) => setTimeout(resolve, 200));
-            } catch (error) {
-              console.error(
-                `Error re-vectorizing document ${document.id}:`,
-                error,
-              );
-              errorCount++;
-              results.push({
-                id: document.id,
-                name: document.name,
-                status: "error",
-                error: error instanceof Error ? error.message : "Unknown error",
-              });
-            }
-          } else {
-            results.push({
-              id: document.id,
-              name: document.name,
-              status: "skipped",
-              reason: "No content to vectorize",
-            });
-          }
-        }
-
-        res.json({
-          success: true,
-          message: `Re-indexing completed. Processed: ${processedCount}, Errors: ${errorCount}${preserveExistingEmbeddings ? ' (preserved existing embeddings)' : ''}`,
-          processed: processedCount,
-          errors: errorCount,
-          total: documents.length,
-          preservedExistingEmbeddings: preserveExistingEmbeddings,
-          results,
-        });
-      } catch (error) {
-        console.error("Error re-indexing documents:", error);
-        res.status(500).json({ message: "Failed to re-index documents" });
-      }
-    },
-  );
-
-  app.post(
-    "/api/documents/:id/reprocess",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const userId = req.user.claims.sub;
-        const documentId = parseInt(req.params.id);
-
-        const document = await storage.getDocument(documentId, userId);
-        if (!document) {
-          return res.status(404).json({ message: "Document not found" });
-        }
-
-        // Remove from vector database first
-        await vectorService.removeDocument(documentId.toString());
-
-        // Reprocess document
-        await documentProcessor.processDocument(documentId);
-
-        res.json({ message: "Document reprocessed successfully" });
-      } catch (error) {
-        console.error("Error reprocessing document:", error);
-        res.status(500).json({ message: "Failed to reprocess document" });
-      }
-    },
-  );
-
-  // Chat conversation endpoints
-  app.get("/api/chat/conversations", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const conversations = await storage.getChatConversations(userId);
-      res.json(conversations);
-    } catch (error) {
-      console.error("Error fetching conversations:", error);
-      res.status(500).json({ message: "Failed to fetch conversations" });
-    }
-  });
-
-  app.post(
-    "/api/chat/conversations",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const userId = req.user.claims.sub;
-        const { title } = req.body;
-
-        const conversation = await storage.createChatConversation({
-          userId,
-          title: title || "New Conversation",
-        });
-
-        res.json(conversation);
-      } catch (error) {
-        console.error("Error creating conversation:", error);
-        res.status(500).json({ message: "Failed to create conversation" });
-      }
-    },
-  );
-
-  app.get(
-    "/api/chat/conversations/:id/messages",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const userId = req.user.claims.sub;
-        const conversationId = parseInt(req.params.id);
-
-        const messages = await storage.getChatMessages(conversationId, userId);
-        res.json(messages);
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-        res.status(500).json({ message: "Failed to fetch messages" });
-      }
-    },
-  );
-
-  app.post(
-    "/api/chat/conversations/:id/message",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const userId = req.user.claims.sub;
-        const conversationId = parseInt(req.params.id);
-        const { content } = req.body;
-
-        // Store user message
-        const userMessage = await storage.createChatMessage({
-          conversationId,
-          role: "user",
-          content,
-        });
-
-        // Get user's documents for context
-        const documents = await storage.getDocuments(userId);
-
-        // Generate AI response using OpenAI
-        const aiResponse = await generateChatResponse(content, documents);
-
-        // Store AI message
-        const aiMessage = await storage.createChatMessage({
-          conversationId,
-          role: "assistant",
-          content: aiResponse,
-        });
-
-        res.json({ userMessage, aiMessage });
-      } catch (error) {
-        console.error("Error sending message:", error);
-        res.status(500).json({ message: "Failed to send message" });
-      }
-    },
-  );
 
   // Data connection management routes
   app.get("/api/data-connections", isAuthenticated, async (req: any, res) => {
@@ -3428,7 +2850,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       const widgetId = parseInt(req.params.id);
 
       const updatedWidget = await storage.setPlatformWidget(widgetId, userId);
-      
+
       res.json(updatedWidget);
     } catch (error) {
       console.error("Error setting platform widget:", error);
@@ -3442,7 +2864,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       const widgetId = parseInt(req.params.id);
 
       const updatedWidget = await storage.unsetPlatformWidget(widgetId, userId);
-      
+
       res.json(updatedWidget);
     } catch (error) {
       console.error("Error unsetting platform widget:", error);
@@ -3721,7 +3143,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     try {
       const { widgetKey } = req.params;
       const { sessionId, message, visitorInfo } = req.body;
-      
+
       const {
         chatWidgets,
         widgetChatSessions,
@@ -3737,10 +3159,10 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       // Get current user information if authenticated
       let currentUser = null;
       let hrEmployeeData = null;
-      
+
       console.log(`👤 Widget: Checking authentication - req.user exists: ${!!req.user}`);
       console.log(`👤 Widget: req.user structure:`, req.user ? Object.keys(req.user) : 'undefined');
-      
+
       // Try multiple authentication methods
       if (req.user) {
         // Method 1: Check for claims structure (Replit Auth)
@@ -3764,7 +3186,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       } else {
         console.log(`👤 Widget: No authenticated user found`);
       }
-      
+
       if (currentUser && currentUser.email) {
         // Try to find HR employee data for the authenticated user
         try {
@@ -3772,9 +3194,9 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           const hrEmployeeQuery = await db.query.hrEmployees.findFirst({
             where: (hrEmployees, { eq }) => eq(hrEmployees.email, currentUser.email),
           });
-          
+
           const employee = hrEmployeeQuery;
-          
+
           if (employee) {
             hrEmployeeData = employee;
             console.log(`👤 Widget: Found HR data for ${employee.name} (${employee.department})`);
@@ -4263,10 +3685,10 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       try {
         const userId = req.user.claims.sub;
         const dateRange = req.query.dateRange || '7d';
-        
+
         // Get user's social integrations
         const integrations = await storage.getSocialIntegrations(userId);
-        
+
         // Build analytics data
         const analytics = {
           dateRange,
@@ -4279,7 +3701,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           })),
           lastUpdated: new Date().toISOString()
         };
-        
+
         res.json(analytics);
       } catch (error) {
         console.error("Error fetching omnichannel analytics:", error);
