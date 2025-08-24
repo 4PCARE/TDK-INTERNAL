@@ -73,6 +73,7 @@ export default function Sidebar({
       label: "Main",
       items: [
         { name: "Home", href: "/", icon: LayoutDashboard },
+        { name: "AI Assistant", href: "/ai-live-chat", icon: Brain },
         { name: "Settings", href: "/settings", icon: Settings },
       ]
     },
@@ -92,8 +93,7 @@ export default function Sidebar({
         { name: "Agent Console", href: "/agent-console", icon: MessageSquare },
         { name: "App Widget", href: "/live-chat-widget", icon: MessageCircle },
         { name: "Platform Integrations", href: "/integrations", icon: Share2 },
-        { name: "Data Connections", href: "/data-connections", icon: Database },
-        { name: "AI Live Chat", href: "/ai-live-chat", icon: Brain }
+        { name: "Data Connections", href: "/data-connections", icon: Database }
       ]
     },
     {
