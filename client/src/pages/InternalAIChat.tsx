@@ -138,9 +138,6 @@ export default function InternalAIChat() {
   const [botSearchTerm, setBotSearchTerm] = useState(""); // Added for bot search
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Use selectedAgentId to find the selected agent object
-  const selectedAgent = (agents || []).find(agent => agent.id === selectedAgentId) || null;
-
   const currentSessionId = selectedSession?.id; // For use in mutations
 
   // Fetch available agents
@@ -155,6 +152,9 @@ export default function InternalAIChat() {
     },
     enabled: isAuthenticated,
   }) as { data: Agent[]; isLoading: boolean };
+
+  // Use selectedAgentId to find the selected agent object
+  const selectedAgent = (agents || []).find(agent => agent.id === selectedAgentId) || null;
 
   // Fetch agent documents for each agent
   const agentDocumentQueries = useQueries({
