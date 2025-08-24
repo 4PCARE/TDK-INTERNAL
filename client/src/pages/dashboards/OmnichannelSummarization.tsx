@@ -548,7 +548,12 @@ export default function OmnichannelSummarization() {
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div 
-                              className="bg-yellow-500 h-2 rounded-full" 
+                              className={`h-2 rounded-full ${
+                                platform.csatScore >= 86 ? "bg-green-500" :
+                                platform.csatScore >= 71 ? "bg-blue-500" :
+                                platform.csatScore >= 51 ? "bg-yellow-500" :
+                                platform.csatScore >= 31 ? "bg-orange-500" : "bg-red-500"
+                              }`}
                               style={{ width: `${platform.csatScore}%` }}
                             ></div>
                           </div>

@@ -648,19 +648,28 @@ export default function AgentConsole() {
                               <span className="font-medium">{formatDate(summary.lastActiveAt)}</span>
                             </div>
                             {summary.csatScore && (
-                              <div className="flex justify-between items-center">
+                              <div className="flex justify-between">
                                 <span className="text-gray-500">CSAT Score:</span>
-                                <Badge 
-                                  variant={summary.csatScore >= 80 ? "default" : summary.csatScore >= 60 ? "secondary" : "destructive"}
+                                <Badge
+                                  variant="outline"
                                   className={
-                                    summary.csatScore >= 80 
-                                      ? "bg-green-100 text-green-800" 
-                                      : summary.csatScore >= 60 
-                                      ? "bg-yellow-100 text-yellow-800" 
-                                      : "bg-red-100 text-red-800"
+                                    summary.csatScore >= 86 
+                                      ? "bg-green-100 text-green-800 border-green-300" 
+                                      : summary.csatScore >= 71 
+                                      ? "bg-blue-100 text-blue-800 border-blue-300"
+                                      : summary.csatScore >= 51
+                                      ? "bg-yellow-100 text-yellow-800 border-yellow-300"
+                                      : summary.csatScore >= 31
+                                      ? "bg-orange-100 text-orange-800 border-orange-300"
+                                      : "bg-red-100 text-red-800 border-red-300"
                                   }
                                 >
-                                  {summary.csatScore}/100 {summary.csatScore >= 80 ? "Excellent" : summary.csatScore >= 60 ? "Good" : "Needs Improvement"}
+                                  {summary.csatScore}/100 {
+                                    summary.csatScore >= 86 ? "Excellent" : 
+                                    summary.csatScore >= 71 ? "Good" : 
+                                    summary.csatScore >= 51 ? "Fair" :
+                                    summary.csatScore >= 31 ? "Poor" : "Very Poor"
+                                  }
                                 </Badge>
                               </div>
                             )}
