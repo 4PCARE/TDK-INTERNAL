@@ -28,7 +28,9 @@ import {
   Clock,
   FileType,
   Users,
-  Upload
+  Upload,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import DocumentCard from "@/components/DocumentCard";
 import ShareDocumentDialog from "@/components/ShareDocumentDialog";
@@ -59,6 +61,8 @@ export default function Documents() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showUploadZone, setShowUploadZone] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const documentsPerPage = 9;
 
   // Parse search query from URL
   useEffect(() => {
@@ -258,7 +262,7 @@ export default function Documents() {
   const allTags = documents ? Array.from(new Set(documents.flatMap((doc: any) => doc.tags || []))) : [];
 
   // Filter and sort documents with multi-select support
-  const filteredDocuments = documents ? documents.filter((doc: any) => {
+  const allFilteredDocuments = documents ? documents.filter((doc: any) => {
     // Apply category filters
     const matchesCategory = filterCategories.length === 0 || 
                            filterCategories.includes(doc.aiCategory) ||
@@ -289,6 +293,17 @@ export default function Documents() {
         return 0;
     }
   }) : [];
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterCategories, filterTags, showFavoritesOnly, sortBy]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(allFilteredDocuments.length / documentsPerPage);
+  const startIndex = (currentPage - 1) * documentsPerPage;
+  const endIndex = startIndex + documentsPerPage;
+  const filteredDocuments = allFilteredDocuments.slice(startIndex, endIndex);
 
   return (
     <DashboardLayout>
@@ -522,7 +537,7 @@ export default function Documents() {
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg font-semibold text-slate-800">
-                    Documents ({filteredDocuments?.length || 0})
+                    Documents ({allFilteredDocuments?.length || 0})
                   </CardTitle>
                   <div className="flex items-center space-x-2">
                     <VectorizeAllButton />
@@ -591,6 +606,78 @@ export default function Documents() {
                       <Upload className="w-4 h-4 mr-2" />
                       Upload Documents
                     </Button>
+                  </div>
+                )}
+
+                {/* Pagination Controls */}
+                {allFilteredDocuments && allFilteredDocuments.length > 0 && totalPages > 1 && (
+                  <div className="mt-6 flex items-center justify-between">
+                    <div className="text-sm text-slate-500">
+                      Showing {startIndex + 1}-{Math.min(endIndex, allFilteredDocuments.length)} of {allFilteredDocuments.length} documents
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(currentPage - 1)}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        Previous
+                      </Button>
+                      
+                      <div className="flex items-center space-x-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+                          
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={currentPage === pageNum ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(pageNum)}
+                              className="w-8 h-8 p-0"
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        })}
+                        
+                        {totalPages > 5 && currentPage < totalPages - 2 && (
+                          <>
+                            <span className="text-slate-400">...</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCurrentPage(totalPages)}
+                              className="w-8 h-8 p-0"
+                            >
+                              {totalPages}
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>
