@@ -75,7 +75,8 @@ export default function DocumentChatModal({
     enabled: !!currentConversationId,
     retry: false,
     refetchOnWindowFocus: false,
-    staleTime: 0,
+    staleTime: 1000 * 60, // Cache for 1 minute to prevent excessive refetching
+    refetchOnMount: false,
   });
 
   // Send message mutation
@@ -129,23 +130,19 @@ export default function DocumentChatModal({
     },
     onSuccess: () => {
       setInput("");
-      // Force refetch to ensure UI updates with server response
-      setTimeout(() => {
-        queryClient.invalidateQueries({
-          queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
-        });
-      }, 100);
+      // Simple invalidation without setTimeout to prevent race conditions
+      queryClient.invalidateQueries({
+        queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
+      });
     },
   });
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current && messages?.length > 0) {
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 100);
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [messages?.length]); // Only depend on message count, not the entire messages array
 
   // Create conversation when modal opens
   useEffect(() => {
