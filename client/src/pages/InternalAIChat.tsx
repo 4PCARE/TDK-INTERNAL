@@ -35,6 +35,23 @@ import {
 import { cn } from "@/lib/utils";
 import ReactMarkdown from 'react-markdown';
 
+// Add CSS for line clamping
+const lineClampStyles = `
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = lineClampStyles;
+  document.head.appendChild(style);
+}
+
 // Real API request function
 const apiRequest = async (method: string, url: string, body?: any) => {
   const options: RequestInit = {
@@ -520,8 +537,8 @@ export default function InternalAIChat() {
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 truncate">{agent.name}</p>
-                          <p className="text-sm text-gray-500 truncate">{agent.description}</p>
+                          <p className="font-medium text-gray-900 break-words">{agent.name}</p>
+                          <p className="text-sm text-gray-500 break-words line-clamp-2">{agent.description}</p>
                           <div className="flex items-center space-x-2 mt-1">
                             <Badge
                               variant={agent.isActive ? "default" : "secondary"}
@@ -665,11 +682,11 @@ export default function InternalAIChat() {
                             />
                           </div>
                         ) : (
-                          <p className="font-medium text-gray-900 truncate">{session.title}</p>
+                          <p className="font-medium text-gray-900 break-words line-clamp-2">{session.title}</p>
                         )}
 
                         {session.lastMessage && (
-                          <p className="text-sm text-gray-500 truncate mt-1">
+                          <p className="text-sm text-gray-500 break-words line-clamp-2 mt-1">
                             {session.lastMessage}
                           </p>
                         )}
