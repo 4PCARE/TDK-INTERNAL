@@ -10,6 +10,7 @@ import { pool, db } from "../db";
 import { socialIntegrations } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { WebSocket } from "ws";
+import { Request, Response } from "express";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -510,6 +511,82 @@ Memory management: Keep track of conversation context within the last ${agentCon
       } catch (error) {
         console.error("Error testing agent chat:", error);
         res.status(500).json({ message: "Failed to test agent chat", error: error.message });
+      }
+    },
+  );
+
+  // Internal Agent Chat endpoint (uses same agentBot service as LINE OA)
+  app.post(
+    "/api/internal-agent-chat",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const { message, agentId, channelType = 'web', channelId, documentIds = [] } = req.body;
+        const userId = req.user.claims.sub;
+
+        if (!message || !agentId) {
+          return res.status(400).json({ message: "Message and agent ID are required" });
+        }
+
+        console.log(`🤖 Internal Agent Chat: Processing message for agent ${agentId}`);
+
+        // Import and use AgentBot service (same as LINE OA)
+        const { processMessage, saveAssistantResponse } = await import("../agentBot");
+
+        const botContext = {
+          userId: userId,
+          channelType: channelType as const,
+          channelId: channelId || `internal-${userId}-${Date.now()}`,
+          agentId: parseInt(agentId),
+          messageId: `internal-${Date.now()}`,
+          lineIntegration: null, // Not needed for internal chat
+        };
+
+        const botMessage = {
+          type: "text",
+          content: message,
+          metadata: {},
+        };
+
+        // Process message using AgentBot (same service as LINE OA)
+        const botResponse = await processMessage(botMessage, botContext);
+
+        if (!botResponse.success) {
+          console.error("🤖 AgentBot processing failed:", botResponse.error);
+          return res.status(500).json({
+            message: botResponse.error || "Failed to process message"
+          });
+        }
+
+        // Save the conversation to chat history
+        try {
+          // Save user message
+          await storage.createChatHistory({
+            userId: userId,
+            channelType: channelType,
+            channelId: botContext.channelId,
+            agentId: parseInt(agentId),
+            messageType: "user",
+            content: message,
+            metadata: { source: 'internal_chat' },
+          });
+
+          // Save assistant response
+          await saveAssistantResponse(
+            botResponse.response!,
+            botContext,
+            { source: 'internal_chat' }
+          );
+
+          console.log("💾 Saved internal chat conversation to history");
+        } catch (error) {
+          console.error("⚠️ Error saving internal chat history:", error);
+        }
+
+        res.json({ response: botResponse.response });
+      } catch (error) {
+        console.error("Error in internal agent chat:", error);
+        res.status(500).json({ message: "Failed to process internal agent chat" });
       }
     },
   );
@@ -1893,7 +1970,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
     }
   });
 
-  // Line OA Webhook endpoint (no authentication required)
+  // LINE OA Webhook endpoint (no authentication required)
   app.post("/api/line/webhook", handleLineWebhook);
 
   // Dynamic Line OA Webhook with integration ID for multiple channels

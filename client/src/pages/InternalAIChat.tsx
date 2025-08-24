@@ -158,24 +158,19 @@ export default function InternalAIChat() {
       console.log('📄 Selected Document ID:', selectedDocument);
       console.log('💾 Chat History Length:', messages.length);
 
-      // If a bot is selected, use agent chat endpoint
+      // If a bot is selected, use proper agent bot service (same as LINE OA)
       if (selectedBot) {
-        console.log('🎯 Using Agent Chat Endpoint');
+        console.log('🤖 Using AgentBot Service (same as LINE OA)');
         const requestPayload = {
           message: content,
-          agentConfig: {
-            id: selectedBot,
-            name: agents.find(a => a.id === selectedBot)?.name || "Selected Agent"
-          },
-          documentIds: selectedDocument ? [selectedDocument] : [],
-          chatHistory: messages.map(msg => ({
-            role: msg.role,
-            content: msg.content
-          }))
+          agentId: selectedBot,
+          channelType: 'web',
+          channelId: 'internal-chat-' + Date.now(),
+          documentIds: selectedDocument ? [selectedDocument] : []
         };
-        console.log('📤 Agent Request Payload:', requestPayload);
+        console.log('📤 AgentBot Request Payload:', requestPayload);
 
-        const response = await apiRequest("POST", "/api/agent-chatbots/test-chat", requestPayload);
+        const response = await apiRequest("POST", "/api/internal-agent-chat", requestPayload);
 
         if (!response.ok) {
           console.error(`❌ Agent API Error: ${response.status} ${response.statusText}`);
