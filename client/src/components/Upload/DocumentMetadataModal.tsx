@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,11 @@ export default function DocumentMetadataModal({
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [showDateFields, setShowDateFields] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Update name when fileName prop changes
+  useEffect(() => {
+    setName(fileName);
+  }, [fileName]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
