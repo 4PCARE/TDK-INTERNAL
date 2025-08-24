@@ -684,7 +684,6 @@ export default function InternalAIChat() {
                     </div>
                   )}
                 </div>
-              )}
             </ScrollArea>
           </div>
         )}
