@@ -540,29 +540,31 @@ export default function InternalAIChat() {
                         >
                           {message.role === 'assistant' && (
                             <Avatar className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 flex-shrink-0">
-                              <AvatarFallback>
+                              <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600">
                                 <Bot className="w-4 h-4 text-white" />
                               </AvatarFallback>
                             </Avatar>
                           )}
 
                           <div className={`flex-1 max-w-xs lg:max-w-md ${message.role === 'user' ? 'flex justify-end' : ''}`}>
-                            <div className={`rounded-lg px-4 py-3 ${
-                              message.role === 'user' 
-                                ? 'bg-blue-500 text-white rounded-tr-none' 
-                                : 'bg-gray-100 text-gray-900 rounded-tl-none'
-                            }`}>
-                              <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                            <div className="flex flex-col">
+                              <div className={`rounded-lg px-4 py-3 ${
+                                message.role === 'user' 
+                                  ? 'bg-blue-500 text-white rounded-tr-none' 
+                                  : 'bg-gray-100 text-gray-900 rounded-tl-none'
+                              }`}>
+                                <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                              </div>
+                              <p className={`text-xs text-gray-500 mt-1 px-1 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
+                                {formatTime(message.createdAt)}
+                              </p>
                             </div>
-                            <p className={`text-xs text-gray-500 mt-1 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
-                              {formatTime(message.createdAt)}
-                            </p>
                           </div>
 
                           {message.role === 'user' && (
-                            <Avatar className="w-8 h-8 flex-shrink-0">
-                              <AvatarFallback>
-                                <User className="w-4 h-4" />
+                            <Avatar className="w-8 h-8 bg-gray-500 flex-shrink-0">
+                              <AvatarFallback className="bg-gray-500">
+                                <User className="w-4 h-4 text-white" />
                               </AvatarFallback>
                             </Avatar>
                           )}
@@ -575,15 +577,17 @@ export default function InternalAIChat() {
                       </div>
                     )}
 
+                  <div ref={messagesEndRef} />
+                  
                   {(sendMessageMutation.isPending || isCreatingSession) && (
-                    <div className="flex items-start space-x-3">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback>
-                          <Bot className="w-4 h-4" />
+                    <div className="flex items-start space-x-3 mt-4">
+                      <Avatar className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600">
+                        <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600">
+                          <Bot className="w-4 h-4 text-white" />
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
-                        <div className="bg-gray-100 rounded-lg p-3">
+                        <div className="bg-gray-100 rounded-lg rounded-tl-none p-3">
                           <div className="flex items-center space-x-2">
                             <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full"></div>
                             <div className="animate-bounce w-2 h-2 bg-gray-400 rounded-full" style={{ animationDelay: "0.1s" }}></div>
@@ -593,7 +597,6 @@ export default function InternalAIChat() {
                       </div>
                     </div>
                   )}
-                  <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>
 
