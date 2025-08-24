@@ -8,7 +8,6 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
 import Documents from "@/pages/Documents";
 import Categories from "@/pages/Categories";
-import Upload from "@/pages/Upload";
 import Search from "@/pages/Search";
 import Landing from "@/pages/Landing";
 import Admin from "@/pages/Admin";
@@ -57,9 +56,8 @@ function Router() {
         </Switch>
       ) : (
         <Switch>
-          <Route path="/" component={Dashboard} />
+          <Route path="/" component={Documents} />
           <Route path="/documents" component={Documents} />
-          <Route path="/upload" component={Upload} />
           <Route path="/search" component={Search} />
           <Route path="/categories" component={Categories} />
           <Route path="/ai-assistant" component={AIAssistant} />
