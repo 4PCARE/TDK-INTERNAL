@@ -986,13 +986,11 @@ export default function InternalAIChat() {
                           <Bot className="w-4 h-4 text-white" />
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex-1">
-                        <div className="bg-gray-100 rounded-lg rounded-tl-none px-3 py-2">
-                          <div className="flex items-center space-x-1">
-                            <div className="animate-bounce w-1 h-1 bg-gray-500 rounded-full"></div>
-                            <div className="animate-bounce w-1 h-1 bg-gray-500 rounded-full" style={{ animationDelay: "0.1s" }}></div>
-                            <div className="animate-bounce w-1 h-1 bg-gray-500 rounded-full" style={{ animationDelay: "0.2s" }}></div>
-                          </div>
+                      <div className="bg-gray-100 rounded-lg rounded-tl-none px-3 py-2 inline-block">
+                        <div className="flex items-center space-x-1">
+                          <div className="animate-bounce w-1 h-1 bg-gray-500 rounded-full"></div>
+                          <div className="animate-bounce w-1 h-1 bg-gray-500 rounded-full" style={{ animationDelay: "0.1s" }}></div>
+                          <div className="animate-bounce w-1 h-1 bg-gray-500 rounded-full" style={{ animationDelay: "0.2s" }}></div>
                         </div>
                       </div>
                     </div>
