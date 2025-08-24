@@ -277,7 +277,7 @@ export default function DocumentChatModal({
                         <div
                           key={`msg-${message.id}-${index}`}
                           className={`flex space-x-4 ${
-                            message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''
+                            message.role === 'user' ? 'flex-row-reverse space-x-reverse justify-start' : ''
                           }`}
                         >
                           <Avatar className={`w-10 h-10 flex-shrink-0 ${
@@ -298,7 +298,7 @@ export default function DocumentChatModal({
                             </AvatarFallback>
                           </Avatar>
 
-                          <div className="flex-1 max-w-3xl">
+                          <div className={`${message.role === 'user' ? 'max-w-3xl' : 'flex-1 max-w-3xl'}`}>
                             <div className={`rounded-2xl px-6 py-4 shadow-sm ${
                               message.role === 'user'
                                 ? 'bg-blue-500 text-white rounded-tr-md'
