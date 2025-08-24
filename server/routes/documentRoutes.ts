@@ -1,4 +1,34 @@
+import type { Express } from "express";
+import { isAuthenticated, isMicrosoftAuthenticated } from "../replitAuth";
+import { storage } from "../storage";
+import { semanticSearchServiceV2 } from "../services/semanticSearchV2";
+import multer from "multer";
+import path from "path";
+import fs from "fs/promises";
+import * as fsSync from "fs";
+import { processDocument, generateChatResponse } from "../services/openai";
+import { insertChatConversationSchema, insertChatMessageSchema } from "@shared/schema";
+import { upload } from "./shared";
+import { eq, sql } from "drizzle-orm";
+import { users, departments } from "@shared/schema";
+import { vectorService } from "../vectorService";
+import { documentProcessor } from "../documentProcessor";
 
+// Define a multer storage for handling file uploads
+const uploadStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "uploads/"); // Save files to the 'uploads' directory
+  },
+  filename: function (req, file, cb) {
+    // Use original name with a timestamp to prevent conflicts
+    cb(null, `${Date.now()}-${file.originalname}`);
+  },
+});
+
+// Initialize multer with the storage configuration
+const upload = multer({ storage: uploadStorage });
+
+export function registerDocumentRoutes(app: Express) {
   app.post(
     "/api/documents/:id/permissions/user",
     isAuthenticated,
@@ -94,7 +124,7 @@
   );
 
   // Document routes
-  app.get("/api/documents", smartAuth, async (req: any, res) => {
+  app.get("/api/documents", storage.smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const categoryId = req.query.categoryId
@@ -1307,7 +1337,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
         for (const document of documents) {
           if (document.content && document.content.trim().length > 0) {
             try {
-              await vectorService.addDocument(
+              const result = await vectorService.addDocument(
                 document.id.toString(),
                 document.content,
                 {
@@ -1395,3 +1425,5 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       }
     },
   );
+
+}

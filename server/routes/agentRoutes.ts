@@ -1,3 +1,14 @@
+import type { Express } from "express";
+import { isAuthenticated } from "../replitAuth";
+import { storage } from "../storage";
+import OpenAI from "openai";
+import { semanticSearchServiceV2 } from "../services/semanticSearchV2";
+import { GuardrailsService } from "../services/guardrails";
+import { upload } from "./shared";
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+export function registerAgentRoutes(app: Express) {
 
   app.delete(
     "/api/agent-chatbots/:id",
@@ -1856,7 +1867,13 @@ Memory management: Keep track of conversation context within the last ${agentCon
       res.status(500).json({ error: "Internal server error" });
     }
   });
+}
 
+// Keep the rest of the original code as is, except for the addition of registerAgentRoutes call if needed elsewhere.
+// The original code block for httpServer creation and WebSocketServer setup is outside this function.
+// The following lines are from the original code, kept here for context but not part of the registerAgentRoutes function.
+
+/*
   const httpServer = createServer(app);
 
   // Create WebSocket server on /ws path to avoid conflicts with Vite HMR
@@ -1864,3 +1881,4 @@ Memory management: Keep track of conversation context within the last ${agentCon
     server: httpServer,
     path: '/ws'
   });
+*/
