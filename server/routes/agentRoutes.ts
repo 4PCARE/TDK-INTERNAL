@@ -235,14 +235,15 @@ ${agentConfig.blockedTopics?.length > 0 ? `Blocked topics: ${agentConfig.blocked
             const userId = req.user.claims.sub;
 
             // Use smart hybrid search for testing with custom configuration
-            const searchResults = await semanticSearchServiceV2.searchSmartHybridDebug(
+            const { searchSmartHybridDebug } = await import('../services/newSearch');
+            const searchResults = await searchSmartHybridDebug(
               message,
               userId,
               {
                 specificDocumentIds: documentIds,
                 massSelectionPercentage: documentMass,
-                hybridAlpha: 0.2, // 20% keyword, 80% vector
-                maxResults: chunkMaxType === 'number' ? chunkMaxValue : undefined
+                keywordWeight: 0.2,
+                vectorWeight: 0.8
               }
             );
 
@@ -393,14 +394,15 @@ Memory management: Keep track of conversation context within the last ${agentCon
             const userId = req.user.claims.sub;
 
             // Use smart hybrid search for testing with custom configuration
-            const searchResults = await semanticSearchServiceV2.searchSmartHybridDebug(
+            const { searchSmartHybridDebug } = await import('../services/newSearch');
+            const searchResults = await searchSmartHybridDebug(
               message,
               userId,
               {
                 specificDocumentIds: documentIds,
                 massSelectionPercentage: documentMass,
-                hybridAlpha: 0.2, // 20% keyword, 80% vector
-                maxResults: chunkMaxType === 'number' ? chunkMaxValue : undefined
+                keywordWeight: 0.2,
+                vectorWeight: 0.8
               }
             );
 
@@ -1325,7 +1327,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
           }
         };
 
-        console.log('📡 Broadcasting to Agent Console:', broadcastData);
+        console.log('➲ Broadcasting to Agent Console:', broadcastData);
         (global as any).broadcastToAgentConsole(broadcastData);
         console.log('✅ Broadcasted human agent message to Agent Console');
       } else {
@@ -1444,8 +1446,8 @@ Memory management: Keep track of conversation context within the last ${agentCon
             }
           };
 
-          console.log('📡 Broadcasting web widget message (specific):', JSON.stringify(wsMessage, null, 2));
-          console.log('📡 Broadcasting web widget message (broadcast):', JSON.stringify(broadcastMessage, null, 2));
+          console.log('➲ Broadcasting web widget message (specific):', JSON.stringify(wsMessage, null, 2));
+          console.log('➲ Broadcasting web widget message (broadcast):', JSON.stringify(broadcastMessage, null, 2));
 
           let sentCount = 0;
           let openConnections = 0;
