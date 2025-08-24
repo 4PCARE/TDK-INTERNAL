@@ -3048,7 +3048,13 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
   });
 
   // Widget chat endpoints - with optional authentication for HR integration
-  app.post("/api/widget/:widgetKey/chat", async (req: any, res) => {
+  app.post("/api/widget/:widgetKey/chat", (req: any, res: any, next: any) => {
+    // Try to apply authentication, but don't fail if not authenticated
+    smartAuth(req, res, (err: any) => {
+      // Continue regardless of authentication status
+      next();
+    });
+  }, async (req: any, res) => {
     try {
       const { widgetKey } = req.params;
       const { sessionId, message, visitorInfo } = req.body;
