@@ -540,9 +540,63 @@ async function getAiResponseDirectly(
         console.log(
           `📄 AgentBot: Building document context from search results (max: ${maxContextLength} chars):`,
         );
+        
+        // Debug: Log the complete structure of first search result
+        if (finalSearchResults.length > 0) {
+          console.log(`📄 AgentBot DEBUG: Complete first search result structure:`, JSON.stringify(finalSearchResults[0], null, 2));
+        }
         for (let i = 0; i < finalSearchResults.length; i++) {
           const result = finalSearchResults[i];
-          const docId = parseInt(result.documentId || result.metadata?.originalDocumentId || '0');
+          
+          // Bulletproof document ID extraction with multiple fallback strategies
+          let docId = 0;
+          let extractionMethod = "none";
+          
+          // Strategy 1: Direct documentId
+          if (result.documentId && result.documentId !== '0' && result.documentId !== 0) {
+            docId = parseInt(result.documentId);
+            extractionMethod = "documentId";
+          } 
+          // Strategy 2: metadata.originalDocumentId
+          else if (result.metadata?.originalDocumentId && result.metadata.originalDocumentId !== '0' && result.metadata.originalDocumentId !== 0) {
+            docId = parseInt(result.metadata.originalDocumentId);
+            extractionMethod = "metadata.originalDocumentId";
+          } 
+          // Strategy 3: Extract from chunk ID format like "315-0"
+          else if (result.id) {
+            const idStr = result.id.toString();
+            const parts = idStr.split('-');
+            if (parts.length >= 2 && !isNaN(parseInt(parts[0])) && parseInt(parts[0]) > 0) {
+              docId = parseInt(parts[0]);
+              extractionMethod = "id-split";
+            }
+          } 
+          // Strategy 4: Extract from chunkId format
+          else if (result.chunkId) {
+            const chunkIdStr = result.chunkId.toString();
+            const parts = chunkIdStr.split('-');
+            if (parts.length >= 2 && !isNaN(parseInt(parts[0])) && parseInt(parts[0]) > 0) {
+              docId = parseInt(parts[0]);
+              extractionMethod = "chunkId-split";
+            }
+          }
+          // Strategy 5: Check if the result object has any other ID fields
+          else {
+            // Look for any field that might contain document ID
+            for (const [key, value] of Object.entries(result)) {
+              if (key.toLowerCase().includes('doc') && value && value !== '0' && value !== 0) {
+                const numValue = parseInt(value.toString());
+                if (!isNaN(numValue) && numValue > 0) {
+                  docId = numValue;
+                  extractionMethod = `field-${key}`;
+                  break;
+                }
+              }
+            }
+          }
+          
+          console.log(`📄 AgentBot DEBUG: Result ${i + 1} - documentId: ${result.documentId}, originalDocumentId: ${result.metadata?.originalDocumentId}, id: ${result.id}, chunkId: ${result.chunkId}, extracted docId: ${docId}, method: ${extractionMethod}`);
+          
           const documentName = documentNamesMap.get(docId);
           
           // Use actual document name or fallback to Document ID format

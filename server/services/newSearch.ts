@@ -747,26 +747,22 @@ export async function searchSmartHybridDebug(
   console.log(`🎯 TRUE MASS SELECTION (${(massSelectionPercentage * 100).toFixed(1)}%): From ${scoredChunks.length} scored chunks, selected ${selectedChunks.length} chunks capturing ${(selectedTotalScore/totalScore*100).toFixed(1)}% of total score mass (${isLineOAContext ? 'LINE OA' : 'Document Bot'} context)`);
 
 
-  const results: SearchResult[] = selectedChunks.map(chunk => {
+  const searchResults = selectedChunks.map(chunk => {
     const doc = docMap.get(chunk.docId);
     const label = `(Chunk ${chunk.chunkIndex + 1})`;
     const documentName = doc?.name || `Document ${chunk.docId}`;
     return {
       id: `${chunk.docId}-${chunk.chunkIndex}`,
-      name: `${documentName} ${label}`,
+      chunkId: `${chunk.docId}-${chunk.chunkIndex}`,
+      documentId: chunk.docId?.toString() || '0',
       content: chunk.content,
-      summary: chunk.content.slice(0, 200) + "...",
-      aiCategory: doc?.aiCategory ?? null,
-      aiCategoryColor: doc?.aiCategoryColor ?? null,
-      similarity: chunk.finalScore,
-      createdAt: doc?.createdAt?.toISOString() ?? new Date().toISOString(),
-      categoryId: doc?.categoryId ?? null,
-      tags: doc?.tags ?? null,
-      fileSize: doc?.fileSize ?? null,
-      mimeType: doc?.mimeType ?? null,
-      isFavorite: doc?.isFavorite ?? null,
-      updatedAt: doc?.updatedAt?.toISOString() ?? null,
-      userId: doc?.userId ?? userId
+      similarity: chunk.finalScore || 0,
+      metadata: {
+        originalDocumentId: chunk.docId?.toString() || '0',
+        chunkIndex: chunk.chunkIndex || 0,
+        name: chunk.name || `Document ${chunk.docId || 0}`,
+      },
+      name: documentName + label,
     };
   });
 
@@ -782,10 +778,10 @@ export async function searchSmartHybridDebug(
     global.gc();
   }
 
-  console.log("✅ searchSmartHybridDebug: returning", results.length, "results");
+  console.log("✅ searchSmartHybridDebug: returning", searchResults.length, "results");
   console.log("Memory usage:", process.memoryUsage());
 
-  return results;
+  return searchResults;
 }
 
 export async function searchSmartHybridV1(
