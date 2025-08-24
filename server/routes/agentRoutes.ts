@@ -247,14 +247,14 @@ ${agentConfig.blockedTopics?.length > 0 ? `Blocked topics: ${agentConfig.blocked
               }
             );
 
-            console.log(`🎯 Smart search returned ${searchResults.results.length} results`);
+            console.log(`🎯 Smart search returned ${searchResults.length} results`);
 
             // Apply chunk maximum if using percentage
-            let finalResults = searchResults.results;
+            let finalResults = searchResults;
             if (chunkMaxType === 'percentage' && chunkMaxValue > 0) {
-              const maxChunks = Math.max(1, Math.ceil(searchResults.results.length * (chunkMaxValue / 100)));
-              finalResults = searchResults.results.slice(0, maxChunks);
-              console.log(`📊 Applied ${chunkMaxValue}% limit: ${searchResults.results.length} → ${finalResults.length} chunks`);
+              const maxChunks = Math.max(1, Math.ceil(searchResults.length * (chunkMaxValue / 100)));
+              finalResults = searchResults.slice(0, maxChunks);
+              console.log(`📊 Applied ${chunkMaxValue}% limit: ${searchResults.length} → ${finalResults.length} chunks`);
             }
 
             // Build document context
@@ -406,14 +406,14 @@ Memory management: Keep track of conversation context within the last ${agentCon
               }
             );
 
-            console.log(`🎯 Smart search returned ${searchResults.results.length} results`);
+            console.log(`🎯 Smart search returned ${searchResults.length} results`);
 
             // Apply chunk maximum if using percentage
-            let finalResults = searchResults.results;
+            let finalResults = searchResults;
             if (chunkMaxType === 'percentage' && chunkMaxValue > 0) {
-              const maxChunks = Math.max(1, Math.ceil(searchResults.results.length * (chunkMaxValue / 100)));
-              finalResults = searchResults.results.slice(0, maxChunks);
-              console.log(`📊 Applied ${chunkMaxValue}% limit: ${searchResults.results.length} → ${finalResults.length} chunks`);
+              const maxChunks = Math.max(1, Math.ceil(searchResults.length * (chunkMaxValue / 100)));
+              finalResults = searchResults.slice(0, maxChunks);
+              console.log(`📊 Applied ${chunkMaxValue}% limit: ${searchResults.length} → ${finalResults.length} chunks`);
             }
 
             // Build document context
