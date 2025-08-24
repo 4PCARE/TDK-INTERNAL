@@ -5,8 +5,108 @@ import OpenAI from "openai";
 import { semanticSearchServiceV2 } from "../services/semanticSearchV2";
 import { GuardrailsService } from "../services/guardrails";
 import { upload } from "./shared";
+import { handleLineWebhook, sendLineImageMessage } from "../lineOaWebhook";
+import { pool, db } from "../db";
+import { socialIntegrations } from "@shared/schema";
+import { eq, and, sql } from "drizzle-orm";
+import { WebSocket } from "ws";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Global variables that should be accessible
+declare global {
+  var wsClients: Set<any>;
+  var broadcastToAgentConsole: (data: any) => void;
+}
+
+// Function to calculate CSAT score using OpenAI with agent memory limits
+async function calculateCSATScore(userId: string, channelType: string, channelId: string, agentId?: number): Promise<number | undefined> {
+  try {
+    console.log("🎯 Starting CSAT calculation for:", {
+      userId,
+      channelType,
+      channelId: channelId.substring(0, 8) + '...',
+      agentId
+    });
+
+    // Get agent memory limit if agentId is provided
+    let messageLimit = 20; // Default limit
+    if (agentId) {
+      try {
+        const { agentChatbots } = await import("@shared/schema");
+        const [agent] = await db.select().from(agentChatbots).where(eq(agentChatbots.id, agentId));
+        if (agent && agent.memoryLimit) {
+          messageLimit = agent.memoryLimit;
+          console.log("📊 Using agent memory limit:", messageLimit);
+        }
+      } catch (error) {
+        console.log("⚠️ Could not fetch agent memory limit, using default:", messageLimit);
+      }
+    }
+
+    // Get recent chat history for analysis using the same memory strategy as agent
+    const messages = await storage.getChatHistoryWithMemoryStrategy(userId, channelType, channelId, agentId, messageLimit);
+
+    console.log("📊 Retrieved messages for CSAT:", messages.length);
+
+    if (messages.length < 3) {
+      console.log("⚠️ Not enough messages for CSAT analysis:", messages.length);
+      return undefined;
+    }
+
+    // Format conversation for OpenAI - only include user and agent messages for CSAT analysis
+    const conversationText = messages
+      .filter(msg => msg.messageType === 'user' || msg.messageType === 'agent' || msg.messageType === 'assistant')
+      .map(msg => {
+        const role = msg.messageType === 'user' ? 'Customer' :
+                     msg.messageType === 'agent' ? 'Human Agent' : 'AI Agent';
+        return `${role}: ${msg.content}`;
+      }).join('\n\n');
+
+    console.log("💬 Conversation sample for CSAT:", conversationText.substring(0, 200) + '...');
+
+    const prompt = `
+      ประเมิน Customer Satisfaction Score (CSAT) จากการสนทนาต่อไปนี้:
+
+      ${conversationText}
+
+      กรุณาวิเคราะห์ระดับความพึงพอใจของลูกค้าจากการสนทนานี้ โดยพิจารณาจาก:
+      1. ความเป็นมิตรและสุภาพของลูกค้า
+      2. การแสดงความพึงพอใจหรือไม่พึงพอใจ
+      3. การตอบสนองต่อการให้บริการ
+      4. ความเต็มใจในการใช้บริการต่อ
+      5. การแสดงความรู้สึกเชิงบวกหรือลบ
+
+      ให้คะแนน CSAT เป็นตัวเลข 0-100 เท่านั้น โดยที่:
+      - 0-30: ลูกค้าไม่พอใจมาก (มีการแสดงความโกรธ ผิดหวัง หรือต้องการยกเลิก)
+      - 31-50: ลูกค้าไม่พอใจ (มีความกังวล ไม่แน่ใจ หรือต้องการความช่วยเหลือเพิ่มเติม)
+      - 51-70: ลูกค้าพอใจปานกลาง (ยอมรับคำตอบ แต่ไม่แสดงความกระตือรือร้น)
+      - 71-85: ลูกค้าพอใจ (แสดงความขอบคุณ พอใจกับการให้บริการ)
+      - 86-100: ลูกค้าพอใจมาก (แสดงความประทับใจ ชื่นชม หรือแนะนำให้คนอื่น)
+
+      ตอบเป็นตัวเลขเท่านั้น ไม่ต้องมีคำอธิบาย:
+    `;
+
+    console.log("🤖 Sending request to OpenAI for CSAT analysis...");
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 10,
+      temperature: 0.1
+    });
+
+    const scoreText = response.choices[0].message.content?.trim();
+    const score = parseInt(scoreText || '0');
+
+    console.log("🎯 CSAT Score calculated:", { scoreText, score });
+
+    return isNaN(score) ? undefined : Math.max(0, Math.min(100, score));
+  } catch (error) {
+    console.error("❌ Error calculating CSAT score:", error);
+    return undefined;
+  }
+}
 
 export function registerAgentRoutes(app: Express) {
 

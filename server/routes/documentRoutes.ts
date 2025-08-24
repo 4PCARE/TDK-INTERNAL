@@ -13,6 +13,7 @@ import { eq, sql } from "drizzle-orm";
 import { users, departments } from "@shared/schema";
 import { vectorService } from "../services/vectorService";
 import { documentProcessor } from "../services/documentProcessor";
+import { pool, db } from "../db";
 
 // Define a multer storage for handling file uploads
 const uploadStorage = multer.diskStorage({
