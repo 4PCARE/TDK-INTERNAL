@@ -540,6 +540,10 @@ Memory management: Keep track of conversation context within the last ${agentCon
           return res.status(404).json({ message: "Session not found or access denied" });
         }
 
+        // Check if this is the first user message in the session
+        const existingMessages = await storage.getInternalAgentChatMessages(parseInt(sessionId), userId);
+        const isFirstMessage = existingMessages.length === 0;
+
         // Save user message to session
         await storage.createInternalAgentChatMessage({
           sessionId: parseInt(sessionId),
@@ -581,6 +585,41 @@ Memory management: Keep track of conversation context within the last ${agentCon
           role: 'assistant',
           content: botResponse.response || "No response generated"
         });
+
+        // Auto-generate chat title after first message pair
+        if (isFirstMessage && botResponse.response) {
+          try {
+            console.log(`🏷️ Auto-generating title for session ${sessionId}`);
+            
+            const titlePrompt = `Based on this conversation, generate a short, descriptive title (max 50 characters) that captures the main topic or question. Be concise and specific.
+
+User: ${message}
+Assistant: ${botResponse.response}
+
+Generate only the title, nothing else:`;
+
+            const titleResponse = await openai.chat.completions.create({
+              model: "gpt-4o",
+              messages: [{ role: "user", content: titlePrompt }],
+              max_tokens: 20,
+              temperature: 0.3
+            });
+
+            const generatedTitle = titleResponse.choices[0].message.content?.trim() || null;
+
+            if (generatedTitle && generatedTitle.length > 0) {
+              // Update session title
+              await storage.updateInternalAgentChatSession(parseInt(sessionId), {
+                title: generatedTitle
+              }, userId);
+              
+              console.log(`✅ Auto-generated title: "${generatedTitle}"`);
+            }
+          } catch (error) {
+            console.error("❌ Error auto-generating chat title:", error);
+            // Continue without title generation if it fails
+          }
+        }
 
         // Also save to regular chat history for compatibility
         try {
@@ -1649,6 +1688,40 @@ Memory management: Keep track of conversation context within the last ${agentCon
     } catch (error) {
       console.error("Error deleting internal chat session:", error);
       res.status(500).json({ message: "Failed to delete chat session" });
+    }
+  });
+
+  // Update chat session title
+  app.put('/api/internal-agent-chat/sessions/:id/title', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const sessionId = parseInt(req.params.id);
+      const { title } = req.body;
+
+      if (isNaN(sessionId)) {
+        return res.status(400).json({ message: "Invalid session ID" });
+      }
+
+      if (!title || title.trim().length === 0) {
+        return res.status(400).json({ message: "Title is required" });
+      }
+
+      if (title.length > 100) {
+        return res.status(400).json({ message: "Title must be 100 characters or less" });
+      }
+
+      const updatedSession = await storage.updateInternalAgentChatSession(sessionId, {
+        title: title.trim()
+      }, userId);
+
+      if (!updatedSession) {
+        return res.status(404).json({ message: "Session not found or access denied" });
+      }
+
+      res.json(updatedSession);
+    } catch (error) {
+      console.error("Error updating chat session title:", error);
+      res.status(500).json({ message: "Failed to update chat session title" });
     }
   });
 

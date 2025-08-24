@@ -59,6 +59,8 @@ import {
   type InsertLineTemplateAction,
   type InternalAgentChatSession,
   type InsertInternalAgentChatSession,
+  type InternalAgentChatMessage,
+  type InsertInternalAgentChatMessage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, like, count, sql, ilike, getTableColumns, gte, lte, inArray } from "drizzle-orm";
@@ -233,6 +235,14 @@ export interface IStorage {
   createInternalAgentChatSession(session: InsertInternalAgentChatSession): Promise<InternalAgentChatSession>;
   updateInternalAgentChatSession(sessionId: number, userId: string, updates: { title?: string }): Promise<InternalAgentChatSession>;
   deleteInternalAgentChatSession(sessionId: number, userId: string): Promise<void>;
+
+  // Internal Agent Chat Message operations
+  getInternalAgentChatMessages(sessionId: number, userId: string): Promise<InternalAgentChatMessage[]>;
+  createInternalAgentChatMessage(data: {
+    sessionId: number;
+    role: 'user' | 'assistant';
+    content: string;
+  }): Promise<InternalAgentChatMessage>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -741,13 +751,13 @@ export class DatabaseStorage implements IStorage {
 
     // Get all unique document IDs accessible to user using a more efficient approach
     const accessibleDocumentIds = new Set<number>();
-    
+
     // Get owned documents
     const ownedDocs = await db
       .select({ id: documents.id, fileSize: documents.fileSize })
       .from(documents)
       .where(eq(documents.userId, userId));
-    
+
     ownedDocs.forEach(doc => accessibleDocumentIds.add(doc.id));
 
     // Get user-shared documents
@@ -756,7 +766,7 @@ export class DatabaseStorage implements IStorage {
       .from(documents)
       .innerJoin(documentUserPermissions, eq(documents.id, documentUserPermissions.documentId))
       .where(eq(documentUserPermissions.userId, userId));
-    
+
     userSharedDocs.forEach(doc => accessibleDocumentIds.add(doc.id));
 
     // Get department-shared documents if user has a department
@@ -766,7 +776,7 @@ export class DatabaseStorage implements IStorage {
         .from(documents)
         .innerJoin(documentDepartmentPermissions, eq(documents.id, documentDepartmentPermissions.documentId))
         .where(eq(documentDepartmentPermissions.departmentId, userInfo.departmentId));
-      
+
       deptSharedDocs.forEach(doc => accessibleDocumentIds.add(doc.id));
     }
 
@@ -2244,15 +2254,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteInternalAgentChatSession(sessionId: number, userId: string): Promise<void> {
-    const { internalAgentChatSessions, internalAgentChatMessages } = await import('@shared/schema');
-    
+    const { internalAgentChatMessages, internalAgentChatSessions } = await import('@shared/schema');
+
     // Delete messages first
     await db
       .delete(internalAgentChatMessages)
       .where(eq(internalAgentChatMessages.sessionId, sessionId));
-    
-    // Delete session
-    await db
+
+    // Then delete the session (with user verification)
+    const result = await db
       .delete(internalAgentChatSessions)
       .where(
         and(
@@ -2260,11 +2270,15 @@ export class DatabaseStorage implements IStorage {
           eq(internalAgentChatSessions.userId, userId)
         )
       );
+
+    if (result.rowCount === 0) {
+      throw new Error("Session not found or access denied");
+    }
   }
 
   async getInternalAgentChatMessages(sessionId: number, userId: string): Promise<InternalAgentChatMessage[]> {
     const { internalAgentChatMessages, internalAgentChatSessions } = await import('@shared/schema');
-    
+
     // Verify session belongs to user
     const session = await this.getInternalAgentChatSession(sessionId, userId);
     if (!session) {
@@ -2284,7 +2298,7 @@ export class DatabaseStorage implements IStorage {
     content: string;
   }): Promise<InternalAgentChatMessage> {
     const { internalAgentChatMessages, internalAgentChatSessions } = await import('@shared/schema');
-    
+
     // Create message
     const [message] = await db
       .insert(internalAgentChatMessages)

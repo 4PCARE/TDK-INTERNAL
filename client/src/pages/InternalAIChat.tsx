@@ -23,7 +23,8 @@ import {
   FileText,
   Loader2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Edit3
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -91,6 +92,8 @@ export default function InternalAIChat() {
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [hideAgentPanel, setHideAgentPanel] = useState(false);
   const [hideSessionPanel, setHideSessionPanel] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const currentSessionId = selectedSession?.id; // For use in mutations
@@ -235,6 +238,37 @@ export default function InternalAIChat() {
     },
   });
 
+  // Rename session mutation
+  const renameSessionMutation = useMutation({
+    mutationFn: async ({ sessionId, title }: { sessionId: number; title: string }) => {
+      const response = await apiRequest("put", `/api/internal-agent-chat/sessions/${sessionId}/title`, { title });
+      if (!response.ok) throw new Error("Failed to rename session");
+      return response.json();
+    },
+    onSuccess: (updatedSession) => {
+      queryClient.invalidateQueries({
+        queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
+      });
+      // Update selected session if it's the one being renamed
+      if (selectedSession?.id === updatedSession.id) {
+        setSelectedSession(updatedSession);
+      }
+      setEditingSessionId(null);
+      setEditingTitle("");
+      toast({
+        title: "Chat renamed",
+        description: "The chat title has been updated.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error renaming chat",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (messagesEndRef.current && messages?.length > 0) {
@@ -296,6 +330,32 @@ export default function InternalAIChat() {
     return new Date(timestamp).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
+    });
+  };
+
+  const handleStartEditing = (session: ChatSession) => {
+    setEditingSessionId(session.id);
+    setEditingTitle(session.title);
+  };
+
+  const handleCancelEditing = () => {
+    setEditingSessionId(null);
+    setEditingTitle("");
+  };
+
+  const handleSaveTitle = (sessionId: number) => {
+    if (editingTitle.trim().length === 0) {
+      toast({
+        title: "Invalid title",
+        description: "Chat title cannot be empty.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    renameSessionMutation.mutate({
+      sessionId,
+      title: editingTitle.trim()
     });
   };
 
@@ -483,16 +543,38 @@ export default function InternalAIChat() {
                   <div
                     key={session.id}
                     className={cn(
-                      "p-3 rounded-lg cursor-pointer transition-all border",
+                      "p-3 rounded-lg transition-all border",
                       selectedSession?.id === session.id
                         ? "bg-blue-50 border-blue-200"
                         : "hover:bg-gray-50 border-transparent"
                     )}
-                    onClick={() => setSelectedSession(session)}
                   >
                     <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">{session.title}</p>
+                      <div 
+                        className="flex-1 min-w-0 cursor-pointer"
+                        onClick={() => editingSessionId !== session.id && setSelectedSession(session)}
+                      >
+                        {editingSessionId === session.id ? (
+                          <div className="flex items-center space-x-2 mb-1">
+                            <Input
+                              value={editingTitle}
+                              onChange={(e) => setEditingTitle(e.target.value)}
+                              className="text-sm font-medium h-8"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleSaveTitle(session.id);
+                                } else if (e.key === 'Escape') {
+                                  handleCancelEditing();
+                                }
+                              }}
+                              onBlur={() => handleSaveTitle(session.id)}
+                              autoFocus
+                            />
+                          </div>
+                        ) : (
+                          <p className="font-medium text-gray-900 truncate">{session.title}</p>
+                        )}
+                        
                         {session.lastMessage && (
                           <p className="text-sm text-gray-500 truncate mt-1">
                             {session.lastMessage}
@@ -515,6 +597,12 @@ export default function InternalAIChat() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => handleStartEditing(session)}
+                          >
+                            <Edit3 className="w-4 h-4 mr-2" />
+                            Rename Chat
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => deleteSessionMutation.mutate(session.id)}
                             className="text-red-600"
