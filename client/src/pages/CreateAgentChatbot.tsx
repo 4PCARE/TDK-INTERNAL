@@ -37,10 +37,12 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, Tabs trịgger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Bot,
   Settings,
@@ -63,6 +65,14 @@ import {
   Info,
   BookOpen,
   Lightbulb,
+  Loader2,
+  TestTube,
+  Send,
+  RefreshCw,
+  ThumbsUp,
+  ThumbsDown,
+  Copy,
+  Sparkles
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -158,6 +168,13 @@ interface Document {
   categoryName?: string;
 }
 
+interface TestMessage {
+  id: number | string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string; // Use string for ISO format
+}
+
 export default function CreateAgentChatbot() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -167,16 +184,12 @@ export default function CreateAgentChatbot() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
   const [testMessage, setTestMessage] = useState("");
-  const [testResponse, setTestResponse] = useState("");
-  const [isTestingAgent, setIsTestingAgent] = useState(false);
+  const [isTestingAgent, setIsTestingAgent] = useState(false); // This state might be redundant with sendTestMessageMutation.isPending
   const [agentStatus, setAgentStatus] = useState<"testing" | "published">("testing");
-  const [testChatHistory, setTestChatHistory] = useState<Array<{
-    role: "user" | "assistant";
-    content: string;
-    timestamp: Date;
-  }>>([]);
+  const [testChatHistory, setTestChatHistory] = useState<TestMessage[]>([]);
   const [isTestChatMode, setIsTestChatMode] = useState(false);
-  const chatHistoryRef = useRef<HTMLDivElement>(null);
+  const [tempSessionId, setTempSessionId] = useState<number | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Check if we're editing an existing agent
   const urlParams = new URLSearchParams(window.location.search);
@@ -212,6 +225,54 @@ export default function CreateAgentChatbot() {
         tokenLimitType: "document",
         documentTokenLimit: 12000,
         finalTokenLimit: 4000,
+      },
+      memoryEnabled: false,
+      memoryLimit: 10,
+      guardrailsEnabled: false,
+      guardrailsConfig: {
+        contentFiltering: {
+          enabled: true,
+          blockProfanity: true,
+          blockHateSpeech: true,
+          blockSexualContent: true,
+          blockViolence: true,
+          customBlockedWords: [],
+        },
+        topicControl: {
+          enabled: false,
+          allowedTopics: [],
+          blockedTopics: [],
+          strictMode: false,
+        },
+        privacyProtection: {
+          enabled: true,
+          blockPersonalInfo: true,
+          blockFinancialInfo: true,
+          blockHealthInfo: true,
+          maskPhoneNumbers: true,
+          maskEmails: true,
+        },
+        responseQuality: {
+          enabled: true,
+          maxResponseLength: 1000,
+          minResponseLength: 10,
+          requireSourceCitation: false,
+          preventHallucination: true,
+        },
+        toxicityPrevention: {
+          enabled: true,
+          toxicityThreshold: 0.3,
+          blockSarcasm: false,
+          blockInsults: true,
+          blockAggressiveLanguage: true,
+        },
+        businessContext: {
+          enabled: false,
+          companyName: "",
+          brandVoice: "professional",
+          industryContext: "",
+          complianceRequirements: [],
+        },
       },
     },
   });
@@ -255,6 +316,9 @@ export default function CreateAgentChatbot() {
     retry: false,
   });
 
+  // Store fetched agent data to access ID for testing
+  const [savedAgent, setSavedAgent] = useState<CreateAgentForm | null>(null);
+
   // Load existing agent data into form when editing
   useEffect(() => {
     if (isEditing && existingAgent) {
@@ -262,128 +326,47 @@ export default function CreateAgentChatbot() {
       console.log("Loading existing agent data:", JSON.stringify(agent, null, 2));
       console.log("Agent guardrails config from DB:", agent.guardrailsConfig);
 
-      form.reset({
-        name: agent.name || "",
-        description: agent.description || "",
-        systemPrompt:
-          agent.systemPrompt ||
-          "You are a helpful AI assistant. Answer questions based on the provided documents and be polite and professional.",
-        personality: agent.personality || "",
-        profession: agent.profession || "",
-        responseStyle: agent.responseStyle || "",
-        specialSkills: agent.specialSkills || [],
-        contentFiltering: agent.contentFiltering !== false,
-        toxicityPrevention: agent.toxicityPrevention !== false,
-        privacyProtection: agent.privacyProtection !== false,
-        factualAccuracy: agent.factualAccuracy !== false,
-        responseLength: agent.responseLength || "medium",
-        allowedTopics: agent.allowedTopics || [],
-        blockedTopics: agent.blockedTopics || [],
+      // Ensure default values are applied before resetting if some fields are missing from API response
+      const defaultFormValues = form.getValues();
+      const mergedAgentData = {
+        ...defaultFormValues, // Start with defaults
+        ...agent, // Override with fetched data
+        // Explicitly handle nested objects to avoid undefined errors
         searchConfiguration: {
-          enableCustomSearch: agent.searchConfiguration?.enableCustomSearch || false,
-          additionalSearchDetail: agent.searchConfiguration?.additionalSearchDetail || "",
-          chunkMaxType: agent.searchConfiguration?.chunkMaxType || "number",
-          chunkMaxValue: agent.searchConfiguration?.chunkMaxValue || 8,
-          documentMass: agent.searchConfiguration?.documentMass || 0.3,
-          tokenLimitEnabled: agent.searchConfiguration?.tokenLimitEnabled || false,
-          tokenLimitType: agent.searchConfiguration?.tokenLimitType || "document",
-          documentTokenLimit: agent.searchConfiguration?.documentTokenLimit || 12000,
-          finalTokenLimit: agent.searchConfiguration?.finalTokenLimit || 4000,
+          ...defaultFormValues.searchConfiguration,
+          ...(agent.searchConfiguration || {}),
         },
-        memoryEnabled: agent.memoryEnabled || false,
-        memoryLimit: agent.memoryLimit || 10,
-        // Advanced Guardrails Configuration
-        guardrailsEnabled: (agent.guardrailsConfig !== null && agent.guardrailsConfig !== undefined),
         guardrailsConfig: agent.guardrailsConfig ? {
           contentFiltering: {
-            enabled: agent.guardrailsConfig.contentFiltering?.enabled ?? true,
-            blockProfanity: agent.guardrailsConfig.contentFiltering?.blockProfanity ?? true,
-            blockHateSpeech: agent.guardrailsConfig.contentFiltering?.blockHateSpeech ?? true,
-            blockSexualContent: agent.guardrailsConfig.contentFiltering?.blockSexualContent ?? true,
-            blockViolence: agent.guardrailsConfig.contentFiltering?.blockViolence ?? true,
-            customBlockedWords: agent.guardrailsConfig.contentFiltering?.customBlockedWords ?? [],
+            ...defaultFormValues.guardrailsConfig.contentFiltering,
+            ...(agent.guardrailsConfig.contentFiltering || {}),
           },
           topicControl: {
-            enabled: agent.guardrailsConfig.topicControl?.enabled ?? false,
-            allowedTopics: agent.guardrailsConfig.topicControl?.allowedTopics ?? [],
-            blockedTopics: agent.guardrailsConfig.topicControl?.blockedTopics ?? [],
-            strictMode: agent.guardrailsConfig.topicControl?.strictMode ?? false,
+            ...defaultFormValues.guardrailsConfig.topicControl,
+            ...(agent.guardrailsConfig.topicControl || {}),
           },
           privacyProtection: {
-            enabled: agent.guardrailsConfig.privacyProtection?.enabled ?? true,
-            blockPersonalInfo: agent.guardrailsConfig.privacyProtection?.blockPersonalInfo ?? true,
-            blockFinancialInfo: agent.guardrailsConfig.privacyProtection?.blockFinancialInfo ?? true,
-            blockHealthInfo: agent.guardrailsConfig.privacyProtection?.blockHealthInfo ?? true,
-            maskPhoneNumbers: agent.guardrailsConfig.privacyProtection?.maskPhoneNumbers ?? true,
-            maskEmails: agent.guardrailsConfig.privacyProtection?.maskEmails ?? true,
+            ...defaultFormValues.guardrailsConfig.privacyProtection,
+            ...(agent.guardrailsConfig.privacyProtection || {}),
           },
           responseQuality: {
-            enabled: agent.guardrailsConfig.responseQuality?.enabled ?? true,
-            maxResponseLength: agent.guardrailsConfig.responseQuality?.maxResponseLength ?? 1000,
-            minResponseLength: agent.guardrailsConfig.responseQuality?.minResponseLength ?? 10,
-            requireSourceCitation: agent.guardrailsConfig.responseQuality?.requireSourceCitation ?? false,
-            preventHallucination: agent.guardrailsConfig.responseQuality?.preventHallucination ?? true,
+            ...defaultFormValues.guardrailsConfig.responseQuality,
+            ...(agent.guardrailsConfig.responseQuality || {}),
           },
           toxicityPrevention: {
-            enabled: agent.guardrailsConfig.toxicityPrevention?.enabled ?? true,
-            toxicityThreshold: agent.guardrailsConfig.toxicityPrevention?.toxicityThreshold ?? 0.3,
-            blockSarcasm: agent.guardrailsConfig.toxicityPrevention?.blockSarcasm ?? false,
-            blockInsults: agent.guardrailsConfig.toxicityPrevention?.blockInsults ?? true,
-            blockAggressiveLanguage: agent.guardrailsConfig.toxicityPrevention?.blockAggressiveLanguage ?? true,
+            ...defaultFormValues.guardrailsConfig.toxicityPrevention,
+            ...(agent.guardrailsConfig.toxicityPrevention || {}),
           },
           businessContext: {
-            enabled: agent.guardrailsConfig.businessContext?.enabled ?? false,
-            companyName: agent.guardrailsConfig.businessContext?.companyName ?? "",
-            brandVoice: agent.guardrailsConfig.businessContext?.brandVoice ?? "professional",
-            industryContext: agent.guardrailsConfig.businessContext?.industryContext ?? "",
-            complianceRequirements: agent.guardrailsConfig.businessContext?.complianceRequirements ?? [],
+            ...defaultFormValues.guardrailsConfig.businessContext,
+            ...(agent.guardrailsConfig.businessContext || {}),
           },
-        } : {
-          contentFiltering: {
-            enabled: true,
-            blockProfanity: true,
-            blockHateSpeech: true,
-            blockSexualContent: true,
-            blockViolence: true,
-            customBlockedWords: [],
-          },
-          topicControl: {
-            enabled: false,
-            allowedTopics: [],
-            blockedTopics: [],
-            strictMode: false,
-          },
-          privacyProtection: {
-            enabled: true,
-            blockPersonalInfo: true,
-            blockFinancialInfo: true,
-            blockHealthInfo: true,
-            maskPhoneNumbers: true,
-            maskEmails: true,
-          },
-          responseQuality: {
-            enabled: true,
-            maxResponseLength: 1000,
-            minResponseLength: 10,
-            requireSourceCitation: false,
-            preventHallucination: true,
-          },
-          toxicityPrevention: {
-            enabled: true,
-            toxicityThreshold: 0.3,
-            blockSarcasm: false,
-            blockInsults: true,
-            blockAggressiveLanguage: true,
-          },
-          businessContext: {
-            enabled: false,
-            companyName: "",
-            brandVoice: "professional",
-            industryContext: "",
-            complianceRequirements: [],
-          },
-        },
-      });
+        } : defaultFormValues.guardrailsConfig,
+        guardrailsEnabled: !!agent.guardrailsConfig, // Set based on presence of config
+      };
+
+      form.reset(mergedAgentData);
+      setSavedAgent(mergedAgentData); // Store for testing purposes
 
       // Load selected documents
       const docs = agentDocuments as any[];
@@ -393,66 +376,122 @@ export default function CreateAgentChatbot() {
     }
   }, [existingAgent, agentDocuments, isEditing, form]);
 
-  // Test agent mutation (for chat conversation)
-  const testAgentMutation = useMutation({
-    mutationFn: async (testData: {
-      message: string;
-      agentConfig: CreateAgentForm;
-      chatHistory?: Array<{ role: "user" | "assistant"; content: string; }>;
-    }) => {
-      const response = await apiRequest("POST", "/api/agent-chatbots/test-chat", {
-        message: testData.message,
-        agentConfig: testData.agentConfig,
-        documentIds: selectedDocuments,
-        chatHistory: testData.chatHistory || [],
+  // Create temporary session mutation
+  const createTempSessionMutation = useMutation({
+    mutationFn: async (agentId: number) => {
+      const response = await fetch("/api/internal-agent-chat/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agentId,
+          title: `Test Chat - ${new Date().toLocaleDateString()}`,
+        }),
       });
-      return await response.json();
+      if (!response.ok) throw new Error("Failed to create test session");
+      return response.json();
     },
-    onSuccess: (data) => {
-      console.log("Test agent response received:", data);
-
-      if (isTestChatMode) {
-        // Add user message and AI response to chat history
-        const userMessage = { role: "user" as const, content: testMessage, timestamp: new Date() };
-        const assistantMessage = { role: "assistant" as const, content: data.response, timestamp: new Date() };
-        setTestChatHistory(prev => [...prev, userMessage, assistantMessage]);
-        setTestMessage(""); // Clear input for next message
-
-        // Auto-scroll to bottom after response
-        setTimeout(() => {
-          if (chatHistoryRef.current) {
-            chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
-          }
-        }, 100);
-      } else {
-        setTestResponse(data.response || "No response received");
-      }
-
-      setIsTestingAgent(false);
+    onSuccess: (session) => {
+      setTempSessionId(session.id);
+      setTestChatHistory([]); // Clear history for new session
+      toast({
+        title: "Test Session Created",
+        description: "You can now test your agent!",
+      });
     },
     onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
       toast({
-        title: "Error",
-        description: "Failed to test agent",
+        title: "Error creating test session",
+        description: error.message,
         variant: "destructive",
       });
-      setTestResponse("Error testing agent. Please try again.");
-      setIsTestingAgent(false);
     },
   });
 
-  // Create/Update agent mutation
+  // Send test message mutation
+  const sendTestMessageMutation = useMutation({
+    mutationFn: async ({ message, sessionId, agentId }: { message: string; sessionId: number; agentId: number }) => {
+      const response = await fetch('/api/internal-agent-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          sessionId: sessionId.toString(),
+          agentId: agentId.toString()
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to send message: ${response.status} ${errorText}`);
+      }
+
+      return await response.json();
+    },
+    onMutate: async ({ message }) => {
+      // Optimistically add user message
+      const optimisticMessage: TestMessage = {
+        id: Date.now(), // Temporary ID
+        role: "user",
+        content: message,
+        createdAt: new Date().toISOString()
+      };
+
+      setTestChatHistory(prev => [...prev, optimisticMessage]);
+      setTestMessage(""); // Clear input
+    },
+    onSuccess: () => {
+      // Refetch messages after successful send
+      if (tempSessionId) {
+        refetchTestMessages();
+      }
+    },
+    onError: (error: any) => {
+      console.error('❌ Send test message error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send test message",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Fetch test messages
+  const { data: testMessages = [], refetch: refetchTestMessages } = useQuery({
+    queryKey: ["/api/internal-agent-chat/messages", tempSessionId],
+    queryFn: async () => {
+      if (!tempSessionId) return [];
+      const response = await fetch(`/api/internal-agent-chat/messages?sessionId=${tempSessionId}`);
+      if (!response.ok) throw new Error("Failed to fetch test messages");
+      // Ensure messages are in the correct format
+      const data = await response.json();
+      return data.map((msg: any) => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        createdAt: msg.createdAt // Assuming API returns ISO string
+      }));
+    },
+    enabled: !!tempSessionId,
+    refetchInterval: 2000, // Poll for new messages
+  });
+
+  // Update test chat history when messages change
+  useEffect(() => {
+    if (testMessages && testMessages.length > 0) {
+      setTestChatHistory(testMessages);
+    }
+  }, [testMessages]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current && testChatHistory?.length > 0) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    }
+  }, [testChatHistory]);
+
+  // Save or update agent mutation
   const saveAgentMutation = useMutation({
     mutationFn: async (
       agentData: CreateAgentForm & { documentIds: number[] },
@@ -528,7 +567,7 @@ export default function CreateAgentChatbot() {
     console.log("Form data received:", data);
     console.log("Is editing mode:", isEditing);
     console.log("Agent ID:", editAgentId);
-    
+
     // Build the guardrails configuration object
     const guardrailsConfig = data.guardrailsEnabled ? data.guardrailsConfig : null;
 
@@ -546,72 +585,61 @@ export default function CreateAgentChatbot() {
     saveAgentMutation.mutate(finalData);
   };
 
-  const handleTestAgent = () => {
-    if (!testMessage.trim()) {
+  const handleTestAgent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testMessage.trim() || !tempSessionId || sendTestMessageMutation.isPending) return;
+
+    const messageToSend = testMessage.trim();
+    const currentAgentId = savedAgent?.id || (isEditing ? parseInt(editAgentId!) : null);
+
+    if (!currentAgentId) {
       toast({
-        title: "Error",
-        description: "Please enter a test message",
+        title: "No Agent",
+        description: "Please save the agent first before testing.",
         variant: "destructive",
       });
       return;
     }
 
-    const currentFormData = form.getValues();
-
-    // Basic validation for required fields
-    if (!currentFormData.name || !currentFormData.personality || !currentFormData.profession || !currentFormData.responseStyle) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields in Overview tab before testing",
-        variant: "destructive",
+    try {
+      await sendTestMessageMutation.mutateAsync({
+        message: messageToSend,
+        sessionId: tempSessionId,
+        agentId: currentAgentId
       });
-      return;
+    } catch (error) {
+      console.error('❌ Failed to send test message:', error);
     }
-
-    // Build guardrails configuration for testing (same as deployment)
-    const guardrailsConfig = currentFormData.guardrailsEnabled ? currentFormData.guardrailsConfig : null;
-
-    const testConfigData = {
-      ...currentFormData,
-      guardrailsConfig: guardrailsConfig, // Include guardrails config for testing
-    };
-
-    console.log("Starting test agent with:", { message: testMessage, config: testConfigData, documents: selectedDocuments });
-    console.log("Guardrails enabled for test:", currentFormData.guardrailsEnabled);
-    console.log("Guardrails config for test:", guardrailsConfig);
-
-    setIsTestingAgent(true);
-
-    if (!isTestChatMode) {
-      setTestResponse("");
-    }
-
-    // Prepare chat history for API call (respecting memory limit)
-    const memoryLimit = currentFormData.memoryLimit || 10;
-    const recentHistory = testChatHistory.slice(-memoryLimit).map(msg => ({
-      role: msg.role,
-      content: msg.content
-    }));
-
-    testAgentMutation.mutate({
-      message: testMessage,
-      agentConfig: testConfigData,
-      chatHistory: isTestChatMode ? recentHistory : undefined,
-    });
   };
 
-  const startChatTest = () => {
+  const handleStartTestChat = () => {
+    const currentAgentId = savedAgent?.id || (isEditing ? parseInt(editAgentId!) : null);
+
+    if (!currentAgentId) {
+      toast({
+        title: "Save Agent First",
+        description: "Please save the agent before starting a test chat.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsTestChatMode(true);
-    setTestChatHistory([]);
-    setTestMessage("");
-    setTestResponse("");
+    createTempSessionMutation.mutate(currentAgentId);
   };
 
-  const stopChatTest = () => {
-    setIsTestChatMode(false);
+  const handleClearTestChat = () => {
     setTestChatHistory([]);
+    setTempSessionId(null);
+    setIsTestChatMode(false);
     setTestMessage("");
-    setTestResponse("");
+  };
+
+  const formatTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   // Document toggle mutations for real-time updates
@@ -835,7 +863,7 @@ export default function CreateAgentChatbot() {
     "Competitor Information",
   ];
 
-  if (isLoading) {
+  if (isLoading || isLoadingAgent) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
@@ -2450,6 +2478,187 @@ export default function CreateAgentChatbot() {
                             </div>
                           </CardContent>
                         </Card>
+                      </div>
+                    )}
+
+                    {activeTab === "test" && (
+                      <div className="space-y-6">
+                        {!isTestChatMode ? (
+                          <div className="text-center py-12">
+                            <TestTube className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                            <h3 className="text-xl font-medium text-gray-900 mb-2">
+                              Test Your Agent
+                            </h3>
+                            <p className="text-gray-500 mb-6">
+                              Start a test conversation to see how your agent responds
+                            </p>
+                            <Button
+                              onClick={handleStartTestChat}
+                              disabled={createTempSessionMutation.isPending}
+                              className="bg-green-500 hover:bg-green-600"
+                            >
+                              {createTempSessionMutation.isPending ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Setting up...
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="w-4 h-4 mr-2" />
+                                  Start Test Chat
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-[600px]">
+                            {/* Chat Header */}
+                            <div className="p-4 border-b border-gray-200">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <Avatar className="w-8 h-8">
+                                    <AvatarFallback>
+                                      <Bot className="w-4 h-4" />
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <h3 className="font-medium text-gray-900">
+                                      Testing: {form.watch('name') || "Unnamed Agent"}
+                                    </h3>
+                                    <p className="text-sm text-gray-500">Test Session</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleClearTestChat}
+                                  >
+                                    <RefreshCw className="w-4 h-4 mr-2" />
+                                    Clear Chat
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setIsTestChatMode(false)}
+                                  >
+                                    <ArrowLeft className="w-4 h-4 mr-2" />
+                                    Back
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Messages */}
+                            <ScrollArea className="flex-1 p-4">
+                              <div className="space-y-4">
+                                {testChatHistory && testChatHistory.length > 0 ? (
+                                  testChatHistory.map((message) => (
+                                    <div
+                                      key={message.id}
+                                      className={`flex space-x-3 ${
+                                        message.role === 'user' ? 'justify-end' : 'justify-start'
+                                      }`}
+                                    >
+                                      {message.role === 'assistant' && (
+                                        <Avatar className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 flex-shrink-0">
+                                          <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600">
+                                            <Bot className="w-4 h-4 text-white" />
+                                          </AvatarFallback>
+                                        </Avatar>
+                                      )}
+
+                                      <div className={`flex-1 max-w-xs lg:max-w-md ${message.role === 'user' ? 'flex justify-end' : ''}`}>
+                                        <div className="flex flex-col">
+                                          <div className={`rounded-lg px-4 py-3 ${
+                                            message.role === 'user'
+                                              ? 'bg-blue-500 text-white rounded-tr-none'
+                                              : 'bg-gray-100 text-gray-900 rounded-tl-none'
+                                          }`}>
+                                            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                                          </div>
+                                          <p className={`text-xs text-gray-500 mt-1 px-1 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
+                                            {formatTime(message.createdAt)}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      {message.role === 'user' && (
+                                        <Avatar className="w-8 h-8 bg-gray-500 flex-shrink-0">
+                                          <AvatarFallback className="bg-gray-500">
+                                            <User className="w-4 h-4 text-white" />
+                                          </AvatarFallback>
+                                        </Avatar>
+                                      )}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="text-center py-8 text-gray-500">
+                                    <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                                    <p className="text-sm">Start testing your agent by sending a message!</p>
+                                  </div>
+                                )}
+
+                                <div ref={messagesEndRef} />
+
+                                {sendTestMessageMutation.isPending && (
+                                  <div className="flex items-start space-x-3 mt-4">
+                                    <Avatar className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600">
+                                      <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600">
+                                        <Bot className="w-4 h-4 text-white" />
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div className="bg-gray-100 rounded-lg rounded-tl-none px-3 py-2 inline-block">
+                                      <div className="flex items-center space-x-1">
+                                        <div className="animate-bounce w-1 h-1 bg-gray-500 rounded-full"></div>
+                                        <div className="animate-bounce w-1 h-1 bg-gray-500 rounded-full" style={{ animationDelay: "0.1s" }}></div>
+                                        <div className="animate-bounce w-1 h-1 bg-gray-500 rounded-full" style={{ animationDelay: "0.2s" }}></div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </ScrollArea>
+
+                            {/* Message Input */}
+                            <div className="p-4 border-t border-gray-200">
+                              <form onSubmit={handleTestAgent} className="flex items-center space-x-2">
+                                <Input
+                                  type="text"
+                                  placeholder="Test your agent..."
+                                  value={testMessage}
+                                  onChange={(e) => setTestMessage(e.target.value)}
+                                  className="flex-1"
+                                  disabled={sendTestMessageMutation.isPending}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                      e.preventDefault();
+                                      handleTestAgent(e as any); // Cast to any to satisfy the expected type
+                                    }
+                                  }}
+                                />
+                                <Button
+                                  type="submit"
+                                  disabled={!testMessage.trim() || sendTestMessageMutation.isPending}
+                                  className="bg-blue-500 hover:bg-blue-600 text-white min-w-[44px]"
+                                >
+                                  {sendTestMessageMutation.isPending ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Send className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </form>
+
+                              {sendTestMessageMutation.isPending && (
+                                <div className="text-center text-xs text-gray-500 mt-2">
+                                  <Loader2 className="w-3 h-3 animate-spin inline mr-1" />
+                                  Processing your message...
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
