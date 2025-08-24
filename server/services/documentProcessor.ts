@@ -10,11 +10,7 @@ import { vectorService } from "./vectorService";
 import { storage } from "../storage";
 import { thaiTextProcessor } from './thaiTextProcessor';
 
-// Added imports for PDF processing and OCR
-import { exec } from 'child_process';
-import { promisify } from 'util';
 
-const execAsync = promisify(exec);
 
 export class DocumentProcessor {
   async processDocument(documentId: number): Promise<void> {
@@ -207,138 +203,15 @@ export class DocumentProcessor {
             progressBar,
             fileSizeMB,
           );
-          // Check if LlamaParse extracted meaningful content
-          const hasContent = extractedText && extractedText.length > 100;
-          const hasRealText = extractedText && extractedText.replace(/[\s\n\r-]/g, '').length > 50;
-          const hasThai = extractedText && /[\u0E00-\u0E7F]{5}/.test(extractedText); // 5+ Thai chars in a row
-          const hasEnglish = extractedText && /[a-zA-Z]{10}/.test(extractedText); // 10+ English chars in a row
-          const hasMeaningfulText = hasThai || hasEnglish;
-          
-          // Debug what LlamaParse found
-          console.log(`🔍 LlamaParse analysis:`);
-          console.log(`   - Total length: ${extractedText?.length || 0}`);
-          console.log(`   - Non-whitespace: ${extractedText?.replace(/[\s\n\r-]/g, '').length || 0}`);
-          console.log(`   - Contains Thai: ${hasThai ? 'Yes' : 'No'}`);
-          console.log(`   - Contains English: ${hasEnglish ? 'Yes' : 'No'}`);
-          console.log(`   - Sample text: "${extractedText?.substring(0, 200) || 'None'}..."`);
-          
-          // Improved logic: Use LlamaParse if it has good content, only try OCR for very poor results
-          const shouldForceOCR = fileSizeMB > 5.0; // Only force OCR for very large files (5MB+)
-          const llamaParseHasGoodContent = hasContent && hasRealText && (
-            extractedText.length > 500 || // Substantial content
-            hasThai || // Has Thai content
-            hasEnglish // Has English content
-          );
-          
-          // If LlamaParse has good content, use it regardless of file size (unless very large)
-          if (llamaParseHasGoodContent && !shouldForceOCR) {
+          // Use LlamaParse result directly - no fallback to OCR
+          if (extractedText && extractedText.length > 0) {
             console.log(
-              `✅ PDF processed successfully with LlamaParse: ${extractedText.length} characters with ${hasThai ? 'Thai' : 'English'} content`,
+              `✅ PDF processed successfully with LlamaParse: ${extractedText.length} characters extracted`,
             );
             return extractedText;
-          } else if (llamaParseHasGoodContent && shouldForceOCR) {
-            // For very large files (5MB+), still try OCR but be more lenient about using LlamaParse if OCR fails
-            console.log(
-              `🔄 File size ${fileSizeMB.toFixed(2)}MB > 5MB threshold - trying OCR but LlamaParse already has good content (${extractedText.length} chars)`,
-            );
           } else {
-            console.log(
-              `⚠️ LlamaParse results insufficient - ${!hasContent ? 'too short' : !hasRealText ? 'mostly whitespace' : 'no meaningful text detected'} - trying Tesseract OCR...`,
-            );
-            
-            // Step 1.5: Native Tesseract OCR as a Fallback
-            try {
-              console.log(`🚀 Starting native Tesseract OCR extraction for ${fileName}...`);
-              
-              const ocrText = await this.ocrThaiPDF(filePath);
-              
-              if (ocrText && ocrText.length > 10) {
-                console.log(`✅ Native Tesseract OCR extracted ${ocrText.length} characters`);
-                
-                // Check for Thai content
-                const thaiRegex = /[\u0E00-\u0E7F]/;
-                const hasThaiText = thaiRegex.test(ocrText);
-                console.log(`🇹🇭 Contains Thai text: ${hasThaiText ? 'Yes' : 'No'}`);
-                
-                // Compare OCR vs LlamaParse results intelligently
-                const ocrNonWhitespace = ocrText.replace(/[\s\n\r-]/g, '').length;
-                const llamaNonWhitespace = extractedText?.replace(/[\s\n\r-]/g, '').length || 0;
-                const ocrHasThai = /[\u0E00-\u0E7F]{5}/.test(ocrText);
-                const llamaHasThai = extractedText && /[\u0E00-\u0E7F]{5}/.test(extractedText);
-                const ocrHasEnglish = /[a-zA-Z]{10}/.test(ocrText);
-                const llamaHasEnglish = extractedText && /[a-zA-Z]{10}/.test(extractedText);
-                
-                console.log(`🔄 Comparing results:`);
-                console.log(`   - OCR: ${ocrNonWhitespace} chars, Thai: ${ocrHasThai ? 'Yes' : 'No'}, English: ${ocrHasEnglish ? 'Yes' : 'No'}`);
-                console.log(`   - LlamaParse: ${llamaNonWhitespace} chars, Thai: ${llamaHasThai ? 'Yes' : 'No'}, English: ${llamaHasEnglish ? 'Yes' : 'No'}`);
-                
-                // For very large files (5MB+), prioritize OCR if it has Thai content
-                if (shouldForceOCR && ocrHasThai) {
-                  console.log(`🔄 Very large file with Thai content detected in OCR - using OCR result`);
-                  return ocrText;
-                }
-                
-                // If LlamaParse already has substantial content (1000+ chars), prefer it unless OCR has significantly more
-                if (llamaNonWhitespace > 1000 && ocrNonWhitespace < llamaNonWhitespace * 2) {
-                  console.log(`🔄 LlamaParse has substantial content (${llamaNonWhitespace} chars), OCR doesn't significantly exceed it - using LlamaParse result`);
-                  return extractedText;
-                }
-                
-                // Prefer OCR only if it has significantly more content (2x or more)
-                if (ocrNonWhitespace > llamaNonWhitespace * 2 && ocrNonWhitespace > 500) {
-                  console.log(`🔄 OCR found significantly more content (${ocrNonWhitespace} vs ${llamaNonWhitespace} chars) - using OCR result`);
-                  return ocrText;
-                }
-                
-                // If LlamaParse has meaningful content, prefer it (it's usually higher quality)
-                if (llamaNonWhitespace > 200 && (llamaHasThai || llamaHasEnglish)) {
-                  console.log(`🔄 LlamaParse has meaningful content (${llamaNonWhitespace} chars), preferring over OCR - using LlamaParse result`);
-                  return extractedText;
-                }
-                
-                // Default: use OCR if it has decent content, otherwise fallback to LlamaParse
-                if (ocrNonWhitespace > 100) {
-                  console.log(`🔄 Using OCR result as fallback`);
-                  return ocrText;
-                } else if (extractedText && extractedText.length > 10) {
-                  console.log(`🔄 OCR insufficient, using LlamaParse fallback`);
-                  return extractedText;
-                } else {
-                  console.log(`🔄 Both methods insufficient, using any available result`);
-                  return ocrText || extractedText || '';
-                }
-              } else {
-                console.log(`⚠️ Native Tesseract OCR returned minimal content.`);
-                // Still return LlamaParse result even if minimal
-                if (extractedText && extractedText.length > 0) {
-                  return extractedText;
-                }
-              }
-
-            } catch (tesseractError: any) {
-              console.error("❌ Native Tesseract OCR failed:", tesseractError.message);
-              
-              // If we have decent LlamaParse content, use it instead of failing
-              if (extractedText && extractedText.length > 200) {
-                console.log(`🔄 OCR failed but LlamaParse has ${extractedText.length} characters - using LlamaParse result`);
-                return extractedText;
-              }
-              
-              // Handle corrupted PDF case
-              if (tesseractError.message.includes('segmentation fault') || tesseractError.message.includes('corrupted')) {
-                console.log(`💀 PDF appears corrupted - both tools failed. Using minimal LlamaParse result or placeholder.`);
-                if (extractedText && extractedText.length > 0) {
-                  return extractedText;
-                } else {
-                  return `📎 Document: ${fileName} could not be parsed due to file corruption. Please check the original file.`;
-                }
-              }
-              
-              // Return any LlamaParse result as fallback
-              if (extractedText && extractedText.length > 0) {
-                return extractedText;
-              }
-            }
+            console.log(`⚠️ LlamaParse returned empty content for ${fileName}`);
+            return `📎 Document: ${fileName} processed but no text content was extracted.`;
           }
         } catch (llamaError) {
           const errorMessage =
@@ -694,156 +567,7 @@ export class DocumentProcessor {
     return icons[category.toLowerCase() as keyof typeof icons] || "📁";
   }
 
-  /**
-   * OCR Thai PDF using native Tesseract CLI with segfault protection
-   * Converts PDF pages to images and runs OCR on each page
-   */
-  private async ocrThaiPDF(pdfPath: string): Promise<string> {
-    const fileName = path.basename(pdfPath);
-    const tempDir = path.join(path.dirname(pdfPath), 'temp_ocr');
-    const outputPrefix = path.join(tempDir, 'page');
-
-    try {
-      // Pre-flight PDF validation
-      const fileStats = await fs.promises.stat(pdfPath);
-      if (fileStats.size < 4096) {
-        throw new Error('PDF file too small (< 4KB), likely corrupted or incomplete');
-      }
-
-      // Check if it's actually a PDF file
-      if (!pdfPath.toLowerCase().endsWith('.pdf')) {
-        throw new Error('Expected PDF file for OCR but got different file type');
-      }
-
-      // Test PDF validity with pdfinfo first - with segfault detection
-      try {
-        console.log(`🔍 Validating PDF structure...`);
-        await execAsync(`pdfinfo "${pdfPath}"`, { timeout: 5000 });
-        console.log(`✅ PDF validation passed`);
-      } catch (validationError: any) {
-        // Handle segmentation fault specifically (exit code 139)
-        if (validationError.code === 139) {
-          console.error(`💥 Segmentation fault in pdfinfo - PDF is corrupted or malformed`);
-          throw new Error('PDF validation failed due to segmentation fault - file is corrupted or incompatible with PDF tools');
-        }
-        
-        console.log(`⚠️ PDF validation failed: ${validationError.message}`);
-        throw new Error(`PDF validation failed: ${validationError.message}`);
-      }
-
-      // Create temporary directory
-      await fs.promises.mkdir(tempDir, { recursive: true });
-
-      console.log(`📄 Converting PDF pages to images for OCR...`);
-      
-      // Convert PDF to PNG images with segfault protection
-      try {
-        await execAsync(`pdftoppm -png "${pdfPath}" "${outputPrefix}"`, { 
-          timeout: 30000,
-          maxBuffer: 1024 * 1024 * 10 // 10MB buffer
-        });
-      } catch (conversionError) {
-        // Handle segfault specifically (exit code 139)
-        if (conversionError.code === 139) {
-          console.error(`🧠 Segmentation fault detected in pdftoppm - PDF may be corrupted or incompatible`);
-          throw new Error('PDF conversion failed due to segmentation fault - file may be corrupted');
-        }
-        
-        // Handle other conversion errors
-        console.error(`❌ PDF conversion failed: ${conversionError.message}`);
-        throw new Error(`PDF conversion failed: ${conversionError.message}`);
-      }
-
-      // Find all generated image files
-      const files = await fs.promises.readdir(tempDir);
-      const imageFiles = files
-        .filter(f => f.startsWith('page-') && f.endsWith('.png'))
-        .sort((a, b) => {
-          const numA = parseInt(a.match(/page-(\d+)\.png/)?.[1] || '0');
-          const numB = parseInt(b.match(/page-(\d+)\.png/)?.[1] || '0');
-          return numA - numB;
-        });
-
-      console.log(`📷 Generated ${imageFiles.length} image files for OCR`);
-
-      if (imageFiles.length === 0) {
-        throw new Error('No images generated from PDF - conversion may have failed silently');
-      }
-
-      let allText = '';
-      let successfulPages = 0;
-      
-      // Process each page with OCR
-      for (let i = 0; i < imageFiles.length; i++) {
-        const imagePath = path.join(tempDir, imageFiles[i]);
-        const pageNum = i + 1;
-        
-        try {
-          console.log(`🔍 OCR processing page ${pageNum}/${imageFiles.length}...`);
-          
-          // Verify image file exists and has content
-          const imageStats = await fs.promises.stat(imagePath);
-          if (imageStats.size < 100) {
-            console.log(`⚠️ Page ${pageNum}: Image file too small, skipping`);
-            continue;
-          }
-          
-          // Run Tesseract OCR with Thai + English support and timeout
-          const { stdout } = await execAsync(`tesseract "${imagePath}" stdout -l tha+eng --psm 3 --oem 3`, {
-            timeout: 15000 // 15 second timeout per page
-          });
-          
-          if (stdout && stdout.trim().length > 0) {
-            const cleanText = stdout.trim();
-            allText += `--- Page ${pageNum} ---\n${cleanText}\n\n`;
-            successfulPages++;
-            console.log(`📄 Page ${pageNum}: ${cleanText.length} characters extracted`);
-          } else {
-            console.log(`⚠️ Page ${pageNum}: No text extracted`);
-          }
-          
-        } catch (pageError) {
-          console.log(`⚠️ OCR failed for page ${pageNum}: ${pageError.message}`);
-          // Continue with other pages even if one fails
-        }
-      }
-
-      // Clean up temporary files
-      try {
-        await fs.promises.rm(tempDir, { recursive: true, force: true });
-      } catch (cleanupError) {
-        console.log(`⚠️ Could not clean up temp directory: ${cleanupError.message}`);
-      }
-
-      if (allText.length > 10 && successfulPages > 0) {
-        // Check for Thai content
-        const thaiRegex = /[\u0E00-\u0E7F]/;
-        const hasThaiText = thaiRegex.test(allText);
-        
-        console.log(`✅ OCR completed successfully:`);
-        console.log(`   - Total characters: ${allText.length}`);
-        console.log(`   - Pages processed: ${successfulPages}/${imageFiles.length}`);
-        console.log(`   - Contains Thai text: ${hasThaiText ? 'Yes' : 'No'}`);
-        
-        return allText.trim();
-      } else {
-        console.log(`⚠️ OCR completed but extracted minimal text: ${allText.length} characters from ${successfulPages} pages`);
-        return '';
-      }
-
-    } catch (error) {
-      console.error(`❌ OCR processing failed for ${fileName}:`, error.message);
-      
-      // Clean up on error
-      try {
-        await fs.promises.rm(tempDir, { recursive: true, force: true });
-      } catch (cleanupError) {
-        // Ignore cleanup errors
-      }
-      
-      throw error;
-    }
-  }
+  
 }
 
 export const documentProcessor = new DocumentProcessor();
