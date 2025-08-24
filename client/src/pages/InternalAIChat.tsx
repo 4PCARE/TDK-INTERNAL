@@ -22,7 +22,7 @@ import {
   Loader2
 } from "lucide-react";
 
-// Real API implementation
+// Real API implementation with debugging
 const apiRequest = async (method: string, url: string, body?: any) => {
   try {
     const options: RequestInit = {
@@ -37,10 +37,45 @@ const apiRequest = async (method: string, url: string, body?: any) => {
       options.body = JSON.stringify(body);
     }
 
+    // Debug: Log request details
+    console.group(`🚀 API Request: ${method} ${url}`);
+    console.log('📤 Request Headers:', options.headers);
+    if (options.body) {
+      console.log('📤 Request Body:', JSON.parse(options.body));
+    }
+    console.log('⏱️ Request Time:', new Date().toISOString());
+
+    const startTime = performance.now();
     const response = await fetch(url, options);
+    const endTime = performance.now();
+
+    // Debug: Log response details
+    console.log(`📥 Response Status: ${response.status} ${response.statusText}`);
+    console.log(`📥 Response Headers:`, Object.fromEntries(response.headers.entries()));
+    console.log(`⏱️ Response Time: ${Math.round(endTime - startTime)}ms`);
+    
+    // Clone response to read body for logging without consuming it
+    const responseClone = response.clone();
+    try {
+      const responseText = await responseClone.text();
+      if (responseText) {
+        try {
+          const responseJson = JSON.parse(responseText);
+          console.log('📥 Response Body:', responseJson);
+        } catch {
+          console.log('📥 Response Body (text):', responseText.substring(0, 500) + (responseText.length > 500 ? '...' : ''));
+        }
+      }
+    } catch (e) {
+      console.log('📥 Response Body: Unable to read');
+    }
+    
+    console.groupEnd();
+
     return response;
   } catch (error) {
-    console.error('API Request Error:', error);
+    console.error('❌ API Request Error:', error);
+    console.groupEnd();
     throw error;
   }
 };
@@ -82,11 +117,15 @@ export default function InternalAIChat() {
   const { data: documents = [] } = useQuery({
     queryKey: ["/api/documents"],
     queryFn: async () => {
+      console.log('📄 Fetching documents...');
       const response = await apiRequest("GET", "/api/documents");
       if (!response.ok) {
+        console.error('❌ Failed to fetch documents:', response.status, response.statusText);
         throw new Error("Failed to fetch documents");
       }
-      return response.json();
+      const result = await response.json();
+      console.log('📄 Documents fetched successfully:', result.length, 'documents');
+      return result;
     },
     retry: false,
   });
@@ -95,11 +134,15 @@ export default function InternalAIChat() {
   const { data: agents = [] } = useQuery({
     queryKey: ["/api/agent-chatbots"],
     queryFn: async () => {
+      console.log('🤖 Fetching agents...');
       const response = await apiRequest("GET", "/api/agent-chatbots");
       if (!response.ok) {
+        console.error('❌ Failed to fetch agents:', response.status, response.statusText);
         throw new Error("Failed to fetch agents");
       }
-      return response.json();
+      const result = await response.json();
+      console.log('🤖 Agents fetched successfully:', result.length, 'agents');
+      return result;
     },
     retry: false,
   }) as { data: Agent[] };
@@ -110,9 +153,15 @@ export default function InternalAIChat() {
 
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
+      console.group(`💬 Sending Message: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`);
+      console.log('🤖 Selected Bot ID:', selectedBot);
+      console.log('📄 Selected Document ID:', selectedDocument);
+      console.log('💾 Chat History Length:', messages.length);
+
       // If a bot is selected, use agent chat endpoint
       if (selectedBot) {
-        const response = await apiRequest("POST", "/api/agent-chatbots/test-chat", {
+        console.log('🎯 Using Agent Chat Endpoint');
+        const requestPayload = {
           message: content,
           agentConfig: {
             id: selectedBot,
@@ -123,83 +172,126 @@ export default function InternalAIChat() {
             role: msg.role,
             content: msg.content
           }))
-        });
+        };
+        console.log('📤 Agent Request Payload:', requestPayload);
+
+        const response = await apiRequest("POST", "/api/agent-chatbots/test-chat", requestPayload);
 
         if (!response.ok) {
+          console.error(`❌ Agent API Error: ${response.status} ${response.statusText}`);
           if (response.status === 401) {
             throw new Error("Unauthorized - Please log in again");
           }
           const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
+          console.error('❌ Agent Error Data:', errorData);
           throw new Error(errorData.message || "Failed to send message to agent");
         }
-        return response.json();
+        
+        const result = await response.json();
+        console.log('✅ Agent Response Success:', result);
+        console.groupEnd();
+        return result;
       }
 
       // Otherwise use the search endpoint for regular chat with document context
-      const response = await apiRequest("POST", "/api/search", {
+      console.log('🔍 Using Search Endpoint');
+      const searchPayload = {
         query: content,
         searchType: "smart_hybrid",
         documentIds: selectedDocument ? [selectedDocument] : undefined,
         keywordWeight: 0.4,
         vectorWeight: 0.6
-      });
+      };
+      console.log('📤 Search Request Payload:', searchPayload);
+
+      const response = await apiRequest("POST", "/api/search", searchPayload);
 
       if (!response.ok) {
+        console.error(`❌ Search API Error: ${response.status} ${response.statusText}`);
         if (response.status === 401) {
           throw new Error("Unauthorized - Please log in again");
         }
         const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
+        console.error('❌ Search Error Data:', errorData);
         throw new Error(errorData.message || "Failed to send message");
       }
-      return response.json();
+      
+      const result = await response.json();
+      console.log('✅ Search Response Success:', result);
+      console.groupEnd();
+      return result;
     },
     onSuccess: (data) => {
+      console.group('✅ Message Success Handler');
+      console.log('📥 Raw Response Data:', data);
+      
       // Add user message first
-      setMessages(prev => [...prev, {
+      const userMessage = {
         id: Date.now().toString() + "-user",
         role: "user" as const,
         content: inputMessage,
         timestamp: new Date().toISOString()
-      }]);
+      };
+      console.log('👤 Adding User Message:', userMessage);
+      
+      setMessages(prev => [...prev, userMessage]);
 
       // Handle different response formats
       let assistantContent = "";
 
       if (selectedBot) {
         // Handle agent chatbot response
+        console.log('🤖 Processing Agent Response');
         assistantContent = data?.response || "No response received from agent";
+        console.log('🤖 Agent Content Extracted:', assistantContent);
       } else {
         // Handle search API response
+        console.log('🔍 Processing Search Response');
         if (data?.aiResponse) {
           assistantContent = data.aiResponse;
+          console.log('🔍 Using aiResponse field:', assistantContent);
         } else if (data?.response) {
           assistantContent = data.response;
+          console.log('🔍 Using response field:', assistantContent);
         } else if (data?.content) {
           assistantContent = data.content;
+          console.log('🔍 Using content field:', assistantContent);
         } else {
           assistantContent = "No response received from search";
+          console.log('🔍 No valid response field found, using default message');
         }
       }
 
       // Add assistant response
-      setMessages(prev => [...prev, {
+      const assistantMessage = {
         id: Date.now().toString() + "-assistant",
         role: "assistant" as const,
         content: assistantContent,
         timestamp: new Date().toISOString()
-      }]);
+      };
+      console.log('🤖 Adding Assistant Message:', assistantMessage);
+      
+      setMessages(prev => [...prev, assistantMessage]);
 
       setInputMessage(""); // Clear input after successful send
       setIsLoading(false);
+      console.log('✅ Message processing completed successfully');
+      console.groupEnd();
     },
     onError: (error: any) => {
-      console.error("Chat error:", error);
+      console.group('❌ Message Error Handler');
+      console.error("💥 Chat error details:", error);
+      console.error("💥 Error message:", error.message);
+      console.error("💥 Error stack:", error.stack);
+      
       toast({
         title: "Message Failed",
         description: error.message || "Failed to send message to AI assistant.",
         variant: "destructive",
       });
       setIsLoading(false);
+      console.log('❌ Error handling completed');
+      console.groupEnd();
     },
   });
 
