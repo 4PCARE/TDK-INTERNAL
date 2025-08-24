@@ -750,8 +750,8 @@ export default function Settings() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
-                  {/* Show OpenAI Configuration only if OpenAI is selected */}
-                  {(currentProvider === "OpenAI" || currentEmbeddingProvider === "OpenAI") && (
+                  {/* Show OpenAI Configuration only if OpenAI is selected as chat provider */}
+                  {currentProvider === "OpenAI" && (
                     <div className="space-y-4">
                       <h4 className="font-medium text-gray-900">OpenAI Settings</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -793,8 +793,8 @@ export default function Settings() {
                     </div>
                   )}
 
-                  {/* Show Gemini Configuration only if Gemini is selected */}
-                  {(currentProvider === "Gemini" || currentEmbeddingProvider === "Gemini") && (
+                  {/* Show Gemini Configuration only if Gemini is selected as chat provider */}
+                  {currentProvider === "Gemini" && (
                     <div className="space-y-4">
                       <h4 className="font-medium text-gray-900">Gemini Settings</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
