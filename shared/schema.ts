@@ -312,7 +312,7 @@ export const widgetChatSessions = pgTable("widget_chat_sessions", {
 export const widgetChatMessages = pgTable("widget_chat_messages", {
   id: serial("id").primaryKey(),
   sessionId: varchar("session_id", { length: 255 }).notNull(),
-  role: varchar("role", { length: 50 }).notNull().check(sql`role IN ('user', 'assistant')`),
+  role: varchar("role", { length: 50 }).notNull(),
   content: text("content").notNull(),
   messageType: varchar("message_type", { length: 50 }).default("text"),
   metadata: jsonb("metadata").default({}),
@@ -945,7 +945,7 @@ export const internalAgentChatSessions = pgTable("internal_agent_chat_sessions",
 export const internalAgentChatMessages = pgTable("internal_agent_chat_messages", {
   id: serial("id").primaryKey(),
   sessionId: integer("session_id").notNull().references(() => internalAgentChatSessions.id, { onDelete: "cascade" }),
-  role: varchar("role", { length: 50 }).notNull().check(sql`role IN ('user', 'assistant')`),
+  role: varchar("role", { length: 50 }).notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
