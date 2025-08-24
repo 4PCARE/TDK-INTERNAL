@@ -22,40 +22,27 @@ import {
   Loader2
 } from "lucide-react";
 
-// Assuming apiRequest is defined elsewhere and imported, e.g.:
-// import { apiRequest } from "@/lib/api"; 
-
-// Mock apiRequest for demonstration if not provided
+// Real API implementation
 const apiRequest = async (method: string, url: string, body?: any) => {
-  console.log(`Mock API Request: ${method} ${url}`, body);
-  // Simulate different responses based on URL
-  if (url === "/api/chat/message") {
-    // Simulate regular chat response
-    return {
-      ok: true,
-      json: async () => ({ response: "This is a mock response from the regular chat." }),
+  try {
+    const options: RequestInit = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include', // Include cookies for authentication
     };
-  } else if (url === "/api/agent-chatbots/test-chat") {
-    // Simulate agent chat response
-    return {
-      ok: true,
-      json: async () => ({ response: `Mock response from agent ${body?.agentConfig?.id || 'unknown'}: ${body.message}` }),
-    };
-  } else if (url === "/api/agents") {
-     return {
-       ok: true,
-       json: async () => [
-         { id: 1, name: "Agent Alpha", description: "First agent", isActive: true },
-         { id: 2, name: "Agent Beta", description: "Second agent", isActive: false },
-       ]
-     }
-  } else if (url === "/api/documents") {
-    return {
-      ok: true,
-      json: async () => [{ id: "doc-1", name: "Document 1" }]
+
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+      options.body = JSON.stringify(body);
     }
+
+    const response = await fetch(url, options);
+    return response;
+  } catch (error) {
+    console.error('API Request Error:', error);
+    throw error;
   }
-  return { ok: false, json: async () => ({ message: "Not Found" }) };
 };
 
 
@@ -94,12 +81,26 @@ export default function InternalAIChat() {
   // Get available documents for context
   const { data: documents = [] } = useQuery({
     queryKey: ["/api/documents"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/documents");
+      if (!response.ok) {
+        throw new Error("Failed to fetch documents");
+      }
+      return response.json();
+    },
     retry: false,
   });
 
   // Get available agents
   const { data: agents = [] } = useQuery({
-    queryKey: ["/api/agents"],
+    queryKey: ["/api/agent-chatbots"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/agent-chatbots");
+      if (!response.ok) {
+        throw new Error("Failed to fetch agents");
+      }
+      return response.json();
+    },
     retry: false,
   }) as { data: Agent[] };
 
@@ -134,12 +135,13 @@ export default function InternalAIChat() {
         return response.json();
       }
 
-      // Otherwise use regular chat
-      const response = await apiRequest("POST", "/api/chat/message", {
-        message: content,
-        conversationId: null,
-        documentId: selectedDocument,
-        agentId: selectedBot && selectedBot !== null ? selectedBot : null
+      // Otherwise use the search endpoint for regular chat with document context
+      const response = await apiRequest("POST", "/api/search", {
+        query: content,
+        searchType: "smart_hybrid",
+        documentIds: selectedDocument ? [selectedDocument] : undefined,
+        keywordWeight: 0.4,
+        vectorWeight: 0.6
       });
 
       if (!response.ok) {
@@ -163,19 +165,20 @@ export default function InternalAIChat() {
       // Handle different response formats
       let assistantContent = "";
 
-      if (data && typeof data.response === 'string') {
-        // Handle bot test response
-        assistantContent = data.response;
-      } else if (data && typeof data.content === 'string') {
-        // Handle other formats (e.g., from regular chat API)
-        assistantContent = data.content;
-      } else if (Array.isArray(data)) {
-        // Handle array response from regular chat API if it returns an array of messages
-        const assistantMsg = data.find(msg => msg.role === "assistant");
-        assistantContent = assistantMsg?.content || "No response received";
+      if (selectedBot) {
+        // Handle agent chatbot response
+        assistantContent = data?.response || "No response received from agent";
       } else {
-        // Fallback for unexpected formats
-        assistantContent = "No response received";
+        // Handle search API response
+        if (data?.aiResponse) {
+          assistantContent = data.aiResponse;
+        } else if (data?.response) {
+          assistantContent = data.response;
+        } else if (data?.content) {
+          assistantContent = data.content;
+        } else {
+          assistantContent = "No response received from search";
+        }
       }
 
       // Add assistant response
