@@ -655,10 +655,10 @@ export default function InternalAIChat() {
                                     e.stopPropagation(); // Prevent selecting the agent
                                     setViewingAgentDocuments(agent.id);
                                   }}
-                                  className="flex items-center space-x-1 text-xs text-gray-500 mb-1 text-left w-full"
+                                  className="flex items-center space-x-1 text-xs text-gray-500 mb-1 text-left w-full cursor-pointer hover:underline"
                                 >
                                   <FileText className="w-3 h-3" />
-                                  <span>{documentNames.length} documents</span>
+                                  <span>{documentNames.length} document{documentNames.length !== 1 ? 's' : ''}</span>
                                 </button>
                               </div>
                             )}
