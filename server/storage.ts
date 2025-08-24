@@ -2220,6 +2220,98 @@ export class DatabaseStorage implements IStorage {
     return session;
   }
 
+  async createInternalAgentChatSession(data: {
+    userId: string;
+    agentId: number;
+    title: string;
+    lastMessageAt: Date;
+    messageCount: number;
+  }): Promise<InternalAgentChatSession> {
+    const { internalAgentChatSessions } = await import('@shared/schema');
+    const [session] = await db
+      .insert(internalAgentChatSessions)
+      .values({
+        userId: data.userId,
+        agentId: data.agentId,
+        title: data.title,
+        lastMessageAt: data.lastMessageAt,
+        messageCount: data.messageCount,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    return session;
+  }
+
+  async deleteInternalAgentChatSession(sessionId: number, userId: string): Promise<void> {
+    const { internalAgentChatSessions, internalAgentChatMessages } = await import('@shared/schema');
+    
+    // Delete messages first
+    await db
+      .delete(internalAgentChatMessages)
+      .where(eq(internalAgentChatMessages.sessionId, sessionId));
+    
+    // Delete session
+    await db
+      .delete(internalAgentChatSessions)
+      .where(
+        and(
+          eq(internalAgentChatSessions.id, sessionId),
+          eq(internalAgentChatSessions.userId, userId)
+        )
+      );
+  }
+
+  async getInternalAgentChatMessages(sessionId: number, userId: string): Promise<InternalAgentChatMessage[]> {
+    const { internalAgentChatMessages, internalAgentChatSessions } = await import('@shared/schema');
+    
+    // Verify session belongs to user
+    const session = await this.getInternalAgentChatSession(sessionId, userId);
+    if (!session) {
+      throw new Error('Session not found or access denied');
+    }
+
+    return await db
+      .select()
+      .from(internalAgentChatMessages)
+      .where(eq(internalAgentChatMessages.sessionId, sessionId))
+      .orderBy(internalAgentChatMessages.createdAt);
+  }
+
+  async createInternalAgentChatMessage(data: {
+    sessionId: number;
+    role: 'user' | 'assistant';
+    content: string;
+  }): Promise<InternalAgentChatMessage> {
+    const { internalAgentChatMessages, internalAgentChatSessions } = await import('@shared/schema');
+    
+    // Create message
+    const [message] = await db
+      .insert(internalAgentChatMessages)
+      .values({
+        sessionId: data.sessionId,
+        role: data.role,
+        content: data.content,
+        createdAt: new Date()
+      })
+      .returning();
+
+    // Update session's last message info
+    await db
+      .update(internalAgentChatSessions)
+      .set({
+        lastMessageAt: new Date(),
+        messageCount: sql`message_count + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(internalAgentChatSessions.id, data.sessionId));
+
+    return message;)
+        )
+      );
+    return session;
+  }
+
   async createInternalAgentChatSession(session: InsertInternalAgentChatSession): Promise<InternalAgentChatSession> {
     const { internalAgentChatSessions } = await import('@shared/schema');
     const [newSession] = await db

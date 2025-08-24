@@ -521,22 +521,39 @@ Memory management: Keep track of conversation context within the last ${agentCon
     isAuthenticated,
     async (req: any, res) => {
       try {
-        const { message, agentId, channelType = 'web', channelId, documentIds = [] } = req.body;
+        const { message, agentId, sessionId } = req.body;
         const userId = req.user.claims.sub;
 
         if (!message || !agentId) {
           return res.status(400).json({ message: "Message and agent ID are required" });
         }
 
-        console.log(`🤖 Internal Agent Chat: Processing message for agent ${agentId}`);
+        if (!sessionId) {
+          return res.status(400).json({ message: "Session ID is required" });
+        }
+
+        console.log(`🤖 Internal Agent Chat: Processing message for agent ${agentId}, session ${sessionId}`);
+
+        // Verify session belongs to user
+        const session = await storage.getInternalAgentChatSession(parseInt(sessionId), userId);
+        if (!session) {
+          return res.status(404).json({ message: "Session not found or access denied" });
+        }
+
+        // Save user message to session
+        await storage.createInternalAgentChatMessage({
+          sessionId: parseInt(sessionId),
+          role: 'user',
+          content: message
+        });
 
         // Import and use AgentBot service (same as LINE OA)
         const { processMessage, saveAssistantResponse } = await import("../agentBot");
 
         const botContext = {
           userId: userId,
-          channelType: channelType as const,
-          channelId: channelId || `internal-${userId}-${Date.now()}`,
+          channelType: 'web' as const,
+          channelId: `internal-session-${sessionId}`,
           agentId: parseInt(agentId),
           messageId: `internal-${Date.now()}`,
           lineIntegration: null, // Not needed for internal chat
@@ -558,27 +575,34 @@ Memory management: Keep track of conversation context within the last ${agentCon
           });
         }
 
-        // Save the conversation to chat history
+        // Save assistant response to session
+        await storage.createInternalAgentChatMessage({
+          sessionId: parseInt(sessionId),
+          role: 'assistant',
+          content: botResponse.response || "No response generated"
+        });
+
+        // Also save to regular chat history for compatibility
         try {
           // Save user message
           await storage.createChatHistory({
             userId: userId,
-            channelType: channelType,
+            channelType: 'web',
             channelId: botContext.channelId,
             agentId: parseInt(agentId),
             messageType: "user",
             content: message,
-            metadata: { source: 'internal_chat' },
+            metadata: { source: 'internal_chat', sessionId: parseInt(sessionId) },
           });
 
           // Save assistant response
           await saveAssistantResponse(
             botResponse.response!,
             botContext,
-            { source: 'internal_chat' }
+            { source: 'internal_chat', sessionId: parseInt(sessionId) }
           );
 
-          console.log("💾 Saved internal chat conversation to history");
+          console.log("💾 Saved internal chat conversation to history and session");
         } catch (error) {
           console.error("⚠️ Error saving internal chat history:", error);
         }
@@ -1564,6 +1588,84 @@ Memory management: Keep track of conversation context within the last ${agentCon
     } catch (error) {
       console.error("Error sending agent console message:", error);
       res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Internal Agent Chat Session endpoints
+  app.get('/api/internal-agent-chat/sessions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const agentId = req.query.agentId ? parseInt(req.query.agentId) : undefined;
+
+      let sessions;
+      if (agentId) {
+        sessions = await storage.getInternalAgentChatSessionsByAgent(userId, agentId);
+      } else {
+        sessions = await storage.getInternalAgentChatSessions(userId);
+      }
+
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching internal chat sessions:", error);
+      res.status(500).json({ message: "Failed to fetch chat sessions" });
+    }
+  });
+
+  app.post('/api/internal-agent-chat/sessions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { agentId, title } = req.body;
+
+      if (!agentId) {
+        return res.status(400).json({ message: "Agent ID is required" });
+      }
+
+      const session = await storage.createInternalAgentChatSession({
+        userId,
+        agentId: parseInt(agentId),
+        title: title || `Chat ${new Date().toLocaleDateString()}`,
+        lastMessageAt: new Date(),
+        messageCount: 0
+      });
+
+      res.status(201).json(session);
+    } catch (error) {
+      console.error("Error creating internal chat session:", error);
+      res.status(500).json({ message: "Failed to create chat session" });
+    }
+  });
+
+  app.delete('/api/internal-agent-chat/sessions/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const sessionId = parseInt(req.params.id);
+
+      if (isNaN(sessionId)) {
+        return res.status(400).json({ message: "Invalid session ID" });
+      }
+
+      await storage.deleteInternalAgentChatSession(sessionId, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting internal chat session:", error);
+      res.status(500).json({ message: "Failed to delete chat session" });
+    }
+  });
+
+  app.get('/api/internal-agent-chat/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const sessionId = req.query.sessionId ? parseInt(req.query.sessionId) : undefined;
+
+      if (!sessionId) {
+        return res.status(400).json({ message: "Session ID is required" });
+      }
+
+      const messages = await storage.getInternalAgentChatMessages(sessionId, userId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching internal chat messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
     }
   });
 

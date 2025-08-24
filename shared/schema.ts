@@ -11,6 +11,9 @@ import {
   real,
   date,
   uniqueIndex,
+  InferInsertModel,
+  InferSelectModel,
+  sql,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -244,7 +247,7 @@ export const dataConnectionsRelations = relations(dataConnections, ({ one }) => 
   }),
 }));
 
-// HR Employee table for public API
+// HR and Widget tables
 export const hrEmployees = pgTable("hr_employees", {
   id: serial("id").primaryKey(),
   employeeId: varchar("employee_id").notNull().unique(),
@@ -308,12 +311,12 @@ export const widgetChatSessions = pgTable("widget_chat_sessions", {
 // Widget chat messages
 export const widgetChatMessages = pgTable("widget_chat_messages", {
   id: serial("id").primaryKey(),
-  sessionId: varchar("session_id").notNull(),
-  role: varchar("role").notNull(), // 'user', 'assistant'
+  sessionId: varchar("session_id", { length: 255 }).notNull(),
+  role: varchar("role", { length: 50 }).notNull().check(sql`role IN ('user', 'assistant')`),
   content: text("content").notNull(),
-  messageType: varchar("message_type").default("text"), // 'text', 'hr_lookup'
-  metadata: jsonb("metadata"), // For storing additional data like HR lookup results
-  createdAt: timestamp("created_at").defaultNow(),
+  messageType: varchar("message_type", { length: 50 }).default("text"),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const chatWidgetsRelations = relations(chatWidgets, ({ one, many }) => ({
@@ -454,8 +457,14 @@ export type ChatWidget = typeof chatWidgets.$inferSelect;
 export type InsertChatWidget = typeof chatWidgets.$inferInsert;
 export type WidgetChatSession = typeof widgetChatSessions.$inferSelect;
 export type InsertWidgetChatSession = typeof widgetChatSessions.$inferInsert;
-export type WidgetChatMessage = typeof widgetChatMessages.$inferSelect;
-export type InsertWidgetChatMessage = typeof widgetChatMessages.$inferInsert;
+export type WidgetChatMessage = InferSelectModel<typeof widgetChatMessages>;
+export type NewWidgetChatMessage = InferInsertModel<typeof widgetChatMessages>;
+
+export type InternalAgentChatSession = InferSelectModel<typeof internalAgentChatSessions>;
+export type NewInternalAgentChatSession = InferInsertModel<typeof internalAgentChatSessions>;
+
+export type InternalAgentChatMessage = InferSelectModel<typeof internalAgentChatMessages>;
+export type NewInternalAgentChatMessage = InferInsertModel<typeof internalAgentChatMessages>;
 
 // Departments table
 export const departments = pgTable("departments", {
@@ -476,7 +485,7 @@ export const documentUserPermissions = pgTable("document_user_permissions", {
   grantedBy: varchar("granted_by"),
 });
 
-// Document Department Permissions (Many-to-Many)  
+// Document Department Permissions (Many-to-Many)
 export const documentDepartmentPermissions = pgTable("document_department_permissions", {
   id: serial("id").primaryKey(),
   documentId: integer("document_id").notNull(),
@@ -863,7 +872,7 @@ export const lineTemplateActions = pgTable("line_template_actions", {
   type: varchar("type").notNull(), // 'uri', 'postback', 'message'
   label: varchar("label").notNull(),
   uri: text("uri"), // For 'uri' type actions
-  data: text("data"), // For 'postback' type actions  
+  data: text("data"), // For 'postback' type actions
   text: text("text"), // For 'message' type actions
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -924,11 +933,21 @@ export type InsertLineTemplateAction = z.infer<typeof insertLineTemplateActionSc
 // Internal Agent Chat Sessions table
 export const internalAgentChatSessions = pgTable("internal_agent_chat_sessions", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  agentId: integer("agent_id").notNull().references(() => agentChatbots.id),
-  title: varchar("title").notNull().default("New Chat"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  agentId: integer("agent_id").notNull().references(() => agentChatbots.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 255 }).notNull(),
+  lastMessageAt: timestamp("last_message_at").notNull(),
+  messageCount: integer("message_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const internalAgentChatMessages = pgTable("internal_agent_chat_messages", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => internalAgentChatSessions.id, { onDelete: "cascade" }),
+  role: varchar("role", { length: 50 }).notNull().check(sql`role IN ('user', 'assistant')`),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertInternalAgentChatSessionSchema = createInsertSchema(internalAgentChatSessions).omit({
@@ -937,5 +956,12 @@ export const insertInternalAgentChatSessionSchema = createInsertSchema(internalA
   updatedAt: true,
 });
 
+export const insertInternalAgentChatMessageSchema = createInsertSchema(internalAgentChatMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InternalAgentChatSession = typeof internalAgentChatSessions.$inferSelect;
 export type InsertInternalAgentChatSession = z.infer<typeof insertInternalAgentChatSessionSchema>;
+export type InternalAgentChatMessage = typeof internalAgentChatMessages.$inferSelect;
+export type InsertInternalAgentChatMessage = z.infer<typeof insertInternalAgentChatMessageSchema>;
