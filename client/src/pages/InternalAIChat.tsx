@@ -379,25 +379,6 @@ export default function InternalAIChat() {
         });
       }, 2000);
     },
-    onError: (error: any) => {
-      console.error('❌ Send message error:', error);
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send message",
-        variant: "destructive",
-      });
-    },
   });
 
   // Delete session mutation
