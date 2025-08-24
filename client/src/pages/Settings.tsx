@@ -778,6 +778,9 @@ export default function Settings() {
                             max="2"
                             defaultValue={llmConfig?.openAIConfig?.temperature || 0.7}
                           />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Controls creativity: Low (0.1) = predictable, High (1.5) = creative
+                          </p>
                         </div>
                         <div>
                           <Label htmlFor="openaiMaxTokens">Max Tokens</Label>
@@ -821,6 +824,9 @@ export default function Settings() {
                             max="2"
                             defaultValue={llmConfig?.geminiConfig?.temperature || 0.7}
                           />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Controls creativity: Low (0.1) = predictable, High (1.5) = creative
+                          </p>
                         </div>
                         <div>
                           <Label htmlFor="geminiMaxTokens">Max Tokens</Label>
