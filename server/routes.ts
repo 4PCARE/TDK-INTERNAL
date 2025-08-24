@@ -6242,7 +6242,8 @@ Memory management: Keep track of conversation context within the last ${agentCon
     // Clean up on disconnect
     ws.on('close', () => {
       console.log('🔌 WebSocket client disconnected');
-      wsClients.deletews, wsClients.size);
+      wsClients.delete(ws);
+      console.log('📊 Remaining WebSocket clients after disconnect:', wsClients.size);
     });
 
     ws.on('error', (error) => {
