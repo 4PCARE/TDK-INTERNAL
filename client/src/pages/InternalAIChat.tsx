@@ -53,7 +53,7 @@ const apiRequest = async (method: string, url: string, body?: any) => {
     console.log(`📥 Response Status: ${response.status} ${response.statusText}`);
     console.log(`📥 Response Headers:`, Object.fromEntries(response.headers.entries()));
     console.log(`⏱️ Response Time: ${Math.round(endTime - startTime)}ms`);
-    
+
     // Clone response to read body for logging without consuming it
     const responseClone = response.clone();
     try {
@@ -69,7 +69,7 @@ const apiRequest = async (method: string, url: string, body?: any) => {
     } catch (e) {
       console.log('📥 Response Body: Unable to read');
     }
-    
+
     console.groupEnd();
 
     return response;
@@ -186,7 +186,7 @@ export default function InternalAIChat() {
           console.error('❌ Agent Error Data:', errorData);
           throw new Error(errorData.message || "Failed to send message to agent");
         }
-        
+
         const result = await response.json();
         console.log('✅ Agent Response Success:', result);
         console.groupEnd();
@@ -215,7 +215,7 @@ export default function InternalAIChat() {
         console.error('❌ Search Error Data:', errorData);
         throw new Error(errorData.message || "Failed to send message");
       }
-      
+
       const result = await response.json();
       console.log('✅ Search Response Success:', result);
       console.groupEnd();
@@ -224,7 +224,7 @@ export default function InternalAIChat() {
     onSuccess: (data) => {
       console.group('✅ Message Success Handler');
       console.log('📥 Raw Response Data:', data);
-      
+
       // Add user message first
       const userMessage = {
         id: Date.now().toString() + "-user",
@@ -233,7 +233,7 @@ export default function InternalAIChat() {
         timestamp: new Date().toISOString()
       };
       console.log('👤 Adding User Message:', userMessage);
-      
+
       setMessages(prev => [...prev, userMessage]);
 
       // Handle different response formats
@@ -270,7 +270,7 @@ export default function InternalAIChat() {
         timestamp: new Date().toISOString()
       };
       console.log('🤖 Adding Assistant Message:', assistantMessage);
-      
+
       setMessages(prev => [...prev, assistantMessage]);
 
       setInputMessage(""); // Clear input after successful send
@@ -283,7 +283,7 @@ export default function InternalAIChat() {
       console.error("💥 Chat error details:", error);
       console.error("💥 Error message:", error.message);
       console.error("💥 Error stack:", error.stack);
-      
+
       toast({
         title: "Message Failed",
         description: error.message || "Failed to send message to AI assistant.",
