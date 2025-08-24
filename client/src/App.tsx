@@ -35,6 +35,7 @@ import AiResponseAnalysis from "@/pages/dashboards/AiResponseAnalysis";
 import OmnichannelSummarization from "@/pages/dashboards/OmnichannelSummarization";
 import AIAssistant from "@/pages/AIAssistant";
 import InternalAIChat from "@/pages/InternalAIChat";
+import Upload from "@/pages/Upload";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -57,6 +58,7 @@ function Router() {
       ) : (
         <Switch>
           <Route path="/" component={Documents} />
+          <Route path="/upload" component={Upload} />
           <Route path="/documents" component={Documents} />
           <Route path="/search" component={Search} />
           <Route path="/categories" component={Categories} />
