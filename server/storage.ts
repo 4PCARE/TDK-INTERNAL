@@ -20,7 +20,6 @@ import {
   lineMessageTemplates,
   lineCarouselColumns,
   lineTemplateActions,
-  internalAgentChatSessions,
   type User,
   type UpsertUser,
   type Category,

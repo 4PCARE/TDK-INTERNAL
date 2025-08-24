@@ -920,3 +920,22 @@ export type LineCarouselColumn = typeof lineCarouselColumns.$inferSelect;
 export type InsertLineCarouselColumn = z.infer<typeof insertLineCarouselColumnSchema>;
 export type LineTemplateAction = typeof lineTemplateActions.$inferSelect;
 export type InsertLineTemplateAction = z.infer<typeof insertLineTemplateActionSchema>;
+
+// Internal Agent Chat Sessions table
+export const internalAgentChatSessions = pgTable("internal_agent_chat_sessions", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  agentId: integer("agent_id").notNull().references(() => agentChatbots.id),
+  title: varchar("title").notNull().default("New Chat"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const insertInternalAgentChatSessionSchema = createInsertSchema(internalAgentChatSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InternalAgentChatSession = typeof internalAgentChatSessions.$inferSelect;
+export type InsertInternalAgentChatSession = z.infer<typeof insertInternalAgentChatSessionSchema>;
