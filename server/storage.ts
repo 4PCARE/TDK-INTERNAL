@@ -82,6 +82,7 @@ export interface IStorage {
   getDocuments(userId: string, options?: { categoryId?: number; limit?: number; offset?: number }): Promise<Document[]>;
   getDocument(id: number, userId: string): Promise<Document | undefined>;
   getDocumentsByIds(ids: number[], userId: string): Promise<Document[]>;
+  getDocumentsByIdsForWidget(documentIds: number[]): Promise<Document[]>;
   createDocument(document: InsertDocument): Promise<Document>;
   updateDocument(id: number, document: UpdateDocument, userId: string): Promise<Document>;
   deleteDocument(id: number, userId: string): Promise<void>;
@@ -604,6 +605,12 @@ export class DatabaseStorage implements IStorage {
     );
 
     return uniqueDocuments;
+  }
+
+  async getDocumentsByIdsForWidget(documentIds: number[]): Promise<Document[]> {
+    return await db.select()
+      .from(documents)
+      .where(inArray(documents.id, documentIds));
   }
 
   async createDocument(document: InsertDocument): Promise<Document> {
