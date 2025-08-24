@@ -2645,7 +2645,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
         for (const document of documents) {
           if (document.content && document.content.trim().length > 0) {
             try {
-              const result = await vectorService.addDocument(
+              await vectorService.addDocument(
                 document.id.toString(),
                 document.content,
                 {
@@ -5099,7 +5099,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
 
         // Query to find actual Line user IDs for this user and agent
         const lineUserQuery = `
-          SELECT DISTINCT channel_id
+          SELECT DISTINCT channel_id, COUNT(*) as message_count
           FROM chat_history
           WHERE user_id = $1 AND channel_type = $2 AND agent_id = $3
           AND channel_id LIKE 'U%'
