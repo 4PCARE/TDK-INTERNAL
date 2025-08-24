@@ -3048,13 +3048,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
   });
 
   // Widget chat endpoints - with optional authentication for HR integration
-  app.post("/api/widget/:widgetKey/chat", (req, res, next) => {
-    // Try to apply authentication, but don't fail if not authenticated
-    smartAuth(req, res, (err) => {
-      // Continue regardless of authentication status
-      next();
-    });
-  }, async (req: any, res) => {
+  app.post("/api/widget/:widgetKey/chat", async (req: any, res) => {
     try {
       const { widgetKey } = req.params;
       const { sessionId, message, visitorInfo } = req.body;
@@ -3075,10 +3069,9 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       let currentUser = null;
       let hrEmployeeData = null;
 
-      console.log(`👤 Widget: Checking authentication - req.user exists: ${!!req.user}`);
-      console.log(`👤 Widget: req.user structure:`, req.user ? Object.keys(req.user) : 'undefined');
+      console.log(`👤 Widget: Processing chat request for widget ${widgetKey}`);
 
-      // Try multiple authentication methods
+      // Check if user is authenticated (optional for widget)
       if (req.user) {
         // Method 1: Check for claims structure (Replit Auth)
         if (req.user.claims && req.user.claims.email) {
@@ -3095,11 +3088,9 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           currentUser = req.user.profile;
           console.log(`👤 Widget: Authenticated via profile: ${currentUser.email}`);
         }
-        else {
-          console.log(`👤 Widget: User exists but no email found in structure:`, JSON.stringify(req.user, null, 2));
-        }
       } else {
-        console.log(`👤 Widget: No authenticated user found`);
+        console.log(`👤 Widget: No authentication found - proceeding as anonymous user`);
+      } authenticated user found`);
       }
 
       if (currentUser && currentUser.email) {
