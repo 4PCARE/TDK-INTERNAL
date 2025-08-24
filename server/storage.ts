@@ -280,7 +280,7 @@ export class DatabaseStorage implements IStorage {
         color: categories.color,
         userId: categories.userId,
         createdAt: categories.createdAt,
-        documentCount: sql<number>`COALESCE(COUNT(${documents.id}), 0)`
+        documentCount: sql<number>`COALESCE(COUNT(${documents.id}), 0)`.as('documentCount')
       })
       .from(categories)
       .leftJoin(documents, and(
