@@ -886,7 +886,8 @@ export class DatabaseStorage implements IStorage {
     // Category distribution from actual documents
     const categoryCount = new Map<string, number>();
     userDocuments.forEach(doc => {
-      const category = doc.category || 'Uncategorized';      categoryCount.set(category, (categoryCount.get(category) || 0) + 1);
+      const category = doc.category || 'Uncategorized';
+      categoryCount.set(category, (categoryCount.get(category) || 0) + 1);
     });
 
     const categoryStats = Array.from(categoryCount.entries()).map(([category, count]) => ({
