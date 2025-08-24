@@ -195,7 +195,7 @@ export interface IStorage {
     channelType: string,
     channelId: string,
     agentId?: number,
-    memoryLimit: number = 10
+    memoryLimit: number,
   ): Promise<ChatHistory[]>;
 
   // Line Message Template operations
