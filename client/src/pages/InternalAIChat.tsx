@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, useQueries } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,18 +12,21 @@ import DashboardLayout from "@/components/Layout/DashboardLayout";
 import {
   MessageSquare,
   Bot,
-  User,
-  Send,
   Plus,
+  Send,
+  Loader2,
+  ChevronDown,
+  Edit2,
+  Trash2,
+  User,
+  ArrowLeft,
+  X,
+  FileText,
+  Search,
   Settings,
   MoreVertical,
   Calendar,
   Clock,
-  Trash2,
-  FileText,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
   Edit3
 } from "lucide-react";
 import {
@@ -66,11 +69,26 @@ const apiRequest = async (method: string, url: string, body?: any) => {
   }
 
   const response = await fetch(url, options);
+  if (!response.ok) {
+    // Attempt to get error details from response body
+    let errorDetail = `Status: ${response.status}`;
+    try {
+      const errorData = await response.json();
+      errorDetail += `, Message: ${errorData.message || JSON.stringify(errorData)}`;
+    } catch (e) {
+      const text = await response.text();
+      errorDetail += `, Raw: ${text}`;
+    }
+    const error = new Error(`API request failed: ${errorDetail}`);
+    // Attach status to the error object for easier checking
+    (error as any).status = response.status;
+    throw error;
+  }
   return response;
 };
 
 const isUnauthorizedError = (error: any): boolean => {
-  return error.message?.includes('401') || error.message?.includes('Unauthorized');
+  return error.status === 401 || error.message?.includes('401') || error.message?.includes('Unauthorized');
 };
 
 
@@ -83,7 +101,10 @@ interface Agent {
   createdAt: string;
 }
 
-interface ChatSession {
+// Renamed AgentChatbot to Agent for consistency with the rest of the code
+type AgentChatbot = Agent;
+
+interface Session {
   id: number;
   title: string;
   agentId: number;
@@ -91,6 +112,9 @@ interface ChatSession {
   lastMessageAt: string;
   messageCount: number;
 }
+
+// Renamed ChatSession to Session for consistency with the rest of the code
+type ChatSession = Session;
 
 interface ChatMessage {
   id: number;
@@ -103,7 +127,7 @@ export default function InternalAIChat() {
   const { toast } = useToast();
   const { user, isAuthenticated, wsUrl } = useAuth(); // Assuming wsUrl is provided by useAuth
   const queryClient = useQueryClient();
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null);
   const [input, setInput] = useState(""); // Renamed from newMessage to input to match mutation
   const [isCreatingSession, setIsCreatingSession] = useState(false);
@@ -111,30 +135,77 @@ export default function InternalAIChat() {
   const [hideSessionPanel, setHideSessionPanel] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [botSearchTerm, setBotSearchTerm] = useState(""); // Added for bot search
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Use selectedAgentId to find the selected agent object
+  const selectedAgent = (agents || []).find(agent => agent.id === selectedAgentId) || null;
 
   const currentSessionId = selectedSession?.id; // For use in mutations
 
-  // Fetch agents
-  const { data: agents = [], isLoading: isLoadingAgents } = useQuery({
+  // Fetch available agents
+  const { data: agents = [], isLoading: agentsLoading } = useQuery({
     queryKey: ["/api/agent-chatbots"],
     queryFn: async () => {
       const response = await apiRequest("get", "/api/agent-chatbots");
       if (!response.ok) throw new Error("Failed to fetch agents");
+      const data = await response.json();
+      // Sort agents by creation date in descending order (most recent first)
+      return data.sort((a: Agent, b: Agent) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    },
+    enabled: isAuthenticated,
+  }) as { data: Agent[]; isLoading: boolean };
+
+  // Fetch agent documents for each agent
+  const agentDocumentQueries = useQueries({
+    queries: agents.map(agent => ({
+      queryKey: [`/api/agent-chatbots/${agent.id}/documents`],
+      queryFn: async () => {
+        const response = await apiRequest("GET", `/api/agent-chatbots/${agent.id}/documents`);
+        if (!response.ok) throw new Error(`Failed to fetch documents for agent ${agent.id}`);
+        const data = await response.json();
+        return data.map((doc: any) => doc.name); // Assuming documents have a 'name' field
+      },
+      enabled: isAuthenticated && !!agent.id,
+    }))
+  });
+
+  // Fetch all documents to get names
+  const { data: allDocuments = [] } = useQuery({
+    queryKey: ["/api/documents"],
+    queryFn: async () => {
+      const response = await apiRequest("get", "/api/documents");
+      if (!response.ok) throw new Error("Failed to fetch all documents");
       return response.json();
     },
-  }) as { data: Agent[]; isLoading: boolean };
+    enabled: isAuthenticated,
+  }) as { data: any[]; isLoading: boolean };
+
+  // Filter and sort agents based on search term and recency
+  const filteredAndSortedAgents = agents.filter(agent =>
+    agent.name.toLowerCase().includes(botSearchTerm.toLowerCase()) ||
+    (agent.description && agent.description.toLowerCase().includes(botSearchTerm.toLowerCase()))
+  );
+
+  // Helper to get document names for a given agent ID
+  const getAgentDocumentNames = (agentId: number): string[] => {
+    const queryIndex = agents.findIndex(agent => agent.id === agentId);
+    if (queryIndex === -1 || !agentDocumentQueries[queryIndex] || agentDocumentQueries[queryIndex].isLoading) {
+      return [];
+    }
+    return agentDocumentQueries[queryIndex].data || [];
+  };
 
   // Fetch chat sessions for selected agent
   const { data: sessions = [], isLoading: isLoadingSessions } = useQuery({
-    queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
+    queryKey: ["/api/internal-agent-chat/sessions", selectedAgentId],
     queryFn: async () => {
-      if (!selectedAgent) return [];
-      const response = await apiRequest("get", `/api/internal-agent-chat/sessions?agentId=${selectedAgent.id}`);
+      if (!selectedAgentId) return [];
+      const response = await apiRequest("get", `/api/internal-agent-chat/sessions?agentId=${selectedAgentId}`);
       if (!response.ok) throw new Error("Failed to fetch sessions");
       return response.json();
     },
-    enabled: !!selectedAgent,
+    enabled: !!selectedAgentId,
   }) as { data: ChatSession[]; isLoading: boolean };
 
   // Fetch messages for selected session
@@ -167,7 +238,7 @@ export default function InternalAIChat() {
         // Handle session updates (like auto-generated titles)
         if (data.type === 'session_updated' && data.data?.sessionId) {
           console.log('🏷️ Session updated, refreshing sessions list');
-          
+
           // Update the selected session immediately if it matches
           setSelectedSession(prev => {
             if (prev?.id === data.data.sessionId && data.data.title) {
@@ -176,10 +247,10 @@ export default function InternalAIChat() {
             }
             return prev;
           });
-          
+
           // Invalidate sessions query to refresh the list
           queryClient.invalidateQueries({
-            queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
+            queryKey: ["/api/internal-agent-chat/sessions", selectedAgentId],
           });
         }
       } catch (error) {
@@ -194,7 +265,7 @@ export default function InternalAIChat() {
     return () => {
       ws.close();
     };
-  }, [isAuthenticated, wsUrl, queryClient, selectedAgent?.id]);
+  }, [isAuthenticated, wsUrl, queryClient, selectedAgentId]);
 
 
   // Create new session mutation
@@ -210,7 +281,7 @@ export default function InternalAIChat() {
     onSuccess: (newSession) => {
       setSelectedSession(newSession);
       queryClient.invalidateQueries({
-        queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
+        queryKey: ["/api/internal-agent-chat/sessions", selectedAgentId],
       });
       toast({
         title: "New chat created",
@@ -229,12 +300,12 @@ export default function InternalAIChat() {
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async ({ message, sessionId }: { message: string; sessionId: number }) => {
-      console.log('🚀 Sending message:', { message, sessionId, agentId: selectedAgent?.id });
+      console.log('🚀 Sending message:', { message, sessionId, agentId: selectedAgentId });
 
       const response = await apiRequest('POST', '/api/internal-agent-chat', {
         message,
         sessionId: sessionId.toString(),
-        agentId: selectedAgent?.id?.toString()
+        agentId: selectedAgentId?.toString()
       });
 
       if (!response.ok) {
@@ -286,19 +357,19 @@ export default function InternalAIChat() {
           queryKey: ['/api/internal-agent-chat/messages', currentSessionId]
         });
         queryClient.invalidateQueries({
-          queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
+          queryKey: ["/api/internal-agent-chat/sessions", selectedAgentId],
         });
         refetchMessages();
       }, 100);
-      
+
       // Additional timeout to handle any delayed WebSocket messages
       setTimeout(() => {
         queryClient.invalidateQueries({
-          queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
+          queryKey: ["/api/internal-agent-chat/sessions", selectedAgentId],
         });
       }, 2000);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('❌ Send message error:', error);
       if (isUnauthorizedError(error)) {
         toast({
@@ -328,7 +399,7 @@ export default function InternalAIChat() {
     onSuccess: () => {
       setSelectedSession(null);
       queryClient.invalidateQueries({
-        queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
+        queryKey: ["/api/internal-agent-chat/sessions", selectedAgentId],
       });
       toast({
         title: "Chat deleted",
@@ -357,12 +428,12 @@ export default function InternalAIChat() {
         setSelectedSession(updatedSession);
         console.log('✅ Updated selected session after rename:', updatedSession.title);
       }
-      
+
       // Then invalidate and refetch the sessions list
       queryClient.invalidateQueries({
-        queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
+        queryKey: ["/api/internal-agent-chat/sessions", selectedAgentId],
       });
-      
+
       setEditingSessionId(null);
       setEditingTitle("");
       toast({
@@ -388,25 +459,31 @@ export default function InternalAIChat() {
     }
   }, [messages]);
 
-  // Auto-select first agent
+  // Auto-select first agent and its first session when component mounts or agents change
   useEffect(() => {
-    if (agents.length > 0 && !selectedAgent) {
-      setSelectedAgent(agents[0]);
+    if (agentsLoading || agents.length === 0) return;
+
+    // If no agent is selected, or the currently selected agent is no longer available, select the first agent.
+    if (!selectedAgentId || !agents.some(agent => agent.id === selectedAgentId)) {
+      setSelectedAgentId(agents[0].id);
     }
-  }, [agents, selectedAgent]);
+  }, [agents, agentsLoading, selectedAgentId]);
 
   // Auto-select first session when agent changes
   useEffect(() => {
-    if (sessions.length > 0 && selectedAgent) {
-      setSelectedSession(sessions[0]);
+    if (sessions.length > 0 && selectedAgentId) {
+      // If no session is selected, or the selected session belongs to a different agent, select the first session.
+      if (!selectedSession || selectedSession.agentId !== selectedAgentId) {
+        setSelectedSession(sessions[0]);
+      }
     } else {
       setSelectedSession(null);
     }
-  }, [sessions, selectedAgent]);
+  }, [sessions, selectedAgentId, selectedSession]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !selectedAgent || !currentSessionId || sendMessageMutation.isPending) return;
+    if (!input.trim() || !selectedAgentId || !currentSessionId || sendMessageMutation.isPending) return;
 
     const messageToSend = input.trim();
     console.log('📝 Sending message:', messageToSend);
@@ -424,8 +501,8 @@ export default function InternalAIChat() {
   };
 
   const handleCreateNewChat = () => {
-    if (selectedAgent) {
-      createSessionMutation.mutate(selectedAgent.id);
+    if (selectedAgentId) {
+      createSessionMutation.mutate(selectedAgentId);
     }
   };
 
@@ -481,102 +558,122 @@ export default function InternalAIChat() {
         {/* Left Panel - Agent List */}
         {!hideAgentPanel && (
           <div className="w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">AI Agents</h2>
-              <div className="flex items-center space-x-2">
-                <Button
-                  size="sm"
-                  onClick={() => window.location.href = '/agent-chatbots'}
-                  className="bg-blue-500 hover:bg-blue-600"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Manage
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setHideAgentPanel(true)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-            <p className="text-sm text-gray-500 mt-1">Select an agent to start chatting</p>
-          </div>
-
-          <ScrollArea className="flex-1">
-            <div className="p-4 space-y-2">
-              {isLoadingAgents ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                </div>
-              ) : agents.length === 0 ? (
-                <div className="text-center py-8">
-                  <Bot className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 mb-4">No agents available</p>
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">AI Agents</h2>
+                <div className="flex items-center space-x-2">
                   <Button
-                    onClick={() => window.location.href = '/create-agent-chatbot'}
+                    size="sm"
+                    onClick={() => window.location.href = '/agent-chatbots'}
                     className="bg-blue-500 hover:bg-blue-600"
                   >
-                    Create Your First Agent
+                    <Plus className="w-4 h-4 mr-2" />
+                    Manage
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setHideAgentPanel(true)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
                   </Button>
                 </div>
-              ) : (
-                agents.map((agent) => (
-                  <div
-                    key={agent.id}
-                    className={cn(
-                      "p-3 rounded-lg cursor-pointer transition-all border",
-                      selectedAgent?.id === agent.id
-                        ? "bg-blue-50 border-blue-200"
-                        : "hover:bg-gray-50 border-transparent"
-                    )}
-                    onClick={() => setSelectedAgent(agent)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center space-x-3 flex-1 min-w-0">
-                        <Avatar className="w-8 h-8">
-                          <AvatarFallback>
-                            <Bot className="w-4 h-4" />
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 break-words">{agent.name}</p>
-                          <p className="text-sm text-gray-500 break-words line-clamp-2">{agent.description}</p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Badge
-                              variant={agent.isActive ? "default" : "secondary"}
-                              className={agent.isActive ? "bg-green-100 text-green-800" : ""}
-                            >
-                              {agent.isActive ? "Active" : "Inactive"}
-                            </Badge>
+              </div>
+              <p className="text-sm text-gray-500 mt-1">Select an agent to start chatting</p>
+            </div>
+
+            <ScrollArea className="flex-1">
+              <div className="p-4 space-y-2">
+                {agentsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                  </div>
+                ) : agents.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Bot className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500 mb-4">No agents available</p>
+                    <Button
+                      onClick={() => window.location.href = '/create-agent-chatbot'}
+                      className="bg-blue-500 hover:bg-blue-600"
+                    >
+                      Create Your First Agent
+                    </Button>
+                  </div>
+                ) : (
+                  filteredAndSortedAgents.map((agent) => {
+                    const documentNames = getAgentDocumentNames(agent.id);
+                    return (
+                      <div
+                        key={agent.id}
+                        className={cn(
+                          "p-4 rounded-lg transition-all border cursor-pointer",
+                          selectedAgentId === agent.id
+                            ? "bg-blue-50 border-blue-200"
+                            : "hover:bg-gray-50 border-transparent"
+                        )}
+                        onClick={() => setSelectedAgentId(agent.id)}
+                      >
+                        <div className="flex items-start space-x-3">
+                          <Avatar className="w-10 h-10">
+                            <AvatarFallback>
+                              <Bot className="w-6 h-6" />
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-gray-900 break-words">{agent.name}</h4>
+                            {agent.description && (
+                              <p className="text-sm text-gray-500 mt-1 break-words line-clamp-2">{agent.description}</p>
+                            )}
+
+                            {/* Document names display */}
+                            {documentNames.length > 0 && (
+                              <div className="mt-2">
+                                <div className="flex items-center space-x-1 text-xs text-gray-500 mb-1">
+                                  <FileText className="w-3 h-3" />
+                                  <span>{documentNames.length} documents:</span>
+                                </div>
+                                <div className="space-y-0.5">
+                                  {documentNames.slice(0, 3).map((name, index) => (
+                                    <div key={index} className="text-xs text-gray-600 truncate max-w-64">
+                                      • {name}
+                                    </div>
+                                  ))}
+                                  {documentNames.length > 3 && (
+                                    <div className="text-xs text-gray-400 italic">
+                                      ...and {documentNames.length - 3} more
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="flex items-center space-x-2 mt-3">
+                              <Badge
+                                variant={agent.isActive ? "default" : "secondary"}
+                                className={agent.isActive ? "bg-green-100 text-green-800" : ""}
+                              >
+                                {agent.isActive ? "Active" : "Inactive"}
+                              </Badge>
+                              <span className="text-xs text-gray-400">
+                                Created {formatDate(agent.createdAt)}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="p-1 h-6 w-6">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => window.location.href = `/create-agent-chatbot?edit=${agent.id}`}
-                          >
-                            <Settings className="w-4 h-4 mr-2" />
-                            Edit Agent
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    );
+                  })}
+                  {filteredAndSortedAgents.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <Bot className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>No agents found matching your search</p>
                     </div>
-                  </div>
-                ))
+                  )}
+                </SEC>
               )}
-            </div>
-          </ScrollArea>
-        </div>
+            </ScrollArea>
+          </div>
         )}
 
         {/* Collapsed Agent Panel */}
@@ -599,163 +696,163 @@ export default function InternalAIChat() {
         {/* Middle Panel - Session History */}
         {!hideSessionPanel && (
           <div className="w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Chat History</h2>
-              <div className="flex items-center space-x-2">
-                {selectedAgent && (
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Chat History</h2>
+                <div className="flex items-center space-x-2">
+                  {selectedAgentId && (
+                    <Button
+                      size="sm"
+                      onClick={handleCreateNewChat}
+                      disabled={createSessionMutation.isPending}
+                      className="bg-green-500 hover:bg-green-600"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Chat
+                    </Button>
+                  )}
                   <Button
                     size="sm"
-                    onClick={handleCreateNewChat}
-                    disabled={createSessionMutation.isPending}
-                    className="bg-green-500 hover:bg-green-600"
+                    variant="ghost"
+                    onClick={() => setHideSessionPanel(true)}
+                    className="text-gray-500 hover:text-gray-700"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Chat
+                    <ChevronLeft className="w-4 h-4" />
                   </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setHideSessionPanel(true)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
+                </div>
               </div>
-            </div>
-            {selectedAgent && (
-              <p className="text-sm text-gray-500 mt-1">
-                Chats with {selectedAgent.name}
-              </p>
-            )}
-          </div>
-
-          <ScrollArea className="flex-1">
-            <div className="p-4 space-y-2">
-              {!selectedAgent ? (
-                <div className="text-center py-8">
-                  <MessageSquare className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">Select an agent to view chat history</p>
-                </div>
-              ) : isLoadingSessions ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                </div>
-              ) : sessions.length === 0 ? (
-                <div className="text-center py-8">
-                  <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500 mb-4">No chat history yet</p>
-                  <Button
-                    onClick={handleCreateNewChat}
-                    disabled={createSessionMutation.isPending}
-                    className="bg-green-500 hover:bg-green-600"
-                  >
-                    Start First Chat
-                  </Button>
-                </div>
-              ) : (
-                sessions.map((session) => (
-                  <div
-                    key={session.id}
-                    className={cn(
-                      "p-3 rounded-lg transition-all border",
-                      selectedSession?.id === session.id
-                        ? "bg-blue-50 border-blue-200"
-                        : "hover:bg-gray-50 border-transparent"
-                    )}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div
-                        className="flex-1 min-w-0 cursor-pointer"
-                        onClick={() => editingSessionId !== session.id && setSelectedSession(session)}
-                      >
-                        {editingSessionId === session.id ? (
-                          <div className="space-y-2 mb-1">
-                            <Input
-                              value={editingTitle}
-                              onChange={(e) => setEditingTitle(e.target.value)}
-                              className="text-sm font-medium h-8"
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleSaveTitle(session.id);
-                                } else if (e.key === 'Escape') {
-                                  handleCancelEditing();
-                                }
-                              }}
-                              autoFocus
-                            />
-                            <div className="flex items-center justify-end space-x-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={handleCancelEditing}
-                                className="h-6 px-2 text-xs"
-                              >
-                                Cancel
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={() => handleSaveTitle(session.id)}
-                                disabled={editingTitle.trim().length === 0 || renameSessionMutation.isPending}
-                                className="h-6 px-2 text-xs bg-blue-500 hover:bg-blue-600"
-                              >
-                                {renameSessionMutation.isPending ? (
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : (
-                                  "Save"
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="font-medium text-gray-900 break-words line-clamp-2">{session.title}</p>
-                        )}
-
-                        {session.lastMessage && (
-                          <p className="text-sm text-gray-500 break-words line-clamp-2 mt-1">
-                            {session.lastMessage}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center space-x-1 text-xs text-gray-400">
-                            <Calendar className="w-3 h-3" />
-                            <span>{formatDate(session.lastMessageAt)}</span>
-                          </div>
-                          <Badge variant="outline" className="text-xs">
-                            {session.messageCount} messages
-                          </Badge>
-                        </div>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="p-1 h-6 w-6 ml-2">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => handleStartEditing(session)}
-                          >
-                            <Edit3 className="w-4 h-4 mr-2" />
-                            Rename Chat
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => deleteSessionMutation.mutate(session.id)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete Chat
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                ))
+              {selectedAgent && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Chats with {selectedAgent.name}
+                </p>
               )}
             </div>
-          </ScrollArea>
-        </div>
+
+            <ScrollArea className="flex-1">
+              <div className="p-4 space-y-2">
+                {!selectedAgentId ? (
+                  <div className="text-center py-8">
+                    <MessageSquare className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500">Select an agent to view chat history</p>
+                  </div>
+                ) : isLoadingSessions ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                  </div>
+                ) : sessions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <FileText className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500 mb-4">No chat history yet</p>
+                    <Button
+                      onClick={handleCreateNewChat}
+                      disabled={createSessionMutation.isPending}
+                      className="bg-green-500 hover:bg-green-600"
+                    >
+                      Start First Chat
+                    </Button>
+                  </div>
+                ) : (
+                  sessions.map((session) => (
+                    <div
+                      key={session.id}
+                      className={cn(
+                        "p-3 rounded-lg transition-all border cursor-pointer",
+                        selectedSession?.id === session.id
+                          ? "bg-blue-50 border-blue-200"
+                          : "hover:bg-gray-50 border-transparent"
+                      )}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div
+                          className="flex-1 min-w-0"
+                          onClick={() => editingSessionId !== session.id && setSelectedSession(session)}
+                        >
+                          {editingSessionId === session.id ? (
+                            <div className="space-y-2 mb-1">
+                              <Input
+                                value={editingTitle}
+                                onChange={(e) => setEditingTitle(e.target.value)}
+                                className="text-sm font-medium h-8"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleSaveTitle(session.id);
+                                  } else if (e.key === 'Escape') {
+                                    handleCancelEditing();
+                                  }
+                                }}
+                                autoFocus
+                              />
+                              <div className="flex items-center justify-end space-x-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleCancelEditing}
+                                  className="h-6 px-2 text-xs"
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleSaveTitle(session.id)}
+                                  disabled={editingTitle.trim().length === 0 || renameSessionMutation.isPending}
+                                  className="h-6 px-2 text-xs bg-blue-500 hover:bg-blue-600"
+                                >
+                                  {renameSessionMutation.isPending ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    "Save"
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="font-medium text-gray-900 break-words line-clamp-2" onClick={() => setSelectedSession(session)}>{session.title}</p>
+                          )}
+
+                          {session.lastMessage && (
+                            <p className="text-sm text-gray-500 break-words line-clamp-2 mt-1">
+                              {session.lastMessage}
+                            </p>
+                          )}
+                          <div className="flex items-center justify-between mt-2">
+                            <div className="flex items-center space-x-1 text-xs text-gray-400">
+                              <Calendar className="w-3 h-3" />
+                              <span>{formatDate(session.lastMessageAt)}</span>
+                            </div>
+                            <Badge variant="outline" className="text-xs">
+                              {session.messageCount} messages
+                            </Badge>
+                          </div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="p-1 h-6 w-6 ml-2">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => handleStartEditing(session)}
+                            >
+                              <Edit3 className="w-4 h-4 mr-2" />
+                              Rename Chat
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => deleteSessionMutation.mutate(session.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete Chat
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </div>
         )}
 
         {/* Collapsed Session Panel */}
@@ -777,15 +874,15 @@ export default function InternalAIChat() {
 
         {/* Right Panel - Chat Interface */}
         <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
-          {!selectedAgent || !selectedSession ? (
+          {!selectedAgentId || !selectedSession ? (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
                 <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-xl font-medium text-gray-900 mb-2">
-                  {!selectedAgent ? "Select an Agent" : "Select a Chat Session"}
+                  {!selectedAgentId ? "Select an Agent" : "Select a Chat Session"}
                 </h3>
                 <p className="text-gray-500">
-                  {!selectedAgent
+                  {!selectedAgentId
                     ? "Choose an AI agent from the left panel to start chatting"
                     : "Select a chat session from the middle panel or create a new one"
                   }
@@ -896,7 +993,7 @@ export default function InternalAIChat() {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     className="flex-1"
-                    disabled={!selectedAgent || sendMessageMutation.isPending}
+                    disabled={!selectedAgentId || sendMessageMutation.isPending}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
@@ -906,7 +1003,7 @@ export default function InternalAIChat() {
                   />
                   <Button
                     type="submit"
-                    disabled={!input.trim() || !selectedAgent || sendMessageMutation.isPending}
+                    disabled={!input.trim() || !selectedAgentId || sendMessageMutation.isPending}
                     className="bg-blue-500 hover:bg-blue-600 text-white min-w-[44px]"
                   >
                     {sendMessageMutation.isPending ? (
