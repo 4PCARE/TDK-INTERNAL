@@ -156,6 +156,8 @@ export default function Settings() {
   const [revectorizeProgress, setRevectorizeProgress] = useState({ current: 0, total: 0, percentage: 0 });
   const [revectorizeController, setRevectorizeController] = useState<AbortController | null>(null);
   const [isReverting, setIsReverting] = useState(false);
+  const [hasConfigChanged, setHasConfigChanged] = useState(false);
+  const [hasForceVectorized, setHasForceVectorized] = useState(false);
 
   const revectorizeAllMutation = useMutation({
     mutationFn: async ({ preserveExistingEmbeddings }: { preserveExistingEmbeddings: boolean }) => {
@@ -178,6 +180,7 @@ export default function Settings() {
     onSuccess: (data) => {
       setRevectorizeProgress({ current: data.vectorizedCount, total: data.vectorizedCount, percentage: 100 });
       setRevectorizeController(null);
+      setHasForceVectorized(true);
       toast({
         title: "Re-vectorization Complete",
         description: `Successfully processed ${data.vectorizedCount} documents with the new embedding provider.`,
@@ -287,6 +290,7 @@ export default function Settings() {
       const newEmbeddingProvider = variables.embeddingProvider;
 
       if (currentEmbeddingProvider && currentEmbeddingProvider !== newEmbeddingProvider) {
+        setHasConfigChanged(true);
         toast({
           title: "Configuration Updated",
           description: "LLM configuration saved. Starting re-vectorization with new embedding provider...",
@@ -346,9 +350,18 @@ export default function Settings() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
 
+    const newProvider = formData.get("provider") as string;
+    const newEmbeddingProvider = formData.get("embeddingProvider") as string;
+    
+    // Check if provider changed
+    const providerChanged = llmConfig?.provider !== newProvider || llmConfig?.embeddingProvider !== newEmbeddingProvider;
+    if (providerChanged) {
+      setHasConfigChanged(true);
+    }
+
     const llmData = {
-      provider: formData.get("provider") as string,
-      embeddingProvider: formData.get("embeddingProvider") as string,
+      provider: newProvider,
+      embeddingProvider: newEmbeddingProvider,
       openAIConfig: {
         model: formData.get("openaiModel") as string,
         temperature: parseFloat(formData.get("openaiTemperature") as string),
@@ -661,36 +674,50 @@ export default function Settings() {
                 </div>
               ) : (
                 <form onSubmit={handleLlmSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="provider">Chat Provider</Label>
-                        <Select name="provider" defaultValue={llmConfig?.provider || "OpenAI"}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select chat provider" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="OpenAI">OpenAI (GPT-4)</SelectItem>
-                            <SelectItem value="Gemini">Google Gemini</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-gray-500 mt-1">Provider for AI chat responses</p>
-                      </div>
+                  {(() => {
+                    const [currentProvider, setCurrentProvider] = useState(llmConfig?.provider || "OpenAI");
+                    const [currentEmbeddingProvider, setCurrentEmbeddingProvider] = useState(llmConfig?.embeddingProvider || "OpenAI");
+                    
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="provider">Chat Provider</Label>
+                              <Select 
+                                name="provider" 
+                                defaultValue={llmConfig?.provider || "OpenAI"}
+                                onValueChange={(value) => setCurrentProvider(value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select chat provider" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="OpenAI">OpenAI (GPT-4)</SelectItem>
+                                  <SelectItem value="Gemini">Google Gemini</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-gray-500 mt-1">Provider for AI chat responses</p>
+                            </div>
 
-                      <div>
-                        <Label htmlFor="embeddingProvider">Embedding Provider</Label>
-                        <Select name="embeddingProvider" defaultValue={llmConfig?.embeddingProvider || "OpenAI"}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select embedding provider" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="OpenAI">OpenAI Embeddings</SelectItem>
-                            <SelectItem value="Gemini">Google Gemini Embeddings</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-gray-500 mt-1">Provider for document embeddings and search</p>
-                      </div>
-                    </div>
+                            <div>
+                              <Label htmlFor="embeddingProvider">Embedding Provider</Label>
+                              <Select 
+                                name="embeddingProvider" 
+                                defaultValue={llmConfig?.embeddingProvider || "OpenAI"}
+                                onValueChange={(value) => setCurrentEmbeddingProvider(value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select embedding provider" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="OpenAI">OpenAI Embeddings</SelectItem>
+                                  <SelectItem value="Gemini">Google Gemini Embeddings</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-gray-500 mt-1">Provider for document embeddings and search</p>
+                            </div>
+                          </div>
 
                     <div className="space-y-4">
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -707,8 +734,8 @@ export default function Settings() {
                           </div>
                           <div className="flex justify-between">
                             <span>Gemini:</span>
-                            <Badge variant="outline" className="text-yellow-700 border-yellow-300">
-                              Requires API Key
+                            <Badge variant="outline" className="text-green-700 border-green-300">
+                              Available
                             </Badge>
                           </div>
                         </div>
@@ -716,89 +743,96 @@ export default function Settings() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* OpenAI Configuration */}
-                    <div className="space-y-4">
-                      <h4 className="font-medium text-gray-900">OpenAI Settings</h4>
-                      <div className="space-y-3">
-                        <div>
-                          <Label htmlFor="openaiModel">Model</Label>
-                          <Select name="openaiModel" defaultValue={llmConfig?.openAIConfig?.model || "gpt-4o"}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="gpt-4o">GPT-4o (Latest)</SelectItem>
-                              <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
-                              <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="openaiTemperature">Temperature</Label>
-                          <Input
-                            name="openaiTemperature"
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="2"
-                            defaultValue={llmConfig?.openAIConfig?.temperature || 0.7}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="openaiMaxTokens">Max Tokens</Label>
-                          <Input
-                            name="openaiMaxTokens"
-                            type="number"
-                            min="100"
-                            max="8000"
-                            defaultValue={llmConfig?.openAIConfig?.maxTokens || 4000}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                  <div className="grid grid-cols-1 gap-6">
+                          {/* Show OpenAI Configuration only if OpenAI is selected */}
+                          {(currentProvider === "OpenAI" || currentEmbeddingProvider === "OpenAI") && (
+                            <div className="space-y-4">
+                              <h4 className="font-medium text-gray-900">OpenAI Settings</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                  <Label htmlFor="openaiModel">Model</Label>
+                                  <Select name="openaiModel" defaultValue={llmConfig?.openAIConfig?.model || "gpt-4o"}>
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="gpt-4o">GPT-4o (Latest)</SelectItem>
+                                      <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
+                                      <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label htmlFor="openaiTemperature">Temperature</Label>
+                                  <Input
+                                    name="openaiTemperature"
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    max="2"
+                                    defaultValue={llmConfig?.openAIConfig?.temperature || 0.7}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="openaiMaxTokens">Max Tokens</Label>
+                                  <Input
+                                    name="openaiMaxTokens"
+                                    type="number"
+                                    min="100"
+                                    max="8000"
+                                    defaultValue={llmConfig?.openAIConfig?.maxTokens || 4000}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
-                    {/* Gemini Configuration */}
-                    <div className="space-y-4">
-                      <h4 className="font-medium text-gray-900">Gemini Settings</h4>
-                      <div className="space-y-3">
-                        <div>
-                          <Label htmlFor="geminiModel">Model</Label>
-                          <Select name="geminiModel" defaultValue={llmConfig?.geminiConfig?.model || "gemini-2.5-flash"}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
-                              <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
-                              <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          {/* Show Gemini Configuration only if Gemini is selected */}
+                          {(currentProvider === "Gemini" || currentEmbeddingProvider === "Gemini") && (
+                            <div className="space-y-4">
+                              <h4 className="font-medium text-gray-900">Gemini Settings</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                  <Label htmlFor="geminiModel">Model</Label>
+                                  <Select name="geminiModel" defaultValue={llmConfig?.geminiConfig?.model || "gemini-2.5-flash"}>
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                                      <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                                      <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label htmlFor="geminiTemperature">Temperature</Label>
+                                  <Input
+                                    name="geminiTemperature"
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    max="2"
+                                    defaultValue={llmConfig?.geminiConfig?.temperature || 0.7}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="geminiMaxTokens">Max Tokens</Label>
+                                  <Input
+                                    name="geminiMaxTokens"
+                                    type="number"
+                                    min="100"
+                                    max="8000"
+                                    defaultValue={llmConfig?.geminiConfig?.maxTokens || 4000}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div>
-                          <Label htmlFor="geminiTemperature">Temperature</Label>
-                          <Input
-                            name="geminiTemperature"
-                            type="number"
-                            step="0.1"
-                            min="0"
-                            max="2"
-                            defaultValue={llmConfig?.geminiConfig?.temperature || 0.7}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="geminiMaxTokens">Max Tokens</Label>
-                          <Input
-                            name="geminiMaxTokens"
-                            type="number"
-                            min="100"
-                            max="8000"
-                            defaultValue={llmConfig?.geminiConfig?.maxTokens || 4000}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                      </>
+                    );
+                  })()}
 
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <h4 className="font-medium text-yellow-800 mb-2">Important Notice</h4>
@@ -839,8 +873,8 @@ export default function Settings() {
                     </div>
                   )}
 
-                  {/* Revert Changes Section */}
-                  {!revectorizeAllMutation.isPending && revectorizeController === null && (
+                  {/* Revert Changes Section - Only show if config has changed or force vectorization occurred */}
+                  {!revectorizeAllMutation.isPending && revectorizeController === null && (hasConfigChanged || hasForceVectorized) && (
                     <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                       <div className="flex items-center justify-between">
                         <div>
@@ -852,7 +886,11 @@ export default function Settings() {
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => revertChangesMutation.mutate()}
+                          onClick={() => {
+                            revertChangesMutation.mutate();
+                            setHasConfigChanged(false);
+                            setHasForceVectorized(false);
+                          }}
                           disabled={isReverting}
                           className="text-orange-600 border-orange-300 hover:bg-orange-50"
                         >
