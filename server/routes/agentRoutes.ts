@@ -142,8 +142,10 @@ export function registerAgentRoutes(app: Express) {
           agentDocuments.map(async (agentDoc: any) => {
             try {
               const document = await storage.getDocument(agentDoc.documentId, userId);
+              console.log(`📋 Document ${agentDoc.documentId} details:`, { name: document?.name, hasDocument: !!document });
               return {
                 ...agentDoc,
+                name: document?.name || 'Unknown Document',
                 documentName: document?.name || 'Unknown Document',
                 documentDescription: document?.description || null,
                 documentTags: document?.tags || []
@@ -152,6 +154,7 @@ export function registerAgentRoutes(app: Express) {
               console.warn(`Could not fetch document ${agentDoc.documentId}:`, docError);
               return {
                 ...agentDoc,
+                name: 'Unknown Document',
                 documentName: 'Unknown Document',
                 documentDescription: null,
                 documentTags: []

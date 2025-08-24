@@ -173,7 +173,8 @@ export default function InternalAIChat() {
         const response = await apiRequest("GET", `/api/agent-chatbots/${agent.id}/documents`);
         if (!response.ok) throw new Error(`Failed to fetch documents for agent ${agent.id}`);
         const data = await response.json();
-        return data.map((doc: any) => doc.name); // Assuming documents have a 'name' field
+        console.log(`📋 Agent ${agent.id} documents response:`, data);
+        return data.map((doc: any) => doc.name || doc.documentName || `Document ${doc.documentId}`);
       },
       enabled: isAuthenticated && !!agent.id,
     }))
@@ -655,10 +656,10 @@ export default function InternalAIChat() {
                                     e.stopPropagation(); // Prevent selecting the agent
                                     setViewingAgentDocuments(agent.id);
                                   }}
-                                  className="flex items-center space-x-1 text-xs text-gray-500 mb-1 text-left w-full cursor-pointer hover:underline"
+                                  className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-800 mb-1 text-left w-full cursor-pointer hover:underline transition-colors"
                                 >
                                   <FileText className="w-3 h-3" />
-                                  <span>{documentNames.length} document{documentNames.length !== 1 ? 's' : ''}</span>
+                                  <span>{documentNames.length} document{documentNames.length !== 1 ? 's' : ''} (click to view)</span>
                                 </button>
                               </div>
                             )}
@@ -1070,7 +1071,9 @@ export default function InternalAIChat() {
                       {documentNames.map((name, index) => (
                         <div key={index} className="flex items-center space-x-2 p-2 rounded bg-gray-50 text-sm">
                           <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                          <span className="truncate">{name}</span>
+                          <span className="truncate" title={name}>
+                            {name || `Document ${index + 1}`}
+                          </span>
                         </div>
                       ))}
                     </div>
