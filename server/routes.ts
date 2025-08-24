@@ -318,6 +318,7 @@ export async function registerRoutes(app: Express): Server {
     try {
       const { widgetKey } = req.params;
       const { chatWidgets } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
 
       // Verify widget exists and is active
       const [widget] = await db
@@ -2790,6 +2791,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     try {
       const { widgetKey } = req.params;
       const { chatWidgets } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
 
       const [widget] = await db
         .select({
@@ -3368,10 +3370,10 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
         const { chatHistory } = await import("@shared/schema");
         await db.insert(chatHistory).values({
           userId: session.sessionId, // Use session ID as user ID for widget conversations
-          channelType: "web",
+          channelType: 'web',
           channelId: widget.widgetKey,
           agentId: widget.agentId,
-          messageType: "assistant",
+          messageType: 'assistant',
           content: response,
           metadata: {
             sessionId: session.sessionId,
@@ -5227,116 +5229,6 @@ Memory management: Keep track of conversation context within the last ${agentCon
             globalWsClientsExists: !!(global.wsClients),
             wsClientsSize: global.wsClients ? global.wsClients.size : 'undefined'
           });
-        }
-      }
-
-      res.json({
-        success: true,
-        messageId: chatHistoryRecord.id,
-        message: "Message sent successfully"
-      });
-    } catch (error) {
-      console.error("Error sending agent console message:", error);
-      res.status(500).json({ message: "Failed to send message" });
-    }
-  });
-
-  // Agent Console Image Upload and Send endpoint
-  app.post('/api/agent-console/send-image', isAuthenticated, upload.single('image'), async (req: any, res) => {
-    try {
-      const { userId: targetUserId, channelType, channelId, agentId, message, messageType } = req.body;
-      const imageFile = req.file;
-
-      if (!targetUserId || !channelType || !channelId || !agentId) {
-        return res.status(400).json({ message: "Missing required parameters" });
-      }
-
-      if (!imageFile) {
-        return res.status(400).json({ message: "No image file provided" });
-      }
-
-      console.log('📸 Agent Console: Processing image upload:', {
-        targetUserId,
-        channelType,
-        channelId,
-        agentId,
-        fileName: imageFile.filename,
-        size: imageFile.size,
-        mimetype: imageFile.mimetype
-      });
-
-      // Create image URL for serving
-      const imageUrl = `/uploads/${imageFile.filename}`;
-
-      // Store image message in chat history
-      const chatHistoryRecord = await storage.createChatHistory({
-        userId: targetUserId,
-        channelType,
-        channelId,
-        agentId: parseInt(agentId),
-        messageType: messageType || 'agent',
-        content: message || 'รูปภาพ',
-        metadata: {
-          messageType: 'image',
-          imageUrl: imageUrl,
-          originalContentUrl: imageUrl,
-          previewImageUrl: imageUrl,
-          fileName: imageFile.originalname,
-          fileSize: imageFile.size,
-          mimeType: imageFile.mimetype,
-          sentBy: req.user.claims.sub,
-          humanAgent: true,
-          humanAgentName: req.user.claims.first_name || req.user.claims.email || 'Human Agent'
-        }
-      });
-
-      // Broadcast new message to Agent Console via WebSocket
-      if (typeof (global as any).broadcastToAgentConsole === 'function') {
-        (global as any).broadcastToAgentConsole({
-          type: 'new_message',
-          data: {
-            userId: targetUserId,
-            channelType,
-            channelId,
-            agentId: parseInt(agentId),
-            userMessage: '',
-            aiResponse: message || 'รูปภาพ',
-            messageType: messageType || 'agent',
-            timestamp: new Date().toISOString(),
-            humanAgentName: req.user.claims.first_name || req.user.claims.email || 'Human Agent',
-            imageUrl: imageUrl
-          }
-        });
-        console.log('✅ Broadcasted human agent image message to Agent Console');
-      }
-
-      // Send the image via the appropriate channel
-      if (channelType === 'lineoa') {
-        try {
-          // Get Line channel access token from agent using direct DB query
-          const query = `SELECT lineoa_config FROM agent_chatbots WHERE id = $1`;
-          const result = await pool.query(query, [parseInt(agentId)]);
-
-          if (result.rows.length > 0) {
-            const lineoaConfig = result.rows[0].lineoa_config;
-            console.log('🔍 Agent lineoa_config for image:', lineoaConfig);
-
-            if (lineoaConfig?.accessToken) {
-              // Send image via Line Push Message API
-              const imageResult = await sendLineImageMessage(channelId, imageUrl, lineoaConfig.accessToken);
-              if (imageResult) {
-                console.log('✅ Successfully sent Line image:', imageUrl);
-              } else {
-                console.log('❌ Failed to send Line image:', imageUrl);
-              }
-            } else {
-              console.log('⚠️ No Line Channel Access Token found in lineoa_config for agent:', agentId);
-            }
-          } else {
-            console.log('⚠️ Agent not found:', agentId);
-          }
-        } catch (error) {
-          console.error('❌ Error sending Line image:', error);
         }
       }
 

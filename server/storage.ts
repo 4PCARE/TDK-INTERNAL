@@ -189,6 +189,14 @@ export interface IStorage {
   createChatHistory(history: InsertChatHistory): Promise<ChatHistory>;
   getChatHistory(userId: string, channelType: string, channelId: string, agentId: number, limit?: number): Promise<ChatHistory[]>;
   clearChatHistory(userId: string, channelType: string, channelId: string, agentId: number): Promise<void>;
+  updateChatHistoryMetadata(chatHistoryId: number, metadata: any): Promise<void>;
+  getChatHistoryWithMemoryStrategy(
+    userId: string,
+    channelType: string,
+    channelId: string,
+    agentId?: number,
+    memoryLimit: number = 10
+  ): Promise<ChatHistory[]>;
 
   // Line Message Template operations
   getLineMessageTemplates(userId: string, integrationId?: number): Promise<LineMessageTemplate[]>;
@@ -220,6 +228,7 @@ export interface IStorage {
 
   // Internal Agent Chat Session operations
   getInternalAgentChatSessions(userId: string): Promise<InternalAgentChatSession[]>;
+  getInternalAgentChatSessionsByAgent(userId: string, agentId: number): Promise<InternalAgentChatSession[]>;
   getInternalAgentChatSession(sessionId: number, userId: string): Promise<InternalAgentChatSession | undefined>;
   createInternalAgentChatSession(session: InsertInternalAgentChatSession): Promise<InternalAgentChatSession>;
   updateInternalAgentChatSession(sessionId: number, userId: string, updates: { title?: string }): Promise<InternalAgentChatSession>;
@@ -1953,7 +1962,7 @@ export class DatabaseStorage implements IStorage {
     return history.reverse();
   }
 
-  async getChatHistoryWithMemoryStrategy(userId: string, channelType: string, channelId: string, agentId: number, memoryLimit: number): Promise<ChatHistory[]> {
+  async getChatHistoryWithMemoryStrategy(userId: string, channelType: string, channelId: string, agentId?: number, memoryLimit: number = 10): Promise<ChatHistory[]> {
     const { chatHistory } = await import('@shared/schema');
     const { desc, and, eq, sql } = await import('drizzle-orm');
 
@@ -1965,11 +1974,9 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(chatHistory.userId, userId),
         eq(chatHistory.channelType, channelType),
-        eq(chatHistory.channelId, channelId),
-        eq(chatHistory.agentId, agentId)
+        eq(chatHistory.channelId, channelId)
       ))
-      .orderBy(desc(chatHistory.createdAt))
-      .limit(memoryLimit);
+      .orderBy(desc(chatHistory.createdAt));
 
     console.log(`📚 Retrieved ${history.length} messages for memory (limit: ${memoryLimit})`);
 
@@ -2170,14 +2177,30 @@ export class DatabaseStorage implements IStorage {
 
   // Internal Agent Chat Session operations
   async getInternalAgentChatSessions(userId: string): Promise<InternalAgentChatSession[]> {
+    const { internalAgentChatSessions } = await import('@shared/schema');
     return await db
       .select()
       .from(internalAgentChatSessions)
       .where(eq(internalAgentChatSessions.userId, userId))
-      .orderBy(desc(internalAgentChatSessions.createdAt));
+      .orderBy(desc(internalAgentChatSessions.updatedAt));
+  }
+
+  async getInternalAgentChatSessionsByAgent(userId: string, agentId: number): Promise<InternalAgentChatSession[]> {
+    const { internalAgentChatSessions } = await import('@shared/schema');
+    return await db
+      .select()
+      .from(internalAgentChatSessions)
+      .where(
+        and(
+          eq(internalAgentChatSessions.userId, userId),
+          eq(internalAgentChatSessions.agentId, agentId)
+        )
+      )
+      .orderBy(desc(internalAgentChatSessions.updatedAt));
   }
 
   async getInternalAgentChatSession(sessionId: number, userId: string): Promise<InternalAgentChatSession | undefined> {
+    const { internalAgentChatSessions } = await import('@shared/schema');
     const [session] = await db
       .select()
       .from(internalAgentChatSessions)
@@ -2191,22 +2214,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createInternalAgentChatSession(session: InsertInternalAgentChatSession): Promise<InternalAgentChatSession> {
+    const { internalAgentChatSessions } = await import('@shared/schema');
     const [newSession] = await db
       .insert(internalAgentChatSessions)
-      .values({
-        ...session,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
+      .values(session)
       .returning();
     return newSession;
   }
 
   async updateInternalAgentChatSession(sessionId: number, userId: string, updates: { title?: string }): Promise<InternalAgentChatSession> {
-    const [updatedSession] = await db.update(internalAgentChatSessions)
+    const { internalAgentChatSessions } = await import('@shared/schema');
+    const [updatedSession] = await db
+      .update(internalAgentChatSessions)
       .set({
         ...updates,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       })
       .where(
         and(
@@ -2215,12 +2237,13 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .returning();
-
     return updatedSession;
   }
 
   async deleteInternalAgentChatSession(sessionId: number, userId: string): Promise<void> {
-    await db.delete(internalAgentChatSessions)
+    const { internalAgentChatSessions } = await import('@shared/schema');
+    await db
+      .delete(internalAgentChatSessions)
       .where(
         and(
           eq(internalAgentChatSessions.id, sessionId),
