@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ export default function DocumentMetadataModal({
   const [name, setName] = useState(fileName);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+  const [showDateFields, setShowDateFields] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validateForm = () => {
@@ -67,6 +69,7 @@ export default function DocumentMetadataModal({
     setName(fileName);
     setStartDate(null);
     setEndDate(null);
+    setShowDateFields(false);
     setErrors({});
     onClose();
   };
@@ -106,10 +109,21 @@ export default function DocumentMetadataModal({
             )}
           </div>
 
+          {/* Date Fields Toggle */}
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="show-dates"
+              checked={showDateFields}
+              onCheckedChange={setShowDateFields}
+            />
+            <Label htmlFor="show-dates">Set active date period</Label>
+          </div>
+
           {/* Effective Date Range */}
-          <div className="grid gap-2">
-            <Label>Document Effective Period</Label>
-            <div className="grid grid-cols-2 gap-2">
+          {showDateFields && (
+            <div className="grid gap-2">
+              <Label>Document Effective Period</Label>
+              <div className="grid grid-cols-2 gap-2">
               {/* Start Date */}
               <div>
                 <Label htmlFor="start-date" className="text-sm text-muted-foreground">
@@ -170,13 +184,14 @@ export default function DocumentMetadataModal({
             </div>
             
             {errors.dateRange && (
-              <p className="text-sm text-red-500">{errors.dateRange}</p>
-            )}
-            
-            <p className="text-xs text-muted-foreground">
-              Optional: Set when this document is effective (e.g., policy effective dates)
-            </p>
-          </div>
+                <p className="text-sm text-red-500">{errors.dateRange}</p>
+              )}
+              
+              <p className="text-xs text-muted-foreground">
+                Optional: Set when this document is effective (e.g., policy effective dates)
+              </p>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
