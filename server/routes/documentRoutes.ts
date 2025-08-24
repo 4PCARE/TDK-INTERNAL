@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { isAuthenticated } from "../replitAuth";
 import { isMicrosoftAuthenticated } from "../microsoftAuth";
+import { smartAuth } from "../smartAuth";
 import { storage } from "../storage";
 import { semanticSearchServiceV2 } from "../services/semanticSearchV2";
 import multer from "multer";
@@ -125,7 +126,7 @@ export function registerDocumentRoutes(app: Express) {
   );
 
   // Document routes
-  app.get("/api/documents", storage.smartAuth, async (req: any, res) => {
+  app.get("/api/documents", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const categoryId = req.query.categoryId
