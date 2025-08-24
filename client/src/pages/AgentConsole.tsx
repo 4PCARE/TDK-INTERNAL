@@ -294,31 +294,37 @@ export default function AgentConsole() {
         {/* Left Sidebar - Channel Selection & User List */}
         <div className="w-full lg:w-80 lg:min-w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col max-h-96 lg:max-h-none">
           {/* Header */}
-          <div className="flex-shrink-0 p-2 lg:p-4 border-b border-gray-200">
+          <div className="flex-shrink-0 p-2 lg:p-4 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 border-b border-blue-200">
             <div className="flex items-center space-x-2 lg:space-x-3 mb-2 lg:mb-4">
-              <div className="w-5 h-5 lg:w-6 lg:h-6 bg-gradient-to-br from-green-500 to-green-600 rounded flex items-center justify-center">
-                <MessageSquare className="w-2 h-2 lg:w-3 lg:h-3 text-white" />
+              <div className="w-8 h-8 lg:w-10 lg:h-10 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-xl shadow-lg flex items-center justify-center">
+                <MessageSquare className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
               </div>
-              <h1 className="text-base lg:text-lg font-bold text-gray-900">Agent Console</h1>
+              <div>
+                <h1 className="text-base lg:text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Agent Console</h1>
+                <p className="text-xs text-purple-600 font-medium">Live Customer Support</p>
+              </div>
             </div>
 
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between text-xs lg:text-sm text-gray-600 mb-2 lg:mb-4 space-y-1 lg:space-y-0">
-              <div className="flex items-center space-x-2">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between text-xs lg:text-sm mb-2 lg:mb-4 space-y-1 lg:space-y-0">
+              <div className="flex items-center space-x-2 bg-green-100 px-3 py-1 rounded-full">
                 <Dot className="w-3 h-3 text-green-500 animate-pulse" />
-                <span>Real-time WebSocket</span>
+                <span className="text-green-700 font-medium">Real-time Connected</span>
               </div>
-              <span>{users.filter(u => u.isOnline).length} Active Conversations</span>
+              <div className="flex items-center space-x-2 bg-blue-100 px-3 py-1 rounded-full">
+                <Users className="w-3 h-3 text-blue-500" />
+                <span className="text-blue-700 font-medium">{users.filter(u => u.isOnline).length} Active Conversations</span>
+              </div>
             </div>
           </div>
 
           {/* Select Channel */}
-          <div className="flex-shrink-0 p-2 lg:p-4 border-b border-gray-200">
+          <div className="flex-shrink-0 p-2 lg:p-4 bg-gradient-to-r from-slate-50 to-blue-50 border-b border-blue-200">
             <div className="mb-2 lg:mb-3">
-              <label className="block text-xs lg:text-sm font-medium text-gray-700 mb-1 lg:mb-2">
-                Select Channel
+              <label className="block text-xs lg:text-sm font-semibold text-blue-800 mb-1 lg:mb-2">
+                🎯 Select Channel
               </label>
               <Select value={channelFilter} onValueChange={setChannelFilter}>
-                <SelectTrigger className="w-full text-xs lg:text-sm">
+                <SelectTrigger className="w-full text-xs lg:text-sm border-blue-300 focus:border-purple-400 focus:ring-purple-400">
                   <SelectValue placeholder="Select Channel" />
                 </SelectTrigger>
                 <SelectContent>
@@ -341,12 +347,12 @@ export default function AgentConsole() {
             </div>
 
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3 lg:w-4 lg:h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-400 w-3 h-3 lg:w-4 lg:h-4" />
               <Input
-                placeholder="Search users..."
+                placeholder="🔍 Search users..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 lg:pl-10 text-xs lg:text-sm"
+                className="pl-8 lg:pl-10 text-xs lg:text-sm border-purple-300 focus:border-blue-400 focus:ring-blue-400"
               />
             </div>
           </div>
@@ -372,8 +378,8 @@ export default function AgentConsole() {
                         <div
                           className={`p-2 lg:p-3 rounded-lg cursor-pointer transition-all mb-1 lg:mb-2 ${
                             isSelected
-                              ? 'bg-blue-50 border border-blue-200'
-                              : 'hover:bg-gray-50 border border-transparent'
+                              ? 'bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 border border-blue-300 shadow-md'
+                              : 'hover:bg-gradient-to-r hover:from-slate-50 hover:to-blue-50 border border-transparent hover:shadow-sm'
                           }`}
                           onClick={() => setSelectedUser(user)}
                         >
@@ -451,26 +457,26 @@ export default function AgentConsole() {
             {selectedUser ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-full">
                 {/* Conversation Header */}
-                <div className="flex-shrink-0 p-2 lg:p-4 border-b border-gray-200">
+                <div className="flex-shrink-0 p-2 lg:p-4 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 border-b border-blue-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2 lg:space-x-3">
-                      <Avatar className="w-6 h-6 lg:w-8 lg:h-8">
-                        <AvatarFallback>
+                      <Avatar className="w-8 h-8 lg:w-10 lg:h-10 ring-2 ring-blue-300">
+                        <AvatarFallback className="bg-gradient-to-br from-blue-400 to-purple-500 text-white font-semibold">
                           {getInitials(selectedUser.userProfile.name)}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <h3 className="text-sm lg:font-medium text-gray-900">
+                        <h3 className="text-sm lg:text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                           {selectedUser.userProfile.name}
                         </h3>
-                        <p className="text-xs lg:text-sm text-gray-500">
-                          {selectedUser.channelType.toUpperCase()} • Agent: {selectedUser.agentName}
+                        <p className="text-xs lg:text-sm text-purple-600 font-medium">
+                          {selectedUser.channelType.toUpperCase()} • 🤖 {selectedUser.agentName}
                         </p>
                       </div>
                     </div>
 
-                    <Button className="bg-blue-500 hover:bg-blue-600 text-white px-2 lg:px-4 py-1 lg:py-2 rounded-md text-xs lg:text-sm">
-                      <span className="hidden lg:inline">Open Message</span>
+                    <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-3 lg:px-4 py-2 lg:py-2 rounded-lg text-xs lg:text-sm shadow-lg transition-all">
+                      <span className="hidden lg:inline">💬 Open Message</span>
                       <MessageSquare className="w-4 h-4 lg:hidden" />
                     </Button>
                   </div>
@@ -574,10 +580,10 @@ export default function AgentConsole() {
                     ) : (
                       <Button
                         onClick={() => setShowMessageInput(true)}
-                        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 text-sm"
+                        className="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white py-2 text-sm shadow-lg rounded-lg transition-all"
                       >
                         <MessageSquare className="w-4 h-4 mr-2" />
-                        Open Message
+                        💬 Start Conversation
                       </Button>
                     )}
                   </div>
@@ -605,7 +611,10 @@ export default function AgentConsole() {
                 <div className="p-4 space-y-6">
                   {/* Customer Profile Header */}
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Customer Profile</h2>
+                    <h2 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4 flex items-center">
+                      <User className="w-5 h-5 mr-2 text-blue-500" />
+                      Customer Profile
+                    </h2>
 
                     <div className="space-y-4">
                       <div>
