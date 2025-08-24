@@ -72,8 +72,7 @@ export default function Sidebar({
     {
       label: "Main",
       items: [
-        { name: "All Documents", href: "/documents", icon: FileText },
-        { name: "Home", href: "/upload", icon: Upload },
+        { name: "Home", href: "/", icon: LayoutDashboard },
         { name: "AI Assistant", href: "/ai-live-chat", icon: Brain },
         { name: "Settings", href: "/settings", icon: Settings },
       ]
@@ -81,6 +80,8 @@ export default function Sidebar({
     {
       label: "Manage Documents",
       items: [
+        { name: "All Documents", href: "/documents", icon: FileText },
+        { name: "Upload", href: "/upload", icon: Upload },
         { name: "Categories", href: "/categories", icon: Tag },
         { name: "Meeting Notes", href: "/meeting-notes", icon: Calendar },
       ]
