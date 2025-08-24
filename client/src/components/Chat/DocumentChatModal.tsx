@@ -61,7 +61,7 @@ export default function DocumentChatModal({
   });
 
   // Get messages for current conversation
-  const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
+  const { data: rawMessages = [], isLoading: isLoadingMessages, error: messagesError } = useQuery({
     queryKey: ["/api/chat/conversations", currentConversationId, "messages"],
     queryFn: async () => {
       if (!currentConversationId) return [];
@@ -70,7 +70,7 @@ export default function DocumentChatModal({
         `/api/chat/conversations/${currentConversationId}/messages`,
       );
       const data = await response.json();
-      return data;
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!currentConversationId,
     retry: false,
@@ -78,6 +78,11 @@ export default function DocumentChatModal({
     staleTime: 1000 * 60, // Cache for 1 minute to prevent excessive refetching
     refetchOnMount: false,
   });
+
+  // Process messages with error handling
+  const messages = Array.isArray(rawMessages) ? rawMessages.filter(msg => 
+    msg && typeof msg === 'object' && msg.id && msg.role && msg.content !== undefined
+  ) : [];
 
   // Send message mutation
   const sendMessageMutation = useMutation({
@@ -90,33 +95,44 @@ export default function DocumentChatModal({
       return response.json();
     },
     onMutate: async (content: string) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({
-        queryKey: ["/api/chat/conversations", currentConversationId, "messages"]
-      });
+      try {
+        // Cancel any outgoing refetches
+        await queryClient.cancelQueries({
+          queryKey: ["/api/chat/conversations", currentConversationId, "messages"]
+        });
 
-      // Snapshot the previous value
-      const previousMessages = queryClient.getQueryData(["/api/chat/conversations", currentConversationId, "messages"]) as ChatMessage[] || [];
+        // Snapshot the previous value
+        const previousMessages = queryClient.getQueryData(["/api/chat/conversations", currentConversationId, "messages"]) as ChatMessage[] || [];
 
-      // Optimistically update to the new value
-      const optimisticMessage: ChatMessage = {
-        id: Date.now(), // Temporary ID
-        role: "user",
-        content,
-        createdAt: new Date().toISOString()
-      };
+        // Optimistically update to the new value
+        const optimisticMessage: ChatMessage = {
+          id: Date.now(), // Temporary ID
+          role: "user",
+          content: content || '',
+          createdAt: new Date().toISOString()
+        };
 
-      queryClient.setQueryData(
-        ["/api/chat/conversations", currentConversationId, "messages"],
-        [...previousMessages, optimisticMessage]
-      );
+        // Ensure we have a valid array before spreading
+        const updatedMessages = Array.isArray(previousMessages) 
+          ? [...previousMessages, optimisticMessage]
+          : [optimisticMessage];
 
-      // Return a context object with the snapshotted value
-      return { previousMessages };
+        queryClient.setQueryData(
+          ["/api/chat/conversations", currentConversationId, "messages"],
+          updatedMessages
+        );
+
+        // Return a context object with the snapshotted value
+        return { previousMessages: Array.isArray(previousMessages) ? previousMessages : [] };
+      } catch (error) {
+        console.error('Error in onMutate:', error);
+        return { previousMessages: [] };
+      }
     },
     onError: (err, content, context) => {
+      console.error('Message send error:', err);
       // If the mutation fails, use the context returned from onMutate to roll back
-      if (context?.previousMessages) {
+      if (context?.previousMessages && Array.isArray(context.previousMessages)) {
         queryClient.setQueryData(
           ["/api/chat/conversations", currentConversationId, "messages"], 
           context.previousMessages
@@ -139,8 +155,15 @@ export default function DocumentChatModal({
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (messagesEndRef.current && messages?.length > 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages?.length > 0) {
+      // Use setTimeout to ensure DOM has updated
+      const timeoutId = setTimeout(() => {
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [messages?.length]); // Only depend on message count, not the entire messages array
 
@@ -243,59 +266,69 @@ export default function DocumentChatModal({
                       </div>
                     </div>
                   ) : (
-                    messages.map((message: ChatMessage, index: number) => (
-                      <div
-                        key={`msg-${message.id}-${index}`}
-                        className={`flex space-x-4 ${
-                          message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-                        }`}
-                      >
-                        <Avatar className={`w-10 h-10 flex-shrink-0 ${
-                          message.role === 'user' 
-                            ? 'bg-blue-500' 
-                            : 'bg-gradient-to-r from-green-500 to-blue-600'
-                        }`}>
-                          <AvatarFallback className={
+                    messages.filter(Boolean).map((message: ChatMessage, index: number) => {
+                      // Ensure message has required properties
+                      if (!message || !message.id || !message.role || !message.content) {
+                        console.warn('Invalid message object:', message);
+                        return null;
+                      }
+
+                      return (
+                        <div
+                          key={`msg-${message.id}-${index}`}
+                          className={`flex space-x-4 ${
+                            message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''
+                          }`}
+                        >
+                          <Avatar className={`w-10 h-10 flex-shrink-0 ${
                             message.role === 'user' 
                               ? 'bg-blue-500' 
                               : 'bg-gradient-to-r from-green-500 to-blue-600'
-                          }>
-                            {message.role === 'user' ? (
-                              <User className="w-5 h-5 text-white" />
-                            ) : (
-                              <Bot className="w-5 h-5 text-white" />
-                            )}
-                          </AvatarFallback>
-                        </Avatar>
-
-                        <div className="flex-1 max-w-3xl">
-                          <div className={`rounded-2xl px-6 py-4 shadow-sm ${
-                            message.role === 'user'
-                              ? 'bg-blue-500 text-white rounded-tr-md'
-                              : 'bg-white border border-green-200 rounded-tl-md'
                           }`}>
-                            <div className="leading-relaxed">
-                              {message.role === 'assistant' ? (
-                                <ReactMarkdown className="prose prose-sm max-w-none text-gray-900">
-                                  {message.content && message.content.trim()
-                                    ? message.content
-                                    : "ข้อความว่างเปล่า"}
-                                </ReactMarkdown>
+                            <AvatarFallback className={
+                              message.role === 'user' 
+                                ? 'bg-blue-500' 
+                                : 'bg-gradient-to-r from-green-500 to-blue-600'
+                            }>
+                              {message.role === 'user' ? (
+                                <User className="w-5 h-5 text-white" />
                               ) : (
-                                <p className="whitespace-pre-wrap break-words">
-                                  {message.content}
-                                </p>
+                                <Bot className="w-5 h-5 text-white" />
                               )}
+                            </AvatarFallback>
+                          </Avatar>
+
+                          <div className="flex-1 max-w-3xl">
+                            <div className={`rounded-2xl px-6 py-4 shadow-sm ${
+                              message.role === 'user'
+                                ? 'bg-blue-500 text-white rounded-tr-md'
+                                : 'bg-white border border-green-200 rounded-tl-md'
+                            }`}>
+                              <div className="leading-relaxed">
+                                {message.role === 'assistant' ? (
+                                  <div className="prose prose-sm max-w-none text-gray-900">
+                                    <ReactMarkdown>
+                                      {message.content && typeof message.content === 'string' && message.content.trim()
+                                        ? message.content
+                                        : "ข้อความว่างเปล่า"}
+                                    </ReactMarkdown>
+                                  </div>
+                                ) : (
+                                  <p className="whitespace-pre-wrap break-words">
+                                    {message.content || ''}
+                                  </p>
+                                )}
+                              </div>
                             </div>
+                            <p className={`text-xs text-gray-500 mt-2 px-2 ${
+                              message.role === 'user' ? 'text-right' : 'text-left'
+                            }`}>
+                              {formatTime(message.createdAt)}
+                            </p>
                           </div>
-                          <p className={`text-xs text-gray-500 mt-2 px-2 ${
-                            message.role === 'user' ? 'text-right' : 'text-left'
-                          }`}>
-                            {formatTime(message.createdAt)}
-                          </p>
                         </div>
-                      </div>
-                    ))
+                      );
+                    }).filter(Boolean)
                   )}
 
                   <div ref={messagesEndRef} />
