@@ -543,10 +543,12 @@ async function getAiResponseDirectly(
         for (let i = 0; i < finalSearchResults.length; i++) {
           const result = finalSearchResults[i];
           const docId = parseInt(result.documentId || result.metadata?.originalDocumentId || '0');
-          const documentName = documentNamesMap.get(docId) || `เอกสาร ${docId}`;
+          const documentName = documentNamesMap.get(docId);
           
-          // Clean up the document name if it has chunk information
-          const cleanDocumentName = documentName.replace(/\s*\(Chunk\s*\d+\)$/i, '').trim();
+          // Use actual document name or fallback to Document ID format
+          const cleanDocumentName = documentName 
+            ? documentName.replace(/\s*\(Chunk\s*\d+\)$/i, '').trim()
+            : `Document ${docId}`;
           
           const chunkText = `=== ข้อมูลจากเอกสาร: ${cleanDocumentName} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${result.content}\n\n`;
 
