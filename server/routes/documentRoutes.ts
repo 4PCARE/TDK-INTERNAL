@@ -11,8 +11,8 @@ import { insertChatConversationSchema, insertChatMessageSchema } from "@shared/s
 import { upload } from "./shared";
 import { eq, sql } from "drizzle-orm";
 import { users, departments } from "@shared/schema";
-import { vectorService } from "../vectorService";
-import { documentProcessor } from "../documentProcessor";
+import { vectorService } from "../services/vectorService";
+import { documentProcessor } from "../services/documentProcessor";
 
 // Define a multer storage for handling file uploads
 const uploadStorage = multer.diskStorage({
