@@ -189,14 +189,12 @@ export class WidgetChatService {
       console.log(`📤 Messages to OpenAI: ${messages.length}`);
 
       // Document content analysis
-      if (documentContents.length > 0) {
+      if (agentDocuments.length > 0) {
         console.log(`\n📋 DOCUMENT CONTENT ANALYSIS:`);
-        documentContents.forEach((content, index) => {
-          const fullLength = content.length;
-          const truncated = content.includes("...");
-          console.log(`  📄 Document ${index + 1}: ${fullLength} chars${truncated ? ' (TRUNCATED at 2000 chars)' : ''}`);
+        agentDocuments.forEach((doc, index) => {
+          console.log(`  📄 Document ${index + 1}: ${doc.title} (ID: ${doc.id})`);
         });
-        console.log(`📊 Total Document Context: ${contextPrompt.length} chars`);
+        console.log(`📊 Total Documents Available: ${agentDocuments.length}`);
       } else {
         console.log(`\n📋 NO DOCUMENTS LINKED TO AGENT`);
       }
@@ -204,7 +202,6 @@ export class WidgetChatService {
       // System prompt analysis
       console.log(`\n🧠 SYSTEM PROMPT ANALYSIS:`);
       console.log(`  Base System Prompt: ${agent.systemPrompt?.length || 0} chars`);
-      console.log(`  Document Context: ${contextPrompt.length} chars`);
       console.log(`  Total System Prompt: ${systemPrompt.length} chars`);
 
       // Conversation history analysis
