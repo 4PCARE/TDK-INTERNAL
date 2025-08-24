@@ -2306,10 +2306,7 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(internalAgentChatSessions.id, data.sessionId));
 
-    return message;)
-        )
-      );
-    return session;
+    return message;
   }
 
   async createInternalAgentChatSession(session: InsertInternalAgentChatSession): Promise<InternalAgentChatSession> {
