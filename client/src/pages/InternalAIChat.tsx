@@ -152,10 +152,13 @@ export default function InternalAIChat() {
           console.log('🏷️ Session updated, refreshing sessions list');
           
           // Update the selected session immediately if it matches
-          if (selectedSession?.id === data.data.sessionId && data.data.title) {
-            setSelectedSession(prev => prev ? { ...prev, title: data.data.title } : prev);
-            console.log('✅ Updated selected session title:', data.data.title);
-          }
+          setSelectedSession(prev => {
+            if (prev?.id === data.data.sessionId && data.data.title) {
+              console.log('✅ Updated selected session title from WebSocket:', data.data.title);
+              return { ...prev, title: data.data.title };
+            }
+            return prev;
+          });
           
           // Invalidate sessions query to refresh the list
           queryClient.invalidateQueries({
@@ -174,7 +177,7 @@ export default function InternalAIChat() {
     return () => {
       ws.close();
     };
-  }, [isAuthenticated, wsUrl, queryClient, selectedAgent?.id, selectedSession?.id]);
+  }, [isAuthenticated, wsUrl, queryClient, selectedAgent?.id]);
 
 
   // Create new session mutation
@@ -229,13 +232,23 @@ export default function InternalAIChat() {
       console.log('✅ Message sent successfully:', data);
       setInput("");
 
-      // Force refetch messages to ensure UI updates
+      // Force refetch messages and sessions to ensure UI updates
       setTimeout(() => {
         queryClient.invalidateQueries({
           queryKey: ['/api/internal-agent-chat/messages', currentSessionId]
         });
+        queryClient.invalidateQueries({
+          queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
+        });
         refetchMessages();
       }, 100);
+      
+      // Additional timeout to handle any delayed WebSocket messages
+      setTimeout(() => {
+        queryClient.invalidateQueries({
+          queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
+        });
+      }, 2000);
     },
     onError: (error) => {
       console.error('❌ Send message error:', error);
