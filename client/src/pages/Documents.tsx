@@ -148,13 +148,6 @@ export default function Documents() {
           meaning: searchMeaning.toString()
         });
 
-        const searchTypeDescription = [
-          searchFileName && "fileName",
-          searchKeyword && "keyword", 
-          searchMeaning && "meaning"
-        ].filter(Boolean).join(", ");
-
-        console.log(`Frontend search: "${searchQuery}" with ${searchTypeDescription}:${searchFileName}, keyword:${searchKeyword}, meaning:${searchMeaning} (type: ${searchType})`);
         const response = await fetch(`/api/documents/search?${params}`);
         if (!response.ok) {
           throw new Error(`${response.status}: ${response.statusText}`);
@@ -162,11 +155,9 @@ export default function Documents() {
         const results = await response.json();
 
         if (!Array.isArray(results)) {
-          console.log("Frontend received non-array search results");
           return [];
         }
 
-        console.log(`Frontend received ${results.length} search results`);
         return results;
       } catch (error) {
         console.error("Document query failed:", error);
@@ -180,6 +171,8 @@ export default function Documents() {
     },
     retry: false,
     enabled: isAuthenticated,
+    staleTime: 30000, // Cache for 30 seconds to prevent excessive refetching
+    refetchOnWindowFocus: false, // Don't refetch on window focus to prevent freezing
   }) as { data: Array<any>; isLoading: boolean; error: any };
 
   // Post-process search results to deduplicate documents
@@ -272,37 +265,49 @@ export default function Documents() {
     );
   }
 
-  // Get unique AI categories and tags for filtering
-  const aiCategories = documents ? Array.from(new Set(documents.map((doc: any) => doc.aiCategory).filter(Boolean))) : [];
-  const allTags = documents ? Array.from(new Set(documents.flatMap((doc: any) => doc.tags || []))) : [];
+  // Get unique AI categories and tags for filtering with memoization
+  const aiCategories = useMemo(() => {
+    if (!documents) return [];
+    return Array.from(new Set(documents.map((doc: any) => doc.aiCategory).filter(Boolean)));
+  }, [documents]);
+
+  const allTags = useMemo(() => {
+    if (!documents) return [];
+    return Array.from(new Set(documents.flatMap((doc: any) => doc.tags || [])));
+  }, [documents]);
 
   // For search results, apply client-side filtering and pagination
   // For regular document loading, documents are already paginated server-side
-  const isSearchMode = searchQuery.trim().length > 0;
+  const isSearchMode = useMemo(() => searchQuery.trim().length > 0, [searchQuery]);
   
   const allFilteredDocuments = useMemo(() => {
-    if (!documents) return [];
+    if (!documents || documents.length === 0) return [];
+    
+    // Create filter function once
+    const filterDoc = (doc: any) => {
+      // Apply category filters
+      const matchesCategory = filterCategories.length === 0 || 
+                             filterCategories.includes(doc.aiCategory) ||
+                             filterCategories.includes(doc.category) ||
+                             (categories && categories.some((c: any) => 
+                               filterCategories.includes(c.name) && c.id === doc.categoryId
+                             ));
+
+      // Apply tag filters  
+      const matchesTag = filterTags.length === 0 || 
+                        (doc.tags && filterTags.some((tag: string) => doc.tags.includes(tag)));
+
+      // Apply favorites filter
+      const matchesFavorites = !showFavoritesOnly || doc.isFavorite;
+
+      return matchesCategory && matchesTag && matchesFavorites;
+    };
+
+    const filtered = documents.filter(filterDoc);
     
     if (isSearchMode) {
-      // For search results, apply client-side filtering
-      return documents.filter((doc: any) => {
-        // Apply category filters
-        const matchesCategory = filterCategories.length === 0 || 
-                               filterCategories.includes(doc.aiCategory) ||
-                               filterCategories.includes(doc.category) ||
-                               (categories && categories.some((c: any) => 
-                                 filterCategories.includes(c.name) && c.id === doc.categoryId
-                               ));
-
-        // Apply tag filters  
-        const matchesTag = filterTags.length === 0 || 
-                          (doc.tags && filterTags.some((tag: string) => doc.tags.includes(tag)));
-
-        // Apply favorites filter
-        const matchesFavorites = !showFavoritesOnly || doc.isFavorite;
-
-        return matchesCategory && matchesTag && matchesFavorites;
-      }).sort((a: any, b: any) => {
+      // For search results, apply sorting
+      return filtered.sort((a: any, b: any) => {
         switch (sortBy) {
           case "newest":
             return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -311,32 +316,14 @@ export default function Documents() {
           case "name":
             return (a.name || a.originalName).localeCompare(b.name || b.originalName);
           case "size":
-            return b.fileSize - a.fileSize;
+            return (b.fileSize || 0) - (a.fileSize || 0);
           default:
             return 0;
         }
       });
     } else {
-      // For regular document loading, documents are already paginated server-side
-      // Apply only client-side filtering that doesn't require all documents
-      return documents.filter((doc: any) => {
-        // Apply category filters
-        const matchesCategory = filterCategories.length === 0 || 
-                               filterCategories.includes(doc.aiCategory) ||
-                               filterCategories.includes(doc.category) ||
-                               (categories && categories.some((c: any) => 
-                                 filterCategories.includes(c.name) && c.id === doc.categoryId
-                               ));
-
-        // Apply tag filters  
-        const matchesTag = filterTags.length === 0 || 
-                          (doc.tags && filterTags.some((tag: string) => doc.tags.includes(tag)));
-
-        // Apply favorites filter
-        const matchesFavorites = !showFavoritesOnly || doc.isFavorite;
-
-        return matchesCategory && matchesTag && matchesFavorites;
-      });
+      // For regular document loading, documents are already sorted server-side
+      return filtered;
     }
   }, [documents, isSearchMode, filterCategories, filterTags, showFavoritesOnly, sortBy, categories]);
 
@@ -345,27 +332,33 @@ export default function Documents() {
     setCurrentPage(1);
   }, [searchQuery, filterCategories, filterTags, showFavoritesOnly, sortBy]);
 
-  // Calculate pagination
-  let totalPages, filteredDocuments, startIndex, endIndex, actualTotal;
-  
-  if (isSearchMode) {
-    // For search results, use client-side pagination
-    totalPages = Math.ceil(allFilteredDocuments.length / documentsPerPage);
-    startIndex = (currentPage - 1) * documentsPerPage;
-    endIndex = startIndex + documentsPerPage;
-    filteredDocuments = allFilteredDocuments.slice(startIndex, endIndex);
-    actualTotal = allFilteredDocuments.length;
-  } else {
-    // For regular document loading, documents are already paginated server-side
-    filteredDocuments = allFilteredDocuments;
+  // Calculate pagination with memoization
+  const paginationData = useMemo(() => {
+    let totalPages, filteredDocuments, startIndex, endIndex, actualTotal;
     
-    // Use total document count for accurate pagination
-    const effectiveTotal = totalDocumentCount || 0;
-    totalPages = Math.ceil(effectiveTotal / documentsPerPage);
-    startIndex = (currentPage - 1) * documentsPerPage;
-    endIndex = Math.min(startIndex + filteredDocuments.length, effectiveTotal);
-    actualTotal = effectiveTotal;
-  }
+    if (isSearchMode) {
+      // For search results, use client-side pagination
+      totalPages = Math.ceil(allFilteredDocuments.length / documentsPerPage);
+      startIndex = (currentPage - 1) * documentsPerPage;
+      endIndex = startIndex + documentsPerPage;
+      filteredDocuments = allFilteredDocuments.slice(startIndex, endIndex);
+      actualTotal = allFilteredDocuments.length;
+    } else {
+      // For regular document loading, documents are already paginated server-side
+      filteredDocuments = allFilteredDocuments;
+      
+      // Use total document count for accurate pagination
+      const effectiveTotal = totalDocumentCount || 0;
+      totalPages = Math.ceil(effectiveTotal / documentsPerPage);
+      startIndex = (currentPage - 1) * documentsPerPage;
+      endIndex = Math.min(startIndex + filteredDocuments.length, effectiveTotal);
+      actualTotal = effectiveTotal;
+    }
+    
+    return { totalPages, filteredDocuments, startIndex, endIndex, actualTotal };
+  }, [isSearchMode, allFilteredDocuments, currentPage, documentsPerPage, totalDocumentCount]);
+  
+  const { totalPages, filteredDocuments, startIndex, endIndex, actualTotal } = paginationData;
 
   return (
     <DashboardLayout>
