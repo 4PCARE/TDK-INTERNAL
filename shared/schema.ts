@@ -13,8 +13,8 @@ import {
   uniqueIndex,
   InferInsertModel,
   InferSelectModel,
-  sql,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
