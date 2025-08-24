@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 import {
   Bot,
   Plus,
@@ -21,6 +22,9 @@ import {
   Power,
   PowerOff,
   FileText,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Link } from "wouter";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
@@ -64,6 +68,10 @@ export default function AgentChatbots() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
   const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [expandedAgents, setExpandedAgents] = useState<Set<number>>(new Set());
+  const itemsPerPage = 6;
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -295,6 +303,24 @@ export default function AgentChatbots() {
     ));
   };
 
+  // Filter agents based on search term
+  const filteredAgents = agents.filter((agent) =>
+    agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (agent.description && agent.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    agent.channels.some(channel => channel.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredAgents.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedAgents = filteredAgents.slice(startIndex, endIndex);
+
+  // Reset to first page when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   if (isLoading || isLoadingAgents) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -326,9 +352,68 @@ export default function AgentChatbots() {
           </Button>
         </div>
 
+        {/* Search Bar */}
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Input
+            type="text"
+            placeholder="Search agents by name, description, or channel..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-4 py-2 w-full"
+          />
+        </div>
+
+        {/* Results Summary */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            {searchTerm ? (
+              <>Showing {filteredAgents.length} of {agents.length} agents</>
+            ) : (
+              <>Total: {agents.length} agents</>
+            )}
+          </div>
+          {totalPages > 1 && (
+            <div className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
+            </div>
+          )}
+        </div>
+
         {/* Agent List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {agents.map((agent) => (
+        {paginatedAgents.length === 0 ? (
+          <div className="text-center py-12">
+            <Bot className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {searchTerm ? "No agents found" : "No agents yet"}
+            </h3>
+            <p className="text-gray-600 mb-6">
+              {searchTerm 
+                ? "Try adjusting your search terms or clear the search to see all agents."
+                : "Create your first AI agent to get started with automated conversations."
+              }
+            </p>
+            {!searchTerm && (
+              <Button asChild>
+                <a href="/create-agent-chatbot" className="flex items-center space-x-2">
+                  <Plus className="w-4 h-4" />
+                  <span>Create Your First Agent</span>
+                </a>
+              </Button>
+            )}
+            {searchTerm && (
+              <Button 
+                variant="outline" 
+                onClick={() => setSearchTerm("")}
+              >
+                Clear Search
+              </Button>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {paginatedAgents.map((agent) => (
             <Card key={agent.id} className="bg-white shadow-sm rounded-lg overflow-hidden">
               <CardHeader className="flex items-center space-x-4">
                 <Avatar className="w-10 h-10">
@@ -424,7 +509,66 @@ export default function AgentChatbots() {
               </CardContent>
             </Card>
           ))}
-        </div>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center space-x-2 mt-8">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="flex items-center space-x-1"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span>Previous</span>
+                </Button>
+
+                <div className="flex items-center space-x-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => {
+                      // Show first page, last page, current page, and adjacent pages
+                      return page === 1 || 
+                             page === totalPages || 
+                             Math.abs(page - currentPage) <= 1;
+                    })
+                    .map((page, index, array) => {
+                      // Add ellipsis if there's a gap
+                      const showEllipsis = index > 0 && page - array[index - 1] > 1;
+                      
+                      return (
+                        <div key={page} className="flex items-center">
+                          {showEllipsis && (
+                            <span className="px-2 text-gray-400">...</span>
+                          )}
+                          <Button
+                            variant={currentPage === page ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(page)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {page}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="flex items-center space-x-1"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </DashboardLayout>
   );
