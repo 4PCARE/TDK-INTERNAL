@@ -623,8 +623,8 @@ export default function LiveChatWidget() {
             )}
           </div>
 
-          {/* Display details when a widget is selected and not editing */}
-          {!isCreating && !editingWidget && selectedWidget && (
+          {/* Display details when a widget is selected */}
+          {!isCreating && selectedWidget && (
             <Card>
               <CardHeader>
                 <CardTitle>Embed Code</CardTitle>
@@ -674,7 +674,7 @@ export default function LiveChatWidget() {
           )}
 
           {/* Getting Started Guide */}
-          {!isCreating && !editingWidget && !selectedWidget && (
+          {!isCreating && !selectedWidget && (
             <Card>
               <CardHeader>
                 <CardTitle>Getting Started</CardTitle>
