@@ -227,17 +227,16 @@ export default function Documents() {
   }) as { data: Array<{ id: number; name: string }> | undefined };
 
   // Get total document count for pagination info (only when not searching)
-  const { data: totalDocumentCount } = useQuery({
+  const { data: stats } = useQuery({
     queryKey: ["/api/stats"],
     queryFn: async () => {
       const response = await fetch("/api/stats");
       if (!response.ok) throw new Error("Failed to fetch stats");
-      const data = await response.json();
-      return data.totalDocuments;
+      return await response.json();
     },
     enabled: isAuthenticated && !searchQuery.trim(),
     retry: false,
-  }) as { data: number | undefined };
+  }) as { data: { totalDocuments: number; processedToday: number; storageUsed: number; aiQueries: number } | undefined };
 
   // Show loading state instead of null
   if (isLoading) {
@@ -279,10 +278,10 @@ export default function Documents() {
   // For search results, apply client-side filtering and pagination
   // For regular document loading, documents are already paginated server-side
   const isSearchMode = useMemo(() => searchQuery.trim().length > 0, [searchQuery]);
-  
+
   const allFilteredDocuments = useMemo(() => {
     if (!documents || documents.length === 0) return [];
-    
+
     // Create filter function once
     const filterDoc = (doc: any) => {
       // Apply category filters
@@ -304,7 +303,7 @@ export default function Documents() {
     };
 
     const filtered = documents.filter(filterDoc);
-    
+
     if (isSearchMode) {
       // For search results, apply sorting
       return filtered.sort((a: any, b: any) => {
@@ -335,7 +334,7 @@ export default function Documents() {
   // Calculate pagination with memoization
   const paginationData = useMemo(() => {
     let totalPages, filteredDocuments, startIndex, endIndex, actualTotal;
-    
+
     if (isSearchMode) {
       // For search results, use client-side pagination
       totalPages = Math.ceil(allFilteredDocuments.length / documentsPerPage);
@@ -346,18 +345,18 @@ export default function Documents() {
     } else {
       // For regular document loading, documents are already paginated server-side
       filteredDocuments = allFilteredDocuments;
-      
+
       // Use total document count for accurate pagination
-      const effectiveTotal = totalDocumentCount || 0;
+      const effectiveTotal = stats?.totalDocuments || 0;
       totalPages = Math.ceil(effectiveTotal / documentsPerPage);
       startIndex = (currentPage - 1) * documentsPerPage;
       endIndex = Math.min(startIndex + filteredDocuments.length, effectiveTotal);
       actualTotal = effectiveTotal;
     }
-    
+
     return { totalPages, filteredDocuments, startIndex, endIndex, actualTotal };
-  }, [isSearchMode, allFilteredDocuments, currentPage, documentsPerPage, totalDocumentCount]);
-  
+  }, [isSearchMode, allFilteredDocuments, currentPage, documentsPerPage, stats?.totalDocuments]);
+
   const { totalPages, filteredDocuments, startIndex, endIndex, actualTotal } = paginationData;
 
   return (
@@ -674,7 +673,7 @@ export default function Documents() {
                         `Showing ${startIndex + 1}-${endIndex} of ${actualTotal} documents`
                       )}
                     </div>
-                    
+
                     <div className="flex items-center space-x-2">
                       <Button
                         variant="outline"
@@ -685,7 +684,7 @@ export default function Documents() {
                         <ChevronLeft className="w-4 h-4" />
                         Previous
                       </Button>
-                      
+
                       <div className="flex items-center space-x-1">
                         {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                           let pageNum;
@@ -698,7 +697,7 @@ export default function Documents() {
                           } else {
                             pageNum = currentPage - 2 + i;
                           }
-                          
+
                           return (
                             <Button
                               key={pageNum}
@@ -711,7 +710,7 @@ export default function Documents() {
                             </Button>
                           );
                         })}
-                        
+
                         {totalPages > 5 && currentPage < totalPages - 2 && (
                           <>
                             <span className="text-slate-400">...</span>
@@ -726,7 +725,7 @@ export default function Documents() {
                           </>
                         )}
                       </div>
-                      
+
                       <Button
                         variant="outline"
                         size="sm"
