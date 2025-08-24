@@ -117,11 +117,13 @@ export default function Documents() {
 
   // Enhanced search with semantic capabilities
   const { data: rawSearchResults, isLoading: documentsLoading, error: documentsError } = useQuery({
-    queryKey: ["/api/documents/search", searchQuery, searchFileName, searchKeyword, searchMeaning],
+    queryKey: ["/api/documents/search", searchQuery, searchFileName, searchKeyword, searchMeaning, currentPage],
     queryFn: async () => {
       try {
         if (!searchQuery.trim()) {
-          const response = await fetch("/api/documents");
+          // Use server-side pagination for regular document loading
+          const offset = (currentPage - 1) * documentsPerPage;
+          const response = await fetch(`/api/documents?limit=${documentsPerPage}&offset=${offset}`);
           if (!response.ok) {
             throw new Error(`${response.status}: ${response.statusText}`);
           }
@@ -231,6 +233,19 @@ export default function Documents() {
     retry: false,
   }) as { data: Array<{ id: number; name: string }> | undefined };
 
+  // Get total document count for pagination info (only when not searching)
+  const { data: totalDocumentCount } = useQuery({
+    queryKey: ["/api/stats"],
+    queryFn: async () => {
+      const response = await fetch("/api/stats");
+      if (!response.ok) throw new Error("Failed to fetch stats");
+      const data = await response.json();
+      return data.totalDocuments;
+    },
+    enabled: isAuthenticated && !searchQuery.trim(),
+    retry: false,
+  }) as { data: number | undefined };
+
   // Show loading state instead of null
   if (isLoading) {
     return (
@@ -261,38 +276,69 @@ export default function Documents() {
   const aiCategories = documents ? Array.from(new Set(documents.map((doc: any) => doc.aiCategory).filter(Boolean))) : [];
   const allTags = documents ? Array.from(new Set(documents.flatMap((doc: any) => doc.tags || []))) : [];
 
-  // Filter and sort documents with multi-select support
-  const allFilteredDocuments = documents ? documents.filter((doc: any) => {
-    // Apply category filters
-    const matchesCategory = filterCategories.length === 0 || 
-                           filterCategories.includes(doc.aiCategory) ||
-                           filterCategories.includes(doc.category) ||
-                           (categories && categories.some((c: any) => 
-                             filterCategories.includes(c.name) && c.id === doc.categoryId
-                           ));
+  // For search results, apply client-side filtering and pagination
+  // For regular document loading, documents are already paginated server-side
+  const isSearchMode = searchQuery.trim().length > 0;
+  
+  const allFilteredDocuments = useMemo(() => {
+    if (!documents) return [];
+    
+    if (isSearchMode) {
+      // For search results, apply client-side filtering
+      return documents.filter((doc: any) => {
+        // Apply category filters
+        const matchesCategory = filterCategories.length === 0 || 
+                               filterCategories.includes(doc.aiCategory) ||
+                               filterCategories.includes(doc.category) ||
+                               (categories && categories.some((c: any) => 
+                                 filterCategories.includes(c.name) && c.id === doc.categoryId
+                               ));
 
-    // Apply tag filters  
-    const matchesTag = filterTags.length === 0 || 
-                      (doc.tags && filterTags.some((tag: string) => doc.tags.includes(tag)));
+        // Apply tag filters  
+        const matchesTag = filterTags.length === 0 || 
+                          (doc.tags && filterTags.some((tag: string) => doc.tags.includes(tag)));
 
-    // Apply favorites filter
-    const matchesFavorites = !showFavoritesOnly || doc.isFavorite;
+        // Apply favorites filter
+        const matchesFavorites = !showFavoritesOnly || doc.isFavorite;
 
-    return matchesCategory && matchesTag && matchesFavorites;
-  }).sort((a: any, b: any) => {
-    switch (sortBy) {
-      case "newest":
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      case "oldest":
-        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      case "name":
-        return (a.name || a.originalName).localeCompare(b.name || b.originalName);
-      case "size":
-        return b.fileSize - a.fileSize;
-      default:
-        return 0;
+        return matchesCategory && matchesTag && matchesFavorites;
+      }).sort((a: any, b: any) => {
+        switch (sortBy) {
+          case "newest":
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          case "oldest":
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          case "name":
+            return (a.name || a.originalName).localeCompare(b.name || b.originalName);
+          case "size":
+            return b.fileSize - a.fileSize;
+          default:
+            return 0;
+        }
+      });
+    } else {
+      // For regular document loading, documents are already paginated server-side
+      // Apply only client-side filtering that doesn't require all documents
+      return documents.filter((doc: any) => {
+        // Apply category filters
+        const matchesCategory = filterCategories.length === 0 || 
+                               filterCategories.includes(doc.aiCategory) ||
+                               filterCategories.includes(doc.category) ||
+                               (categories && categories.some((c: any) => 
+                                 filterCategories.includes(c.name) && c.id === doc.categoryId
+                               ));
+
+        // Apply tag filters  
+        const matchesTag = filterTags.length === 0 || 
+                          (doc.tags && filterTags.some((tag: string) => doc.tags.includes(tag)));
+
+        // Apply favorites filter
+        const matchesFavorites = !showFavoritesOnly || doc.isFavorite;
+
+        return matchesCategory && matchesTag && matchesFavorites;
+      });
     }
-  }) : [];
+  }, [documents, isSearchMode, filterCategories, filterTags, showFavoritesOnly, sortBy, categories]);
 
   // Reset to first page when filters change
   useEffect(() => {
@@ -300,10 +346,26 @@ export default function Documents() {
   }, [searchQuery, filterCategories, filterTags, showFavoritesOnly, sortBy]);
 
   // Calculate pagination
-  const totalPages = Math.ceil(allFilteredDocuments.length / documentsPerPage);
-  const startIndex = (currentPage - 1) * documentsPerPage;
-  const endIndex = startIndex + documentsPerPage;
-  const filteredDocuments = allFilteredDocuments.slice(startIndex, endIndex);
+  let totalPages, filteredDocuments, startIndex, endIndex, actualTotal;
+  
+  if (isSearchMode) {
+    // For search results, use client-side pagination
+    totalPages = Math.ceil(allFilteredDocuments.length / documentsPerPage);
+    startIndex = (currentPage - 1) * documentsPerPage;
+    endIndex = startIndex + documentsPerPage;
+    filteredDocuments = allFilteredDocuments.slice(startIndex, endIndex);
+    actualTotal = allFilteredDocuments.length;
+  } else {
+    // For regular document loading, documents are already paginated server-side
+    filteredDocuments = allFilteredDocuments;
+    
+    // Use total document count for accurate pagination
+    const effectiveTotal = totalDocumentCount || 0;
+    totalPages = Math.ceil(effectiveTotal / documentsPerPage);
+    startIndex = (currentPage - 1) * documentsPerPage;
+    endIndex = Math.min(startIndex + filteredDocuments.length, effectiveTotal);
+    actualTotal = effectiveTotal;
+  }
 
   return (
     <DashboardLayout>
@@ -537,7 +599,7 @@ export default function Documents() {
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg font-semibold text-slate-800">
-                    Documents ({allFilteredDocuments?.length || 0})
+                    Documents ({isSearchMode ? (allFilteredDocuments?.length || 0) : (actualTotal || 0)})
                   </CardTitle>
                   <div className="flex items-center space-x-2">
                     <VectorizeAllButton />
@@ -610,10 +672,14 @@ export default function Documents() {
                 )}
 
                 {/* Pagination Controls */}
-                {allFilteredDocuments && allFilteredDocuments.length > 0 && totalPages > 1 && (
+                {filteredDocuments && filteredDocuments.length > 0 && (totalPages > 1 || currentPage > 1) && (
                   <div className="mt-6 flex items-center justify-between">
                     <div className="text-sm text-slate-500">
-                      Showing {startIndex + 1}-{Math.min(endIndex, allFilteredDocuments.length)} of {allFilteredDocuments.length} documents
+                      {isSearchMode ? (
+                        `Showing ${startIndex + 1}-${Math.min(endIndex, allFilteredDocuments.length)} of ${allFilteredDocuments.length} documents`
+                      ) : (
+                        `Showing ${startIndex + 1}-${endIndex} of ${actualTotal} documents`
+                      )}
                     </div>
                     
                     <div className="flex items-center space-x-2">
