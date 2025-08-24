@@ -228,6 +228,37 @@ export default function InternalAIChat() {
 
       return await response.json();
     },
+    onMutate: async ({ message, sessionId }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({
+        queryKey: ['/api/internal-agent-chat/messages', sessionId]
+      });
+
+      // Snapshot the previous value
+      const previousMessages = queryClient.getQueryData(['/api/internal-agent-chat/messages', sessionId]) as ChatMessage[] || [];
+
+      // Optimistically update to the new value
+      const optimisticMessage: ChatMessage = {
+        id: Date.now(), // Temporary ID
+        role: "user",
+        content: message,
+        createdAt: new Date().toISOString()
+      };
+
+      queryClient.setQueryData(
+        ['/api/internal-agent-chat/messages', sessionId],
+        [...previousMessages, optimisticMessage]
+      );
+
+      // Return a context object with the snapshotted value
+      return { previousMessages };
+    },
+    onError: (err, { sessionId }, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousMessages) {
+        queryClient.setQueryData(['/api/internal-agent-chat/messages', sessionId], context.previousMessages);
+      }
+    },
     onSuccess: (data) => {
       console.log('✅ Message sent successfully:', data);
       setInput("");
