@@ -155,12 +155,21 @@ export default function InternalAIChat() {
     queryFn: async () => {
       const response = await apiRequest("get", "/api/agent-chatbots");
       if (!response.ok) throw new Error("Failed to fetch agents");
-      const data = await response.json();
-      // Sort agents by creation date in descending order (most recent first)
-      return data.sort((a: Agent, b: Agent) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return response.json();
     },
     enabled: isAuthenticated,
   }) as { data: Agent[]; isLoading: boolean };
+
+  // Fetch all sessions to get latest session timestamps
+  const { data: allSessions = [] } = useQuery({
+    queryKey: ["/api/internal-agent-chat/sessions"],
+    enabled: isAuthenticated,
+    retry: false,
+    refetchInterval: 60000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+  }) as { data: any[]; isLoading: boolean };
 
   // Use selectedAgentId to find the selected agent object
   const selectedAgent = (agents || []).find(agent => agent.id === selectedAgentId) || null;
@@ -191,11 +200,45 @@ export default function InternalAIChat() {
     enabled: isAuthenticated,
   }) as { data: any[]; isLoading: boolean };
 
-  // Filter and sort agents based on search term and recency
-  const filteredAndSortedAgents = agents.filter(agent =>
-    agent.name.toLowerCase().includes(botSearchTerm.toLowerCase()) ||
-    (agent.description && agent.description.toLowerCase().includes(botSearchTerm.toLowerCase()))
-  );
+  // Helper function to get the latest session timestamp for an agent
+  const getLatestSessionTimestamp = (agentId: number): string => {
+    const agentSessions = allSessions.filter(session => session.agentId === agentId);
+    if (agentSessions.length === 0) {
+      return ""; // No sessions found
+    }
+    
+    // Find the most recent session
+    const latestSession = agentSessions.reduce((latest, current) => {
+      const latestTime = new Date(latest.lastMessageAt || latest.createdAt).getTime();
+      const currentTime = new Date(current.lastMessageAt || current.createdAt).getTime();
+      return currentTime > latestTime ? current : latest;
+    });
+    
+    return latestSession.lastMessageAt || latestSession.createdAt;
+  };
+
+  // Filter and sort agents based on search term and latest session recency
+  const filteredAndSortedAgents = agents
+    .filter(agent =>
+      agent.name.toLowerCase().includes(botSearchTerm.toLowerCase()) ||
+      (agent.description && agent.description.toLowerCase().includes(botSearchTerm.toLowerCase()))
+    )
+    .sort((a, b) => {
+      const aLatestSession = getLatestSessionTimestamp(a.id);
+      const bLatestSession = getLatestSessionTimestamp(b.id);
+      
+      // If both have sessions, sort by latest session timestamp (most recent first)
+      if (aLatestSession && bLatestSession) {
+        return new Date(bLatestSession).getTime() - new Date(aLatestSession).getTime();
+      }
+      
+      // If only one has sessions, prioritize the one with sessions
+      if (aLatestSession && !bLatestSession) return -1;
+      if (!aLatestSession && bLatestSession) return 1;
+      
+      // If neither has sessions, sort by creation date (most recent first)
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
   // Helper to get document names for a given agent ID
   const getAgentDocumentNames = (agentId: number): string[] => {
@@ -645,15 +688,27 @@ export default function InternalAIChat() {
                               </div>
                             )}
 
-                            <div className="flex items-center space-x-2 mt-3">
-                              <Badge
-                                variant={agent.isActive ? "default" : "secondary"}
-                                className={agent.isActive ? "bg-green-100 text-green-800" : ""}
-                              >
-                                {agent.isActive ? "Active" : "Inactive"}
-                              </Badge>
+                            <div className="flex items-center justify-between mt-3">
+                              <div className="flex items-center space-x-2">
+                                <Badge
+                                  variant={agent.isActive ? "default" : "secondary"}
+                                  className={agent.isActive ? "bg-green-100 text-green-800" : ""}
+                                >
+                                  {agent.isActive ? "Active" : "Inactive"}
+                                </Badge>
+                                <span className="text-xs text-gray-400">
+                                  {(() => {
+                                    const latestSessionTime = getLatestSessionTimestamp(agent.id);
+                                    if (latestSessionTime) {
+                                      return `Last used ${formatDate(latestSessionTime)}`;
+                                    } else {
+                                      return `Created ${formatDate(agent.createdAt)}`;
+                                    }
+                                  })()}
+                                </span>
+                              </div>
                               <span className="text-xs text-gray-400">
-                                Created {formatDate(agent.createdAt)}
+                                {allSessions.filter(session => session.agentId === agent.id).length} chats
                               </span>
                             </div>
                           </div>
