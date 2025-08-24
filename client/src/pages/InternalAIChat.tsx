@@ -685,7 +685,7 @@ export default function InternalAIChat() {
                               }}
                               autoFocus
                             />
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center justify-end space-x-2">
                               <Button
                                 size="sm"
                                 variant="outline"
