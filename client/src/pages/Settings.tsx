@@ -72,6 +72,10 @@ export default function Settings() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'profile' | 'system' | 'security' | 'llm'>('profile');
+  
+  // LLM provider states - moved to component level to fix hooks violation
+  const [currentProvider, setCurrentProvider] = useState<string>("");
+  const [currentEmbeddingProvider, setCurrentEmbeddingProvider] = useState<string>("");
 
   const { data: userProfile, isLoading: profileLoading } = useQuery({
     queryKey: ["/api/user/profile"],
@@ -87,6 +91,14 @@ export default function Settings() {
     queryKey: ["/api/llm/config"],
     enabled: !!user,
   }) as { data: LLMConfig | undefined; isLoading: boolean };
+
+  // Update provider states when llmConfig changes
+  useEffect(() => {
+    if (llmConfig) {
+      setCurrentProvider(llmConfig.provider || "OpenAI");
+      setCurrentEmbeddingProvider(llmConfig.embeddingProvider || "OpenAI");
+    }
+  }, [llmConfig]);
 
   const { data: documents } = useQuery({
     queryKey: ["/api/documents"],
@@ -674,165 +686,156 @@ export default function Settings() {
                 </div>
               ) : (
                 <form onSubmit={handleLlmSubmit} className="space-y-6">
-                  {(() => {
-                    const [currentProvider, setCurrentProvider] = useState(llmConfig?.provider || "OpenAI");
-                    const [currentEmbeddingProvider, setCurrentEmbeddingProvider] = useState(llmConfig?.embeddingProvider || "OpenAI");
-                    
-                    return (
-                      <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-4">
-                            <div>
-                              <Label htmlFor="provider">Chat Provider</Label>
-                              <Select 
-                                name="provider" 
-                                defaultValue={llmConfig?.provider || "OpenAI"}
-                                onValueChange={(value) => setCurrentProvider(value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select chat provider" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="OpenAI">OpenAI (GPT-4)</SelectItem>
-                                  <SelectItem value="Gemini">Google Gemini</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <p className="text-xs text-gray-500 mt-1">Provider for AI chat responses</p>
-                            </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="provider">Chat Provider</Label>
+                      <Select 
+                        name="provider" 
+                        value={currentProvider}
+                        onValueChange={(value) => setCurrentProvider(value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select chat provider" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="OpenAI">OpenAI (GPT-4)</SelectItem>
+                          <SelectItem value="Gemini">Google Gemini</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-gray-500 mt-1">Provider for AI chat responses</p>
+                    </div>
 
-                            <div>
-                              <Label htmlFor="embeddingProvider">Embedding Provider</Label>
-                              <Select 
-                                name="embeddingProvider" 
-                                defaultValue={llmConfig?.embeddingProvider || "OpenAI"}
-                                onValueChange={(value) => setCurrentEmbeddingProvider(value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select embedding provider" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="OpenAI">OpenAI Embeddings</SelectItem>
-                                  <SelectItem value="Gemini">Google Gemini Embeddings</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <p className="text-xs text-gray-500 mt-1">Provider for document embeddings and search</p>
-                            </div>
-                          </div>
+                    <div>
+                      <Label htmlFor="embeddingProvider">Embedding Provider</Label>
+                      <Select 
+                        name="embeddingProvider" 
+                        value={currentEmbeddingProvider}
+                        onValueChange={(value) => setCurrentEmbeddingProvider(value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select embedding provider" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="OpenAI">OpenAI Embeddings</SelectItem>
+                          <SelectItem value="Gemini">Google Gemini Embeddings</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-gray-500 mt-1">Provider for document embeddings and search</p>
+                    </div>
+                  </div>
 
                     <div className="space-y-4">
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <Zap className="w-4 h-4 text-blue-600" />
-                          <h4 className="font-medium text-blue-800">Provider Status</h4>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Zap className="w-4 h-4 text-blue-600" />
+                        <h4 className="font-medium text-blue-800">Provider Status</h4>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>OpenAI:</span>
+                          <Badge variant="outline" className="text-green-700 border-green-300">
+                            Available
+                          </Badge>
                         </div>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span>OpenAI:</span>
-                            <Badge variant="outline" className="text-green-700 border-green-300">
-                              Available
-                            </Badge>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Gemini:</span>
-                            <Badge variant="outline" className="text-green-700 border-green-300">
-                              Available
-                            </Badge>
-                          </div>
+                        <div className="flex justify-between">
+                          <span>Gemini:</span>
+                          <Badge variant="outline" className="text-green-700 border-green-300">
+                            Available
+                          </Badge>
                         </div>
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-1 gap-6">
-                          {/* Show OpenAI Configuration only if OpenAI is selected */}
-                          {(currentProvider === "OpenAI" || currentEmbeddingProvider === "OpenAI") && (
-                            <div className="space-y-4">
-                              <h4 className="font-medium text-gray-900">OpenAI Settings</h4>
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <div>
-                                  <Label htmlFor="openaiModel">Model</Label>
-                                  <Select name="openaiModel" defaultValue={llmConfig?.openAIConfig?.model || "gpt-4o"}>
-                                    <SelectTrigger>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="gpt-4o">GPT-4o (Latest)</SelectItem>
-                                      <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
-                                      <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div>
-                                  <Label htmlFor="openaiTemperature">Temperature</Label>
-                                  <Input
-                                    name="openaiTemperature"
-                                    type="number"
-                                    step="0.1"
-                                    min="0"
-                                    max="2"
-                                    defaultValue={llmConfig?.openAIConfig?.temperature || 0.7}
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="openaiMaxTokens">Max Tokens</Label>
-                                  <Input
-                                    name="openaiMaxTokens"
-                                    type="number"
-                                    min="100"
-                                    max="8000"
-                                    defaultValue={llmConfig?.openAIConfig?.maxTokens || 4000}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Show Gemini Configuration only if Gemini is selected */}
-                          {(currentProvider === "Gemini" || currentEmbeddingProvider === "Gemini") && (
-                            <div className="space-y-4">
-                              <h4 className="font-medium text-gray-900">Gemini Settings</h4>
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <div>
-                                  <Label htmlFor="geminiModel">Model</Label>
-                                  <Select name="geminiModel" defaultValue={llmConfig?.geminiConfig?.model || "gemini-2.5-flash"}>
-                                    <SelectTrigger>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
-                                      <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
-                                      <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div>
-                                  <Label htmlFor="geminiTemperature">Temperature</Label>
-                                  <Input
-                                    name="geminiTemperature"
-                                    type="number"
-                                    step="0.1"
-                                    min="0"
-                                    max="2"
-                                    defaultValue={llmConfig?.geminiConfig?.temperature || 0.7}
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="geminiMaxTokens">Max Tokens</Label>
-                                  <Input
-                                    name="geminiMaxTokens"
-                                    type="number"
-                                    min="100"
-                                    max="8000"
-                                    defaultValue={llmConfig?.geminiConfig?.maxTokens || 4000}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          )}
+                <div className="grid grid-cols-1 gap-6">
+                  {/* Show OpenAI Configuration only if OpenAI is selected */}
+                  {(currentProvider === "OpenAI" || currentEmbeddingProvider === "OpenAI") && (
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-gray-900">OpenAI Settings</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <Label htmlFor="openaiModel">Model</Label>
+                          <Select name="openaiModel" defaultValue={llmConfig?.openAIConfig?.model || "gpt-4o"}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="gpt-4o">GPT-4o (Latest)</SelectItem>
+                              <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
+                              <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                      </>
-                    );
-                  })()}
+                        <div>
+                          <Label htmlFor="openaiTemperature">Temperature</Label>
+                          <Input
+                            name="openaiTemperature"
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="2"
+                            defaultValue={llmConfig?.openAIConfig?.temperature || 0.7}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="openaiMaxTokens">Max Tokens</Label>
+                          <Input
+                            name="openaiMaxTokens"
+                            type="number"
+                            min="100"
+                            max="8000"
+                            defaultValue={llmConfig?.openAIConfig?.maxTokens || 4000}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show Gemini Configuration only if Gemini is selected */}
+                  {(currentProvider === "Gemini" || currentEmbeddingProvider === "Gemini") && (
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-gray-900">Gemini Settings</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <Label htmlFor="geminiModel">Model</Label>
+                          <Select name="geminiModel" defaultValue={llmConfig?.geminiConfig?.model || "gemini-2.5-flash"}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                              <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                              <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="geminiTemperature">Temperature</Label>
+                          <Input
+                            name="geminiTemperature"
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="2"
+                            defaultValue={llmConfig?.geminiConfig?.temperature || 0.7}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="geminiMaxTokens">Max Tokens</Label>
+                          <Input
+                            name="geminiMaxTokens"
+                            type="number"
+                            min="100"
+                            max="8000"
+                            defaultValue={llmConfig?.geminiConfig?.maxTokens || 4000}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <h4 className="font-medium text-yellow-800 mb-2">Important Notice</h4>
