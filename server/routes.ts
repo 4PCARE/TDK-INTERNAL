@@ -3090,7 +3090,6 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
         }
       } else {
         console.log(`👤 Widget: No authentication found - proceeding as anonymous user`);
-      } authenticated user found`);
       }
 
       if (currentUser && currentUser.email) {
