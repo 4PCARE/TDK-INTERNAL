@@ -463,6 +463,12 @@ export default function InternalAIChat() {
       return;
     }
 
+    if (editingTitle.trim() === selectedSession?.title) {
+      // No changes made, just cancel editing
+      handleCancelEditing();
+      return;
+    }
+
     renameSessionMutation.mutate({
       sessionId,
       title: editingTitle.trim()
@@ -665,7 +671,7 @@ export default function InternalAIChat() {
                         onClick={() => editingSessionId !== session.id && setSelectedSession(session)}
                       >
                         {editingSessionId === session.id ? (
-                          <div className="flex items-center space-x-2 mb-1">
+                          <div className="space-y-2 mb-1">
                             <Input
                               value={editingTitle}
                               onChange={(e) => setEditingTitle(e.target.value)}
@@ -677,9 +683,30 @@ export default function InternalAIChat() {
                                   handleCancelEditing();
                                 }
                               }}
-                              onBlur={() => handleSaveTitle(session.id)}
                               autoFocus
                             />
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleCancelEditing}
+                                className="h-6 px-2 text-xs"
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveTitle(session.id)}
+                                disabled={editingTitle.trim().length === 0 || renameSessionMutation.isPending}
+                                className="h-6 px-2 text-xs bg-blue-500 hover:bg-blue-600"
+                              >
+                                {renameSessionMutation.isPending ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  "Save"
+                                )}
+                              </Button>
+                            </div>
                           </div>
                         ) : (
                           <p className="font-medium text-gray-900 break-words line-clamp-2">{session.title}</p>
