@@ -132,11 +132,35 @@ export function registerAgentRoutes(app: Express) {
     async (req: any, res) => {
       try {
         const userId = req.user.claims.sub;
-        const documents = await storage.getAgentChatbotDocuments(
+        const agentDocuments = await storage.getAgentChatbotDocuments(
           parseInt(req.params.id),
           userId,
         );
-        res.json(documents);
+        
+        // Fetch document details including names
+        const documentsWithNames = await Promise.all(
+          agentDocuments.map(async (agentDoc: any) => {
+            try {
+              const document = await storage.getDocument(agentDoc.documentId, userId);
+              return {
+                ...agentDoc,
+                documentName: document?.name || 'Unknown Document',
+                documentDescription: document?.description || null,
+                documentTags: document?.tags || []
+              };
+            } catch (docError) {
+              console.warn(`Could not fetch document ${agentDoc.documentId}:`, docError);
+              return {
+                ...agentDoc,
+                documentName: 'Unknown Document',
+                documentDescription: null,
+                documentTags: []
+              };
+            }
+          })
+        );
+        
+        res.json(documentsWithNames);
       } catch (error) {
         console.error("Error fetching agent documents:", error);
         res.status(500).json({ message: "Failed to fetch agent documents" });
