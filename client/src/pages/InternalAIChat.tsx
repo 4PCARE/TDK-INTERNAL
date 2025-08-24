@@ -150,15 +150,17 @@ export default function InternalAIChat() {
         // Handle session updates (like auto-generated titles)
         if (data.type === 'session_updated' && data.data?.sessionId) {
           console.log('🏷️ Session updated, refreshing sessions list');
+          
+          // Update the selected session immediately if it matches
+          if (selectedSession?.id === data.data.sessionId && data.data.title) {
+            setSelectedSession(prev => prev ? { ...prev, title: data.data.title } : prev);
+            console.log('✅ Updated selected session title:', data.data.title);
+          }
+          
           // Invalidate sessions query to refresh the list
           queryClient.invalidateQueries({
             queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
           });
-
-          // If the updated session is currently selected, update it
-          if (selectedSession?.id === data.data.sessionId) {
-            setSelectedSession(prev => prev ? { ...prev, title: data.data.title } : prev);
-          }
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
@@ -289,13 +291,17 @@ export default function InternalAIChat() {
       return response.json();
     },
     onSuccess: (updatedSession) => {
+      // Update selected session immediately
+      if (selectedSession?.id === updatedSession.id) {
+        setSelectedSession(updatedSession);
+        console.log('✅ Updated selected session after rename:', updatedSession.title);
+      }
+      
+      // Then invalidate and refetch the sessions list
       queryClient.invalidateQueries({
         queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
       });
-      // Update selected session if it's the one being renamed
-      if (selectedSession?.id === updatedSession.id) {
-        setSelectedSession(updatedSession);
-      }
+      
       setEditingSessionId(null);
       setEditingTitle("");
       toast({
