@@ -2332,7 +2332,7 @@ export class DatabaseStorage implements IStorage {
     return newSession;
   }
 
-  async updateInternalAgentChatSession(sessionId: number, userId: string, updates: { title?: string }): Promise<InternalAgentChatSession> {
+  async updateInternalAgentChatSession(sessionId: number, updates: { title?: string }, userId: string): Promise<InternalAgentChatSession> {
     const { internalAgentChatSessions } = await import('@shared/schema');
     const [updatedSession] = await db
       .update(internalAgentChatSessions)

@@ -84,7 +84,7 @@ interface ChatMessage {
 
 export default function InternalAIChat() {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isAuthenticated, wsUrl } = useAuth(); // Assuming wsUrl is provided by useAuth
   const queryClient = useQueryClient();
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null);
@@ -131,6 +131,49 @@ export default function InternalAIChat() {
     },
     enabled: !!selectedSession,
   });
+
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+    if (!isAuthenticated || !wsUrl) return;
+
+    const ws = new WebSocket(`${wsUrl}/ws`);
+
+    ws.onopen = () => {
+      console.log('🔌 WebSocket connected for InternalAIChat');
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📨 WebSocket message received:', data);
+
+        // Handle session updates (like auto-generated titles)
+        if (data.type === 'session_updated' && data.data?.sessionId) {
+          console.log('🏷️ Session updated, refreshing sessions list');
+          // Invalidate sessions query to refresh the list
+          queryClient.invalidateQueries({
+            queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
+          });
+
+          // If the updated session is currently selected, update it
+          if (selectedSession?.id === data.data.sessionId) {
+            setSelectedSession(prev => prev ? { ...prev, title: data.data.title } : prev);
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('🔌 WebSocket disconnected for InternalAIChat');
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [isAuthenticated, wsUrl, queryClient, selectedAgent?.id, selectedSession?.id]);
+
 
   // Create new session mutation
   const createSessionMutation = useMutation({
@@ -186,8 +229,8 @@ export default function InternalAIChat() {
 
       // Force refetch messages to ensure UI updates
       setTimeout(() => {
-        queryClient.invalidateQueries({ 
-          queryKey: ['/api/internal-agent-chat/messages', currentSessionId] 
+        queryClient.invalidateQueries({
+          queryKey: ['/api/internal-agent-chat/messages', currentSessionId]
         });
         refetchMessages();
       }, 100);
@@ -550,7 +593,7 @@ export default function InternalAIChat() {
                     )}
                   >
                     <div className="flex items-start justify-between">
-                      <div 
+                      <div
                         className="flex-1 min-w-0 cursor-pointer"
                         onClick={() => editingSessionId !== session.id && setSelectedSession(session)}
                       >
@@ -574,7 +617,7 @@ export default function InternalAIChat() {
                         ) : (
                           <p className="font-medium text-gray-900 truncate">{session.title}</p>
                         )}
-                        
+
                         {session.lastMessage && (
                           <p className="text-sm text-gray-500 truncate mt-1">
                             {session.lastMessage}
@@ -699,8 +742,8 @@ export default function InternalAIChat() {
                           <div className={`flex-1 max-w-xs lg:max-w-md ${message.role === 'user' ? 'flex justify-end' : ''}`}>
                             <div className="flex flex-col">
                               <div className={`rounded-lg px-4 py-3 ${
-                                message.role === 'user' 
-                                  ? 'bg-blue-500 text-white rounded-tr-none' 
+                                message.role === 'user'
+                                  ? 'bg-blue-500 text-white rounded-tr-none'
                                   : 'bg-gray-100 text-gray-900 rounded-tl-none'
                               }`}>
                                 <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
@@ -728,7 +771,7 @@ export default function InternalAIChat() {
                     )}
 
                   <div ref={messagesEndRef} />
-                  
+
                   {(sendMessageMutation.isPending || isCreatingSession) && (
                     <div className="flex items-start space-x-3 mt-4">
                       <Avatar className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600">
@@ -767,7 +810,7 @@ export default function InternalAIChat() {
                       }
                     }}
                   />
-                  <Button 
+                  <Button
                     type="submit"
                     disabled={!input.trim() || !selectedAgent || sendMessageMutation.isPending}
                     className="bg-blue-500 hover:bg-blue-600 text-white min-w-[44px]"

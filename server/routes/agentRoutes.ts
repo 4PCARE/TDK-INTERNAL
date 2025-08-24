@@ -609,11 +609,25 @@ Generate only the title, nothing else:`;
 
             if (generatedTitle && generatedTitle.length > 0) {
               // Update session title
-              await storage.updateInternalAgentChatSession(parseInt(sessionId), {
+              const updatedSession = await storage.updateInternalAgentChatSession(parseInt(sessionId), {
                 title: generatedTitle
               }, userId);
               
               console.log(`✅ Auto-generated title: "${generatedTitle}"`);
+
+              // Broadcast session update to trigger frontend refresh
+              if (typeof (global as any).broadcastToAgentConsole === 'function') {
+                (global as any).broadcastToAgentConsole({
+                  type: 'session_updated',
+                  data: {
+                    sessionId: parseInt(sessionId),
+                    title: generatedTitle,
+                    agentId: parseInt(agentId),
+                    userId: userId
+                  }
+                });
+                console.log('📡 Broadcasted session title update to frontend');
+              }
             }
           } catch (error) {
             console.error("❌ Error auto-generating chat title:", error);
