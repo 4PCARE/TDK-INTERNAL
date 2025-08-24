@@ -739,55 +739,61 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .where(eq(users.id, userId));
 
-    // Use UNION to get all unique documents accessible to user, then count
-    const ownedDocsQuery = db
-      .select({
-        id: documents.id,
-        fileSize: documents.fileSize,
-      })
+    // Get all unique document IDs accessible to user using a more efficient approach
+    const accessibleDocumentIds = new Set<number>();
+    
+    // Get owned documents
+    const ownedDocs = await db
+      .select({ id: documents.id, fileSize: documents.fileSize })
       .from(documents)
       .where(eq(documents.userId, userId));
+    
+    ownedDocs.forEach(doc => accessibleDocumentIds.add(doc.id));
 
-    const userSharedDocsQuery = db
-      .select({
-        id: documents.id,
-        fileSize: documents.fileSize,
-      })
+    // Get user-shared documents
+    const userSharedDocs = await db
+      .select({ id: documents.id, fileSize: documents.fileSize })
       .from(documents)
       .innerJoin(documentUserPermissions, eq(documents.id, documentUserPermissions.documentId))
       .where(eq(documentUserPermissions.userId, userId));
+    
+    userSharedDocs.forEach(doc => accessibleDocumentIds.add(doc.id));
 
-    // Combine all accessible documents using UNION for unique results
-    let allDocsQuery = ownedDocsQuery.union(userSharedDocsQuery);
-
+    // Get department-shared documents if user has a department
     if (userInfo?.departmentId) {
-      const deptSharedDocsQuery = db
-        .select({
-          id: documents.id,
-          fileSize: documents.fileSize,
-        })
+      const deptSharedDocs = await db
+        .select({ id: documents.id, fileSize: documents.fileSize })
         .from(documents)
         .innerJoin(documentDepartmentPermissions, eq(documents.id, documentDepartmentPermissions.documentId))
         .where(eq(documentDepartmentPermissions.departmentId, userInfo.departmentId));
-
-      allDocsQuery = allDocsQuery.union(deptSharedDocsQuery);
+      
+      deptSharedDocs.forEach(doc => accessibleDocumentIds.add(doc.id));
     }
 
-    const allAccessibleDocs = await allDocsQuery;
+    // Get file sizes for all accessible documents
+    const allAccessibleDocs = await db
+      .select({ id: documents.id, fileSize: documents.fileSize })
+      .from(documents)
+      .where(inArray(documents.id, Array.from(accessibleDocumentIds)));
 
     const totalDocuments = allAccessibleDocs.length;
-    const storageUsed = allAccessibleDocs.reduce((sum, doc) => sum + (Number(doc.fileSize) || 0), 0);
+    const storageUsed = allAccessibleDocs.reduce((sum, doc) => {
+      const fileSize = doc.fileSize ? Number(doc.fileSize) : 0;
+      return sum + (isNaN(fileSize) ? 0 : fileSize);
+    }, 0);
 
+    // Get documents processed today (only owned documents for this stat)
     const [processedToday] = await db
       .select({ count: count(documents.id) })
       .from(documents)
       .where(
         and(
           eq(documents.userId, userId),
-          sql`${documents.processedAt} >= ${today}`
+          gte(documents.processedAt, today)
         )
       );
 
+    // Get AI queries today
     const [aiQueries] = await db
       .select({ count: count(chatMessages.id) })
       .from(chatMessages)
@@ -795,7 +801,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(chatConversations.userId, userId),
-          sql`${chatMessages.createdAt} >= ${today}`
+          gte(chatMessages.createdAt, today)
         )
       );
 
