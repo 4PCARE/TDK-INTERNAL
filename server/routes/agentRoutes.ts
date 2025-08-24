@@ -1090,15 +1090,24 @@ Generate only the title, nothing else:`;
       const userId = req.user.claims.sub;
       const channelFilter = req.query.channelFilter || 'all';
       const subChannelFilter = req.query.subChannelFilter || 'all';
+      const searchQuery = req.query.search || '';
 
-      // Build WHERE conditions for sub-channel filtering
-      let whereConditions = 'ac.user_id = $1 AND (ch.channel_id LIKE \'U%\' OR ch.channel_type = \'web\')';
+      // Build WHERE conditions for filtering
+      let whereConditions = 'ac.user_id = $1';
       const params = [userId];
       let paramIndex = 2;
 
+      // Add channel type filter
       if (channelFilter !== 'all') {
         whereConditions += ` AND ch.channel_type = $${paramIndex}`;
         params.push(channelFilter);
+        paramIndex++;
+      }
+
+      // Add search filter if provided
+      if (searchQuery) {
+        whereConditions += ` AND (ch.content ILIKE $${paramIndex} OR ch.user_id ILIKE $${paramIndex})`;
+        params.push(`%${searchQuery}%`);
         paramIndex++;
       }
 
@@ -1140,7 +1149,21 @@ Generate only the title, nothing else:`;
         ORDER BY last_message_at DESC
       `;
 
+      console.log("🔍 Agent Console Users Query:", {
+        channelFilter,
+        subChannelFilter,
+        searchQuery,
+        whereConditions,
+        params: params.map((p, i) => `$${i+1}: ${p}`)
+      });
+
       const result = await pool.query(query, params);
+
+      console.log("📊 Agent Console Users Results:", {
+        totalRows: result.rows.length,
+        sampleChannelTypes: result.rows.slice(0, 5).map(r => r.channel_type),
+        uniqueChannelTypes: [...new Set(result.rows.map(r => r.channel_type))]
+      });
 
       const chatUsers = result.rows.map(row => ({
         userId: row.user_id,

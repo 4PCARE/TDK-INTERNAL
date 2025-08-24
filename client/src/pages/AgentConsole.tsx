@@ -86,10 +86,10 @@ export default function AgentConsole() {
 
   // Define all available channel types
   const allChannelTypes = [
-    { id: "line", name: "Line OA", icon: "📱" },
+    { id: "lineoa", name: "Line OA", icon: "📱" },
     { id: "facebook", name: "Facebook", icon: "f" },
     { id: "tiktok", name: "TikTok", icon: "🎵" },
-    { id: "webwidget", name: "Web Widget", icon: "🌐" },
+    { id: "web", name: "Web Widget", icon: "🌐" },
   ];
 
   // Fetch active users
