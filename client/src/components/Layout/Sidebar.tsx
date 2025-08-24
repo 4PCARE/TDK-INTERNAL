@@ -80,7 +80,7 @@ export default function Sidebar({
     {
       label: "Manage Documents",
       items: [
-        { name: "Upload", href: "/documents", icon: Upload },
+        { name: "Upload", href: "/upload", icon: Upload },
         { name: "Categories", href: "/categories", icon: Tag },
         { name: "Meeting Notes", href: "/meeting-notes", icon: Calendar },
       ]
