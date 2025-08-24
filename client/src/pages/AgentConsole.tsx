@@ -489,37 +489,41 @@ export default function AgentConsole() {
                         messages.map((message) => (
                           <div
                             key={`message-${message.id}-${message.userId}-${message.createdAt}`}
-                            className={`flex space-x-3 ${
+                            className={`flex items-end space-x-2 ${
                               message.messageType === 'user' ? 'justify-start' : 'justify-end'
                             }`}
                           >
                             {message.messageType === 'user' && (
-                              <Avatar className="w-8 h-8">
-                                <AvatarFallback className="text-xs">
-                                  <User className="w-4 h-4" />
+                              <Avatar className="w-7 h-7 mb-1 flex-shrink-0">
+                                <AvatarFallback className="text-xs bg-gray-100">
+                                  <User className="w-3 h-3 text-gray-600" />
                                 </AvatarFallback>
                               </Avatar>
                             )}
 
-                            <div
-                              className={`max-w-xs lg:max-w-md px-4 py-3 rounded-lg shadow-sm ${
-                                message.messageType === 'user'
-                                  ? 'bg-white border border-gray-200 text-gray-900'
-                                  : 'bg-blue-500 text-white'
-                              }`}
-                            >
-                              <div className="text-sm whitespace-pre-wrap">
-                                {message.content}
+                            <div className="flex flex-col max-w-xs lg:max-w-md">
+                              <div
+                                className={`px-4 py-2.5 rounded-2xl shadow-sm ${
+                                  message.messageType === 'user'
+                                    ? 'bg-gray-100 text-gray-900 rounded-bl-md'
+                                    : 'bg-blue-500 text-white rounded-br-md'
+                                }`}
+                              >
+                                <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                                  {message.content}
+                                </div>
                               </div>
-                              <div className="text-xs mt-1 opacity-70">
+                              <div className={`text-xs mt-1 px-2 opacity-60 ${
+                                message.messageType === 'user' ? 'text-gray-500' : 'text-gray-400 text-right'
+                              }`}>
                                 {formatTime(message.createdAt)}
                               </div>
                             </div>
 
                             {message.messageType === 'agent' && (
-                              <Avatar className="w-8 h-8">
-                                <AvatarFallback className="text-xs">
-                                  <Bot className="w-4 h-4" />
+                              <Avatar className="w-7 h-7 mb-1 flex-shrink-0">
+                                <AvatarFallback className="text-xs bg-blue-100">
+                                  <Bot className="w-3 h-3 text-blue-600" />
                                 </AvatarFallback>
                               </Avatar>
                             )}
