@@ -21,7 +21,9 @@ import {
   Clock,
   Trash2,
   FileText,
-  Loader2
+  Loader2,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -87,6 +89,8 @@ export default function InternalAIChat() {
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null);
   const [input, setInput] = useState(""); // Renamed from newMessage to input to match mutation
   const [isCreatingSession, setIsCreatingSession] = useState(false);
+  const [hideAgentPanel, setHideAgentPanel] = useState(false);
+  const [hideSessionPanel, setHideSessionPanel] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const currentSessionId = selectedSession?.id; // For use in mutations
@@ -299,18 +303,29 @@ export default function InternalAIChat() {
     <DashboardLayout>
       <div className="flex h-[calc(100vh-120px)] bg-gray-50 gap-4 p-4">
         {/* Left Panel - Agent List */}
-        <div className="w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
+        {!hideAgentPanel && (
+          <div className="w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">AI Agents</h2>
-              <Button
-                size="sm"
-                onClick={() => window.location.href = '/agent-chatbots'}
-                className="bg-blue-500 hover:bg-blue-600"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Manage
-              </Button>
+              <div className="flex items-center space-x-2">
+                <Button
+                  size="sm"
+                  onClick={() => window.location.href = '/agent-chatbots'}
+                  className="bg-blue-500 hover:bg-blue-600"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Manage
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setHideAgentPanel(true)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
             <p className="text-sm text-gray-500 mt-1">Select an agent to start chatting</p>
           </div>
@@ -386,23 +401,52 @@ export default function InternalAIChat() {
             </div>
           </ScrollArea>
         </div>
+        )}
+
+        {/* Collapsed Agent Panel */}
+        {hideAgentPanel && (
+          <div className="w-12 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col items-center justify-start p-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setHideAgentPanel(false)}
+              className="text-gray-500 hover:text-gray-700 mb-2"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            <div className="text-xs text-gray-400 rotate-90 whitespace-nowrap mt-4">
+              Agents
+            </div>
+          </div>
+        )}
 
         {/* Middle Panel - Session History */}
-        <div className="w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
+        {!hideSessionPanel && (
+          <div className="w-80 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Chat History</h2>
-              {selectedAgent && (
+              <div className="flex items-center space-x-2">
+                {selectedAgent && (
+                  <Button
+                    size="sm"
+                    onClick={handleCreateNewChat}
+                    disabled={createSessionMutation.isPending}
+                    className="bg-green-500 hover:bg-green-600"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Chat
+                  </Button>
+                )}
                 <Button
                   size="sm"
-                  onClick={handleCreateNewChat}
-                  disabled={createSessionMutation.isPending}
-                  className="bg-green-500 hover:bg-green-600"
+                  variant="ghost"
+                  onClick={() => setHideSessionPanel(true)}
+                  className="text-gray-500 hover:text-gray-700"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Chat
+                  <ChevronLeft className="w-4 h-4" />
                 </Button>
-              )}
+              </div>
             </div>
             {selectedAgent && (
               <p className="text-sm text-gray-500 mt-1">
@@ -487,6 +531,24 @@ export default function InternalAIChat() {
             </div>
           </ScrollArea>
         </div>
+        )}
+
+        {/* Collapsed Session Panel */}
+        {hideSessionPanel && (
+          <div className="w-12 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col items-center justify-start p-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setHideSessionPanel(false)}
+              className="text-gray-500 hover:text-gray-700 mb-2"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            <div className="text-xs text-gray-400 rotate-90 whitespace-nowrap mt-4">
+              Sessions
+            </div>
+          </div>
+        )}
 
         {/* Right Panel - Chat Interface */}
         <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
