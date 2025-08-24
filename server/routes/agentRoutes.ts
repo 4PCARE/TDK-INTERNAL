@@ -231,6 +231,9 @@ ${agentConfig.blockedTopics?.length > 0 ? `Blocked topics: ${agentConfig.blocked
 
             console.log(`⚙️ Search config: ${chunkMaxType}=${chunkMaxValue}, mass=${Math.round(documentMass * 100)}%`);
 
+            // Get userId from authenticated user
+            const userId = req.user.claims.sub;
+
             // Use smart hybrid search for testing with custom configuration
             const searchResults = await semanticSearchServiceV2.searchSmartHybridDebug(
               message,
@@ -385,6 +388,9 @@ Memory management: Keep track of conversation context within the last ${agentCon
             const documentMass = searchConfig.documentMass || 0.3;
 
             console.log(`⚙️ Search config: ${chunkMaxType}=${chunkMaxValue}, mass=${Math.round(documentMass * 100)}%`);
+
+            // Get userId from authenticated user
+            const userId = req.user.claims.sub;
 
             // Use smart hybrid search for testing with custom configuration
             const searchResults = await semanticSearchServiceV2.searchSmartHybridDebug(
