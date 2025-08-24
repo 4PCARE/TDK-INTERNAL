@@ -675,7 +675,8 @@ export default function InternalAIChat() {
                         </div>
                       </div>
                     );
-                  })}
+                  })
+                  }
                   {filteredAndSortedAgents.length === 0 && (
                     <div className="text-center py-8 text-gray-500">
                       <Bot className="w-12 h-12 mx-auto mb-2 opacity-50" />
