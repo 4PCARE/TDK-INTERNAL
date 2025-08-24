@@ -584,3 +584,49 @@ export class AdvancedKeywordSearchService {
 }
 
 export const advancedKeywordSearchService = new AdvancedKeywordSearchService();
+import { storage } from "../storage";
+
+export const advancedKeywordSearchService = {
+  async searchDocuments(query: string, userId: string, limit: number = 50) {
+    console.log(`Advanced keyword search: "${query}" for user ${userId}`);
+    
+    try {
+      // For now, delegate to the basic search in storage
+      const results = await storage.searchDocuments(userId, query);
+      
+      // Add similarity scores based on term matching
+      const queryTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+      
+      const scoredResults = results.map((doc: any) => {
+        const searchableText = [
+          doc.name || '',
+          doc.description || '',
+          doc.content || '',
+          doc.summary || '',
+          ...(doc.tags || [])
+        ].join(' ').toLowerCase();
+        
+        // Calculate simple similarity score based on term matches
+        let score = 0;
+        queryTerms.forEach(term => {
+          const matches = (searchableText.match(new RegExp(term, 'g')) || []).length;
+          score += matches;
+        });
+        
+        return {
+          ...doc,
+          similarity: Math.min(score / 10, 1.0) // Normalize to 0-1 range
+        };
+      });
+      
+      // Sort by similarity score
+      return scoredResults
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, limit);
+        
+    } catch (error) {
+      console.error('Advanced keyword search error:', error);
+      throw error;
+    }
+  }
+};

@@ -196,7 +196,7 @@ export function registerDocumentRoutes(app: Express) {
       if (searchKeyword) {
         console.log("Performing keyword search...");
         try {
-          const { advancedKeywordSearchService } = await import('./services/advancedKeywordSearch');
+          const { advancedKeywordSearchService } = await import('../services/advancedKeywordSearch');
           const advancedResults = await advancedKeywordSearchService.searchDocuments(query, userId, 50);
 
           keywordResults = advancedResults.map(result => ({

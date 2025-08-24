@@ -669,36 +669,52 @@ export class DatabaseStorage implements IStorage {
     }
 
     try {
-      // Search through documents for matching content
-      const matchingDocuments = await db.query.documents.findMany({
-        where: (doc, { and, or, like, ilike, desc, asc, inArray, isNull }) => {
-          const searchConditions = searchTerms.map(term => 
-            or(
-              ilike(doc.name, `%${term}%`),
-              ilike(doc.description, `%${term}%`),
-              ilike(doc.content, `%${term}%`),
-              ilike(doc.summary, `%${term}%`),
-              doc.tags && ilike(doc.tags, `%${term}%`) // Check if tags exist and then apply ilike
-            )
-          );
+      // Use raw SQL query to handle array search properly
+      const matchingDocuments = await db.execute(sql`
+        SELECT * FROM documents 
+        WHERE user_id = ${userId}
+        AND (
+          ${sql.join(
+            searchTerms.map(term => sql`(
+              name ILIKE ${`%${term}%`} OR
+              description ILIKE ${`%${term}%`} OR
+              content ILIKE ${`%${term}%`} OR
+              summary ILIKE ${`%${term}%`} OR
+              array_to_string(tags, ',') ILIKE ${`%${term}%`}
+            )`),
+            sql` AND `
+          )}
+        )
+        ORDER BY updated_at DESC
+      `);
 
-          // Combine all search terms with AND logic
-          const combinedSearch = and(...searchConditions);
+      const results = matchingDocuments.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        fileName: row.file_name,
+        filePath: row.file_path,
+        fileSize: row.file_size,
+        mimeType: row.mime_type,
+        content: row.content,
+        summary: row.summary,
+        tags: row.tags,
+        categoryId: row.category_id,
+        userId: row.user_id,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        processedAt: row.processed_at,
+        aiCategory: row.ai_category,
+        aiCategoryColor: row.ai_category_color,
+        isPublic: row.is_public,
+        isEndorsed: row.is_endorsed,
+        endorsedAt: row.endorsed_at,
+        effectiveStartDate: row.effective_start_date,
+        effectiveEndDate: row.effective_end_date
+      }));
 
-          // Add user ID filter
-          return and(
-            eq(doc.userId, userId),
-            combinedSearch
-          );
-        },
-        // You might want to add pagination here as well
-        // limit: 10, 
-        // offset: 0,
-        // orderBy: desc(documents.updatedAt)
-      });
-
-      console.log(`Found ${matchingDocuments.length} documents matching search query`);
-      return matchingDocuments;
+      console.log(`Found ${results.length} documents matching search query`);
+      return results;
     } catch (error) {
       console.error('Error searching documents:', error);
       throw error;
