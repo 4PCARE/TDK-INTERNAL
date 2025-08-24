@@ -16,6 +16,8 @@ import {
   Send,
   Loader2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Edit2,
   Trash2,
   User,
