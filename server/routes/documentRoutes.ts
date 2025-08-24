@@ -1,5 +1,6 @@
 import type { Express } from "express";
-import { isAuthenticated, isMicrosoftAuthenticated } from "../replitAuth";
+import { isAuthenticated } from "../replitAuth";
+import { isMicrosoftAuthenticated } from "../microsoftAuth";
 import { storage } from "../storage";
 import { semanticSearchServiceV2 } from "../services/semanticSearchV2";
 import multer from "multer";
@@ -8,7 +9,6 @@ import fs from "fs/promises";
 import * as fsSync from "fs";
 import { processDocument, generateChatResponse } from "../services/openai";
 import { insertChatConversationSchema, insertChatMessageSchema } from "@shared/schema";
-import { upload } from "./shared";
 import { eq, sql } from "drizzle-orm";
 import { users, departments } from "@shared/schema";
 import { vectorService } from "../services/vectorService";
