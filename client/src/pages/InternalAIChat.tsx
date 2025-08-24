@@ -160,7 +160,7 @@ export default function InternalAIChat() {
 
       // If a bot is selected, use proper agent bot service (same as LINE OA)
       if (selectedBot) {
-        console.log('🤖 Using AgentBot Service (same as LINE OA)');
+        console.log('🤖 Using Internal Agent Chat Service (same as LINE OA)');
         const requestPayload = {
           message: content,
           agentId: selectedBot,
@@ -168,7 +168,7 @@ export default function InternalAIChat() {
           channelId: 'internal-chat-' + Date.now(),
           documentIds: selectedDocument ? [selectedDocument] : []
         };
-        console.log('📤 AgentBot Request Payload:', requestPayload);
+        console.log('📤 Internal Agent Chat Request Payload:', requestPayload);
 
         const response = await apiRequest("POST", "/api/internal-agent-chat", requestPayload);
 
