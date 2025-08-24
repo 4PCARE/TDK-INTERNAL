@@ -32,60 +32,25 @@ import {
 import { cn } from "@/lib/utils";
 import ReactMarkdown from 'react-markdown';
 
-// Mock functions for demonstration purposes. Replace with actual imports.
+// Real API request function
 const apiRequest = async (method: string, url: string, body?: any) => {
-  // Simulate API call
-  console.log(`API Call: ${method} ${url}`, body);
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-  if (url === '/api/internal-agent-chat' && method === 'POST') {
-    // Simulate a successful response
-    return {
-      ok: true,
-      json: async () => ({ id: Date.now(), role: 'assistant', content: 'This is a simulated response.', createdAt: new Date().toISOString() })
-    };
+  const options: RequestInit = {
+    method: method.toUpperCase(),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  };
+
+  if (body && method.toUpperCase() !== 'GET') {
+    options.body = JSON.stringify(body);
   }
-  if (url.startsWith('/api/internal-agent-chat/sessions') && method === 'POST') {
-    return {
-      ok: true,
-      json: async () => ({ id: Date.now(), title: 'New Chat', agentId: body.agentId, lastMessageAt: new Date().toISOString(), messageCount: 0 })
-    };
-  }
-  if (url.startsWith('/api/internal-agent-chat/sessions') && method === 'DELETE') {
-    return { ok: true };
-  }
-  if (url.includes('agent-chatbots')) {
-    return {
-      ok: true,
-      json: async () => [
-        { id: 1, name: 'Support Bot', description: 'Handles customer inquiries', isActive: true, channels: ['web'], createdAt: new Date().toISOString() },
-        { id: 2, name: 'Sales Bot', description: 'Assists with sales process', isActive: false, channels: ['web', 'email'], createdAt: new Date().toISOString() },
-      ]
-    };
-  }
-  if (url.includes('sessions')) {
-    return {
-      ok: true,
-      json: async () => [
-        { id: 101, title: 'Previous Issue', agentId: 1, lastMessage: 'Still having problems.', lastMessageAt: new Date().toISOString(), messageCount: 5 },
-        { id: 102, title: 'New Inquiry', agentId: 1, lastMessage: 'Need help with setup.', lastMessageAt: new Date().toISOString(), messageCount: 2 },
-      ]
-    };
-  }
-  if (url.includes('messages')) {
-    return {
-      ok: true,
-      json: async () => [
-        { id: 1001, role: 'user', content: 'Hello there!', createdAt: new Date(Date.now() - 10000).toISOString() },
-        { id: 1002, role: 'assistant', content: 'Hi! How can I assist you today?', createdAt: new Date(Date.now() - 5000).toISOString() },
-      ]
-    };
-  }
-  return { ok: false, text: async () => 'Not Found' };
+
+  const response = await fetch(url, options);
+  return response;
 };
 
 const isUnauthorizedError = (error: any): boolean => {
-  // Simulate checking for unauthorized error
-  return error.message?.includes('401');
+  return error.message?.includes('401') || error.message?.includes('Unauthorized');
 };
 
 
