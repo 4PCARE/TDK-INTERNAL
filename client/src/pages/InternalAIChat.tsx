@@ -581,6 +581,18 @@ export default function InternalAIChat() {
                 </div>
               </div>
               <p className="text-sm text-gray-500 mt-1">Select an agent to start chatting</p>
+              
+              {/* Search input for bots */}
+              <div className="mt-3 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="Search agents..."
+                  value={botSearchTerm}
+                  onChange={(e) => setBotSearchTerm(e.target.value)}
+                  className="pl-10 h-9"
+                />
+              </div>
             </div>
 
             <ScrollArea className="flex-1">
@@ -670,7 +682,7 @@ export default function InternalAIChat() {
                       <p>No agents found matching your search</p>
                     </div>
                   )}
-                </SEC>
+                </div>
               )}
             </ScrollArea>
           </div>
