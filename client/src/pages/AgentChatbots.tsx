@@ -99,6 +99,17 @@ export default function AgentChatbots() {
     refetchOnMount: true,
   }) as { data: AgentChatbot[]; isLoading: boolean };
 
+  // Fetch all sessions to get latest session timestamps
+  const { data: allSessions = [] } = useQuery({
+    queryKey: ["/api/internal-agent-chat/sessions"],
+    enabled: isAuthenticated,
+    retry: false,
+    refetchInterval: 60000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+  }) as { data: any[]; isLoading: boolean };
+
   // Add manual refresh functionality
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -303,12 +314,46 @@ export default function AgentChatbots() {
     ));
   };
 
-  // Filter agents based on search term
-  const filteredAgents = agents.filter((agent) =>
-    agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (agent.description && agent.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    agent.channels.some(channel => channel.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Helper function to get the latest session timestamp for an agent
+  const getLatestSessionTimestamp = (agentId: number): string => {
+    const agentSessions = allSessions.filter(session => session.agentId === agentId);
+    if (agentSessions.length === 0) {
+      return ""; // No sessions found
+    }
+    
+    // Find the most recent session
+    const latestSession = agentSessions.reduce((latest, current) => {
+      const latestTime = new Date(latest.lastMessageAt || latest.createdAt).getTime();
+      const currentTime = new Date(current.lastMessageAt || current.createdAt).getTime();
+      return currentTime > latestTime ? current : latest;
+    });
+    
+    return latestSession.lastMessageAt || latestSession.createdAt;
+  };
+
+  // Filter and sort agents based on search term and latest session recency
+  const filteredAgents = agents
+    .filter((agent) =>
+      agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (agent.description && agent.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      agent.channels.some(channel => channel.toLowerCase().includes(searchTerm.toLowerCase()))
+    )
+    .sort((a, b) => {
+      const aLatestSession = getLatestSessionTimestamp(a.id);
+      const bLatestSession = getLatestSessionTimestamp(b.id);
+      
+      // If both have sessions, sort by latest session timestamp (most recent first)
+      if (aLatestSession && bLatestSession) {
+        return new Date(bLatestSession).getTime() - new Date(aLatestSession).getTime();
+      }
+      
+      // If only one has sessions, prioritize the one with sessions
+      if (aLatestSession && !bLatestSession) return -1;
+      if (!aLatestSession && bLatestSession) return 1;
+      
+      // If neither has sessions, sort by creation date (most recent first)
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
   // Pagination logic
   const totalPages = Math.ceil(filteredAgents.length / itemsPerPage);
@@ -457,11 +502,18 @@ export default function AgentChatbots() {
                 <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
                   <div className="flex items-center space-x-1">
                     <Calendar className="w-3 h-3" />
-                    <span>Created {new Date(agent.createdAt).toLocaleDateString()}</span>
+                    {(() => {
+                      const latestSessionTime = getLatestSessionTimestamp(agent.id);
+                      if (latestSessionTime) {
+                        return <span>Last used {new Date(latestSessionTime).toLocaleDateString()}</span>;
+                      } else {
+                        return <span>Created {new Date(agent.createdAt).toLocaleDateString()}</span>;
+                      }
+                    })()}
                   </div>
                   <div className="flex items-center space-x-1">
                     <MessageCircle className="w-3 h-3" />
-                    <span>0 chats</span>
+                    <span>{allSessions.filter(session => session.agentId === agent.id).length} chats</span>
                   </div>
                 </div>
 
