@@ -52,7 +52,7 @@ export default function LiveChatWidget() {
   const [isCreating, setIsCreating] = useState(false);
   const [editingWidget, setEditingWidget] = useState<ChatWidget | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
-  const [isDialogOpen, setDialogOpen] = useState(false); // State to control the dialog visibility
+  const [isDialogOpen, setDialogOpen] = useState(false);
 
   // Form state for creating/editing widgets
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -95,14 +95,15 @@ export default function LiveChatWidget() {
       setIsCreating(false);
       setFormData({
         name: "",
-        welcomeMessage: "",
+        welcomeMessage: "Hi! How can I help you today?",
         position: "bottom-right",
-        primaryColor: "#3B82F6",
-        textColor: "#FFFFFF",
+        primaryColor: "#2563eb",
+        textColor: "#ffffff",
         enableHrLookup: false,
+        hrApiEndpoint: '',
         agentId: null
       });
-      setDialogOpen(false); // Close dialog after success
+      setDialogOpen(false);
     },
     onError: (error: Error) => {
       toast({
@@ -128,14 +129,15 @@ export default function LiveChatWidget() {
       setEditingWidget(null);
       setFormData({
         name: "",
-        welcomeMessage: "",
+        welcomeMessage: "Hi! How can I help you today?",
         position: "bottom-right",
-        primaryColor: "#3B82F6",
-        textColor: "#FFFFFF",
+        primaryColor: "#2563eb",
+        textColor: "#ffffff",
         enableHrLookup: false,
+        hrApiEndpoint: '',
         agentId: null
       });
-      setDialogOpen(false); // Close dialog after success
+      setDialogOpen(false);
     },
     onError: (error: Error) => {
       toast({
@@ -492,7 +494,7 @@ export default function LiveChatWidget() {
 
           {/* Widget Form / Details */}
           <div>
-            {(isCreating || editingWidget) && isDialogOpen && ( // Show form only when creating or editing and dialog is open
+            {isDialogOpen && ( // Show form when dialog is open
               <Card>
                 <CardHeader>
                   <CardTitle>{editingWidget ? "Edit Widget" : "Create New Widget"}</CardTitle>
@@ -597,7 +599,21 @@ export default function LiveChatWidget() {
                       <Button type="submit" disabled={createWidgetMutation.isPending || updateWidgetMutation.isPending}>
                         {editingWidget ? (updateWidgetMutation.isPending ? "Saving..." : "Save Changes") : (createWidgetMutation.isPending ? "Creating..." : "Create Widget")}
                       </Button>
-                      <Button type="button" variant="outline" onClick={() => { setIsCreating(false); setEditingWidget(null); setDialogOpen(false); }}>
+                      <Button type="button" variant="outline" onClick={() => { 
+                        setIsCreating(false); 
+                        setEditingWidget(null); 
+                        setDialogOpen(false);
+                        setFormData({
+                          name: "",
+                          welcomeMessage: "Hi! How can I help you today?",
+                          position: "bottom-right",
+                          primaryColor: "#2563eb",
+                          textColor: "#ffffff",
+                          enableHrLookup: false,
+                          hrApiEndpoint: '',
+                          agentId: null
+                        });
+                      }}>
                         Cancel
                       </Button>
                     </div>
