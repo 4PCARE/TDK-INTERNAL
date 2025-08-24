@@ -243,7 +243,7 @@ async function getAiResponseDirectly(
 
     if (!skipSearch) {
       let agentDocs;
-      
+
       // For widget contexts, use widget-specific methods that don't require user ownership
       if (channelType === 'web' || channelType === 'chat_widget') {
         agentDocs = await storage.getAgentChatbotDocumentsForWidget(agentId);
@@ -507,6 +507,22 @@ async function getAiResponseDirectly(
       }
 
       if (finalSearchResults.length > 0) {
+        // Get document names for better context
+            const documentIds = [...new Set(finalSearchResults.map(r => parseInt(r.documentId || r.metadata?.originalDocumentId || '0')))].filter(id => id > 0);
+            const documentNamesMap = new Map<number, string>();
+
+            if (documentIds.length > 0) {
+              try {
+                const documentsWithNames = await storage.getDocumentsByIds(documentIds, userId);
+                documentsWithNames.forEach(doc => {
+                  documentNamesMap.set(doc.id, doc.name);
+                });
+                console.log(`📄 AgentBot: Retrieved names for ${documentNamesMap.size} documents`);
+              } catch (error) {
+                console.warn(`⚠️ AgentBot: Could not retrieve document names:`, error);
+              }
+            }
+
         // Build document context from search results
         let documentContext = "";
         const maxContextLength = tokenLimitEnabled && tokenLimitType === 'document'
@@ -519,10 +535,12 @@ async function getAiResponseDirectly(
         );
         for (let i = 0; i < finalSearchResults.length; i++) {
           const result = finalSearchResults[i];
-          const chunkText = `=== ข้อมูลที่ ${i + 1}: ${result.name} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${result.content}\n\n`;
+          const docId = parseInt(result.documentId || result.metadata?.originalDocumentId || '0');
+          const documentName = documentNamesMap.get(docId) || result.name || `เอกสาร ${docId}`;
+          const chunkText = `=== ข้อมูลที่ ${i + 1}: ${documentName} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${result.content}\n\n`;
 
           console.log(
-            `  ${i + 1}. ${result.name} - Similarity: ${result.similarity.toFixed(4)}`,
+            `  ${i + 1}. ${documentName} (ID: ${docId}) - Similarity: ${result.similarity.toFixed(4)}`,
           );
           console.log(
             `      Content preview: ${result.content.substring(0, 100)}...`,
@@ -539,7 +557,7 @@ async function getAiResponseDirectly(
             const remainingSpace =
               maxContextLength - documentContext.length;
             if (remainingSpace > 300) {
-              const headerText = `=== ข้อมูลที่ ${i + 1}: ${result.name} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: `;
+              const headerText = `=== ข้อมูลที่ ${i + 1}: ${documentName} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: `;
               const availableContentSpace = remainingSpace - headerText.length - 10; // 10 chars for "...\n\n"
               if (availableContentSpace > 100) {
                 const truncatedContent =
@@ -827,7 +845,7 @@ async function processImageMessage(
 ): Promise<string> {
   console.log("🖼️ AgentBot: Starting image processing...");
   const imageService = LineImageService.getInstance();
-  
+
   try {
     // Wait for image processing to complete
     await imageService.processImageMessage(
@@ -908,7 +926,7 @@ export async function processMessage(
     // Handle different message types
     if (message.type === "image") {
       console.log("🖼️ AgentBot: Image message detected - processing image analysis");
-      
+
       // Return immediate acknowledgment and set up image processing
       return {
         success: true,
@@ -1022,13 +1040,13 @@ export async function checkCarouselIntents(
 ): Promise<{ matched: boolean; template?: any; similarity?: number }> {
   try {
     console.log(`🎠 AgentBot: Checking carousel intents for: "${userMessage}"`);
-    
+
     // Use the carousel service
     const { checkCarouselIntents: carouselServiceCheck } = await import("./services/carouselService");
-    
+
     // Call the carousel service function
     const result = await carouselServiceCheck(userMessage, integrationId, userId);
-    
+
     console.log(`🎠 AgentBot: Carousel intent check result: ${result.matched}`);
     return {
       matched: result.matched,

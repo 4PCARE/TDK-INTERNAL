@@ -641,35 +641,35 @@ export class DatabaseStorage implements IStorage {
     }
 
     try {
-      // Get documents - either all user docs or filtered by specific IDs
-      let documents;
-      if (specificDocumentIds && specificDocumentIds.length > 0) {
-        documents = await this.getDocumentsByIds(specificDocumentIds, userId);
-        console.log(`Found ${documents.length} specific documents for user ${userId}`);
-      } else {
-        documents = await this.getDocuments(userId);
-        console.log(`Found ${documents.length} total documents for user ${userId}`);
-      }
-
       // Search through documents for matching content
-      const matchingDocuments = documents.filter(doc => {
-        const searchableText = [
-          doc.name || '',
-          doc.description || '',
-          doc.content || '',
-          doc.summary || '',
-          ...(doc.tags || [])
-        ].join(' ').toLowerCase();
-
-        // For proper keyword search, require ALL terms to be present (AND logic)
-        const hasAllTerms = searchTerms.every(term => 
-          searchableText.includes(term)
-        );
-
-        return hasAllTerms;
+      const matchingDocuments = await db.query.documents.findMany({
+        where: (doc, { and, or, like, ilike, desc, asc, inArray, isNull }) => {
+          const searchConditions = searchTerms.map(term => 
+            or(
+              ilike(doc.name, `%${term}%`),
+              ilike(doc.description, `%${term}%`),
+              ilike(doc.content, `%${term}%`),
+              ilike(doc.summary, `%${term}%`),
+              doc.tags && ilike(doc.tags, `%${term}%`) // Check if tags exist and then apply ilike
+            )
+          );
+          
+          // Combine all search terms with AND logic
+          const combinedSearch = and(...searchConditions);
+          
+          // Add user ID filter
+          return and(
+            eq(doc.userId, userId),
+            combinedSearch
+          );
+        },
+        // You might want to add pagination here as well
+        // limit: 10, 
+        // offset: 0,
+        // orderBy: desc(documents.updatedAt)
       });
 
-      console.log(`Found ${matchingDocuments.length} documents matching ALL search terms`);
+      console.log(`Found ${matchingDocuments.length} documents matching search query`);
       return matchingDocuments;
     } catch (error) {
       console.error('Error searching documents:', error);
