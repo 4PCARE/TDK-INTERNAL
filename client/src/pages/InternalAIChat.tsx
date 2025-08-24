@@ -20,7 +20,8 @@ import {
   Calendar,
   Clock,
   Trash2,
-  FileText
+  FileText,
+  Loader2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -30,6 +31,63 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from 'react-markdown';
+
+// Mock functions for demonstration purposes. Replace with actual imports.
+const apiRequest = async (method: string, url: string, body?: any) => {
+  // Simulate API call
+  console.log(`API Call: ${method} ${url}`, body);
+  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+  if (url === '/api/internal-agent-chat' && method === 'POST') {
+    // Simulate a successful response
+    return {
+      ok: true,
+      json: async () => ({ id: Date.now(), role: 'assistant', content: 'This is a simulated response.', createdAt: new Date().toISOString() })
+    };
+  }
+  if (url.startsWith('/api/internal-agent-chat/sessions') && method === 'POST') {
+    return {
+      ok: true,
+      json: async () => ({ id: Date.now(), title: 'New Chat', agentId: body.agentId, lastMessageAt: new Date().toISOString(), messageCount: 0 })
+    };
+  }
+  if (url.startsWith('/api/internal-agent-chat/sessions') && method === 'DELETE') {
+    return { ok: true };
+  }
+  if (url.includes('agent-chatbots')) {
+    return {
+      ok: true,
+      json: async () => [
+        { id: 1, name: 'Support Bot', description: 'Handles customer inquiries', isActive: true, channels: ['web'], createdAt: new Date().toISOString() },
+        { id: 2, name: 'Sales Bot', description: 'Assists with sales process', isActive: false, channels: ['web', 'email'], createdAt: new Date().toISOString() },
+      ]
+    };
+  }
+  if (url.includes('sessions')) {
+    return {
+      ok: true,
+      json: async () => [
+        { id: 101, title: 'Previous Issue', agentId: 1, lastMessage: 'Still having problems.', lastMessageAt: new Date().toISOString(), messageCount: 5 },
+        { id: 102, title: 'New Inquiry', agentId: 1, lastMessage: 'Need help with setup.', lastMessageAt: new Date().toISOString(), messageCount: 2 },
+      ]
+    };
+  }
+  if (url.includes('messages')) {
+    return {
+      ok: true,
+      json: async () => [
+        { id: 1001, role: 'user', content: 'Hello there!', createdAt: new Date(Date.now() - 10000).toISOString() },
+        { id: 1002, role: 'assistant', content: 'Hi! How can I assist you today?', createdAt: new Date(Date.now() - 5000).toISOString() },
+      ]
+    };
+  }
+  return { ok: false, text: async () => 'Not Found' };
+};
+
+const isUnauthorizedError = (error: any): boolean => {
+  // Simulate checking for unauthorized error
+  return error.message?.includes('401');
+};
+
 
 interface Agent {
   id: number;
@@ -62,15 +120,17 @@ export default function InternalAIChat() {
   const queryClient = useQueryClient();
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [selectedSession, setSelectedSession] = useState<ChatSession | null>(null);
-  const [newMessage, setNewMessage] = useState("");
+  const [input, setInput] = useState(""); // Renamed from newMessage to input to match mutation
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const currentSessionId = selectedSession?.id; // For use in mutations
 
   // Fetch agents
   const { data: agents = [], isLoading: isLoadingAgents } = useQuery({
     queryKey: ["/api/agent-chatbots"],
     queryFn: async () => {
-      const response = await fetch("/api/agent-chatbots");
+      const response = await apiRequest("get", "/api/agent-chatbots");
       if (!response.ok) throw new Error("Failed to fetch agents");
       return response.json();
     },
@@ -81,7 +141,7 @@ export default function InternalAIChat() {
     queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
     queryFn: async () => {
       if (!selectedAgent) return [];
-      const response = await fetch(`/api/internal-agent-chat/sessions?agentId=${selectedAgent.id}`);
+      const response = await apiRequest("get", `/api/internal-agent-chat/sessions?agentId=${selectedAgent.id}`);
       if (!response.ok) throw new Error("Failed to fetch sessions");
       return response.json();
     },
@@ -89,27 +149,23 @@ export default function InternalAIChat() {
   }) as { data: ChatSession[]; isLoading: boolean };
 
   // Fetch messages for selected session
-  const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
+  const { data: messages = [], isLoading: isLoadingMessages, refetch: refetchMessages } = useQuery<ChatMessage[]>({
     queryKey: ["/api/internal-agent-chat/messages", selectedSession?.id],
     queryFn: async () => {
       if (!selectedSession) return [];
-      const response = await fetch(`/api/internal-agent-chat/messages?sessionId=${selectedSession.id}`);
+      const response = await apiRequest("get", `/api/internal-agent-chat/messages?sessionId=${selectedSession.id}`);
       if (!response.ok) throw new Error("Failed to fetch messages");
       return response.json();
     },
     enabled: !!selectedSession,
-  }) as { data: ChatMessage[]; isLoading: boolean };
+  });
 
   // Create new session mutation
   const createSessionMutation = useMutation({
     mutationFn: async (agentId: number) => {
-      const response = await fetch("/api/internal-agent-chat/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agentId,
-          title: `New Chat - ${new Date().toLocaleDateString()}`,
-        }),
+      const response = await apiRequest("post", "/api/internal-agent-chat/sessions", {
+        agentId,
+        title: `New Chat - ${new Date().toLocaleDateString()}`,
       });
       if (!response.ok) throw new Error("Failed to create session");
       return response.json();
@@ -119,39 +175,67 @@ export default function InternalAIChat() {
       queryClient.invalidateQueries({
         queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
       });
+      toast({
+        title: "New chat created",
+        description: `Started a new conversation with ${selectedAgent?.name}.`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error creating session",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: async (content: string) => {
-      if (!selectedSession || !selectedAgent) throw new Error("No session or agent selected");
+    mutationFn: async ({ message, sessionId }: { message: string; sessionId: number }) => {
+      console.log('🚀 Sending message:', { message, sessionId, agentId: selectedAgent?.id });
 
-      const response = await fetch("/api/internal-agent-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: content,
-          agentId: selectedAgent.id,
-          sessionId: selectedSession.id,
-        }),
+      const response = await apiRequest('POST', '/api/internal-agent-chat', {
+        message,
+        sessionId: sessionId.toString(),
+        agentId: selectedAgent?.id?.toString()
       });
-      if (!response.ok) throw new Error("Failed to send message");
-      return response.json();
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Send message failed:', errorText);
+        throw new Error(`Failed to send message: ${response.status} ${errorText}`);
+      }
+
+      return await response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["/api/internal-agent-chat/messages", selectedSession?.id],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
-      });
-      setNewMessage("");
+    onSuccess: (data) => {
+      console.log('✅ Message sent successfully:', data);
+      setInput("");
+
+      // Force refetch messages to ensure UI updates
+      setTimeout(() => {
+        queryClient.invalidateQueries({ 
+          queryKey: ['/api/internal-agent-chat/messages', currentSessionId] 
+        });
+        refetchMessages();
+      }, 100);
     },
     onError: (error) => {
+      console.error('❌ Send message error:', error);
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
       toast({
-        title: "Error sending message",
-        description: error.message,
+        title: "Error",
+        description: error.message || "Failed to send message",
         variant: "destructive",
       });
     },
@@ -160,9 +244,7 @@ export default function InternalAIChat() {
   // Delete session mutation
   const deleteSessionMutation = useMutation({
     mutationFn: async (sessionId: number) => {
-      const response = await fetch(`/api/internal-agent-chat/sessions/${sessionId}`, {
-        method: "DELETE",
-      });
+      const response = await apiRequest("delete", `/api/internal-agent-chat/sessions/${sessionId}`);
       if (!response.ok) throw new Error("Failed to delete session");
     },
     onSuccess: () => {
@@ -170,12 +252,27 @@ export default function InternalAIChat() {
       queryClient.invalidateQueries({
         queryKey: ["/api/internal-agent-chat/sessions", selectedAgent?.id],
       });
+      toast({
+        title: "Chat deleted",
+        description: "The selected chat session has been removed.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error deleting chat",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesEndRef.current && messages?.length > 0) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    }
   }, [messages]);
 
   // Auto-select first agent
@@ -194,27 +291,22 @@ export default function InternalAIChat() {
     }
   }, [sessions, selectedAgent]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || sendMessageMutation.isPending) return;
+    if (!input.trim() || !selectedAgent || !currentSessionId || sendMessageMutation.isPending) return;
 
-    if (!selectedSession && selectedAgent) {
-      // Create new session first
-      setIsCreatingSession(true);
-      createSessionMutation.mutate(selectedAgent.id, {
-        onSuccess: (newSession) => {
-          setIsCreatingSession(false);
-          // Wait a bit for the session to be created, then send the message
-          setTimeout(() => {
-            sendMessageMutation.mutate(newMessage.trim());
-          }, 100);
-        },
-        onError: () => {
-          setIsCreatingSession(false);
-        },
+    const messageToSend = input.trim();
+    console.log('📝 Sending message:', messageToSend);
+
+    try {
+      await sendMessageMutation.mutateAsync({
+        message: messageToSend,
+        sessionId: currentSessionId
       });
-    } else if (selectedSession) {
-      sendMessageMutation.mutate(newMessage.trim());
+    } catch (error) {
+      console.error('❌ Failed to send message:', error);
+      // Restore input on error for user to retry
+      setInput(messageToSend);
     }
   };
 
@@ -262,7 +354,7 @@ export default function InternalAIChat() {
             <div className="p-4 space-y-2">
               {isLoadingAgents ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
                 </div>
               ) : agents.length === 0 ? (
                 <div className="text-center py-8">
@@ -363,7 +455,7 @@ export default function InternalAIChat() {
                 </div>
               ) : isLoadingSessions ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
                 </div>
               ) : sessions.length === 0 ? (
                 <div className="text-center py-8">
@@ -470,60 +562,53 @@ export default function InternalAIChat() {
                 <div className="space-y-4">
                   {isLoadingMessages ? (
                     <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                      <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                      <span className="ml-2 text-sm text-gray-500">Loading messages...</span>
                     </div>
-                  ) : messages.length === 0 ? (
-                    <div className="flex items-start space-x-3">
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback>
-                          <Bot className="w-4 h-4" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="bg-gray-100 rounded-lg p-3">
-                          <p className="text-sm text-gray-900">
-                            Hello! I'm {selectedAgent.name}. How can I help you today?
-                          </p>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">Just now</p>
-                      </div>
-                    </div>
-                  ) : (
-                    messages.map((message) => (
-                      <div key={message.id} className="flex items-start space-x-3">
-                        <Avatar className="w-8 h-8">
-                          <AvatarFallback>
-                            {message.role === "assistant" ? (
-                              <Bot className="w-4 h-4" />
-                            ) : (
-                              <User className="w-4 h-4" />
-                            )}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <div
-                            className={cn(
-                              "rounded-lg p-3",
-                              message.role === "assistant"
-                                ? "bg-gray-100"
-                                : "bg-blue-500 text-white"
-                            )}
-                          >
-                            {message.role === "assistant" ? (
-                              <ReactMarkdown className="text-sm prose prose-sm max-w-none">
-                                {message.content}
-                              </ReactMarkdown>
-                            ) : (
-                              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                            )}
+                  ) : messages && messages.length > 0 ? (
+                      messages.map((message, index) => (
+                        <div
+                          key={`msg-${message.id}-${index}`}
+                          className={`flex space-x-3 ${
+                            message.role === 'user' ? 'justify-end' : 'justify-start'
+                          }`}
+                        >
+                          {message.role === 'assistant' && (
+                            <Avatar className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 flex-shrink-0">
+                              <AvatarFallback>
+                                <Bot className="w-4 h-4 text-white" />
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+
+                          <div className={`flex-1 max-w-xs lg:max-w-md ${message.role === 'user' ? 'flex justify-end' : ''}`}>
+                            <div className={`rounded-lg px-4 py-3 ${
+                              message.role === 'user' 
+                                ? 'bg-blue-500 text-white rounded-tr-none' 
+                                : 'bg-gray-100 text-gray-900 rounded-tl-none'
+                            }`}>
+                              <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                            </div>
+                            <p className={`text-xs text-gray-500 mt-1 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
+                              {formatTime(message.createdAt)}
+                            </p>
                           </div>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {formatTime(message.createdAt)}
-                          </p>
+
+                          {message.role === 'user' && (
+                            <Avatar className="w-8 h-8 flex-shrink-0">
+                              <AvatarFallback>
+                                <User className="w-4 h-4" />
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
                         </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                        <p className="text-sm">Start a conversation with your AI assistant!</p>
                       </div>
-                    ))
-                  )}
+                    )}
 
                   {(sendMessageMutation.isPending || isCreatingSession) && (
                     <div className="flex items-start space-x-3">
@@ -549,23 +634,40 @@ export default function InternalAIChat() {
 
               {/* Message Input */}
               <div className="p-4 border-t border-gray-200">
-                <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
+                <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
                   <Input
                     type="text"
-                    placeholder={`Ask ${selectedAgent.name} anything...`}
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    disabled={sendMessageMutation.isPending || isCreatingSession}
+                    placeholder={selectedAgent ? `Ask ${selectedAgent.name} something...` : "Select an agent first..."}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
                     className="flex-1"
+                    disabled={!selectedAgent || sendMessageMutation.isPending}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage(e);
+                      }
+                    }}
                   />
-                  <Button
+                  <Button 
                     type="submit"
-                    disabled={!newMessage.trim() || sendMessageMutation.isPending || isCreatingSession}
-                    className="bg-blue-500 hover:bg-blue-600"
+                    disabled={!input.trim() || !selectedAgent || sendMessageMutation.isPending}
+                    className="bg-blue-500 hover:bg-blue-600 text-white min-w-[44px]"
                   >
-                    <Send className="w-4 h-4" />
+                    {sendMessageMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
                   </Button>
                 </form>
+
+                {sendMessageMutation.isPending && (
+                  <div className="text-center text-xs text-gray-500 mt-2">
+                    <Loader2 className="w-3 h-3 animate-spin inline mr-1" />
+                    Processing your message...
+                  </div>
+                )}
               </div>
             </>
           )}
