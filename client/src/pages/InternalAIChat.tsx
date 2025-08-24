@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,11 +9,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
-import { 
-  MessageSquare, 
-  Bot, 
-  User, 
-  Send, 
+import {
+  MessageSquare,
+  Bot,
+  User,
+  Send,
   Plus,
   Settings,
   MoreVertical,
@@ -442,7 +441,7 @@ export default function InternalAIChat() {
                   {!selectedAgent ? "Select an Agent" : "Select a Chat Session"}
                 </h3>
                 <p className="text-gray-500">
-                  {!selectedAgent 
+                  {!selectedAgent
                     ? "Choose an AI agent from the left panel to start chatting"
                     : "Select a chat session from the middle panel or create a new one"
                   }
@@ -525,7 +524,7 @@ export default function InternalAIChat() {
                       </div>
                     ))
                   )}
-                  
+
                   {(sendMessageMutation.isPending || isCreatingSession) && (
                     <div className="flex items-start space-x-3">
                       <Avatar className="w-8 h-8">

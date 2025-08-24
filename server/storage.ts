@@ -20,6 +20,7 @@ import {
   lineMessageTemplates,
   lineCarouselColumns,
   lineTemplateActions,
+  internalAgentChatSessions,
   type User,
   type UpsertUser,
   type Category,
@@ -57,6 +58,8 @@ import {
   type InsertLineCarouselColumn,
   type LineTemplateAction,
   type InsertLineTemplateAction,
+  type InternalAgentChatSession,
+  type InsertInternalAgentChatSession,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, like, count, sql, ilike, getTableColumns, gte, lte, inArray } from "drizzle-orm";
@@ -215,6 +218,13 @@ export interface IStorage {
       actions: LineTemplateAction[];
     }>;
   } | undefined>;
+
+  // Internal Agent Chat Session operations
+  getInternalAgentChatSessions(userId: string): Promise<InternalAgentChatSession[]>;
+  getInternalAgentChatSession(sessionId: number, userId: string): Promise<InternalAgentChatSession | undefined>;
+  createInternalAgentChatSession(session: InsertInternalAgentChatSession): Promise<InternalAgentChatSession>;
+  updateInternalAgentChatSession(sessionId: number, userId: string, updates: { title?: string }): Promise<InternalAgentChatSession>;
+  deleteInternalAgentChatSession(sessionId: number, userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -653,10 +663,10 @@ export class DatabaseStorage implements IStorage {
               doc.tags && ilike(doc.tags, `%${term}%`) // Check if tags exist and then apply ilike
             )
           );
-          
+
           // Combine all search terms with AND logic
           const combinedSearch = and(...searchConditions);
-          
+
           // Add user ID filter
           return and(
             eq(doc.userId, userId),
@@ -2157,6 +2167,67 @@ export class DatabaseStorage implements IStorage {
       template,
       columns: columnsWithActions,
     };
+  }
+
+  // Internal Agent Chat Session operations
+  async getInternalAgentChatSessions(userId: string): Promise<InternalAgentChatSession[]> {
+    return await db
+      .select()
+      .from(internalAgentChatSessions)
+      .where(eq(internalAgentChatSessions.userId, userId))
+      .orderBy(desc(internalAgentChatSessions.createdAt));
+  }
+
+  async getInternalAgentChatSession(sessionId: number, userId: string): Promise<InternalAgentChatSession | undefined> {
+    const [session] = await db
+      .select()
+      .from(internalAgentChatSessions)
+      .where(
+        and(
+          eq(internalAgentChatSessions.id, sessionId),
+          eq(internalAgentChatSessions.userId, userId)
+        )
+      );
+    return session;
+  }
+
+  async createInternalAgentChatSession(session: InsertInternalAgentChatSession): Promise<InternalAgentChatSession> {
+    const [newSession] = await db
+      .insert(internalAgentChatSessions)
+      .values({
+        ...session,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+      .returning();
+    return newSession;
+  }
+
+  async updateInternalAgentChatSession(sessionId: number, userId: string, updates: { title?: string }): Promise<InternalAgentChatSession> {
+    const [updatedSession] = await db.update(internalAgentChatSessions)
+      .set({
+        ...updates,
+        updatedAt: new Date().toISOString()
+      })
+      .where(
+        and(
+          eq(internalAgentChatSessions.id, sessionId),
+          eq(internalAgentChatSessions.userId, userId)
+        )
+      )
+      .returning();
+
+    return updatedSession;
+  }
+
+  async deleteInternalAgentChatSession(sessionId: number, userId: string): Promise<void> {
+    await db.delete(internalAgentChatSessions)
+      .where(
+        and(
+          eq(internalAgentChatSessions.id, sessionId),
+          eq(internalAgentChatSessions.userId, userId)
+        )
+      );
   }
 }
 
