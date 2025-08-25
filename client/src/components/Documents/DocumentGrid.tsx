@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import DocumentCard from "./DocumentCard";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Move, Trash2 } from "lucide-react";
 
 export default function DocumentGrid() {
   const { data: documents = [], isLoading } = useQuery({
@@ -55,6 +58,38 @@ export default function DocumentGrid() {
           View all
         </a>
       </div>
+
+      {/* Bulk Actions Bar */}
+      {selectedDocuments.size > 0 && (
+        <Card className="border border-blue-200 bg-blue-50 mb-4">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium text-slate-800">
+                  {selectedDocuments.size} document{selectedDocuments.size !== 1 ? 's' : ''} selected
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedDocuments(new Set())}
+                >
+                  Clear Selection
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline">
+                  <Move className="w-4 h-4 mr-1" />
+                  Move to Folder
+                </Button>
+                <Button size="sm" variant="destructive">
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {documents.length === 0 ? (
         <div className="text-center py-12">
