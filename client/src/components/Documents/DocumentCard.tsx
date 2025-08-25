@@ -116,30 +116,20 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Prevent selection when clicking on buttons or dropdown menus
+    // Only handle clicks on the card background, not on interactive elements
     const target = e.target as HTMLElement;
     
     // Check if we clicked on an interactive element
-    const isButton = target.closest('button');
-    const isDropdown = target.closest('[data-radix-menu-content]');
-    const isCheckbox = target.closest('input[type="checkbox"]');
+    const isInteractiveElement = target.closest('button') || 
+                                target.closest('input') || 
+                                target.closest('[data-radix-menu-content]') ||
+                                target.closest('[role="menuitem"]');
     
-    console.log('Click detected:', { 
-      isButton: !!isButton, 
-      isDropdown: !!isDropdown, 
-      isCheckbox: !!isCheckbox,
-      targetTagName: target.tagName,
-      targetClass: target.className
-    });
-    
-    if (isButton || isDropdown || isCheckbox) {
-      console.log('Preventing selection due to interactive element');
+    if (isInteractiveElement) {
       return;
     }
     
-    console.log('Toggling selection for document:', document.id, 'from', isSelected, 'to', !isSelected);
-    
-    // Toggle selection on card click
+    // Only toggle selection if we have the onSelect handler
     if (onSelect) {
       onSelect(document.id, !isSelected);
     }
@@ -159,9 +149,9 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   };
 
   return (
-    <Card 
+    <div 
       className={cn(
-        "bg-white border shadow-sm hover:shadow-md transition-all cursor-pointer select-none",
+        "bg-white border shadow-sm hover:shadow-md transition-all select-none rounded-lg",
         isSelected ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200" : "border-gray-200 hover:border-gray-300",
         viewMode === "list" ? "mb-2" : ""
       )}
@@ -277,6 +267,6 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
           <span>{formatFileSize(document.fileSize)}</span>
         </div>
       </CardContent>
-    </Card>
+    </div>
   );
 }
