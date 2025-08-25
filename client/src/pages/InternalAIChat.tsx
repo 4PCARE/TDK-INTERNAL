@@ -1254,7 +1254,30 @@ export default function InternalAIChat() {
                                         p: ({ children }) => {
                                           // Check if this paragraph contains pipe characters that might be a malformed table
                                           const content = typeof children === 'string' ? children : '';
-                                          if (content.includes('|') && content.includes('\n')) {
+                                          // Better table detection for Thai content
+                                          if (content.includes('|') && (content.includes('\n') || content.split('|').length >= 3)) {
+                                            // Try to render as a simple table if markdown parsing failed
+                                            const lines = content.split('\n').filter(line => line.trim());
+                                            if (lines.length >= 2 && lines.every(line => line.includes('|'))) {
+                                              return (
+                                                <div className="markdown-table-wrapper my-4">
+                                                  <table className="markdown-table">
+                                                    <tbody>
+                                                      {lines.map((line, index) => {
+                                                        const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell);
+                                                        return (
+                                                          <tr key={index}>
+                                                            {cells.map((cell, cellIndex) => (
+                                                              <td key={cellIndex}>{cell}</td>
+                                                            ))}
+                                                          </tr>
+                                                        );
+                                                      })}
+                                                    </tbody>
+                                                  </table>
+                                                </div>
+                                              );
+                                            }
                                             return (
                                               <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded border overflow-x-auto">
                                                 {children}
