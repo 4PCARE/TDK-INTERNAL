@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { CalendarIcon, FileText } from 'lucide-react';
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,8 @@ export default function DocumentMetadataModal({
   const [effectiveStartDate, setEffectiveStartDate] = useState<Date | null>(null);
   const [effectiveEndDate, setEffectiveEndDate] = useState<Date | null>(null);
   const [folderId, setFolderId] = useState<string | null>(null);
+  const [showDateFields, setShowDateFields] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Fetch folders for selection
   const { data: folders } = useQuery({

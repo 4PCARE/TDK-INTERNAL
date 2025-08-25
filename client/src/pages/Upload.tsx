@@ -1,33 +1,19 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useCallback } from "react";
+import { useDropzone } from "react-dropzone";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { 
-  FileText, 
-  Upload, 
-  MoreVertical, 
-  Eye, 
-  Download,
-  Star,
-  Trash2
-} from "lucide-react";
-import DashboardLayout from "@/components/Layout/DashboardLayout";
-import StatsCards from "@/components/Stats/StatsCards";
-import CategoryStatsCards from "@/components/Stats/CategoryStatsCards";
-import UploadZone from "@/components/Upload/UploadZone";
-import ChatModal from "@/components/Chat/ChatModal";
+import { CloudUpload, FileText, Upload as UploadIcon, AlertCircle } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import CategoryStatsCards from "@/components/Stats/CategoryStatsCards";
+import DashboardLayout from "@/components/Layout/DashboardLayout";
+import DocumentMetadataModal, { DocumentMetadata } from "@/components/Upload/DocumentMetadataModal";
+import { useAuth } from "@/hooks/useAuth"; // Assuming this is needed for authentication context
+
 
 interface UploadFile {
   file: File;
@@ -37,108 +23,190 @@ interface UploadFile {
   error?: string;
 }
 
-export default function Dashboard() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+export default function Upload() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
-  const [selectedDocumentSummary, setSelectedDocumentSummary] = useState<string | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [fileMetadataMap, setFileMetadataMap] = useState<Map<string, DocumentMetadata>>(new Map());
+  const [isPageLoading, setIsPageLoading] = useState(false);
+  const { user, isAuthenticated, isLoading } = useAuth();
 
-  const { data: documents = [] } = useQuery({
-    queryKey: ["/api/documents"],
-    enabled: isAuthenticated,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  }) as { data: Array<any> };
-
-  const { data: stats } = useQuery({
-    queryKey: ["/api/stats"],
-    enabled: isAuthenticated,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-  }) as { data: { totalDocuments: number } | undefined };
 
   // Upload mutation with progress tracking
   const uploadMutation = useMutation({
-    mutationFn: async (files: File[]) => {
-      const formData = new FormData();
-      files.forEach(file => formData.append('files', file));
+    mutationFn: async (payload: { files: File[], metadataMap: Map<string, DocumentMetadata> }) => {
+      try {
+        const formData = new FormData();
 
-      // Initialize upload tracking
-      const fileTracking = files.map(file => ({
-        file,
-        id: Math.random().toString(36).substr(2, 9),
-        status: 'uploading' as const,
-        progress: 0
-      }));
-      setUploadFiles(fileTracking);
+        payload.files.forEach(file => {
+          formData.append('files', file);
+        });
 
-      // Simulate progress updates
-      fileTracking.forEach((fileTrack, index) => {
-        let progress = 0;
-        const interval = setInterval(() => {
-          progress += Math.random() * 20;
-          if (progress >= 90) {
-            setUploadFiles(prev => prev.map(f => 
-              f.id === fileTrack.id ? { ...f, status: 'processing', progress: 90 } : f
-            ));
-            clearInterval(interval);
-          } else {
-            setUploadFiles(prev => prev.map(f => 
-              f.id === fileTrack.id ? { ...f, progress } : f
-            ));
-          }
-        }, 500);
-      });
+        // Add metadata for each file
+        const metadataArray = payload.files.map(file => {
+          const metadata = payload.metadataMap.get(file.name);
+          return {
+            fileName: file.name,
+            name: metadata?.name || file.name,
+            effectiveStartDate: metadata?.effectiveStartDate?.toISOString() || null,
+            effectiveEndDate: metadata?.effectiveEndDate?.toISOString() || null,
+            folderId: metadata?.folderId || null,
+          };
+        });
 
-      const response = await fetch("/api/documents/upload", {
-        method: "POST",
-        body: formData,
-      });
+        formData.append('metadata', JSON.stringify(metadataArray));
 
-      // Mark as completed
-      setUploadFiles(prev => prev.map(f => ({ ...f, status: 'completed', progress: 100 })));
-
-      // Clear after 3 seconds
-      setTimeout(() => setUploadFiles([]), 3000);
-
-      return response;
+        const response = await apiRequest('POST', '/api/documents/upload', formData);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+        }
+        return response.json();
+      } catch (error) {
+        console.error('Upload mutation error:', error);
+        throw error;
+      }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      toast({
-        title: "Upload successful",
-        description: "Documents have been uploaded and processed with AI classification.",
-      });
+    onSuccess: (data) => {
+      try {
+        toast({
+          title: "Upload successful",
+          description: `${Array.isArray(data) ? data.length : 'Documents'} uploaded successfully`,
+        });
+
+        // Reset upload files
+        setUploadFiles([]);
+        setPendingFiles([]);
+        setCurrentFileIndex(0);
+        setFileMetadataMap(new Map());
+        setIsPageLoading(false);
+
+        // Invalidate all document-related queries to ensure fresh data
+        queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/stats/categories"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      } catch (error) {
+        console.error('Error in upload success handler:', error);
+        setIsPageLoading(false);
+      }
     },
-    onError: (error: Error) => {
-      setUploadFiles(prev => prev.map(f => ({ ...f, status: 'error', error: error.message })));
-      toast({
-        title: "Upload failed",
-        description: error.message,
-        variant: "destructive",
-      });
+    onError: (error) => {
+      try {
+        console.error('Upload failed:', error);
+        toast({
+          title: "Upload failed",
+          description: error?.message || "An unexpected error occurred during upload",
+          variant: "destructive",
+        });
+
+        // Reset upload files
+        setUploadFiles([]);
+        setPendingFiles([]);
+        setCurrentFileIndex(0);
+        setFileMetadataMap(new Map());
+        setIsPageLoading(false);
+      } catch (handlerError) {
+        console.error('Error in upload error handler:', handlerError);
+        setIsPageLoading(false);
+      }
     },
   });
 
-  // Content summary mutation
-  const summaryMutation = useMutation({
-    mutationFn: async (documentId: number) => {
-      const response = await fetch(`/api/documents/${documentId}/summary`);
-      const data = await response.json();
-      return data;
+  // Dropzone configuration
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+      'text/plain': ['.txt'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
     },
-    onSuccess: (data: { summary: string }) => {
-      setSelectedDocumentSummary(data.summary);
-    },
-    onError: (error: Error) => {
+    multiple: true,
+    maxSize: 50 * 1024 * 1024, // 50MB
+  });
+
+  // Handle file drop event
+  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
+    try {
+      setIsPageLoading(true);
+      console.log('Upload onDrop:', { 
+        acceptedFiles: acceptedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })),
+        rejectedFiles: rejectedFiles.map(({ file, errors }) => ({ 
+          name: file.name, 
+          type: file.type, 
+          errors: errors.map((e: any) => e.code) 
+        }))
+      });
+
+      if (rejectedFiles.length > 0) {
+        rejectedFiles.forEach(({ file, errors }) => {
+          errors.forEach((error: any) => {
+            const message = error.code === 'file-invalid-type' 
+              ? `${file.name}: File type not supported`
+              : error.code === 'file-too-large'
+              ? `${file.name}: File too large`
+              : `${file.name}: ${error.message}`;
+
+            toast({
+              title: "File rejected",
+              description: message,
+              variant: "destructive",
+            });
+          });
+        });
+      }
+
+      if (acceptedFiles.length > 0) {
+        // Start metadata collection process
+        setPendingFiles(acceptedFiles);
+        setCurrentFileIndex(0);
+        setFileMetadataMap(new Map());
+        setIsModalOpen(true);
+      }
+
+      setIsPageLoading(false);
+    } catch (error) {
+      console.error('Error in onDrop handler:', error);
+      setIsPageLoading(false);
       toast({
-        title: "Failed to generate summary",
-        description: error.message,
+        title: "Error",
+        description: "Failed to process dropped files",
         variant: "destructive",
       });
-    },
-  });
+    }
+  }, [toast]);
+
+  // Handle metadata submission from modal
+  const handleMetadataSubmit = useCallback((metadataMap: Map<string, DocumentMetadata>) => {
+    if (pendingFiles.length === 0) return;
+    
+    uploadMutation.mutate({ files: pendingFiles, metadataMap });
+    setIsModalOpen(false);
+    setPendingFiles([]); // Clear pending files after mutation starts
+    setUploadFiles(pendingFiles.map(file => ({
+      file,
+      id: Math.random().toString(36).substr(2, 9),
+      status: 'uploading',
+      progress: 0,
+    })));
+    setIsPageLoading(true); // Show loading state when upload starts
+  }, [pendingFiles, uploadMutation]);
+
+  // Handle modal close
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+    setPendingFiles([]);
+    // Optionally, clear the uploadFiles state if the user cancels metadata
+    // setUploadFiles([]); 
+  }, []);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -160,165 +228,130 @@ export default function Dashboard() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">Loading authentication...</p>
         </div>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
+  // Show loading state if page is loading
+  if (isPageLoading) {
+    return (
+      <DashboardLayout>
+        <div className="container mx-auto py-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-center min-h-[400px]">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                <p className="text-gray-600">Processing files...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
   }
 
-  const recentDocuments = Array.isArray(documents) ? documents.slice(0, 5) : [];
+  if (!isAuthenticated) {
+    return null; // Or redirect to login page if not authenticated
+  }
+
+  const { getRootProps: getDocumentListRootProps, getInputProps: getDocumentListInputProps } = useDropzone({
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+      'text/plain': ['.txt'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+    },
+    multiple: true,
+    maxSize: 50 * 1024 * 1024, // 50MB
+  });
+
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-            <StatsCards />
-
-            {/* Upload and Category Stats Section */}
-            <div className="grid lg:grid-cols-2 gap-6">
-              <Card className="h-[400px] flex flex-col">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Upload className="w-5 h-5" />
-                    <span>Upload Documents</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex-1 overflow-y-auto">
-                  <UploadZone onUploadComplete={() => {}} />
-
-                  {/* Upload Progress */}
-                  {uploadFiles.length > 0 && (
-                    <div className="mt-4 space-y-3">
-                      <Separator />
-                      <h4 className="text-sm font-medium">Upload Progress</h4>
-                      {uploadFiles.map((file) => (
-                        <div key={file.id} className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="truncate">{file.file.name}</span>
-                            <Badge variant={
-                              file.status === 'completed' ? 'default' :
-                              file.status === 'error' ? 'destructive' :
-                              'secondary'
-                            }>
-                              {file.status}
-                            </Badge>
-                          </div>
-                          <Progress value={file.progress} className="h-2" />
-                          {file.error && (
-                            <p className="text-xs text-red-600">{file.error}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Category Statistics */}
-              <CategoryStatsCards />
-            </div>
-
-            {/* Recent Upload Documents */}
-            <Card className="h-[500px] flex flex-col">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <FileText className="w-5 h-5" />
-                  <span>Recent Upload Documents</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 overflow-hidden">
-                {documents.length === 0 ? (
-                  <div className="text-center py-8">
-                    <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">No documents uploaded yet</p>
-                    <p className="text-sm text-gray-400 mt-1">Upload your first document to get started</p>
-                  </div>
-                ) : (
-                  <div className="h-full overflow-y-auto space-y-3 pr-2">
-                    {documents.map((doc: any) => (
-                      <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <FileText className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <h4 className="font-medium text-gray-900">{doc.name}</h4>
-                            <div className="text-sm text-gray-500 flex items-center space-x-2">
-                              {doc.aiCategory && (
-                                <Badge variant="outline">
-                                  {doc.aiCategory}
-                                </Badge>
-                              )}
-                              <span>{new Date(doc.createdAt).toLocaleDateString()}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {doc.isFavorite && (
-                            <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                          )}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreVertical className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-
-                              <DropdownMenuItem onClick={() => window.open(`/api/documents/${doc.id}/download`, '_blank')}>
-                                <Download className="w-4 h-4 mr-2" />
-                                Download
-                              </DropdownMenuItem>
-                              {doc.summary && (
-                                <DropdownMenuItem onClick={() => setSelectedDocumentSummary(doc.summary)}>
-                                  <FileText className="w-4 h-4 mr-2" />
-                                  Content Summary
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </div>
-                    ))}
-                    {documents.length > 5 && (
-                      <div className="text-center pt-3">
-                        <Button variant="outline" onClick={() => window.location.href = '/documents'}>
-                          View All Documents ({documents.length})
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Content Summary Modal */}
-            {selectedDocumentSummary && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                <Card className="max-w-2xl w-full max-h-96 overflow-auto">
-                  <CardHeader>
-                    <CardTitle>Content Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-700 whitespace-pre-wrap">{selectedDocumentSummary}</p>
-                    <div className="mt-4 flex justify-end">
-                      <Button onClick={() => setSelectedDocumentSummary(null)}>
-                        Close
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+      <div className="container mx-auto py-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* Header */}
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Upload Documents</h1>
+            <p className="text-gray-600">
+              Upload your documents and let AI automatically categorize and tag them for easy discovery.
+            </p>
           </div>
 
-      <ChatModal 
-        isOpen={isChatModalOpen} 
-        onClose={() => setIsChatModalOpen(false)} 
-      />
+          {/* Dropzone Area */}
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <CloudUpload className="w-5 h-5 mr-2 inline-block" />
+                Drag & Drop Files
+              </CardTitle>
+              <CardDescription>
+                Supported formats: PDF, JPG, PNG, TXT, DOCX, XLSX, PPTX (Max 50MB per file)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div {...getRootProps()} className={`border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragActive ? 'border-blue-500 bg-blue-50' : 'hover:border-blue-400 hover:bg-gray-50'}`}>
+                <input {...getInputProps()} />
+                <CloudUpload className="w-12 h-12 text-gray-400 mb-4 mx-auto" />
+                <p className="text-gray-700 font-medium">
+                  {isDragActive
+                    ? "Drop the files here..."
+                    : "Drag and drop files here, or click to select files"}
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Your files will be processed securely.
+                </p>
+              </div>
+
+              {/* Upload Progress Indicator */}
+              {uploadFiles.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  <Separator />
+                  <h4 className="text-sm font-medium">Upload Progress</h4>
+                  {uploadFiles.map((file) => (
+                    <div key={file.id} className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="truncate">{file.file.name}</span>
+                        <Badge variant={
+                          file.status === 'completed' ? 'default' :
+                          file.status === 'error' ? 'destructive' :
+                          'secondary'
+                        }>
+                          {file.status}
+                        </Badge>
+                      </div>
+                      <Progress value={file.progress} className="h-2" />
+                      {file.error && (
+                        <p className="text-xs text-red-600">{file.error}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Metadata Modal */}
+          {isModalOpen && (
+            <DocumentMetadataModal
+              files={pendingFiles}
+              isOpen={isModalOpen}
+              onClose={handleCloseModal}
+              onSubmit={handleMetadataSubmit}
+              currentFileIndex={currentFileIndex}
+              onFileIndexChange={setCurrentFileIndex}
+              fileMetadataMap={fileMetadataMap}
+              setFileMetadataMap={setFileMetadataMap}
+            />
+          )}
+        </div>
+      </div>
     </DashboardLayout>
   );
 }
