@@ -466,12 +466,12 @@ export default function Documents() {
                     Folder Documents
                   </>
                 ) : (
-                  "My Documents"
+                  "Root Documents"
                 )}
               </h1>
             </div>
             <p className="text-sm text-slate-500">
-              {selectedFolderId ? "Documents in the selected folder" : "Manage and organize your document collection"}
+              {selectedFolderId ? "Documents in the selected folder" : "Documents not organized in any folder"}
             </p>
           </div>
 

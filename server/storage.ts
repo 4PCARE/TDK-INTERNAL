@@ -80,7 +80,7 @@ export interface IStorage {
   deleteCategory(id: number, userId: string): Promise<void>;
 
   // Document operations
-  getDocuments(userId: string, options?: { categoryId?: number; limit?: number; offset?: number }): Promise<Document[]>;
+  getDocuments(userId: string, options?: { categoryId?: number; limit?: number; offset?: number; includeAllFolders?: boolean }): Promise<Document[]>;
   getDocument(id: number, userId: string): Promise<Document | undefined>;
   getDocumentsByIds(ids: number[], userId: string): Promise<Document[]>;
   getDocumentsByIdsForWidget(documentIds: number[]): Promise<Document[]>;
@@ -325,143 +325,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Document operations
-  async getDocuments(userId: string, options: { categoryId?: number; limit?: number; offset?: number } = {}): Promise<Document[]> {
-    const { categoryId, limit = 1000, offset = 0 } = options;
+  async getDocuments(userId: string, options: { categoryId?: number; limit?: number; offset?: number; includeAllFolders?: boolean } = {}): Promise<Document[]> {
+    const { categoryId, limit, offset, includeAllFolders = false } = options;
 
-    // Get user's own documents with favorite status
-    let ownDocumentsQuery = db
-      .select({
-        id: documents.id,
-        name: documents.name,
-        description: documents.description,
-        fileName: documents.fileName,
-        filePath: documents.filePath,
-        fileSize: documents.fileSize,
-        mimeType: documents.mimeType,
-        content: documents.content,
-        summary: documents.summary,
-        tags: documents.tags,
-        categoryId: documents.categoryId,
-        userId: documents.userId,
-        isFavorite: sql<boolean>`CASE WHEN ${userFavorites.id} IS NOT NULL THEN true ELSE false END`.as('isFavorite'),
-        createdAt: documents.createdAt,
-        updatedAt: documents.updatedAt,
-        processedAt: documents.processedAt,
-        aiCategory: documents.aiCategory,
-        aiCategoryColor: documents.aiCategoryColor,
-        isPublic: documents.isPublic,
-        isEndorsed: documents.isEndorsed,
-        endorsedAt: documents.endorsedAt,
-        effectiveStartDate: documents.effectiveStartDate,
-        effectiveEndDate: documents.effectiveEndDate
-      })
-      .from(documents)
-      .leftJoin(userFavorites, and(
-        eq(userFavorites.documentId, documents.id),
-        eq(userFavorites.userId, userId)
-      ));
+    let query = db.select().from(documents).where(eq(documents.userId, userId));
+
+    // If not explicitly requesting all folders, only show documents not in any folder
+    if (!includeAllFolders) {
+      query = query.where(isNull(documents.folderId));
+    }
 
     if (categoryId) {
-      ownDocumentsQuery = ownDocumentsQuery.where(
-        and(eq(documents.userId, userId), eq(documents.categoryId, categoryId)!)
-      );
-    } else {
-      ownDocumentsQuery = ownDocumentsQuery.where(eq(documents.userId, userId));
+      query = query.where(eq(documents.categoryId, categoryId));
     }
 
-    const ownDocuments = await ownDocumentsQuery.orderBy(desc(documents.updatedAt));
+    // Add ordering
+    query = query.orderBy(desc(documents.createdAt));
 
-    // Get documents shared directly with the user
-    const userSharedDocuments = await db
-      .select({
-        id: documents.id,
-        name: documents.name,
-        description: documents.description,
-        fileName: documents.fileName,
-        filePath: documents.filePath,
-        fileSize: documents.fileSize,
-        mimeType: documents.mimeType,
-        content: documents.content,
-        summary: documents.summary,
-        tags: documents.tags,
-        categoryId: documents.categoryId,
-        userId: documents.userId,
-        isFavorite: sql<boolean>`CASE WHEN ${userFavorites.id} IS NOT NULL THEN true ELSE false END`.as('isFavorite'),
-        createdAt: documents.createdAt,
-        updatedAt: documents.updatedAt,
-        processedAt: documents.processedAt,
-        aiCategory: documents.aiCategory,
-        aiCategoryColor: documents.aiCategoryColor,
-        isPublic: documents.isPublic,
-        isEndorsed: documents.isEndorsed,
-        endorsedAt: documents.endorsedAt,
-        effectiveStartDate: documents.effectiveStartDate,
-        effectiveEndDate: documents.effectiveEndDate
-      })
-      .from(documents)
-      .innerJoin(documentUserPermissions, eq(documents.id, documentUserPermissions.documentId))
-      .leftJoin(userFavorites, and(
-        eq(userFavorites.documentId, documents.id),
-        eq(userFavorites.userId, userId)
-      ))
-      .where(eq(documentUserPermissions.userId, userId));
-
-    // Get user's department
-    const [currentUser] = await db.select({ departmentId: users.departmentId })
-      .from(users)
-      .where(eq(users.id, userId));
-
-    let departmentSharedDocuments: any[] = [];
-
-    // Get documents shared with user's department
-    if (currentUser?.departmentId) {
-      departmentSharedDocuments = await db
-        .select({
-          id: documents.id,
-          name: documents.name,
-          description: documents.description,
-          fileName: documents.fileName,
-          filePath: documents.filePath,
-          fileSize: documents.fileSize,
-          mimeType: documents.mimeType,
-          content: documents.content,
-          summary: documents.summary,
-          tags: documents.tags,
-          categoryId: documents.categoryId,
-          userId: documents.userId,
-          isFavorite: sql<boolean>`CASE WHEN ${userFavorites.id} IS NOT NULL THEN true ELSE false END`.as('isFavorite'),
-          createdAt: documents.createdAt,
-          updatedAt: documents.updatedAt,
-          processedAt: documents.processedAt,
-          aiCategory: documents.aiCategory,
-          aiCategoryColor: documents.aiCategoryColor,
-          isPublic: documents.isPublic,
-          isEndorsed: documents.isEndorsed,
-          endorsedAt: documents.endorsedAt,
-          effectiveStartDate: documents.effectiveStartDate,
-          effectiveEndDate: documents.effectiveEndDate
-        })
-        .from(documents)
-        .innerJoin(documentDepartmentPermissions, eq(documents.id, documentDepartmentPermissions.documentId))
-        .leftJoin(userFavorites, and(
-          eq(userFavorites.documentId, documents.id),
-          eq(userFavorites.userId, userId)
-        ))
-        .where(eq(documentDepartmentPermissions.departmentId, currentUser.departmentId));
+    if (limit) {
+      query = query.limit(limit);
     }
 
-    // Combine all documents and remove duplicates
-    const allDocuments = [...ownDocuments, ...userSharedDocuments, ...departmentSharedDocuments];
-    const uniqueDocuments = allDocuments.filter((doc, index, self) => 
-      index === self.findIndex(d => d.id === doc.id)
-    );
+    if (offset) {
+      query = query.offset(offset);
+    }
 
-    // Sort by updated date and apply pagination
-    const sortedDocuments = uniqueDocuments
-      .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
-      .slice(offset, offset + limit);
-
-    return sortedDocuments;
+    return await query;
   }
 
   async getDocument(id: number, userId: string): Promise<Document | undefined> {
@@ -1482,7 +1371,7 @@ export class DatabaseStorage implements IStorage {
 
   async getFolders(userId: string, parentId?: number): Promise<any[]> {
     const conditions = [eq(folders.userId, userId)];
-    
+
     if (parentId === undefined) {
       conditions.push(isNull(folders.parentId));
     } else {
@@ -1523,7 +1412,7 @@ export class DatabaseStorage implements IStorage {
 
   async getDocumentsByFolder(userId: string, folderId?: number | null): Promise<any[]> {
     const conditions = [eq(documents.userId, userId)];
-    
+
     if (folderId === null) {
       conditions.push(isNull(documents.folderId));
     } else if (folderId !== undefined) {
@@ -1540,7 +1429,7 @@ export class DatabaseStorage implements IStorage {
   async assignFolderToAgent(agentId: number, folderId: number, userId: string): Promise<void> {
     // Get all documents in the folder
     const folderDocuments = await this.getDocumentsByFolder(userId, folderId);
-    
+
     // Add all documents to the agent
     for (const doc of folderDocuments) {
       try {
