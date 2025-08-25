@@ -82,182 +82,51 @@ const lineClampStyles = `
   .hljs-function { color: #6f42c1 !important; }
   .hljs-variable { color: #e36209 !important; }
   
-  /* Markdown table styles - Enhanced with proper table borders */
+  /* Markdown content basic styles */
   .markdown-content {
-    /* Ensure proper wrapping and overflow handling */
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
   
+  /* Simple table styles */
   .markdown-content table {
-    border-collapse: collapse !important;
-    border-spacing: 0 !important;
-    margin: 20px 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    background: #ffffff !important;
-    border-radius: 8px !important;
-    overflow: hidden !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
-    border: 2px solid #e2e8f0 !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans Thai', 'Sarabun', system-ui, sans-serif !important;
-    font-size: 14px !important;
-    line-height: 1.6 !important;
-    table-layout: auto !important;
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    overflow: hidden;
   }
   
   .markdown-content th {
-    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%) !important;
-    font-weight: 700 !important;
-    text-align: left !important;
-    padding: 16px 20px !important;
-    border-bottom: 2px solid #cbd5e1 !important;
-    border-right: 1px solid #cbd5e1 !important;
-    color: #1e293b !important;
-    font-size: 15px !important;
-    line-height: 1.5 !important;
-    word-wrap: break-word !important;
-    white-space: normal !important;
-    position: relative !important;
+    background-color: #f9fafb;
+    font-weight: 600;
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    border-right: 1px solid #e5e7eb;
   }
   
   .markdown-content th:last-child {
-    border-right: none !important;
-  }
-  
-  .markdown-content th:first-child {
-    border-top-left-radius: 6px !important;
-  }
-  
-  .markdown-content th:last-child {
-    border-top-right-radius: 6px !important;
+    border-right: none;
   }
   
   .markdown-content td {
-    padding: 16px 20px !important;
-    border-bottom: 1px solid #e2e8f0 !important;
-    border-right: 1px solid #e2e8f0 !important;
-    color: #374151 !important;
-    font-size: 14px !important;
-    line-height: 1.6 !important;
-    word-wrap: break-word !important;
-    white-space: normal !important;
-    vertical-align: top !important;
-    background: #ffffff !important;
-    transition: all 0.2s ease !important;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    border-right: 1px solid #e5e7eb;
   }
   
   .markdown-content td:last-child {
-    border-right: none !important;
-  }
-  
-  .markdown-content tbody tr:nth-child(even) td {
-    background: #f8fafc !important;
-  }
-  
-  .markdown-content tbody tr:hover td {
-    background: #f1f5f9 !important;
-    box-shadow: inset 0 0 0 1px #cbd5e1 !important;
+    border-right: none;
   }
   
   .markdown-content tbody tr:last-child td {
-    border-bottom: none !important;
+    border-bottom: none;
   }
   
-  .markdown-content tbody tr:last-child td:first-child {
-    border-bottom-left-radius: 6px !important;
-  }
-  
-  .markdown-content tbody tr:last-child td:last-child {
-    border-bottom-right-radius: 6px !important;
-  }
-  
-  /* Ensure tables are responsive and readable */
-  .markdown-content table {
-    display: table !important;
-    table-layout: auto !important;
-    max-width: 100% !important;
-    min-width: 500px !important;
-  }
-  
-  /* Better handling of long Thai text */
-  .markdown-content td,
-  .markdown-content th {
-    max-width: none !important;
-    overflow-wrap: break-word !important;
-    word-break: break-word !important;
-    hyphens: auto !important;
-  }
-  
-  /* Column width distribution for two-column tables */
-  .markdown-content table th:first-child,
-  .markdown-content table td:first-child {
-    width: 35% !important;
-    font-weight: 600 !important;
-    background: #fafbfc !important;
-  }
-  
-  .markdown-content table th:nth-child(2),
-  .markdown-content table td:nth-child(2) {
-    width: 65% !important;
-  }
-  
-  /* Table container with horizontal scroll */
-  .markdown-table-wrapper {
-    width: 100% !important;
-    overflow-x: auto !important;
-    margin: 16px 0 !important;
-    border-radius: 8px !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
-  }
-  
-  /* Enhanced table styling for better visual hierarchy */
-  .markdown-content table {
-    background: #ffffff !important;
-    border: 2px solid #e2e8f0 !important;
-  }
-  
-  /* Make sure all borders are visible */
-  .markdown-content th,
-  .markdown-content td {
-    border: 1px solid #e2e8f0 !important;
-  }
-  
-  /* Header styling */
-  .markdown-content thead th {
-    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%) !important;
-    border-bottom: 2px solid #cbd5e1 !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    font-size: 13px !important;
-    letter-spacing: 0.5px !important;
-    color: #475569 !important;
-  }
-  
-  /* Make table scrollable on small screens */
-  .markdown-content {
-    overflow-x: visible !important;
-    max-width: 100% !important;
-  }
-  
-  /* Better handling for broken markdown tables */
-  .markdown-content p {
-    margin: 8px 0 !important;
-    line-height: 1.6 !important;
-  }
-  
-  /* Handle pipe characters that might not be in tables */
-  .markdown-content code {
-    background: #f3f4f6 !important;
-    padding: 2px 6px !important;
-    border-radius: 4px !important;
-    font-size: 13px !important;
-    color: #374151 !important;
-  }
-  
-  /* Thai text specific improvements */
-  .markdown-content table {
-    letter-spacing: 0.3px !important;
+  .markdown-content tbody tr:hover {
+    background-color: #f9fafb;
   }
 `;
 
@@ -1200,66 +1069,81 @@ export default function InternalAIChat() {
                                       remarkPlugins={[remarkGfm]}
                                       rehypePlugins={[rehypeHighlight]}
                                       components={{
-                                        // Handle potential parsing errors gracefully
+                                        // Proper table rendering
+                                        table: ({ node, ...props }) => (
+                                          <div className="my-6 w-full overflow-hidden rounded-lg border border-gray-200 shadow-sm">
+                                            <table className="w-full border-collapse bg-white text-sm" {...props} />
+                                          </div>
+                                        ),
+                                        thead: ({ node, ...props }) => (
+                                          <thead className="bg-gray-50" {...props} />
+                                        ),
+                                        tbody: ({ node, ...props }) => (
+                                          <tbody className="divide-y divide-gray-200" {...props} />
+                                        ),
+                                        tr: ({ node, ...props }) => (
+                                          <tr className="hover:bg-gray-50" {...props} />
+                                        ),
+                                        th: ({ node, ...props }) => (
+                                          <th 
+                                            className="border-b border-gray-200 px-4 py-3 text-left font-semibold text-gray-900 bg-gray-50"
+                                            {...props} 
+                                          />
+                                        ),
+                                        td: ({ node, ...props }) => (
+                                          <td 
+                                            className="border-b border-gray-100 px-4 py-3 text-gray-700"
+                                            {...props} 
+                                          />
+                                        ),
+                                        // Handle paragraphs that might contain table-like content
                                         p: ({ children }) => {
-                                          // Check if this paragraph contains pipe characters that might be a malformed table
-                                          const content = typeof children === 'string' ? children : '';
-                                          if (content.includes('|') && content.includes('\n')) {
+                                          const content = React.Children.toArray(children).join('');
+                                          if (typeof content === 'string' && content.includes('|') && content.split('\n').length > 2) {
+                                            // This might be a malformed table, render as preformatted text
                                             return (
-                                              <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded border overflow-x-auto">
+                                              <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded border overflow-x-auto font-mono">
                                                 {children}
                                               </pre>
                                             );
                                           }
-                                          return <p className="mb-3">{children}</p>;
+                                          return <p className="mb-3 leading-relaxed">{children}</p>;
                                         },
-                                        table: ({ children }) => (
-                                          <div className="markdown-table-wrapper my-4">
-                                            <table className="markdown-table">
-                                              {children}
-                                            </table>
-                                          </div>
-                                        ),
-                                        thead: ({ children }) => (
-                                          <thead>
-                                            {children}
-                                          </thead>
-                                        ),
-                                        tbody: ({ children }) => (
-                                          <tbody>
-                                            {children}
-                                          </tbody>
-                                        ),
-                                        tr: ({ children }) => (
-                                          <tr>
-                                            {children}
-                                          </tr>
-                                        ),
-                                        th: ({ children }) => (
-                                          <th>
-                                            {children}
-                                          </th>
-                                        ),
-                                        td: ({ children }) => (
-                                          <td>
-                                            {children}
-                                          </td>
-                                        ),
                                         // Better code block rendering
                                         code: ({ inline, children, ...props }) => {
                                           if (inline) {
                                             return (
-                                              <code className="bg-gray-100 text-gray-800 px-1 py-0.5 rounded text-sm" {...props}>
+                                              <code className="bg-gray-100 text-gray-800 px-1 py-0.5 rounded text-sm font-mono" {...props}>
                                                 {children}
                                               </code>
                                             );
                                           }
                                           return (
                                             <pre className="bg-gray-50 p-4 rounded-lg overflow-x-auto my-4">
-                                              <code {...props}>{children}</code>
+                                              <code className="font-mono text-sm" {...props}>{children}</code>
                                             </pre>
                                           );
-                                        }
+                                        },
+                                        // Better list rendering
+                                        ul: ({ node, ...props }) => (
+                                          <ul className="list-disc list-inside mb-4 space-y-1" {...props} />
+                                        ),
+                                        ol: ({ node, ...props }) => (
+                                          <ol className="list-decimal list-inside mb-4 space-y-1" {...props} />
+                                        ),
+                                        li: ({ node, ...props }) => (
+                                          <li className="text-gray-700" {...props} />
+                                        ),
+                                        // Better heading styles
+                                        h1: ({ node, ...props }) => (
+                                          <h1 className="text-xl font-bold mb-4 text-gray-900" {...props} />
+                                        ),
+                                        h2: ({ node, ...props }) => (
+                                          <h2 className="text-lg font-semibold mb-3 text-gray-900" {...props} />
+                                        ),
+                                        h3: ({ node, ...props }) => (
+                                          <h3 className="text-base font-semibold mb-2 text-gray-900" {...props} />
+                                        ),
                                       }}
                                     >
                                       {message.content && typeof message.content === 'string' && message.content.trim()
