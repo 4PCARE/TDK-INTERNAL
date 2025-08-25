@@ -116,18 +116,20 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Prevent selection when clicking on buttons or dropdown triggers
-    if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('[role="menuitem"]')) {
+    // Prevent selection when clicking on specific interactive elements
+    const target = e.target as HTMLElement;
+    const isInteractiveElement = target.closest('button') || 
+                                target.closest('[role="menuitem"]') || 
+                                target.closest('input[type="checkbox"]') ||
+                                target.closest('.dropdown-trigger');
+    
+    if (isInteractiveElement) {
       return;
     }
     
-    if (e.ctrlKey || e.metaKey || e.shiftKey) {
-      e.preventDefault();
-      onSelect?.(document.id, !isSelected);
-    } else {
-      // Regular click selects/deselects this document
-      onSelect?.(document.id, !isSelected);
-    }
+    // Allow selection on card click
+    e.preventDefault();
+    onSelect?.(document.id, !isSelected);
   };
 
   const handleRightClick = (e: React.MouseEvent) => {
@@ -163,7 +165,10 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
                 checked={isSelected}
                 onChange={(e) => {
                   e.stopPropagation();
-                  onSelect(document.id, e.target.checked);
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect(document.id, !isSelected);
                 }}
                 className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
               />
