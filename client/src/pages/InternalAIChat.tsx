@@ -82,7 +82,7 @@ const lineClampStyles = `
   .hljs-function { color: #6f42c1 !important; }
   .hljs-variable { color: #e36209 !important; }
   
-  /* Markdown table styles */
+  /* Markdown table styles - Enhanced with proper table borders */
   .markdown-content {
     /* Ensure proper wrapping and overflow handling */
     word-wrap: break-word !important;
@@ -90,33 +90,32 @@ const lineClampStyles = `
   }
   
   .markdown-content table {
-    border-collapse: separate !important;
+    border-collapse: collapse !important;
     border-spacing: 0 !important;
     margin: 20px 0 !important;
     width: 100% !important;
     max-width: 100% !important;
     background: #ffffff !important;
-    border-radius: 12px !important;
+    border-radius: 8px !important;
     overflow: hidden !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
-    border: 1px solid #e5e7eb !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+    border: 2px solid #e2e8f0 !important;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans Thai', 'Sarabun', system-ui, sans-serif !important;
     font-size: 14px !important;
-    line-height: 1.8 !important;
-    /* Ensure table doesn't break layout */
+    line-height: 1.6 !important;
     table-layout: auto !important;
   }
   
   .markdown-content th {
-    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%) !important;
     font-weight: 700 !important;
     text-align: left !important;
-    padding: 18px 24px !important;
+    padding: 16px 20px !important;
     border-bottom: 2px solid #cbd5e1 !important;
-    border-right: 1px solid #e5e7eb !important;
+    border-right: 1px solid #cbd5e1 !important;
     color: #1e293b !important;
     font-size: 15px !important;
-    line-height: 1.6 !important;
+    line-height: 1.5 !important;
     word-wrap: break-word !important;
     white-space: normal !important;
     position: relative !important;
@@ -126,13 +125,21 @@ const lineClampStyles = `
     border-right: none !important;
   }
   
+  .markdown-content th:first-child {
+    border-top-left-radius: 6px !important;
+  }
+  
+  .markdown-content th:last-child {
+    border-top-right-radius: 6px !important;
+  }
+  
   .markdown-content td {
-    padding: 20px 24px !important;
-    border-bottom: 1px solid #f1f5f9 !important;
-    border-right: 1px solid #f1f5f9 !important;
+    padding: 16px 20px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    border-right: 1px solid #e2e8f0 !important;
     color: #374151 !important;
     font-size: 14px !important;
-    line-height: 1.8 !important;
+    line-height: 1.6 !important;
     word-wrap: break-word !important;
     white-space: normal !important;
     vertical-align: top !important;
@@ -145,25 +152,32 @@ const lineClampStyles = `
   }
   
   .markdown-content tbody tr:nth-child(even) td {
-    background: #fafbfc !important;
+    background: #f8fafc !important;
   }
   
   .markdown-content tbody tr:hover td {
-    background: #f3f4f6 !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+    background: #f1f5f9 !important;
+    box-shadow: inset 0 0 0 1px #cbd5e1 !important;
   }
   
   .markdown-content tbody tr:last-child td {
     border-bottom: none !important;
   }
   
+  .markdown-content tbody tr:last-child td:first-child {
+    border-bottom-left-radius: 6px !important;
+  }
+  
+  .markdown-content tbody tr:last-child td:last-child {
+    border-bottom-right-radius: 6px !important;
+  }
+  
   /* Ensure tables are responsive and readable */
   .markdown-content table {
     display: table !important;
-    table-layout: fixed !important;
+    table-layout: auto !important;
     max-width: 100% !important;
-    min-width: 600px !important;
+    min-width: 500px !important;
   }
   
   /* Better handling of long Thai text */
@@ -175,17 +189,17 @@ const lineClampStyles = `
     hyphens: auto !important;
   }
   
-  /* Column width distribution */
-  .markdown-content th:first-child,
-  .markdown-content td:first-child {
-    width: 15% !important;
-    text-align: center !important;
+  /* Column width distribution for two-column tables */
+  .markdown-content table th:first-child,
+  .markdown-content table td:first-child {
+    width: 35% !important;
     font-weight: 600 !important;
+    background: #fafbfc !important;
   }
   
-  .markdown-content th:nth-child(2),
-  .markdown-content td:nth-child(2) {
-    width: 85% !important;
+  .markdown-content table th:nth-child(2),
+  .markdown-content table td:nth-child(2) {
+    width: 65% !important;
   }
   
   /* Table container with horizontal scroll */
@@ -193,9 +207,31 @@ const lineClampStyles = `
     width: 100% !important;
     overflow-x: auto !important;
     margin: 16px 0 !important;
-    border-radius: 12px !important;
-    border: 1px solid #e5e7eb !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  /* Enhanced table styling for better visual hierarchy */
+  .markdown-content table {
+    background: #ffffff !important;
+    border: 2px solid #e2e8f0 !important;
+  }
+  
+  /* Make sure all borders are visible */
+  .markdown-content th,
+  .markdown-content td {
+    border: 1px solid #e2e8f0 !important;
+  }
+  
+  /* Header styling */
+  .markdown-content thead th {
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%) !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    font-size: 13px !important;
+    letter-spacing: 0.5px !important;
+    color: #475569 !important;
   }
   
   /* Make table scrollable on small screens */
@@ -1178,34 +1214,34 @@ export default function InternalAIChat() {
                                           return <p className="mb-3">{children}</p>;
                                         },
                                         table: ({ children }) => (
-                                          <div className="markdown-table-wrapper">
-                                            <table className="w-full caption-bottom text-sm border-collapse border-spacing-0 bg-white">
+                                          <div className="markdown-table-wrapper my-4">
+                                            <table className="markdown-table">
                                               {children}
                                             </table>
                                           </div>
                                         ),
                                         thead: ({ children }) => (
-                                          <thead className="[&_tr]:border-b">
+                                          <thead>
                                             {children}
                                           </thead>
                                         ),
                                         tbody: ({ children }) => (
-                                          <tbody className="[&_tr:last-child]:border-0">
+                                          <tbody>
                                             {children}
                                           </tbody>
                                         ),
                                         tr: ({ children }) => (
-                                          <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                                          <tr>
                                             {children}
                                           </tr>
                                         ),
                                         th: ({ children }) => (
-                                          <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 bg-gradient-to-br from-slate-50 to-slate-100 font-bold border-b-2 border-slate-300 border-r border-gray-200 text-slate-700 text-sm">
+                                          <th>
                                             {children}
                                           </th>
                                         ),
                                         td: ({ children }) => (
-                                          <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 border-b border-gray-100 border-r border-gray-100 text-gray-700 text-sm bg-white hover:bg-gray-50 transition-all duration-200">
+                                          <td>
                                             {children}
                                           </td>
                                         ),
