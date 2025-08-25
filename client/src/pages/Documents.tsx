@@ -392,13 +392,20 @@ export default function Documents() {
   });
 
   const handleDocumentSelect = (documentId: number, isSelected: boolean) => {
-    console.log("Document select:", { documentId, isSelected, currentSelection: selectedDocuments });
+    console.log("Document select called:", { 
+      documentId, 
+      isSelected, 
+      currentSelection: Array.from(selectedDocuments),
+      currentSize: selectedDocuments.size,
+      newSize: isSelected ? selectedDocuments.size + 1 : selectedDocuments.size - 1
+    });
     const newSelected = new Set(selectedDocuments);
     if (isSelected) {
       newSelected.add(documentId);
     } else {
       newSelected.delete(documentId);
     }
+    console.log("Setting new selection:", Array.from(newSelected));
     setSelectedDocuments(newSelected);
     setShowBulkActions(newSelected.size > 0);
   };

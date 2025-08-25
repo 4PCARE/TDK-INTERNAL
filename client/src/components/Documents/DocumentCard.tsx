@@ -123,7 +123,9 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   };
 
   const handleCheckboxClick = (e: React.MouseEvent) => {
+    console.log("Checkbox clicked:", document.id, !isSelected);
     e.stopPropagation();
+    e.preventDefault();
     onSelect?.(document.id, !isSelected);
   };
 
@@ -142,7 +144,10 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
       )}
       draggable
       onDragStart={handleDragStart}
-      onClick={handleCardClick}
+      onClick={(e) => {
+        console.log("Card clicked:", document.id, { isSelected, showSelection });
+        handleCardClick(e);
+      }}
     >
       <CardContent className={cn("p-4", viewMode === "list" && "py-3")}>
         {/* Document Type Icon */}
