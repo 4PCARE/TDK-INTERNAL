@@ -94,8 +94,8 @@ const lineClampStyles = `
     border-collapse: collapse !important;
     border-spacing: 0 !important;
     margin: 24px 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
+    width: max-content !important;
+    min-width: 100% !important;
     background: #ffffff !important;
     border-radius: 12px !important;
     overflow: hidden !important;
@@ -106,6 +106,7 @@ const lineClampStyles = `
     line-height: 1.7 !important;
     table-layout: auto !important;
     position: relative !important;
+    white-space: nowrap !important;
   }
   
   .markdown-content th {
@@ -149,7 +150,8 @@ const lineClampStyles = `
     vertical-align: top !important;
     background: #ffffff !important;
     transition: all 0.3s ease !important;
-    max-width: 200px !important;
+    max-width: 300px !important;
+    min-width: 120px !important;
     overflow-wrap: anywhere !important;
   }
   
@@ -195,29 +197,53 @@ const lineClampStyles = `
     hyphens: auto !important;
   }
   
-  /* Optimized column width distribution for Thai content */
+  /* Dynamic column width distribution with auto-sizing */
+  .markdown-content table th,
+  .markdown-content table td {
+    width: auto !important;
+    min-width: 120px !important;
+    max-width: none !important;
+  }
+  
   .markdown-content table th:first-child,
   .markdown-content table td:first-child {
-    width: 35% !important;
     font-weight: 600 !important;
     background: linear-gradient(135deg, #fafbfc 0%, #f8fafc 100%) !important;
     color: #1e293b !important;
-  }
-  
-  .markdown-content table th:nth-child(2),
-  .markdown-content table td:nth-child(2) {
-    width: 65% !important;
+    min-width: 150px !important;
   }
   
   /* Enhanced table container with horizontal scroll */
   .markdown-table-wrapper {
     width: 100% !important;
     overflow-x: auto !important;
+    overflow-y: visible !important;
     margin: 12px 0 !important;
     border-radius: 8px !important;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
     background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
     padding: 2px !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: #cbd5e1 #f1f5f9 !important;
+  }
+  
+  .markdown-table-wrapper::-webkit-scrollbar {
+    height: 8px !important;
+  }
+  
+  .markdown-table-wrapper::-webkit-scrollbar-track {
+    background: #f1f5f9 !important;
+    border-radius: 4px !important;
+  }
+  
+  .markdown-table-wrapper::-webkit-scrollbar-thumb {
+    background: #cbd5e1 !important;
+    border-radius: 4px !important;
+  }
+  
+  .markdown-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8 !important;
   }
   
   /* Enhanced visual hierarchy with better borders */
