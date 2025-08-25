@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Star, MoreHorizontal, FileText, File, Image, Trash2 } from "lucide-react";
+import { Star, MoreHorizontal, FileText, File, Image, Trash2, Eye, Download, Share2, MessageSquare, ThumbsUp } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -174,11 +174,69 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="p-1.5 h-auto">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="p-1.5 h-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <MoreHorizontal className="w-4 h-4 text-gray-400" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent>
+              <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  // Handle view details
+                  console.log('View details for document:', document.id);
+                }}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  // Handle content summary
+                  console.log('Show content summary for document:', document.id);
+                }}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Content Summary
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(`/api/documents/${document.id}/download`, '_blank');
+                }}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Download
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  // Handle share
+                  console.log('Share document:', document.id);
+                }}>
+                  <Share2 className="mr-2 h-4 w-4" />
+                  Share
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  // Handle chat with document
+                  console.log('Chat with document:', document.id);
+                }}>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Chat with Document
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation();
+                  // Handle endorse document
+                  console.log('Endorse document:', document.id);
+                }}>
+                  <ThumbsUp className="mr-2 h-4 w-4" />
+                  Endorse Document
+                </DropdownMenuItem>
+                
                 <DropdownMenuItem 
                   className="text-red-600"
                   onClick={(e) => {
