@@ -540,17 +540,8 @@ ${document.summary}`;
             const { content, summary, tags, category, categoryColor } =
               await processDocument(file.path, file.mimetype);
 
-            const {
-              fileName,
-              name,
-              effectiveStartDate,
-              effectiveEndDate,
-              folderId,
-            } = fileMetadata;
-
-            // Store the file in storage
-            const document = await storage.createDocument({
-              name: name || correctedFileName,
+            const documentData = {
+              name: fileMetadata?.name || correctedFileName,
               fileName: file.filename,
               filePath: file.path,
               fileSize: file.size,
@@ -562,17 +553,12 @@ ${document.summary}`;
               aiCategoryColor: categoryColor,
               userId,
               processedAt: new Date(),
-              effectiveStartDate: effectiveStartDate ? new Date(effectiveStartDate) : null,
-              effectiveEndDate: effectiveEndDate ? new Date(effectiveEndDate) : null,
-              folderId: folderId || null // Use the folderId from the metadata
-            });
+              effectiveStartDate: fileMetadata?.effectiveStartDate ? new Date(fileMetadata.effectiveStartDate) : null,
+              effectiveEndDate: fileMetadata?.effectiveEndDate ? new Date(fileMetadata.effectiveEndDate) : null,
+            };
 
-            uploadedDocuments.push({
-              id: document.id,
-              name: document.name,
-              fileName: document.fileName,
-              userId: document.userId,
-            });
+            const document = await storage.createDocument(documentData);
+            uploadedDocuments.push(document);
 
             // Auto-vectorize the document if it has content
             if (content && content.trim().length > 0) {
@@ -622,16 +608,8 @@ ${document.summary}`;
 
             console.error(`Error processing file ${correctedFileName}:`, error);
             // Still create document without AI processing
-            const {
-              fileName,
-              name,
-              effectiveStartDate,
-              effectiveEndDate,
-              folderId,
-            } = metadataArray.find(meta => meta.fileName === file.originalname) || {};
-
             const documentData = {
-              name: name || correctedFileName,
+              name: correctedFileName,
               fileName: file.filename,
               filePath: file.path,
               fileSize: file.size,
@@ -639,17 +617,9 @@ ${document.summary}`;
               aiCategory: "Uncategorized",
               aiCategoryColor: "#6B7280",
               userId,
-              effectiveStartDate: effectiveStartDate ? new Date(effectiveStartDate) : null,
-              effectiveEndDate: effectiveEndDate ? new Date(effectiveEndDate) : null,
-              folderId: folderId || null
             };
             const document = await storage.createDocument(documentData);
-            uploadedDocuments.push({
-              id: document.id,
-              name: document.name,
-              fileName: document.fileName,
-              userId: document.userId,
-            });
+            uploadedDocuments.push(document);
           }
         }
 

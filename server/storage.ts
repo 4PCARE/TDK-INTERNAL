@@ -1444,32 +1444,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // This method is used for storing documents with an optional folderId
-  async storeDocument(
-    filePath: string, 
-    filename: string, 
-    name: string, 
-    userId: string,
-    effectiveStartDate?: string | null,
-    effectiveEndDate?: string | null,
-    folderId?: number | null
-  ): Promise<number> {
-    // Read file content (assuming it's text-based for simplicity)
-    // In a real-world scenario, you'd handle binary files appropriately.
-    const content = await Bun.file(filePath).text();
-
-    const result = await this.db.query(
-      `INSERT INTO documents (name, filename, content, user_id, upload_date, effective_start_date, effective_end_date, folder_id) 
-       VALUES ($1, $2, $3, $4, NOW(), $5, $6, $7) RETURNING id`,
-      [name, filename, content, userId, effectiveStartDate, effectiveEndDate, folderId]
-    );
-
-    if (result.rows.length === 0 || result.rows[0].id === undefined) {
-      throw new Error("Failed to store document");
-    }
-    
-    return result.rows[0].id;
-  }
 
 
   // AI Response Analysis operations

@@ -1,12 +1,10 @@
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { CloudUpload, FolderOpen, FileText } from 'lucide-react';
+import { CloudUpload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import DocumentMetadataModal, { DocumentMetadata } from "./DocumentMetadataModal";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 
 interface UploadZoneProps {
   onUploadComplete: () => void;
@@ -19,26 +17,15 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [fileMetadataMap, setFileMetadataMap] = useState<Map<string, DocumentMetadata>>(new Map());
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-
-  // Fetch folders for selection
-  const { data: folders } = useQuery({
-    queryKey: ["/api/folders"],
-    queryFn: async () => {
-      const response = await fetch("/api/folders");
-      if (!response.ok) throw new Error("Failed to fetch folders");
-      return await response.json();
-    },
-  });
 
   const uploadMutation = useMutation({
     mutationFn: async (payload: { files: File[], metadataMap: Map<string, DocumentMetadata> }) => {
       const formData = new FormData();
-
+      
       payload.files.forEach(file => {
         formData.append('files', file);
       });
-
+      
       // Add metadata for each file
       const metadataArray = payload.files.map(file => {
         const metadata = payload.metadataMap.get(file.name);
@@ -47,12 +34,11 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
           name: metadata?.name || file.name,
           effectiveStartDate: metadata?.effectiveStartDate?.toISOString() || null,
           effectiveEndDate: metadata?.effectiveEndDate?.toISOString() || null,
-          folderId: metadata?.folderId || null,
         };
       });
-
+      
       formData.append('metadata', JSON.stringify(metadataArray));
-
+      
       const response = await apiRequest('POST', '/api/documents/upload', formData);
       return response.json();
     },
@@ -65,8 +51,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
       setPendingFiles([]);
       setCurrentFileIndex(0);
       setFileMetadataMap(new Map());
-      setSelectedFolderId(null); // Reset selected folder
-
+      
       // Invalidate all document-related queries to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
@@ -85,7 +70,6 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
       setPendingFiles([]);
       setCurrentFileIndex(0);
       setFileMetadataMap(new Map());
-      setSelectedFolderId(null); // Reset selected folder
     },
   });
 
@@ -112,7 +96,6 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
     setPendingFiles([]);
     setCurrentFileIndex(0);
     setFileMetadataMap(new Map());
-    setSelectedFolderId(null); // Reset selected folder when modal is closed
   };
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
@@ -124,7 +107,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
         errors: errors.map((e: any) => e.code) 
       }))
     });
-
+    
     if (rejectedFiles.length > 0) {
       rejectedFiles.forEach(({ file, errors }) => {
         errors.forEach((error: any) => {
@@ -133,7 +116,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
             : error.code === 'file-too-large'
             ? `${file.name}: File too large`
             : `${file.name}: ${error.message}`;
-
+          
           toast({
             title: "File rejected",
             description: message,
@@ -142,7 +125,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
         });
       });
     }
-
+    
     if (acceptedFiles.length > 0) {
       // Start metadata collection process
       setPendingFiles(acceptedFiles);
@@ -187,36 +170,34 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
         } ${uploadMutation.isPending ? 'opacity-50 pointer-events-none' : ''}`}
       >
         <input {...getInputProps()} />
-
+        
         <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <CloudUpload className="w-8 h-8 text-blue-600" />
         </div>
-
+        
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           {uploadMutation.isPending ? 'Uploading...' : 'Upload Documents'}
         </h3>
-
+        
         <p className="text-gray-600 mb-4">
           {isDragActive 
             ? 'Drop files here...' 
             : 'Drag and drop files here, or click to select files'
           }
         </p>
-
+        
         <p className="text-sm text-gray-500">
           Supports PDF, DOCX, XLSX, PPTX, TXT, CSV, JSON, and image files up to 25MB each
         </p>
         <p className="text-xs text-gray-400 mt-1">
           Files are automatically classified and tagged using AI
         </p>
-
+        
         {uploadMutation.isPending && (
           <div className="mt-4">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
           </div>
         )}
-
-        
       </div>
 
       {/* Document Metadata Modal */}
