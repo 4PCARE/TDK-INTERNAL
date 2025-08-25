@@ -344,6 +344,27 @@ export default function Documents() {
     setSelectedDocuments(new Set());
   }, [selectedFolderId]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'a') {
+          e.preventDefault();
+          handleSelectAll();
+        }
+      }
+      if (e.key === 'Escape') {
+        if (selectedDocuments.size > 0) {
+          setSelectedDocuments(new Set());
+          setShowBulkActions(false);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedDocuments.size, filteredDocuments.length]);
+
   // Bulk move documents mutation
   const { mutate: moveDocuments } = useMutation({
     mutationFn: async ({ documentIds, folderId }: { documentIds: number[]; folderId: number | null }) => {
@@ -379,6 +400,10 @@ export default function Documents() {
     }
     setSelectedDocuments(newSelected);
     setShowBulkActions(newSelected.size > 0);
+  };
+
+  const isDocumentSelected = (documentId: number) => {
+    return selectedDocuments.has(documentId);
   };
 
   const handleSelectAll = () => {
@@ -686,9 +711,16 @@ export default function Documents() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium text-slate-800">
-                      {selectedDocuments.size} document{selectedDocuments.size !== 1 ? 's' : ''} selected
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={selectedDocuments.size === filteredDocuments.length && filteredDocuments.length > 0}
+                        onCheckedChange={handleSelectAll}
+                        className="border-blue-400"
+                      />
+                      <span className="text-sm font-medium text-slate-800">
+                        {selectedDocuments.size} of {filteredDocuments.length} document{selectedDocuments.size !== 1 ? 's' : ''} selected
+                      </span>
+                    </div>
                     <Button
                       variant="outline"
                       size="sm"
@@ -696,14 +728,24 @@ export default function Documents() {
                         setSelectedDocuments(new Set());
                         setShowBulkActions(false);
                       }}
+                      className="h-8"
                     >
-                      Clear Selection
+                      Clear All
                     </Button>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      disabled={selectedDocuments.size === 0}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Delete Selected
+                    </Button>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button size="sm">
+                        <Button size="sm" className="h-8" disabled={selectedDocuments.size === 0}>
                           <Move className="w-4 h-4 mr-1" />
                           Move to Folder
                         </Button>
@@ -795,8 +837,9 @@ export default function Documents() {
                         key={doc.id} 
                         document={doc} 
                         viewMode={viewMode}
-                        isSelected={selectedDocuments.has(doc.id)}
+                        isSelected={isDocumentSelected(doc.id)}
                         onSelect={handleDocumentSelect}
+                        showSelection={true}
                       />
                     ))}
                   </div>
