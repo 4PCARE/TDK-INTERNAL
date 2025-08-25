@@ -118,9 +118,26 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   const handleCardClick = (e: React.MouseEvent) => {
     // Prevent selection when clicking on buttons or dropdown menus
     const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('[data-radix-menu-content]')) {
+    
+    // Check if we clicked on an interactive element
+    const isButton = target.closest('button');
+    const isDropdown = target.closest('[data-radix-menu-content]');
+    const isCheckbox = target.closest('input[type="checkbox"]');
+    
+    console.log('Click detected:', { 
+      isButton: !!isButton, 
+      isDropdown: !!isDropdown, 
+      isCheckbox: !!isCheckbox,
+      targetTagName: target.tagName,
+      targetClass: target.className
+    });
+    
+    if (isButton || isDropdown || isCheckbox) {
+      console.log('Preventing selection due to interactive element');
       return;
     }
+    
+    console.log('Toggling selection for document:', document.id, 'from', isSelected, 'to', !isSelected);
     
     // Toggle selection on card click
     if (onSelect) {
