@@ -48,39 +48,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-// Add CSS for line clamping and syntax highlighting
-const lineClampStyles = `
-  .line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  /* Syntax highlighting styles */
-  .hljs {
-    background: #f8f9fa !important;
-    color: #333 !important;
-    padding: 12px !important;
-    border-radius: 6px !important;
-    font-size: 14px !important;
-    line-height: 1.4 !important;
-  }
-
-  .hljs-keyword { color: #d73a49 !important; }
-  .hljs-string { color: #032f62 !important; }
-  .hljs-comment { color: #6a737d !important; }
-  .hljs-number { color: #005cc5 !important; }
-  .hljs-function { color: #6f42c1 !important; }
-  .hljs-variable { color: #e36209 !important; }
-`;
-
-// Inject styles
-if (typeof document !== 'undefined') {
-  const style = document.createElement('style');
-  style.textContent = lineClampStyles;
-  document.head.appendChild(style);
-}
+// Utility function for text truncation
+const truncateStyle = {
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical' as const,
+  overflow: 'hidden'
+};
 
 // Real API request function
 const apiRequest = async (method: string, url: string, body?: any) => {
@@ -713,7 +687,7 @@ export default function InternalAIChat() {
                           <div className="flex-1 min-w-0">
                             <h4 className="font-medium text-gray-900 break-words">{agent.name}</h4>
                             {agent.description && (
-                              <p className="text-sm text-gray-500 mt-1 break-words line-clamp-2">{agent.description}</p>
+                              <p className="text-sm text-gray-500 mt-1 break-words" style={truncateStyle}>{agent.description}</p>
                             )}
 
                             {/* Document names display */}
@@ -902,11 +876,11 @@ export default function InternalAIChat() {
                               </div>
                             </div>
                           ) : (
-                            <p className="font-medium text-gray-900 break-words line-clamp-2" onClick={() => setSelectedSession(session)}>{session.title}</p>
+                            <p className="font-medium text-gray-900 break-words" style={truncateStyle} onClick={() => setSelectedSession(session)}>{session.title}</p>
                           )}
 
                           {session.lastMessage && (
-                            <p className="text-sm text-gray-500 break-words line-clamp-2 mt-1">
+                            <p className="text-sm text-gray-500 break-words mt-1" style={truncateStyle}>
                               {session.lastMessage}
                             </p>
                           )}
