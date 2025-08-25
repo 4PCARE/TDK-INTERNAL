@@ -1,22 +1,9 @@
 import OpenAI from 'openai';
+import { llmRouter } from "./llmRouter";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
-
-export interface QueryAnalysis {
-  needsSearch: boolean;
-  enhancedQuery: string;
-  keywordWeight: number;
-  vectorWeight: number;
-  reasoning: string;
-}
-
-export interface ChatMessage {
-  messageType: 'user' | 'assistant';
-  content: string;
-  createdAt: Date;
-}
 
 export class QueryPreprocessorService {
   async analyzeQuery(
@@ -124,28 +111,86 @@ ${context ? `Additional Context: ${context}` : ''}
 
 Analyze this query and provide your response.`;
 
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.1,
-        max_tokens: 300
-      });
+      // **This part needs to be updated to use the LLM Router**
+      // For now, we'll use OpenAI as a placeholder.
+      // The `llmRouter` will be used to dynamically select the provider.
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error('No response from AI');
+      // The following code block is a placeholder and will be replaced by the logic
+      // that uses llmRouter.chat() based on the user's selected provider.
+      // For now, we simulate the expected JSON output structure.
+
+      // Let's assume we have a user ID available to load their configuration.
+      // In a real application, this would come from the request or session.
+      const userId = "exampleUserId"; // Replace with actual user ID
+
+      const config = await llmRouter.loadUserConfig(userId); // Load user config to get provider
+
+      let result: any;
+
+      if (config.provider === "Gemini") {
+        // Use Gemini for preprocessing
+        const messages = [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: userPrompt
+          }
+        ];
+
+        const response = await llmRouter.chat(messages, userId);
+
+        // Parse JSON response from Gemini
+        try {
+          result = JSON.parse(response);
+        } catch (parseError) {
+          console.error("Error parsing Gemini JSON response:", parseError);
+          // Try to extract JSON from response if it's wrapped in text
+          const jsonMatch = response.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            result = JSON.parse(jsonMatch[0]);
+          } else {
+            throw parseError; // Re-throw if JSON cannot be extracted
+          }
+        }
+      } else {
+        // Use OpenAI for preprocessing (default behavior)
+        const completion = await openai.chat.completions.create({
+          model: config.openAIConfig?.model || 'gpt-4o-mini', // Use model from config or default
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.1,
+          max_tokens: 300
+        });
+
+        const content = completion.choices[0]?.message?.content;
+        if (!content) {
+          throw new Error('No response from AI');
+        }
+        try {
+          result = JSON.parse(content);
+        } catch (parseError) {
+          console.warn('Failed to parse AI response, using fallback analysis');
+          result = this.getFallbackAnalysis(userQuery);
+        }
       }
+
 
       let analysis: QueryAnalysis;
-      try {
-        analysis = JSON.parse(content);
-      } catch (parseError) {
-        console.warn('Failed to parse AI response, using fallback analysis');
-        analysis = this.getFallbackAnalysis(userQuery);
-      }
+      // The result object is expected to have keys like enhancedQuery, keywordWeight, vectorWeight, reasoning
+      // We need to map these to the QueryAnalysis interface.
+      analysis = {
+          needsSearch: result.needsSearch !== undefined ? result.needsSearch : this.determineNeedsSearch(result.enhancedQuery || userQuery, chatHistory, additionalSearchDetail), // Fallback to original logic if not provided
+          enhancedQuery: result.enhancedQuery || userQuery,
+          keywordWeight: result.keywordWeight !== undefined ? result.keywordWeight : (result.weights ? parseFloat(result.weights.split('V:')[0].replace('K:', '')) : 0.5), // Assuming weights are in K:X V:Y format if result.weights exists
+          vectorWeight: result.vectorWeight !== undefined ? result.vectorWeight : (result.weights ? parseFloat(result.weights.split('V:')[1]) : 0.5),
+          reasoning: result.reasoning || 'AI preprocessing successful'
+      };
+
 
       // Normalize weights to sum to 1
       const totalWeight = analysis.keywordWeight + analysis.vectorWeight;
@@ -158,6 +203,7 @@ Analyze this query and provide your response.`;
       }
 
       console.log(`🧠 PRE-FEED RESULT:`, {
+        provider: config.provider,
         needsSearch: analysis.needsSearch,
         original: userQuery,
         enhanced: analysis.enhancedQuery,
@@ -172,6 +218,22 @@ Analyze this query and provide your response.`;
       return this.getFallbackAnalysis(userQuery);
     }
   }
+
+  // Helper to determine needsSearch, mirroring original logic if not directly provided by AI
+  private determineNeedsSearch(enhancedQuery: string, chatHistory: ChatMessage[], additionalSearchDetail?: string): boolean {
+      const lowerQuery = enhancedQuery.toLowerCase();
+
+      // Check if it's a location or factual question
+      const isFactualQuery = /อยู่ที่ไหน|ชั้นไหน|ที่ไหน|where|location|floor|ราคา|เท่าไหร่|ส่วนลด|discount|ขั้นตอน|process|วิธี|how|อะไร|what|ใคร|who|ทำไม|why|เมื่อไหร่|when|กี่|how many|กี่วัน|how many days/.test(lowerQuery);
+
+      // Check for specific entities or concepts (can be expanded)
+      const hasSpecificEntity = /oppo|xolo|kfc|starbucks|uniqlo|provident fund|กองทุนสำรองเลี้ยงชีพ|ลาหยุด|สวัสดิการ|เบิกเงิน|นโยบาย|ระเบียบ/.test(lowerQuery);
+
+      // A query needs search if it's factual, has specific entities, or is not a short, purely conversational phrase.
+      const needsSearch = isFactualQuery || hasSpecificEntity || lowerQuery.length > 5; // Heuristic for short, conversational phrases
+      return needsSearch;
+  }
+
 
   private getFallbackAnalysis(userQuery: string): QueryAnalysis {
     // Simple fallback logic

@@ -1,5 +1,5 @@
-
 import OpenAI from "openai";
+import { llmRouter } from "./llmRouter";
 
 interface KeywordExpansionResult {
   isRelatedToHistory: boolean;
@@ -25,7 +25,8 @@ export class AIKeywordExpansionService {
   async expandKeywords(
     currentQuery: string,
     chatHistory: ChatHistoryItem[] = [],
-    maxHistoryItems: number = 5
+    maxHistoryItems: number = 5,
+    userId?: string // Added userId for potential use with llmRouter
   ): Promise<KeywordExpansionResult> {
     try {
       // Filter recent chat history (exclude system messages)
@@ -36,45 +37,70 @@ export class AIKeywordExpansionService {
         .join('\n');
 
       const prompt = this.buildExpansionPrompt(currentQuery, recentHistory);
-
-      const completion = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant specialized in keyword expansion for document search. Your task is to:
+      const systemPrompt = `You are an AI assistant specialized in keyword expansion for document search. Your task is to:
 1. Analyze if the current query is related to previous conversation
 2. Generate relevant keywords that would help find related documents
 3. Consider synonyms, related terms, and context-specific vocabulary
 
-Always respond in valid JSON format with the required fields.`
+Always respond in valid JSON format with the required fields.`;
+
+      let response: string;
+
+      if (userId) {
+        // Use user's configured LLM provider
+        const config = await llmRouter.loadUserConfig(userId);
+
+        const messages = [
+          {
+            role: "system",
+            content: systemPrompt,
           },
           {
             role: "user",
-            content: prompt
-          }
-        ],
-        max_tokens: 500,
-        temperature: 0.3,
-        response_format: { type: "json_object" }
-      });
+            content: prompt, // Use the built prompt here
+          },
+        ];
 
-      const response = completion.choices[0].message.content;
+        response = await llmRouter.chat(messages, userId);
+        console.log(`🔍 Keyword expansion using ${config.provider}`);
+      } else {
+        // Fallback to OpenAI if no userId provided
+        const completion = await this.openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt,
+            },
+            {
+              role: "user",
+              content: prompt, // Use the built prompt here
+            }
+          ],
+          max_tokens: 500,
+          temperature: 0.3,
+          response_format: { type: "json_object" }
+        });
+
+        response = completion.choices[0].message.content || "";
+        console.log(`🔍 Keyword expansion using OpenAI (fallback)`);
+      }
+
       if (!response) {
-        throw new Error("No response from OpenAI");
+        throw new Error("No response from LLM provider");
       }
 
       const result = JSON.parse(response) as KeywordExpansionResult;
-      
+
       // Ensure we have the original query
       result.originalQuery = currentQuery;
-      
+
       // Validate and sanitize the result
       return this.validateAndSanitizeResult(result, currentQuery);
 
     } catch (error) {
       console.error("Error in AI keyword expansion:", error);
-      
+
       // Fallback: return basic keyword extraction
       return this.getFallbackExpansion(currentQuery);
     }
@@ -119,11 +145,11 @@ Examples:
 
   private validateAndSanitizeResult(result: KeywordExpansionResult, originalQuery: string): KeywordExpansionResult {
     // Ensure required fields exist
-    if (!result.isRelatedToHistory) result.isRelatedToHistory = false;
+    if (result.isRelatedToHistory === undefined) result.isRelatedToHistory = false;
     if (!result.expandedKeywords) result.expandedKeywords = [];
-    if (!result.confidence) result.confidence = 0.5;
+    if (result.confidence === undefined) result.confidence = 0.5;
     if (!result.reasoning) result.reasoning = "Analysis completed";
-    
+
     // Sanitize keywords
     result.expandedKeywords = result.expandedKeywords
       .filter(keyword => keyword && typeof keyword === 'string')
@@ -144,7 +170,7 @@ Examples:
 
   private getFallbackExpansion(query: string): KeywordExpansionResult {
     const basicKeywords = this.extractBasicKeywords(query);
-    
+
     return {
       isRelatedToHistory: false,
       expandedKeywords: basicKeywords,
@@ -174,14 +200,15 @@ Examples:
   // Method to get keyword expansion for use in existing search services
   async getExpandedSearchTerms(
     query: string, 
-    chatHistory: ChatHistoryItem[] = []
+    chatHistory: ChatHistoryItem[] = [],
+    userId?: string // Pass userId to expandKeywords
   ): Promise<{
     original: string[];
     expanded: string[];
     isContextual: boolean;
     confidence: number;
   }> {
-    const expansion = await this.expandKeywords(query, chatHistory);
+    const expansion = await this.expandKeywords(query, chatHistory, 5, userId); // Pass userId here
     const originalTerms = this.extractBasicKeywords(query);
 
     return {
