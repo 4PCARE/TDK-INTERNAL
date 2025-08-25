@@ -116,25 +116,23 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Prevent selection when clicking on specific interactive elements
+    // Prevent selection when clicking on buttons or dropdown menus
     const target = e.target as HTMLElement;
-    const isInteractiveElement = target.closest('button') || 
-                                target.closest('[role="menuitem"]') || 
-                                target.closest('input[type="checkbox"]') ||
-                                target.closest('.dropdown-trigger');
-    
-    if (isInteractiveElement) {
+    if (target.closest('button') || target.closest('[data-radix-menu-content]')) {
       return;
     }
     
-    // Allow selection on card click
-    e.preventDefault();
-    onSelect?.(document.id, !isSelected);
+    // Toggle selection on card click
+    if (onSelect) {
+      onSelect(document.id, !isSelected);
+    }
   };
 
   const handleRightClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    setIsDropdownOpen(!isDropdownOpen);
+    if (onSelect) {
+      onSelect(document.id, !isSelected);
+    }
   };
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -165,10 +163,7 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
                 checked={isSelected}
                 onChange={(e) => {
                   e.stopPropagation();
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelect(document.id, !isSelected);
+                  onSelect(document.id, e.target.checked);
                 }}
                 className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
               />
