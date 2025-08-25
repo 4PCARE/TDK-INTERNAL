@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import DocumentCard from "./DocumentCard";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -6,6 +7,18 @@ export default function DocumentGrid() {
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ["/api/documents"],
   });
+  
+  const [selectedDocuments, setSelectedDocuments] = useState<Set<number>>(new Set());
+
+  const handleDocumentSelect = (documentId: number, isSelected: boolean) => {
+    const newSelected = new Set(selectedDocuments);
+    if (isSelected) {
+      newSelected.add(documentId);
+    } else {
+      newSelected.delete(documentId);
+    }
+    setSelectedDocuments(newSelected);
+  };
 
   if (isLoading) {
     return (
@@ -56,7 +69,12 @@ export default function DocumentGrid() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {documents.map((document: any) => (
-            <DocumentCard key={document.id} document={document} />
+            <DocumentCard 
+              key={document.id} 
+              document={document}
+              isSelected={selectedDocuments.has(document.id)}
+              onSelect={handleDocumentSelect}
+            />
           ))}
         </div>
       )}
