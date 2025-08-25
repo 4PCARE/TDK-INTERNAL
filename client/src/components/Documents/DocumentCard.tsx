@@ -111,7 +111,6 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   };
 
   const handleToggleFavorite = (e: React.MouseEvent) => {
-    e.stopPropagation();
     toggleFavoriteMutation.mutate();
   };
 
@@ -171,7 +170,11 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
               variant="ghost" 
               size="sm" 
               className="p-1.5 h-auto"
-              onClick={handleToggleFavorite}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                handleToggleFavorite(e);
+              }}
               disabled={toggleFavoriteMutation.isPending}
             >
               <Star 
@@ -184,7 +187,15 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="p-1.5 h-auto">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="p-1.5 h-auto"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                >
                   <MoreHorizontal className="w-4 h-4 text-gray-400" />
                 </Button>
               </DropdownMenuTrigger>
