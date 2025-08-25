@@ -115,7 +115,8 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    if (e.ctrlKey || e.metaKey || showSelection) {
+    // Only handle selection if showSelection is true and it's not a button/dropdown click
+    if (showSelection && !e.defaultPrevented) {
       e.preventDefault();
       onSelect?.(document.id, !isSelected);
     }
@@ -124,7 +125,6 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   const handleCheckboxClick = (e: React.MouseEvent) => {
     console.log("Checkbox clicked:", document.id, !isSelected);
     e.stopPropagation();
-    e.preventDefault();
     onSelect?.(document.id, !isSelected);
   };
 
@@ -156,7 +156,10 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
               <div className="flex items-center" onClick={handleCheckboxClick}>
                 <Checkbox
                   checked={isSelected}
-                  onCheckedChange={(checked) => onSelect?.(document.id, checked as boolean)}
+                  onCheckedChange={(checked) => {
+                    console.log("Checkbox onCheckedChange:", document.id, checked);
+                    onSelect?.(document.id, checked as boolean);
+                  }}
                   className="w-4 h-4"
                 />
               </div>
