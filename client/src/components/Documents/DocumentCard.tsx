@@ -23,9 +23,12 @@ interface DocumentCardProps {
     content?: string;
     isChunkResult?: boolean;
   };
+  isSelected?: boolean;
+  onSelect?: (documentId: number, isSelected: boolean) => void;
+  viewMode?: "grid" | "list";
 }
 
-export default function DocumentCard({ document }: DocumentCardProps) {
+export default function DocumentCard({ document, isSelected = false, onSelect, viewMode = "grid" }: DocumentCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -109,13 +112,48 @@ export default function DocumentCard({ document }: DocumentCardProps) {
     toggleFavoriteMutation.mutate();
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      onSelect?.(document.id, !isSelected);
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = "move";
+    const documentIds = isSelected ? [document.id] : [document.id];
+    e.dataTransfer.setData("application/json", JSON.stringify(documentIds));
+  };
+
   return (
-    <Card className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-      <CardContent className="p-4">
+    <Card 
+      className={cn(
+        "bg-white border shadow-sm hover:shadow-md transition-all cursor-pointer",
+        isSelected ? "border-blue-500 bg-blue-50" : "border-gray-200",
+        viewMode === "list" ? "mb-2" : ""
+      )}
+      draggable
+      onDragStart={handleDragStart}
+      onClick={handleCardClick}
+    >
+      <CardContent className={cn("p-4", viewMode === "list" && "py-3")}>
         {/* Document Type Icon */}
         <div className="flex items-center justify-between mb-3">
-          <div className={`w-10 h-10 ${getFileIconBg()} rounded-lg flex items-center justify-center`}>
-            {getFileIcon()}
+          <div className="flex items-center gap-2">
+            {onSelect && (
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  onSelect(document.id, e.target.checked);
+                }}
+                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+              />
+            )}
+            <div className={`w-10 h-10 ${getFileIconBg()} rounded-lg flex items-center justify-center`}>
+              {getFileIcon()}
+            </div>
           </div>
           <div className="flex items-center space-x-1">
             <Button 

@@ -38,7 +38,8 @@ import DocumentEndorsementDialog from "@/components/DocumentEndorsementDialog";
 import ContentSummaryModal from "@/components/ContentSummaryModal";
 import DocumentChatModal from "@/components/Chat/DocumentChatModal";
 import UploadZone from "@/components/Upload/UploadZone";
-import { ChevronDown, Star, Grid3X3, List as ListIcon, SortAsc, SortDesc } from "lucide-react";
+import FolderTree from "@/components/Documents/FolderTree";
+import { ChevronDown, Star, Grid3X3, List as ListIcon, SortAsc, SortDesc, FolderOpen, Move } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -62,6 +63,9 @@ export default function Documents() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showUploadZone, setShowUploadZone] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
+  const [selectedDocuments, setSelectedDocuments] = useState<Set<number>>(new Set());
+  const [showBulkActions, setShowBulkActions] = useState(false);
   const documentsPerPage = 9;
 
   // Parse search query from URL
@@ -117,13 +121,17 @@ export default function Documents() {
 
   // Enhanced search with semantic capabilities
   const { data: rawSearchResults, isLoading: documentsLoading, error: documentsError } = useQuery({
-    queryKey: ["/api/documents/search", searchQuery, searchFileName, searchKeyword, searchMeaning, currentPage],
+    queryKey: ["/api/documents/search", searchQuery, searchFileName, searchKeyword, searchMeaning, currentPage, selectedFolderId],
     queryFn: async () => {
       try {
         if (!searchQuery.trim()) {
           // Use server-side pagination for regular document loading
           const offset = (currentPage - 1) * documentsPerPage;
-          const response = await fetch(`/api/documents?limit=${documentsPerPage}&offset=${offset}`);
+          let url = `/api/documents?limit=${documentsPerPage}&offset=${offset}`;
+          if (selectedFolderId !== null) {
+            url = `/api/folders/${selectedFolderId}/documents`;
+          }
+          const response = await fetch(url);
           if (!response.ok) {
             throw new Error(`${response.status}: ${response.statusText}`);
           }
@@ -329,7 +337,70 @@ export default function Documents() {
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterCategories, filterTags, showFavoritesOnly, sortBy]);
+  }, [searchQuery, filterCategories, filterTags, showFavoritesOnly, sortBy, selectedFolderId]);
+
+  // Clear selection when folder changes
+  useEffect(() => {
+    setSelectedDocuments(new Set());
+  }, [selectedFolderId]);
+
+  // Bulk move documents mutation
+  const { mutate: moveDocuments } = useMutation({
+    mutationFn: async ({ documentIds, folderId }: { documentIds: number[]; folderId: number | null }) => {
+      const response = await fetch('/api/folders/move-documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentIds, folderId })
+      });
+      if (!response.ok) throw new Error('Failed to move documents');
+      return response.json();
+    },
+    onSuccess: () => {
+      // Refresh documents
+      window.location.reload();
+      setSelectedDocuments(new Set());
+      toast({ title: "Documents moved successfully" });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error moving documents",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDocumentSelect = (documentId: number, isSelected: boolean) => {
+    const newSelected = new Set(selectedDocuments);
+    if (isSelected) {
+      newSelected.add(documentId);
+    } else {
+      newSelected.delete(documentId);
+    }
+    setSelectedDocuments(newSelected);
+    setShowBulkActions(newSelected.size > 0);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedDocuments.size === filteredDocuments.length) {
+      setSelectedDocuments(new Set());
+      setShowBulkActions(false);
+    } else {
+      const allIds = new Set(filteredDocuments.map((doc: any) => doc.id));
+      setSelectedDocuments(allIds);
+      setShowBulkActions(true);
+    }
+  };
+
+  const handleFolderDrop = (folderId: number | null, documentIds: number[]) => {
+    moveDocuments({ documentIds, folderId });
+  };
+
+  const handleBulkMove = (folderId: number | null) => {
+    if (selectedDocuments.size > 0) {
+      moveDocuments({ documentIds: Array.from(selectedDocuments), folderId });
+    }
+  };
 
   // Calculate pagination with memoization
   const paginationData = useMemo(() => {
@@ -361,14 +432,37 @@ export default function Documents() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-            {/* Header */}
-            <div className="mb-6">
-              <h1 className="text-2xl font-semibold text-slate-800 mb-2">My Documents</h1>
-              <p className="text-sm text-slate-500">
-                Manage and organize your document collection
-              </p>
+      <div className="flex gap-6">
+        {/* Folder Sidebar */}
+        <div className="w-80 flex-shrink-0">
+          <FolderTree
+            selectedFolderId={selectedFolderId}
+            onFolderSelect={setSelectedFolderId}
+            onFolderDrop={handleFolderDrop}
+            className="sticky top-6"
+          />
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 space-y-6">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <h1 className="text-2xl font-semibold text-slate-800">
+                {selectedFolderId ? (
+                  <>
+                    <FolderOpen className="inline w-6 h-6 mr-2" />
+                    Folder Documents
+                  </>
+                ) : (
+                  "My Documents"
+                )}
+              </h1>
             </div>
+            <p className="text-sm text-slate-500">
+              {selectedFolderId ? "Documents in the selected folder" : "Manage and organize your document collection"}
+            </p>
+          </div>
 
             {/* Filters and Search */}
             <Card className="border border-slate-200 mb-6">
@@ -586,25 +680,88 @@ export default function Documents() {
               </CardContent>
             </Card>
 
-            {/* Documents Grid/List */}
-            <Card className="border border-slate-200">
-              <CardHeader className="pb-4">
+            {/* Bulk Actions */}
+          {showBulkActions && (
+            <Card className="border border-blue-200 bg-blue-50">
+              <CardContent className="p-4">
                 <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-medium text-slate-800">
+                      {selectedDocuments.size} document{selectedDocuments.size !== 1 ? 's' : ''} selected
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedDocuments(new Set());
+                        setShowBulkActions(false);
+                      }}
+                    >
+                      Clear Selection
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button size="sm">
+                          <Move className="w-4 h-4 mr-1" />
+                          Move to Folder
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48">
+                        <div className="space-y-1">
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-start"
+                            onClick={() => handleBulkMove(null)}
+                          >
+                            <FileText className="w-4 h-4 mr-2" />
+                            Root (No Folder)
+                          </Button>
+                          {/* Add folder options here - you'd need to fetch folders */}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Documents Grid/List */}
+          <Card className="border border-slate-200">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
                   <CardTitle className="text-lg font-semibold text-slate-800">
                     Documents ({isSearchMode ? (allFilteredDocuments?.length || 0) : (actualTotal || 0)})
                   </CardTitle>
-                  <div className="flex items-center space-x-2">
-                    <VectorizeAllButton />
-                    <Button 
-                      onClick={() => setShowUploadZone(!showUploadZone)}
-                      className="bg-primary text-white hover:bg-blue-700"
+                  {filteredDocuments?.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSelectAll}
                     >
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload Documents
+                      <Checkbox
+                        checked={selectedDocuments.size === filteredDocuments.length}
+                        className="mr-2"
+                      />
+                      Select All
                     </Button>
-                  </div>
+                  )}
                 </div>
-              </CardHeader>
+                <div className="flex items-center space-x-2">
+                  <VectorizeAllButton />
+                  <Button 
+                    onClick={() => setShowUploadZone(!showUploadZone)}
+                    className="bg-primary text-white hover:bg-blue-700"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload Documents
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
               <CardContent>
                 {/* Upload Zone */}
                 {showUploadZone && (
@@ -634,11 +791,13 @@ export default function Documents() {
                       : "space-y-2"
                   }>
                     {filteredDocuments.map((doc: any) => (
-                      <DocumentCard key={doc.id} document={doc} viewMode={viewMode} categories={categories?.map(cat => ({
-                        ...cat,
-                        color: (cat as any).color || '#3B82F6',
-                        icon: (cat as any).icon || 'folder'
-                      }))} />
+                      <DocumentCard 
+                        key={doc.id} 
+                        document={doc} 
+                        viewMode={viewMode}
+                        isSelected={selectedDocuments.has(doc.id)}
+                        onSelect={handleDocumentSelect}
+                      />
                     ))}
                   </div>
                 ) : (
@@ -740,6 +899,8 @@ export default function Documents() {
                 )}
               </CardContent>
             </Card>
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );
