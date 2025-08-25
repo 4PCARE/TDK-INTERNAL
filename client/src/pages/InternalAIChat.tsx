@@ -48,7 +48,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-// Add CSS for line clamping and syntax highlighting
+// Add CSS for line clamping, syntax highlighting, and markdown tables
 const lineClampStyles = `
   .line-clamp-2 {
     display: -webkit-box;
@@ -73,6 +73,43 @@ const lineClampStyles = `
   .hljs-number { color: #005cc5 !important; }
   .hljs-function { color: #6f42c1 !important; }
   .hljs-variable { color: #e36209 !important; }
+  
+  /* Markdown table styles */
+  .markdown-content table {
+    border-collapse: collapse !important;
+    margin: 12px 0 !important;
+    width: 100% !important;
+    background: white !important;
+    border-radius: 6px !important;
+    overflow: hidden !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  .markdown-content th {
+    background: #f8f9fa !important;
+    font-weight: 600 !important;
+    text-align: left !important;
+    padding: 12px 16px !important;
+    border: 1px solid #e5e7eb !important;
+    color: #374151 !important;
+    font-size: 14px !important;
+  }
+  
+  .markdown-content td {
+    padding: 12px 16px !important;
+    border: 1px solid #e5e7eb !important;
+    color: #374151 !important;
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+  }
+  
+  .markdown-content tr:nth-child(even) {
+    background: #f9fafb !important;
+  }
+  
+  .markdown-content tr:hover {
+    background: #f3f4f6 !important;
+  }
 `;
 
 // Inject styles
@@ -1009,7 +1046,7 @@ export default function InternalAIChat() {
                                   : 'bg-gray-100 text-gray-900 rounded-tl-none'
                               }`}>
                                 {message.role === 'assistant' ? (
-                                  <div className="text-sm prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-900 prose-strong:text-gray-900 prose-code:text-gray-800 prose-code:bg-gray-200 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-200 prose-pre:text-gray-800">
+                                  <div className="text-sm prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-900 prose-strong:text-gray-900 prose-code:text-gray-800 prose-code:bg-gray-200 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-200 prose-pre:text-gray-800 markdown-content">
                                     <ReactMarkdown
                                       remarkPlugins={[remarkGfm]}
                                       rehypePlugins={[rehypeHighlight]}
