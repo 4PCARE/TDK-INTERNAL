@@ -540,8 +540,14 @@ ${document.summary}`;
             const { content, summary, tags, category, categoryColor } =
               await processDocument(file.path, file.mimetype);
 
-            const documentData = {
-              name: fileMetadata?.name || correctedFileName,
+            const name = req.body.name || correctedFileName;
+            const effectiveStartDate = req.body.effectiveStartDate || null;
+            const effectiveEndDate = req.body.effectiveEndDate || null;
+            const folderId = req.body.folderId ? parseInt(req.body.folderId) : null;
+
+            // Store the file in storage
+            const document = await storage.createDocument({
+              name,
               fileName: file.filename,
               filePath: file.path,
               fileSize: file.size,
@@ -553,12 +559,17 @@ ${document.summary}`;
               aiCategoryColor: categoryColor,
               userId,
               processedAt: new Date(),
-              effectiveStartDate: fileMetadata?.effectiveStartDate ? new Date(fileMetadata.effectiveStartDate) : null,
-              effectiveEndDate: fileMetadata?.effectiveEndDate ? new Date(fileMetadata.effectiveEndDate) : null,
-            };
+              effectiveStartDate: effectiveStartDate ? new Date(effectiveStartDate) : null,
+              effectiveEndDate: effectiveEndDate ? new Date(effectiveEndDate) : null,
+              folderId
+            });
 
-            const document = await storage.createDocument(documentData);
-            uploadedDocuments.push(document);
+            uploadedDocuments.push({
+              id: document.id,
+              name: document.name,
+              fileName: document.fileName,
+              userId: document.userId,
+            });
 
             // Auto-vectorize the document if it has content
             if (content && content.trim().length > 0) {
@@ -608,8 +619,13 @@ ${document.summary}`;
 
             console.error(`Error processing file ${correctedFileName}:`, error);
             // Still create document without AI processing
+            const name = req.body.name || correctedFileName;
+            const effectiveStartDate = req.body.effectiveStartDate || null;
+            const effectiveEndDate = req.body.effectiveEndDate || null;
+            const folderId = req.body.folderId ? parseInt(req.body.folderId) : null;
+
             const documentData = {
-              name: correctedFileName,
+              name,
               fileName: file.filename,
               filePath: file.path,
               fileSize: file.size,
@@ -617,9 +633,17 @@ ${document.summary}`;
               aiCategory: "Uncategorized",
               aiCategoryColor: "#6B7280",
               userId,
+              effectiveStartDate: effectiveStartDate ? new Date(effectiveStartDate) : null,
+              effectiveEndDate: effectiveEndDate ? new Date(effectiveEndDate) : null,
+              folderId
             };
             const document = await storage.createDocument(documentData);
-            uploadedDocuments.push(document);
+            uploadedDocuments.push({
+              id: document.id,
+              name: document.name,
+              fileName: document.fileName,
+              userId: document.userId,
+            });
           }
         }
 
