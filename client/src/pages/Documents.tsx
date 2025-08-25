@@ -32,7 +32,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
-import DocumentCard from "@/components/Documents/DocumentCard";
+import DocumentCard from "@/components/DocumentCard";
 import ShareDocumentDialog from "@/components/ShareDocumentDialog";
 import DocumentEndorsementDialog from "@/components/DocumentEndorsementDialog";
 import ContentSummaryModal from "@/components/ContentSummaryModal";
@@ -344,27 +344,6 @@ export default function Documents() {
     setSelectedDocuments(new Set());
   }, [selectedFolderId]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        if (e.key === 'a') {
-          e.preventDefault();
-          handleSelectAll();
-        }
-      }
-      if (e.key === 'Escape') {
-        if (selectedDocuments.size > 0) {
-          setSelectedDocuments(new Set());
-          setShowBulkActions(false);
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedDocuments.size, allFilteredDocuments]);
-
   // Bulk move documents mutation
   const { mutate: moveDocuments } = useMutation({
     mutationFn: async ({ documentIds, folderId }: { documentIds: number[]; folderId: number | null }) => {
@@ -392,42 +371,24 @@ export default function Documents() {
   });
 
   const handleDocumentSelect = (documentId: number, isSelected: boolean) => {
-    console.log("Document select called:", { 
-      documentId, 
-      isSelected, 
-      currentSelection: Array.from(selectedDocuments),
-      currentSize: selectedDocuments.size,
-      newSize: isSelected ? selectedDocuments.size + 1 : selectedDocuments.size - 1
-    });
-    
-    setSelectedDocuments(prevSelected => {
-      const newSelected = new Set(prevSelected);
-      if (isSelected) {
-        newSelected.add(documentId);
-      } else {
-        newSelected.delete(documentId);
-      }
-      console.log("Setting new selection:", Array.from(newSelected));
-      
-      // Update bulk actions visibility
-      setShowBulkActions(newSelected.size > 0);
-      
-      return newSelected;
-    });
-  };
-
-  const isDocumentSelected = (documentId: number) => {
-    return selectedDocuments.has(documentId);
+    const newSelected = new Set(selectedDocuments);
+    if (isSelected) {
+      newSelected.add(documentId);
+    } else {
+      newSelected.delete(documentId);
+    }
+    setSelectedDocuments(newSelected);
+    setShowBulkActions(newSelected.size > 0);
   };
 
   const handleSelectAll = () => {
-    if (selectedDocuments.size === allFilteredDocuments.length && allFilteredDocuments.length > 0) {
+    if (selectedDocuments.size === filteredDocuments.length) {
       setSelectedDocuments(new Set());
       setShowBulkActions(false);
     } else {
-      const allIds = new Set(allFilteredDocuments.map((doc: any) => doc.id));
+      const allIds = new Set(filteredDocuments.map((doc: any) => doc.id));
       setSelectedDocuments(allIds);
-      setShowBulkActions(allIds.size > 0);
+      setShowBulkActions(true);
     }
   };
 
@@ -441,15 +402,33 @@ export default function Documents() {
     }
   };
 
-  // Displaying the documents based on view mode and search/filter results
-  const displayedDocuments = isSearchMode ? allFilteredDocuments : allFilteredDocuments;
-  const totalItems = isSearchMode ? allFilteredDocuments.length : (stats?.totalDocuments || 0);
-  const totalPages = Math.ceil(totalItems / documentsPerPage);
+  // Calculate pagination with memoization
+  const paginationData = useMemo(() => {
+    let totalPages, filteredDocuments, startIndex, endIndex, actualTotal;
 
-  // Determine which documents to show for the current page
-  const startIndex = (currentPage - 1) * documentsPerPage;
-  const endIndex = startIndex + documentsPerPage;
-  const paginatedDocuments = displayedDocuments.slice(startIndex, endIndex);
+    if (isSearchMode) {
+      // For search results, use client-side pagination
+      totalPages = Math.ceil(allFilteredDocuments.length / documentsPerPage);
+      startIndex = (currentPage - 1) * documentsPerPage;
+      endIndex = startIndex + documentsPerPage;
+      filteredDocuments = allFilteredDocuments.slice(startIndex, endIndex);
+      actualTotal = allFilteredDocuments.length;
+    } else {
+      // For regular document loading, documents are already paginated server-side
+      filteredDocuments = allFilteredDocuments;
+
+      // Use total document count for accurate pagination
+      const effectiveTotal = stats?.totalDocuments || 0;
+      totalPages = Math.ceil(effectiveTotal / documentsPerPage);
+      startIndex = (currentPage - 1) * documentsPerPage;
+      endIndex = Math.min(startIndex + filteredDocuments.length, effectiveTotal);
+      actualTotal = effectiveTotal;
+    }
+
+    return { totalPages, filteredDocuments, startIndex, endIndex, actualTotal };
+  }, [isSearchMode, allFilteredDocuments, currentPage, documentsPerPage, stats?.totalDocuments]);
+
+  const { totalPages, filteredDocuments, startIndex, endIndex, actualTotal } = paginationData;
 
   return (
     <DashboardLayout>
@@ -701,98 +680,30 @@ export default function Documents() {
               </CardContent>
             </Card>
 
-            {/* Document Selection Section - Only show when documents are selected */}
-          {selectedDocuments.size > 0 && (
-            <Card className="border border-slate-200 mb-6">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-semibold text-slate-800">Document Selection</CardTitle>
-              </CardHeader>
+            {/* Bulk Actions */}
+          {showBulkActions && (
+            <Card className="border border-blue-200 bg-blue-50">
               <CardContent className="p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4 flex-1">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="justify-between min-w-[200px]">
-                        <span>
-                          {selectedDocuments.size === 0 
-                            ? "Select Documents" 
-                            : `${selectedDocuments.size} selected`
-                          }
-                        </span>
-                        <ChevronDown className="w-4 h-4" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 p-0">
-                      <Command>
-                        <CommandInput placeholder="Search documents..." />
-                        <CommandEmpty>No documents found.</CommandEmpty>
-                        <CommandGroup className="max-h-64 overflow-auto">
-                          <CommandItem
-                            onSelect={handleSelectAll}
-                            className="flex items-center space-x-2"
-                          >
-                            <Checkbox
-                              checked={selectedDocuments.size === allFilteredDocuments.length && allFilteredDocuments.length > 0}
-                              className="mr-2"
-                            />
-                            <span className="font-medium">
-                              {selectedDocuments.size === allFilteredDocuments.length ? "Deselect All" : "Select All"}
-                            </span>
-                          </CommandItem>
-                          <CommandItem
-                            onSelect={() => {
-                              setSelectedDocuments(new Set());
-                              setShowBulkActions(false);
-                            }}
-                            className="flex items-center space-x-2"
-                          >
-                            <span className="text-slate-500">Clear Selection</span>
-                          </CommandItem>
-                          {allFilteredDocuments.map((doc: any) => (
-                            <CommandItem
-                              key={doc.id}
-                              onSelect={() => handleDocumentSelect(doc.id, !selectedDocuments.has(doc.id))}
-                              className="flex items-center space-x-2"
-                            >
-                              <Checkbox
-                                checked={selectedDocuments.has(doc.id)}
-                                className="mr-2"
-                              />
-                              <span className="flex-1 truncate" title={doc.name}>
-                                {doc.name}
-                              </span>
-                              {selectedDocuments.has(doc.id) && (
-                                <span className="text-green-600">✓</span>
-                              )}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  
-                  {selectedDocuments.size > 0 && (
-                    <div className="text-sm text-slate-600">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-medium text-slate-800">
                       {selectedDocuments.size} document{selectedDocuments.size !== 1 ? 's' : ''} selected
-                    </div>
-                  )}
-                </div>
-
-                {/* Bulk Actions */}
-                {selectedDocuments.size > 0 && (
-                  <div className="flex items-center gap-2">
+                    </span>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8"
-                      disabled={selectedDocuments.size === 0}
+                      onClick={() => {
+                        setSelectedDocuments(new Set());
+                        setShowBulkActions(false);
+                      }}
                     >
-                      <Trash2 className="w-4 h-4 mr-1" />
-                      Delete Selected
+                      Clear Selection
                     </Button>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button size="sm" className="h-8" disabled={selectedDocuments.size === 0}>
+                        <Button size="sm">
                           <Move className="w-4 h-4 mr-1" />
                           Move to Folder
                         </Button>
@@ -812,19 +723,33 @@ export default function Documents() {
                       </PopoverContent>
                     </Popover>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Documents Grid/List */}
           <Card className="border border-slate-200">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold text-slate-800">
-                  Documents ({isSearchMode ? (allFilteredDocuments?.length || 0) : (stats?.totalDocuments || 0)})
-                </CardTitle>
+                <div className="flex items-center gap-4">
+                  <CardTitle className="text-lg font-semibold text-slate-800">
+                    Documents ({isSearchMode ? (allFilteredDocuments?.length || 0) : (actualTotal || 0)})
+                  </CardTitle>
+                  {filteredDocuments?.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSelectAll}
+                    >
+                      <Checkbox
+                        checked={selectedDocuments.size === filteredDocuments.length}
+                        className="mr-2"
+                      />
+                      Select All
+                    </Button>
+                  )}
+                </div>
                 <div className="flex items-center space-x-2">
                   <VectorizeAllButton />
                   <Button 
@@ -859,20 +784,19 @@ export default function Documents() {
                       </div>
                     ))}
                   </div>
-                ) : paginatedDocuments && paginatedDocuments.length > 0 ? (
+                ) : filteredDocuments && filteredDocuments.length > 0 ? (
                   <div className={
                     viewMode === "grid" 
                       ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
                       : "space-y-2"
                   }>
-                    {paginatedDocuments.map((doc: any) => (
+                    {filteredDocuments.map((doc: any) => (
                       <DocumentCard 
                         key={doc.id} 
                         document={doc} 
                         viewMode={viewMode}
-                        isSelected={isDocumentSelected(doc.id)}
+                        isSelected={selectedDocuments.has(doc.id)}
                         onSelect={handleDocumentSelect}
-                        showSelection={true}
                       />
                     ))}
                   </div>
@@ -899,13 +823,13 @@ export default function Documents() {
                 )}
 
                 {/* Pagination Controls */}
-                {paginatedDocuments && paginatedDocuments.length > 0 && (totalPages > 1 || currentPage > 1) && (
+                {filteredDocuments && filteredDocuments.length > 0 && (totalPages > 1 || currentPage > 1) && (
                   <div className="mt-6 flex items-center justify-between">
                     <div className="text-sm text-slate-500">
                       {isSearchMode ? (
                         `Showing ${startIndex + 1}-${Math.min(endIndex, allFilteredDocuments.length)} of ${allFilteredDocuments.length} documents`
                       ) : (
-                        `Showing ${startIndex + 1}-${endIndex} of ${stats?.totalDocuments || 0} documents`
+                        `Showing ${startIndex + 1}-${endIndex} of ${actualTotal} documents`
                       )}
                     </div>
 
