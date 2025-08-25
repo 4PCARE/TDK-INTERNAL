@@ -466,12 +466,12 @@ export default function Documents() {
                     Folder Documents
                   </>
                 ) : (
-                  "Root Documents"
+                  "Main Folder"
                 )}
               </h1>
             </div>
             <p className="text-sm text-slate-500">
-              {selectedFolderId ? "Documents in the selected folder" : "Documents not organized in any folder"}
+              {selectedFolderId ? "Documents in the selected folder" : "Documents in your main folder"}
             </p>
           </div>
 
@@ -728,7 +728,7 @@ export default function Documents() {
                             onClick={() => handleBulkMove(null)}
                           >
                             <FileText className="w-4 h-4 mr-2" />
-                            Root (No Folder)
+                            Main Folder
                           </Button>
                           {folders && folders.map((folder: any) => (
                             <Button
