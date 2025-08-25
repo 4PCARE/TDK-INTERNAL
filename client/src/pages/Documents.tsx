@@ -30,7 +30,8 @@ import {
   Users,
   Upload,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  FolderOpen
 } from "lucide-react";
 import DocumentCard from "@/components/DocumentCard";
 import ShareDocumentDialog from "@/components/ShareDocumentDialog";
@@ -39,7 +40,7 @@ import ContentSummaryModal from "@/components/ContentSummaryModal";
 import DocumentChatModal from "@/components/Chat/DocumentChatModal";
 import UploadZone from "@/components/Upload/UploadZone";
 import FolderTree from "@/components/Documents/FolderTree";
-import { ChevronDown, Star, Grid3X3, List as ListIcon, SortAsc, SortDesc, FolderOpen, Move } from "lucide-react";
+import { ChevronDown, Star, Grid3X3, List as ListIcon, SortAsc, SortDesc, Move } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -245,6 +246,88 @@ export default function Documents() {
     enabled: isAuthenticated && !searchQuery.trim(),
     retry: false,
   }) as { data: { totalDocuments: number; processedToday: number; storageUsed: number; aiQueries: number } | undefined };
+
+  // Fetch folders
+  const { data: folders } = useQuery({
+    queryKey: ["/api/folders"],
+    queryFn: async () => {
+      const response = await fetch("/api/folders");
+      if (!response.ok) throw new Error("Failed to fetch folders");
+      return await response.json();
+    },
+  });
+
+  // Fetch documents with React Query
+  const { data: documents = [], isLoading: documentsLoading, error: documentsError } = useQuery({
+    queryKey: ["/api/documents", { 
+      page: currentPage, 
+      limit: documentsPerPage, 
+      search: searchTerm,
+      category: selectedCategory,
+      sortBy,
+      sortOrder,
+      folderId: selectedFolderId
+    }],
+    queryFn: async () => {
+      try {
+        if (!searchQuery.trim()) {
+          // Use server-side pagination for regular document loading
+          const offset = (currentPage - 1) * documentsPerPage;
+          let url = `/api/documents?limit=${documentsPerPage}&offset=${offset}`;
+          if (selectedFolderId !== null) {
+            url = `/api/folders/${selectedFolderId}/documents`;
+          }
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`${response.status}: ${response.statusText}`);
+          }
+          return await response.json();
+        }
+
+        // Determine search type based on selected checkboxes
+        let searchType = "keyword-name-priority";
+        if (searchMeaning && !searchKeyword && !searchFileName) {
+          searchType = "semantic";
+        } else if (searchKeyword && !searchMeaning && !searchFileName) {
+          searchType = "keyword";
+        } else if (searchFileName && !searchKeyword && !searchMeaning) {
+          searchType = "filename";
+        }
+
+        const params = new URLSearchParams({
+          query: searchQuery,
+          type: searchType,
+          fileName: searchFileName.toString(),
+          keyword: searchKeyword.toString(),
+          meaning: searchMeaning.toString()
+        });
+
+        const response = await fetch(`/api/documents/search?${params}`);
+        if (!response.ok) {
+          throw new Error(`${response.status}: ${response.statusText}`);
+        }
+        const results = await response.json();
+
+        if (!Array.isArray(results)) {
+          return [];
+        }
+
+        return results;
+      } catch (error) {
+        console.error("Document query failed:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load documents. Please try again.",
+          variant: "destructive",
+        });
+        throw error;
+      }
+    },
+    retry: false,
+    enabled: isAuthenticated,
+    staleTime: 30000, // Cache for 30 seconds to prevent excessive refetching
+    refetchOnWindowFocus: false, // Don't refetch on window focus to prevent freezing
+  }) as { data: Array<any>; isLoading: boolean; error: any };
 
   // Show loading state instead of null
   if (isLoading) {
@@ -709,16 +792,28 @@ export default function Documents() {
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-48">
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           <Button
-                            variant="ghost"
+                            variant="outline"
+                            size="sm"
                             className="w-full justify-start"
                             onClick={() => handleBulkMove(null)}
                           >
                             <FileText className="w-4 h-4 mr-2" />
                             Root (No Folder)
                           </Button>
-                          {/* Add folder options here - you'd need to fetch folders */}
+                          {folders && folders.map((folder: any) => (
+                            <Button
+                              key={folder.id}
+                              variant="outline"
+                              size="sm"
+                              className="w-full justify-start"
+                              onClick={() => handleBulkMove(folder.id)}
+                            >
+                              <FolderOpen className="w-4 h-4 mr-2" />
+                              {folder.name}
+                            </Button>
+                          ))}
                         </div>
                       </PopoverContent>
                     </Popover>
