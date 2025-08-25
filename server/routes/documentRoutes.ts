@@ -15,6 +15,7 @@ import { users, departments } from "@shared/schema";
 import { vectorService } from "../services/vectorService";
 import { documentProcessor } from "../services/documentProcessor";
 import { pool, db } from "../db";
+import { registerFolderRoutes } from "./folderRoutes";
 
 // Define a multer storage for handling file uploads
 const uploadStorage = multer.diskStorage({

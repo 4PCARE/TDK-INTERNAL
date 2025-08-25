@@ -1470,6 +1470,90 @@ export class DatabaseStorage implements IStorage {
       .where(eq(agentChatbotDocuments.agentId, agentId));
   }
 
+  // Folder management methods
+  async createFolder(name: string, userId: string, parentId?: number): Promise<any> {
+    const [folder] = await db
+      .insert(folders)
+      .values({ name, userId, parentId })
+      .returning();
+    return folder;
+  }
+
+  async getFolders(userId: string, parentId?: number): Promise<any[]> {
+    const conditions = [eq(folders.userId, userId)];
+    
+    if (parentId === undefined) {
+      conditions.push(isNull(folders.parentId));
+    } else {
+      conditions.push(eq(folders.parentId, parentId));
+    }
+
+    return await db
+      .select()
+      .from(folders)
+      .where(and(...conditions))
+      .orderBy(folders.name);
+  }
+
+  async updateFolder(id: number, userId: string, data: { name?: string; parentId?: number }): Promise<any> {
+    const [folder] = await db
+      .update(folders)
+      .set({ ...data, updatedAt: new Date() })
+      .where(and(eq(folders.id, id), eq(folders.userId, userId)))
+      .returning();
+    return folder;
+  }
+
+  async deleteFolder(id: number, userId: string): Promise<void> {
+    await db
+      .delete(folders)
+      .where(and(eq(folders.id, id), eq(folders.userId, userId)));
+  }
+
+  async moveDocumentsToFolder(documentIds: number[], folderId: number | null, userId: string): Promise<void> {
+    await db
+      .update(documents)
+      .set({ folderId, updatedAt: new Date() })
+      .where(and(
+        inArray(documents.id, documentIds),
+        eq(documents.userId, userId)
+      ));
+  }
+
+  async getDocumentsByFolder(userId: string, folderId?: number | null): Promise<any[]> {
+    const conditions = [eq(documents.userId, userId)];
+    
+    if (folderId === null) {
+      conditions.push(isNull(documents.folderId));
+    } else if (folderId !== undefined) {
+      conditions.push(eq(documents.folderId, folderId));
+    }
+
+    return await db
+      .select()
+      .from(documents)
+      .where(and(...conditions))
+      .orderBy(desc(documents.createdAt));
+  }
+
+  async assignFolderToAgent(agentId: number, folderId: number, userId: string): Promise<void> {
+    // Get all documents in the folder
+    const folderDocuments = await this.getDocumentsByFolder(userId, folderId);
+    
+    // Add all documents to the agent
+    for (const doc of folderDocuments) {
+      try {
+        await this.addDocumentToAgent(agentId, doc.id, userId);
+      } catch (error) {
+        // Skip if already assigned
+        if (error.message?.includes('duplicate')) {
+          continue;
+        }
+        throw error;
+      }
+    }
+  }
+
 
 
   // AI Response Analysis operations

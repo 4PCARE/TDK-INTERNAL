@@ -671,6 +671,15 @@ export const agentChatbots = pgTable("agent_chatbots", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const folders = pgTable("folders", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  parentId: integer("parent_id").references((): AnyPgColumn => folders.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const agentChatbotDocuments = pgTable("agent_chatbot_documents", {
   id: serial("id").primaryKey(),
   agentId: integer("agent_id").references(() => agentChatbots.id, { onDelete: "cascade" }).notNull(),
@@ -678,6 +687,10 @@ export const agentChatbotDocuments = pgTable("agent_chatbot_documents", {
   userId: varchar("user_id").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// Add folder relationship to documents
+// Note: You'll need to add folderId: integer("folder_id").references(() => folders.id, { onDelete: "set null" })
+// to your existing documents table definition
 
 // Social Media Integrations table
 export const socialIntegrations = pgTable("social_integrations", {
