@@ -1009,7 +1009,7 @@ export default function InternalAIChat() {
                                   : 'bg-gray-100 text-gray-900 rounded-tl-none'
                               }`}>
                                 {message.role === 'assistant' ? (
-                                  <div className="text-sm prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-900 prose-strong:text-gray-900 prose-code:text-gray-800 prose-code:bg-gray-200 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-200 prose-pre:text-gray-800">
+                                  <div className="text-sm prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-900 prose-strong:font-bold prose-strong:text-gray-900 prose-code:text-gray-800 prose-code:bg-gray-200 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-200 prose-pre:text-gray-800">
                                     <ReactMarkdown
                                       remarkPlugins={[remarkGfm]}
                                       rehypePlugins={[rehypeHighlight]}
@@ -1024,7 +1024,8 @@ export default function InternalAIChat() {
                                             <code className="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono">{children}</code> : 
                                             <code className="block bg-gray-100 p-2 rounded text-xs font-mono whitespace-pre-wrap">{children}</code>,
                                         pre: ({ children }) => <pre className="bg-gray-100 p-2 rounded text-xs font-mono whitespace-pre-wrap overflow-x-auto mb-2">{children}</pre>,
-                                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                                        strong: ({ children }) => <strong className="font-bold text-gray-900">{children}</strong>,
+                                        b: ({ children }) => <b className="font-bold text-gray-900">{children}</b>,
                                         em: ({ children }) => <em className="italic">{children}</em>,
                                         h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
                                         h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
