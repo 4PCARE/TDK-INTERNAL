@@ -2,15 +2,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Star, MoreHorizontal, FileText, File, Image, Trash2, Database, Shield, MessageSquare, Eye } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Star, MoreHorizontal, FileText, File, Image, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import DocumentChatModal from "@/components/Chat/DocumentChatModal";
 
 interface DocumentCardProps {
   document: {
@@ -25,24 +23,15 @@ interface DocumentCardProps {
     similarity?: number;
     content?: string;
     isChunkResult?: boolean;
-    status?: string;
-    isInVectorDb?: boolean;
-    isEndorsed?: boolean;
-    aiCategory?: string;
-    aiCategoryColor?: string;
-    summary?: string;
-    categoryId?: number;
   };
   isSelected?: boolean;
   onSelect?: (documentId: number, isSelected: boolean) => void;
   viewMode?: "grid" | "list";
-  showSelection?: boolean;
 }
 
-export default function DocumentCard({ document, isSelected = false, onSelect, viewMode = "grid", showSelection = false }: DocumentCardProps) {
+export default function DocumentCard({ document, isSelected = false, onSelect, viewMode = "grid" }: DocumentCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
 
   const toggleFavoriteMutation = useMutation({
     mutationFn: async () => {
@@ -88,16 +77,12 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   const getFileIcon = () => {
     if (document.mimeType === 'application/pdf') {
       return <FileText className="w-6 h-6 text-red-600" />;
-    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || document.mimeType === 'application/msword') {
+    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       return <FileText className="w-6 h-6 text-blue-600" />;
     } else if (document.mimeType === 'text/plain') {
       return <File className="w-6 h-6 text-green-600" />;
     } else if (document.mimeType.startsWith('image/')) {
       return <Image className="w-6 h-6 text-purple-600" />;
-    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || document.mimeType === 'application/vnd.ms-excel') {
-      return <FileText className="w-6 h-6 text-green-600" />;
-    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' || document.mimeType === 'application/vnd.ms-powerpoint') {
-      return <FileText className="w-6 h-6 text-orange-600" />;
     }
     return <File className="w-6 h-6 text-gray-600" />;
   };
@@ -105,16 +90,12 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   const getFileIconBg = () => {
     if (document.mimeType === 'application/pdf') {
       return 'bg-red-100';
-    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || document.mimeType === 'application/msword') {
+    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       return 'bg-blue-100';
     } else if (document.mimeType === 'text/plain') {
       return 'bg-green-100';
     } else if (document.mimeType.startsWith('image/')) {
       return 'bg-purple-100';
-    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || document.mimeType === 'application/vnd.ms-excel') {
-      return 'bg-green-100';
-    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' || document.mimeType === 'application/vnd.ms-powerpoint') {
-      return 'bg-orange-100';
     }
     return 'bg-gray-100';
   };
@@ -128,21 +109,15 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   };
 
   const handleToggleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation();
     toggleFavoriteMutation.mutate();
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Only handle selection if showSelection is true and it's not a button/dropdown click
-    if (showSelection && !e.defaultPrevented) {
+    if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       onSelect?.(document.id, !isSelected);
     }
-  };
-
-  const handleCheckboxClick = (e: React.MouseEvent) => {
-    console.log("Checkbox clicked:", document.id, !isSelected);
-    e.stopPropagation();
-    onSelect?.(document.id, !isSelected);
   };
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -155,31 +130,27 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
     <Card 
       className={cn(
         "bg-white border shadow-sm hover:shadow-md transition-all cursor-pointer",
-        isSelected ? "border-blue-500 bg-blue-50 ring-1 ring-blue-200" : "border-gray-200 hover:border-gray-300",
+        isSelected ? "border-blue-500 bg-blue-50" : "border-gray-200",
         viewMode === "list" ? "mb-2" : ""
       )}
       draggable
       onDragStart={handleDragStart}
-      onClick={(e) => {
-        console.log("Card clicked:", document.id, { isSelected, showSelection });
-        handleCardClick(e);
-      }}
+      onClick={handleCardClick}
     >
       <CardContent className={cn("p-4", viewMode === "list" && "py-3")}>
         {/* Document Type Icon */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            {showSelection && (
-              <div className="flex items-center" onClick={handleCheckboxClick}>
-                <Checkbox
-                  checked={isSelected}
-                  onCheckedChange={(checked) => {
-                    console.log("Checkbox onCheckedChange:", document.id, checked);
-                    onSelect?.(document.id, checked as boolean);
-                  }}
-                  className="w-4 h-4"
-                />
-              </div>
+            {onSelect && (
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  onSelect(document.id, e.target.checked);
+                }}
+                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+              />
             )}
             <div className={`w-10 h-10 ${getFileIconBg()} rounded-lg flex items-center justify-center`}>
               {getFileIcon()}
@@ -190,11 +161,7 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
               variant="ghost" 
               size="sm" 
               className="p-1.5 h-auto"
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                handleToggleFavorite(e);
-              }}
+              onClick={handleToggleFavorite}
               disabled={toggleFavoriteMutation.isPending}
             >
               <Star 
@@ -207,28 +174,11 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="p-1.5 h-auto"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                  }}
-                >
+                <Button variant="ghost" size="sm" className="p-1.5 h-auto">
                   <MoreHorizontal className="w-4 h-4 text-gray-400" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsChatModalOpen(true);
-                  }}
-                >
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  Chat
-                </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="text-red-600"
                   onClick={(e) => {
@@ -258,49 +208,9 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
             </Badge>
           </div>
         )}
-
-        {/* Status and Vector DB badges */}
-        <div className="flex items-center gap-2 mb-2">
-          {document.status === 'processing' && (
-            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-600 border-yellow-200">
-              Processing
-            </Badge>
-          )}
-          
-          {document.isInVectorDb && (
-            <Badge variant="outline" className="text-xs">
-              <Database className="w-3 h-3 mr-1" />
-              Vector DB
-            </Badge>
-          )}
-          
-          {document.isEndorsed && (
-            <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
-              <Shield className="w-3 h-3 mr-1" />
-              Endorsed
-            </Badge>
-          )}
-        </div>
-
-        {/* AI Category */}
-        {document.aiCategory && (
-          <div className="mb-2">
-            <Badge 
-              variant="outline" 
-              className="text-xs w-fit"
-              style={{ 
-                backgroundColor: document.aiCategoryColor ? `${document.aiCategoryColor}15` : undefined,
-                borderColor: document.aiCategoryColor || undefined,
-                color: document.aiCategoryColor || undefined
-              }}
-            >
-              {document.aiCategory}
-            </Badge>
-          </div>
-        )}
         
         <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-          {document.summary || document.content || document.description || "No description available"}
+          {document.content || document.description || "No description available"}
         </p>
 
         {/* Tags */}
@@ -325,13 +235,6 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
           <span>{formatFileSize(document.fileSize)}</span>
         </div>
       </CardContent>
-
-      {/* Chat Modal */}
-      <DocumentChatModal
-        isOpen={isChatModalOpen}
-        onClose={() => setIsChatModalOpen(false)}
-        document={document}
-      />
     </Card>
   );
 }
