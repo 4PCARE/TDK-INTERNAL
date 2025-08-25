@@ -511,7 +511,10 @@ ${document.summary}`;
 
         const uploadedDocuments = [];
 
-        for (const file of files) {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const metadata = metadataArray.find(meta => meta.fileName === file.originalname); // Use find to match by original name
+
           try {
             // Fix Thai filename encoding if needed
             let correctedFileName = file.originalname;
@@ -533,15 +536,12 @@ ${document.summary}`;
               // Keep original filename if encoding fix fails
             }
 
-            // Find metadata for this file
-            const fileMetadata = metadataArray.find(meta => meta.fileName === file.originalname);
-
             // Process the document with enhanced AI classification
             const { content, summary, tags, category, categoryColor } =
               await processDocument(file.path, file.mimetype);
 
             const documentData = {
-              name: fileMetadata?.name || correctedFileName,
+              name: metadata?.name || correctedFileName, // Use correctedFileName here
               fileName: file.filename,
               filePath: file.path,
               fileSize: file.size,
@@ -553,8 +553,9 @@ ${document.summary}`;
               aiCategoryColor: categoryColor,
               userId,
               processedAt: new Date(),
-              effectiveStartDate: fileMetadata?.effectiveStartDate ? new Date(fileMetadata.effectiveStartDate) : null,
-              effectiveEndDate: fileMetadata?.effectiveEndDate ? new Date(fileMetadata.effectiveEndDate) : null,
+              effectiveStartDate: metadata?.effectiveStartDate ? new Date(metadata.effectiveStartDate) : null,
+              effectiveEndDate: metadata?.effectiveEndDate ? new Date(metadata.effectiveEndDate) : null,
+              folderId: metadata?.folderId, // Add folderId from metadata
             };
 
             const document = await storage.createDocument(documentData);
@@ -617,6 +618,7 @@ ${document.summary}`;
               aiCategory: "Uncategorized",
               aiCategoryColor: "#6B7280",
               userId,
+              folderId: metadata?.folderId, // Add folderId here as well
             };
             const document = await storage.createDocument(documentData);
             uploadedDocuments.push(document);

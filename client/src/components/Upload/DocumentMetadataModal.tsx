@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Folder } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +25,13 @@ export interface DocumentMetadata {
   name: string;
   effectiveStartDate: Date | null;
   effectiveEndDate: Date | null;
+  folderId: number | null;
+}
+
+interface Folder {
+  id: number;
+  name: string;
+  parentId?: number;
 }
 
 export default function DocumentMetadataModal({ 
@@ -36,8 +45,20 @@ export default function DocumentMetadataModal({
   const [name, setName] = useState(fileName);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+  const [selectedFolderId, setSelectedFolderId] = useState<string>("main");
   const [showDateFields, setShowDateFields] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Fetch folders
+  const { data: folders } = useQuery({
+    queryKey: ["/api/folders"],
+    queryFn: async () => {
+      const response = await fetch("/api/folders");
+      if (!response.ok) throw new Error("Failed to fetch folders");
+      return await response.json();
+    },
+    enabled: isOpen,
+  }) as { data: Folder[] | undefined };
 
   // Update name when fileName prop changes
   useEffect(() => {
@@ -65,6 +86,7 @@ export default function DocumentMetadataModal({
         name: name.trim(),
         effectiveStartDate: startDate,
         effectiveEndDate: endDate,
+        folderId: selectedFolderId === "main" ? null : parseInt(selectedFolderId),
       });
       handleClose();
     }
@@ -74,6 +96,7 @@ export default function DocumentMetadataModal({
     setName(fileName);
     setStartDate(null);
     setEndDate(null);
+    setSelectedFolderId("main");
     setShowDateFields(false);
     setErrors({});
     onClose();
@@ -112,6 +135,42 @@ export default function DocumentMetadataModal({
             {errors.name && (
               <p className="text-sm text-red-500">{errors.name}</p>
             )}
+          </div>
+
+          {/* Folder Selection */}
+          <div className="grid gap-2">
+            <Label htmlFor="folder">Select Folder</Label>
+            <Select value={selectedFolderId} onValueChange={setSelectedFolderId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a folder">
+                  <div className="flex items-center gap-2">
+                    <Folder className="h-4 w-4 text-blue-600" />
+                    <span>
+                      {selectedFolderId === "main" 
+                        ? "Main Folder" 
+                        : folders?.find(f => f.id.toString() === selectedFolderId)?.name || "Select folder"
+                      }
+                    </span>
+                  </div>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="main">
+                  <div className="flex items-center gap-2">
+                    <Folder className="h-4 w-4 text-slate-600" />
+                    <span>Main Folder</span>
+                  </div>
+                </SelectItem>
+                {folders?.map((folder) => (
+                  <SelectItem key={folder.id} value={folder.id.toString()}>
+                    <div className="flex items-center gap-2">
+                      <Folder className="h-4 w-4 text-blue-600" />
+                      <span>{folder.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Date Fields Toggle */}

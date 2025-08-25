@@ -503,9 +503,38 @@ export class DatabaseStorage implements IStorage {
       .where(inArray(documents.id, documentIds));
   }
 
-  async createDocument(document: InsertDocument): Promise<Document> {
-    const [newDocument] = await db.insert(documents).values(document).returning();
-    return newDocument;
+  async createDocument(document: {
+    name: string;
+    fileName: string;
+    originalName: string;
+    filePath: string;
+    mimeType: string;
+    size: number;
+    userId: string;
+    uploadedAt: Date;
+    effectiveStartDate?: Date;
+    effectiveEndDate?: Date;
+    folderId?: number | null;
+  }): Promise<Document> {
+    const result = await this.db.query(
+      `INSERT INTO documents (name, file_name, original_name, file_path, mime_type, size, user_id, uploaded_at, effective_start_date, effective_end_date, folder_id) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
+       RETURNING *`,
+      [
+        document.name,
+        document.fileName,
+        document.originalName,
+        document.filePath,
+        document.mimeType,
+        document.size,
+        document.userId,
+        document.uploadedAt,
+        document.effectiveStartDate,
+        document.effectiveEndDate,
+        document.folderId,
+      ]
+    );
+    return result.rows[0];
   }
 
   async updateDocument(id: number, document: UpdateDocument, userId: string): Promise<Document> {
@@ -1687,7 +1716,7 @@ export class DatabaseStorage implements IStorage {
         facebookAccessToken: null,
         tiktokChannelId: null,
         tiktokAccessToken: null,
-        webhookUrl: row.webhook_url as string | null,
+        webhookUrl: null,
         config: null,
         description: row.description as string | null,
         createdAt: row.created_at as Date | null,
