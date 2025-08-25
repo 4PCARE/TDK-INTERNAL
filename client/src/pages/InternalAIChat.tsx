@@ -48,13 +48,39 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-// Utility function for text truncation
-const truncateStyle = {
-  display: '-webkit-box',
-  WebkitLineClamp: 2,
-  WebkitBoxOrient: 'vertical' as const,
-  overflow: 'hidden'
-};
+// Add CSS for line clamping and syntax highlighting
+const lineClampStyles = `
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Syntax highlighting styles */
+  .hljs {
+    background: #f8f9fa !important;
+    color: #333 !important;
+    padding: 12px !important;
+    border-radius: 6px !important;
+    font-size: 14px !important;
+    line-height: 1.4 !important;
+  }
+
+  .hljs-keyword { color: #d73a49 !important; }
+  .hljs-string { color: #032f62 !important; }
+  .hljs-comment { color: #6a737d !important; }
+  .hljs-number { color: #005cc5 !important; }
+  .hljs-function { color: #6f42c1 !important; }
+  .hljs-variable { color: #e36209 !important; }
+`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = lineClampStyles;
+  document.head.appendChild(style);
+}
 
 // Real API request function
 const apiRequest = async (method: string, url: string, body?: any) => {
@@ -172,20 +198,13 @@ export default function InternalAIChat() {
     queries: agents.map(agent => ({
       queryKey: [`/api/agent-chatbots/${agent.id}/documents`],
       queryFn: async () => {
-        try {
-          const response = await apiRequest("GET", `/api/agent-chatbots/${agent.id}/documents`);
-          if (!response.ok) throw new Error(`Failed to fetch documents for agent ${agent.id}`);
-          const data = await response.json();
-          console.log(`📋 Agent ${agent.id} documents response:`, data);
-          return data.map((doc: any) => doc.name || doc.documentName || `Document ${doc.documentId}`);
-        } catch (error) {
-          console.error(`❌ Error fetching documents for agent ${agent.id}:`, error);
-          return [];
-        }
+        const response = await apiRequest("GET", `/api/agent-chatbots/${agent.id}/documents`);
+        if (!response.ok) throw new Error(`Failed to fetch documents for agent ${agent.id}`);
+        const data = await response.json();
+        console.log(`📋 Agent ${agent.id} documents response:`, data);
+        return data.map((doc: any) => doc.name || doc.documentName || `Document ${doc.documentId}`);
       },
       enabled: isAuthenticated && !!agent.id,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: 1,
     }))
   });
 
@@ -277,71 +296,48 @@ export default function InternalAIChat() {
   useEffect(() => {
     if (!isAuthenticated || !wsUrl) return;
 
-    let ws: WebSocket | null = null;
-    let isConnecting = false;
+    const ws = new WebSocket(`${wsUrl}/ws`);
 
-    const connectWebSocket = () => {
-      if (isConnecting || (ws && ws.readyState === WebSocket.CONNECTING)) return;
-      
-      isConnecting = true;
-      ws = new WebSocket(`${wsUrl}/ws`);
-
-      ws.onopen = () => {
-        console.log('🔌 WebSocket connected for InternalAIChat');
-        isConnecting = false;
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('📨 WebSocket message received:', data);
-
-          // Handle session updates (like auto-generated titles)
-          if (data.type === 'session_updated' && data.data?.sessionId) {
-            console.log('🏷️ Session updated, refreshing sessions list');
-
-            // Update the selected session immediately if it matches
-            setSelectedSession(prev => {
-              if (prev?.id === data.data.sessionId && data.data.title) {
-                console.log('✅ Updated selected session title from WebSocket:', data.data.title);
-                return { ...prev, title: data.data.title };
-              }
-              return prev;
-            });
-
-            // Use a timeout to prevent excessive invalidations
-            setTimeout(() => {
-              queryClient.invalidateQueries({
-                queryKey: ["/api/internal-agent-chat/sessions"],
-              });
-            }, 100);
-          }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      };
-
-      ws.onclose = (event) => {
-        console.log('🔌 WebSocket disconnected for InternalAIChat', event.code);
-        isConnecting = false;
-        ws = null;
-      };
-
-      ws.onerror = (error) => {
-        console.error('🔌 WebSocket error:', error);
-        isConnecting = false;
-      };
+    ws.onopen = () => {
+      console.log('🔌 WebSocket connected for InternalAIChat');
     };
 
-    connectWebSocket();
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('📨 WebSocket message received:', data);
 
-    return () => {
-      if (ws) {
-        ws.close();
-        ws = null;
+        // Handle session updates (like auto-generated titles)
+        if (data.type === 'session_updated' && data.data?.sessionId) {
+          console.log('🏷️ Session updated, refreshing sessions list');
+
+          // Update the selected session immediately if it matches
+          setSelectedSession(prev => {
+            if (prev?.id === data.data.sessionId && data.data.title) {
+              console.log('✅ Updated selected session title from WebSocket:', data.data.title);
+              return { ...prev, title: data.data.title };
+            }
+            return prev;
+          });
+
+          // Invalidate sessions query to refresh the list
+          queryClient.invalidateQueries({
+            queryKey: ["/api/internal-agent-chat/sessions", selectedAgentId],
+          });
+        }
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
       }
     };
-  }, [isAuthenticated, wsUrl, queryClient]); // Remove selectedAgentId dependency
+
+    ws.onclose = () => {
+      console.log('🔌 WebSocket disconnected for InternalAIChat');
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [isAuthenticated, wsUrl, queryClient, selectedAgentId]);
 
 
   // Create new session mutation
@@ -427,7 +423,7 @@ export default function InternalAIChat() {
       console.log('✅ Message sent successfully:', data);
       setInput("");
 
-      // Single timeout to refresh data without being too aggressive
+      // Force refetch messages and sessions to ensure UI updates
       setTimeout(() => {
         queryClient.invalidateQueries({
           queryKey: ['/api/internal-agent-chat/messages', currentSessionId]
@@ -435,7 +431,15 @@ export default function InternalAIChat() {
         queryClient.invalidateQueries({
           queryKey: ["/api/internal-agent-chat/sessions", selectedAgentId],
         });
-      }, 500);
+        refetchMessages();
+      }, 100);
+
+      // Additional timeout to handle any delayed WebSocket messages
+      setTimeout(() => {
+        queryClient.invalidateQueries({
+          queryKey: ["/api/internal-agent-chat/sessions", selectedAgentId],
+        });
+      }, 2000);
     },
   });
 
@@ -516,7 +520,7 @@ export default function InternalAIChat() {
     if (!selectedAgentId || !agents.some(agent => agent.id === selectedAgentId)) {
       setSelectedAgentId(agents[0].id);
     }
-  }, [agents, agentsLoading]); // Remove selectedAgentId dependency to prevent loops
+  }, [agents, agentsLoading, selectedAgentId]);
 
   // Auto-select first session when agent changes
   useEffect(() => {
@@ -525,10 +529,10 @@ export default function InternalAIChat() {
       if (!selectedSession || selectedSession.agentId !== selectedAgentId) {
         setSelectedSession(sessions[0]);
       }
-    } else if (selectedAgentId && sessions.length === 0) {
+    } else {
       setSelectedSession(null);
     }
-  }, [sessions, selectedAgentId]); // Remove selectedSession dependency to prevent loops
+  }, [sessions, selectedAgentId, selectedSession]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -536,9 +540,6 @@ export default function InternalAIChat() {
 
     const messageToSend = input.trim();
     console.log('📝 Sending message:', messageToSend);
-
-    // Clear input immediately for better UX
-    setInput("");
 
     try {
       await sendMessageMutation.mutateAsync({
@@ -687,7 +688,7 @@ export default function InternalAIChat() {
                           <div className="flex-1 min-w-0">
                             <h4 className="font-medium text-gray-900 break-words">{agent.name}</h4>
                             {agent.description && (
-                              <p className="text-sm text-gray-500 mt-1 break-words" style={truncateStyle}>{agent.description}</p>
+                              <p className="text-sm text-gray-500 mt-1 break-words line-clamp-2">{agent.description}</p>
                             )}
 
                             {/* Document names display */}
@@ -876,11 +877,11 @@ export default function InternalAIChat() {
                               </div>
                             </div>
                           ) : (
-                            <p className="font-medium text-gray-900 break-words" style={truncateStyle} onClick={() => setSelectedSession(session)}>{session.title}</p>
+                            <p className="font-medium text-gray-900 break-words line-clamp-2" onClick={() => setSelectedSession(session)}>{session.title}</p>
                           )}
 
                           {session.lastMessage && (
-                            <p className="text-sm text-gray-500 break-words mt-1" style={truncateStyle}>
+                            <p className="text-sm text-gray-500 break-words line-clamp-2 mt-1">
                               {session.lastMessage}
                             </p>
                           )}
@@ -1008,32 +1009,31 @@ export default function InternalAIChat() {
                                   : 'bg-gray-100 text-gray-900 rounded-tl-none'
                               }`}>
                                 {message.role === 'assistant' ? (
-                                  <div className="text-sm prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-900 prose-strong:font-bold prose-strong:text-gray-900 prose-code:text-gray-800 prose-code:bg-gray-200 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-200 prose-pre:text-gray-800">
+                                  <div className="text-sm prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-900 prose-strong:text-gray-900 prose-code:text-gray-800 prose-code:bg-gray-200 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-200 prose-pre:text-gray-800">
                                     <ReactMarkdown
                                       remarkPlugins={[remarkGfm]}
                                       rehypePlugins={[rehypeHighlight]}
                                       className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
                                       components={{
-                                        p: ({ children, ...props }) => <p className="mb-2 last:mb-0" {...props}>{children}</p>,
-                                        ul: ({ children, ...props }) => <ul className="mb-2 last:mb-0 list-disc pl-4" {...props}>{children}</ul>,
-                                        ol: ({ children, ...props }) => <ol className="mb-2 last:mb-0 list-decimal pl-4" {...props}>{children}</ol>,
-                                        li: ({ children, ...props }) => <li className="mb-1" {...props}>{children}</li>,
-                                        code: ({ inline, children, className, ...props }) => 
+                                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                        ul: ({ children }) => <ul className="mb-2 last:mb-0 list-disc pl-4">{children}</ul>,
+                                        ol: ({ children }) => <ol className="mb-2 last:mb-0 list-decimal pl-4">{children}</ol>,
+                                        li: ({ children }) => <li className="mb-1">{children}</li>,
+                                        code: ({ inline, children }) => 
                                           inline ? 
-                                            <code className="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono" {...props}>{children}</code> : 
-                                            <code className="block bg-gray-100 p-2 rounded text-xs font-mono whitespace-pre-wrap" {...props}>{children}</code>,
-                                        pre: ({ children, className, ...props }) => <pre className="bg-gray-100 p-2 rounded text-xs font-mono whitespace-pre-wrap overflow-x-auto mb-2" {...props}>{children}</pre>,
-                                        strong: ({ children, ...props }) => <strong className="font-bold text-gray-900" {...props}>{children}</strong>,
-                                        b: ({ children, ...props }) => <b className="font-bold text-gray-900" {...props}>{children}</b>,
-                                        em: ({ children, ...props }) => <em className="italic" {...props}>{children}</em>,
-                                        h1: ({ children, ...props }) => <h1 className="text-lg font-bold mb-2" {...props}>{children}</h1>,
-                                        h2: ({ children, ...props }) => <h2 className="text-base font-bold mb-2" {...props}>{children}</h2>,
-                                        h3: ({ children, ...props }) => <h3 className="text-sm font-bold mb-1" {...props}>{children}</h3>,
-                                        blockquote: ({ children, ...props }) => <blockquote className="border-l-4 border-gray-300 pl-3 italic text-gray-600 mb-2" {...props}>{children}</blockquote>,
-                                        hr: ({ ...props }) => <hr className="border-gray-300 my-2" {...props} />,
-                                        table: ({ children, ...props }) => <table className="w-full border-collapse border border-gray-300 mb-2" {...props}>{children}</table>,
-                                        th: ({ children, ...props }) => <th className="border border-gray-300 px-2 py-1 bg-gray-100 font-semibold text-left" {...props}>{children}</th>,
-                                        td: ({ children, ...props }) => <td className="border border-gray-300 px-2 py-1" {...props}>{children}</td>,
+                                            <code className="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono">{children}</code> : 
+                                            <code className="block bg-gray-100 p-2 rounded text-xs font-mono whitespace-pre-wrap">{children}</code>,
+                                        pre: ({ children }) => <pre className="bg-gray-100 p-2 rounded text-xs font-mono whitespace-pre-wrap overflow-x-auto mb-2">{children}</pre>,
+                                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                                        em: ({ children }) => <em className="italic">{children}</em>,
+                                        h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
+                                        h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
+                                        h3: ({ children }) => <h3 className="text-sm font-bold mb-1">{children}</h3>,
+                                        blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-3 italic text-gray-600 mb-2">{children}</blockquote>,
+                                        hr: () => <hr className="border-gray-300 my-2" />,
+                                        table: ({ children }) => <table className="w-full border-collapse border border-gray-300 mb-2">{children}</table>,
+                                        th: ({ children }) => <th className="border border-gray-300 px-2 py-1 bg-gray-100 font-semibold text-left">{children}</th>,
+                                        td: ({ children }) => <td className="border border-gray-300 px-2 py-1">{children}</td>,
                                       }}
                                     >
                                       {message.content && typeof message.content === 'string' && message.content.trim()
