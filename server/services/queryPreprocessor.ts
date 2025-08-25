@@ -147,11 +147,33 @@ Analyze this query and provide your response.`;
           result = JSON.parse(response);
         } catch (parseError) {
           console.error("Error parsing Gemini JSON response:", parseError);
-          // Try to extract JSON from response if it's wrapped in text
-          const jsonMatch = response.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            result = JSON.parse(jsonMatch[0]);
+          console.log("Raw Gemini response:", response);
+          
+          // Try multiple extraction methods
+          let extractedJson = null;
+          
+          // Method 1: Extract from markdown code blocks
+          const markdownMatch = response.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+          if (markdownMatch) {
+            extractedJson = markdownMatch[1];
           } else {
+            // Method 2: Extract JSON object from anywhere in text
+            const jsonMatch = response.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              extractedJson = jsonMatch[0];
+            }
+          }
+          
+          if (extractedJson) {
+            try {
+              result = JSON.parse(extractedJson);
+              console.log("✅ Successfully extracted JSON from Gemini response");
+            } catch (extractError) {
+              console.error("Failed to parse extracted JSON:", extractError);
+              throw parseError; // Re-throw original error
+            }
+          } else {
+            console.error("No JSON found in Gemini response");
             throw parseError; // Re-throw if JSON cannot be extracted
           }
         }
