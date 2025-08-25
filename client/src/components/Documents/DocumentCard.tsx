@@ -142,19 +142,6 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
         {/* Document Type Icon */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            {showSelection && onSelect && (
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    onSelect(document.id, e.target.checked);
-                  }}
-                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 focus:ring-2"
-                />
-              </div>
-            )}
             <div className={`w-10 h-10 ${getFileIconBg()} rounded-lg flex items-center justify-center`}>
               {getFileIcon()}
             </div>
