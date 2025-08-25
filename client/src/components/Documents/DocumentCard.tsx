@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Star, MoreHorizontal, FileText, File, Image, Trash2 } from "lucide-react";
+import { Star, MoreHorizontal, FileText, File, Image, Trash2, Database, Shield } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -24,6 +24,13 @@ interface DocumentCardProps {
     similarity?: number;
     content?: string;
     isChunkResult?: boolean;
+    status?: string;
+    isInVectorDb?: boolean;
+    isEndorsed?: boolean;
+    aiCategory?: string;
+    aiCategoryColor?: string;
+    summary?: string;
+    categoryId?: number;
   };
   isSelected?: boolean;
   onSelect?: (documentId: number, isSelected: boolean) => void;
@@ -232,9 +239,49 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
             </Badge>
           </div>
         )}
+
+        {/* Status and Vector DB badges */}
+        <div className="flex items-center gap-2 mb-2">
+          {document.status === 'processing' && (
+            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-600 border-yellow-200">
+              Processing
+            </Badge>
+          )}
+          
+          {document.isInVectorDb && (
+            <Badge variant="outline" className="text-xs">
+              <Database className="w-3 h-3 mr-1" />
+              Vector DB
+            </Badge>
+          )}
+          
+          {document.isEndorsed && (
+            <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
+              <Shield className="w-3 h-3 mr-1" />
+              Endorsed
+            </Badge>
+          )}
+        </div>
+
+        {/* AI Category */}
+        {document.aiCategory && (
+          <div className="mb-2">
+            <Badge 
+              variant="outline" 
+              className="text-xs w-fit"
+              style={{ 
+                backgroundColor: document.aiCategoryColor ? `${document.aiCategoryColor}15` : undefined,
+                borderColor: document.aiCategoryColor || undefined,
+                color: document.aiCategoryColor || undefined
+              }}
+            >
+              {document.aiCategory}
+            </Badge>
+          </div>
+        )}
         
         <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-          {document.content || document.description || "No description available"}
+          {document.summary || document.content || document.description || "No description available"}
         </p>
 
         {/* Tags */}
