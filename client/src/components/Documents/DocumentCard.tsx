@@ -119,11 +119,13 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
     // Only handle clicks on the card background, not on interactive elements
     const target = e.target as HTMLElement;
     
-    // Check if we clicked on an interactive element
+    // Check if we clicked on an interactive element or its children
     const isInteractiveElement = target.closest('button') || 
-                                target.closest('input') || 
+                                target.closest('input[type="checkbox"]') || 
                                 target.closest('[data-radix-menu-content]') ||
-                                target.closest('[role="menuitem"]');
+                                target.closest('[role="menuitem"]') ||
+                                target.hasAttribute('data-radix-menu-trigger') ||
+                                target.closest('[data-radix-menu-trigger]');
     
     if (isInteractiveElement) {
       return;
@@ -172,6 +174,7 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
                   e.stopPropagation();
                   onSelect(document.id, e.target.checked);
                 }}
+                onClick={(e) => e.stopPropagation()}
                 className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
               />
             )}
@@ -203,8 +206,10 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
                   className="p-1.5 h-auto"
                   onClick={(e) => {
                     e.stopPropagation();
+                    e.preventDefault();
                     setIsDropdownOpen(!isDropdownOpen);
                   }}
+                  data-radix-menu-trigger="true"
                 >
                   <MoreHorizontal className="w-4 h-4 text-gray-400" />
                 </Button>

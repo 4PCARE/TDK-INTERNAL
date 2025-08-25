@@ -14,13 +14,15 @@ export default function DocumentGrid() {
   const [selectedDocuments, setSelectedDocuments] = useState<Set<number>>(new Set());
 
   const handleDocumentSelect = (documentId: number, isSelected: boolean) => {
-    const newSelected = new Set(selectedDocuments);
-    if (isSelected) {
-      newSelected.add(documentId);
-    } else {
-      newSelected.delete(documentId);
-    }
-    setSelectedDocuments(newSelected);
+    setSelectedDocuments(prev => {
+      const newSelected = new Set(prev);
+      if (isSelected) {
+        newSelected.add(documentId);
+      } else {
+        newSelected.delete(documentId);
+      }
+      return newSelected;
+    });
   };
 
   if (isLoading) {

@@ -371,25 +371,30 @@ export default function Documents() {
   });
 
   const handleDocumentSelect = (documentId: number, isSelected: boolean) => {
-    const newSelected = new Set(selectedDocuments);
-    if (isSelected) {
-      newSelected.add(documentId);
-    } else {
-      newSelected.delete(documentId);
-    }
-    setSelectedDocuments(newSelected);
-    setShowBulkActions(newSelected.size > 0);
+    setSelectedDocuments(prev => {
+      const newSelected = new Set(prev);
+      if (isSelected) {
+        newSelected.add(documentId);
+      } else {
+        newSelected.delete(documentId);
+      }
+      setShowBulkActions(newSelected.size > 0);
+      return newSelected;
+    });
   };
 
   const handleSelectAll = () => {
-    if (selectedDocuments.size === filteredDocuments.length) {
-      setSelectedDocuments(new Set());
-      setShowBulkActions(false);
-    } else {
-      const allIds = new Set(filteredDocuments.map((doc: any) => doc.id));
-      setSelectedDocuments(allIds);
-      setShowBulkActions(true);
-    }
+    setSelectedDocuments(prev => {
+      const isAllSelected = prev.size === filteredDocuments.length;
+      if (isAllSelected) {
+        setShowBulkActions(false);
+        return new Set();
+      } else {
+        const allIds = new Set(filteredDocuments.map((doc: any) => doc.id));
+        setShowBulkActions(true);
+        return allIds;
+      }
+    });
   };
 
   const handleFolderDrop = (folderId: number | null, documentIds: number[]) => {
