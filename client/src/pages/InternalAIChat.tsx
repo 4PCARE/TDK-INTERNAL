@@ -198,13 +198,20 @@ export default function InternalAIChat() {
     queries: agents.map(agent => ({
       queryKey: [`/api/agent-chatbots/${agent.id}/documents`],
       queryFn: async () => {
-        const response = await apiRequest("GET", `/api/agent-chatbots/${agent.id}/documents`);
-        if (!response.ok) throw new Error(`Failed to fetch documents for agent ${agent.id}`);
-        const data = await response.json();
-        console.log(`📋 Agent ${agent.id} documents response:`, data);
-        return data.map((doc: any) => doc.name || doc.documentName || `Document ${doc.documentId}`);
+        try {
+          const response = await apiRequest("GET", `/api/agent-chatbots/${agent.id}/documents`);
+          if (!response.ok) throw new Error(`Failed to fetch documents for agent ${agent.id}`);
+          const data = await response.json();
+          console.log(`📋 Agent ${agent.id} documents response:`, data);
+          return data.map((doc: any) => doc.name || doc.documentName || `Document ${doc.documentId}`);
+        } catch (error) {
+          console.error(`❌ Error fetching documents for agent ${agent.id}:`, error);
+          return [];
+        }
       },
       enabled: isAuthenticated && !!agent.id,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: 1,
     }))
   });
 
@@ -296,48 +303,71 @@ export default function InternalAIChat() {
   useEffect(() => {
     if (!isAuthenticated || !wsUrl) return;
 
-    const ws = new WebSocket(`${wsUrl}/ws`);
+    let ws: WebSocket | null = null;
+    let isConnecting = false;
 
-    ws.onopen = () => {
-      console.log('🔌 WebSocket connected for InternalAIChat');
-    };
+    const connectWebSocket = () => {
+      if (isConnecting || (ws && ws.readyState === WebSocket.CONNECTING)) return;
+      
+      isConnecting = true;
+      ws = new WebSocket(`${wsUrl}/ws`);
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('📨 WebSocket message received:', data);
+      ws.onopen = () => {
+        console.log('🔌 WebSocket connected for InternalAIChat');
+        isConnecting = false;
+      };
 
-        // Handle session updates (like auto-generated titles)
-        if (data.type === 'session_updated' && data.data?.sessionId) {
-          console.log('🏷️ Session updated, refreshing sessions list');
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('📨 WebSocket message received:', data);
 
-          // Update the selected session immediately if it matches
-          setSelectedSession(prev => {
-            if (prev?.id === data.data.sessionId && data.data.title) {
-              console.log('✅ Updated selected session title from WebSocket:', data.data.title);
-              return { ...prev, title: data.data.title };
-            }
-            return prev;
-          });
+          // Handle session updates (like auto-generated titles)
+          if (data.type === 'session_updated' && data.data?.sessionId) {
+            console.log('🏷️ Session updated, refreshing sessions list');
 
-          // Invalidate sessions query to refresh the list
-          queryClient.invalidateQueries({
-            queryKey: ["/api/internal-agent-chat/sessions", selectedAgentId],
-          });
+            // Update the selected session immediately if it matches
+            setSelectedSession(prev => {
+              if (prev?.id === data.data.sessionId && data.data.title) {
+                console.log('✅ Updated selected session title from WebSocket:', data.data.title);
+                return { ...prev, title: data.data.title };
+              }
+              return prev;
+            });
+
+            // Use a timeout to prevent excessive invalidations
+            setTimeout(() => {
+              queryClient.invalidateQueries({
+                queryKey: ["/api/internal-agent-chat/sessions"],
+              });
+            }, 100);
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
         }
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
-      }
+      };
+
+      ws.onclose = (event) => {
+        console.log('🔌 WebSocket disconnected for InternalAIChat', event.code);
+        isConnecting = false;
+        ws = null;
+      };
+
+      ws.onerror = (error) => {
+        console.error('🔌 WebSocket error:', error);
+        isConnecting = false;
+      };
     };
 
-    ws.onclose = () => {
-      console.log('🔌 WebSocket disconnected for InternalAIChat');
-    };
+    connectWebSocket();
 
     return () => {
-      ws.close();
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
     };
-  }, [isAuthenticated, wsUrl, queryClient, selectedAgentId]);
+  }, [isAuthenticated, wsUrl, queryClient]); // Remove selectedAgentId dependency
 
 
   // Create new session mutation
@@ -423,7 +453,7 @@ export default function InternalAIChat() {
       console.log('✅ Message sent successfully:', data);
       setInput("");
 
-      // Force refetch messages and sessions to ensure UI updates
+      // Single timeout to refresh data without being too aggressive
       setTimeout(() => {
         queryClient.invalidateQueries({
           queryKey: ['/api/internal-agent-chat/messages', currentSessionId]
@@ -431,15 +461,7 @@ export default function InternalAIChat() {
         queryClient.invalidateQueries({
           queryKey: ["/api/internal-agent-chat/sessions", selectedAgentId],
         });
-        refetchMessages();
-      }, 100);
-
-      // Additional timeout to handle any delayed WebSocket messages
-      setTimeout(() => {
-        queryClient.invalidateQueries({
-          queryKey: ["/api/internal-agent-chat/sessions", selectedAgentId],
-        });
-      }, 2000);
+      }, 500);
     },
   });
 
@@ -520,7 +542,7 @@ export default function InternalAIChat() {
     if (!selectedAgentId || !agents.some(agent => agent.id === selectedAgentId)) {
       setSelectedAgentId(agents[0].id);
     }
-  }, [agents, agentsLoading, selectedAgentId]);
+  }, [agents, agentsLoading]); // Remove selectedAgentId dependency to prevent loops
 
   // Auto-select first session when agent changes
   useEffect(() => {
@@ -529,10 +551,10 @@ export default function InternalAIChat() {
       if (!selectedSession || selectedSession.agentId !== selectedAgentId) {
         setSelectedSession(sessions[0]);
       }
-    } else {
+    } else if (selectedAgentId && sessions.length === 0) {
       setSelectedSession(null);
     }
-  }, [sessions, selectedAgentId, selectedSession]);
+  }, [sessions, selectedAgentId]); // Remove selectedSession dependency to prevent loops
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -540,6 +562,9 @@ export default function InternalAIChat() {
 
     const messageToSend = input.trim();
     console.log('📝 Sending message:', messageToSend);
+
+    // Clear input immediately for better UX
+    setInput("");
 
     try {
       await sendMessageMutation.mutateAsync({
