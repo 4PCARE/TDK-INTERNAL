@@ -363,7 +363,7 @@ export default function Documents() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedDocuments.size, filteredDocuments.length]);
+  }, [selectedDocuments.size]); // Removed dependency on filteredDocuments
 
   // Bulk move documents mutation
   const { mutate: moveDocuments } = useMutation({
@@ -407,11 +407,11 @@ export default function Documents() {
   };
 
   const handleSelectAll = () => {
-    if (selectedDocuments.size === filteredDocuments.length) {
+    if (selectedDocuments.size === allFilteredDocuments.length) {
       setSelectedDocuments(new Set());
       setShowBulkActions(false);
     } else {
-      const allIds = new Set(filteredDocuments.map((doc: any) => doc.id));
+      const allIds = new Set(allFilteredDocuments.map((doc: any) => doc.id));
       setSelectedDocuments(allIds);
       setShowBulkActions(true);
     }
@@ -427,33 +427,15 @@ export default function Documents() {
     }
   };
 
-  // Calculate pagination with memoization
-  const paginationData = useMemo(() => {
-    let totalPages, filteredDocuments, startIndex, endIndex, actualTotal;
+  // Displaying the documents based on view mode and search/filter results
+  const displayedDocuments = isSearchMode ? allFilteredDocuments : allFilteredDocuments;
+  const totalItems = isSearchMode ? allFilteredDocuments.length : (stats?.totalDocuments || 0);
+  const totalPages = Math.ceil(totalItems / documentsPerPage);
 
-    if (isSearchMode) {
-      // For search results, use client-side pagination
-      totalPages = Math.ceil(allFilteredDocuments.length / documentsPerPage);
-      startIndex = (currentPage - 1) * documentsPerPage;
-      endIndex = startIndex + documentsPerPage;
-      filteredDocuments = allFilteredDocuments.slice(startIndex, endIndex);
-      actualTotal = allFilteredDocuments.length;
-    } else {
-      // For regular document loading, documents are already paginated server-side
-      filteredDocuments = allFilteredDocuments;
-
-      // Use total document count for accurate pagination
-      const effectiveTotal = stats?.totalDocuments || 0;
-      totalPages = Math.ceil(effectiveTotal / documentsPerPage);
-      startIndex = (currentPage - 1) * documentsPerPage;
-      endIndex = Math.min(startIndex + filteredDocuments.length, effectiveTotal);
-      actualTotal = effectiveTotal;
-    }
-
-    return { totalPages, filteredDocuments, startIndex, endIndex, actualTotal };
-  }, [isSearchMode, allFilteredDocuments, currentPage, documentsPerPage, stats?.totalDocuments]);
-
-  const { totalPages, filteredDocuments, startIndex, endIndex, actualTotal } = paginationData;
+  // Determine which documents to show for the current page
+  const startIndex = (currentPage - 1) * documentsPerPage;
+  const endIndex = startIndex + documentsPerPage;
+  const paginatedDocuments = displayedDocuments.slice(startIndex, endIndex);
 
   return (
     <DashboardLayout>
@@ -713,12 +695,12 @@ export default function Documents() {
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                       <Checkbox
-                        checked={selectedDocuments.size === filteredDocuments.length && filteredDocuments.length > 0}
+                        checked={selectedDocuments.size === paginatedDocuments.length && paginatedDocuments.length > 0}
                         onCheckedChange={handleSelectAll}
                         className="border-blue-400"
                       />
                       <span className="text-sm font-medium text-slate-800">
-                        {selectedDocuments.size} of {filteredDocuments.length} document{selectedDocuments.size !== 1 ? 's' : ''} selected
+                        {selectedDocuments.size} of {paginatedDocuments.length} document{selectedDocuments.size !== 1 ? 's' : ''} selected
                       </span>
                     </div>
                     <Button
@@ -776,16 +758,16 @@ export default function Documents() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <CardTitle className="text-lg font-semibold text-slate-800">
-                    Documents ({isSearchMode ? (allFilteredDocuments?.length || 0) : (actualTotal || 0)})
+                    Documents ({isSearchMode ? (allFilteredDocuments?.length || 0) : (stats?.totalDocuments || 0)})
                   </CardTitle>
-                  {filteredDocuments?.length > 0 && (
+                  {paginatedDocuments?.length > 0 && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={handleSelectAll}
                     >
                       <Checkbox
-                        checked={selectedDocuments.size === filteredDocuments.length}
+                        checked={selectedDocuments.size === paginatedDocuments.length}
                         className="mr-2"
                       />
                       Select All
@@ -826,13 +808,13 @@ export default function Documents() {
                       </div>
                     ))}
                   </div>
-                ) : filteredDocuments && filteredDocuments.length > 0 ? (
+                ) : paginatedDocuments && paginatedDocuments.length > 0 ? (
                   <div className={
                     viewMode === "grid" 
                       ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
                       : "space-y-2"
                   }>
-                    {filteredDocuments.map((doc: any) => (
+                    {paginatedDocuments.map((doc: any) => (
                       <DocumentCard 
                         key={doc.id} 
                         document={doc} 
@@ -866,13 +848,13 @@ export default function Documents() {
                 )}
 
                 {/* Pagination Controls */}
-                {filteredDocuments && filteredDocuments.length > 0 && (totalPages > 1 || currentPage > 1) && (
+                {paginatedDocuments && paginatedDocuments.length > 0 && (totalPages > 1 || currentPage > 1) && (
                   <div className="mt-6 flex items-center justify-between">
                     <div className="text-sm text-slate-500">
                       {isSearchMode ? (
                         `Showing ${startIndex + 1}-${Math.min(endIndex, allFilteredDocuments.length)} of ${allFilteredDocuments.length} documents`
                       ) : (
-                        `Showing ${startIndex + 1}-${endIndex} of ${actualTotal} documents`
+                        `Showing ${startIndex + 1}-${endIndex} of ${stats?.totalDocuments || 0} documents`
                       )}
                     </div>
 
