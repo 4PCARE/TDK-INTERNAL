@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import DocumentMetadataModal, { DocumentMetadata } from "./DocumentMetadataModal";
-import FolderSelector from "./FolderSelector"; // Assuming FolderSelector is in a separate file
 
 interface UploadZoneProps {
   onUploadComplete: () => void;
@@ -18,10 +17,9 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [fileMetadataMap, setFileMetadataMap] = useState<Map<string, DocumentMetadata>>(new Map());
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null); // State to store selected folder ID
 
   const uploadMutation = useMutation({
-    mutationFn: async (payload: { files: File[], metadataMap: Map<string, DocumentMetadata>, folderId: string | null }) => {
+    mutationFn: async (payload: { files: File[], metadataMap: Map<string, DocumentMetadata> }) => {
       const formData = new FormData();
 
       payload.files.forEach(file => {
@@ -36,13 +34,11 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
           name: metadata?.name || file.name,
           effectiveStartDate: metadata?.effectiveStartDate?.toISOString() || null,
           effectiveEndDate: metadata?.effectiveEndDate?.toISOString() || null,
+          folderId: metadata?.folderId || null,
         };
       });
 
       formData.append('metadata', JSON.stringify(metadataArray));
-      if (payload.folderId) {
-        formData.append('folderId', payload.folderId); // Append selected folderId
-      }
 
       const response = await apiRequest('POST', '/api/documents/upload', formData);
       return response.json();
@@ -56,7 +52,6 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
       setPendingFiles([]);
       setCurrentFileIndex(0);
       setFileMetadataMap(new Map());
-      setSelectedFolderId(null); // Reset selected folder
 
       // Invalidate all document-related queries to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
@@ -76,7 +71,6 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
       setPendingFiles([]);
       setCurrentFileIndex(0);
       setFileMetadataMap(new Map());
-      setSelectedFolderId(null); // Reset selected folder
     },
   });
 
@@ -93,7 +87,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
       } else {
         // All files have metadata, proceed with upload
         setIsModalOpen(false);
-        uploadMutation.mutate({ files: pendingFiles, metadataMap: newMetadataMap, folderId: selectedFolderId });
+        uploadMutation.mutate({ files: pendingFiles, metadataMap: newMetadataMap });
       }
     }
   };
@@ -103,11 +97,6 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
     setPendingFiles([]);
     setCurrentFileIndex(0);
     setFileMetadataMap(new Map());
-    setSelectedFolderId(null); // Reset selected folder
-  };
-
-  const handleFolderSelect = (folderId: string | null) => {
-    setSelectedFolderId(folderId);
   };
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
@@ -143,7 +132,6 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
       setPendingFiles(acceptedFiles);
       setCurrentFileIndex(0);
       setFileMetadataMap(new Map());
-      setSelectedFolderId(null); // Reset selected folder for new batch
       setIsModalOpen(true);
     }
   }, [toast]);
@@ -222,14 +210,6 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
         currentFileIndex={currentFileIndex}
         totalFiles={pendingFiles.length}
       />
-
-      {/* Folder Selector Component */}
-      {isModalOpen && (
-        <FolderSelector 
-          onSelectFolder={handleFolderSelect} 
-          currentFolderId={selectedFolderId}
-        />
-      )}
     </>
   );
 }
