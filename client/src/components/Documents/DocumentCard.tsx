@@ -8,6 +8,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 interface DocumentCardProps {
   document: {
@@ -113,10 +114,14 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      onSelect?.(document.id, !isSelected);
+    // Prevent selection when clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('[role="menuitem"]')) {
+      return;
     }
+    
+    e.preventDefault();
+    onSelect?.(document.id, !isSelected);
   };
 
   const handleDragStart = (e: React.DragEvent) => {
