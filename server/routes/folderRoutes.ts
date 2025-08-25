@@ -111,4 +111,22 @@ export function registerFolderRoutes(app: Express) {
       res.status(500).json({ message: "Failed to fetch folder documents" });
     }
   });
+
+  // Move documents to folder (bulk operation)
+  app.post("/api/folders/move-documents", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { documentIds, folderId } = req.body;
+      
+      if (!Array.isArray(documentIds)) {
+        return res.status(400).json({ message: "documentIds must be an array" });
+      }
+
+      await storage.moveDocumentsToFolder(documentIds, folderId, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error moving documents:", error);
+      res.status(500).json({ message: "Failed to move documents" });
+    }
+  });
 }
