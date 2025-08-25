@@ -6,6 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
@@ -1120,6 +1128,40 @@ export default function InternalAIChat() {
                                     <ReactMarkdown
                                       remarkPlugins={[remarkGfm]}
                                       rehypePlugins={[rehypeHighlight]}
+                                      components={{
+                                        table: ({ children }) => (
+                                          <div className="relative w-full overflow-auto">
+                                            <table className="w-full caption-bottom text-sm border-collapse border-spacing-0 my-5 bg-white rounded-xl overflow-hidden shadow-lg border border-gray-200">
+                                              {children}
+                                            </table>
+                                          </div>
+                                        ),
+                                        thead: ({ children }) => (
+                                          <thead className="[&_tr]:border-b">
+                                            {children}
+                                          </thead>
+                                        ),
+                                        tbody: ({ children }) => (
+                                          <tbody className="[&_tr:last-child]:border-0">
+                                            {children}
+                                          </tbody>
+                                        ),
+                                        tr: ({ children }) => (
+                                          <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                                            {children}
+                                          </tr>
+                                        ),
+                                        th: ({ children }) => (
+                                          <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 bg-gradient-to-br from-slate-50 to-slate-100 font-bold border-b-2 border-slate-300 border-r border-gray-200 text-slate-700 text-sm">
+                                            {children}
+                                          </th>
+                                        ),
+                                        td: ({ children }) => (
+                                          <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 border-b border-gray-100 border-r border-gray-100 text-gray-700 text-sm bg-white hover:bg-gray-50 transition-all duration-200">
+                                            {children}
+                                          </td>
+                                        )
+                                      }}
                                     >
                                       {message.content && typeof message.content === 'string' && message.content.trim()
                                         ? message.content
