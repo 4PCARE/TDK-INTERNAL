@@ -687,34 +687,84 @@ export default function Documents() {
               </CardContent>
             </Card>
 
-            {/* Bulk Actions */}
-          {showBulkActions && (
-            <Card className="border border-blue-200 bg-blue-50">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={selectedDocuments.size === paginatedDocuments.length && paginatedDocuments.length > 0}
-                        onCheckedChange={handleSelectAll}
-                        className="border-blue-400"
-                      />
-                      <span className="text-sm font-medium text-slate-800">
-                        {selectedDocuments.size} of {paginatedDocuments.length} document{selectedDocuments.size !== 1 ? 's' : ''} selected
-                      </span>
+            {/* Document Selection Section */}
+          <Card className="border border-slate-200 mb-6">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg font-semibold text-slate-800">Document Selection</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4 flex-1">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="justify-between min-w-[200px]">
+                        <span>
+                          {selectedDocuments.size === 0 
+                            ? "Select Documents" 
+                            : `${selectedDocuments.size} selected`
+                          }
+                        </span>
+                        <ChevronDown className="w-4 h-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-0">
+                      <Command>
+                        <CommandInput placeholder="Search documents..." />
+                        <CommandEmpty>No documents found.</CommandEmpty>
+                        <CommandGroup className="max-h-64 overflow-auto">
+                          <CommandItem
+                            onSelect={handleSelectAll}
+                            className="flex items-center space-x-2"
+                          >
+                            <Checkbox
+                              checked={selectedDocuments.size === allFilteredDocuments.length && allFilteredDocuments.length > 0}
+                              className="mr-2"
+                            />
+                            <span className="font-medium">
+                              {selectedDocuments.size === allFilteredDocuments.length ? "Deselect All" : "Select All"}
+                            </span>
+                          </CommandItem>
+                          <CommandItem
+                            onSelect={() => {
+                              setSelectedDocuments(new Set());
+                              setShowBulkActions(false);
+                            }}
+                            className="flex items-center space-x-2"
+                          >
+                            <span className="text-slate-500">Clear Selection</span>
+                          </CommandItem>
+                          {allFilteredDocuments.map((doc: any) => (
+                            <CommandItem
+                              key={doc.id}
+                              onSelect={() => handleDocumentSelect(doc.id, !selectedDocuments.has(doc.id))}
+                              className="flex items-center space-x-2"
+                            >
+                              <Checkbox
+                                checked={selectedDocuments.has(doc.id)}
+                                className="mr-2"
+                              />
+                              <span className="flex-1 truncate" title={doc.name}>
+                                {doc.name}
+                              </span>
+                              {selectedDocuments.has(doc.id) && (
+                                <span className="text-green-600">✓</span>
+                              )}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  
+                  {selectedDocuments.size > 0 && (
+                    <div className="text-sm text-slate-600">
+                      {selectedDocuments.size} document{selectedDocuments.size !== 1 ? 's' : ''} selected
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedDocuments(new Set());
-                        setShowBulkActions(false);
-                      }}
-                      className="h-8"
-                    >
-                      Clear All
-                    </Button>
-                  </div>
+                  )}
+                </div>
+
+                {/* Bulk Actions */}
+                {selectedDocuments.size > 0 && (
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -747,33 +797,18 @@ export default function Documents() {
                       </PopoverContent>
                     </Popover>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Documents Grid/List */}
           <Card className="border border-slate-200">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <CardTitle className="text-lg font-semibold text-slate-800">
-                    Documents ({isSearchMode ? (allFilteredDocuments?.length || 0) : (stats?.totalDocuments || 0)})
-                  </CardTitle>
-                  {paginatedDocuments?.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleSelectAll}
-                    >
-                      <Checkbox
-                        checked={selectedDocuments.size === paginatedDocuments.length}
-                        className="mr-2"
-                      />
-                      Select All
-                    </Button>
-                  )}
-                </div>
+                <CardTitle className="text-lg font-semibold text-slate-800">
+                  Documents ({isSearchMode ? (allFilteredDocuments?.length || 0) : (stats?.totalDocuments || 0)})
+                </CardTitle>
                 <div className="flex items-center space-x-2">
                   <VectorizeAllButton />
                   <Button 
