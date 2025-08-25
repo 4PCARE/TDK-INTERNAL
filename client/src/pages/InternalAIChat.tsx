@@ -76,62 +76,109 @@ const lineClampStyles = `
   
   /* Markdown table styles */
   .markdown-content table {
-    border-collapse: collapse !important;
-    margin: 16px 0 !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    margin: 20px 0 !important;
     width: 100% !important;
-    background: white !important;
-    border-radius: 8px !important;
+    background: #ffffff !important;
+    border-radius: 12px !important;
     overflow: hidden !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans Thai', 'Sarabun', sans-serif !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+    border: 1px solid #e5e7eb !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans Thai', 'Sarabun', system-ui, sans-serif !important;
+    font-size: 14px !important;
+    line-height: 1.8 !important;
   }
   
   .markdown-content th {
-    background: #f1f5f9 !important;
-    font-weight: 600 !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%) !important;
+    font-weight: 700 !important;
     text-align: left !important;
-    padding: 16px 20px !important;
-    border: 1px solid #cbd5e1 !important;
+    padding: 18px 24px !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+    border-right: 1px solid #e5e7eb !important;
     color: #1e293b !important;
-    font-size: 14px !important;
+    font-size: 15px !important;
     line-height: 1.6 !important;
     word-wrap: break-word !important;
     white-space: normal !important;
+    position: relative !important;
+  }
+  
+  .markdown-content th:last-child {
+    border-right: none !important;
   }
   
   .markdown-content td {
-    padding: 16px 20px !important;
-    border: 1px solid #e2e8f0 !important;
-    color: #334155 !important;
+    padding: 20px 24px !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    border-right: 1px solid #f1f5f9 !important;
+    color: #374151 !important;
     font-size: 14px !important;
-    line-height: 1.7 !important;
+    line-height: 1.8 !important;
     word-wrap: break-word !important;
     white-space: normal !important;
     vertical-align: top !important;
+    background: #ffffff !important;
+    transition: all 0.2s ease !important;
   }
   
-  .markdown-content tr:nth-child(even) {
-    background: #f8fafc !important;
+  .markdown-content td:last-child {
+    border-right: none !important;
   }
   
-  .markdown-content tr:hover {
-    background: #f1f5f9 !important;
-    transition: background-color 0.2s ease !important;
+  .markdown-content tbody tr:nth-child(even) td {
+    background: #fafbfc !important;
   }
   
-  /* Ensure tables are responsive */
+  .markdown-content tbody tr:hover td {
+    background: #f3f4f6 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+  }
+  
+  .markdown-content tbody tr:last-child td {
+    border-bottom: none !important;
+  }
+  
+  /* Ensure tables are responsive and readable */
   .markdown-content table {
     display: table !important;
-    table-layout: auto !important;
+    table-layout: fixed !important;
     max-width: 100% !important;
+    min-width: 600px !important;
   }
   
   /* Better handling of long Thai text */
   .markdown-content td,
   .markdown-content th {
-    max-width: 300px !important;
+    max-width: none !important;
     overflow-wrap: break-word !important;
+    word-break: break-word !important;
     hyphens: auto !important;
+  }
+  
+  /* Column width distribution */
+  .markdown-content th:first-child,
+  .markdown-content td:first-child {
+    width: 15% !important;
+    text-align: center !important;
+    font-weight: 600 !important;
+  }
+  
+  .markdown-content th:nth-child(2),
+  .markdown-content td:nth-child(2) {
+    width: 85% !important;
+  }
+  
+  /* Make table scrollable on small screens */
+  .markdown-content {
+    overflow-x: auto !important;
+  }
+  
+  /* Thai text specific improvements */
+  .markdown-content table {
+    letter-spacing: 0.3px !important;
   }
 `;
 
