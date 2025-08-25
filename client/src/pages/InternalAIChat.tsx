@@ -77,38 +77,61 @@ const lineClampStyles = `
   /* Markdown table styles */
   .markdown-content table {
     border-collapse: collapse !important;
-    margin: 12px 0 !important;
+    margin: 16px 0 !important;
     width: 100% !important;
     background: white !important;
-    border-radius: 6px !important;
+    border-radius: 8px !important;
     overflow: hidden !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans Thai', 'Sarabun', sans-serif !important;
   }
   
   .markdown-content th {
-    background: #f8f9fa !important;
+    background: #f1f5f9 !important;
     font-weight: 600 !important;
     text-align: left !important;
-    padding: 12px 16px !important;
-    border: 1px solid #e5e7eb !important;
-    color: #374151 !important;
+    padding: 16px 20px !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #1e293b !important;
     font-size: 14px !important;
+    line-height: 1.6 !important;
+    word-wrap: break-word !important;
+    white-space: normal !important;
   }
   
   .markdown-content td {
-    padding: 12px 16px !important;
-    border: 1px solid #e5e7eb !important;
-    color: #374151 !important;
+    padding: 16px 20px !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #334155 !important;
     font-size: 14px !important;
-    line-height: 1.5 !important;
+    line-height: 1.7 !important;
+    word-wrap: break-word !important;
+    white-space: normal !important;
+    vertical-align: top !important;
   }
   
   .markdown-content tr:nth-child(even) {
-    background: #f9fafb !important;
+    background: #f8fafc !important;
   }
   
   .markdown-content tr:hover {
-    background: #f3f4f6 !important;
+    background: #f1f5f9 !important;
+    transition: background-color 0.2s ease !important;
+  }
+  
+  /* Ensure tables are responsive */
+  .markdown-content table {
+    display: table !important;
+    table-layout: auto !important;
+    max-width: 100% !important;
+  }
+  
+  /* Better handling of long Thai text */
+  .markdown-content td,
+  .markdown-content th {
+    max-width: 300px !important;
+    overflow-wrap: break-word !important;
+    hyphens: auto !important;
   }
 `;
 
