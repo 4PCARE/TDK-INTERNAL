@@ -2,6 +2,7 @@ import {
   users,
   categories,
   documents,
+  folders,
   chatConversations,
   chatMessages,
   documentAccess,
@@ -63,7 +64,7 @@ import {
   type InsertInternalAgentChatMessage,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, or, like, count, sql, ilike, getTableColumns, gte, lte, inArray } from "drizzle-orm";
+import { eq, desc, and, or, like, count, sql, ilike, getTableColumns, gte, lte, inArray, isNull } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {

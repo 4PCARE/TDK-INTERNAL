@@ -525,7 +525,66 @@ export const documentDepartmentPermissionsRelations = relations(documentDepartme
   }),
 }));
 
+// Folders table
+export const folders = sqliteTable("folders", {
+  id: integer("id").primaryKey(),
+  name: text("name").notNull(),
+  parentId: integer("parent_id").references(() => folders.id),
+  userId: text("user_id").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Add folderId to documents table
+export const documentsWithFolder = sqliteTable("documents", {
+  id: integer("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  fileName: text("file_name"),
+  filePath: text("file_path"),
+  fileSize: integer("file_size"),
+  mimeType: text("mime_type"),
+  content: text("content"),
+  summary: text("summary"),
+  tags: text("tags", { mode: "json" }).$type<string[]>(),
+  categoryId: integer("category_id").references(() => categories.id),
+  folderId: integer("folder_id").references(() => folders.id),
+  userId: text("user_id").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).default(sql`CURRENT_TIMESTAMP`),
+  processedAt: integer("processed_at", { mode: "timestamp" }),
+  aiCategory: text("ai_category"),
+  aiCategoryColor: text("ai_category_color"),
+  isPublic: integer("is_public", { mode: "boolean" }).default(false),
+  isEndorsed: integer("is_endorsed", { mode: "boolean" }).default(false),
+  endorsedBy: text("endorsed_by"),
+  endorsedAt: integer("endorsed_at", { mode: "timestamp" }),
+  effectiveStartDate: text("effective_start_date"),
+  effectiveEndDate: text("effective_end_date"),
+  embedding: text("embedding"),
+  chunkIndex: integer("chunk_index"),
+  chunkCount: integer("chunk_count"),
+  chunkText: text("chunk_text"),
+  thaiSegmented: text("thai_segmented"),
+});
+
+// Folder relations
+export const foldersRelations = relations(folders, ({ one, many }) => ({
+  user: one(users, {
+    fields: [folders.userId],
+    references: [users.id],
+  }),
+  parent: one(folders, {
+    fields: [folders.parentId],
+    references: [folders.id],
+  }),
+  children: many(folders),
+  documents: many(documents),
+}));
+
 // Additional types
+export type Folder = typeof folders.$inferSelect;
+export type InsertFolder = typeof folders.$inferInsert;
 export type Department = typeof departments.$inferSelect;
 export type InsertDepartment = typeof departments.$inferInsert;
 export type DocumentUserPermission = typeof documentUserPermissions.$inferSelect;
