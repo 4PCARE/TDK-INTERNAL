@@ -1040,26 +1040,26 @@ export default function InternalAIChat() {
                                       rehypePlugins={[rehypeHighlight]}
                                       className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
                                       components={{
-                                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                                        ul: ({ children }) => <ul className="mb-2 last:mb-0 list-disc pl-4">{children}</ul>,
-                                        ol: ({ children }) => <ol className="mb-2 last:mb-0 list-decimal pl-4">{children}</ol>,
-                                        li: ({ children }) => <li className="mb-1">{children}</li>,
-                                        code: ({ inline, children }) => 
+                                        p: ({ children, ...props }) => <p className="mb-2 last:mb-0" {...props}>{children}</p>,
+                                        ul: ({ children, ...props }) => <ul className="mb-2 last:mb-0 list-disc pl-4" {...props}>{children}</ul>,
+                                        ol: ({ children, ...props }) => <ol className="mb-2 last:mb-0 list-decimal pl-4" {...props}>{children}</ol>,
+                                        li: ({ children, ...props }) => <li className="mb-1" {...props}>{children}</li>,
+                                        code: ({ inline, children, className, ...props }) => 
                                           inline ? 
-                                            <code className="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono">{children}</code> : 
-                                            <code className="block bg-gray-100 p-2 rounded text-xs font-mono whitespace-pre-wrap">{children}</code>,
-                                        pre: ({ children }) => <pre className="bg-gray-100 p-2 rounded text-xs font-mono whitespace-pre-wrap overflow-x-auto mb-2">{children}</pre>,
-                                        strong: ({ children }) => <strong className="font-bold text-gray-900">{children}</strong>,
-                                        b: ({ children }) => <b className="font-bold text-gray-900">{children}</b>,
-                                        em: ({ children }) => <em className="italic">{children}</em>,
-                                        h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
-                                        h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
-                                        h3: ({ children }) => <h3 className="text-sm font-bold mb-1">{children}</h3>,
-                                        blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-3 italic text-gray-600 mb-2">{children}</blockquote>,
-                                        hr: () => <hr className="border-gray-300 my-2" />,
-                                        table: ({ children }) => <table className="w-full border-collapse border border-gray-300 mb-2">{children}</table>,
-                                        th: ({ children }) => <th className="border border-gray-300 px-2 py-1 bg-gray-100 font-semibold text-left">{children}</th>,
-                                        td: ({ children }) => <td className="border border-gray-300 px-2 py-1">{children}</td>,
+                                            <code className="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono" {...props}>{children}</code> : 
+                                            <code className="block bg-gray-100 p-2 rounded text-xs font-mono whitespace-pre-wrap" {...props}>{children}</code>,
+                                        pre: ({ children, className, ...props }) => <pre className="bg-gray-100 p-2 rounded text-xs font-mono whitespace-pre-wrap overflow-x-auto mb-2" {...props}>{children}</pre>,
+                                        strong: ({ children, ...props }) => <strong className="font-bold text-gray-900" {...props}>{children}</strong>,
+                                        b: ({ children, ...props }) => <b className="font-bold text-gray-900" {...props}>{children}</b>,
+                                        em: ({ children, ...props }) => <em className="italic" {...props}>{children}</em>,
+                                        h1: ({ children, ...props }) => <h1 className="text-lg font-bold mb-2" {...props}>{children}</h1>,
+                                        h2: ({ children, ...props }) => <h2 className="text-base font-bold mb-2" {...props}>{children}</h2>,
+                                        h3: ({ children, ...props }) => <h3 className="text-sm font-bold mb-1" {...props}>{children}</h3>,
+                                        blockquote: ({ children, ...props }) => <blockquote className="border-l-4 border-gray-300 pl-3 italic text-gray-600 mb-2" {...props}>{children}</blockquote>,
+                                        hr: ({ ...props }) => <hr className="border-gray-300 my-2" {...props} />,
+                                        table: ({ children, ...props }) => <table className="w-full border-collapse border border-gray-300 mb-2" {...props}>{children}</table>,
+                                        th: ({ children, ...props }) => <th className="border border-gray-300 px-2 py-1 bg-gray-100 font-semibold text-left" {...props}>{children}</th>,
+                                        td: ({ children, ...props }) => <td className="border border-gray-300 px-2 py-1" {...props}>{children}</td>,
                                       }}
                                     >
                                       {message.content && typeof message.content === 'string' && message.content.trim()
