@@ -80,9 +80,11 @@ interface DocumentCardProps {
   };
   viewMode?: "grid" | "list";
   categories?: Array<{ id: number; name: string; color: string; icon: string }>;
+  isSelected?: boolean;
+  onSelect?: (documentId: number, isSelected: boolean) => void;
 }
 
-export default function DocumentCard({ document: doc, viewMode = "grid", categories }: DocumentCardProps) {
+export default function DocumentCard({ document: doc, viewMode = "grid", categories, isSelected = false, onSelect }: DocumentCardProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [showSummary, setShowSummary] = useState(false);
@@ -243,14 +245,42 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
     setShowShareDialog(true);
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Prevent selection when clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('[role="menuitem"]') || target.closest('[data-radix-collection-item]')) {
+      return;
+    }
+    
+    e.preventDefault();
+    onSelect?.(doc.id, !isSelected);
+  };
+
   const FileIcon = getFileIcon(doc.mimeType);
   const iconColorClass = getFileIconColor(doc.mimeType);
 
   // List view layout
   if (viewMode === "list") {
     return (
-      <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:border-slate-300 transition-colors">
+      <div 
+        className={cn(
+          "flex items-center justify-between p-4 border rounded-lg hover:border-slate-300 transition-colors cursor-pointer",
+          isSelected ? "border-blue-500 bg-blue-50" : "border-slate-200"
+        )}
+        onClick={handleCardClick}
+      >
         <div className="flex items-center space-x-4">
+          {onSelect && (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={(e) => {
+                e.stopPropagation();
+                onSelect(doc.id, e.target.checked);
+              }}
+              className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+            />
+          )}
           <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", iconColorClass)}>
             <FileIcon className="w-5 h-5" />
           </div>
@@ -421,11 +451,30 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
   // Grid view layout
   return (
     <>
-      <Card className="border border-slate-200 hover:border-slate-300 transition-colors cursor-pointer group">
+      <Card 
+        className={cn(
+          "border hover:border-slate-300 transition-colors cursor-pointer group",
+          isSelected ? "border-blue-500 bg-blue-50" : "border-slate-200"
+        )}
+        onClick={handleCardClick}
+      >
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
-            <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", iconColorClass)}>
-              <FileIcon className="w-5 h-5" />
+            <div className="flex items-center gap-2">
+              {onSelect && (
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    onSelect(doc.id, e.target.checked);
+                  }}
+                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                />
+              )}
+              <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", iconColorClass)}>
+                <FileIcon className="w-5 h-5" />
+              </div>
             </div>
             
             <DropdownMenu>
