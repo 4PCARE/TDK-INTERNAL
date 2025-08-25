@@ -39,10 +39,10 @@ import DocumentEndorsementDialog from "./DocumentEndorsementDialog";
 // Helper function to format effective date range
 const formatEffectiveDateRange = (startDate?: string, endDate?: string) => {
   if (!startDate && !endDate) return null;
-  
+
   const start = startDate ? format(new Date(startDate), 'MMM d, yyyy') : null;
   const end = endDate ? format(new Date(endDate), 'MMM d, yyyy') : null;
-  
+
   if (start && end) {
     return `Effective: ${start} – ${end}`;
   } else if (start) {
@@ -50,7 +50,7 @@ const formatEffectiveDateRange = (startDate?: string, endDate?: string) => {
   } else if (end) {
     return `Effective until: ${end}`;
   }
-  
+
   return null;
 };
 
@@ -92,7 +92,7 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
   const [showChatWithDocument, setShowChatWithDocument] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showEndorsementDialog, setShowEndorsementDialog] = useState(false);
-  
+
   // Use doc.isFavorite directly instead of local state to prevent sync issues
   const isFavorite = doc.isFavorite || false;
 
@@ -251,7 +251,7 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
     if (target.closest('button') || target.closest('input') || target.closest('[role="menuitem"]') || target.closest('[data-radix-collection-item]')) {
       return;
     }
-    
+
     e.preventDefault();
     onSelect?.(doc.id, !isSelected);
   };
@@ -270,7 +270,7 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
         onClick={handleCardClick}
       >
         <div className="flex items-center space-x-4">
-          {onSelect && (
+          {onSelect && isSelected && (
             <input
               type="checkbox"
               checked={isSelected}
@@ -284,7 +284,7 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
           <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", iconColorClass)}>
             <FileIcon className="w-5 h-5" />
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-medium text-gray-900 truncate flex-1">
@@ -335,7 +335,7 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
               {doc.aiCategory}
             </Badge>
           )}
-          
+
           {doc.categoryId && categories && (
             (() => {
               const category = categories.find(c => c.id === doc.categoryId);
@@ -354,7 +354,7 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
               ) : null;
             })()
           )}
-          
+
           {doc.categoryName && !doc.categoryId && (
             <Badge variant="outline" className="text-xs">
               {doc.categoryName}
@@ -382,14 +382,40 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
               Processing
             </Badge>
           )}
-          
+
           {doc.isInVectorDb && (
             <Badge variant="outline" className="text-xs">
               <Database className="w-3 h-3 mr-1" />
               Vector DB
             </Badge>
           )}
-          
+
+          {/* Quick Action Buttons */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleView();
+            }}
+            className="h-8 px-3 text-xs"
+          >
+            <Eye className="w-3 h-3 mr-1" />
+            View
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowChatWithDocument(true);
+            }}
+            className="h-8 px-3 text-xs"
+          >
+            <MessageSquare className="w-3 h-3 mr-1" />
+            Chat
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -461,7 +487,7 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
-              {onSelect && (
+              {onSelect && isSelected && (
                 <input
                   type="checkbox"
                   checked={isSelected}
@@ -476,7 +502,7 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
                 <FileIcon className="w-5 h-5" />
               </div>
             </div>
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -561,7 +587,7 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
                 )}
               </div>
             </div>
-            
+
             <div className="flex items-center justify-between text-xs text-gray-500">
               <span className="flex items-center">
                 <Calendar className="w-3 h-3 mr-1" />
@@ -631,14 +657,14 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
                   Processing
                 </Badge>
               )}
-              
+
               {doc.isInVectorDb && (
                 <Badge variant="outline" className="text-xs">
                   <Database className="w-3 h-3 mr-1" />
                   Vector DB
                 </Badge>
               )}
-              
+
               {doc.isEndorsed && (
                 <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
                   <Shield className="w-3 h-3 mr-1" />
@@ -649,6 +675,34 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
           </div>
         </CardContent>
       </Card>
+
+      {/* Quick Action Buttons */}
+      <div className="flex justify-center mt-2 space-x-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleView();
+          }}
+          className="h-8 px-3 text-xs"
+        >
+          <Eye className="w-3 h-3 mr-1" />
+          View
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowChatWithDocument(true);
+          }}
+          className="h-8 px-3 text-xs"
+        >
+          <MessageSquare className="w-3 h-3 mr-1" />
+          Chat
+        </Button>
+      </div>
 
       {/* Content Summary Dialog */}
       <Dialog open={showSummary} onOpenChange={setShowSummary}>
@@ -674,7 +728,7 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
                 <p className="text-sm text-gray-400 mt-1">The document may not contain extractable text content.</p>
               </div>
             )}
-            
+
             {doc.tags && doc.tags.length > 0 && (
               <div className="border-t pt-4">
                 <h4 className="text-sm font-medium text-gray-900 mb-2">Related Tags</h4>
