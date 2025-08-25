@@ -1250,42 +1250,7 @@ export default function InternalAIChat() {
                                       remarkPlugins={[remarkGfm]}
                                       rehypePlugins={[rehypeHighlight]}
                                       components={{
-                                        // Handle potential parsing errors gracefully
-                                        p: ({ children }) => {
-                                          // Check if this paragraph contains pipe characters that might be a malformed table
-                                          const content = typeof children === 'string' ? children : '';
-                                          // Better table detection for Thai content
-                                          if (content.includes('|') && (content.includes('\n') || content.split('|').length >= 3)) {
-                                            // Try to render as a simple table if markdown parsing failed
-                                            const lines = content.split('\n').filter(line => line.trim());
-                                            if (lines.length >= 2 && lines.every(line => line.includes('|'))) {
-                                              return (
-                                                <div className="markdown-table-wrapper my-4">
-                                                  <table className="markdown-table">
-                                                    <tbody>
-                                                      {lines.map((line, index) => {
-                                                        const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell);
-                                                        return (
-                                                          <tr key={index}>
-                                                            {cells.map((cell, cellIndex) => (
-                                                              <td key={cellIndex}>{cell}</td>
-                                                            ))}
-                                                          </tr>
-                                                        );
-                                                      })}
-                                                    </tbody>
-                                                  </table>
-                                                </div>
-                                              );
-                                            }
-                                            return (
-                                              <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded border overflow-x-auto">
-                                                {children}
-                                              </pre>
-                                            );
-                                          }
-                                          return <p className="mb-3">{children}</p>;
-                                        },
+                                        // Proper table components for HTML table rendering
                                         table: ({ children }) => (
                                           <div className="markdown-table-wrapper my-4">
                                             <table className="markdown-table">
@@ -1318,6 +1283,50 @@ export default function InternalAIChat() {
                                             {children}
                                           </td>
                                         ),
+                                        // Enhanced paragraph handling for fallback table detection
+                                        p: ({ children }) => {
+                                          const content = typeof children === 'string' ? children : '';
+                                          // Only use fallback table rendering if remarkGfm failed to parse it as a table
+                                          if (content.includes('|') && content.includes('\n')) {
+                                            const lines = content.split('\n').filter(line => line.trim());
+                                            // Check if this looks like a table that wasn't parsed
+                                            if (lines.length >= 2 && lines.every(line => line.includes('|')) && lines.some(line => line.includes('---'))) {
+                                              const tableLines = lines.filter(line => !line.includes('---'));
+                                              const [headerLine, ...dataLines] = tableLines;
+                                              
+                                              if (headerLine && dataLines.length > 0) {
+                                                const headers = headerLine.split('|').map(cell => cell.trim()).filter(cell => cell);
+                                                
+                                                return (
+                                                  <div className="markdown-table-wrapper my-4">
+                                                    <table className="markdown-table">
+                                                      <thead>
+                                                        <tr>
+                                                          {headers.map((header, index) => (
+                                                            <th key={index}>{header}</th>
+                                                          ))}
+                                                        </tr>
+                                                      </thead>
+                                                      <tbody>
+                                                        {dataLines.map((line, rowIndex) => {
+                                                          const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell);
+                                                          return (
+                                                            <tr key={rowIndex}>
+                                                              {cells.map((cell, cellIndex) => (
+                                                                <td key={cellIndex}>{cell}</td>
+                                                              ))}
+                                                            </tr>
+                                                          );
+                                                        })}
+                                                      </tbody>
+                                                    </table>
+                                                  </div>
+                                                );
+                                              }
+                                            }
+                                          }
+                                          return <p className="mb-3">{children}</p>;
+                                        },
                                         // Better code block rendering
                                         code: ({ inline, children, ...props }) => {
                                           if (inline) {
