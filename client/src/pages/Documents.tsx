@@ -32,7 +32,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
-import DocumentCard from "@/components/DocumentCard";
+import DocumentCard from "@/components/Documents/DocumentCard";
 import ShareDocumentDialog from "@/components/ShareDocumentDialog";
 import DocumentEndorsementDialog from "@/components/DocumentEndorsementDialog";
 import ContentSummaryModal from "@/components/ContentSummaryModal";
