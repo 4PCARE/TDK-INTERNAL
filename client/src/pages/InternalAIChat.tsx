@@ -83,11 +83,18 @@ const lineClampStyles = `
   .hljs-variable { color: #e36209 !important; }
   
   /* Markdown table styles */
+  .markdown-content {
+    /* Ensure proper wrapping and overflow handling */
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+  
   .markdown-content table {
     border-collapse: separate !important;
     border-spacing: 0 !important;
     margin: 20px 0 !important;
     width: 100% !important;
+    max-width: 100% !important;
     background: #ffffff !important;
     border-radius: 12px !important;
     overflow: hidden !important;
@@ -96,6 +103,8 @@ const lineClampStyles = `
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans Thai', 'Sarabun', system-ui, sans-serif !important;
     font-size: 14px !important;
     line-height: 1.8 !important;
+    /* Ensure table doesn't break layout */
+    table-layout: auto !important;
   }
   
   .markdown-content th {
@@ -179,9 +188,35 @@ const lineClampStyles = `
     width: 85% !important;
   }
   
+  /* Table container with horizontal scroll */
+  .markdown-table-wrapper {
+    width: 100% !important;
+    overflow-x: auto !important;
+    margin: 16px 0 !important;
+    border-radius: 12px !important;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  }
+  
   /* Make table scrollable on small screens */
   .markdown-content {
-    overflow-x: auto !important;
+    overflow-x: visible !important;
+    max-width: 100% !important;
+  }
+  
+  /* Better handling for broken markdown tables */
+  .markdown-content p {
+    margin: 8px 0 !important;
+    line-height: 1.6 !important;
+  }
+  
+  /* Handle pipe characters that might not be in tables */
+  .markdown-content code {
+    background: #f3f4f6 !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    font-size: 13px !important;
+    color: #374151 !important;
   }
   
   /* Thai text specific improvements */
@@ -1129,9 +1164,22 @@ export default function InternalAIChat() {
                                       remarkPlugins={[remarkGfm]}
                                       rehypePlugins={[rehypeHighlight]}
                                       components={{
+                                        // Handle potential parsing errors gracefully
+                                        p: ({ children }) => {
+                                          // Check if this paragraph contains pipe characters that might be a malformed table
+                                          const content = typeof children === 'string' ? children : '';
+                                          if (content.includes('|') && content.includes('\n')) {
+                                            return (
+                                              <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded border overflow-x-auto">
+                                                {children}
+                                              </pre>
+                                            );
+                                          }
+                                          return <p className="mb-3">{children}</p>;
+                                        },
                                         table: ({ children }) => (
-                                          <div className="relative w-full overflow-auto">
-                                            <table className="w-full caption-bottom text-sm border-collapse border-spacing-0 my-5 bg-white rounded-xl overflow-hidden shadow-lg border border-gray-200">
+                                          <div className="markdown-table-wrapper">
+                                            <table className="w-full caption-bottom text-sm border-collapse border-spacing-0 bg-white">
                                               {children}
                                             </table>
                                           </div>
@@ -1160,7 +1208,22 @@ export default function InternalAIChat() {
                                           <td className="p-4 align-middle [&:has([role=checkbox])]:pr-0 border-b border-gray-100 border-r border-gray-100 text-gray-700 text-sm bg-white hover:bg-gray-50 transition-all duration-200">
                                             {children}
                                           </td>
-                                        )
+                                        ),
+                                        // Better code block rendering
+                                        code: ({ inline, children, ...props }) => {
+                                          if (inline) {
+                                            return (
+                                              <code className="bg-gray-100 text-gray-800 px-1 py-0.5 rounded text-sm" {...props}>
+                                                {children}
+                                              </code>
+                                            );
+                                          }
+                                          return (
+                                            <pre className="bg-gray-50 p-4 rounded-lg overflow-x-auto my-4">
+                                              <code {...props}>{children}</code>
+                                            </pre>
+                                          );
+                                        }
                                       }}
                                     >
                                       {message.content && typeof message.content === 'string' && message.content.trim()
