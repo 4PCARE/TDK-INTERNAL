@@ -363,7 +363,7 @@ export default function Documents() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedDocuments.size]); // Removed dependency on filteredDocuments
+  }, [selectedDocuments.size, allFilteredDocuments]);
 
   // Bulk move documents mutation
   const { mutate: moveDocuments } = useMutation({
@@ -399,15 +399,21 @@ export default function Documents() {
       currentSize: selectedDocuments.size,
       newSize: isSelected ? selectedDocuments.size + 1 : selectedDocuments.size - 1
     });
-    const newSelected = new Set(selectedDocuments);
-    if (isSelected) {
-      newSelected.add(documentId);
-    } else {
-      newSelected.delete(documentId);
-    }
-    console.log("Setting new selection:", Array.from(newSelected));
-    setSelectedDocuments(newSelected);
-    setShowBulkActions(newSelected.size > 0);
+    
+    setSelectedDocuments(prevSelected => {
+      const newSelected = new Set(prevSelected);
+      if (isSelected) {
+        newSelected.add(documentId);
+      } else {
+        newSelected.delete(documentId);
+      }
+      console.log("Setting new selection:", Array.from(newSelected));
+      
+      // Update bulk actions visibility
+      setShowBulkActions(newSelected.size > 0);
+      
+      return newSelected;
+    });
   };
 
   const isDocumentSelected = (documentId: number) => {
@@ -415,13 +421,13 @@ export default function Documents() {
   };
 
   const handleSelectAll = () => {
-    if (selectedDocuments.size === allFilteredDocuments.length) {
+    if (selectedDocuments.size === allFilteredDocuments.length && allFilteredDocuments.length > 0) {
       setSelectedDocuments(new Set());
       setShowBulkActions(false);
     } else {
       const allIds = new Set(allFilteredDocuments.map((doc: any) => doc.id));
       setSelectedDocuments(allIds);
-      setShowBulkActions(true);
+      setShowBulkActions(allIds.size > 0);
     }
   };
 
