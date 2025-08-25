@@ -63,7 +63,18 @@ export class QueryPreprocessorService {
    - **General recommendations, conceptual questions, or abstract needs** → Higher semantic weight (0.8–0.9)
    - For example
      - "OPPO เดอะมอลล์ ท่าพระ" → Keyword: 0.95, Semantic: 0.05"
-     - "วิธี การ ลา ที่ ดี ที่สุด" → Keyword: 0.1, Semantic: 0.9"`;
+     - "วิธี การ ลา ที่ ดี ที่สุด" → Keyword: 0.1, Semantic: 0.9"
+
+**CRITICAL: You MUST respond with ONLY valid JSON in this exact format:**
+{
+  "needsSearch": boolean,
+  "enhancedQuery": "enhanced search phrase in Thai/English",
+  "keywordWeight": 0.0-1.0,
+  "vectorWeight": 0.0-1.0,
+  "reasoning": "explanation of your decision"
+}
+
+Do NOT include any explanatory text, markdown formatting, or other content outside the JSON object.`;
 
       // Inject search configuration into system prompt if available
         if (additionalSearchDetail) {
@@ -119,9 +130,17 @@ Analyze this query and provide your response.`;
       // that uses llmRouter.chat() based on the user's selected provider.
       // For now, we simulate the expected JSON output structure.
 
-      // Let's assume we have a user ID available to load their configuration.
-      // In a real application, this would come from the request or session.
-      const userId = "exampleUserId"; // Replace with actual user ID
+      // Try to extract user ID from context or use a default
+      // In production, this should come from the request context
+      let userId = "43981095"; // Default fallback user ID
+      
+      // Try to extract from additionalSearchDetail if it contains user info
+      if (context && context.includes('userId:')) {
+        const userIdMatch = context.match(/userId:\s*(\w+)/);
+        if (userIdMatch) {
+          userId = userIdMatch[1];
+        }
+      }
 
       const config = await llmRouter.loadUserConfig(userId); // Load user config to get provider
 
@@ -145,35 +164,114 @@ Analyze this query and provide your response.`;
         // Parse JSON response from Gemini
         try {
           result = JSON.parse(response);
+          console.log("✅ Successfully parsed Gemini JSON response directly");
         } catch (parseError) {
-          console.error("Error parsing Gemini JSON response:", parseError);
-          console.log("Raw Gemini response:", response);
+          console.error("❌ Error parsing Gemini JSON response:", parseError);
+          console.log("📝 Raw Gemini response (first 500 chars):", response.substring(0, 500));
+          console.log("📏 Full response length:", response.length);
           
-          // Try multiple extraction methods
+          // Try multiple extraction methods with better patterns
           let extractedJson = null;
           
-          // Method 1: Extract from markdown code blocks
-          const markdownMatch = response.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-          if (markdownMatch) {
-            extractedJson = markdownMatch[1];
-          } else {
-            // Method 2: Extract JSON object from anywhere in text
-            const jsonMatch = response.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-              extractedJson = jsonMatch[0];
+          // Method 1: Extract from markdown code blocks (more flexible)
+          const markdownPatterns = [
+            /```json\s*(\{[\s\S]*?\})\s*```/i,
+            /```\s*(\{[\s\S]*?\})\s*```/,
+            /`(\{[\s\S]*?\})`/
+          ];
+          
+          for (const pattern of markdownPatterns) {
+            const match = response.match(pattern);
+            if (match) {
+              extractedJson = match[1];
+              console.log("📦 Found JSON in markdown format");
+              break;
+            }
+          }
+          
+          // Method 2: Extract JSON object from anywhere in text (improved)
+          if (!extractedJson) {
+            // Look for complete JSON objects with proper brace matching
+            const jsonStart = response.indexOf('{');
+            if (jsonStart !== -1) {
+              let braceCount = 0;
+              let jsonEnd = -1;
+              
+              for (let i = jsonStart; i < response.length; i++) {
+                if (response[i] === '{') braceCount++;
+                if (response[i] === '}') {
+                  braceCount--;
+                  if (braceCount === 0) {
+                    jsonEnd = i;
+                    break;
+                  }
+                }
+              }
+              
+              if (jsonEnd !== -1) {
+                extractedJson = response.substring(jsonStart, jsonEnd + 1);
+                console.log("🔍 Extracted JSON using brace matching");
+              }
+            }
+          }
+          
+          // Method 3: Try to find JSON-like structure with regex
+          if (!extractedJson) {
+            const jsonPattern = /\{[^{}]*"needsSearch"[^{}]*\}/;
+            const match = response.match(jsonPattern);
+            if (match) {
+              extractedJson = match[0];
+              console.log("🎯 Found JSON-like structure with needsSearch");
             }
           }
           
           if (extractedJson) {
             try {
-              result = JSON.parse(extractedJson);
-              console.log("✅ Successfully extracted JSON from Gemini response");
+              // Clean up common issues before parsing
+              const cleanedJson = extractedJson
+                .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+                .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+                .trim();
+              
+              console.log("🧹 Cleaned JSON:", cleanedJson);
+              result = JSON.parse(cleanedJson);
+              console.log("✅ Successfully extracted and parsed JSON from Gemini response");
             } catch (extractError) {
-              console.error("Failed to parse extracted JSON:", extractError);
-              throw parseError; // Re-throw original error
+              console.error("❌ Failed to parse extracted JSON:", extractError);
+              console.log("🔧 Attempted to parse:", extractedJson.substring(0, 200));
+              
+              // Last resort: try to build a valid response from parts
+              try {
+                const needsSearchMatch = response.match(/"needsSearch":\s*(true|false)/i);
+                const enhancedQueryMatch = response.match(/"enhancedQuery":\s*"([^"]+)"/i);
+                const keywordWeightMatch = response.match(/"keywordWeight":\s*([\d.]+)/);
+                const vectorWeightMatch = response.match(/"vectorWeight":\s*([\d.]+)/);
+                const reasoningMatch = response.match(/"reasoning":\s*"([^"]+)"/i);
+                
+                if (needsSearchMatch && enhancedQueryMatch) {
+                  result = {
+                    needsSearch: needsSearchMatch[1].toLowerCase() === 'true',
+                    enhancedQuery: enhancedQueryMatch[1],
+                    keywordWeight: keywordWeightMatch ? parseFloat(keywordWeightMatch[1]) : 0.5,
+                    vectorWeight: vectorWeightMatch ? parseFloat(vectorWeightMatch[1]) : 0.5,
+                    reasoning: reasoningMatch ? reasoningMatch[1] : 'Partially extracted from Gemini response'
+                  };
+                  console.log("🚑 Emergency extraction successful:", result);
+                } else {
+                  throw new Error("Could not extract essential fields from response");
+                }
+              } catch (emergencyError) {
+                console.error("💥 Emergency extraction also failed:", emergencyError);
+                throw parseError; // Re-throw original error
+              }
             }
           } else {
-            console.error("No JSON found in Gemini response");
+            console.error("❌ No JSON structure found in Gemini response");
+            console.log("🔍 Response content analysis:");
+            console.log("  - Contains '{' :", response.includes('{'));
+            console.log("  - Contains '}' :", response.includes('}'));
+            console.log("  - Contains 'needsSearch':", response.includes('needsSearch'));
+            console.log("  - Contains quotes:", response.includes('"'));
             throw parseError; // Re-throw if JSON cannot be extracted
           }
         }
