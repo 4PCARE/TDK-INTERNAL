@@ -672,37 +672,59 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
                 </Badge>
               )}
             </div>
+          {/* Status and Vector DB badges */}
+            <div className="flex items-center gap-2">
+              {doc.status === 'processing' && (
+                <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-600 border-yellow-200">
+                  Processing
+                </Badge>
+              )}
+
+              {doc.isInVectorDb && (
+                <Badge variant="outline" className="text-xs">
+                  <Database className="w-3 h-3 mr-1" />
+                  Vector DB
+                </Badge>
+              )}
+
+              {doc.isEndorsed && (
+                <Badge variant="outline" className="text-xs bg-green-50 text-green-600 border-green-200">
+                  <Shield className="w-3 h-3 mr-1" />
+                  Endorsed
+                </Badge>
+              )}
+            </div>
+
+            {/* Quick Action Buttons */}
+            <div className="flex justify-center mt-3 space-x-2 pt-2 border-t border-gray-100">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleView();
+                }}
+                className="h-8 px-3 text-xs flex-1"
+              >
+                <Eye className="w-3 h-3 mr-1" />
+                View
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowChatWithDocument(true);
+                }}
+                className="h-8 px-3 text-xs flex-1"
+              >
+                <MessageSquare className="w-3 h-3 mr-1" />
+                Chat
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Quick Action Buttons */}
-      <div className="flex justify-center mt-2 space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleView();
-          }}
-          className="h-8 px-3 text-xs"
-        >
-          <Eye className="w-3 h-3 mr-1" />
-          View
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowChatWithDocument(true);
-          }}
-          className="h-8 px-3 text-xs"
-        >
-          <MessageSquare className="w-3 h-3 mr-1" />
-          Chat
-        </Button>
-      </div>
 
       {/* Content Summary Dialog */}
       <Dialog open={showSummary} onOpenChange={setShowSummary}>
