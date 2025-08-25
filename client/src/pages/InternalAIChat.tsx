@@ -82,43 +82,47 @@ const lineClampStyles = `
   .hljs-function { color: #6f42c1 !important; }
   .hljs-variable { color: #e36209 !important; }
   
-  /* Markdown table styles - Enhanced with proper table borders */
+  /* Enhanced Markdown table styles for Thai content */
   .markdown-content {
     /* Ensure proper wrapping and overflow handling */
     word-wrap: break-word !important;
     overflow-wrap: break-word !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans Thai', 'Sarabun', 'Inter', system-ui, sans-serif !important;
   }
   
   .markdown-content table {
     border-collapse: collapse !important;
     border-spacing: 0 !important;
-    margin: 20px 0 !important;
+    margin: 24px 0 !important;
     width: 100% !important;
     max-width: 100% !important;
     background: #ffffff !important;
-    border-radius: 8px !important;
+    border-radius: 12px !important;
     overflow: hidden !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08) !important;
     border: 2px solid #e2e8f0 !important;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans Thai', 'Sarabun', system-ui, sans-serif !important;
+    font-family: inherit !important;
     font-size: 14px !important;
-    line-height: 1.6 !important;
+    line-height: 1.7 !important;
     table-layout: auto !important;
+    position: relative !important;
   }
   
   .markdown-content th {
-    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%) !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%) !important;
     font-weight: 700 !important;
     text-align: left !important;
-    padding: 16px 20px !important;
-    border-bottom: 2px solid #cbd5e1 !important;
+    padding: 18px 24px !important;
+    border-bottom: 3px solid #cbd5e1 !important;
     border-right: 1px solid #cbd5e1 !important;
     color: #1e293b !important;
     font-size: 15px !important;
-    line-height: 1.5 !important;
+    line-height: 1.6 !important;
     word-wrap: break-word !important;
     white-space: normal !important;
     position: relative !important;
+    text-transform: none !important;
+    letter-spacing: 0.3px !important;
   }
   
   .markdown-content th:last-child {
@@ -126,25 +130,25 @@ const lineClampStyles = `
   }
   
   .markdown-content th:first-child {
-    border-top-left-radius: 6px !important;
+    border-top-left-radius: 10px !important;
   }
   
   .markdown-content th:last-child {
-    border-top-right-radius: 6px !important;
+    border-top-right-radius: 10px !important;
   }
   
   .markdown-content td {
-    padding: 16px 20px !important;
+    padding: 18px 24px !important;
     border-bottom: 1px solid #e2e8f0 !important;
     border-right: 1px solid #e2e8f0 !important;
     color: #374151 !important;
     font-size: 14px !important;
-    line-height: 1.6 !important;
+    line-height: 1.7 !important;
     word-wrap: break-word !important;
     white-space: normal !important;
     vertical-align: top !important;
     background: #ffffff !important;
-    transition: all 0.2s ease !important;
+    transition: all 0.3s ease !important;
   }
   
   .markdown-content td:last-child {
@@ -158,6 +162,7 @@ const lineClampStyles = `
   .markdown-content tbody tr:hover td {
     background: #f1f5f9 !important;
     box-shadow: inset 0 0 0 1px #cbd5e1 !important;
+    transform: translateY(-1px) !important;
   }
   
   .markdown-content tbody tr:last-child td {
@@ -165,99 +170,144 @@ const lineClampStyles = `
   }
   
   .markdown-content tbody tr:last-child td:first-child {
-    border-bottom-left-radius: 6px !important;
+    border-bottom-left-radius: 10px !important;
   }
   
   .markdown-content tbody tr:last-child td:last-child {
-    border-bottom-right-radius: 6px !important;
+    border-bottom-right-radius: 10px !important;
   }
   
-  /* Ensure tables are responsive and readable */
+  /* Enhanced table display and layout */
   .markdown-content table {
     display: table !important;
-    table-layout: auto !important;
+    table-layout: fixed !important;
     max-width: 100% !important;
-    min-width: 500px !important;
+    min-width: 600px !important;
   }
   
-  /* Better handling of long Thai text */
+  /* Better handling of long Thai text with improved word breaking */
   .markdown-content td,
   .markdown-content th {
     max-width: none !important;
     overflow-wrap: break-word !important;
     word-break: break-word !important;
     hyphens: auto !important;
+    text-overflow: ellipsis !important;
   }
   
-  /* Column width distribution for two-column tables */
+  /* Optimized column width distribution for Thai content */
   .markdown-content table th:first-child,
   .markdown-content table td:first-child {
-    width: 35% !important;
+    width: 40% !important;
     font-weight: 600 !important;
-    background: #fafbfc !important;
+    background: linear-gradient(135deg, #fafbfc 0%, #f8fafc 100%) !important;
+    color: #1e293b !important;
   }
   
   .markdown-content table th:nth-child(2),
   .markdown-content table td:nth-child(2) {
-    width: 65% !important;
+    width: 60% !important;
   }
   
-  /* Table container with horizontal scroll */
+  /* Enhanced table container with horizontal scroll */
   .markdown-table-wrapper {
     width: 100% !important;
     overflow-x: auto !important;
-    margin: 16px 0 !important;
-    border-radius: 8px !important;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+    margin: 20px 0 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08) !important;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+    padding: 4px !important;
   }
   
-  /* Enhanced table styling for better visual hierarchy */
+  /* Enhanced visual hierarchy with better borders */
   .markdown-content table {
     background: #ffffff !important;
     border: 2px solid #e2e8f0 !important;
   }
   
-  /* Make sure all borders are visible */
+  /* Ensure all borders are visible with enhanced styling */
   .markdown-content th,
   .markdown-content td {
     border: 1px solid #e2e8f0 !important;
   }
   
-  /* Header styling */
+  /* Enhanced header styling with better contrast */
   .markdown-content thead th {
-    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%) !important;
-    border-bottom: 2px solid #cbd5e1 !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%) !important;
+    border-bottom: 3px solid #cbd5e1 !important;
     font-weight: 700 !important;
-    text-transform: uppercase !important;
-    font-size: 13px !important;
-    letter-spacing: 0.5px !important;
-    color: #475569 !important;
+    color: #1e293b !important;
+    position: relative !important;
   }
   
-  /* Make table scrollable on small screens */
+  .markdown-content thead th::after {
+    content: '' !important;
+    position: absolute !important;
+    bottom: -3px !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 2px !important;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6) !important;
+    border-radius: 1px !important;
+  }
+  
+  /* Responsive table behavior */
   .markdown-content {
-    overflow-x: visible !important;
+    overflow-x: auto !important;
     max-width: 100% !important;
   }
   
-  /* Better handling for broken markdown tables */
+  /* Better paragraph and text spacing */
   .markdown-content p {
-    margin: 8px 0 !important;
-    line-height: 1.6 !important;
+    margin: 12px 0 !important;
+    line-height: 1.7 !important;
   }
   
-  /* Handle pipe characters that might not be in tables */
+  /* Enhanced code styling */
   .markdown-content code {
-    background: #f3f4f6 !important;
-    padding: 2px 6px !important;
-    border-radius: 4px !important;
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%) !important;
+    padding: 4px 8px !important;
+    border-radius: 6px !important;
     font-size: 13px !important;
     color: #374151 !important;
+    border: 1px solid #d1d5db !important;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace !important;
   }
   
   /* Thai text specific improvements */
   .markdown-content table {
-    letter-spacing: 0.3px !important;
+    letter-spacing: 0.2px !important;
+    word-spacing: 0.1em !important;
+  }
+  
+  /* Add subtle animation for table appearance */
+  .markdown-content table {
+    animation: tableSlideIn 0.4s ease-out !important;
+  }
+  
+  @keyframes tableSlideIn {
+    from {
+      opacity: 0 !important;
+      transform: translateY(20px) !important;
+    }
+    to {
+      opacity: 1 !important;
+      transform: translateY(0) !important;
+    }
+  }
+  
+  /* Ensure proper handling of table overflow on mobile */
+  @media (max-width: 768px) {
+    .markdown-content table {
+      min-width: 500px !important;
+      font-size: 13px !important;
+    }
+    
+    .markdown-content th,
+    .markdown-content td {
+      padding: 14px 16px !important;
+    }
   }
 `;
 
