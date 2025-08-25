@@ -112,17 +112,17 @@ const lineClampStyles = `
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%) !important;
     font-weight: 700 !important;
     text-align: left !important;
-    padding: 18px 24px !important;
+    padding: 8px 12px !important;
     border-bottom: 3px solid #cbd5e1 !important;
     border-right: 1px solid #cbd5e1 !important;
     color: #1e293b !important;
-    font-size: 15px !important;
-    line-height: 1.6 !important;
+    font-size: 14px !important;
+    line-height: 1.4 !important;
     word-wrap: break-word !important;
     white-space: normal !important;
     position: relative !important;
     text-transform: none !important;
-    letter-spacing: 0.3px !important;
+    letter-spacing: 0.2px !important;
   }
   
   .markdown-content th:last-child {
@@ -130,25 +130,27 @@ const lineClampStyles = `
   }
   
   .markdown-content th:first-child {
-    border-top-left-radius: 10px !important;
+    border-top-left-radius: 8px !important;
   }
   
   .markdown-content th:last-child {
-    border-top-right-radius: 10px !important;
+    border-top-right-radius: 8px !important;
   }
   
   .markdown-content td {
-    padding: 18px 24px !important;
+    padding: 8px 12px !important;
     border-bottom: 1px solid #e2e8f0 !important;
     border-right: 1px solid #e2e8f0 !important;
     color: #374151 !important;
-    font-size: 14px !important;
-    line-height: 1.7 !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
     word-wrap: break-word !important;
     white-space: normal !important;
     vertical-align: top !important;
     background: #ffffff !important;
     transition: all 0.3s ease !important;
+    max-width: 200px !important;
+    overflow-wrap: anywhere !important;
   }
   
   .markdown-content td:last-child {
@@ -180,25 +182,23 @@ const lineClampStyles = `
   /* Enhanced table display and layout */
   .markdown-content table {
     display: table !important;
-    table-layout: fixed !important;
+    table-layout: auto !important;
     max-width: 100% !important;
-    min-width: 600px !important;
+    width: 100% !important;
   }
   
   /* Better handling of long Thai text with improved word breaking */
   .markdown-content td,
   .markdown-content th {
-    max-width: none !important;
-    overflow-wrap: break-word !important;
+    overflow-wrap: anywhere !important;
     word-break: break-word !important;
     hyphens: auto !important;
-    text-overflow: ellipsis !important;
   }
   
   /* Optimized column width distribution for Thai content */
   .markdown-content table th:first-child,
   .markdown-content table td:first-child {
-    width: 40% !important;
+    width: 35% !important;
     font-weight: 600 !important;
     background: linear-gradient(135deg, #fafbfc 0%, #f8fafc 100%) !important;
     color: #1e293b !important;
@@ -206,18 +206,18 @@ const lineClampStyles = `
   
   .markdown-content table th:nth-child(2),
   .markdown-content table td:nth-child(2) {
-    width: 60% !important;
+    width: 65% !important;
   }
   
   /* Enhanced table container with horizontal scroll */
   .markdown-table-wrapper {
     width: 100% !important;
     overflow-x: auto !important;
-    margin: 20px 0 !important;
-    border-radius: 12px !important;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08) !important;
+    margin: 12px 0 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
     background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
-    padding: 4px !important;
+    padding: 2px !important;
   }
   
   /* Enhanced visual hierarchy with better borders */
@@ -300,13 +300,13 @@ const lineClampStyles = `
   /* Ensure proper handling of table overflow on mobile */
   @media (max-width: 768px) {
     .markdown-content table {
-      min-width: 500px !important;
-      font-size: 13px !important;
+      font-size: 12px !important;
     }
     
     .markdown-content th,
     .markdown-content td {
-      padding: 14px 16px !important;
+      padding: 6px 8px !important;
+      max-width: 150px !important;
     }
   }
 `;
