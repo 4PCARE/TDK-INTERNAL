@@ -392,6 +392,7 @@ export default function Documents() {
   });
 
   const handleDocumentSelect = (documentId: number, isSelected: boolean) => {
+    console.log("Document select:", { documentId, isSelected, currentSelection: selectedDocuments });
     const newSelected = new Set(selectedDocuments);
     if (isSelected) {
       newSelected.add(documentId);

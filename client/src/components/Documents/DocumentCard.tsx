@@ -152,7 +152,7 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
               <div className="flex items-center" onClick={handleCheckboxClick}>
                 <Checkbox
                   checked={isSelected}
-                  onChange={() => {}}
+                  onCheckedChange={(checked) => onSelect?.(document.id, checked as boolean)}
                   className="w-4 h-4"
                 />
               </div>
