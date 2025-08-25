@@ -39,6 +39,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
 import {
   Dialog,
   DialogContent,
@@ -46,7 +48,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-// Add CSS for line clamping
+// Add CSS for line clamping and syntax highlighting
 const lineClampStyles = `
   .line-clamp-2 {
     display: -webkit-box;
@@ -54,6 +56,23 @@ const lineClampStyles = `
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  
+  /* Syntax highlighting styles */
+  .hljs {
+    background: #f8f9fa !important;
+    color: #333 !important;
+    padding: 12px !important;
+    border-radius: 6px !important;
+    font-size: 14px !important;
+    line-height: 1.4 !important;
+  }
+  
+  .hljs-keyword { color: #d73a49 !important; }
+  .hljs-string { color: #032f62 !important; }
+  .hljs-comment { color: #6a737d !important; }
+  .hljs-number { color: #005cc5 !important; }
+  .hljs-function { color: #6f42c1 !important; }
+  .hljs-variable { color: #e36209 !important; }
 `;
 
 // Inject styles
@@ -989,7 +1008,20 @@ export default function InternalAIChat() {
                                   ? 'bg-blue-500 text-white rounded-tr-none'
                                   : 'bg-gray-100 text-gray-900 rounded-tl-none'
                               }`}>
-                                <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                                {message.role === 'assistant' ? (
+                                  <div className="text-sm prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-900 prose-strong:text-gray-900 prose-code:text-gray-800 prose-code:bg-gray-200 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-200 prose-pre:text-gray-800">
+                                    <ReactMarkdown
+                                      remarkPlugins={[remarkGfm]}
+                                      rehypePlugins={[rehypeHighlight]}
+                                    >
+                                      {message.content && typeof message.content === 'string' && message.content.trim()
+                                        ? message.content
+                                        : "Empty message"}
+                                    </ReactMarkdown>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                                )}
                               </div>
                               <p className={`text-xs text-gray-500 mt-1 px-1 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
                                 {formatTime(message.createdAt)}
