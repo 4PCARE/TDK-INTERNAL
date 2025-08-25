@@ -899,7 +899,6 @@ export default function Documents() {
                 )}
               </CardContent>
             </Card>
-          </div>
         </div>
       </div>
     </DashboardLayout>
