@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Star, MoreHorizontal, FileText, File, Image, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -115,10 +116,15 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    if (e.ctrlKey || e.metaKey) {
+    if (e.ctrlKey || e.metaKey || showSelection) {
       e.preventDefault();
       onSelect?.(document.id, !isSelected);
     }
+  };
+
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect?.(document.id, !isSelected);
   };
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -142,6 +148,15 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
         {/* Document Type Icon */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
+            {showSelection && (
+              <div className="flex items-center" onClick={handleCheckboxClick}>
+                <Checkbox
+                  checked={isSelected}
+                  onChange={() => {}}
+                  className="w-4 h-4"
+                />
+              </div>
+            )}
             <div className={`w-10 h-10 ${getFileIconBg()} rounded-lg flex items-center justify-center`}>
               {getFileIcon()}
             </div>

@@ -687,12 +687,13 @@ export default function Documents() {
               </CardContent>
             </Card>
 
-            {/* Document Selection Section */}
-          <Card className="border border-slate-200 mb-6">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-semibold text-slate-800">Document Selection</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
+            {/* Document Selection Section - Only show when documents are selected */}
+          {selectedDocuments.size > 0 && (
+            <Card className="border border-slate-200 mb-6">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold text-slate-800">Document Selection</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4 flex-1">
                   <Popover>
@@ -801,6 +802,7 @@ export default function Documents() {
               </div>
             </CardContent>
           </Card>
+          )}
 
           {/* Documents Grid/List */}
           <Card className="border border-slate-200">
