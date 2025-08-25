@@ -71,6 +71,7 @@ export const documents = pgTable("documents", {
   aiCategory: varchar("ai_category", { length: 50 }), // AI-classified category
   aiCategoryColor: varchar("ai_category_color", { length: 10 }), // Category color
   categoryId: integer("category_id").references(() => categories.id),
+  folderId: integer("folder_id").references(() => folders.id),
   userId: varchar("user_id").references(() => users.id).notNull(),
   isPublic: boolean("is_public").default(false),
   isFavorite: boolean("is_favorite").default(false),
@@ -202,6 +203,10 @@ export const documentsRelations = relations(documents, ({ one, many }) => ({
   category: one(categories, {
     fields: [documents.categoryId],
     references: [categories.id],
+  }),
+  folder: one(folders, {
+    fields: [documents.folderId],
+    references: [folders.id],
   }),
   accessLogs: many(documentAccess),
   translations: many(documentTranslations),
@@ -525,62 +530,7 @@ export const documentDepartmentPermissionsRelations = relations(documentDepartme
   }),
 }));
 
-// Folders table
-export const folders = sqliteTable("folders", {
-  id: integer("id").primaryKey(),
-  name: text("name").notNull(),
-  parentId: integer("parent_id").references(() => folders.id),
-  userId: text("user_id").notNull().references(() => users.id),
-  createdAt: integer("created_at", { mode: "timestamp" }).default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).default(sql`CURRENT_TIMESTAMP`),
-});
 
-// Add folderId to documents table
-export const documentsWithFolder = sqliteTable("documents", {
-  id: integer("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description"),
-  fileName: text("file_name"),
-  filePath: text("file_path"),
-  fileSize: integer("file_size"),
-  mimeType: text("mime_type"),
-  content: text("content"),
-  summary: text("summary"),
-  tags: text("tags", { mode: "json" }).$type<string[]>(),
-  categoryId: integer("category_id").references(() => categories.id),
-  folderId: integer("folder_id").references(() => folders.id),
-  userId: text("user_id").notNull().references(() => users.id),
-  createdAt: integer("created_at", { mode: "timestamp" }).default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).default(sql`CURRENT_TIMESTAMP`),
-  processedAt: integer("processed_at", { mode: "timestamp" }),
-  aiCategory: text("ai_category"),
-  aiCategoryColor: text("ai_category_color"),
-  isPublic: integer("is_public", { mode: "boolean" }).default(false),
-  isEndorsed: integer("is_endorsed", { mode: "boolean" }).default(false),
-  endorsedBy: text("endorsed_by"),
-  endorsedAt: integer("endorsed_at", { mode: "timestamp" }),
-  effectiveStartDate: text("effective_start_date"),
-  effectiveEndDate: text("effective_end_date"),
-  embedding: text("embedding"),
-  chunkIndex: integer("chunk_index"),
-  chunkCount: integer("chunk_count"),
-  chunkText: text("chunk_text"),
-  thaiSegmented: text("thai_segmented"),
-});
-
-// Folder relations
-export const foldersRelations = relations(folders, ({ one, many }) => ({
-  user: one(users, {
-    fields: [folders.userId],
-    references: [users.id],
-  }),
-  parent: one(folders, {
-    fields: [folders.parentId],
-    references: [folders.id],
-  }),
-  children: many(folders),
-  documents: many(documents),
-}));
 
 // Additional types
 export type Folder = typeof folders.$inferSelect;
@@ -733,7 +683,7 @@ export const agentChatbots = pgTable("agent_chatbots", {
 export const folders = pgTable("folders", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
-  parentId: integer("parent_id").references((): AnyPgColumn => folders.id, { onDelete: "cascade" }),
+  parentId: integer("parent_id"),
   userId: varchar("user_id").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -815,6 +765,20 @@ export const socialIntegrationsRelations = relations(socialIntegrations, ({ one 
     fields: [socialIntegrations.agentId],
     references: [agentChatbots.id],
   }),
+}));
+
+// Folder relations
+export const foldersRelations = relations(folders, ({ one, many }) => ({
+  user: one(users, {
+    fields: [folders.userId],
+    references: [users.id],
+  }),
+  parent: one(folders, {
+    fields: [folders.parentId],
+    references: [folders.id],
+  }),
+  children: many(folders),
+  documents: many(documents),
 }));
 
 // Insert schemas
