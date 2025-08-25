@@ -56,7 +56,7 @@ const lineClampStyles = `
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-
+  
   /* Syntax highlighting styles */
   .hljs {
     background: #f8f9fa !important;
@@ -66,7 +66,7 @@ const lineClampStyles = `
     font-size: 14px !important;
     line-height: 1.4 !important;
   }
-
+  
   .hljs-keyword { color: #d73a49 !important; }
   .hljs-string { color: #032f62 !important; }
   .hljs-comment { color: #6a737d !important; }
@@ -225,14 +225,14 @@ export default function InternalAIChat() {
     if (agentSessions.length === 0) {
       return ""; // No sessions found
     }
-
+    
     // Find the most recent session
     const latestSession = agentSessions.reduce((latest, current) => {
       const latestTime = new Date(latest.lastMessageAt || latest.createdAt).getTime();
       const currentTime = new Date(current.lastMessageAt || current.createdAt).getTime();
       return currentTime > latestTime ? current : latest;
     });
-
+    
     return latestSession.lastMessageAt || latestSession.createdAt;
   };
 
@@ -245,16 +245,16 @@ export default function InternalAIChat() {
     .sort((a, b) => {
       const aLatestSession = getLatestSessionTimestamp(a.id);
       const bLatestSession = getLatestSessionTimestamp(b.id);
-
+      
       // If both have sessions, sort by latest session timestamp (most recent first)
       if (aLatestSession && bLatestSession) {
         return new Date(bLatestSession).getTime() - new Date(aLatestSession).getTime();
       }
-
+      
       // If only one has sessions, prioritize the one with sessions
       if (aLatestSession && !bLatestSession) return -1;
       if (!aLatestSession && bLatestSession) return 1;
-
+      
       // If neither has sessions, sort by creation date (most recent first)
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
@@ -1013,28 +1013,6 @@ export default function InternalAIChat() {
                                     <ReactMarkdown
                                       remarkPlugins={[remarkGfm]}
                                       rehypePlugins={[rehypeHighlight]}
-                                      className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-                                      components={{
-                                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                                        ul: ({ children }) => <ul className="mb-2 last:mb-0 list-disc pl-4">{children}</ul>,
-                                        ol: ({ children }) => <ol className="mb-2 last:mb-0 list-decimal pl-4">{children}</ol>,
-                                        li: ({ children }) => <li className="mb-1">{children}</li>,
-                                        code: ({ inline, children }) => 
-                                          inline ? 
-                                            <code className="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono">{children}</code> : 
-                                            <code className="block bg-gray-100 p-2 rounded text-xs font-mono whitespace-pre-wrap">{children}</code>,
-                                        pre: ({ children }) => <pre className="bg-gray-100 p-2 rounded text-xs font-mono whitespace-pre-wrap overflow-x-auto mb-2">{children}</pre>,
-                                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                                        em: ({ children }) => <em className="italic">{children}</em>,
-                                        h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
-                                        h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
-                                        h3: ({ children }) => <h3 className="text-sm font-bold mb-1">{children}</h3>,
-                                        blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-3 italic text-gray-600 mb-2">{children}</blockquote>,
-                                        hr: () => <hr className="border-gray-300 my-2" />,
-                                        table: ({ children }) => <table className="w-full border-collapse border border-gray-300 mb-2">{children}</table>,
-                                        th: ({ children }) => <th className="border border-gray-300 px-2 py-1 bg-gray-100 font-semibold text-left">{children}</th>,
-                                        td: ({ children }) => <td className="border border-gray-300 px-2 py-1">{children}</td>,
-                                      }}
                                     >
                                       {message.content && typeof message.content === 'string' && message.content.trim()
                                         ? message.content
