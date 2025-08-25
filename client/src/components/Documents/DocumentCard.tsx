@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Star, MoreHorizontal, FileText, File, Image, Trash2, Database, Shield } from "lucide-react";
+import { Star, MoreHorizontal, FileText, File, Image, Trash2, Database, Shield, MessageSquare, Eye } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import DocumentChatModal from "@/components/Chat/DocumentChatModal";
 
 interface DocumentCardProps {
   document: {
@@ -41,6 +42,7 @@ interface DocumentCardProps {
 export default function DocumentCard({ document, isSelected = false, onSelect, viewMode = "grid", showSelection = false }: DocumentCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
 
   const toggleFavoriteMutation = useMutation({
     mutationFn: async () => {
@@ -86,12 +88,16 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   const getFileIcon = () => {
     if (document.mimeType === 'application/pdf') {
       return <FileText className="w-6 h-6 text-red-600" />;
-    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || document.mimeType === 'application/msword') {
       return <FileText className="w-6 h-6 text-blue-600" />;
     } else if (document.mimeType === 'text/plain') {
       return <File className="w-6 h-6 text-green-600" />;
     } else if (document.mimeType.startsWith('image/')) {
       return <Image className="w-6 h-6 text-purple-600" />;
+    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || document.mimeType === 'application/vnd.ms-excel') {
+      return <FileText className="w-6 h-6 text-green-600" />;
+    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' || document.mimeType === 'application/vnd.ms-powerpoint') {
+      return <FileText className="w-6 h-6 text-orange-600" />;
     }
     return <File className="w-6 h-6 text-gray-600" />;
   };
@@ -99,12 +105,16 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   const getFileIconBg = () => {
     if (document.mimeType === 'application/pdf') {
       return 'bg-red-100';
-    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || document.mimeType === 'application/msword') {
       return 'bg-blue-100';
     } else if (document.mimeType === 'text/plain') {
       return 'bg-green-100';
     } else if (document.mimeType.startsWith('image/')) {
       return 'bg-purple-100';
+    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || document.mimeType === 'application/vnd.ms-excel') {
+      return 'bg-green-100';
+    } else if (document.mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' || document.mimeType === 'application/vnd.ms-powerpoint') {
+      return 'bg-orange-100';
     }
     return 'bg-gray-100';
   };
@@ -211,6 +221,15 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsChatModalOpen(true);
+                  }}
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Chat
+                </DropdownMenuItem>
+                <DropdownMenuItem 
                   className="text-red-600"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -306,6 +325,13 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
           <span>{formatFileSize(document.fileSize)}</span>
         </div>
       </CardContent>
+
+      {/* Chat Modal */}
+      <DocumentChatModal
+        isOpen={isChatModalOpen}
+        onClose={() => setIsChatModalOpen(false)}
+        document={document}
+      />
     </Card>
   );
 }
