@@ -1,29 +1,11 @@
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import DocumentCard from "./DocumentCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Move, Trash2 } from "lucide-react";
 
 export default function DocumentGrid() {
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ["/api/documents"],
   });
-  
-  const [selectedDocuments, setSelectedDocuments] = useState<Set<number>>(new Set());
-
-  const handleDocumentSelect = (documentId: number, isSelected: boolean) => {
-    setSelectedDocuments(prev => {
-      const newSelected = new Set(prev);
-      if (isSelected) {
-        newSelected.add(documentId);
-      } else {
-        newSelected.delete(documentId);
-      }
-      return newSelected;
-    });
-  };
 
   if (isLoading) {
     return (
@@ -61,38 +43,6 @@ export default function DocumentGrid() {
         </a>
       </div>
 
-      {/* Bulk Actions Bar */}
-      {selectedDocuments.size > 0 && (
-        <Card className="border border-blue-200 bg-blue-50 mb-4">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-medium text-slate-800">
-                  {selectedDocuments.size} document{selectedDocuments.size !== 1 ? 's' : ''} selected
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedDocuments(new Set())}
-                >
-                  Clear Selection
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline">
-                  <Move className="w-4 h-4 mr-1" />
-                  Move to Folder
-                </Button>
-                <Button size="sm" variant="destructive">
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Delete
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {documents.length === 0 ? (
         <div className="text-center py-12">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -106,12 +56,7 @@ export default function DocumentGrid() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {documents.map((document: any) => (
-            <DocumentCard 
-              key={document.id} 
-              document={document}
-              isSelected={selectedDocuments.has(document.id)}
-              onSelect={handleDocumentSelect}
-            />
+            <DocumentCard key={document.id} document={document} />
           ))}
         </div>
       )}

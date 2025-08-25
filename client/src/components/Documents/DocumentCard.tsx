@@ -8,7 +8,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 
 interface DocumentCardProps {
   document: {
@@ -32,7 +31,6 @@ interface DocumentCardProps {
 export default function DocumentCard({ document, isSelected = false, onSelect, viewMode = "grid" }: DocumentCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const toggleFavoriteMutation = useMutation({
     mutationFn: async () => {
@@ -111,36 +109,13 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
 
   const handleToggleFavorite = (e: React.MouseEvent) => {
     e.stopPropagation();
-    e.preventDefault();
     toggleFavoriteMutation.mutate();
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Only handle clicks on the card background, not on interactive elements
-    const target = e.target as HTMLElement;
-    
-    // Check if we clicked on an interactive element or its children
-    const isInteractiveElement = target.closest('button') || 
-                                target.closest('input[type="checkbox"]') || 
-                                target.closest('[data-radix-menu-content]') ||
-                                target.closest('[role="menuitem"]') ||
-                                target.hasAttribute('data-radix-menu-trigger') ||
-                                target.closest('[data-radix-menu-trigger]');
-    
-    if (isInteractiveElement) {
-      return;
-    }
-    
-    // Only toggle selection if we have the onSelect handler
-    if (onSelect) {
-      onSelect(document.id, !isSelected);
-    }
-  };
-
-  const handleRightClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (onSelect) {
-      onSelect(document.id, !isSelected);
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      onSelect?.(document.id, !isSelected);
     }
   };
 
@@ -151,16 +126,15 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
   };
 
   return (
-    <div 
+    <Card 
       className={cn(
-        "bg-white border shadow-sm hover:shadow-md transition-all select-none rounded-lg",
-        isSelected ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200" : "border-gray-200 hover:border-gray-300",
+        "bg-white border shadow-sm hover:shadow-md transition-all cursor-pointer",
+        isSelected ? "border-blue-500 bg-blue-50" : "border-gray-200",
         viewMode === "list" ? "mb-2" : ""
       )}
       draggable
       onDragStart={handleDragStart}
       onClick={handleCardClick}
-      onContextMenu={handleRightClick}
     >
       <CardContent className={cn("p-4", viewMode === "list" && "py-3")}>
         {/* Document Type Icon */}
@@ -174,7 +148,6 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
                   e.stopPropagation();
                   onSelect(document.id, e.target.checked);
                 }}
-                onClick={(e) => e.stopPropagation()}
                 className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
               />
             )}
@@ -198,19 +171,9 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
                 }`} 
               />
             </Button>
-            <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+            <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="p-1.5 h-auto"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    setIsDropdownOpen(!isDropdownOpen);
-                  }}
-                  data-radix-menu-trigger="true"
-                >
+                <Button variant="ghost" size="sm" className="p-1.5 h-auto">
                   <MoreHorizontal className="w-4 h-4 text-gray-400" />
                 </Button>
               </DropdownMenuTrigger>
@@ -220,7 +183,6 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
                   onClick={(e) => {
                     e.stopPropagation();
                     deleteDocumentMutation.mutate();
-                    setIsDropdownOpen(false);
                   }}
                   disabled={deleteDocumentMutation.isPending}
                 >
@@ -272,6 +234,6 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
           <span>{formatFileSize(document.fileSize)}</span>
         </div>
       </CardContent>
-    </div>
+    </Card>
   );
 }
