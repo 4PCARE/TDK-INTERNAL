@@ -540,14 +540,17 @@ ${document.summary}`;
             const { content, summary, tags, category, categoryColor } =
               await processDocument(file.path, file.mimetype);
 
-            const name = req.body.name || correctedFileName;
-            const effectiveStartDate = req.body.effectiveStartDate || null;
-            const effectiveEndDate = req.body.effectiveEndDate || null;
-            const folderId = req.body.folderId ? parseInt(req.body.folderId) : null;
+            const {
+              fileName,
+              name,
+              effectiveStartDate,
+              effectiveEndDate,
+              folderId,
+            } = fileMetadata;
 
             // Store the file in storage
             const document = await storage.createDocument({
-              name,
+              name: name || correctedFileName,
               fileName: file.filename,
               filePath: file.path,
               fileSize: file.size,
@@ -561,7 +564,7 @@ ${document.summary}`;
               processedAt: new Date(),
               effectiveStartDate: effectiveStartDate ? new Date(effectiveStartDate) : null,
               effectiveEndDate: effectiveEndDate ? new Date(effectiveEndDate) : null,
-              folderId
+              folderId: folderId || null // Use the folderId from the metadata
             });
 
             uploadedDocuments.push({
@@ -619,13 +622,16 @@ ${document.summary}`;
 
             console.error(`Error processing file ${correctedFileName}:`, error);
             // Still create document without AI processing
-            const name = req.body.name || correctedFileName;
-            const effectiveStartDate = req.body.effectiveStartDate || null;
-            const effectiveEndDate = req.body.effectiveEndDate || null;
-            const folderId = req.body.folderId ? parseInt(req.body.folderId) : null;
+            const {
+              fileName,
+              name,
+              effectiveStartDate,
+              effectiveEndDate,
+              folderId,
+            } = metadataArray.find(meta => meta.fileName === file.originalname) || {};
 
             const documentData = {
-              name,
+              name: name || correctedFileName,
               fileName: file.filename,
               filePath: file.path,
               fileSize: file.size,
@@ -635,7 +641,7 @@ ${document.summary}`;
               userId,
               effectiveStartDate: effectiveStartDate ? new Date(effectiveStartDate) : null,
               effectiveEndDate: effectiveEndDate ? new Date(effectiveEndDate) : null,
-              folderId
+              folderId: folderId || null
             };
             const document = await storage.createDocument(documentData);
             uploadedDocuments.push({

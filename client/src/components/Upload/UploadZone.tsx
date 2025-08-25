@@ -47,15 +47,11 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
           name: metadata?.name || file.name,
           effectiveStartDate: metadata?.effectiveStartDate?.toISOString() || null,
           effectiveEndDate: metadata?.effectiveEndDate?.toISOString() || null,
+          folderId: metadata?.folderId || null,
         };
       });
 
       formData.append('metadata', JSON.stringify(metadataArray));
-
-      // Add folder selection if specified
-      if (selectedFolderId) {
-        formData.append('folderId', selectedFolderId);
-      }
 
       const response = await apiRequest('POST', '/api/documents/upload', formData);
       return response.json();
@@ -220,29 +216,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
           </div>
         )}
 
-        {/* Folder Selection Dropdown */}
-        {!uploadMutation.isPending && pendingFiles.length === 0 && (
-          <div className="mt-6 flex items-center justify-center gap-2">
-            <Label htmlFor="folder" className="text-gray-700">Select Folder:</Label>
-            <Select 
-              onValueChange={setSelectedFolderId} 
-              value={selectedFolderId || ''} 
-              disabled={!folders || folders.length === 0}
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Main Folder" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={null}>Main Folder</SelectItem>
-                {folders?.map((folder: { id: string; name: string }) => (
-                  <SelectItem key={folder.id} value={folder.id}>
-                    {folder.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        
       </div>
 
       {/* Document Metadata Modal */}
