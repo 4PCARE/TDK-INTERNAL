@@ -23,8 +23,37 @@ const uploadStorage = multer.diskStorage({
     cb(null, "uploads/"); // Save files to the 'uploads' directory
   },
   filename: function (req, file, cb) {
-    // Use original name with a timestamp to prevent conflicts
-    cb(null, `${Date.now()}-${file.originalname}`);
+    // Fix Thai filename encoding if needed
+    let correctedFileName = file.originalname;
+    try {
+      // Check if filename contains Thai characters that are garbled
+      if (
+        file.originalname.includes("à¸") ||
+        file.originalname.includes("à¹")
+      ) {
+        // Try to decode and re-encode properly
+        const buffer = Buffer.from(file.originalname, "latin1");
+        correctedFileName = buffer.toString("utf8");
+      }
+    } catch (error) {
+      console.warn("Failed to fix filename encoding:", error);
+      // Keep original filename if encoding fix fails
+    }
+
+    const timestamp = Date.now();
+    const extension = path.extname(correctedFileName);
+    const nameWithoutExt = path.basename(correctedFileName, extension);
+    
+    // Limit the base filename to prevent filesystem errors
+    // Account for timestamp (13 chars) + dash (1 char) + extension
+    const maxBaseLength = 240 - timestamp.toString().length - 1 - extension.length;
+    const truncatedName = nameWithoutExt.length > maxBaseLength 
+      ? nameWithoutExt.substring(0, maxBaseLength) 
+      : nameWithoutExt;
+    
+    const finalFilename = `${timestamp}-${truncatedName}${extension}`;
+    
+    cb(null, finalFilename);
   },
 });
 
