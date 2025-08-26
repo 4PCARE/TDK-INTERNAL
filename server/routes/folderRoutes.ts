@@ -142,12 +142,15 @@ export function registerFolderRoutes(app: Express) {
         return res.status(400).json({ error: "Invalid folder ID" });
       }
 
-      const result = await db.query(
-        "SELECT COUNT(*) as total FROM documents WHERE folder_id = $1 AND user_id = $2",
-        [folderId, userId] // Use userId from authenticated user
-      );
+      const { documents } = await import("@shared/schema");
+      const { count, eq, and } = await import("drizzle-orm");
 
-      res.json({ totalDocuments: parseInt(result.rows[0].total) });
+      const result = await db
+        .select({ total: count(documents.id) })
+        .from(documents)
+        .where(and(eq(documents.folderId, folderId), eq(documents.userId, userId)));
+
+      res.json({ totalDocuments: Number(result[0].total) });
     } catch (error) {
       console.error("Error fetching folder stats:", error);
       res.status(500).json({ error: "Failed to fetch folder statistics" });
