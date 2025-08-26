@@ -98,7 +98,8 @@ export default function DocumentMetadataModal({
   const resetForm = () => {
     setStartDate(null);
     setEndDate(null);
-    setSelectedFolderId(defaultFolderId === null ? "main" : defaultFolderId?.toString() || "main");
+    // Keep the current folder selection for the next file instead of resetting to default
+    // setSelectedFolderId(defaultFolderId === null ? "main" : defaultFolderId?.toString() || "main");
     setShowDateFields(false);
     setErrors({});
   };

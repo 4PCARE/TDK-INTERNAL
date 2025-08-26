@@ -18,6 +18,7 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
   const [fileMetadataMap, setFileMetadataMap] = useState<Map<string, DocumentMetadata>>(new Map());
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentFolderId, setCurrentFolderId] = useState<number | null>(defaultFolderId || null);
 
 
   const uploadMutation = useMutation({
@@ -83,6 +84,9 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
       newMetadataMap.set(currentFile.name, metadata);
       setFileMetadataMap(newMetadataMap);
 
+      // Update the current folder selection for the next file
+      setCurrentFolderId(metadata.folderId);
+
       if (currentFileIndex < pendingFiles.length - 1) {
         // More files to process - move to next file
         setCurrentFileIndex(currentFileIndex + 1);
@@ -94,6 +98,7 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
         setPendingFiles([]);
         setCurrentFileIndex(0);
         setFileMetadataMap(new Map());
+        setCurrentFolderId(defaultFolderId || null);
       }
     }
   };
@@ -103,6 +108,7 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
     setPendingFiles([]);
     setCurrentFileIndex(0);
     setFileMetadataMap(new Map());
+    setCurrentFolderId(defaultFolderId || null);
   };
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
@@ -215,7 +221,7 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
         fileName={currentFile?.name || ''}
         currentFileIndex={currentFileIndex}
         totalFiles={pendingFiles.length}
-        defaultFolderId={defaultFolderId}
+        defaultFolderId={currentFileIndex === 0 ? defaultFolderId : currentFolderId}
       />
     </>
   );
