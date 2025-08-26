@@ -625,16 +625,8 @@ export default function CreateAgentChatbot() {
     // Build the guardrails configuration object
     const guardrailsConfig = data.guardrailsEnabled ? data.guardrailsConfig : null;
 
-    // Collect all document IDs from selected documents and folder documents (minus deselected ones)
-    const allFolderDocumentIds = selectedFolders.reduce((acc, folderId) => {
-      const docs = folderDocuments[folderId] || [];
-      const folderDocIds = docs
-        .filter(doc => !deselectedFolderDocuments.has(doc.id)) // Filter documents, not just IDs
-        .map(doc => doc.id);
-      return [...acc, ...folderDocIds];
-    }, [] as number[]);
-
-    const allDocumentIds = [...new Set([...selectedDocuments, ...allFolderDocumentIds])];
+    // Use only the selected documents (folders are converted to individual documents)
+    const allDocumentIds = [...new Set(selectedDocuments)];
 
     const finalData = {
       ...data,
@@ -766,17 +758,33 @@ export default function CreateAgentChatbot() {
     const isSelected = selectedFolders.includes(folderId);
     
     if (isSelected) {
-      // Remove folder
+      // Remove folder from UI selection
       setSelectedFolders(prev => prev.filter(id => id !== folderId));
-      // Clear all documents from this folder from deselection set (auto-clear)
+      
+      // Remove all documents from this folder from selected documents
       const folderDocs = folderDocuments[folderId] || [];
-      folderDocs.forEach(doc => {
-        setDeselectedFolderDocuments(prev => {
-          const next = new Set(prev);
-          next.delete(doc.id);
-          return next;
-        });
+      const folderDocIds = folderDocs.map(doc => doc.id);
+      
+      setSelectedDocuments(prev => prev.filter(id => !folderDocIds.includes(id)));
+      
+      // Clear deselection tracking for this folder
+      setDeselectedFolderDocuments(prev => {
+        const next = new Set(prev);
+        folderDocIds.forEach(docId => next.delete(docId));
+        return next;
       });
+      
+      // If in editing mode, remove each document individually
+      if (isEditing && editAgentId) {
+        for (const docId of folderDocIds) {
+          try {
+            await removeDocumentMutation.mutateAsync(docId);
+          } catch (error) {
+            console.error(`Failed to remove document ${docId}:`, error);
+          }
+        }
+      }
+      
       // Collapse folder on deselection
       setExpandedFolders(prev => {
         const next = new Set(prev);
@@ -784,24 +792,57 @@ export default function CreateAgentChatbot() {
         return next;
       });
     } else {
-      // Add folder
+      // Add folder to UI selection
       setSelectedFolders(prev => [...prev, folderId]);
       // Force expand folder on selection
       setExpandedFolders(prev => new Set([...prev, folderId]));
       
-      if (isEditing && editAgentId) {
-        // For editing mode, assign folder to agent via API
+      // Fetch folder documents if not already fetched
+      if (!folderDocuments[folderId]) {
         try {
-          await apiRequest("POST", `/api/agents/${editAgentId}/folders/${folderId}`);
-          queryClient.invalidateQueries({
-            queryKey: [`/api/agent-chatbots/${editAgentId}/documents`]
-          });
+          const response = await fetch(`/api/folders/${folderId}/documents`);
+          if (response.ok) {
+            const docs = await response.json();
+            setFolderDocuments(prev => ({ ...prev, [folderId]: docs }));
+            
+            // Add all documents from this folder to selected documents
+            const docIds = docs.map((doc: FolderDocument) => doc.id);
+            setSelectedDocuments(prev => [...new Set([...prev, ...docIds])]);
+            
+            // If in editing mode, add each document individually
+            if (isEditing && editAgentId) {
+              for (const docId of docIds) {
+                try {
+                  await addDocumentMutation.mutateAsync(docId);
+                } catch (error) {
+                  console.error(`Failed to add document ${docId}:`, error);
+                }
+              }
+            }
+          }
         } catch (error) {
+          console.error(`Error fetching documents for folder ${folderId}:`, error);
           toast({
             title: "Error",
-            description: "Failed to assign folder to agent",
+            description: "Failed to fetch folder documents",
             variant: "destructive",
           });
+        }
+      } else {
+        // Documents already fetched, just add them to selection
+        const folderDocs = folderDocuments[folderId];
+        const docIds = folderDocs.map(doc => doc.id);
+        setSelectedDocuments(prev => [...new Set([...prev, ...docIds])]);
+        
+        // If in editing mode, add each document individually
+        if (isEditing && editAgentId) {
+          for (const docId of docIds) {
+            try {
+              await addDocumentMutation.mutateAsync(docId);
+            } catch (error) {
+              console.error(`Failed to add document ${docId}:`, error);
+            }
+          }
         }
       }
     }
@@ -818,6 +859,9 @@ export default function CreateAgentChatbot() {
         return next;
       });
       
+      // Add back to selected documents
+      setSelectedDocuments(prev => [...new Set([...prev, documentId])]);
+      
       // If in editing mode, add the document back to the agent
       if (isEditing && editAgentId) {
         addDocumentMutation.mutate(documentId);
@@ -825,6 +869,9 @@ export default function CreateAgentChatbot() {
     } else {
       // Deselecting the document
       setDeselectedFolderDocuments(prev => new Set([...prev, documentId]));
+      
+      // Remove from selected documents
+      setSelectedDocuments(prev => prev.filter(id => id !== documentId));
       
       // If in editing mode, remove the document from the agent
       if (isEditing && editAgentId) {
