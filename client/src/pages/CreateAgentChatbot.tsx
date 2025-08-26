@@ -76,7 +76,8 @@ import {
   Folder,
   FolderOpen,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  Wand2
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -457,6 +458,40 @@ export default function CreateAgentChatbot() {
     },
   });
 
+  // Prompt refinement mutation
+  const refinePromptMutation = useMutation({
+    mutationFn: async (data: {
+      originalPrompt: string;
+      personality: string;
+      profession: string;
+      responseStyle: string;
+      specialSkills: string[];
+      documentIds: number[];
+    }) => {
+      const response = await fetch('/api/prompt-refinement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error('Failed to refine prompt');
+      return response.json();
+    },
+    onSuccess: (result) => {
+      form.setValue('systemPrompt', result.refinedPrompt);
+      toast({
+        title: "Prompt Refined Successfully",
+        description: "Your system prompt has been enhanced by AI",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Refinement Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Send test message mutation
   const sendTestMessageMutation = useMutation({
     mutationFn: async ({ message, sessionId, agentId }: { message: string; sessionId: number; agentId: number }) => {
@@ -748,6 +783,28 @@ export default function CreateAgentChatbot() {
     setTempSessionId(null);
     setIsTestChatMode(false);
     setTestMessage("");
+  };
+
+  const handleRefinePrompt = () => {
+    const formData = form.getValues();
+    
+    if (!formData.systemPrompt?.trim()) {
+      toast({
+        title: "Missing System Prompt",
+        description: "Please enter a system prompt first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    refinePromptMutation.mutate({
+      originalPrompt: formData.systemPrompt,
+      personality: formData.personality || '',
+      profession: formData.profession || '',
+      responseStyle: formData.responseStyle || '',
+      specialSkills: formData.specialSkills || [],
+      documentIds: selectedDocuments,
+    });
   };
 
   const formatTime = (timestamp: string) => {
@@ -1459,7 +1516,7 @@ export default function CreateAgentChatbot() {
                               AI System Prompt
                             </CardTitle>
                           </CardHeader>
-                          <CardContent>
+                          <CardContent className="space-y-4">
                             <FormField
                               control={form.control}
                               name="systemPrompt"
@@ -1482,6 +1539,46 @@ export default function CreateAgentChatbot() {
                                 </FormItem>
                               )}
                             />
+                            
+                            {/* Refine Prompt Button */}
+                            <div className="flex justify-end">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={handleRefinePrompt}
+                                disabled={refinePromptMutation.isPending}
+                                className="flex items-center gap-2"
+                              >
+                                {refinePromptMutation.isPending ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Refining...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Wand2 className="w-4 h-4" />
+                                    Refine System Prompt
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+
+                            {/* Show refinement info */}
+                            <div className="bg-blue-50 rounded-lg p-4 space-y-2">
+                              <h4 className="font-medium text-blue-900 flex items-center gap-2">
+                                <Sparkles className="w-4 h-4" />
+                                AI Prompt Refinement
+                              </h4>
+                              <p className="text-sm text-blue-700">
+                                Click "Refine System Prompt" to use AI to enhance your prompt with:
+                              </p>
+                              <ul className="text-sm text-blue-700 space-y-1 ml-4">
+                                <li>• More specific role definitions based on personality and profession</li>
+                                <li>• Clear guidelines and limitations</li>
+                                <li>• Integration with selected documents and their context</li>
+                                <li>• Optimized instructions for better performance</li>
+                              </ul>
+                            </div>
                           </CardContent>
                         </Card>
                       </div>

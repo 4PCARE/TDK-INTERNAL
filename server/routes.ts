@@ -1361,7 +1361,7 @@ export async function registerRoutes(app: Express): Server {
         ? parseInt(req.query.limit as string)
         : undefined;
       const offset = req.query.offset
-        ? parseInt(req.query.offset as string)
+        ? parseInt(req.query.offset)
         : undefined;
 
       const documents = await storage.getDocuments(userId, {
@@ -1959,7 +1959,6 @@ ${document.summary}`;
     async (req: any, res) => {
       try {
         const userId = req.user.claims.sub;
-        const id = parseInt(req.params.id);
         const { preserveExistingEmbeddings = false } = req.body;
         const document = await storage.getDocument(id, userId);
 
@@ -3395,7 +3394,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
 
           global.wsClients.forEach(client => {
             if (client.readyState === 1) { // WebSocket.OPEN
-              client.send(JSON.stringify(wsMessage));
+              client.send(JSON.JSON.stringify(wsMessage));
             }
           });
         }
@@ -5237,52 +5236,6 @@ Memory management: Keep track of conversation context within the last ${agentCon
     }
   });
 
-  app.post('/api/agent-console/takeover', isAuthenticated, async (req: any, res) => {
-    try {
-      const { targetUserId, channelType, channelId, agentId } = req.body;
-
-      if (!targetUserId || !channelType || !channelId || !agentId) {
-        return res.status(400).json({ message: "Missing required parameters" });
-      }
-
-      // Log the takeover action
-      await storage.createAuditLog({
-        userId: req.user.claims.sub,
-        action: 'human_takeover',
-        resourceType: 'conversation',
-        resourceId: `${targetUserId}-${channelType}-${channelId}`,
-        ipAddress: req.ip || req.connection.remoteAddress || 'unknown',
-        userAgent: req.headers['user-agent'] || 'unknown',
-        details: {
-          targetUserId,
-          channelType,
-          channelId,
-          agentId: parseInt(agentId)
-        }
-      });
-
-      // Store a system message indicating human takeover
-      await storage.createChatHistory({
-        userId: targetUserId,
-        channelType,
-        channelId,
-        agentId: parseInt(agentId),
-        messageType: 'assistant',
-        content: '🔄 A human agent has joined the conversation.',
-        metadata: {
-          systemMessage: true,
-          humanTakeover: true,
-          agentId: req.user.claims.sub
-        }
-      });
-
-      res.json({ success: true, message: "Conversation takeover successful" });
-    } catch (error) {
-      console.error("Error taking over conversation:", error);
-      res.status(500).json({ message: "Failed to take over conversation" });
-    }
-  });
-
   // Line Message Template Routes
 
   // Get all Line message templates for user
@@ -5612,6 +5565,48 @@ Memory management: Keep track of conversation context within the last ${agentCon
     }
   });
 
+  // Add prompt refinement API endpoint
+  app.post('/api/prompt-refinement', (req: any, res: any, next: any) => {
+    // Try Microsoft auth first, then fallback to Replit auth
+    isMicrosoftAuthenticated(req, res, (err: any) => {
+      if (!err) {
+        return next();
+      }
+      isAuthenticated(req, res, next);
+    });
+
+    function next() {
+      handlePromptRefinement(req, res);
+    }
+  }, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { originalPrompt, personality, profession, responseStyle, specialSkills, documentIds } = req.body;
+
+      if (!originalPrompt) {
+        return res.status(400).json({ error: "Original prompt is required" });
+      }
+
+      const { promptRefinementService } = await import('./services/promptRefinementService');
+
+      const result = await promptRefinementService.refineSystemPrompt({
+        originalPrompt,
+        personality: personality || '',
+        profession: profession || '',
+        responseStyle: responseStyle || '',
+        specialSkills: specialSkills || [],
+        documentIds: documentIds || [],
+        userId
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error in prompt refinement:', error);
+      res.status(500).json({ error: 'Failed to refine prompt' });
+    }
+  });
+
+
   const httpServer = createServer(app);
 
   // Create WebSocket server on /ws path to avoid conflicts with Vite HMR
@@ -5782,7 +5777,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
 
     // Send initial connection confirmation
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
+      ws.send(JSON.JSON.stringify({
         type: 'connection',
         message: 'Connected to Agent Console WebSocket'
       }));

@@ -120,13 +120,31 @@ ${context ? `Additional Context: ${context}` : ''}
    - Query: "อยู่ชั้นไหน" + History mentions "OPPO", "เดอะมอลล์ ท่าพระ" → Enhanced: "OPPO เดอะมอลล์ ท่าพระ"
    - Query: "ราคาเท่าไหร่" + History mentions "iPhone 15" → Enhanced: "iPhone 15 ราคา"
 
+${additionalSearchDetail ? `\nAdditional search context: ${additionalSearchDetail}` : ''}
+
 Analyze this query and provide your response.`;
 
-      // **This part needs to be updated to use the LLM Router**
-      // For now, we'll use OpenAI as a placeholder.
-      // The `llmRouter` will be used to dynamically select the provider.
+      // Use LLM Router to process the query with user's configured provider
+      const enhancedQuery = await llmRouter.chat([
+        {
+          role: "system",
+          content: systemPrompt
+        },
+        {
+          role: "user",
+          content: userQuery
+        }
+      ], userId);
 
-      // The following code block is a placeholder and will be replaced by the logic
+      console.log(`✅ Query enhanced: "${userQuery}" → "${enhancedQuery.trim()}"`);
+      return enhancedQuery.trim();
+    } catch (error) {
+      console.error('❌ Query preprocessing failed:', error);
+      // Return original query if enhancement fails
+      return userQuery;
+    }
+  }
+}owing code block is a placeholder and will be replaced by the logic
       // that uses llmRouter.chat() based on the user's selected provider.
       // For now, we simulate the expected JSON output structure.
 
