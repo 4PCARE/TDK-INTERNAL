@@ -812,10 +812,10 @@ export default function CreateAgentChatbot() {
 
   const toggleFolder = async (folderId: number) => {
     const folderDocs = folderDocuments[folderId] || [];
-    
+
     // Check if all documents in folder are selected
     const allDocsSelected = folderDocs.length > 0 && folderDocs.every(doc => selectedDocuments.includes(doc.id));
-    
+
     if (allDocsSelected) {
       // Deselect all documents in folder
       const docIds = folderDocs.map(doc => doc.id);
@@ -825,7 +825,7 @@ export default function CreateAgentChatbot() {
         next.delete(folderId);
         return next;
       });
-      
+
       // If in editing mode, remove each document individually
       if (isEditing && editAgentId) {
         for (const docId of docIds) {
@@ -840,7 +840,7 @@ export default function CreateAgentChatbot() {
       // Force expand folder when selecting
       setExpandedFolders(prev => new Set([...prev, folderId]));
       setSelectedFolders(prev => new Set([...prev, folderId]));
-      
+
       // Fetch folder documents if not already fetched
       if (!folderDocuments[folderId]) {
         try {
@@ -848,11 +848,11 @@ export default function CreateAgentChatbot() {
           if (response.ok) {
             const docs = await response.json();
             setFolderDocuments(prev => ({ ...prev, [folderId]: docs }));
-            
+
             // Add all documents from this folder to selected documents
             const docIds = docs.map((doc: FolderDocument) => doc.id);
             setSelectedDocuments(prev => [...new Set([...prev, ...docIds])]);
-            
+
             // If in editing mode, add each document individually
             if (isEditing && editAgentId) {
               for (const docId of docIds) {
@@ -876,7 +876,7 @@ export default function CreateAgentChatbot() {
         // Documents already fetched, select all documents in folder
         const docIds = folderDocs.map(doc => doc.id);
         setSelectedDocuments(prev => [...new Set([...prev, ...docIds])]);
-        
+
         // If in editing mode, add each document individually
         if (isEditing && editAgentId) {
           for (const docId of docIds) {
@@ -893,11 +893,11 @@ export default function CreateAgentChatbot() {
 
   const toggleFolderDocument = (documentId: number) => {
     const isSelected = selectedDocuments.includes(documentId);
-    
+
     if (isSelected) {
       // Remove from selected documents
       setSelectedDocuments(prev => prev.filter(id => id !== documentId));
-      
+
       // Check if this document belongs to any folder and update folder selection
       for (const [folderId, docs] of Object.entries(folderDocuments)) {
         if (docs.some(doc => doc.id === documentId)) {
@@ -906,7 +906,7 @@ export default function CreateAgentChatbot() {
           const remainingSelectedInFolder = selectedDocuments.filter(id => 
             id !== documentId && folderDocIds.includes(id)
           );
-          
+
           if (remainingSelectedInFolder.length === 0) {
             setSelectedFolders(prev => {
               const next = new Set(prev);
@@ -917,7 +917,7 @@ export default function CreateAgentChatbot() {
           break;
         }
       }
-      
+
       // If in editing mode, remove the document from the agent
       if (isEditing && editAgentId) {
         removeDocumentMutation.mutate(documentId);
@@ -925,7 +925,7 @@ export default function CreateAgentChatbot() {
     } else {
       // Add to selected documents
       setSelectedDocuments(prev => [...new Set([...prev, documentId])]);
-      
+
       // Check if this completes selection of all documents in any folder
       for (const [folderId, docs] of Object.entries(folderDocuments)) {
         if (docs.some(doc => doc.id === documentId)) {
@@ -933,14 +933,14 @@ export default function CreateAgentChatbot() {
           const allFolderDocsSelected = folderDocIds.every(id => 
             selectedDocuments.includes(id) || id === documentId
           );
-          
+
           if (allFolderDocsSelected) {
             setSelectedFolders(prev => new Set([...prev, parseInt(folderId)]));
           }
           break;
         }
       }
-      
+
       // If in editing mode, add the document to the agent
       if (isEditing && editAgentId) {
         addDocumentMutation.mutate(documentId);
@@ -1588,7 +1588,9 @@ export default function CreateAgentChatbot() {
                                       variant="secondary"
                                       className="bg-blue-100 text-blue-800"
                                     >
-                                      {selectedDocuments.length} documents selected
+                                      <span className="font-medium">
+                                        {selectedDocuments.length} document{selectedDocuments.length !== 1 ? 's' : ''} selected
+                                      </span>
                                     </Badge>
                                   </div>
                                 </div>
@@ -1622,7 +1624,7 @@ export default function CreateAgentChatbot() {
                                               </Badge>
                                             )}
                                           </div>
-                                          
+
                                           <div 
                                             className="cursor-pointer"
                                             onClick={() => toggleFolder(folder.id)}
@@ -1675,7 +1677,7 @@ export default function CreateAgentChatbot() {
                                   </div>
                                 )}
 
-                                
+
 
                                 {/* Individual Documents Section */}
                                 {filteredDocuments.length > 0 && (

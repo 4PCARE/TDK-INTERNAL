@@ -1300,16 +1300,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAgentChatbotDocuments(agentId: number, userId: string): Promise<AgentChatbotDocument[]> {
-    // First verify the agent belongs to the user
+    // Verify the agent belongs to the user
     const agent = await this.getAgentChatbot(agentId, userId);
     if (!agent) {
       throw new Error("Agent not found");
     }
 
-    return await db
+    // Get all agent document relationships
+    const agentDocs = await db
       .select()
       .from(agentChatbotDocuments)
-      .where(eq(agentChatbotDocuments.agentId, agentId));
+      .where(
+        and(
+          eq(agentChatbotDocuments.agentId, agentId),
+          eq(agentChatbotDocuments.userId, userId)
+        )
+      )
+      .orderBy(desc(agentChatbotDocuments.createdAt));
+
+    console.log(`📋 Found ${agentDocs.length} agent document relationships for agent ${agentId}`);
+
+    return agentDocs;
   }
 
   async addDocumentToAgent(agentId: number, documentId: number, userId: string): Promise<AgentChatbotDocument> {
@@ -1601,7 +1612,7 @@ export class DatabaseStorage implements IStorage {
   // System Settings operations
   async getSystemSettings(): Promise<any> {
     const { systemSettings } = await import('@shared/schema');
-    
+
     const settings = await db
       .select()
       .from(systemSettings)
@@ -1631,7 +1642,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateSystemSettings(settingsData: any): Promise<any> {
     const { systemSettings } = await import('@shared/schema');
-    
+
     const [updated] = await db
       .insert(systemSettings)
       .values({

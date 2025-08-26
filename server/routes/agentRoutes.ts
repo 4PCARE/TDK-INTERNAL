@@ -144,29 +144,51 @@ export function registerAgentRoutes(app: Express) {
               const document = await storage.getDocument(agentDoc.documentId, userId);
               console.log(`📋 Document ${agentDoc.documentId} details:`, { 
                 name: document?.name, 
-                hasDocument: !!document 
+                hasDocument: !!document,
+                folderId: document?.folderId
               });
+              
+              // Always return the document entry, even if document is not found
+              // This ensures folder-based selections are preserved
               return {
                 ...agentDoc,
-                name: document?.name || `Document ${agentDoc.documentId}`,
-                documentName: document?.name || `Document ${agentDoc.documentId}`,
+                name: document?.name || agentDoc.name || `Document ${agentDoc.documentId}`,
+                documentName: document?.name || agentDoc.name || `Document ${agentDoc.documentId}`,
                 documentDescription: document?.description || null,
-                documentTags: document?.tags || []
+                documentTags: document?.tags || [],
+                folderId: document?.folderId || null,
+                fileSize: document?.fileSize || null,
+                mimeType: document?.mimeType || null,
+                createdAt: document?.createdAt || agentDoc.createdAt
               };
             } catch (error) {
-              console.warn(`Could not fetch document ${agentDoc.documentId}:`, error);
+              console.warn(`Could not fetch document ${agentDoc.documentId}, keeping agent document entry:`, error);
+              // Keep the agent document entry even if document fetch fails
+              // This preserves folder-based document assignments
               return {
                 ...agentDoc,
-                name: 'Unknown Document',
-                documentName: 'Unknown Document',
+                name: agentDoc.name || `Document ${agentDoc.documentId}`,
+                documentName: agentDoc.name || `Document ${agentDoc.documentId}`,
                 documentDescription: null,
-                documentTags: []
+                documentTags: [],
+                folderId: null,
+                fileSize: null,
+                mimeType: null
               };
             }
           })
         );
 
-        res.json(documentsWithNames);
+        // Filter out any null/undefined entries but keep all valid agent document relationships
+        const validDocuments = documentsWithNames.filter(doc => doc !== null && doc !== undefined);
+        
+        console.log(`📋 Agent ${req.params.id} document summary:`, {
+          totalAgentDocuments: agentDocuments.length,
+          validDocumentsReturned: validDocuments.length,
+          documentIds: validDocuments.map(d => d.documentId)
+        });
+
+        res.json(validDocuments);
       } catch (error) {
         console.error("Error fetching agent documents:", error);
         res.status(500).json({ message: "Failed to fetch agent documents" });
