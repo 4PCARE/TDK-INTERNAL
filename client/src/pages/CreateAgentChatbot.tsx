@@ -72,7 +72,11 @@ import {
   ThumbsUp,
   ThumbsDown,
   Copy,
-  Sparkles
+  Sparkles,
+  Folder,
+  FolderOpen,
+  ChevronRight,
+  ChevronDown
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -168,6 +172,22 @@ interface Document {
   categoryName?: string;
 }
 
+interface Folder {
+  id: number;
+  name: string;
+  parentId?: number;
+  children?: Folder[];
+  documentCount?: number;
+}
+
+interface FolderDocument {
+  id: number;
+  name: string;
+  description?: string;
+  categoryName?: string;
+  folderId?: number;
+}
+
 interface TestMessage {
   id: number | string;
   role: "user" | "assistant";
@@ -181,6 +201,10 @@ export default function CreateAgentChatbot() {
   const queryClient = useQueryClient();
 
   const [selectedDocuments, setSelectedDocuments] = useState<number[]>([]);
+  const [selectedFolders, setSelectedFolders] = useState<number[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Set<number>>(new Set());
+  const [folderDocuments, setFolderDocuments] = useState<Record<number, FolderDocument[]>>({});
+  const [deselectedFolderDocuments, setDeselectedFolderDocuments] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
   const [testMessage, setTestMessage] = useState("");
@@ -298,6 +322,32 @@ export default function CreateAgentChatbot() {
     enabled: isAuthenticated,
     retry: false,
   }) as { data: Document[] };
+
+  // Fetch folders
+  const { data: folders = [] } = useQuery({
+    queryKey: ["/api/folders"],
+    enabled: isAuthenticated,
+    retry: false,
+  }) as { data: Folder[] };
+
+  // Fetch documents for selected folders
+  useEffect(() => {
+    if (selectedFolders.length > 0) {
+      selectedFolders.forEach(async (folderId) => {
+        if (!folderDocuments[folderId]) {
+          try {
+            const response = await fetch(`/api/folders/${folderId}/documents`);
+            if (response.ok) {
+              const docs = await response.json();
+              setFolderDocuments(prev => ({ ...prev, [folderId]: docs }));
+            }
+          } catch (error) {
+            console.error(`Error fetching documents for folder ${folderId}:`, error);
+          }
+        }
+      });
+    }
+  }, [selectedFolders, folderDocuments]);
 
   // Fetch agent data for editing
   const { data: existingAgent, isLoading: isLoadingAgent } = useQuery({
@@ -516,6 +566,10 @@ export default function CreateAgentChatbot() {
       // Clear form and navigate back
       form.reset();
       setSelectedDocuments([]);
+      setSelectedFolders([]);
+      setFolderDocuments({});
+      setDeselectedFolderDocuments(new Set());
+      setExpandedFolders(new Set());
 
       // Invalidate comprehensive cache keys to ensure frontend updates
       queryClient.invalidateQueries({ queryKey: ["/api/agent-chatbots"] });
@@ -571,9 +625,20 @@ export default function CreateAgentChatbot() {
     // Build the guardrails configuration object
     const guardrailsConfig = data.guardrailsEnabled ? data.guardrailsConfig : null;
 
+    // Collect all document IDs from selected documents and folder documents (minus deselected ones)
+    const allFolderDocumentIds = selectedFolders.reduce((acc, folderId) => {
+      const docs = folderDocuments[folderId] || [];
+      const folderDocIds = docs
+        .map(doc => doc.id)
+        .filter(docId => !deselectedFolderDocuments.has(docId));
+      return [...acc, ...folderDocIds];
+    }, [] as number[]);
+
+    const allDocumentIds = [...new Set([...selectedDocuments, ...allFolderDocumentIds])];
+
     const finalData = {
       ...data,
-      documentIds: selectedDocuments,
+      documentIds: allDocumentIds,
       guardrailsConfig,
     };
 
@@ -581,6 +646,8 @@ export default function CreateAgentChatbot() {
     console.log("Guardrails enabled:", data.guardrailsEnabled);
     console.log("Guardrails config:", data.guardrailsConfig);
     console.log("Selected documents:", selectedDocuments);
+    console.log("Selected folders:", selectedFolders);
+    console.log("All document IDs:", allDocumentIds);
 
     saveAgentMutation.mutate(finalData);
   };
@@ -695,10 +762,103 @@ export default function CreateAgentChatbot() {
     );
   };
 
+  const toggleFolder = async (folderId: number) => {
+    const isSelected = selectedFolders.includes(folderId);
+    
+    if (isSelected) {
+      // Remove folder
+      setSelectedFolders(prev => prev.filter(id => id !== folderId));
+      // Remove all documents from this folder from deselection set
+      const folderDocs = folderDocuments[folderId] || [];
+      folderDocs.forEach(doc => {
+        setDeselectedFolderDocuments(prev => {
+          const next = new Set(prev);
+          next.delete(doc.id);
+          return next;
+        });
+      });
+    } else {
+      // Add folder
+      setSelectedFolders(prev => [...prev, folderId]);
+      
+      if (isEditing && editAgentId) {
+        // For editing mode, assign folder to agent via API
+        try {
+          await apiRequest("POST", `/api/agents/${editAgentId}/folders/${folderId}`);
+          queryClient.invalidateQueries({
+            queryKey: [`/api/agent-chatbots/${editAgentId}/documents`]
+          });
+        } catch (error) {
+          toast({
+            title: "Error",
+            description: "Failed to assign folder to agent",
+            variant: "destructive",
+          });
+        }
+      }
+    }
+  };
+
+  const toggleFolderDocument = (documentId: number) => {
+    if (deselectedFolderDocuments.has(documentId)) {
+      setDeselectedFolderDocuments(prev => {
+        const next = new Set(prev);
+        next.delete(documentId);
+        return next;
+      });
+    } else {
+      setDeselectedFolderDocuments(prev => new Set([...prev, documentId]));
+    }
+  };
+
+  const buildFolderTree = (folders: Folder[]): Folder[] => {
+    const folderMap = new Map<number, Folder>();
+    const rootFolders: Folder[] = [];
+
+    // First pass: create folder map
+    folders.forEach((folder) => {
+      folderMap.set(folder.id, { ...folder, children: [] });
+    });
+
+    // Second pass: build tree structure
+    folders.forEach((folder) => {
+      const folderNode = folderMap.get(folder.id)!;
+      if (folder.parentId) {
+        const parent = folderMap.get(folder.parentId);
+        if (parent) {
+          parent.children!.push(folderNode);
+        } else {
+          rootFolders.push(folderNode);
+        }
+      } else {
+        rootFolders.push(folderNode);
+      }
+    });
+
+    return rootFolders;
+  };
+
+  const toggleFolderExpansion = (folderId: number) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) {
+        next.delete(folderId);
+      } else {
+        next.add(folderId);
+      }
+      return next;
+    });
+  };
+
   const filteredDocuments = documents.filter(
     (doc) =>
       doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doc.description?.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const filteredFolders = folders.filter(
+    (folder) =>
+      folder.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Mock LineOA channels
@@ -1238,13 +1398,16 @@ export default function CreateAgentChatbot() {
                           </CardContent>
                         </Card>
 
-                        {/* Knowledge Base (RAG Documents) */}
+                        {/* Knowledge Base (RAG Documents & Folders) */}
                         <Card>
                           <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                               <BookOpen className="h-5 w-5" />
-                              Knowledge Base (RAG Documents)
+                              Knowledge Base (RAG Documents & Folders)
                             </CardTitle>
+                            <CardDescription>
+                              Select individual documents or entire folders. You can deselect specific files from folders if needed.
+                            </CardDescription>
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-4">
@@ -1252,7 +1415,7 @@ export default function CreateAgentChatbot() {
                               <div className="relative">
                                 <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                                 <Input
-                                  placeholder="Search documents..."
+                                  placeholder="Search documents and folders..."
                                   value={searchQuery}
                                   onChange={(e) =>
                                     setSearchQuery(e.target.value)
@@ -1261,102 +1424,213 @@ export default function CreateAgentChatbot() {
                                 />
                               </div>
 
-                              {/* Selected Documents */}
-                              {selectedDocuments.length > 0 && (
+                              {/* Selection Summary */}
+                              {(selectedDocuments.length > 0 || selectedFolders.length > 0) && (
                                 <div className="space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <Badge
-                                      variant="secondary"
-                                      className="bg-blue-100 text-blue-800"
-                                    >
-                                      {selectedDocuments.length} documents
-                                      selected
-                                    </Badge>
-                                  </div>
-                                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                                    <p className="text-sm font-medium text-blue-800 mb-2">
-                                      Selected Documents:
-                                    </p>
-                                    <div className="space-y-1">
-                                      {selectedDocuments.map((docId) => {
-                                        const doc = documents.find(
-                                          (d) => d.id === docId,
-                                        );
-                                        return doc ? (
-                                          <div
-                                            key={docId}
-                                            className="flex items-center justify-between text-sm text-blue-700"
-                                          >
-                                            <span className="flex items-center gap-2">
-                                              <FileText className="w-3 h-3" />
-                                              {doc.name}
-                                            </span>
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                toggleDocument(docId)
-                                              }
-                                              className="text-blue-500 hover:text-blue-700"
-                                            >
-                                              <X className="w-3 h-3" />
-                                            </button>
-                                          </div>
-                                        ) : null;
-                                      })}
-                                    </div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {selectedDocuments.length > 0 && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="bg-blue-100 text-blue-800"
+                                      >
+                                        {selectedDocuments.length} documents selected
+                                      </Badge>
+                                    )}
+                                    {selectedFolders.length > 0 && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="bg-green-100 text-green-800"
+                                      >
+                                        {selectedFolders.length} folders selected
+                                      </Badge>
+                                    )}
+                                    {deselectedFolderDocuments.size > 0 && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="bg-orange-100 text-orange-800"
+                                      >
+                                        {deselectedFolderDocuments.size} folder documents deselected
+                                      </Badge>
+                                    )}
                                   </div>
                                 </div>
                               )}
 
-                              {/* Documents List */}
-                              <div className="max-h-64 overflow-y-auto space-y-2 border rounded-lg p-3">
-                                {filteredDocuments.length === 0 ? (
-                                  <div className="text-center py-4 text-slate-500">
-                                    <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                    <p>No documents found</p>
+                              {/* Folders and Documents List */}
+                              <div className="max-h-96 overflow-y-auto space-y-2 border rounded-lg p-3">
+                                {/* Folders Section */}
+                                {filteredFolders.length > 0 && (
+                                  <div className="space-y-2">
+                                    <h4 className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                                      <Folder className="w-4 h-4" />
+                                      Folders
+                                    </h4>
+                                    {buildFolderTree(filteredFolders).map((folder) => (
+                                      <div key={folder.id} className="space-y-1">
+                                        {/* Folder Item */}
+                                        <div
+                                          className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
+                                            selectedFolders.includes(folder.id)
+                                              ? "bg-green-50 border-green-200"
+                                              : "bg-white hover:bg-slate-50"
+                                          }`}
+                                        >
+                                          <div 
+                                            className="flex-1 flex items-center gap-2"
+                                            onClick={() => toggleFolder(folder.id)}
+                                          >
+                                            {selectedFolders.includes(folder.id) ? (
+                                              <FolderOpen className="w-4 h-4 text-green-600" />
+                                            ) : (
+                                              <Folder className="w-4 h-4 text-blue-600" />
+                                            )}
+                                            <h4 className="font-medium text-slate-800">
+                                              {folder.name}
+                                            </h4>
+                                            {folder.documentCount !== undefined && (
+                                              <Badge variant="outline" className="text-xs">
+                                                {folder.documentCount} docs
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          
+                                          <div className="flex items-center gap-2">
+                                            {selectedFolders.includes(folder.id) && folderDocuments[folder.id] && (
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  toggleFolderExpansion(folder.id);
+                                                }}
+                                                className="p-1"
+                                              >
+                                                {expandedFolders.has(folder.id) ? (
+                                                  <ChevronDown className="w-4 h-4" />
+                                                ) : (
+                                                  <ChevronRight className="w-4 h-4" />
+                                                )}
+                                              </Button>
+                                            )}
+                                            
+                                            <div onClick={() => toggleFolder(folder.id)}>
+                                              {selectedFolders.includes(folder.id) ? (
+                                                <div className="w-5 h-5 bg-green-600 rounded-full flex items-center justify-center">
+                                                  <Check className="w-3 h-3 text-white" />
+                                                </div>
+                                              ) : (
+                                                <div className="w-5 h-5 border-2 border-slate-300 rounded-full" />
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        {/* Folder Documents (when expanded) */}
+                                        {selectedFolders.includes(folder.id) && 
+                                         expandedFolders.has(folder.id) && 
+                                         folderDocuments[folder.id] && (
+                                          <div className="ml-6 space-y-1 border-l-2 border-green-200 pl-4">
+                                            <p className="text-xs text-slate-500 mb-2">
+                                              Documents in {folder.name} (click to deselect):
+                                            </p>
+                                            {folderDocuments[folder.id].map((doc) => (
+                                              <div
+                                                key={doc.id}
+                                                className={`flex items-center justify-between p-2 rounded border cursor-pointer transition-colors ${
+                                                  deselectedFolderDocuments.has(doc.id)
+                                                    ? "bg-red-50 border-red-200 opacity-60"
+                                                    : "bg-green-50 border-green-200"
+                                                }`}
+                                                onClick={() => toggleFolderDocument(doc.id)}
+                                              >
+                                                <div className="flex items-center gap-2 flex-1">
+                                                  <FileText className="w-3 h-3 text-slate-600" />
+                                                  <span className="text-sm text-slate-700">
+                                                    {doc.name}
+                                                  </span>
+                                                  {doc.categoryName && (
+                                                    <Badge variant="outline" className="text-xs">
+                                                      {doc.categoryName}
+                                                    </Badge>
+                                                  )}
+                                                </div>
+                                                <div className="w-4 h-4">
+                                                  {deselectedFolderDocuments.has(doc.id) ? (
+                                                    <X className="w-3 h-3 text-red-600" />
+                                                  ) : (
+                                                    <Check className="w-3 h-3 text-green-600" />
+                                                  )}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
                                   </div>
-                                ) : (
-                                  filteredDocuments.map((doc) => (
-                                    <div
-                                      key={doc.id}
-                                      className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
-                                        selectedDocuments.includes(doc.id)
-                                          ? "bg-blue-50 border-blue-200"
-                                          : "bg-white hover:bg-slate-50"
-                                      }`}
-                                      onClick={() => toggleDocument(doc.id)}
-                                    >
-                                      <div className="flex-1">
-                                        <div className="flex items-center gap-2">
-                                          <h4 className="font-medium text-slate-800">
-                                            {doc.name}
-                                          </h4>
-                                          {doc.categoryName && (
-                                            <Badge
-                                              variant="outline"
-                                              className="text-xs"
-                                            >
-                                              {doc.categoryName}
-                                            </Badge>
+                                )}
+
+                                {filteredFolders.length > 0 && filteredDocuments.length > 0 && (
+                                  <Separator className="my-4" />
+                                )}
+
+                                {/* Individual Documents Section */}
+                                {filteredDocuments.length > 0 && (
+                                  <div className="space-y-2">
+                                    <h4 className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                                      <FileText className="w-4 h-4" />
+                                      Individual Documents
+                                    </h4>
+                                    {filteredDocuments.map((doc) => (
+                                      <div
+                                        key={doc.id}
+                                        className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
+                                          selectedDocuments.includes(doc.id)
+                                            ? "bg-blue-50 border-blue-200"
+                                            : "bg-white hover:bg-slate-50"
+                                        }`}
+                                        onClick={() => toggleDocument(doc.id)}
+                                      >
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2">
+                                            <h4 className="font-medium text-slate-800">
+                                              {doc.name}
+                                            </h4>
+                                            {doc.categoryName && (
+                                              <Badge
+                                                variant="outline"
+                                                className="text-xs"
+                                              >
+                                                {doc.categoryName}
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          {doc.description && (
+                                            <p className="text-sm text-slate-500 mt-1 line-clamp-2">
+                                              {doc.description}
+                                            </p>
                                           )}
                                         </div>
-                                        {doc.description && (
-                                          <p className="text-sm text-slate-500 mt-1 line-clamp-2">
-                                            {doc.description}
-                                          </p>
-                                        )}
+                                        <div className="ml-3">
+                                          {selectedDocuments.includes(doc.id) ? (
+                                            <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
+                                              <Check className="w-3 h-3 text-white" />
+                                            </div>
+                                          ) : (
+                                            <div className="w-5 h-5 border-2 border-slate-300 rounded-full" />
+                                          )}
+                                        </div>
                                       </div>
-                                      <div className="ml-3">
-                                        {selectedDocuments.includes(doc.id) ? (
-                                          <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
-                                            <Check className="w-3 h-3 text-white" />
-                                          </div>
-                                        ) : (
-                                          <div className="w-5 h-5 border-2 border-slate-300 rounded-full" />
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))
+                                    ))}
+                                  </div>
+                                )}
+
+                                {filteredFolders.length === 0 && filteredDocuments.length === 0 && (
+                                  <div className="text-center py-4 text-slate-500">
+                                    <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                    <p>No documents or folders found</p>
+                                  </div>
                                 )}
                               </div>
                             </div>
