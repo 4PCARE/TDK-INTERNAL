@@ -235,7 +235,7 @@ export default function Documents() {
     retry: false,
   }) as { data: Array<{ id: number; name: string }> | undefined };
 
-  // Get total document count for pagination info (only when not searching)
+  // Get total document count for pagination info (only when not searching and in grid view)
   const { data: stats } = useQuery({
     queryKey: ["/api/stats"],
     queryFn: async () => {
@@ -243,9 +243,21 @@ export default function Documents() {
       if (!response.ok) throw new Error("Failed to fetch stats");
       return await response.json();
     },
-    enabled: isAuthenticated && !searchQuery.trim(),
+    enabled: isAuthenticated && !searchQuery.trim() && selectedFolderId === null && viewMode === "grid",
     retry: false,
   }) as { data: { totalDocuments: number; processedToday: number; storageUsed: number; aiQueries: number } | undefined };
+
+  // Get folder document count for pagination (only when folder is selected and in grid view)
+  const { data: folderStats } = useQuery({
+    queryKey: [`/api/folders/${selectedFolderId}/stats`],
+    queryFn: async () => {
+      const response = await fetch(`/api/folders/${selectedFolderId}/stats`);
+      if (!response.ok) throw new Error("Failed to fetch folder stats");
+      return await response.json();
+    },
+    enabled: isAuthenticated && !searchQuery.trim() && selectedFolderId !== null && viewMode === "grid",
+    retry: false,
+  }) as { data: { totalDocuments: number } | undefined };
 
   // Fetch folders
   const { data: folders } = useQuery({
@@ -417,19 +429,32 @@ export default function Documents() {
   const paginationData = useMemo(() => {
     let totalPages, filteredDocuments, startIndex, endIndex, actualTotal;
 
-    if (isSearchMode) {
-      // For search results, use client-side pagination
+    if (viewMode === "list") {
+      // For list view, disable pagination - show all documents
+      filteredDocuments = allFilteredDocuments;
+      totalPages = 1;
+      startIndex = 0;
+      endIndex = allFilteredDocuments.length;
+      actualTotal = allFilteredDocuments.length;
+    } else if (isSearchMode) {
+      // For search results in grid view, use client-side pagination
       totalPages = Math.ceil(allFilteredDocuments.length / documentsPerPage);
       startIndex = (currentPage - 1) * documentsPerPage;
       endIndex = startIndex + documentsPerPage;
       filteredDocuments = allFilteredDocuments.slice(startIndex, endIndex);
       actualTotal = allFilteredDocuments.length;
     } else {
-      // For regular document loading, documents are already paginated server-side
+      // For regular document loading in grid view, documents are already paginated server-side
       filteredDocuments = allFilteredDocuments;
 
-      // Use total document count for accurate pagination
-      const effectiveTotal = stats?.totalDocuments || 0;
+      // Use appropriate total count based on folder selection
+      let effectiveTotal;
+      if (selectedFolderId !== null) {
+        effectiveTotal = folderStats?.totalDocuments || 0;
+      } else {
+        effectiveTotal = stats?.totalDocuments || 0;
+      }
+      
       totalPages = Math.ceil(effectiveTotal / documentsPerPage);
       startIndex = (currentPage - 1) * documentsPerPage;
       endIndex = Math.min(startIndex + filteredDocuments.length, effectiveTotal);
@@ -437,7 +462,7 @@ export default function Documents() {
     }
 
     return { totalPages, filteredDocuments, startIndex, endIndex, actualTotal };
-  }, [isSearchMode, allFilteredDocuments, currentPage, documentsPerPage, stats?.totalDocuments]);
+  }, [isSearchMode, allFilteredDocuments, currentPage, documentsPerPage, stats?.totalDocuments, folderStats?.totalDocuments, selectedFolderId, viewMode]);
 
   const { totalPages, filteredDocuments, startIndex, endIndex, actualTotal } = paginationData;
 
@@ -846,8 +871,8 @@ export default function Documents() {
                   </div>
                 )}
 
-                {/* Pagination Controls */}
-                {filteredDocuments && filteredDocuments.length > 0 && (totalPages > 1 || currentPage > 1) && (
+                {/* Pagination Controls - Only show for grid view */}
+                {filteredDocuments && filteredDocuments.length > 0 && viewMode === "grid" && (totalPages > 1 || currentPage > 1) && (
                   <div className="mt-6 flex items-center justify-between">
                     <div className="text-sm text-slate-500">
                       {isSearchMode ? (
