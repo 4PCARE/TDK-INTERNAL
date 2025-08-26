@@ -768,7 +768,7 @@ export default function CreateAgentChatbot() {
     if (isSelected) {
       // Remove folder
       setSelectedFolders(prev => prev.filter(id => id !== folderId));
-      // Remove all documents from this folder from deselection set
+      // Clear all documents from this folder from deselection set (auto-clear)
       const folderDocs = folderDocuments[folderId] || [];
       folderDocs.forEach(doc => {
         setDeselectedFolderDocuments(prev => {
@@ -777,9 +777,17 @@ export default function CreateAgentChatbot() {
           return next;
         });
       });
+      // Collapse folder on deselection
+      setExpandedFolders(prev => {
+        const next = new Set(prev);
+        next.delete(folderId);
+        return next;
+      });
     } else {
       // Add folder
       setSelectedFolders(prev => [...prev, folderId]);
+      // Force expand folder on selection
+      setExpandedFolders(prev => new Set([...prev, folderId]));
       
       if (isEditing && editAgentId) {
         // For editing mode, assign folder to agent via API
@@ -1444,14 +1452,6 @@ export default function CreateAgentChatbot() {
                                         {selectedFolders.length} folders selected
                                       </Badge>
                                     )}
-                                    {deselectedFolderDocuments.size > 0 && (
-                                      <Badge
-                                        variant="secondary"
-                                        className="bg-orange-100 text-orange-800"
-                                      >
-                                        {deselectedFolderDocuments.size} folder documents deselected
-                                      </Badge>
-                                    )}
                                   </div>
                                 </div>
                               )}
@@ -1495,25 +1495,6 @@ export default function CreateAgentChatbot() {
                                           </div>
                                           
                                           <div className="flex items-center gap-2">
-                                            {selectedFolders.includes(folder.id) && folderDocuments[folder.id] && (
-                                              <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  toggleFolderExpansion(folder.id);
-                                                }}
-                                                className="p-1"
-                                              >
-                                                {expandedFolders.has(folder.id) ? (
-                                                  <ChevronDown className="w-4 h-4" />
-                                                ) : (
-                                                  <ChevronRight className="w-4 h-4" />
-                                                )}
-                                              </Button>
-                                            )}
-                                            
                                             <div onClick={() => toggleFolder(folder.id)}>
                                               {selectedFolders.includes(folder.id) ? (
                                                 <div className="w-5 h-5 bg-green-600 rounded-full flex items-center justify-center">
