@@ -1520,25 +1520,25 @@ export default function CreateAgentChatbot() {
                                                 key={doc.id}
                                                 className={`flex items-center justify-between p-2 rounded border cursor-pointer transition-colors ${
                                                   deselectedFolderDocuments.has(doc.id)
-                                                    ? "bg-red-50 border-red-200 opacity-60"
+                                                    ? "bg-gray-50 border-gray-300 opacity-70"
                                                     : "bg-green-50 border-green-200"
                                                 }`}
                                                 onClick={() => toggleFolderDocument(doc.id)}
                                               >
                                                 <div className="flex items-center gap-2 flex-1">
-                                                  <FileText className="w-3 h-3 text-slate-600" />
-                                                  <span className="text-sm text-slate-700">
+                                                  <FileText className={`w-3 h-3 ${deselectedFolderDocuments.has(doc.id) ? 'text-gray-400' : 'text-slate-600'}`} />
+                                                  <span className={`text-sm ${deselectedFolderDocuments.has(doc.id) ? 'text-gray-500 line-through' : 'text-slate-700'}`}>
                                                     {doc.name}
                                                   </span>
                                                   {doc.categoryName && (
-                                                    <Badge variant="outline" className="text-xs">
+                                                    <Badge variant="outline" className={`text-xs ${deselectedFolderDocuments.has(doc.id) ? 'opacity-50' : ''}`}>
                                                       {doc.categoryName}
                                                     </Badge>
                                                   )}
                                                 </div>
                                                 <div className="w-4 h-4">
                                                   {deselectedFolderDocuments.has(doc.id) ? (
-                                                    <X className="w-3 h-3 text-red-600" />
+                                                    <div className="w-3 h-3 border border-gray-400 rounded-sm bg-white" />
                                                   ) : (
                                                     <Check className="w-3 h-3 text-green-600" />
                                                   )}
