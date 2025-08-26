@@ -74,7 +74,12 @@ export class QueryPreprocessorService {
   "reasoning": "explanation of your decision"
 }
 
-Do NOT include any explanatory text, markdown formatting, or other content outside the JSON object.`;
+IMPORTANT RULES:
+- Respond ONLY with the JSON object, no other text
+- Do NOT use markdown code blocks (```json or ```)
+- Do NOT include explanations before or after the JSON
+- Do NOT use backticks, quotes, or any formatting around the JSON
+- Start your response directly with { and end with }
 
       // Inject search configuration into system prompt if available
         if (additionalSearchDetail) {
@@ -324,11 +329,35 @@ Analyze this query and provide your response.`;
         if (!content) {
           throw new Error('No response from AI');
         }
+        
         try {
           result = JSON.parse(content);
         } catch (parseError) {
-          console.warn('Failed to parse AI response, using fallback analysis');
-          result = this.getFallbackAnalysis(userQuery);
+          console.warn('Failed to parse OpenAI response, attempting to clean and retry');
+          
+          // Try to clean the response and extract JSON
+          let cleanedContent = content.trim();
+          
+          // Remove markdown code blocks
+          cleanedContent = cleanedContent.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+          
+          // Remove backticks
+          cleanedContent = cleanedContent.replace(/`/g, '');
+          
+          // Extract JSON object if there's extra text
+          const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            cleanedContent = jsonMatch[0];
+          }
+          
+          try {
+            result = JSON.parse(cleanedContent);
+            console.log('✅ Successfully parsed cleaned OpenAI response');
+          } catch (secondParseError) {
+            console.warn('Failed to parse cleaned AI response, using fallback analysis');
+            console.log('Raw response:', content.substring(0, 200) + '...');
+            result = this.getFallbackAnalysis(userQuery);
+          }
         }
       }
 
