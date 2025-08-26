@@ -1,4 +1,3 @@
-
 import { llmRouter } from "./llmRouter";
 import { db } from "../db";
 import { documents } from "@shared/schema";
@@ -24,14 +23,14 @@ export class PromptRefinementService {
   async refineSystemPrompt(request: PromptRefinementRequest): Promise<PromptRefinementResponse> {
     try {
       console.log(`🎨 Starting prompt refinement for user ${request.userId}`);
-      
+
       // Get document information if documents are selected
       let documentContext = "";
       let documentSummaries: string[] = [];
-      
+
       if (request.documentIds && request.documentIds.length > 0) {
         console.log(`📚 Fetching ${request.documentIds.length} documents for context`);
-        
+
         const selectedDocuments = await db
           .select({
             id: documents.id,
@@ -48,9 +47,9 @@ export class PromptRefinementService {
             `เอกสาร ${index + 1}: ${doc.name || 'ไม่มีชื่อ'}`,
             doc.description ? `คำอธิบาย: ${doc.description || 'ไม่มีคำอธิบาย'}` : '',
             doc.summary ? `สรุป: ${doc.summary || 'ไม่มีสรุป'}` : '',
-            doc.categoryName ? `หมวดหมู่: ${doc.categoryName || 'ไม่มีหมวดหมู่'}` : ''
+            doc.aiCategory ? `หมวดหมู่: ${doc.aiCategory}` : ''
           ].filter(Boolean).join(' - ');
-          
+
           return docInfo;
         });
 
@@ -137,7 +136,7 @@ SUGGESTIONS:
       // Extract suggestions
       const suggestionsMatch = response.match(/SUGGESTIONS:\s*([\s\S]*?)$/);
       let suggestions: string[] = [];
-      
+
       if (suggestionsMatch) {
         suggestions = suggestionsMatch[1]
           .split('\n')
