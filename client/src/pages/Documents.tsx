@@ -455,7 +455,7 @@ export default function Documents() {
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 p-6 space-y-6 overflow-y-auto"></div_str>
+          <div className="flex-1 p-6 space-y-6 overflow-y-auto">
           {/* Header */}
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
