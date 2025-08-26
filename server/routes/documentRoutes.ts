@@ -531,6 +531,11 @@ ${document.summary}`;
           bodyKeys: Object.keys(req.body || {}),
           hasFiles: !!files,
           hasMetadata: metadataArray.length > 0,
+          metadataArray: metadataArray.map(m => ({
+            fileName: m.fileName,
+            name: m.name,
+            folderId: m.folderId
+          }))
         });
 
         if (!files || files.length === 0) {
@@ -542,7 +547,14 @@ ${document.summary}`;
 
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          const metadata = metadataArray.find(meta => meta.fileName === file.originalname); // Use find to match by original name
+          const metadata = metadataArray.find(meta => meta.fileName === file.originalname) || metadataArray[i]; // Fallback to index-based matching
+
+          console.log(`Processing file ${i}:`, {
+            originalName: file.originalname,
+            foundMetadata: !!metadata,
+            metadataFolderId: metadata?.folderId,
+            metadataName: metadata?.name
+          });
 
           try {
             // Fix Thai filename encoding if needed

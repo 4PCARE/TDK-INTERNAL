@@ -32,13 +32,15 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
       // Add metadata for each file
       const metadataArray = payload.files.map(file => {
         const metadata = payload.metadataMap.get(file.name);
-        return {
+        const fileMetadata = {
           fileName: file.name,
           name: metadata?.name || file.name,
           effectiveStartDate: metadata?.effectiveStartDate?.toISOString() || null,
           effectiveEndDate: metadata?.effectiveEndDate?.toISOString() || null,
           folderId: metadata?.folderId || null,
         };
+        console.log(`Client metadata for ${file.name}:`, fileMetadata);
+        return fileMetadata;
       });
 
       formData.append('metadata', JSON.stringify(metadataArray));
