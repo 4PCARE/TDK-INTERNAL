@@ -136,7 +136,7 @@ export function registerAgentRoutes(app: Express) {
           parseInt(req.params.id),
           userId,
         );
-        
+
         // Fetch document details including names
         const documentsWithNames = await Promise.all(
           agentDocuments.map(async (agentDoc: any) => {
@@ -149,231 +149,12 @@ export function registerAgentRoutes(app: Express) {
               return {
                 ...agentDoc,
                 name: document?.name || `Document ${agentDoc.documentId}`,
-                documentName: document?.name || `Document ${agentDoc.documentId}`
-              };
-            } catch (error) {
-              console.error(`Error fetching document ${agentDoc.documentId}:`, error);
-              return {
-                ...agentDoc,
-                name: `Document ${agentDoc.documentId}`,
-                documentName: `Document ${agentDoc.documentId}`
-              };
-            }
-          })
-        );
-        
-        res.json(documentsWithNames);
-      } catch (error) {
-        console.error("Error fetching agent documents:", error);
-        res.status(500).json({ message: "Failed to fetch agent documents" });
-      }
-    },
-  );
-
-  app.post(
-    "/api/agent-chatbots/:agentId/documents/:documentId",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const userId = req.user.claims.sub;
-        const agentDocument = await storage.addDocumentToAgent(
-          parseInt(req.params.agentId),
-          parseInt(req.params.documentId),
-          userId,
-        );
-        res.status(201).json(agentDocument);
-      } catch (error) {
-        console.error("Error adding document to agent:", error);
-        res.status(500).json({ message: "Failed to add document to agent" });
-      }
-    },
-  );
-
-  app.delete(
-    "/api/agent-chatbots/:agentId/documents/:documentId",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const userId = req.user.claims.sub;
-        await storage.removeDocumentFromAgent(
-          parseInt(req.params.agentId),
-          parseInt(req.params.documentId),
-          userId,
-        );
-        res.status(204).send();
-      } catch (error) {
-        console.error("Error removing document from agent:", error);
-        res
-          .status(500)
-          .json({ message: "Failed to remove document from agent" });
-      }
-    },
-  );
-
-  // Test Agent endpoint (single message)
-  app.post(
-    "/api/agent-chatbots/test",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const { message, agentConfig, documentIds = [], chatHistory = [] } = req.body;
-
-        if (!message || !agentConfig) {
-          return res.status(400).json({ message: "Message and agent configuration are required" });
-        }
-
-        // Build system prompt from agent configuration
-        const personality = agentConfig.personality ? `, with a ${agentConfig.personality} personality` : '';
-        const profession = agentConfig.profession ? ` as a ${agentConfig.profession}` : '';
-        const responseStyle = agentConfig.responseStyle ? ` in a ${agentConfig.responseStyle} style` : '';
-
-        const systemPrompt = `${agentConfig.systemPrompt}
-
-You are ${agentConfig.name || 'an AI assistant'}${profession}${personality}. Respond ${responseStyle}.
-
-Additional skills: ${agentConfig.specialSkills?.join(', ') || 'General assistance'}
-
-Response guidelines:
-- Response length: ${agentConfig.responseLength || 'medium'}
-- Content filtering: ${agentConfig.contentFiltering ? 'enabled' : 'disabled'}
-- Toxicity prevention: ${agentConfig.toxicityPrevention ? 'enabled' : 'disabled'}
-- Privacy protection: ${agentConfig.privacyProtection ? 'enabled' : 'disabled'}
-- Factual accuracy: ${agentConfig.factualAccuracy ? 'prioritized' : 'standard'}
-
-${agentConfig.allowedTopics?.length > 0 ? `Allowed topics: ${agentConfig.allowedTopics.join(', ')}` : ''}
-${agentConfig.blockedTopics?.length > 0 ? `Blocked topics: ${agentConfig.blockedTopics.join(', ')}` : ''}`;
-
-        // Get document context if documents are selected
-        let documentContext = '';
-
-        if (documentIds.length > 0) {
-          console.log(`🔍 Performing search with ${documentIds.length} documents...`);
-
-          try {
-            // Extract search configuration from agent config
-            const searchConfig = agentConfig.searchConfiguration || {};
-            const chunkMaxType = searchConfig.chunkMaxType || 'number';
-            const chunkMaxValue = searchConfig.chunkMaxValue || 8;
-            const documentMass = searchConfig.documentMass || 0.3;
-
-            console.log(`⚙️ Search config: ${chunkMaxType}=${chunkMaxValue}, mass=${Math.round(documentMass * 100)}%`);
-
-            // Get userId from authenticated user
-            const userId = req.user.claims.sub;
-
-            // Use smart hybrid search for testing with custom configuration
-            const { searchSmartHybridDebug } = await import('../services/newSearch');
-            const searchResults = await searchSmartHybridDebug(
-              message,
-              userId,
-              {
-                specificDocumentIds: documentIds,
-                massSelectionPercentage: documentMass,
-                keywordWeight: 0.2,
-                vectorWeight: 0.8
-              }
-            );
-
-            console.log(`🎯 Smart search returned ${searchResults.length} results`);
-
-            // Apply chunk maximum if using percentage
-            let finalResults = searchResults;
-            if (chunkMaxType === 'percentage' && chunkMaxValue > 0) {
-              const maxChunks = Math.max(1, Math.ceil(searchResults.length * (chunkMaxValue / 100)));
-              finalResults = searchResults.slice(0, maxChunks);
-              console.log(`📊 Applied ${chunkMaxValue}% limit: ${searchResults.length} → ${finalResults.length} chunks`);
-            }
-
-            // Build document context
-            const contextChunks = finalResults.map((result, index) => {
-              return `Document ${result.documentId} (Chunk ${result.chunkIndex}) - Similarity: ${result.similarity?.toFixed(4) || 'N/A'}:\n${result.content}`;
-            });
-
-            documentContext = contextChunks.join('\n\n---\n\n');
-            console.log(`📄 Built context with ${contextChunks.length} chunks (${documentContext.length} chars)`);
-
-          } catch (searchError) {
-            console.error('❌ Search error during agent testing:', searchError);
-            documentContext = 'Error retrieving document context for testing.';
-          }
-        }
-
-        const fullPrompt = systemPrompt + documentContext;
-
-        // Apply guardrails to input message if configured
-        let processedMessage = message;
-        const guardrailsConfig = agentConfig.guardrailsConfig;
-
-        if (guardrailsConfig && Object.keys(guardrailsConfig).length > 0) {
-          console.log(`🛡️ Applying guardrails to test input: ${JSON.stringify(guardrailsConfig)}`);
-
-
-          const guardrailsService = new GuardrailsService(guardrailsConfig);
-
-          const inputValidation = await guardrailsService.evaluateInput(message);
-          console.log(`📝 Input validation result: ${JSON.stringify(inputValidation)}`);
-
-          if (!inputValidation.allowed) {
-            console.log(`❌ Input blocked by guardrails: ${inputValidation.reason}`);
-            return res.json({
-              response: `ขออภัย ไม่สามารถประมวลผลคำถามนี้ได้ (${inputValidation.reason}) ${inputValidation.suggestions?.[0] || 'Please try rephrasing your message'}`
-            });
-          }
-
-          // Use modified content if available
-          if (inputValidation.modifiedContent) {
-            processedMessage = inputValidation.modifiedContent;
-            console.log(`🔄 Using modified input: ${processedMessage}`);
-          }
-        }
-
-        // Call OpenAI to get response
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: fullPrompt },
-            { role: "user", content: processedMessage }
-          ],
-          max_tokens: agentConfig.responseLength === 'short' ? 150 :
-                     agentConfig.responseLength === 'long' ? 500 : 300,
-          temperature: 0.7
-        });
-
-        let agentResponse = response.choices[0].message.content || "No response generated";
-
-        // Apply guardrails to output response if configured
-        if (guardrailsConfig && Object.keys(guardrailsConfig).length > 0) {
-
-          const guardrailsService = new GuardrailsService(guardrailsConfig);
-
-          const outputValidation = await guardrailsService.evaluateOutput(agentResponse);
-          console.log(`📤 Output validation result: ${JSON.stringify(outputValidation)}`);
-
-          if (!outputValidation.allowed) {
-            console.log(`❌ Output blocked by guardrails: ${outputValidation.reason}`);
-            agentResponse = `ขออภัย ไม่สามารถให้คำตอบนี้ได้ (${outputValidation.reason}) ${outputValidation.suggestions?.[0] || 'Please try asking in a different way'}`;
-          } else if (outputValidation.modifiedContent) {
-            agentResponse = outputValidation.modifiedContent;
-            console.log(`🔄 Using modified output: ${agentResponse.substring(0, 100)}...`);
-          }
-        }
-
-        res.json({ response: agentResponse });
-      } catch (error) {
-        console.error("Error testing agent:", error);
-        res.status(500).json({ message: "Failed to test agent" });
-      }
-    },
-  );
-              return {
-                ...agentDoc,
-                name: document?.name || 'Unknown Document',
-                documentName: document?.name || 'Unknown Document',
+                documentName: document?.name || `Document ${agentDoc.documentId}`,
                 documentDescription: document?.description || null,
                 documentTags: document?.tags || []
               };
-            } catch (docError) {
-              console.warn(`Could not fetch document ${agentDoc.documentId}:`, docError);
+            } catch (error) {
+              console.warn(`Could not fetch document ${agentDoc.documentId}:`, error);
               return {
                 ...agentDoc,
                 name: 'Unknown Document',
@@ -384,7 +165,7 @@ ${agentConfig.blockedTopics?.length > 0 ? `Blocked topics: ${agentConfig.blocked
             }
           })
         );
-        
+
         res.json(documentsWithNames);
       } catch (error) {
         console.error("Error fetching agent documents:", error);
@@ -839,7 +620,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
         if (isFirstMessage && botResponse.response) {
           try {
             console.log(`🏷️ Auto-generating title for session ${sessionId}`);
-            
+
             const titlePrompt = `Based on this conversation, generate a short, descriptive title (max 50 characters) that captures the main topic or question. Be concise and specific.
 
 User: ${message}
@@ -861,7 +642,7 @@ Generate only the title, nothing else:`;
               const updatedSession = await storage.updateInternalAgentChatSession(parseInt(sessionId), {
                 title: generatedTitle
               }, userId);
-              
+
               console.log(`✅ Auto-generated title: "${generatedTitle}"`);
 
               // Broadcast session update to trigger frontend refresh
