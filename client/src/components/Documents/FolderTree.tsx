@@ -368,7 +368,7 @@ export default function FolderTree({ selectedFolderId, onFolderSelect, onFolderD
             "flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors mb-2",
             "hover:bg-slate-100",
             selectedFolderId === null && "bg-blue-100 border border-blue-300",
-            dragOverFolderId === null && "bg-green-100 border border-green-300"
+            dragOverFolderId === null && dragOverFolderId !== undefined && "bg-green-100 border border-green-300"
           )}
           onClick={() => onFolderSelect(null)}
           onDragOver={(e) => handleDragOver(e, null)}
