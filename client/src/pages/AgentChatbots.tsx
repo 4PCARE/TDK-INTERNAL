@@ -168,11 +168,11 @@ export default function AgentChatbots() {
       );
     }
 
-    // Get document names
+    // Get document names - use the name from agent documents response directly
     const documentNames = agentDocuments
       .map((agentDoc) => {
-        const doc = allDocuments.find((d) => d.id === agentDoc.documentId);
-        return doc ? doc.name : `Document ${agentDoc.documentId}`;
+        // Use the name from agent documents API response (which already includes document name resolution)
+        return agentDoc.name || agentDoc.documentName || `Document ${agentDoc.documentId}`;
       })
       .filter(Boolean);
 

@@ -464,6 +464,7 @@ export default function InternalAIChat() {
         if (!response.ok) throw new Error(`Failed to fetch documents for agent ${agent.id}`);
         const data = await response.json();
         console.log(`📋 Agent ${agent.id} documents response:`, data);
+        // Use the name directly from the API response (already resolved on backend)
         return data.map((doc: any) => doc.name || doc.documentName || `Document ${doc.documentId}`);
       },
       enabled: isAuthenticated && !!agent.id,
