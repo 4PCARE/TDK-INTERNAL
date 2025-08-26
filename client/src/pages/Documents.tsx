@@ -31,7 +31,9 @@ import {
   Upload,
   ChevronLeft,
   ChevronRight,
-  FolderOpen
+  FolderOpen,
+  PanelLeftClose,
+  PanelLeftOpen
 } from "lucide-react";
 import DocumentCard from "@/components/DocumentCard";
 import ShareDocumentDialog from "@/components/ShareDocumentDialog";
@@ -67,6 +69,7 @@ export default function Documents() {
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [selectedDocuments, setSelectedDocuments] = useState<Set<number>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const [isFolderSidebarVisible, setIsFolderSidebarVisible] = useState(true);
   const documentsPerPage = 9;
 
   // Parse search query from URL
@@ -470,30 +473,47 @@ export default function Documents() {
     <DashboardLayout>
       <div className="flex h-screen">
         {/* Folder Sidebar Panel */}
-        <div className="w-72 flex-shrink-0 border-r border-slate-200 bg-slate-50/50 p-4 overflow-y-auto">
-          <FolderTree
-            selectedFolderId={selectedFolderId}
-            onFolderSelect={setSelectedFolderId}
-            onFolderDrop={handleFolderDrop}
-          />
-        </div>
+        {isFolderSidebarVisible && (
+          <div className="w-72 flex-shrink-0 border-r border-slate-200 bg-slate-50/50 p-4 overflow-y-auto">
+            <FolderTree
+              selectedFolderId={selectedFolderId}
+              onFolderSelect={setSelectedFolderId}
+              onFolderDrop={handleFolderDrop}
+            />
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 p-6 space-y-6 overflow-y-auto">
           {/* Header */}
           <div className="mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <h1 className="text-2xl font-semibold text-slate-800">
-                {selectedFolderId ? (
-                  <>
-                    <FolderOpen className="inline w-6 h-6 mr-2" />
-                    Folder Documents
-                  </>
-                ) : (
-                  "Main Folder"
-                )}
-              </h1>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsFolderSidebarVisible(!isFolderSidebarVisible)}
+                  className="flex items-center gap-2"
+                >
+                  {isFolderSidebarVisible ? (
+                    <PanelLeftClose className="w-4 h-4" />
+                  ) : (
+                    <PanelLeftOpen className="w-4 h-4" />
+                  )}
+                  {isFolderSidebarVisible ? "Hide Folders" : "Show Folders"}
+                </Button>
+                <h1 className="text-2xl font-semibold text-slate-800">
+                  {selectedFolderId ? (
+                    <>
+                      <FolderOpen className="inline w-6 h-6 mr-2" />
+                      Folder Documents
+                    </>
+                  ) : (
+                    "Main Folder"
+                  )}
+                </h1>
+              </div>
             </div>
             <p className="text-sm text-slate-500">
               {selectedFolderId ? "Documents in the selected folder" : "Documents in your main folder"}
