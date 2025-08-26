@@ -1318,14 +1318,10 @@ export default function CreateAgentChatbot() {
                 <Form {...form}>
                   <form
                     onSubmit={(e) => {
-                      console.log("📝 Form onSubmit event triggered");
+                      console.log("🚫 Form onSubmit prevented - manual submission only");
                       e.preventDefault();
-                      form.handleSubmit((data) => {
-                        console.log("✅ Form validation passed, calling onSubmit");
-                        onSubmit(data);
-                      }, (errors) => {
-                        console.log("❌ Form validation failed:", errors);
-                      })(e);
+                      e.stopPropagation();
+                      return false;
                     }}
                     className="space-y-6"
                   >
@@ -1336,7 +1332,18 @@ export default function CreateAgentChatbot() {
                             {isEditing ? "Changes are saved automatically" : "Click Save to create your agent"}
                           </div>
                           <Button
-                            type="submit"
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              console.log("🔘 Manual save button clicked");
+                              form.handleSubmit((data) => {
+                                console.log("✅ Manual form submission triggered");
+                                onSubmit(data);
+                              }, (errors) => {
+                                console.log("❌ Manual form validation failed:", errors);
+                              })();
+                            }}
                             disabled={saveAgentMutation.isPending}
                             className="bg-blue-600 hover:bg-blue-700"
                           >
@@ -1573,6 +1580,7 @@ export default function CreateAgentChatbot() {
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
+                                  console.log("🪄 Refine prompt button clicked - NOT submitting form");
                                   handleRefinePrompt();
                                 }}
                                 disabled={refinePromptMutation.isPending}
