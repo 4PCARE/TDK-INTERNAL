@@ -367,14 +367,13 @@ export default function FolderTree({ selectedFolderId, onFolderSelect, onFolderD
           className={cn(
             "flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors mb-2",
             "hover:bg-slate-100",
-            selectedFolderId === null && "bg-blue-100 border border-blue-300",
-            dragOverFolderId === null && dragOverFolderId !== undefined && "bg-green-100 border border-green-300"
+            selectedFolderId === null && "bg-blue-100 border border-blue-300"
           )}
           onClick={() => onFolderSelect(null)}
           onDragOver={(e) => handleDragOver(e, null)}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, null)}
-        >
+        ></div>
           <div className="w-4" />
           <FileText className="h-4 w-4 text-slate-600" />
           <span className="flex-1 text-sm font-medium">Main Folder</span>
