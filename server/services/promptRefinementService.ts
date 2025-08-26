@@ -37,7 +37,7 @@ export class PromptRefinementService {
             name: documents.name,
             description: documents.description,
             summary: documents.summary,
-            categoryName: documents.categoryName
+            aiCategory: documents.aiCategory
           })
           .from(documents)
           .where(inArray(documents.id, request.documentIds));
