@@ -787,7 +787,7 @@ export default function CreateAgentChatbot() {
 
   const handleRefinePrompt = () => {
     const formData = form.getValues();
-    
+
     if (!formData.systemPrompt?.trim()) {
       toast({
         title: "Missing System Prompt",
@@ -1329,6 +1329,31 @@ export default function CreateAgentChatbot() {
                     }}
                     className="space-y-6"
                   >
+                      {/* Save/Update Button - Fixed Position */}
+                      <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 z-10">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm text-gray-600">
+                            {isEditing ? "Changes are saved automatically" : "Click Save to create your agent"}
+                          </div>
+                          <Button
+                            type="submit"
+                            disabled={saveAgentMutation.isPending}
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            {saveAgentMutation.isPending ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                {isEditing ? "Updating..." : "Creating..."}
+                              </>
+                            ) : (
+                              <>
+                                {isEditing ? "Update Agent" : "Create Agent"}
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+
                     {activeTab === "overview" && (
                       <div className="space-y-6">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1539,7 +1564,7 @@ export default function CreateAgentChatbot() {
                                 </FormItem>
                               )}
                             />
-                            
+
                             {/* Refine Prompt Button */}
                             <div className="flex justify-end">
                               <Button
@@ -3118,31 +3143,7 @@ export default function CreateAgentChatbot() {
                       </div>
                     )}
 
-                    {/* Submit Button - Always visible */}
-                    <div className="flex justify-end space-x-4 pt-6 border-t">
-                      <Link href="/agent-chatbots">
-                        <Button type="button" variant="outline">
-                          Cancel
-                        </Button>
-                      </Link>
-                      <Button
-                        type="submit"
-                        disabled={saveAgentMutation.isPending}
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        {saveAgentMutation.isPending ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            {isEditing ? "Updating..." : "Creating..."}
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-4 h-4 mr-2" />
-                            {isEditing ? "Update Agent" : "Create Agent"}
-                          </>
-                        )}
-                      </Button>
-                    </div>
+                    {/* Removed the duplicate submit button from here */}
                   </form>
                 </Form>
               </div>
