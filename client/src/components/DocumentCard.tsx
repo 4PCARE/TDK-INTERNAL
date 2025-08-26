@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   FileText, FileImage, FileVideo, FileSpreadsheet, FilePen, Download, Share, 
   Eye, Trash2, MoreHorizontal, Calendar, HardDrive, Hash, Star, StarOff,
-  BookOpen, Database, Plus, MessageSquare, ThumbsUp, Shield, Trophy
+  BookOpen, Database, Plus, MessageSquare, ThumbsUp, Shield, Trophy, Checkbox
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,9 +23,9 @@ import {
 } from "@/components/ui/dialog";
 import {
   Tooltip,
-  TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  TooltipContent,
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -259,225 +259,175 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
   const FileIcon = getFileIcon(doc.mimeType);
   const iconColorClass = getFileIconColor(doc.mimeType);
 
+  // Helper function to render action buttons
+  const renderActionButtons = () => {
+    return (
+      <>
+        {/* Quick Action Buttons */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleView();
+          }}
+          className="h-8 px-3 text-xs"
+        >
+          <Eye className="w-3 h-3 mr-1" />
+          View
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowChatWithDocument(true);
+          }}
+          className="h-8 px-3 text-xs"
+        >
+          <MessageSquare className="w-3 h-3 mr-1" />
+          Chat
+        </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleViewSummary}>
+              <BookOpen className="mr-2 h-4 w-4" />
+              Content Summary
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleDownload}>
+              <Download className="mr-2 h-4 w-4" />
+              Download
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleShare}>
+              <Share className="mr-2 h-4 w-4" />
+              Share
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowChatWithDocument(true)}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Chat with Document
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.location.href = `/user-feedback?documentId=${doc.id}`}>
+              <ThumbsUp className="mr-2 h-4 w-4" />
+              View Feedback
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => toggleFavoriteMutation.mutate()}
+              disabled={toggleFavoriteMutation.isPending}
+            >
+              {isFavorite ? <StarOff className="mr-2 h-4 w-4" /> : <Star className="mr-2 h-4 w-4" />}
+              {isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
+            </DropdownMenuItem>
+            {!doc.isInVectorDb && doc.status === 'processed' && (
+              <DropdownMenuItem
+                onClick={() => addToVectorMutation.mutate()}
+                disabled={addToVectorMutation.isPending}
+              >
+                <Database className="mr-2 h-4 w-4" />
+                Add to Vector DB
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              className="text-red-600"
+              onClick={() => deleteDocumentMutation.mutate()}
+              disabled={deleteDocumentMutation.isPending}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </>
+    );
+  };
+
   // List view layout
   if (viewMode === "list") {
     return (
-      <div 
-        className={cn(
-          "flex items-center justify-between p-4 border rounded-lg hover:border-slate-300 transition-colors cursor-pointer",
-          isSelected ? "border-blue-500 bg-blue-50" : "border-slate-200"
-        )}
-        onClick={handleCardClick}
-      >
-        <div className="flex items-center space-x-4">
-          {onSelect && isSelected && (
-            <input
-              type="checkbox"
-              checked={isSelected}
-              onChange={(e) => {
-                e.stopPropagation();
-                onSelect(doc.id, e.target.checked);
-              }}
-              className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-            />
-          )}
-          <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", iconColorClass)}>
-            <FileIcon className="w-5 h-5" />
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-medium text-gray-900 truncate flex-1">
-                {doc.name || doc.originalName}
-              </h3>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {doc.isEndorsed && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Trophy className="w-4 h-4 text-yellow-600 fill-yellow-500" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{formatEffectiveDateRange(doc.effectiveStartDate, doc.effectiveEndDate) || "Endorsed Document"}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-                {isFavorite && (
-                  <Star className="w-4 h-4 text-yellow-500 fill-yellow-400" />
-                )}
+      <Card className={cn(
+        "hover:shadow-md transition-shadow border",
+        isSelected ? "border-blue-500 bg-blue-50" : "border-slate-200"
+      )}>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-4">
+            {isSelected !== undefined && (
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={(checked) => onSelect?.(doc.id, checked as boolean)}
+                onClick={(e) => e.stopPropagation()}
+                className="flex-shrink-0"
+              />
+            )}
+            <div className="flex items-center space-x-4 flex-1 min-w-0">
+              <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0", iconColorClass)}>
+                <FileIcon className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-medium text-gray-900 truncate flex-1">
+                    {doc.name || doc.originalName}
+                  </h3>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {doc.isEndorsed && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Trophy className="w-4 h-4 text-yellow-600 fill-yellow-500" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{formatEffectiveDateRange(doc.effectiveStartDate, doc.effectiveEndDate) || "Endorsed Document"}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                    {isFavorite && (
+                      <Star className="w-4 h-4 text-yellow-500 fill-yellow-400" />
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 md:gap-4 text-xs text-gray-500 mt-1 flex-wrap">
+                  <span className="flex items-center whitespace-nowrap">
+                    <Calendar className="w-3 h-3 mr-1" />
+                    {format(new Date(doc.createdAt), 'MMM d, yyyy')}
+                  </span>
+                  <span className="flex items-center whitespace-nowrap">
+                    <HardDrive className="w-3 h-3 mr-1" />
+                    {formatFileSize(doc.fileSize)}
+                  </span>
+                  {doc.aiCategory && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs whitespace-nowrap"
+                      style={{
+                        backgroundColor: doc.aiCategoryColor ? `${doc.aiCategoryColor}15` : undefined,
+                        borderColor: doc.aiCategoryColor || undefined,
+                        color: doc.aiCategoryColor || undefined
+                      }}
+                    >
+                      {doc.aiCategory}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="flex items-center space-x-4 text-xs text-gray-500 mt-1">
-              <span className="flex items-center">
-                <Calendar className="w-3 h-3 mr-1" />
-                {format(new Date(doc.createdAt), 'MMM d, yyyy')}
-              </span>
-              <span className="flex items-center">
-                <HardDrive className="w-3 h-3 mr-1" />
-                {formatFileSize(doc.fileSize)}
-              </span>
+            <div className="flex items-center space-x-2 flex-shrink-0">
+              {renderActionButtons()}
             </div>
           </div>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          {doc.aiCategory && (
-            <Badge 
-              variant="outline" 
-              className="text-xs"
-              style={{ 
-                backgroundColor: doc.aiCategoryColor ? `${doc.aiCategoryColor}15` : undefined,
-                borderColor: doc.aiCategoryColor || undefined,
-                color: doc.aiCategoryColor || undefined
-              }}
-            >
-              {doc.aiCategory}
-            </Badge>
-          )}
-
-          {doc.categoryId && categories && (
-            (() => {
-              const category = categories.find(c => c.id === doc.categoryId);
-              return category ? (
-                <Badge 
-                  variant="outline" 
-                  className="text-xs"
-                  style={{ 
-                    backgroundColor: category.color ? `${category.color}15` : undefined,
-                    borderColor: category.color || undefined,
-                    color: category.color || undefined
-                  }}
-                >
-                  {category.name}
-                </Badge>
-              ) : null;
-            })()
-          )}
-
-          {doc.categoryName && !doc.categoryId && (
-            <Badge variant="outline" className="text-xs">
-              {doc.categoryName}
-            </Badge>
-          )}
-
-          {doc.tags && doc.tags.length > 0 && (
-            <div className="flex items-center space-x-1">
-              {doc.tags.slice(0, 2).map((tag: string, index: number) => (
-                <Badge key={index} variant="outline" className="text-xs">
-                  <Hash className="w-2 h-2 mr-1" />
-                  {tag}
-                </Badge>
-              ))}
-              {doc.tags.length > 2 && (
-                <Badge variant="outline" className="text-xs">
-                  +{doc.tags.length - 2}
-                </Badge>
-              )}
-            </div>
-          )}
-
-          {doc.status === 'processing' && (
-            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-600 border-yellow-200">
-              Processing
-            </Badge>
-          )}
-
-          {doc.isInVectorDb && (
-            <Badge variant="outline" className="text-xs">
-              <Database className="w-3 h-3 mr-1" />
-              Vector DB
-            </Badge>
-          )}
-
-          {/* Quick Action Buttons */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleView();
-            }}
-            className="h-8 px-3 text-xs"
-          >
-            <Eye className="w-3 h-3 mr-1" />
-            View
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowChatWithDocument(true);
-            }}
-            className="h-8 px-3 text-xs"
-          >
-            <MessageSquare className="w-3 h-3 mr-1" />
-            Chat
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleViewSummary}>
-                <BookOpen className="mr-2 h-4 w-4" />
-                Content Summary
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDownload}>
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleShare}>
-                <Share className="mr-2 h-4 w-4" />
-                Share
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowChatWithDocument(true)}>
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Chat with Document
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => window.location.href = `/user-feedback?documentId=${doc.id}`}>
-                <ThumbsUp className="mr-2 h-4 w-4" />
-                View Feedback
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => toggleFavoriteMutation.mutate()}
-                disabled={toggleFavoriteMutation.isPending}
-              >
-                {isFavorite ? <StarOff className="mr-2 h-4 w-4" /> : <Star className="mr-2 h-4 w-4" />}
-                {isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
-              </DropdownMenuItem>
-              {!doc.isInVectorDb && doc.status === 'processed' && (
-                <DropdownMenuItem 
-                  onClick={() => addToVectorMutation.mutate()}
-                  disabled={addToVectorMutation.isPending}
-                >
-                  <Database className="mr-2 h-4 w-4" />
-                  Add to Vector DB
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem 
-                className="text-red-600"
-                onClick={() => deleteDocumentMutation.mutate()}
-                disabled={deleteDocumentMutation.isPending}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     );
   }
 
   // Grid view layout
   return (
     <>
-      <Card 
+      <Card
         className={cn(
           "border hover:border-slate-300 transition-colors cursor-pointer group",
           isSelected ? "border-blue-500 bg-blue-50" : "border-slate-200"
@@ -530,7 +480,7 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
                   <MessageSquare className="mr-2 h-4 w-4" />
                   Chat with Document
                 </DropdownMenuItem>
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={() => toggleFavoriteMutation.mutate()}
                   disabled={toggleFavoriteMutation.isPending}
                 >
@@ -544,7 +494,7 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
                   </DropdownMenuItem>
                 )}
                 {!doc.isInVectorDb && doc.status === 'processed' && (
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={() => addToVectorMutation.mutate()}
                     disabled={addToVectorMutation.isPending}
                   >
@@ -552,7 +502,7 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
                     Add to Vector DB
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="text-red-600"
                   onClick={() => deleteDocumentMutation.mutate()}
                   disabled={deleteDocumentMutation.isPending}
@@ -601,10 +551,10 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
 
             {/* AI Category */}
             {doc.aiCategory && (
-              <Badge 
-                variant="outline" 
+              <Badge
+                variant="outline"
                 className="text-xs w-fit"
-                style={{ 
+                style={{
                   backgroundColor: doc.aiCategoryColor ? `${doc.aiCategoryColor}15` : undefined,
                   borderColor: doc.aiCategoryColor || undefined,
                   color: doc.aiCategoryColor || undefined
@@ -813,8 +763,8 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
                   <div>
                     <label className="text-sm font-medium text-gray-700">Created</label>
                     <p className="text-sm text-gray-900">
-                      {(documentDetails as any).createdAt 
-                        ? format(new Date((documentDetails as any).createdAt), 'PPP') 
+                      {(documentDetails as any).createdAt
+                        ? format(new Date((documentDetails as any).createdAt), 'PPP')
                         : 'Unknown'}
                     </p>
                   </div>
@@ -855,10 +805,10 @@ export default function DocumentCard({ document: doc, viewMode = "grid", categor
                 {(documentDetails as any).aiCategory && (
                   <div className="p-4 bg-blue-50 rounded-lg">
                     <h4 className="text-sm font-medium text-gray-900 mb-2">AI Classification</h4>
-                    <Badge 
-                      variant="outline" 
+                    <Badge
+                      variant="outline"
                       className="text-sm"
-                      style={{ 
+                      style={{
                         backgroundColor: (documentDetails as any).aiCategoryColor ? `${(documentDetails as any).aiCategoryColor}15` : undefined,
                         borderColor: (documentDetails as any).aiCategoryColor || undefined,
                         color: (documentDetails as any).aiCategoryColor || undefined

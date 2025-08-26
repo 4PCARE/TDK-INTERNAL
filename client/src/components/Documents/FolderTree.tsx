@@ -313,8 +313,8 @@ export default function FolderTree({ selectedFolderId, onFolderSelect, onFolderD
   const folderTree = folders ? buildFolderTree(folders) : [];
 
   return (
-    <Card className={cn("", className)}>
-      <CardContent className="p-4">
+    <div className={cn("", className)}>
+      <div className="mb-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-slate-800">Folders</h3>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
@@ -368,7 +368,7 @@ export default function FolderTree({ selectedFolderId, onFolderSelect, onFolderD
             "flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors mb-2",
             "hover:bg-slate-100",
             selectedFolderId === null && "bg-blue-100 border border-blue-300",
-            dragOverFolderId === null && "bg-green-100 border border-green-300"
+            dragOverFolderId === null && selectedFolderId !== null && "bg-green-100 border border-green-300"
           )}
           onClick={() => onFolderSelect(null)}
           onDragOver={(e) => handleDragOver(e, null)}
@@ -392,7 +392,7 @@ export default function FolderTree({ selectedFolderId, onFolderSelect, onFolderD
             <p className="text-xs text-slate-400">Create your first folder to organize documents</p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

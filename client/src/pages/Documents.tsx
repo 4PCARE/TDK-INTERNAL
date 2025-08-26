@@ -443,19 +443,19 @@ export default function Documents() {
 
   return (
     <DashboardLayout>
-      <div className="flex gap-6">
-        {/* Folder Sidebar */}
-        <div className="w-80 flex-shrink-0">
+      <div className="flex h-screen">
+        {/* Folder Sidebar Panel */}
+        <div className="w-72 flex-shrink-0 border-r border-slate-200 bg-slate-50/50 p-4 overflow-y-auto">
           <FolderTree
             selectedFolderId={selectedFolderId}
             onFolderSelect={setSelectedFolderId}
             onFolderDrop={handleFolderDrop}
-            className="sticky top-6"
           />
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 space-y-6">
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 p-6 space-y-6 overflow-y-auto"></div_str>
           {/* Header */}
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
@@ -757,7 +757,7 @@ export default function Documents() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <CardTitle className="text-lg font-semibold text-slate-800">
-                    Documents ({isSearchMode ? (allFilteredDocuments?.length || 0) : (actualTotal || 0)})
+                    Documents ({isSearchMode ? (allFilteredDocuments?.length || 0) : (selectedFolderId ? (filteredDocuments?.length || 0) : (actualTotal || 0))})
                   </CardTitle>
                   {filteredDocuments?.length > 0 && (
                     <Button
@@ -812,7 +812,7 @@ export default function Documents() {
                   <div className={
                     viewMode === "grid" 
                       ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-                      : "space-y-2"
+                      : "space-y-2 overflow-x-hidden"
                   }>
                     {filteredDocuments.map((doc: any) => (
                       <DocumentCard 
@@ -923,6 +923,7 @@ export default function Documents() {
                 )}
               </CardContent>
             </Card>
+        </div>
         </div>
       </div>
     </DashboardLayout>
