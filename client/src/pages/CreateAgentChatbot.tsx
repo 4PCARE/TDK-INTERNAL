@@ -1521,33 +1521,24 @@ export default function CreateAgentChatbot() {
                               <div className="max-h-96 overflow-y-auto space-y-2 border rounded-lg p-3">
                                 {/* Folders Section */}
                                 {filteredFolders.length > 0 && (
-                                  <div className="space-y-2">
-                                    <h4 className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                                      <Folder className="w-4 h-4" />
-                                      Folders
-                                    </h4>
+                                  <div className="space-y-1">
                                     {buildFolderTree(filteredFolders).map((folder) => (
                                       <div key={folder.id} className="space-y-1">
                                         {/* Folder Item */}
-                                        <div
-                                          className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
-                                            selectedFolders.includes(folder.id)
-                                              ? "bg-green-50 border-green-200"
-                                              : "bg-white hover:bg-slate-50"
-                                          }`}
-                                        >
-                                          <div 
-                                            className="flex-1 flex items-center gap-2"
-                                            onClick={() => toggleFolder(folder.id)}
-                                          >
-                                            {selectedFolders.includes(folder.id) ? (
-                                              <FolderOpen className="w-4 h-4 text-green-600" />
-                                            ) : (
-                                              <Folder className="w-4 h-4 text-blue-600" />
-                                            )}
-                                            <h4 className="font-medium text-slate-800">
-                                              {folder.name}
-                                            </h4>
+                                        <div className="flex items-center justify-between py-2 px-3 hover:bg-slate-50 transition-colors">
+                                          <div className="flex items-center gap-2 flex-1">
+                                            <button
+                                              onClick={() => toggleFolderExpansion(folder.id)}
+                                              className="p-1 hover:bg-slate-200 rounded"
+                                            >
+                                              {expandedFolders.has(folder.id) ? (
+                                                <ChevronDown className="w-3 h-3 text-slate-600" />
+                                              ) : (
+                                                <ChevronRight className="w-3 h-3 text-slate-600" />
+                                              )}
+                                            </button>
+                                            <Folder className="w-4 h-4 text-blue-600" />
+                                            <span className="font-medium text-slate-800">{folder.name}</span>
                                             {folder.documentCount !== undefined && (
                                               <Badge variant="outline" className="text-xs">
                                                 {folder.documentCount} docs
@@ -1555,53 +1546,47 @@ export default function CreateAgentChatbot() {
                                             )}
                                           </div>
                                           
-                                          <div className="flex items-center gap-2">
-                                            <div onClick={() => toggleFolder(folder.id)}>
-                                              {selectedFolders.includes(folder.id) ? (
-                                                <div className="w-5 h-5 bg-green-600 rounded-full flex items-center justify-center">
-                                                  <Check className="w-3 h-3 text-white" />
-                                                </div>
-                                              ) : (
-                                                <div className="w-5 h-5 border-2 border-slate-300 rounded-full" />
-                                              )}
-                                            </div>
+                                          <div 
+                                            className="cursor-pointer"
+                                            onClick={() => toggleFolder(folder.id)}
+                                          >
+                                            {selectedFolders.includes(folder.id) ? (
+                                              <div className="w-4 h-4 bg-blue-600 rounded-sm flex items-center justify-center">
+                                                <Check className="w-3 h-3 text-white" />
+                                              </div>
+                                            ) : (
+                                              <div className="w-4 h-4 border-2 border-slate-300 rounded-sm" />
+                                            )}
                                           </div>
                                         </div>
 
                                         {/* Folder Documents (when expanded) */}
-                                        {selectedFolders.includes(folder.id) && 
-                                         expandedFolders.has(folder.id) && 
+                                        {expandedFolders.has(folder.id) && 
                                          folderDocuments[folder.id] && (
-                                          <div className="ml-6 space-y-1 border-l-2 border-green-200 pl-4">
-                                            <p className="text-xs text-slate-500 mb-2">
-                                              Documents in {folder.name} (click to deselect):
-                                            </p>
+                                          <div className="ml-6 space-y-1">
                                             {folderDocuments[folder.id].map((doc) => (
                                               <div
                                                 key={doc.id}
-                                                className={`flex items-center justify-between p-2 rounded border cursor-pointer transition-colors ${
-                                                  deselectedFolderDocuments.has(doc.id)
-                                                    ? "bg-gray-50 border-gray-300 opacity-70"
-                                                    : "bg-green-50 border-green-200"
-                                                }`}
+                                                className="flex items-center justify-between py-2 px-3 hover:bg-slate-50 transition-colors cursor-pointer"
                                                 onClick={() => toggleFolderDocument(doc.id)}
                                               >
                                                 <div className="flex items-center gap-2 flex-1">
-                                                  <FileText className={`w-3 h-3 ${deselectedFolderDocuments.has(doc.id) ? 'text-gray-400' : 'text-slate-600'}`} />
-                                                  <span className={`text-sm ${deselectedFolderDocuments.has(doc.id) ? 'text-gray-500 line-through' : 'text-slate-700'}`}>
-                                                    {doc.name}
-                                                  </span>
+                                                  <div className="w-4" /> {/* Spacer for alignment */}
+                                                  <FileText className="w-4 h-4 text-slate-600" />
+                                                  <span className="text-sm text-slate-700">{doc.name}</span>
                                                   {doc.categoryName && (
-                                                    <Badge variant="outline" className={`text-xs ${deselectedFolderDocuments.has(doc.id) ? 'opacity-50' : ''}`}>
+                                                    <Badge variant="outline" className="text-xs">
                                                       {doc.categoryName}
                                                     </Badge>
                                                   )}
                                                 </div>
-                                                <div className="w-4 h-4">
-                                                  {deselectedFolderDocuments.has(doc.id) ? (
-                                                    <div className="w-3 h-3 border border-gray-400 rounded-sm bg-white" />
+                                                <div>
+                                                  {selectedDocuments.includes(doc.id) ? (
+                                                    <div className="w-4 h-4 bg-blue-600 rounded-sm flex items-center justify-center">
+                                                      <Check className="w-3 h-3 text-white" />
+                                                    </div>
                                                   ) : (
-                                                    <Check className="w-3 h-3 text-green-600" />
+                                                    <div className="w-4 h-4 border-2 border-slate-300 rounded-sm" />
                                                   )}
                                                 </div>
                                               </div>
@@ -1613,54 +1598,33 @@ export default function CreateAgentChatbot() {
                                   </div>
                                 )}
 
-                                {filteredFolders.length > 0 && filteredDocuments.length > 0 && (
-                                  <Separator className="my-4" />
-                                )}
+                                
 
                                 {/* Individual Documents Section */}
                                 {filteredDocuments.length > 0 && (
-                                  <div className="space-y-2">
-                                    <h4 className="text-sm font-medium text-slate-700 flex items-center gap-2">
-                                      <FileText className="w-4 h-4" />
-                                      Individual Documents
-                                    </h4>
+                                  <div className="space-y-1">
                                     {filteredDocuments.map((doc) => (
                                       <div
                                         key={doc.id}
-                                        className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
-                                          selectedDocuments.includes(doc.id)
-                                            ? "bg-blue-50 border-blue-200"
-                                            : "bg-white hover:bg-slate-50"
-                                        }`}
+                                        className="flex items-center justify-between py-2 px-3 hover:bg-slate-50 transition-colors cursor-pointer"
                                         onClick={() => toggleDocument(doc.id)}
                                       >
-                                        <div className="flex-1">
-                                          <div className="flex items-center gap-2">
-                                            <h4 className="font-medium text-slate-800">
-                                              {doc.name}
-                                            </h4>
-                                            {doc.categoryName && (
-                                              <Badge
-                                                variant="outline"
-                                                className="text-xs"
-                                              >
-                                                {doc.categoryName}
-                                              </Badge>
-                                            )}
-                                          </div>
-                                          {doc.description && (
-                                            <p className="text-sm text-slate-500 mt-1 line-clamp-2">
-                                              {doc.description}
-                                            </p>
+                                        <div className="flex items-center gap-2 flex-1">
+                                          <FileText className="w-4 h-4 text-slate-600" />
+                                          <span className="text-sm text-slate-700">{doc.name}</span>
+                                          {doc.categoryName && (
+                                            <Badge variant="outline" className="text-xs">
+                                              {doc.categoryName}
+                                            </Badge>
                                           )}
                                         </div>
-                                        <div className="ml-3">
+                                        <div>
                                           {selectedDocuments.includes(doc.id) ? (
-                                            <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
+                                            <div className="w-4 h-4 bg-blue-600 rounded-sm flex items-center justify-center">
                                               <Check className="w-3 h-3 text-white" />
                                             </div>
                                           ) : (
-                                            <div className="w-5 h-5 border-2 border-slate-300 rounded-full" />
+                                            <div className="w-4 h-4 border-2 border-slate-300 rounded-sm" />
                                           )}
                                         </div>
                                       </div>
