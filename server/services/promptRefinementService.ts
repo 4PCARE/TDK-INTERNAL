@@ -45,10 +45,10 @@ export class PromptRefinementService {
 
         documentSummaries = selectedDocuments.map((doc, index) => {
           const docInfo = [
-            `เอกสาร ${index + 1}: ${doc.name}`,
-            doc.description ? `คำอธิบาย: ${doc.description}` : '',
-            doc.summary ? `สรุป: ${doc.summary}` : '',
-            doc.categoryName ? `หมวดหมู่: ${doc.categoryName}` : ''
+            `เอกสาร ${index + 1}: ${doc.name || 'ไม่มีชื่อ'}`,
+            doc.description ? `คำอธิบาย: ${doc.description || 'ไม่มีคำอธิบาย'}` : '',
+            doc.summary ? `สรุป: ${doc.summary || 'ไม่มีสรุป'}` : '',
+            doc.categoryName ? `หมวดหมู่: ${doc.categoryName || 'ไม่มีหมวดหมู่'}` : ''
           ].filter(Boolean).join(' - ');
           
           return docInfo;
