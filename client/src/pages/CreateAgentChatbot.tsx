@@ -201,6 +201,7 @@ export default function CreateAgentChatbot() {
   const queryClient = useQueryClient();
 
   const [selectedDocuments, setSelectedDocuments] = useState<number[]>([]);
+  const [selectedFolders, setSelectedFolders] = useState<Set<number>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<number>>(new Set());
   const [folderDocuments, setFolderDocuments] = useState<Record<number, FolderDocument[]>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -619,26 +620,84 @@ export default function CreateAgentChatbot() {
     console.log("Is editing mode:", isEditing);
     console.log("Agent ID:", editAgentId);
 
-    // Build the guardrails configuration object
-    const guardrailsConfig = data.guardrailsEnabled ? data.guardrailsConfig : null;
+    // Validate required fields
+    if (!data.name || data.name.trim().length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Agent name is required",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    // Use only the selected documents (folders are converted to individual documents)
-    const allDocumentIds = [...new Set(selectedDocuments)];
+    if (!data.systemPrompt || data.systemPrompt.trim().length === 0) {
+      toast({
+        title: "Validation Error", 
+        description: "System prompt is required",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    const finalData = {
-      ...data,
-      documentIds: allDocumentIds,
-      guardrailsConfig,
-    };
+    if (!data.personality || data.personality.trim().length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Personality selection is required", 
+        variant: "destructive",
+      });
+      return;
+    }
 
-    console.log("Form submission data:", JSON.stringify(finalData, null, 2));
-    console.log("Guardrails enabled:", data.guardrailsEnabled);
-    console.log("Guardrails config:", data.guardrailsConfig);
-    console.log("Selected documents:", selectedDocuments);
-    console.log("Selected folders:", selectedFolders);
-    console.log("All document IDs:", allDocumentIds);
+    if (!data.profession || data.profession.trim().length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Profession selection is required",
+        variant: "destructive", 
+      });
+      return;
+    }
 
-    saveAgentMutation.mutate(finalData);
+    if (!data.responseStyle || data.responseStyle.trim().length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Response style selection is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Build the guardrails configuration object
+      const guardrailsConfig = data.guardrailsEnabled ? data.guardrailsConfig : null;
+
+      // Use only the selected documents (folders are converted to individual documents)
+      const allDocumentIds = [...new Set(selectedDocuments)];
+
+      const finalData = {
+        ...data,
+        documentIds: allDocumentIds,
+        guardrailsConfig,
+        // Ensure arrays are properly formatted
+        specialSkills: Array.isArray(data.specialSkills) ? data.specialSkills : [],
+        allowedTopics: Array.isArray(data.allowedTopics) ? data.allowedTopics : [],
+        blockedTopics: Array.isArray(data.blockedTopics) ? data.blockedTopics : [],
+      };
+
+      console.log("Form submission data:", JSON.stringify(finalData, null, 2));
+      console.log("Guardrails enabled:", data.guardrailsEnabled);
+      console.log("Guardrails config:", data.guardrailsConfig);
+      console.log("Selected documents:", selectedDocuments);
+      console.log("All document IDs:", allDocumentIds);
+
+      saveAgentMutation.mutate(finalData);
+    } catch (error) {
+      console.error("Error preparing form data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to prepare form data for submission",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleTestAgent = async (e: React.FormEvent) => {
@@ -761,6 +820,11 @@ export default function CreateAgentChatbot() {
       // Deselect all documents in folder
       const docIds = folderDocs.map(doc => doc.id);
       setSelectedDocuments(prev => prev.filter(id => !docIds.includes(id)));
+      setSelectedFolders(prev => {
+        const next = new Set(prev);
+        next.delete(folderId);
+        return next;
+      });
       
       // If in editing mode, remove each document individually
       if (isEditing && editAgentId) {
@@ -775,6 +839,7 @@ export default function CreateAgentChatbot() {
     } else {
       // Force expand folder when selecting
       setExpandedFolders(prev => new Set([...prev, folderId]));
+      setSelectedFolders(prev => new Set([...prev, folderId]));
       
       // Fetch folder documents if not already fetched
       if (!folderDocuments[folderId]) {
@@ -833,6 +898,26 @@ export default function CreateAgentChatbot() {
       // Remove from selected documents
       setSelectedDocuments(prev => prev.filter(id => id !== documentId));
       
+      // Check if this document belongs to any folder and update folder selection
+      for (const [folderId, docs] of Object.entries(folderDocuments)) {
+        if (docs.some(doc => doc.id === documentId)) {
+          // If this was the last selected document in the folder, deselect the folder
+          const folderDocIds = docs.map(doc => doc.id);
+          const remainingSelectedInFolder = selectedDocuments.filter(id => 
+            id !== documentId && folderDocIds.includes(id)
+          );
+          
+          if (remainingSelectedInFolder.length === 0) {
+            setSelectedFolders(prev => {
+              const next = new Set(prev);
+              next.delete(parseInt(folderId));
+              return next;
+            });
+          }
+          break;
+        }
+      }
+      
       // If in editing mode, remove the document from the agent
       if (isEditing && editAgentId) {
         removeDocumentMutation.mutate(documentId);
@@ -840,6 +925,21 @@ export default function CreateAgentChatbot() {
     } else {
       // Add to selected documents
       setSelectedDocuments(prev => [...new Set([...prev, documentId])]);
+      
+      // Check if this completes selection of all documents in any folder
+      for (const [folderId, docs] of Object.entries(folderDocuments)) {
+        if (docs.some(doc => doc.id === documentId)) {
+          const folderDocIds = docs.map(doc => doc.id);
+          const allFolderDocsSelected = folderDocIds.every(id => 
+            selectedDocuments.includes(id) || id === documentId
+          );
+          
+          if (allFolderDocsSelected) {
+            setSelectedFolders(prev => new Set([...prev, parseInt(folderId)]));
+          }
+          break;
+        }
+      }
       
       // If in editing mode, add the document to the agent
       if (isEditing && editAgentId) {
@@ -2930,12 +3030,6 @@ export default function CreateAgentChatbot() {
                         type="submit"
                         disabled={saveAgentMutation.isPending}
                         className="bg-blue-600 hover:bg-blue-700"
-                        onClick={(e) => {
-                          console.log("🔘 Submit button clicked");
-                          console.log("Form valid:", form.formState.isValid);
-                          console.log("Form errors:", form.formState.errors);
-                          // Don't prevent default - let form submission handle it
-                        }}
                       >
                         {saveAgentMutation.isPending ? (
                           <>
