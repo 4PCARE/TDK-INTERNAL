@@ -504,7 +504,7 @@ export default function Documents() {
                   {selectedFolderId ? (
                     <>
                       <FolderOpen className="inline w-6 h-6 mr-2" />
-                      Documents in smv
+                      Documents in {folders?.find(f => f.id === selectedFolderId)?.name || 'folder'}
                     </>
                   ) : (
                     "Main Folder"
@@ -513,7 +513,7 @@ export default function Documents() {
               </div>
             </div>
             <p className="text-sm text-slate-500">
-              {selectedFolderId ? "Documents in the smv folder" : "Documents in your main folder"}
+              {selectedFolderId ? `Documents in the ${folders?.find(f => f.id === selectedFolderId)?.name || 'selected'} folder` : "Documents in your main folder"}
             </p>
           </div>
 
