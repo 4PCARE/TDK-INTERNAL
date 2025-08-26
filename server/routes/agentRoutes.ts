@@ -142,6 +142,26 @@ export function registerAgentRoutes(app: Express) {
           agentDocuments.map(async (agentDoc: any) => {
             try {
               const document = await storage.getDocument(agentDoc.documentId, userId);
+              console.log(`📋 Document ${agentDoc.documentId} details:`, { 
+                name: document?.name, 
+                hasDocument: !!document 
+              });
+              return {
+                ...agentDoc,
+                name: document?.name || `Document ${agentDoc.documentId}`,
+                documentName: document?.name || `Document ${agentDoc.documentId}`
+              };
+            } catch (error) {
+              console.error(`Error fetching document ${agentDoc.documentId}:`, error);
+              return {
+                ...agentDoc,
+                name: `Document ${agentDoc.documentId}`,
+                documentName: `Document ${agentDoc.documentId}`
+              };
+            }
+          }) => {
+            try {
+              const document = await storage.getDocument(agentDoc.documentId, userId);
               console.log(`📋 Document ${agentDoc.documentId} details:`, { name: document?.name, hasDocument: !!document });
               return {
                 ...agentDoc,
