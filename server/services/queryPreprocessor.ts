@@ -76,10 +76,10 @@ export class QueryPreprocessorService {
 
 IMPORTANT RULES:
 - Respond ONLY with the JSON object, no other text
-- Do NOT use markdown code blocks (```json or ```)
+- Do NOT use markdown code blocks (\`\`\`json or \`\`\`)
 - Do NOT include explanations before or after the JSON
 - Do NOT use backticks, quotes, or any formatting around the JSON
-- Start your response directly with { and end with }
+- Start your response directly with { and end with }`;
 
       // Inject search configuration into system prompt if available
         if (additionalSearchDetail) {
