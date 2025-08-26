@@ -265,7 +265,7 @@ export default function DocumentMetadataModal({
             Cancel
           </Button>
           <Button onClick={handleSubmit}>
-            Continue Upload
+            Next
           </Button>
         </DialogFooter>
       </DialogContent>
