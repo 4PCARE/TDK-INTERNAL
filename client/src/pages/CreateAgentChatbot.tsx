@@ -667,7 +667,7 @@ export default function CreateAgentChatbot() {
 
     if (!data.systemPrompt || data.systemPrompt.trim().length === 0) {
       toast({
-        title: "Validation Error", 
+        title: "Validation Error",
         description: "System prompt is required",
         variant: "destructive",
       });
@@ -677,7 +677,7 @@ export default function CreateAgentChatbot() {
     if (!data.personality || data.personality.trim().length === 0) {
       toast({
         title: "Validation Error",
-        description: "Personality selection is required", 
+        description: "Personality selection is required",
         variant: "destructive",
       });
       return;
@@ -687,7 +687,7 @@ export default function CreateAgentChatbot() {
       toast({
         title: "Validation Error",
         description: "Profession selection is required",
-        variant: "destructive", 
+        variant: "destructive",
       });
       return;
     }
@@ -960,7 +960,7 @@ export default function CreateAgentChatbot() {
         if (docs.some(doc => doc.id === documentId)) {
           // If this was the last selected document in the folder, deselect the folder
           const folderDocIds = docs.map(doc => doc.id);
-          const remainingSelectedInFolder = selectedDocuments.filter(id => 
+          const remainingSelectedInFolder = selectedDocuments.filter(id =>
             id !== documentId && folderDocIds.includes(id)
           );
 
@@ -987,7 +987,7 @@ export default function CreateAgentChatbot() {
       for (const [folderId, docs] of Object.entries(folderDocuments)) {
         if (docs.some(doc => doc.id === documentId)) {
           const folderDocIds = docs.map(doc => doc.id);
-          const allFolderDocsSelected = folderDocIds.every(id => 
+          const allFolderDocsSelected = folderDocIds.every(id =>
             selectedDocuments.includes(id) || id === documentId
           );
 
@@ -1570,7 +1570,11 @@ export default function CreateAgentChatbot() {
                               <Button
                                 type="button"
                                 variant="outline"
-                                onClick={handleRefinePrompt}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleRefinePrompt();
+                                }}
                                 disabled={refinePromptMutation.isPending}
                                 className="flex items-center gap-2"
                               >
@@ -1747,7 +1751,7 @@ export default function CreateAgentChatbot() {
                                             )}
                                           </div>
 
-                                          <div 
+                                          <div
                                             className="cursor-pointer"
                                             onClick={() => toggleFolder(folder.id)}
                                           >
@@ -1762,7 +1766,7 @@ export default function CreateAgentChatbot() {
                                         </div>
 
                                         {/* Folder Documents (when expanded) */}
-                                        {expandedFolders.has(folder.id) && 
+                                        {expandedFolders.has(folder.id) &&
                                          folderDocuments[folder.id] && (
                                           <div className="ml-6 space-y-1">
                                             {folderDocuments[folder.id].map((doc) => (
