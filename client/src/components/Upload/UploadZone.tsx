@@ -8,9 +8,10 @@ import DocumentMetadataModal, { DocumentMetadata } from "./DocumentMetadataModal
 
 interface UploadZoneProps {
   onUploadComplete: () => void;
+  defaultFolderId?: number | null;
 }
 
-export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
+export default function UploadZone({ onUploadComplete, defaultFolderId }: UploadZoneProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -209,6 +210,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
         fileName={currentFile?.name || ''}
         currentFileIndex={currentFileIndex}
         totalFiles={pendingFiles.length}
+        defaultFolderId={defaultFolderId}
       />
     </>
   );

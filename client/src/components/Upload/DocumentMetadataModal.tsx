@@ -17,8 +17,9 @@ interface DocumentMetadataModalProps {
   onClose: () => void;
   onSubmit: (metadata: DocumentMetadata) => void;
   fileName: string;
-  currentFileIndex?: number;
-  totalFiles?: number;
+  currentFileIndex: number;
+  totalFiles: number;
+  defaultFolderId?: number | null;
 }
 
 export interface DocumentMetadata {
@@ -39,13 +40,14 @@ export default function DocumentMetadataModal({
   onClose, 
   onSubmit, 
   fileName,
-  currentFileIndex = 0,
-  totalFiles = 1
+  currentFileIndex,
+  totalFiles,
+  defaultFolderId,
 }: DocumentMetadataModalProps) {
   const [name, setName] = useState(fileName);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [selectedFolderId, setSelectedFolderId] = useState<string>("main");
+  const [selectedFolderId, setSelectedFolderId] = useState<string>(defaultFolderId === null ? "main" : defaultFolderId?.toString() || "main");
   const [showDateFields, setShowDateFields] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -67,15 +69,15 @@ export default function DocumentMetadataModal({
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!name.trim()) {
       newErrors.name = "Document name is required";
     }
-    
+
     if (startDate && endDate && startDate > endDate) {
       newErrors.dateRange = "Start date must be before end date";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -96,7 +98,7 @@ export default function DocumentMetadataModal({
     setName(fileName);
     setStartDate(null);
     setEndDate(null);
-    setSelectedFolderId("main");
+    setSelectedFolderId(defaultFolderId === null ? "main" : defaultFolderId?.toString() || "main");
     setShowDateFields(false);
     setErrors({});
     onClose();
@@ -120,7 +122,7 @@ export default function DocumentMetadataModal({
             </div>
           )}
         </DialogHeader>
-        
+
         <div className="grid gap-4 py-4">
           {/* Document Name */}
           <div className="grid gap-2">
@@ -246,11 +248,11 @@ export default function DocumentMetadataModal({
                 </Popover>
               </div>
             </div>
-            
+
             {errors.dateRange && (
                 <p className="text-sm text-red-500">{errors.dateRange}</p>
               )}
-              
+
               <p className="text-xs text-muted-foreground">
                 Optional: Set when this document is effective (e.g., policy effective dates)
               </p>

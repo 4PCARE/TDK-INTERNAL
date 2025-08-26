@@ -555,7 +555,7 @@ ${document.summary}`;
               processedAt: new Date(),
               effectiveStartDate: metadata?.effectiveStartDate ? new Date(metadata.effectiveStartDate) : null,
               effectiveEndDate: metadata?.effectiveEndDate ? new Date(metadata.effectiveEndDate) : null,
-              folderId: metadata?.folderId, // Add folderId from metadata
+              folderId: metadata?.folderId || null, // Ensure folderId is properly set
             };
 
             const document = await storage.createDocument(documentData);
@@ -618,7 +618,7 @@ ${document.summary}`;
               aiCategory: "Uncategorized",
               aiCategoryColor: "#6B7280",
               userId,
-              folderId: metadata?.folderId, // Add folderId here as well
+              folderId: metadata?.folderId || null, // Ensure folderId is properly set
             };
             const document = await storage.createDocument(documentData);
             uploadedDocuments.push(document);

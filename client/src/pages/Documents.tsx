@@ -794,7 +794,8 @@ export default function Documents() {
                         setShowUploadZone(false);
                         // Refresh documents list
                         window.location.reload();
-                      }} 
+                      }}
+                      defaultFolderId={selectedFolderId}
                     />
                   </div>
                 )}
