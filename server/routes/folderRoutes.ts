@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { isAuthenticated } from "../replitAuth";
 import { storage } from "../storage";
 import express from "express"; // Import express to use router
-import db from "../db"; // Assuming db is imported from a db module
+import { db } from "../db";
 
 const router = express.Router(); // Create a router instance
 
