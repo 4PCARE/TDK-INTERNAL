@@ -31,9 +31,7 @@ import {
   Upload,
   ChevronLeft,
   ChevronRight,
-  FolderOpen,
-  PanelLeftClose,
-  PanelLeftOpen
+  FolderOpen
 } from "lucide-react";
 import DocumentCard from "@/components/DocumentCard";
 import ShareDocumentDialog from "@/components/ShareDocumentDialog";
@@ -494,14 +492,13 @@ export default function Documents() {
                   variant="outline"
                   size="sm"
                   onClick={() => setIsFolderSidebarVisible(!isFolderSidebarVisible)}
-                  className="flex items-center gap-2"
+                  className="w-8 h-8 p-0"
                 >
                   {isFolderSidebarVisible ? (
-                    <PanelLeftClose className="w-4 h-4" />
+                    <ChevronLeft className="w-4 h-4" />
                   ) : (
-                    <PanelLeftOpen className="w-4 h-4" />
+                    <ChevronRight className="w-4 h-4" />
                   )}
-                  {isFolderSidebarVisible ? "Hide Folders" : "Show Folders"}
                 </Button>
                 <h1 className="text-2xl font-semibold text-slate-800">
                   {selectedFolderId ? (
