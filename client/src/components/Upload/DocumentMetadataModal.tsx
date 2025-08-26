@@ -90,8 +90,17 @@ export default function DocumentMetadataModal({
         effectiveEndDate: endDate,
         folderId: selectedFolderId === "main" ? null : parseInt(selectedFolderId),
       });
-      handleClose();
+      // Reset form for next file but don't close modal
+      resetForm();
     }
+  };
+
+  const resetForm = () => {
+    setStartDate(null);
+    setEndDate(null);
+    setSelectedFolderId(defaultFolderId === null ? "main" : defaultFolderId?.toString() || "main");
+    setShowDateFields(false);
+    setErrors({});
   };
 
   const handleClose = () => {
@@ -265,7 +274,7 @@ export default function DocumentMetadataModal({
             Cancel
           </Button>
           <Button onClick={handleSubmit}>
-            Next
+            {currentFileIndex < totalFiles - 1 ? "Next File" : "Upload All"}
           </Button>
         </DialogFooter>
       </DialogContent>

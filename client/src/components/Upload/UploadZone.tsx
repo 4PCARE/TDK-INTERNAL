@@ -84,12 +84,16 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
       setFileMetadataMap(newMetadataMap);
 
       if (currentFileIndex < pendingFiles.length - 1) {
-        // More files to process
+        // More files to process - move to next file
         setCurrentFileIndex(currentFileIndex + 1);
       } else {
-        // All files have metadata, proceed with upload
+        // All files have metadata, close modal and start upload
         setIsModalOpen(false);
         uploadMutation.mutate({ files: pendingFiles, metadataMap: newMetadataMap });
+        // Reset state after upload starts
+        setPendingFiles([]);
+        setCurrentFileIndex(0);
+        setFileMetadataMap(new Map());
       }
     }
   };
