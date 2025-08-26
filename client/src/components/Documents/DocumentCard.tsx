@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Star, MoreHorizontal, FileText, File, Image, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -146,14 +147,12 @@ export default function DocumentCard({ document, isSelected = false, onSelect, v
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             {onSelect && (
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={isSelected}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  onSelect(document.id, e.target.checked);
+                onCheckedChange={(checked) => {
+                  onSelect(document.id, checked as boolean);
                 }}
-                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                onClick={(e) => e.stopPropagation()}
               />
             )}
             <div className={`w-10 h-10 ${getFileIconBg()} rounded-lg flex items-center justify-center`}>
