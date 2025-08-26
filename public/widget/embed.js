@@ -63,7 +63,7 @@
 
     console.log("🔒 Escaped text:", escapedText);
 
-    // Step 1: Process bold text **text** first 
+    // Step 1: Process bold text **text** first
     let processed = escapedText.replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 600; color: #1f2937;">$1</strong>');
     console.log("💪 After bold processing:", processed);
 
@@ -191,13 +191,13 @@
 
     chatInputContainer.innerHTML = `
       <div style="display: flex; gap: 8px;">
-        <input 
-          type="text" 
-          id="ai-kms-message-input" 
+        <input
+          type="text"
+          id="ai-kms-message-input"
           placeholder="Type your message or Thai Citizen ID..."
           style="flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; outline: none;"
         />
-        <button 
+        <button
           id="ai-kms-send-btn"
           style="padding: 8px 16px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer;"
         >
@@ -485,9 +485,9 @@
           const data = JSON.parse(event.data);
 
           // Handle real-time messages for this widget's session
-          if (data.type === 'new_message' && 
-              data.channelType === 'web' && 
-              data.message && 
+          if (data.type === 'new_message' &&
+              data.channelType === 'web' &&
+              data.message &&
               data.message.sessionId === sessionId) {
 
             if (data.message.messageType === 'agent') {
@@ -605,8 +605,29 @@
     console.log("🆔 Generated sessionId:", sessionId);
 
     try {
-      createWidget();
       await loadWidgetConfig(); // Await config loading before proceeding
+
+      // Check if widget is active and exists
+      if (!widgetConfig.isActive) {
+        console.warn('AI-KMS Widget: Widget is inactive');
+        return;
+      }
+
+      // Check if platform live chat is enabled (for platform widgets)
+      if (widgetConfig.isPlatformWidget) {
+        try {
+          const settingsResponse = await fetch(`${baseUrl}/api/system/live-chat-status`);
+          const settingsData = await settingsResponse.json();
+          if (!settingsData.enabled) {
+            console.warn('AI-KMS Widget: Platform live chat is disabled');
+            return;
+          }
+        } catch (error) {
+          console.warn('AI-KMS Widget: Could not check platform live chat status, proceeding anyway');
+        }
+      }
+
+      createWidget();
       await loadChatHistory(); // Await chat history loading
       connectWebSocket();
     } catch (error) {

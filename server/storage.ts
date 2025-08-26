@@ -1627,6 +1627,69 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  // System Settings operations
+  async getSystemSettings(): Promise<any> {
+    const { systemSettings } = await import('@shared/schema');
+    
+    const settings = await db
+      .select()
+      .from(systemSettings)
+      .limit(1);
+
+    if (settings.length === 0) {
+      // Return default settings if none exist
+      return {
+        maxFileSize: 25,
+        allowedFileTypes: ['pdf', 'docx', 'xlsx', 'pptx', 'txt', 'csv', 'json'],
+        retentionDays: 365,
+        autoBackup: false,
+        enableAnalytics: true,
+        enablePlatformLiveChat: true
+      };
+    }
+
+    return {
+      maxFileSize: settings[0].maxFileSize,
+      allowedFileTypes: settings[0].allowedFileTypes,
+      retentionDays: settings[0].retentionDays,
+      autoBackup: settings[0].autoBackup,
+      enableAnalytics: settings[0].enableAnalytics,
+      enablePlatformLiveChat: settings[0].enablePlatformLiveChat
+    };
+  }
+
+  async updateSystemSettings(settingsData: any): Promise<any> {
+    const { systemSettings } = await import('@shared/schema');
+    
+    const [updated] = await db
+      .insert(systemSettings)
+      .values({
+        id: 1,
+        maxFileSize: settingsData.maxFileSize,
+        allowedFileTypes: settingsData.allowedFileTypes,
+        retentionDays: settingsData.retentionDays,
+        autoBackup: settingsData.autoBackup,
+        enableAnalytics: settingsData.enableAnalytics,
+        enablePlatformLiveChat: settingsData.enablePlatformLiveChat,
+        updatedAt: new Date()
+      })
+      .onConflictDoUpdate({
+        target: systemSettings.id,
+        set: {
+          maxFileSize: settingsData.maxFileSize,
+          allowedFileTypes: settingsData.allowedFileTypes,
+          retentionDays: settingsData.retentionDays,
+          autoBackup: settingsData.autoBackup,
+          enableAnalytics: settingsData.enableAnalytics,
+          enablePlatformLiveChat: settingsData.enablePlatformLiveChat,
+          updatedAt: new Date()
+        }
+      })
+      .returning();
+
+    return updated;
+  }
+
   // Social Integration operations
   async getSocialIntegrations(userId: string): Promise<SocialIntegration[]> {
     console.log("🔍 Debug: Fetching social integrations for user:", userId);

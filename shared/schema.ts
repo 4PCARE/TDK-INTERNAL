@@ -271,30 +271,31 @@ export const hrEmployees = pgTable("hr_employees", {
 // Live Chat Widget configurations
 export const chatWidgets = pgTable("chat_widgets", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull(),
-  name: varchar("name").notNull(),
-  widgetKey: varchar("widget_key").notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  widgetKey: varchar("widget_key", { length: 255 }).notNull().unique(),
   isActive: boolean("is_active").default(true),
-
-  // AI Agent integration
-  agentId: integer("agent_id").references(() => agentChatbots.id),
-
-  // Widget styling
-  primaryColor: varchar("primary_color").default("#2563eb"),
-  textColor: varchar("text_color").default("#ffffff"),
-  position: varchar("position").default("bottom-right"), // 'bottom-right', 'bottom-left'
-
-  // Widget settings
+  agentId: integer("agent_id"),
+  primaryColor: varchar("primary_color", { length: 7 }).default("#2563eb"),
+  textColor: varchar("text_color", { length: 7 }).default("#ffffff"),
+  position: varchar("position", { length: 50 }).default("bottom-right"),
   welcomeMessage: text("welcome_message").default("Hi! How can I help you today?"),
   offlineMessage: text("offline_message").default("We're currently offline. Please leave a message."),
-
-  // Platform widget flag (only one can be true)
-  isPlatformWidget: boolean("is_platform_widget").default(false),
-
-  // HR API integration
   enableHrLookup: boolean("enable_hr_lookup").default(false),
-  hrApiEndpoint: varchar("hr_api_endpoint"),
+  hrApiEndpoint: varchar("hr_api_endpoint", { length: 255 }),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  isPlatformWidget: boolean("is_platform_widget").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 
+export const systemSettings = pgTable("system_settings", {
+  id: serial("id").primaryKey(),
+  maxFileSize: integer("max_file_size").default(25),
+  allowedFileTypes: text("allowed_file_types").array().default(['pdf', 'docx', 'xlsx', 'pptx', 'txt', 'csv', 'json']),
+  retentionDays: integer("retention_days").default(365),
+  autoBackup: boolean("auto_backup").default(false),
+  enableAnalytics: boolean("enable_analytics").default(true),
+  enablePlatformLiveChat: boolean("enable_platform_live_chat").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

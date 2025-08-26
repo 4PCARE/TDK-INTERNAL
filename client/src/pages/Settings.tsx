@@ -50,6 +50,7 @@ interface SystemSettings {
   retentionDays: number;
   autoBackup: boolean;
   enableAnalytics: boolean;
+  enablePlatformLiveChat: boolean;
 }
 
 interface LLMConfig {
@@ -353,6 +354,7 @@ export default function Settings() {
       retentionDays: parseInt(formData.get("retentionDays") as string),
       autoBackup: formData.get("autoBackup") === "on",
       enableAnalytics: formData.get("enableAnalytics") === "on",
+      enablePlatformLiveChat: formData.get("enablePlatformLiveChat") === "on",
     };
 
     updateSystemMutation.mutate(systemData);
@@ -643,6 +645,18 @@ export default function Settings() {
                         id="enableAnalytics"
                         name="enableAnalytics"
                         defaultChecked={systemSettings?.enableAnalytics}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="enablePlatformLiveChat">Platform Live Chat</Label>
+                        <p className="text-sm text-gray-500">Enable the platform's default live chat widget</p>
+                      </div>
+                      <Switch
+                        id="enablePlatformLiveChat"
+                        name="enablePlatformLiveChat"
+                        defaultChecked={systemSettings?.enablePlatformLiveChat}
                       />
                     </div>
                   </div>
