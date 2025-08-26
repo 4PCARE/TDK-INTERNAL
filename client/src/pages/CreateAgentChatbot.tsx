@@ -629,8 +629,8 @@ export default function CreateAgentChatbot() {
     const allFolderDocumentIds = selectedFolders.reduce((acc, folderId) => {
       const docs = folderDocuments[folderId] || [];
       const folderDocIds = docs
-        .map(doc => doc.id)
-        .filter(docId => !deselectedFolderDocuments.has(docId));
+        .filter(doc => !deselectedFolderDocuments.has(doc.id)) // Filter documents, not just IDs
+        .map(doc => doc.id);
       return [...acc, ...folderDocIds];
     }, [] as number[]);
 
@@ -808,14 +808,28 @@ export default function CreateAgentChatbot() {
   };
 
   const toggleFolderDocument = (documentId: number) => {
-    if (deselectedFolderDocuments.has(documentId)) {
+    const isCurrentlyDeselected = deselectedFolderDocuments.has(documentId);
+    
+    if (isCurrentlyDeselected) {
+      // Re-selecting the document
       setDeselectedFolderDocuments(prev => {
         const next = new Set(prev);
         next.delete(documentId);
         return next;
       });
+      
+      // If in editing mode, add the document back to the agent
+      if (isEditing && editAgentId) {
+        addDocumentMutation.mutate(documentId);
+      }
     } else {
+      // Deselecting the document
       setDeselectedFolderDocuments(prev => new Set([...prev, documentId]));
+      
+      // If in editing mode, remove the document from the agent
+      if (isEditing && editAgentId) {
+        removeDocumentMutation.mutate(documentId);
+      }
     }
   };
 
