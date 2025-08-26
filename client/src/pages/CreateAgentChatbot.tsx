@@ -1325,41 +1325,6 @@ export default function CreateAgentChatbot() {
                     }}
                     className="space-y-6"
                   >
-                      {/* Save/Update Button - Fixed Position */}
-                      <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 z-10">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm text-gray-600">
-                            {isEditing ? "Changes are saved automatically" : "Click Save to create your agent"}
-                          </div>
-                          <Button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              console.log("🔘 Manual save button clicked");
-                              form.handleSubmit((data) => {
-                                console.log("✅ Manual form submission triggered");
-                                onSubmit(data);
-                              }, (errors) => {
-                                console.log("❌ Manual form validation failed:", errors);
-                              })();
-                            }}
-                            disabled={saveAgentMutation.isPending}
-                            className="bg-blue-600 hover:bg-blue-700"
-                          >
-                            {saveAgentMutation.isPending ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                {isEditing ? "Updating..." : "Creating..."}
-                              </>
-                            ) : (
-                              <>
-                                {isEditing ? "Update Agent" : "Create Agent"}
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </div>
 
                     {activeTab === "overview" && (
                       <div className="space-y-6">
@@ -3155,7 +3120,41 @@ export default function CreateAgentChatbot() {
                       </div>
                     )}
 
-                    {/* Removed the duplicate submit button from here */}
+                    {/* Save/Update Button - At Bottom of Form */}
+                    <div className="bg-white border-t border-gray-200 px-6 py-4 mt-8">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-gray-600">
+                          {isEditing ? "Changes are saved automatically" : "Click Save to create your agent"}
+                        </div>
+                        <Button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log("🔘 Manual save button clicked");
+                            form.handleSubmit((data) => {
+                              console.log("✅ Manual form submission triggered");
+                              onSubmit(data);
+                            }, (errors) => {
+                              console.log("❌ Manual form validation failed:", errors);
+                            })();
+                          }}
+                          disabled={saveAgentMutation.isPending}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          {saveAgentMutation.isPending ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              {isEditing ? "Updating..." : "Creating..."}
+                            </>
+                          ) : (
+                            <>
+                              {isEditing ? "Update Agent" : "Create Agent"}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
                   </form>
                 </Form>
               </div>
