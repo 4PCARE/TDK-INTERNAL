@@ -5574,10 +5574,6 @@ Memory management: Keep track of conversation context within the last ${agentCon
       }
       isAuthenticated(req, res, next);
     });
-
-    function next() {
-      handlePromptRefinement(req, res);
-    }
   }, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
