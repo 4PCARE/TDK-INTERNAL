@@ -382,6 +382,14 @@ export default function CreateAgentChatbot() {
       const mergedAgentData = {
         ...defaultFormValues, // Start with defaults
         ...agent, // Override with fetched data
+        // Explicitly preserve main form fields that might get overridden
+        name: agent.name || defaultFormValues.name,
+        description: agent.description || defaultFormValues.description,
+        systemPrompt: agent.systemPrompt || defaultFormValues.systemPrompt,
+        personality: agent.personality || defaultFormValues.personality,
+        profession: agent.profession || defaultFormValues.profession,
+        responseStyle: agent.responseStyle || defaultFormValues.responseStyle,
+        specialSkills: agent.specialSkills || defaultFormValues.specialSkills,
         // Explicitly handle nested objects to avoid undefined errors
         searchConfiguration: {
           ...defaultFormValues.searchConfiguration,
