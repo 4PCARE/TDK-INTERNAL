@@ -124,30 +124,6 @@ ${additionalSearchDetail ? `\nAdditional search context: ${additionalSearchDetai
 
 Analyze this query and provide your response.`;
 
-      // Use LLM Router to process the query with user's configured provider
-      const enhancedQuery = await llmRouter.chat([
-        {
-          role: "system",
-          content: systemPrompt
-        },
-        {
-          role: "user",
-          content: userQuery
-        }
-      ], userId);
-
-      console.log(`✅ Query enhanced: "${userQuery}" → "${enhancedQuery.trim()}"`);
-      return enhancedQuery.trim();
-    } catch (error) {
-      console.error('❌ Query preprocessing failed:', error);
-      // Return original query if enhancement fails
-      return userQuery;
-    }
-  }
-}owing code block is a placeholder and will be replaced by the logic
-      // that uses llmRouter.chat() based on the user's selected provider.
-      // For now, we simulate the expected JSON output structure.
-
       // Try to extract user ID from context or use a default
       // In production, this should come from the request context
       let userId = "43981095"; // Default fallback user ID
