@@ -3,11 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   FileText, FileImage, FileVideo, FileSpreadsheet, FilePen, Download, Share, 
   Eye, Trash2, MoreHorizontal, Calendar, HardDrive, Hash, Star, StarOff,
-  BookOpen, Database, Plus, MessageSquare, ThumbsUp, Shield, Trophy, Checkbox
+  BookOpen, Database, Plus, MessageSquare, ThumbsUp, Shield, Trophy
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
