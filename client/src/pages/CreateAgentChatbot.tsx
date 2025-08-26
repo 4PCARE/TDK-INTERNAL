@@ -201,10 +201,8 @@ export default function CreateAgentChatbot() {
   const queryClient = useQueryClient();
 
   const [selectedDocuments, setSelectedDocuments] = useState<number[]>([]);
-  const [selectedFolders, setSelectedFolders] = useState<number[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<number>>(new Set());
   const [folderDocuments, setFolderDocuments] = useState<Record<number, FolderDocument[]>>({});
-  const [deselectedFolderDocuments, setDeselectedFolderDocuments] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
   const [testMessage, setTestMessage] = useState("");
@@ -330,10 +328,11 @@ export default function CreateAgentChatbot() {
     retry: false,
   }) as { data: Folder[] };
 
-  // Fetch documents for selected folders
+  // Fetch documents for expanded folders
   useEffect(() => {
-    if (selectedFolders.length > 0) {
-      selectedFolders.forEach(async (folderId) => {
+    const expandedFolderIds = Array.from(expandedFolders);
+    if (expandedFolderIds.length > 0) {
+      expandedFolderIds.forEach(async (folderId) => {
         if (!folderDocuments[folderId]) {
           try {
             const response = await fetch(`/api/folders/${folderId}/documents`);
@@ -347,7 +346,7 @@ export default function CreateAgentChatbot() {
         }
       });
     }
-  }, [selectedFolders, folderDocuments]);
+  }, [expandedFolders, folderDocuments]);
 
   // Fetch agent data for editing
   const { data: existingAgent, isLoading: isLoadingAgent } = useQuery({
@@ -566,9 +565,7 @@ export default function CreateAgentChatbot() {
       // Clear form and navigate back
       form.reset();
       setSelectedDocuments([]);
-      setSelectedFolders([]);
       setFolderDocuments({});
-      setDeselectedFolderDocuments(new Set());
       setExpandedFolders(new Set());
 
       // Invalidate comprehensive cache keys to ensure frontend updates
@@ -755,28 +752,19 @@ export default function CreateAgentChatbot() {
   };
 
   const toggleFolder = async (folderId: number) => {
-    const isSelected = selectedFolders.includes(folderId);
+    const folderDocs = folderDocuments[folderId] || [];
     
-    if (isSelected) {
-      // Remove folder from UI selection
-      setSelectedFolders(prev => prev.filter(id => id !== folderId));
-      
-      // Remove all documents from this folder from selected documents
-      const folderDocs = folderDocuments[folderId] || [];
-      const folderDocIds = folderDocs.map(doc => doc.id);
-      
-      setSelectedDocuments(prev => prev.filter(id => !folderDocIds.includes(id)));
-      
-      // Clear deselection tracking for this folder
-      setDeselectedFolderDocuments(prev => {
-        const next = new Set(prev);
-        folderDocIds.forEach(docId => next.delete(docId));
-        return next;
-      });
+    // Check if all documents in folder are selected
+    const allDocsSelected = folderDocs.length > 0 && folderDocs.every(doc => selectedDocuments.includes(doc.id));
+    
+    if (allDocsSelected) {
+      // Deselect all documents in folder
+      const docIds = folderDocs.map(doc => doc.id);
+      setSelectedDocuments(prev => prev.filter(id => !docIds.includes(id)));
       
       // If in editing mode, remove each document individually
       if (isEditing && editAgentId) {
-        for (const docId of folderDocIds) {
+        for (const docId of docIds) {
           try {
             await removeDocumentMutation.mutateAsync(docId);
           } catch (error) {
@@ -784,17 +772,8 @@ export default function CreateAgentChatbot() {
           }
         }
       }
-      
-      // Collapse folder on deselection
-      setExpandedFolders(prev => {
-        const next = new Set(prev);
-        next.delete(folderId);
-        return next;
-      });
     } else {
-      // Add folder to UI selection
-      setSelectedFolders(prev => [...prev, folderId]);
-      // Force expand folder on selection
+      // Force expand folder when selecting
       setExpandedFolders(prev => new Set([...prev, folderId]));
       
       // Fetch folder documents if not already fetched
@@ -829,8 +808,7 @@ export default function CreateAgentChatbot() {
           });
         }
       } else {
-        // Documents already fetched, just add them to selection
-        const folderDocs = folderDocuments[folderId];
+        // Documents already fetched, select all documents in folder
         const docIds = folderDocs.map(doc => doc.id);
         setSelectedDocuments(prev => [...new Set([...prev, ...docIds])]);
         
@@ -849,27 +827,9 @@ export default function CreateAgentChatbot() {
   };
 
   const toggleFolderDocument = (documentId: number) => {
-    const isCurrentlyDeselected = deselectedFolderDocuments.has(documentId);
+    const isSelected = selectedDocuments.includes(documentId);
     
-    if (isCurrentlyDeselected) {
-      // Re-selecting the document
-      setDeselectedFolderDocuments(prev => {
-        const next = new Set(prev);
-        next.delete(documentId);
-        return next;
-      });
-      
-      // Add back to selected documents
-      setSelectedDocuments(prev => [...new Set([...prev, documentId])]);
-      
-      // If in editing mode, add the document back to the agent
-      if (isEditing && editAgentId) {
-        addDocumentMutation.mutate(documentId);
-      }
-    } else {
-      // Deselecting the document
-      setDeselectedFolderDocuments(prev => new Set([...prev, documentId]));
-      
+    if (isSelected) {
       // Remove from selected documents
       setSelectedDocuments(prev => prev.filter(id => id !== documentId));
       
@@ -877,7 +837,21 @@ export default function CreateAgentChatbot() {
       if (isEditing && editAgentId) {
         removeDocumentMutation.mutate(documentId);
       }
+    } else {
+      // Add to selected documents
+      setSelectedDocuments(prev => [...new Set([...prev, documentId])]);
+      
+      // If in editing mode, add the document to the agent
+      if (isEditing && editAgentId) {
+        addDocumentMutation.mutate(documentId);
+      }
     }
+  };
+
+  // Helper function to check if all documents in folder are selected
+  const isFolderFullySelected = (folderId: number): boolean => {
+    const folderDocs = folderDocuments[folderId] || [];
+    return folderDocs.length > 0 && folderDocs.every(doc => selectedDocuments.includes(doc.id));
   };
 
   const buildFolderTree = (folders: Folder[]): Folder[] => {
@@ -907,7 +881,7 @@ export default function CreateAgentChatbot() {
     return rootFolders;
   };
 
-  const toggleFolderExpansion = (folderId: number) => {
+  const toggleFolderExpansion = async (folderId: number) => {
     setExpandedFolders(prev => {
       const next = new Set(prev);
       if (next.has(folderId)) {
@@ -917,6 +891,19 @@ export default function CreateAgentChatbot() {
       }
       return next;
     });
+
+    // Fetch folder documents if not already fetched and expanding
+    if (!expandedFolders.has(folderId) && !folderDocuments[folderId]) {
+      try {
+        const response = await fetch(`/api/folders/${folderId}/documents`);
+        if (response.ok) {
+          const docs = await response.json();
+          setFolderDocuments(prev => ({ ...prev, [folderId]: docs }));
+        }
+      } catch (error) {
+        console.error(`Error fetching documents for folder ${folderId}:`, error);
+      }
+    }
   };
 
   const filteredDocuments = documents.filter(
@@ -1494,25 +1481,15 @@ export default function CreateAgentChatbot() {
                               </div>
 
                               {/* Selection Summary */}
-                              {(selectedDocuments.length > 0 || selectedFolders.length > 0) && (
+                              {selectedDocuments.length > 0 && (
                                 <div className="space-y-2">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    {selectedDocuments.length > 0 && (
-                                      <Badge
-                                        variant="secondary"
-                                        className="bg-blue-100 text-blue-800"
-                                      >
-                                        {selectedDocuments.length} documents selected
-                                      </Badge>
-                                    )}
-                                    {selectedFolders.length > 0 && (
-                                      <Badge
-                                        variant="secondary"
-                                        className="bg-green-100 text-green-800"
-                                      >
-                                        {selectedFolders.length} folders selected
-                                      </Badge>
-                                    )}
+                                    <Badge
+                                      variant="secondary"
+                                      className="bg-blue-100 text-blue-800"
+                                    >
+                                      {selectedDocuments.length} documents selected
+                                    </Badge>
                                   </div>
                                 </div>
                               )}
@@ -1539,9 +1516,9 @@ export default function CreateAgentChatbot() {
                                             </button>
                                             <Folder className="w-4 h-4 text-blue-600" />
                                             <span className="font-medium text-slate-800">{folder.name}</span>
-                                            {folder.documentCount !== undefined && (
+                                            {folderDocuments[folder.id] && (
                                               <Badge variant="outline" className="text-xs">
-                                                {folder.documentCount} docs
+                                                {folderDocuments[folder.id].length} docs
                                               </Badge>
                                             )}
                                           </div>
@@ -1550,7 +1527,7 @@ export default function CreateAgentChatbot() {
                                             className="cursor-pointer"
                                             onClick={() => toggleFolder(folder.id)}
                                           >
-                                            {selectedFolders.includes(folder.id) ? (
+                                            {isFolderFullySelected(folder.id) ? (
                                               <div className="w-4 h-4 bg-blue-600 rounded-sm flex items-center justify-center">
                                                 <Check className="w-3 h-3 text-white" />
                                               </div>
