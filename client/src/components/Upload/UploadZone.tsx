@@ -16,8 +16,9 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
   const queryClient = useQueryClient();
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [currentFileIndex, setCurrentFileIndex] = useState(0);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [fileMetadataMap, setFileMetadataMap] = useState<Map<string, DocumentMetadata>>(new Map());
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
 
   const uploadMutation = useMutation({
     mutationFn: async (payload: { files: File[], metadataMap: Map<string, DocumentMetadata> }) => {

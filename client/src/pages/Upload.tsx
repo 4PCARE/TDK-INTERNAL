@@ -59,9 +59,16 @@ export default function Dashboard() {
 
   // Upload mutation with progress tracking
   const uploadMutation = useMutation({
-    mutationFn: async (files: File[]) => {
+    mutationFn: async (uploadData: { files: File[], metadataList: any[] }) => {
+      const { files, metadataList } = uploadData;
       const formData = new FormData();
-      files.forEach(file => formData.append('files', file));
+      
+      files.forEach((file, index) => {
+        formData.append('files', file);
+        if (metadataList[index]) {
+          formData.append(`metadata_${index}`, JSON.stringify(metadataList[index]));
+        }
+      });
 
       // Initialize upload tracking
       const fileTracking = files.map(file => ({
