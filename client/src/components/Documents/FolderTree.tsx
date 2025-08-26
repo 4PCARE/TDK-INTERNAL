@@ -373,7 +373,7 @@ export default function FolderTree({ selectedFolderId, onFolderSelect, onFolderD
           onDragOver={(e) => handleDragOver(e, null)}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, null)}
-        ></div>
+        >
           <div className="w-4" />
           <FileText className="h-4 w-4 text-slate-600" />
           <span className="flex-1 text-sm font-medium">Main Folder</span>
