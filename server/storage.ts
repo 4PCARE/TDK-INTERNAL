@@ -1437,6 +1437,38 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(documents.createdAt));
   }
 
+  async getDocumentsByFolderPaginated(userId: string, folderId: number | null, page: number = 1, limit: number = 10): Promise<any[]> {
+    const conditions = [eq(documents.userId, userId)];
+
+    if (folderId === null) {
+      conditions.push(isNull(documents.folderId));
+    } else {
+      conditions.push(eq(documents.folderId, folderId));
+    }
+
+    const offset = (page - 1) * limit;
+
+    return await db
+      .select()
+      .from(documents)
+      .where(and(...conditions))
+      .orderBy(desc(documents.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getAllDocumentsPaginated(userId: string, page: number = 1, limit: number = 10): Promise<any[]> {
+    const offset = (page - 1) * limit;
+
+    return await db
+      .select()
+      .from(documents)
+      .where(eq(documents.userId, userId))
+      .orderBy(desc(documents.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
   async assignFolderToAgent(agentId: number, folderId: number, userId: string): Promise<void> {
     // Get all documents in the folder
     const folderDocuments = await this.getDocumentsByFolder(userId, folderId);
