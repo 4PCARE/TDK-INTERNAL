@@ -221,7 +221,7 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
         fileName={currentFile?.name || ''}
         currentFileIndex={currentFileIndex}
         totalFiles={pendingFiles.length}
-        defaultFolderId={currentFileIndex === 0 ? defaultFolderId : currentFolderId}
+        defaultFolderId={currentFolderId}
       />
     </>
   );

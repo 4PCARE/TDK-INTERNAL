@@ -48,6 +48,11 @@ export default function DocumentMetadataModal({
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [selectedFolderId, setSelectedFolderId] = useState<string>(defaultFolderId === null ? "main" : defaultFolderId?.toString() || "main");
+
+  // Update folder selection when defaultFolderId changes (for bulk uploads)
+  useEffect(() => {
+    setSelectedFolderId(defaultFolderId === null ? "main" : defaultFolderId?.toString() || "main");
+  }, [defaultFolderId]);
   const [showDateFields, setShowDateFields] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -98,10 +103,9 @@ export default function DocumentMetadataModal({
   const resetForm = () => {
     setStartDate(null);
     setEndDate(null);
-    // Keep the current folder selection for the next file instead of resetting to default
-    // setSelectedFolderId(defaultFolderId === null ? "main" : defaultFolderId?.toString() || "main");
     setShowDateFields(false);
     setErrors({});
+    // Don't reset folder selection - it will be updated via useEffect when defaultFolderId changes
   };
 
   const handleClose = () => {
