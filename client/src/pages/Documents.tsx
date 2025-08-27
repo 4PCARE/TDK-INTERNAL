@@ -455,7 +455,7 @@ export default function Documents() {
       } else {
         effectiveTotal = stats?.totalDocuments || 0;
       }
-      
+
       totalPages = Math.ceil(effectiveTotal / documentsPerPage);
       startIndex = (currentPage - 1) * documentsPerPage;
       endIndex = Math.min(startIndex + filteredDocuments.length, effectiveTotal);
@@ -895,7 +895,12 @@ export default function Documents() {
                       {isSearchMode ? (
                         `Showing ${startIndex + 1}-${Math.min(endIndex, allFilteredDocuments.length)} of ${allFilteredDocuments.length} documents`
                       ) : (
-                        `Showing ${startIndex + 1}-${endIndex} of ${actualTotal} documents`
+                        `Showing ${startIndex + 1}-${Math.min(endIndex, filteredDocuments.length)} of ${actualTotal} documents`
+                      )}
+                      {viewMode === "grid" && actualTotal > documentsPerPage && (
+                        <span className="ml-2 text-blue-600 text-sm">
+                          (Page {currentPage} of {totalPages})
+                        </span>
                       )}
                     </div>
 
