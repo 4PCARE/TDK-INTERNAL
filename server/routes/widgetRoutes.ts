@@ -1,4 +1,3 @@
-
 import type { Express } from "express";
 import { db, pool } from "../db";
 import { isAuthenticated } from "../replitAuth";
@@ -6,18 +5,17 @@ import { isMicrosoftAuthenticated } from "../microsoftAuth";
 import { smartAuth } from "../smartAuth";
 import { storage } from "../storage";
 import { eq, desc, and } from "drizzle-orm";
+import {
+  chatWidgets,
+  widgetChatSessions,
+  widgetChatMessages,
+  hrEmployees,
+  agentChatbots,
+  chatHistory,
+} from "@shared/schema";
+import { nanoid } from "nanoid";
 
 export function registerWidgetRoutes(app: Express) {
-  const {
-    chatWidgets,
-    widgetChatSessions,
-    widgetChatMessages,
-    hrEmployees,
-    agentChatbots,
-    chatHistory,
-  } = require("@shared/schema");
-  const { nanoid } = require("nanoid");
-
   // Serve widget embed script
   app.get("/widget/:widgetKey/embed.js", async (req, res) => {
     try {
