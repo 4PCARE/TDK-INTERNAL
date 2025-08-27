@@ -4979,7 +4979,49 @@ Memory management: Keep track of conversation context within the last ${agentCon
             messageType: 'agent',
             content: message || 'Test message from debug endpoint',
             timestamp: new Date().toISOString(),
-            humanAgent: true,
+            humanAgent: true
+          }
+        };
+
+        // Broadcast to all connected WebSocket clients
+        wsClients.forEach(client => {
+          if (client.readyState === 1) { // OPEN
+            try {
+              client.send(JSON.stringify(testMessage));
+            } catch (error) {
+              console.error('Error sending WebSocket message:', error);
+            }
+          }
+        });
+
+        console.log('Debug WebSocket message broadcasted to', wsClients.size, 'clients');
+
+        res.json({
+          success: true,
+          message: 'Debug WebSocket message sent',
+          broadcastedTo: wsClients.size,
+          testMessage: testMessage
+        });
+      } else {
+        console.log('No WebSocket clients connected');
+        res.json({
+          success: false,
+          message: 'No WebSocket clients connected',
+          broadcastedTo: 0
+        });
+      }
+    } catch (error) {
+      console.error('Debug WebSocket test error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Debug WebSocket test failed',
+        error: error.message
+      });
+    }
+  });
+
+  return server;
+}umanAgent: true,
             humanAgentName: 'Debug Agent'
           }
         };
