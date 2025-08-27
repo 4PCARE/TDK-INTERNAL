@@ -1,4 +1,13 @@
-// Document Demand Insights API
+import type { Express } from "express";
+import { isAuthenticated } from "../replitAuth";
+import { storage } from "../storage";
+import OpenAI from "openai";
+
+// Initialize OpenAI
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+export function registerAnalyticRoutes(app: Express) {
+  // Document Demand Insights API
   app.get(
     "/api/analytics/document-demand",
     isAuthenticated,
@@ -204,3 +213,4 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       }
     },
   );
+}
