@@ -172,12 +172,21 @@ export function registerDocumentRoutes(app: Express) {
         ? parseInt(req.query.offset as string)
         : undefined;
 
-      // For agent creation, we need all documents - don't apply default limits
+      console.log(`📊 Document API called with limit: ${limit}, userId: ${userId}`);
+
+      // For agent creation, we need all documents - override default limits
+      // If no limit specified or a high limit is requested, fetch ALL documents
+      const effectiveLimit = (!limit || limit >= 1000) ? null : limit;
+      
+      console.log(`📊 Using effective limit: ${effectiveLimit} (null means no limit)`);
+
       const documents = await storage.getDocuments(userId, {
         categoryId,
-        limit,
+        limit: effectiveLimit,
         offset,
       });
+
+      console.log(`📊 Storage returned ${documents.length} documents`);
       res.json(documents);
     } catch (error) {
       console.error("Error fetching documents:", error);

@@ -80,7 +80,7 @@ export interface IStorage {
   deleteCategory(id: number, userId: string): Promise<void>;
 
   // Document operations
-  getDocuments(userId: string, options?: { categoryId?: number; limit?: number; offset?: number; includeAllFolders?: boolean }): Promise<Document[]>;
+  getDocuments(userId: string, options?: { categoryId?: number; limit?: number | null; offset?: number; includeAllFolders?: boolean }): Promise<Document[]>;
   getDocument(id: number, userId: string): Promise<Document | undefined>;
   getDocumentsByIds(ids: number[], userId: string): Promise<Document[]>;
   getDocumentsByIdsForWidget(documentIds: number[]): Promise<Document[]>;
@@ -136,10 +136,10 @@ export interface IStorage {
 
   // Audit logging operations
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
-  getAuditLogs(userId: string, options?: { 
-    limit?: number; 
-    offset?: number; 
-    action?: string; 
+  getAuditLogs(userId: string, options?: {
+    limit?: number;
+    offset?: number;
+    action?: string;
     resourceType?: string;
     dateFrom?: Date;
     dateTo?: Date;
@@ -325,7 +325,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Document operations
-  async getDocuments(userId: string, options: { categoryId?: number; limit?: number; offset?: number; includeAllFolders?: boolean } = {}): Promise<Document[]> {
+  async getDocuments(userId: string, options: { categoryId?: number; limit?: number | null; offset?: number; includeAllFolders?: boolean } = {}): Promise<Document[]> {
     const { categoryId, limit, offset, includeAllFolders = false } = options;
 
     let query = db.select().from(documents).where(eq(documents.userId, userId));
@@ -342,7 +342,8 @@ export class DatabaseStorage implements IStorage {
     // Add ordering
     query = query.orderBy(desc(documents.createdAt));
 
-    if (limit) {
+    // Only apply limit if it's a positive number (null or undefined means no limit)
+    if (limit && limit > 0) {
       query = query.limit(limit);
     }
 
@@ -490,7 +491,7 @@ export class DatabaseStorage implements IStorage {
 
     // Combine all documents and remove duplicates
     const allDocuments = [...ownedDocuments, ...userSharedDocuments, ...departmentSharedDocuments];
-    const uniqueDocuments = allDocuments.filter((doc, index, self) => 
+    const uniqueDocuments = allDocuments.filter((doc, index, self) =>
       index === self.findIndex(d => d.id === doc.id)
     );
 
@@ -520,7 +521,7 @@ export class DatabaseStorage implements IStorage {
   async endorseDocument(id: number, userId: string, effectiveStartDate: string, effectiveEndDate?: string): Promise<Document> {
     const [endorsed] = await db
       .update(documents)
-      .set({ 
+      .set({
         isEndorsed: true,
         endorsedBy: userId,
         endorsedAt: new Date(),
@@ -568,7 +569,7 @@ export class DatabaseStorage implements IStorage {
     try {
       // Use raw SQL query to handle array search properly
       const matchingDocuments = await db.execute(sql`
-        SELECT * FROM documents 
+        SELECT * FROM documents
         WHERE user_id = ${userId}
         AND (
           ${sql.join(
@@ -1079,10 +1080,10 @@ export class DatabaseStorage implements IStorage {
     return auditLog;
   }
 
-  async getAuditLogs(userId: string, options: { 
-    limit?: number; 
-    offset?: number; 
-    action?: string; 
+  async getAuditLogs(userId: string, options: {
+    limit?: number;
+    offset?: number;
+    action?: string;
     resourceType?: string;
     userId?: string;
     dateFrom?: Date;
@@ -1094,7 +1095,7 @@ export class DatabaseStorage implements IStorage {
 
     // For admin users, show all audit logs unless filtering by specific user
     const currentUser = await this.getUser(userId);
-    if (!currentUser?.email?.includes('admin')) {
+    if (!currentUser || !currentUser.email?.includes('admin')) {
       conditions.push(eq(auditLogs.userId, userId));
     } else if (filterUserId) {
       // Admin can filter by specific user
@@ -1935,20 +1936,20 @@ export class DatabaseStorage implements IStorage {
       // Use raw SQL to avoid Drizzle schema issues
       const result = await db.execute(sql`
         INSERT INTO social_integrations (
-          name, description, user_id, type, channel_id, channel_secret, 
+          name, description, user_id, type, channel_id, channel_secret,
           channel_access_token, agent_id, is_active, is_verified, created_at, updated_at
         ) VALUES (
-          ${integration.name}, 
-          ${integration.description || null}, 
-          ${integration.userId}, 
-          ${integration.type}, 
-          ${integration.channelId || null}, 
-          ${integration.channelSecret || null}, 
-          ${integration.channelAccessToken || null}, 
-          ${integration.agentId || null}, 
-          ${integration.isActive ?? true}, 
-          ${integration.isVerified ?? false}, 
-          NOW(), 
+          ${integration.name},
+          ${integration.description || null},
+          ${integration.userId},
+          ${integration.type},
+          ${integration.channelId || null},
+          ${integration.channelSecret || null},
+          ${integration.channelAccessToken || null},
+          ${integration.agentId || null},
+          ${integration.isActive ?? true},
+          ${integration.isVerified ?? false},
+          NOW(),
           NOW()
         ) RETURNING *
       `);
@@ -2051,9 +2052,9 @@ export class DatabaseStorage implements IStorage {
       // Update verification status based on type
       if (integration.type === 'lineoa') {
         // For now, mark as verified. In production, you would call LINE API to verify
-        await this.updateSocialIntegration(id, { 
-          isVerified: true, 
-          lastVerifiedAt: new Date() 
+        await this.updateSocialIntegration(id, {
+          isVerified: true,
+          lastVerifiedAt: new Date()
         }, userId);
         return { success: true, message: "LINE OA connection verified successfully" };
       }
