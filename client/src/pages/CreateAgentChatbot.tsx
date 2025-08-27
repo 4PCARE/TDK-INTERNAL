@@ -316,11 +316,14 @@ export default function CreateAgentChatbot() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  // Fetch documents for RAG selection
-  const { data: documents = [] } = useQuery({
-    queryKey: ["/api/documents"],
-    enabled: isAuthenticated,
-    retry: false,
+  // Fetch documents and folders - get ALL documents for agent creation
+  const { data: documents = [], isLoading: documentsLoading } = useQuery({
+    queryKey: ["/api/documents/all"],
+    queryFn: async () => {
+      const response = await fetch("/api/documents?limit=1000"); // Get up to 1000 documents
+      if (!response.ok) throw new Error("Failed to fetch documents");
+      return response.json();
+    },
   }) as { data: Document[] };
 
   // Fetch folders

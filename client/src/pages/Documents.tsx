@@ -123,21 +123,34 @@ export default function Documents() {
 
   // Enhanced search with semantic capabilities
   const { data: rawSearchResults, isLoading: documentsLoading, error: documentsError } = useQuery({
-    queryKey: ["/api/documents/search", searchQuery, searchFileName, searchKeyword, searchMeaning, currentPage, selectedFolderId],
+    queryKey: ["/api/documents/search", searchQuery, searchFileName, searchKeyword, searchMeaning, currentPage, selectedFolderId, viewMode],
     queryFn: async () => {
       try {
         if (!searchQuery.trim()) {
           // Use server-side pagination for regular document loading
-          const offset = (currentPage - 1) * documentsPerPage;
-          let url = `/api/documents?limit=${documentsPerPage}&offset=${offset}`;
           if (selectedFolderId !== null) {
-            url = `/api/folders/${selectedFolderId}/documents`;
+            // For folder documents, use proper pagination
+            let url = `/api/folders/${selectedFolderId}/documents?listView=${viewMode === 'list'}`;
+            if (viewMode === 'grid') {
+              const page = currentPage;
+              const limit = documentsPerPage;
+              url += `&page=${page}&limit=${limit}`;
+            }
+            const response = await fetch(url);
+            if (!response.ok) {
+              throw new Error(`${response.status}: ${response.statusText}`);
+            }
+            return await response.json();
+          } else {
+            // For main documents, use proper pagination
+            const offset = (currentPage - 1) * documentsPerPage;
+            let url = `/api/documents?limit=${documentsPerPage}&offset=${offset}`;
+            const response = await fetch(url);
+            if (!response.ok) {
+              throw new Error(`${response.status}: ${response.statusText}`);
+            }
+            return await response.json();
           }
-          const response = await fetch(url);
-          if (!response.ok) {
-            throw new Error(`${response.status}: ${response.statusText}`);
-          }
-          return await response.json();
         }
 
         // Determine search type based on selected checkboxes
@@ -799,7 +812,7 @@ export default function Documents() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <CardTitle className="text-lg font-semibold text-slate-800">
-                    Documents ({isSearchMode ? (allFilteredDocuments?.length || 0) : (selectedFolderId ? (filteredDocuments?.length || 0) : (actualTotal || 0))})
+                    Documents ({isSearchMode ? (allFilteredDocuments?.length || 0) : (actualTotal || 0)})
                   </CardTitle>
                   {filteredDocuments?.length > 0 && (
                     <Button

@@ -1421,7 +1421,7 @@ export class DatabaseStorage implements IStorage {
       ));
   }
 
-  async getDocumentsByFolder(userId: string, folderId?: number | null): Promise<any[]> {
+  async getDocumentsByFolder(userId: string, folderId: number | null, limit?: number, offset?: number): Promise<any[]> {
     const conditions = [eq(documents.userId, userId)];
 
     if (folderId === null) {
@@ -1430,14 +1430,22 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(documents.folderId, folderId));
     }
 
-    return await db
-      .select()
+    let query = db.select()
       .from(documents)
       .where(and(...conditions))
       .orderBy(desc(documents.createdAt));
+
+    if (limit !== undefined) {
+      query = query.limit(limit);
+    }
+    if (offset !== undefined) {
+      query = query.offset(offset);
+    }
+
+    return await query;
   }
 
-  async getDocumentsByFolderPaginated(userId: string, folderId: number | null, page: number = 1, limit: number = 10): Promise<any[]> {
+  async getDocumentsByFolderPaginated(userId: string, folderId: number, page: number = 1, limit: number = 10): Promise<any[]> {
     const conditions = [eq(documents.userId, userId)];
 
     if (folderId === null) {
@@ -1487,6 +1495,18 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Added for the specific fix:
+  async getDocumentsByFolderWithPagination(userId: string, folderId: number, limit: number, offset: number): Promise<Document[]> {
+    const result = await db
+      .select()
+      .from(documents)
+      .where(and(eq(documents.userId, userId), eq(documents.folderId, folderId)))
+      .orderBy(desc(documents.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    return result;
+  }
 
 
   // AI Response Analysis operations

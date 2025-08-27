@@ -101,29 +101,27 @@ export function registerFolderRoutes(app: Express) {
     }
   });
 
-  // Get documents in folder
+  // Get documents in a specific folder
   router.get("/:id/documents", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const folderId = req.params.id === 'null' ? null : parseInt(req.params.id);
-      const page = req.query.page ? parseInt(req.query.page) : 1;
-      const limit = req.query.limit ? parseInt(req.query.limit) : 10;
+      const folderId = parseInt(req.params.id);
       const listView = req.query.listView === 'true';
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 9;
+
+      if (isNaN(folderId)) {
+        return res.status(400).json({ error: "Invalid folder ID" });
+      }
 
       if (listView) {
         // If list view is toggled, return all documents without pagination
         const documents = await storage.getDocumentsByFolder(userId, folderId);
         res.json(documents);
       } else {
-        // For grid view, apply pagination and filter by folderId
-        let documents;
-        if (folderId !== null) {
-          documents = await storage.getDocumentsByFolderPaginated(userId, folderId, page, limit);
-        } else {
-          // If no folder is selected, get documents from the root (or all user's documents)
-          // This assumes storage.getAllDocumentsPaginated exists or similar functionality
-          documents = await storage.getAllDocumentsPaginated(userId, page, limit);
-        }
+        // For grid view, apply proper pagination
+        const offset = (page - 1) * limit;
+        const documents = await storage.getDocumentsByFolderWithPagination(userId, folderId, limit, offset);
         res.json(documents);
       }
     } catch (error) {
