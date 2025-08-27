@@ -205,6 +205,9 @@ export default function CreateAgentChatbot() {
   const [selectedFolders, setSelectedFolders] = useState<Set<number>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<number>>(new Set());
   const [folderDocuments, setFolderDocuments] = useState<Record<number, FolderDocument[]>>({});
+  const [folderDocumentCounts, setFolderDocumentCounts] = useState<Record<number, number>>({});
+  const [folderDocumentOffsets, setFolderDocumentOffsets] = useState<Record<number, number>>({});
+  const [loadingMoreDocuments, setLoadingMoreDocuments] = useState<Set<number>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
   const [testMessage, setTestMessage] = useState("");
@@ -333,25 +336,47 @@ export default function CreateAgentChatbot() {
     retry: false,
   }) as { data: Folder[] };
 
+  // Fetch documents for expanded folders with pagination
+  const fetchFolderDocuments = async (folderId: number, offset: number = 0, append: boolean = false) => {
+    try {
+      const limit = 20; // Load 20 documents at a time
+      const response = await fetch(`/api/folders/${folderId}/documents?limit=${limit}&offset=${offset}`);
+      if (response.ok) {
+        const result = await response.json();
+        const docs = result.documents || result; // Handle both formats
+        const totalCount = result.totalCount || docs.length;
+        
+        setFolderDocuments(prev => ({
+          ...prev,
+          [folderId]: append ? [...(prev[folderId] || []), ...docs] : docs
+        }));
+        
+        setFolderDocumentCounts(prev => ({
+          ...prev,
+          [folderId]: totalCount
+        }));
+        
+        setFolderDocumentOffsets(prev => ({
+          ...prev,
+          [folderId]: offset + docs.length
+        }));
+      }
+    } catch (error) {
+      console.error(`Error fetching documents for folder ${folderId}:`, error);
+    }
+  };
+
   // Fetch documents for expanded folders
   useEffect(() => {
     const expandedFolderIds = Array.from(expandedFolders);
     if (expandedFolderIds.length > 0) {
-      expandedFolderIds.forEach(async (folderId) => {
+      expandedFolderIds.forEach((folderId) => {
         if (!folderDocuments[folderId]) {
-          try {
-            const response = await fetch(`/api/folders/${folderId}/documents`);
-            if (response.ok) {
-              const docs = await response.json();
-              setFolderDocuments(prev => ({ ...prev, [folderId]: docs }));
-            }
-          } catch (error) {
-            console.error(`Error fetching documents for folder ${folderId}:`, error);
-          }
+          fetchFolderDocuments(folderId, 0, false);
         }
       });
     }
-  }, [expandedFolders, folderDocuments]);
+  }, [expandedFolders]);
 
   // Fetch agent data for editing
   const { data: existingAgent, isLoading: isLoadingAgent } = useQuery({
@@ -879,6 +904,36 @@ export default function CreateAgentChatbot() {
   };
 
   const toggleFolder = async (folderId: number) => {
+    // First ensure we have all documents for this folder loaded
+    const totalCount = folderDocumentCounts[folderId];
+    const loadedDocs = folderDocuments[folderId] || [];
+    
+    // If we don't have all documents loaded, we need to load them all first
+    if (totalCount && loadedDocs.length < totalCount) {
+      toast({
+        title: "Loading all documents",
+        description: `Loading all ${totalCount} documents from this folder...`,
+      });
+      
+      try {
+        // Load all remaining documents
+        const response = await fetch(`/api/folders/${folderId}/documents?limit=${totalCount}`);
+        if (response.ok) {
+          const result = await response.json();
+          const allDocs = result.documents || result;
+          setFolderDocuments(prev => ({ ...prev, [folderId]: allDocs }));
+        }
+      } catch (error) {
+        console.error(`Error fetching all documents for folder ${folderId}:`, error);
+        toast({
+          title: "Error",
+          description: "Failed to load all folder documents",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const folderDocs = folderDocuments[folderId] || [];
 
     // Check if all documents in folder are selected
@@ -909,50 +964,17 @@ export default function CreateAgentChatbot() {
       setExpandedFolders(prev => new Set([...prev, folderId]));
       setSelectedFolders(prev => new Set([...prev, folderId]));
 
-      // Fetch folder documents if not already fetched
-      if (!folderDocuments[folderId]) {
-        try {
-          const response = await fetch(`/api/folders/${folderId}/documents`);
-          if (response.ok) {
-            const docs = await response.json();
-            setFolderDocuments(prev => ({ ...prev, [folderId]: docs }));
+      // Add all documents from this folder to selected documents
+      const docIds = folderDocs.map((doc: FolderDocument) => doc.id);
+      setSelectedDocuments(prev => [...new Set([...prev, ...docIds])]);
 
-            // Add all documents from this folder to selected documents
-            const docIds = docs.map((doc: FolderDocument) => doc.id);
-            setSelectedDocuments(prev => [...new Set([...prev, ...docIds])]);
-
-            // If in editing mode, add each document individually
-            if (isEditing && editAgentId) {
-              for (const docId of docIds) {
-                try {
-                  await addDocumentMutation.mutateAsync(docId);
-                } catch (error) {
-                  console.error(`Failed to add document ${docId}:`, error);
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.error(`Error fetching documents for folder ${folderId}:`, error);
-          toast({
-            title: "Error",
-            description: "Failed to fetch folder documents",
-            variant: "destructive",
-          });
-        }
-      } else {
-        // Documents already fetched, select all documents in folder
-        const docIds = folderDocs.map(doc => doc.id);
-        setSelectedDocuments(prev => [...new Set([...prev, ...docIds])]);
-
-        // If in editing mode, add each document individually
-        if (isEditing && editAgentId) {
-          for (const docId of docIds) {
-            try {
-              await addDocumentMutation.mutateAsync(docId);
-            } catch (error) {
-              console.error(`Failed to add document ${docId}:`, error);
-            }
+      // If in editing mode, add each document individually
+      if (isEditing && editAgentId) {
+        for (const docId of docIds) {
+          try {
+            await addDocumentMutation.mutateAsync(docId);
+          } catch (error) {
+            console.error(`Failed to add document ${docId}:`, error);
           }
         }
       }
@@ -1049,6 +1071,19 @@ export default function CreateAgentChatbot() {
     return rootFolders;
   };
 
+  const loadMoreFolderDocuments = async (folderId: number) => {
+    setLoadingMoreDocuments(prev => new Set([...prev, folderId]));
+    
+    const currentOffset = folderDocumentOffsets[folderId] || 0;
+    await fetchFolderDocuments(folderId, currentOffset, true);
+    
+    setLoadingMoreDocuments(prev => {
+      const next = new Set(prev);
+      next.delete(folderId);
+      return next;
+    });
+  };
+
   const toggleFolderExpansion = async (folderId: number) => {
     setExpandedFolders(prev => {
       const next = new Set(prev);
@@ -1062,15 +1097,7 @@ export default function CreateAgentChatbot() {
 
     // Fetch folder documents if not already fetched and expanding
     if (!expandedFolders.has(folderId) && !folderDocuments[folderId]) {
-      try {
-        const response = await fetch(`/api/folders/${folderId}/documents`);
-        if (response.ok) {
-          const docs = await response.json();
-          setFolderDocuments(prev => ({ ...prev, [folderId]: docs }));
-        }
-      } catch (error) {
-        console.error(`Error fetching documents for folder ${folderId}:`, error);
-      }
+      await fetchFolderDocuments(folderId, 0, false);
     }
   };
 
@@ -1783,6 +1810,35 @@ export default function CreateAgentChatbot() {
                                                 </div>
                                               </div>
                                             ))}
+                                            
+                                            {/* Load More Button */}
+                                            {folderDocumentCounts[folder.id] && 
+                                             folderDocuments[folder.id].length < folderDocumentCounts[folder.id] && (
+                                              <div className="ml-6 py-2 px-3">
+                                                <Button
+                                                  variant="outline"
+                                                  size="sm"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    loadMoreFolderDocuments(folder.id);
+                                                  }}
+                                                  disabled={loadingMoreDocuments.has(folder.id)}
+                                                  className="w-full text-xs"
+                                                >
+                                                  {loadingMoreDocuments.has(folder.id) ? (
+                                                    <>
+                                                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                                      Loading...
+                                                    </>
+                                                  ) : (
+                                                    <>
+                                                      <Plus className="w-3 h-3 mr-1" />
+                                                      Load More ({folderDocumentCounts[folder.id] - folderDocuments[folder.id].length} remaining)
+                                                    </>
+                                                  )}
+                                                </Button>
+                                              </div>
+                                            )}
                                           </div>
                                         )}
                                       </div>

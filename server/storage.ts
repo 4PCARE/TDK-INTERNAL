@@ -1496,17 +1496,59 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Added for the specific fix:
-  async getDocumentsByFolderWithPagination(userId: string, folderId: number, limit: number, offset: number): Promise<Document[]> {
-    const result = await db
-      .select()
-      .from(documents)
-      .where(and(eq(documents.userId, userId), eq(documents.folderId, folderId)))
-      .orderBy(desc(documents.createdAt))
-      .limit(limit)
-      .offset(offset);
+  async getFolderDocuments(folderId: number, userId: string, options: { limit?: number; offset?: number } = {}): Promise<any[]> {
+    try {
+      const { limit, offset = 0 } = options;
 
-    return result;
+      // Get documents in the folder that the user has access to
+      let query = db
+        .select({
+          id: documents.id,
+          name: documents.name,
+          description: documents.description,
+          categoryName: categories.name,
+          folderId: documents.folderId,
+        })
+        .from(documents)
+        .leftJoin(categories, eq(documents.categoryId, categories.id))
+        .where(
+          and(
+            eq(documents.folderId, folderId),
+            eq(documents.userId, userId)
+          )
+        )
+        .orderBy(documents.name);
+
+      // Apply pagination if specified
+      if (limit !== undefined) {
+        query = query.limit(limit).offset(offset);
+      }
+
+      const folderDocs = await query;
+      return folderDocs;
+    } catch (error) {
+      console.error("Error getting folder documents:", error);
+      throw error;
+    }
+  }
+
+  async getFolderDocumentCount(folderId: number, userId: string): Promise<number> {
+    try {
+      const result = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(documents)
+        .where(
+          and(
+            eq(documents.folderId, folderId),
+            eq(documents.userId, userId)
+          )
+        );
+
+      return result[0]?.count || 0;
+    } catch (error) {
+      console.error("Error getting folder document count:", error);
+      throw error;
+    }
   }
 
 
