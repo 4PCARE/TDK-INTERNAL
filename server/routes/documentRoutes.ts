@@ -17,9 +17,6 @@ import { documentProcessor } from "../services/documentProcessor";
 import { pool, db } from "../db";
 import { registerFolderRoutes } from "./folderRoutes";
 
-// Register folder routes
-registerFolderRoutes(app);
-
 // Define a multer storage for handling file uploads
 const uploadStorage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -64,6 +61,9 @@ const uploadStorage = multer.diskStorage({
 const upload = multer({ storage: uploadStorage });
 
 export function registerDocumentRoutes(app: Express) {
+  // Register folder routes
+  registerFolderRoutes(app);
+  
   app.post(
     "/api/documents/:id/permissions/user",
     isAuthenticated,
