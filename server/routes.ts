@@ -15,6 +15,7 @@ import { eq } from "drizzle-orm";
 import { GuardrailsService } from "./services/guardrails";
 import { registerAgentRoutes } from "./routes/agentRoutes";
 import { registerDocumentRoutes } from "./routes/documentRoutes";
+import { registerWidgetRoutes } from "./routes/widgetRoutes";
 
 // Initialize OpenAI for CSAT analysis
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -137,6 +138,7 @@ export async function registerRoutes(app: Express): Server {
   // Register extracted route modules
   registerAgentRoutes(app);
   registerDocumentRoutes(app);
+  registerWidgetRoutes(app);
 
   // Serve uploaded files and Line images
   const uploadsPath = path.join(process.cwd(), 'uploads');
@@ -313,47 +315,7 @@ export async function registerRoutes(app: Express): Server {
     }
   });
 
-  // Serve widget embed script
-  app.get("/widget/:widgetKey/embed.js", async (req, res) => {
-    try {
-      const { widgetKey } = req.params;
-      const { chatWidgets } = await import("@shared/schema");
-      const { eq } = await import("drizzle-orm");
-
-      // Verify widget exists and is active
-      const [widget] = await db
-        .select()
-        .from(chatWidgets)
-        .where(eq(chatWidgets.widgetKey, widgetKey))
-        .limit(1);
-
-      if (!widget || !widget.isActive) {
-        return res.status(404).send("// Widget not found or inactive");
-      }
-
-      // Read and serve the embed script
-      const fs = await import("fs");
-      const path = await import("path");
-      const embedScript = fs.readFileSync(
-        path.join(process.cwd(), "public", "widget", "embed.js"),
-        "utf8",
-      );
-
-      res.setHeader("Content-Type", "application/javascript");
-      // Disable cache in development for easier debugging
-      if (process.env.NODE_ENV === "development") {
-        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-        res.setHeader("Pragma", "no-cache");
-        res.setHeader("Expires", "0");
-      } else {
-        res.setHeader("Cache-Control", "public, max-age=3600");
-      }
-      res.send(embedScript);
-    } catch (error) {
-      console.error("Error serving widget embed script:", error);
-      res.status(500).send("// Error loading widget script");
-    }
-  });
+  
 
   // Get authentication methods available
   app.get("/api/auth/methods", async (req, res) => {
@@ -2756,172 +2718,11 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     }
   });
 
-  // Platform widget management endpoints (Admin only)
-  app.put("/api/chat-widgets/:id/set-platform", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const widgetId = parseInt(req.params.id);
+  
 
-      const updatedWidget = await storage.setPlatformWidget(widgetId, userId);
+  
 
-      res.json(updatedWidget);
-    } catch (error) {
-      console.error("Error setting platform widget:", error);
-      res.status(500).json({ message: error.message || "Failed to set platform widget" });
-    }
-  });
-
-  app.put("/api/chat-widgets/:id/unset-platform", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const widgetId = parseInt(req.params.id);
-
-      const updatedWidget = await storage.unsetPlatformWidget(widgetId, userId);
-
-      res.json(updatedWidget);
-    } catch (error) {
-      console.error("Error unsetting platform widget:", error);
-      res.status(500).json({ message: error.message || "Failed to unset platform widget" });
-    }
-  });
-
-  // Widget config endpoint for embed script
-  app.get("/api/widget/:widgetKey/config", async (req, res) => {
-    try {
-      const { widgetKey } = req.params;
-      const { chatWidgets } = await import("@shared/schema");
-      const { eq } = await import("drizzle-orm");
-
-      const [widget] = await db
-        .select({
-          name: chatWidgets.name,
-          welcomeMessage: chatWidgets.welcomeMessage,
-          primaryColor: chatWidgets.primaryColor,
-          textColor: chatWidgets.textColor,
-          position: chatWidgets.position,
-        })
-        .from(chatWidgets)
-        .where(eq(chatWidgets.widgetKey, widgetKey))
-        .limit(1);
-
-      if (!widget) {
-        return res.status(404).json({ message: "Widget not found" });
-      }
-
-      res.json(widget);
-    } catch (error) {
-      console.error("Error fetching widget config:", error);
-      res.status(500).json({ message: "Failed to fetch widget config" });
-    }
-  });
-
-  // Chat Widget API endpoints
-  app.get("/api/chat-widgets", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { chatWidgets, agentChatbots } = await import("@shared/schema");
-      const { eq, leftJoin } = await import("drizzle-orm");
-
-      const widgets = await db
-        .select({
-          id: chatWidgets.id,
-          userId: chatWidgets.userId,
-          name: chatWidgets.name,
-          widgetKey: chatWidgets.widgetKey,
-          isActive: chatWidgets.isActive,
-          agentId: chatWidgets.agentId,
-          primaryColor: chatWidgets.primaryColor,
-          textColor: chatWidgets.textColor,
-          position: chatWidgets.position,
-          welcomeMessage: chatWidgets.welcomeMessage,
-          offlineMessage: chatWidgets.offlineMessage,
-          enableHrLookup: chatWidgets.enableHrLookup,
-          hrApiEndpoint: chatWidgets.hrApiEndpoint,
-          isPlatformWidget: chatWidgets.isPlatformWidget,
-          createdAt: chatWidgets.createdAt,
-          updatedAt: chatWidgets.updatedAt,
-          agentName: agentChatbots.name,
-        })
-        .from(chatWidgets)
-        .leftJoin(agentChatbots, eq(chatWidgets.agentId, agentChatbots.id))
-        .where(eq(chatWidgets.userId, userId));
-
-      res.json(widgets);
-    } catch (error) {
-      console.error("Error fetching chat widgets:", error);
-      res.status(500).json({ message: "Failed to fetch chat widgets" });
-    }
-  });
-
-  app.post("/api/chat-widgets", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { nanoid } = await import("nanoid");
-      const { chatWidgets } = await import("@shared/schema");
-      const {
-        name,
-        agentId,
-        primaryColor,
-        textColor,
-        position,
-        welcomeMessage,
-        offlineMessage,
-        enableHrLookup,
-        hrApiEndpoint,
-      } = req.body;
-
-      if (!name) {
-        return res.status(400).json({ message: "Widget name is required" });
-      }
-
-      const widgetKey = nanoid(16);
-
-      const [widget] = await db
-        .insert(chatWidgets)
-        .values({
-          userId,
-          name,
-          widgetKey,
-          agentId: agentId || null,
-          primaryColor: primaryColor || "#2563eb",
-          textColor: textColor || "#ffffff",
-          position: position || "bottom-right",
-          welcomeMessage: welcomeMessage || "Hi! How can I help you today?",
-          offlineMessage:
-            offlineMessage ||
-            "We're currently offline. Please leave a message.",
-          enableHrLookup: enableHrLookup || false,
-          hrApiEndpoint: hrApiEndpoint || null,
-        })
-        .returning();
-
-      res.status(201).json(widget);
-    } catch (error) {
-      console.error("Error creating chat widget:", error);
-      res.status(500).json({ message: "Failed to create chat widget" });
-    }
-  });
-
-  app.put("/api/chat-widgets/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const widgetId = parseInt(req.params.id);
-      const updates = req.body;
-
-      console.log(`PUT /api/chat-widgets/${widgetId} - User: ${userId}, Updates:`, updates);
-
-      const widget = await storage.updateChatWidget(widgetId, updates, userId);
-
-      console.log(`PUT /api/chat-widgets/${widgetId} - Success, returning widget:`, widget);
-
-      res.setHeader('Content-Type', 'application/json');
-      res.json(widget);
-    } catch (error) {
-      console.error("Error updating chat widget:", error);
-      res.setHeader('Content-Type', 'application/json');
-      res.status(500).json({ message: "Failed to update chat widget" });
-    }
-  });
+  
 
   // HR Employee management endpoints
   app.get("/api/hr-employees", isAuthenticated, async (req: any, res) => {
