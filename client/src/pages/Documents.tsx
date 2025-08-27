@@ -204,6 +204,11 @@ export default function Documents() {
   const documents = useMemo(() => {
     if (!rawSearchResults) return [];
 
+    // Handle folder document response format (has documents property)
+    if ((rawSearchResults as any)?.documents && Array.isArray((rawSearchResults as any).documents)) {
+      return (rawSearchResults as any).documents;
+    }
+
     // If it's already an array (non-search results), return as-is
     if (Array.isArray(rawSearchResults)) {
       return rawSearchResults;
