@@ -320,7 +320,7 @@ export default function CreateAgentChatbot() {
   const { data: documents = [], isLoading: documentsLoading } = useQuery({
     queryKey: ["/api/documents/all"],
     queryFn: async () => {
-      const response = await fetch("/api/documents?limit=1000"); // Get up to 1000 documents
+      const response = await fetch("/api/documents"); // Remove limit to get all documents
       if (!response.ok) throw new Error("Failed to fetch documents");
       return response.json();
     },
@@ -1084,6 +1084,9 @@ export default function CreateAgentChatbot() {
     (folder) =>
       folder.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Debug logging
+  console.log(`📊 Document counts - Total: ${documents.length}, Filtered: ${filteredDocuments.length}, Folders: ${filteredFolders.length}`);
 
   // Mock LineOA channels
   const lineOaChannels = [

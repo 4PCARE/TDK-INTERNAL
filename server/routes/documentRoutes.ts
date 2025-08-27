@@ -17,6 +17,9 @@ import { documentProcessor } from "../services/documentProcessor";
 import { pool, db } from "../db";
 import { registerFolderRoutes } from "./folderRoutes";
 
+// Register folder routes
+registerFolderRoutes(app);
+
 // Define a multer storage for handling file uploads
 const uploadStorage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -169,6 +172,7 @@ export function registerDocumentRoutes(app: Express) {
         ? parseInt(req.query.offset as string)
         : undefined;
 
+      // For agent creation, we need all documents - don't apply default limits
       const documents = await storage.getDocuments(userId, {
         categoryId,
         limit,
