@@ -320,7 +320,7 @@ export default function CreateAgentChatbot() {
   const { data: documents = [], isLoading: documentsLoading } = useQuery({
     queryKey: ["/api/documents/all"],
     queryFn: async () => {
-      const response = await fetch("/api/documents"); // Remove limit to get all documents
+      const response = await fetch("/api/documents?limit=10000"); // Fetch all documents with high limit
       if (!response.ok) throw new Error("Failed to fetch documents");
       return response.json();
     },
