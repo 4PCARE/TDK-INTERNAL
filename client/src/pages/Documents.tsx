@@ -44,6 +44,7 @@ import { ChevronDown, Star, Grid3X3, List as ListIcon, SortAsc, SortDesc, Move }
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import VectorizeAllButton from "@/components/VectorizeAllButton";
 
 export default function Documents() {
@@ -68,6 +69,7 @@ export default function Documents() {
   const [selectedDocuments, setSelectedDocuments] = useState<Set<number>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [isFolderSidebarVisible, setIsFolderSidebarVisible] = useState(true);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const documentsPerPage = 9;
 
   // Parse search query from URL
@@ -401,6 +403,38 @@ export default function Documents() {
     onError: (error: Error) => {
       toast({
         title: "Error moving documents",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Bulk delete documents mutation
+  const { mutate: deleteDocuments, isPending: isDeletingDocuments } = useMutation({
+    mutationFn: async (documentIds: number[]) => {
+      const deletePromises = documentIds.map(id => 
+        fetch(`/api/documents/${id}`, { method: 'DELETE' })
+          .then(response => {
+            if (!response.ok) throw new Error(`Failed to delete document ${id}`);
+            return response.json();
+          })
+      );
+      await Promise.all(deletePromises);
+    },
+    onSuccess: () => {
+      // Refresh documents
+      window.location.reload();
+      setSelectedDocuments(new Set());
+      setShowBulkActions(false);
+      setShowDeleteDialog(false);
+      toast({ 
+        title: "Documents deleted successfully",
+        description: `${selectedDocuments.size} document${selectedDocuments.size !== 1 ? 's' : ''} deleted`
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error deleting documents",
         description: error.message,
         variant: "destructive",
       });
@@ -800,6 +834,14 @@ export default function Documents() {
                         </div>
                       </PopoverContent>
                     </Popover>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setShowDeleteDialog(true)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Delete All
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -986,6 +1028,56 @@ export default function Documents() {
         </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Selected Documents</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the following {selectedDocuments.size} document{selectedDocuments.size !== 1 ? 's' : ''}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <div className="max-h-60 overflow-y-auto border rounded-md p-3 bg-slate-50">
+            <div className="space-y-2">
+              {filteredDocuments
+                .filter(doc => selectedDocuments.has(doc.id))
+                .map(doc => (
+                  <div key={doc.id} className="flex items-center gap-3 p-2 bg-white rounded border">
+                    <div className="flex-shrink-0">
+                      {doc.mimeType === 'application/pdf' ? (
+                        <FileText className="w-4 h-4 text-red-600" />
+                      ) : doc.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ? (
+                        <FileText className="w-4 h-4 text-blue-600" />
+                      ) : (
+                        <FileText className="w-4 h-4 text-gray-600" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{doc.name}</div>
+                      <div className="text-xs text-gray-500">
+                        {doc.aiCategory} • {new Date(doc.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteDocuments(Array.from(selectedDocuments))}
+              disabled={isDeletingDocuments}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeletingDocuments ? "Deleting..." : "Delete All"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
