@@ -469,8 +469,13 @@
   // Connect to WebSocket for real-time updates
   function connectWebSocket() {
     try {
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.hostname;
+      // In production, don't include port for standard ports
+      const port = window.location.port;
+      const wsUrl = port && port !== '80' && port !== '443' ?
+        `${protocol}//${host}:${port}/ws` :
+        `${protocol}//${host}/ws`;
 
       console.log("🔗 Connecting to WebSocket:", wsUrl);
 

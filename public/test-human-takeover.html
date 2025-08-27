@@ -72,8 +72,11 @@
         function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const host = window.location.hostname;
-            const port = window.location.port || (protocol === 'wss:' ? '443' : '80');
-            const wsUrl = `${protocol}//${host}:${port}/ws`;
+            // In production, don't include port for standard ports
+            const port = window.location.port;
+            const wsUrl = port && port !== '80' && port !== '443' ? 
+                `${protocol}//${host}:${port}/ws` : 
+                `${protocol}//${host}/ws`;
             
             log(`Connecting to WebSocket: ${wsUrl}`);
             
