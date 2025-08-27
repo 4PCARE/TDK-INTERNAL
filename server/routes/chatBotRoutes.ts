@@ -1,4 +1,16 @@
-// Agent Chatbot API routes
+import type { Express } from "express";
+import { isAuthenticated } from "../replitAuth";
+import { smartAuth } from "../smartAuth";
+import { storage } from "../storage";
+import OpenAI from "openai";
+import { GuardrailsService } from "../services/guardrails";
+import { semanticSearchServiceV2 } from "../services/semanticSearchV2";
+
+// Initialize OpenAI
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+export function registerChatBotRoutes(app: Express) {
+  // Agent Chatbot API routes
   app.get("/api/agents", smartAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
