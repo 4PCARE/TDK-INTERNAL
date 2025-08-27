@@ -3210,7 +3210,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
 
           global.wsClients.forEach(client => {
             if (client.readyState === 1) { // WebSocket.OPEN
-              client.send(JSON.stringify(wsMessage));
+              client.send(JSON.JSON.stringify(wsMessage));
             }
           });
         }
@@ -3800,7 +3800,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       );
 
       const agent = await storage.createAgentChatbot(finalAgentData);
-      console.log("Agent created successfully:", agent);
+console.log("Agent created successfully:", agent);
 
       // Associate documents with the agent if provided
       if (documentIds && documentIds.length > 0) {
@@ -4259,7 +4259,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
     },
   );
 
-  
+
   // Debug endpoint to test WebSocket broadcasting
   app.post('/api/debug/websocket-test', async (req: any, res) => {
     try {
@@ -4269,7 +4269,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
         message,
         userId,
         channelId,
-        wsClientsCount: wsClients.size + 1
+        totalClients: wsClients.size + 1
       });
 
       if (wsClients && wsClients.size > 0) {
@@ -4282,22 +4282,35 @@ Memory management: Keep track of conversation context within the last ${agentCon
             messageType: 'agent',
             content: message || 'Test message from debug endpoint',
             timestamp: new Date().toISOString(),
-            humanAgent: true
+            humanAgent: true,
+            humanAgentName: 'Debug Agent'
           }
         };
 
-        // Broadcast to all connected WebSocket clients
-        wsClients.forEach(client => {
-          if (client.readyState === 1) { // OPEN
+        console.log('Broadcasting test message:', JSON.stringify(testMessage, null, 2));
+
+        let sentCount = 0;
+        let openConnections = 0;
+        wsClients.forEach((client, index) => {
+          console.log(`WebSocket client ${index + 1} readyState:`, client.readyState);
+          if (client.readyState === WebSocket.OPEN) {
+            openConnections++;
             try {
+              // Send both specific and broadcast messages
               client.send(JSON.stringify(testMessage));
+              sentCount++;
+              console.log(`Test message sent to WebSocket client ${index + 1}`);
             } catch (error) {
-              console.error('Error sending WebSocket message:', error);
+              console.log(`Error sending to WebSocket client ${index + 1}:`, error);
+              wsClients.delete(client);
             }
+          } else {
+            wsClients.delete(client);
           }
         });
 
-        console.log('Debug WebSocket message broadcasted to', wsClients.size, 'clients');
+        console.log(`WebSocket summary - Total clients: ${wsClients.size}, Open: ${openConnections}, Sent: ${sentCount}`);
+
 
         res.json({
           success: true,
@@ -4320,42 +4333,6 @@ Memory management: Keep track of conversation context within the last ${agentCon
         message: 'Debug WebSocket test failed',
         error: error.message
       });
-    }
-  });
-
-  return server;
-}umanAgent: true,
-            humanAgentName: 'Debug Agent'
-          }
-        };
-
-        console.log('Broadcasting test message:', JSON.stringify(testMessage, null, 2));
-
-        let sentCount = 0;
-        wsClients.forEach((client, index) => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(testMessage));
-            sentCount++;
-            console.log(`Test message sent to client ${index + 1}`);
-          }
-        });
-
-        res.json({
-          success: true,
-          message: 'Test message broadcast',
-          clientsCount: wsClients.size,
-          sentCount: sentCount
-        });
-      } else {
-        res.json({
-          success: false,
-          message: 'No WebSocket clients connected',
-          clientsCount: 0
-        });
-      }
-    } catch (error) {
-      console.error('Debug WebSocket test error:', error);
-      res.status(500).json({ success: false, error: error.message });
     }
   });
 
@@ -4489,7 +4466,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
             'assistant', // role (must be 'assistant' to pass DB constraint, but message_type will be 'agent')
             message, // content
             'agent', // message_type (this distinguishes human agent from AI assistant)
-            JSON.stringify({
+            JSON.JSON.stringify({
               sentBy: req.user.claims.sub,
               humanAgent: true,
               humanAgentName: req.user.claims.first_name || req.user.claims.email || 'Human Agent'
@@ -4547,12 +4524,13 @@ Memory management: Keep track of conversation context within the last ${agentCon
               openConnections++;
               try {
                 // Send both specific and broadcast messages
-                client.send(JSON.stringify(wsMessage));
+                client.send(JSON.JSON.stringify(wsMessage));
                 client.send(JSON.stringify(broadcastMessage));
                 sentCount++;
                 console.log(`Sent messages to WebSocket client ${index + 1}`);
               } catch (error) {
                 console.log(`Error sending to WebSocket client ${index + 1}:`, error);
+                wsClients.delete(client);
               }
             } else {
               wsClients.delete(client);
@@ -5118,7 +5096,7 @@ Memory management: Keep track of conversation context within the last ${agentCon
 
     // Send initial connection confirmation
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.JSON.stringify({
+      ws.send(JSON.stringify({
         type: 'connection',
         message: 'Connected to Agent Console WebSocket'
       }));

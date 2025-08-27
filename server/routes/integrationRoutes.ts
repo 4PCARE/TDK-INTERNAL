@@ -695,3 +695,39 @@ app.get('/api/agent-console/summary', (req: any, res: any, next: any) => {
     res.status(500).json({ message: "Failed to fetch conversation summary" });
   }
 });
+
+// Helper function to calculate CSAT score (mock implementation)
+async function calculateCSATScore(
+  userId: string,
+  channelType: string,
+  channelId: string,
+  agentId?: number
+): Promise<number | undefined> {
+  try {
+    // In a real scenario, this function would interact with an AI model
+    // to analyze the conversation and determine a CSAT score.
+    // For now, we'll return a mock score based on some simple criteria.
+
+    let score = 50; // Default score
+
+    // Example logic: check for negative keywords in the last few messages
+    const history = await storage.getChatHistory(userId, channelType, channelId, agentId, 5);
+    const negativeKeywords = ["problem", "issue", "error", "frustrated", "difficult"];
+
+    for (const message of history.slice(-3)) { // Check last 3 messages
+      if (negativeKeywords.some(keyword => message.content.toLowerCase().includes(keyword))) {
+        score -= 15; // Decrease score for negative sentiment
+        break;
+      }
+    }
+
+    // Ensure score is within bounds [0, 100]
+    score = Math.max(0, Math.min(100, score));
+
+    console.log(`Mock CSAT calculation for ${userId}/${channelId}: ${score}%`);
+    return score;
+  } catch (error) {
+    console.error("Mock CSAT calculation error:", error);
+    return undefined; // Return undefined if calculation fails
+  }
+}
