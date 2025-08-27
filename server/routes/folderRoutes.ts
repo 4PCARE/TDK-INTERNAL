@@ -117,7 +117,7 @@ export function registerFolderRoutes(app: Express) {
       if (listView) {
         // If list view is toggled, return all documents without pagination
         const documents = await storage.getDocumentsByFolder(userId, folderId);
-        res.json(documents);
+        return res.json(documents);
       } else {
         // For grid view, apply proper pagination using existing method
         const offset = (page - 1) * limit;
@@ -126,7 +126,7 @@ export function registerFolderRoutes(app: Express) {
         // Also get total count for pagination metadata
         const totalCount = await storage.getFolderDocumentCount(folderId, userId);
         
-        res.json({
+        return res.json({
           documents,
           totalCount,
           page,
@@ -136,7 +136,9 @@ export function registerFolderRoutes(app: Express) {
       }
     } catch (error) {
       console.error("Error fetching folder documents:", error);
-      res.status(500).json({ message: "Failed to fetch folder documents" });
+      if (!res.headersSent) {
+        return res.status(500).json({ message: "Failed to fetch folder documents" });
+      }
     }
   });
 

@@ -1479,9 +1479,33 @@ export class DatabaseStorage implements IStorage {
         );
 
       return result[0]?.count || 0;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error getting folder document count:", error);
-      throw error;
+      
+      // Check if it's a connection error and retry once
+      if (error.code === '57P01' || error.code === 'ECONNRESET' || error.code === 'ENOTFOUND') {
+        console.log("🔄 Retrying database connection for getFolderDocumentCount...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        try {
+          const result = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(documents)
+            .where(
+              and(
+                eq(documents.folderId, folderId),
+                eq(documents.userId, userId)
+              )
+            );
+
+          return result[0]?.count || 0;
+        } catch (retryError) {
+          console.error("💥 Retry failed for getFolderDocumentCount:", retryError);
+          return 0; // Return 0 instead of throwing to prevent UI breakage
+        }
+      }
+      
+      return 0; // Return 0 for any other errors to prevent UI breakage
     }
   }
 
@@ -1547,25 +1571,6 @@ export class DatabaseStorage implements IStorage {
       return folderDocs;
     } catch (error) {
       console.error("Error getting folder documents:", error);
-      throw error;
-    }
-  }
-
-  async getFolderDocumentCount(folderId: number, userId: string): Promise<number> {
-    try {
-      const result = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(documents)
-        .where(
-          and(
-            eq(documents.folderId, folderId),
-            eq(documents.userId, userId)
-          )
-        );
-
-      return result[0]?.count || 0;
-    } catch (error) {
-      console.error("Error getting folder document count:", error);
       throw error;
     }
   }
