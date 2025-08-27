@@ -245,6 +245,10 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const refreshToken = currentUser.refresh_token;
   if (!refreshToken) {
     console.log("Replit auth failed - token expired, no refresh token");
+    // Clear invalid session
+    if (req.session) {
+      req.session.destroy(() => {});
+    }
     return res.status(401).json({ message: "Token expired" });
   }
 
@@ -274,6 +278,21 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return next();
   } catch (error) {
     console.log("Replit auth failed - token refresh failed:", error);
+    
+    // Clear invalid session and force re-authentication
+    if (req.session) {
+      req.session.destroy(() => {});
+    }
+    
+    // If it's an invalid_grant error, the refresh token is no longer valid
+    if (error.error === 'invalid_grant') {
+      console.log("Invalid grant - refresh token expired, forcing re-authentication");
+      return res.status(401).json({ 
+        message: "Session expired", 
+        redirectToLogin: true 
+      });
+    }
+    
     return res.status(401).json({ message: "Token refresh failed" });
   }
 };

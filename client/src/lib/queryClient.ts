@@ -13,7 +13,7 @@ export async function apiRequest(
   data?: unknown | undefined,
 ): Promise<Response> {
   const isFormData = data instanceof FormData;
-  
+
   const res = await fetch(url, {
     method,
     headers: data && !isFormData ? { "Content-Type": "application/json" } : {},
@@ -50,12 +50,29 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: 2 * 60 * 1000, // 2 minutes default instead of Infinity
-      retry: false,
+      retry: (failureCount, error) => {
+        // Don't retry on 401/403 errors
+        if (error?.status === 401 || error?.status === 403) {
+          // Check if we need to redirect to login
+          if (error?.redirectToLogin) {
+            window.location.href = "/api/login";
+          }
+          return false;
+        }
+        return failureCount < 3;
+      },
       // Add deduplication window
       cacheTime: 10 * 60 * 1000, // 10 minutes
     },
     mutations: {
-      retry: false,
+      retry: (failureCount, error) => {
+        // Handle session expiration for mutations too
+        if (error?.status === 401 && error?.redirectToLogin) {
+          window.location.href = "/api/login";
+          return false;
+        }
+        return failureCount < 3;
+      },
     },
   },
 });
