@@ -17,6 +17,7 @@ import { registerAgentRoutes } from "./routes/agentRoutes";
 import { registerDocumentRoutes } from "./routes/documentRoutes";
 import { registerWidgetRoutes } from "./routes/widgetRoutes";
 import { registerAnalyticRoutes } from "./routes/analyticRoutes";
+import { registerChatBotRoutes } from "./routes/chatBotRoutes";
 
 // Initialize OpenAI for CSAT analysis
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -141,6 +142,7 @@ export async function registerRoutes(app: Express): Server {
   registerDocumentRoutes(app);
   registerWidgetRoutes(app);
   registerAnalyticRoutes(app);
+  registerChatBotRoutes(app);
 
   // Serve uploaded files and Line images
   const uploadsPath = path.join(process.cwd(), 'uploads');
