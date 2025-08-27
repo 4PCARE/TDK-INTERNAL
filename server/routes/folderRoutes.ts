@@ -119,10 +119,20 @@ export function registerFolderRoutes(app: Express) {
         const documents = await storage.getDocumentsByFolder(userId, folderId);
         res.json(documents);
       } else {
-        // For grid view, apply proper pagination
+        // For grid view, apply proper pagination using existing method
         const offset = (page - 1) * limit;
-        const documents = await storage.getDocumentsByFolderWithPagination(userId, folderId, limit, offset);
-        res.json(documents);
+        const documents = await storage.getDocumentsByFolder(userId, folderId, limit, offset);
+        
+        // Also get total count for pagination metadata
+        const totalCount = await storage.getFolderDocumentCount(folderId, userId);
+        
+        res.json({
+          documents,
+          totalCount,
+          page,
+          limit,
+          totalPages: Math.ceil(totalCount / limit)
+        });
       }
     } catch (error) {
       console.error("Error fetching folder documents:", error);

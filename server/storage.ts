@@ -1466,6 +1466,25 @@ export class DatabaseStorage implements IStorage {
       .offset(offset);
   }
 
+  async getFolderDocumentCount(folderId: number, userId: string): Promise<number> {
+    try {
+      const result = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(documents)
+        .where(
+          and(
+            eq(documents.folderId, folderId),
+            eq(documents.userId, userId)
+          )
+        );
+
+      return result[0]?.count || 0;
+    } catch (error) {
+      console.error("Error getting folder document count:", error);
+      throw error;
+    }
+  }
+
   async getAllDocumentsPaginated(userId: string, page: number = 1, limit: number = 10): Promise<any[]> {
     const offset = (page - 1) * limit;
 
