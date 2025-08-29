@@ -115,25 +115,55 @@ router.post('/validate-existing-excel/:fileId', isAuthenticated, async (req, res
 // Get existing Excel files
 router.get('/existing-excel', isAuthenticated, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.claims?.sub || req.user.id;
+    
+    if (!userId) {
+      console.error('💥 [existing-excel] No user ID found in request');
+      return res.status(401).json({ 
+        error: 'User not authenticated',
+        details: 'No user ID found in authentication token'
+      });
+    }
+    
     console.log(`🔍 [existing-excel] Fetching Excel files for user: ${userId}`);
 
     const { storage } = await import('../storage.js');
 
-    // Check if method exists
-    if (typeof storage.getDocumentsByUserId !== 'function') {
-      console.error('💥 [existing-excel] storage.getDocumentsByUserId method not found');
-      return res.status(500).json({ 
-        error: 'Storage method not available',
-        details: 'getDocumentsByUserId method is not implemented'
+    // Get documents with fallback approach
+    let documents;
+    
+    if (typeof storage.getDocumentsByUserId === 'function') {
+      try {
+        documents = await storage.getDocumentsByUserId(userId, {
+          type: 'excel',
+          extensions: ['xlsx', 'xls']
+        });
+      } catch (error) {
+        console.warn('💥 [existing-excel] getDocumentsByUserId failed, falling back to getDocuments');
+        // Fallback to getting all documents and filtering
+        const allDocs = await storage.getDocuments(userId);
+        documents = allDocs.filter(doc => {
+          const fileName = doc.fileName || doc.originalName || '';
+          const mimeType = doc.mimeType || '';
+          return fileName.toLowerCase().endsWith('.xlsx') || 
+                 fileName.toLowerCase().endsWith('.xls') ||
+                 mimeType.includes('spreadsheet') ||
+                 mimeType.includes('excel');
+        });
+      }
+    } else {
+      console.warn('💥 [existing-excel] getDocumentsByUserId method not found, using fallback');
+      // Fallback to getting all documents and filtering
+      const allDocs = await storage.getDocuments(userId);
+      documents = allDocs.filter(doc => {
+        const fileName = doc.fileName || doc.originalName || '';
+        const mimeType = doc.mimeType || '';
+        return fileName.toLowerCase().endsWith('.xlsx') || 
+               fileName.toLowerCase().endsWith('.xls') ||
+               mimeType.includes('spreadsheet') ||
+               mimeType.includes('excel');
       });
     }
-
-    // Get documents that are Excel files
-    const documents = await storage.getDocumentsByUserId(userId, {
-      type: 'excel',
-      extensions: ['xlsx', 'xls']
-    });
 
     console.log(`📊 [existing-excel] Found ${documents.length} Excel files`);
 
