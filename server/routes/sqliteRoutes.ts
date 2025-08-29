@@ -142,7 +142,7 @@ router.get('/existing-excel', isAuthenticated, async (req, res) => {
     
     const excelFiles = (allDocs || [])
       .filter(doc => {
-        const fileName = (doc.fileName || doc.originalName || '').toLowerCase();
+        const fileName = (doc.fileName || '').toLowerCase();
         const mimeType = (doc.mimeType || '').toLowerCase();
         return fileName.endsWith('.xlsx') || 
                fileName.endsWith('.xls') ||
@@ -151,7 +151,7 @@ router.get('/existing-excel', isAuthenticated, async (req, res) => {
       })
       .map(doc => ({
         id: doc.id,
-        name: doc.name || doc.originalName || 'Unnamed Document',
+        name: doc.name || doc.fileName || 'Unnamed Document',
         filePath: doc.filePath,
         createdAt: doc.createdAt,
         size: doc.fileSize
