@@ -115,14 +115,53 @@ router.post('/validate-existing-excel/:fileId', isAuthenticated, async (req, res
 // Get existing Excel files
 router.get('/existing-excel', isAuthenticated, async (req, res) => {
   try {
+    console.log('🔍 [existing-excel] Starting request for user:', req.user.id);
     const userId = req.user.id;
     const { storage } = await import('../storage.js');
 
-    // Get documents that are Excel files
+    console.log('📦 [existing-excel] Storage imported successfully');
+    console.log('🔧 [existing-excel] Available storage methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(storage)));
+
+    // Check if the method exists
+    if (typeof storage.getDocumentsByUserId !== 'function') {
+      console.error('❌ [existing-excel] getDocumentsByUserId method not found');
+      
+      // Try alternative approach - get all documents and filter
+      console.log('🔄 [existing-excel] Trying alternative approach...');
+      const allDocuments = await storage.getDocuments(userId);
+      console.log(`📄 [existing-excel] Found ${allDocuments.length} total documents`);
+      
+      // Filter for Excel files manually
+      const excelFiles = allDocuments.filter(doc => {
+        const isExcel = doc.fileName && (
+          doc.fileName.toLowerCase().endsWith('.xlsx') || 
+          doc.fileName.toLowerCase().endsWith('.xls')
+        );
+        const isMimeExcel = doc.mimeType && (
+          doc.mimeType.includes('spreadsheet') ||
+          doc.mimeType.includes('excel')
+        );
+        return isExcel || isMimeExcel;
+      }).map(doc => ({
+        id: doc.id,
+        name: doc.name,
+        filePath: doc.filePath,
+        createdAt: doc.createdAt,
+        size: doc.fileSize
+      }));
+
+      console.log(`📊 [existing-excel] Found ${excelFiles.length} Excel files`);
+      return res.json(excelFiles);
+    }
+
+    // Try the original approach
+    console.log('🎯 [existing-excel] Calling getDocumentsByUserId...');
     const documents = await storage.getDocumentsByUserId(userId, {
       type: 'excel',
       extensions: ['xlsx', 'xls']
     });
+
+    console.log(`📊 [existing-excel] getDocumentsByUserId returned ${documents.length} documents`);
 
     const excelFiles = documents.map(doc => ({
       id: doc.id,
@@ -132,10 +171,20 @@ router.get('/existing-excel', isAuthenticated, async (req, res) => {
       size: doc.fileSize
     }));
 
+    console.log('✅ [existing-excel] Sending response with Excel files');
     res.json(excelFiles);
   } catch (error) {
-    console.error('Error fetching existing Excel files:', error);
-    res.status(500).json({ error: 'Failed to fetch Excel files' });
+    console.error('💥 [existing-excel] Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    
+    // Send proper JSON error response
+    res.status(500).json({ 
+      error: 'Failed to fetch Excel files',
+      details: error.message
+    });
   }
 });
 
