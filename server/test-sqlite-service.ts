@@ -148,10 +148,17 @@ async function testSQLiteCreation(excelFile: string) {
     };
     
     console.log('\n🔌 Testing database connection...');
+    console.log('Test connection object:', JSON.stringify(testConnection, null, 2));
+    
     const connectionTest = await databaseConnector.testConnection(testConnection);
+    console.log('Connection test result:', JSON.stringify(connectionTest, null, 2));
+    
+    if (!connectionTest) {
+      throw new Error('Database connection test returned undefined');
+    }
     
     if (!connectionTest.success) {
-      throw new Error(`Database connection test failed: ${connectionTest.error}`);
+      throw new Error(`Database connection test failed: ${connectionTest.error || connectionTest.message || 'Unknown error'}`);
     }
     
     console.log('✅ Database connection test passed');

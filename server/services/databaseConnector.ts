@@ -42,16 +42,29 @@ export class DatabaseConnector {
 
   async testConnection(connection: DatabaseConnection): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
+      let result: { success: boolean; message?: string; error?: string };
+      
       switch (connection.type) {
         case 'database':
-          return await this.testDatabaseConnection(connection);
+          result = await this.testDatabaseConnection(connection);
+          break;
         case 'api':
-          return await this.testApiConnection(connection);
+          result = await this.testApiConnection(connection);
+          break;
         case 'enterprise':
-          return await this.testEnterpriseConnection(connection);
+          result = await this.testEnterpriseConnection(connection);
+          break;
         default:
-          return { success: false, message: 'Unknown connection type' };
+          result = { success: false, message: 'Unknown connection type' };
       }
+      
+      // Ensure we never return undefined
+      if (!result) {
+        console.error('Connection test returned undefined result');
+        return { success: false, message: 'Connection test returned no result' };
+      }
+      
+      return result;
     } catch (error) {
       console.error('Connection test failed:', error);
       return { 
@@ -158,7 +171,7 @@ export class DatabaseConnector {
       }
 
       // Test actual SQLite connection
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         const db = new sqlite3.Database(connection.filePath!, sqlite3.OPEN_READONLY, (err: any) => {
           if (err) {
             resolve({ success: false, message: `SQLite connection failed: ${err.message}` });
@@ -166,9 +179,16 @@ export class DatabaseConnector {
           }
 
           db.get("SELECT sqlite_version() as version", (err: any, row: any) => {
-            db.close();
+            db.close((closeErr: any) => {
+              if (closeErr) {
+                console.warn('Warning: Failed to close SQLite database:', closeErr);
+              }
+            });
+            
             if (err) {
-              resolve({ success: false, message: `SQLite connection failed: ${err.message}` });
+              resolve({ success: false, message: `SQLite query failed: ${err.message}` });
+            } else if (!row || !row.version) {
+              resolve({ success: false, message: 'SQLite version query returned no data' });
             } else {
               resolve({ success: true, message: `Connected successfully to SQLite. Version: ${row.version}` });
             }
@@ -176,6 +196,7 @@ export class DatabaseConnector {
         });
       });
     } catch (error) {
+      console.error('SQLite connection test error:', error);
       return { 
         success: false, 
         message: `SQLite connection failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
