@@ -322,11 +322,11 @@ export default function DataConnections() {
     {
       id: 'sqlite',
       name: 'SQLite',
-      description: 'Lightweight, serverless SQL database engine',
+      description: 'Lightweight, serverless SQL database engine - Create from Excel files',
       icon: Database,
       color: 'bg-gray-500',
-      available: false,
-      comingSoon: true
+      available: true,
+      comingSoon: false
     },
     {
       id: 'elasticsearch',

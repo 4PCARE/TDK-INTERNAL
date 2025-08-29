@@ -1,5 +1,6 @@
 import { Pool as PgPool } from 'pg';
 import mysql from 'mysql2/promise';
+import sqlite3 from 'sqlite3';
 import jsforce from 'jsforce';
 import fetch from 'node-fetch';
 
@@ -70,6 +71,8 @@ export class DatabaseConnector {
           return await this.testPostgreSQLConnection(connection);
         case 'mysql':
           return await this.testMySQLConnection(connection);
+        case 'sqlite':
+          return await this.testSQLiteConnection(connection);
         case 'oracle':
           return await this.testOracleConnection(connection);
         default:
@@ -131,6 +134,46 @@ export class DatabaseConnector {
     } catch (error) {
       await mysqlConnection.end();
       throw error;
+    }
+  }
+
+  private async testSQLiteConnection(connection: DatabaseConnection): Promise<{ success: boolean; message: string }> {
+    if (!connection.filePath) {
+      return { success: false, message: 'SQLite file path is required' };
+    }
+
+    try {
+      // Check if file exists
+      const fs = require('fs');
+      if (!fs.existsSync(connection.filePath)) {
+        return { success: false, message: 'SQLite database file not found' };
+      }
+
+      // Test connection by opening database
+      const db = new sqlite3.Database(connection.filePath, sqlite3.OPEN_READONLY);
+      
+      return new Promise((resolve) => {
+        db.get('SELECT sqlite_version() as version', (err, row: any) => {
+          db.close();
+          
+          if (err) {
+            resolve({ 
+              success: false, 
+              message: `Failed to connect to SQLite database: ${err.message}` 
+            });
+          } else {
+            resolve({ 
+              success: true, 
+              message: `Connected successfully to SQLite database. Version: ${row.version}` 
+            });
+          }
+        });
+      });
+    } catch (error) {
+      return { 
+        success: false, 
+        message: `SQLite connection failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      };
     }
   }
 
