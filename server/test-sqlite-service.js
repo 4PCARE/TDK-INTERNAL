@@ -8,7 +8,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import XLSX from 'xlsx';
 import { sqliteService } from './services/sqliteService.ts';
-import { storage } from './storage.js';
+import { storage } from './storage.ts';
 
 const TEST_DIR = path.join(process.cwd(), 'test-files');
 
