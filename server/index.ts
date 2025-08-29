@@ -8,6 +8,7 @@ import debugRoutes from "./debug-routes";
 import debugChunkTest from "./debug-chunk-test";
 import { registerHrApiRoutes } from "./hrApi";
 import { setupVite, serveStatic, log } from "./vite";
+import { registerDatabaseAIRoutes } from "./routes/databaseAIRoutes";
 
 const app = express();
 

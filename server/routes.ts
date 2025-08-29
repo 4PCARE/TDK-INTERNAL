@@ -319,7 +319,7 @@ export async function registerRoutes(app: Express): Server {
     }
   });
 
-  
+
 
   // Get authentication methods available
   app.get("/api/auth/methods", async (req, res) => {
@@ -2674,7 +2674,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
   app.post("/api/chat/database", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { message, connectionId } = req.body;
+      const { message, connectionId, executeQuery = false } = req.body;
 
       if (!message || !connectionId) {
         return res
@@ -2682,51 +2682,67 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
           .json({ message: "Message and connection ID are required" });
       }
 
-      // Get database schema for context
-      const { databaseQueryService } = await import(
-        "./services/databaseQueryService"
-      );
-      const schema = await databaseQueryService.getDatabaseSchema(
-        connectionId,
-        userId,
-      );
+      if (executeQuery) {
+        // Use AI agent to generate and execute SQL
+        const { aiDatabaseAgent } = await import("./services/aiDatabaseAgent");
+        const result = await aiDatabaseAgent.generateSQL(
+          message,
+          connectionId,
+          userId,
+          50
+        );
 
-      if (!schema) {
-        return res
-          .status(404)
-          .json({ message: "Database connection not found" });
+        res.json({
+          response: result.explanation || 'Query executed successfully',
+          sql: result.sql,
+          data: result.data,
+          columns: result.columns,
+          success: result.success,
+          error: result.error,
+          executionTime: result.executionTime
+        });
+      } else {
+        // Use existing approach for conversational responses
+        const { databaseQueryService } = await import(
+          "./services/databaseQueryService"
+        );
+        const schema = await databaseQueryService.getDatabaseSchema(
+          connectionId,
+          userId,
+        );
+
+        if (!schema) {
+          return res
+            .status(404)
+            .json({ message: "Database connection not found" });
+        }
+
+        const suggestions = await databaseQueryService.suggestQueries(
+          connectionId,
+          userId,
+          message
+        );
+
+        const { generateDatabaseResponse } = await import("./services/openai");
+        const response = await generateDatabaseResponse(
+          message,
+          schema,
+          suggestions
+        );
+
+        res.json({ response });
       }
-
-      // Generate SQL query suggestions based on user question
-      const suggestions = await databaseQueryService.suggestQueries(
-        connectionId,
-        userId,
-      );
-
-      // Use OpenAI to generate a response and SQL query
-      const { generateDatabaseResponse } = await import("./services/openai");
-      const response = await generateDatabaseResponse(
-        message,
-        schema,
-        suggestions,
-      );
-
-      res.json({
-        response,
-        schema,
-        suggestions,
-      });
     } catch (error) {
-      console.error("Error processing database chat:", error);
-      res.status(500).json({ message: "Failed to process database chat" });
+      console.error("Error in database chat:", error);
+      res.status(500).json({ message: "Failed to process database query" });
     }
   });
 
-  
 
-  
 
-  
+
+
+
 
   // HR Employee management endpoints
   app.get("/api/hr-employees", isAuthenticated, async (req: any, res) => {
@@ -2801,7 +2817,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     }
   });
 
-  
+
   // Survey routes
   app.post("/api/survey/submit", isAuthenticated, async (req: any, res) => {
     try {
@@ -2863,7 +2879,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     }
   });
 
-  
+
 
   // Debug endpoint to test WebSocket broadcasting
   app.post('/api/debug/websocket-test', async (req: any, res) => {
@@ -3071,7 +3087,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
             'assistant', // role (must be 'assistant' to pass DB constraint, but message_type will be 'agent')
             message, // content
             'agent', // message_type (this distinguishes human agent from AI assistant)
-            JSON.JSON.stringify({
+            JSON.stringify({
               sentBy: req.user.claims.sub,
               humanAgent: true,
               humanAgentName: req.user.claims.first_name || req.user.claims.email || 'Human Agent'

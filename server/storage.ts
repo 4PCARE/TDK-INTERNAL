@@ -245,6 +245,16 @@ export interface IStorage {
     role: 'user' | 'assistant';
     content: string;
   }): Promise<InternalAgentChatMessage>;
+
+  // SQL Snippets Management
+  createSQLSnippet(snippet: { name: string; sql: string; description: string; connectionId: number; userId: string; embedding?: number[]; });
+  getSQLSnippets(connectionId: number, userId: string);
+  updateSQLSnippet(id: number, updates: Partial<{ name: string; sql: string; description: string; embedding: number[]; }>, userId: string);
+  deleteSQLSnippet(id: number, userId: string);
+
+  // AI Database Query History
+  saveAIDatabaseQuery(query: { userId: string; connectionId: number; userQuery: string; generatedSql?: string; executionResult?: any; success: boolean; executionTime?: number; });
+  getAIDatabaseQueryHistory(connectionId: number, userId: string, limit?: number);
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1481,12 +1491,12 @@ export class DatabaseStorage implements IStorage {
       return result[0]?.count || 0;
     } catch (error: any) {
       console.error("Error getting folder document count:", error);
-      
+
       // Check if it's a connection error and retry once
       if (error.code === '57P01' || error.code === 'ECONNRESET' || error.code === 'ENOTFOUND') {
         console.log("🔄 Retrying database connection for getFolderDocumentCount...");
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         try {
           const result = await db
             .select({ count: sql<number>`count(*)` })
@@ -1504,7 +1514,7 @@ export class DatabaseStorage implements IStorage {
           return 0; // Return 0 instead of throwing to prevent UI breakage
         }
       }
-      
+
       return 0; // Return 0 for any other errors to prevent UI breakage
     }
   }
@@ -2550,6 +2560,166 @@ export class DatabaseStorage implements IStorage {
           eq(internalAgentChatSessions.userId, userId)
         )
       );
+  }
+
+  // Helper method to check if user owns document
+  private async checkDocumentOwnership(documentId: number, userId: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .select()
+        .from(documents)
+        .where(and(eq(documents.id, documentId), eq(documents.userId, userId)))
+        .limit(1);
+
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error checking document ownership:', error);
+      return false;
+    }
+  }
+
+  // SQL Snippets Management
+  async createSQLSnippet(snippet: {
+    name: string;
+    sql: string;
+    description: string;
+    connectionId: number;
+    userId: string;
+    embedding?: number[];
+  }) {
+    const result = await this.db
+      .insert(sql.table("sql_snippets", {
+        id: sql.serial("id").primaryKey(),
+        name: sql.varchar("name", { length: 255 }).notNull(),
+        sql: sql.text("sql").notNull(),
+        description: sql.text("description").default(''),
+        connectionId: sql.integer("connection_id").notNull(),
+        userId: sql.varchar("user_id").notNull(),
+        embedding: sql.vector("embedding", { dimensions: 1536 }),
+        createdAt: sql.timestamp("created_at").defaultNow(),
+        updatedAt: sql.timestamp("updated_at").defaultNow(),
+      }))
+      .values({
+        name: snippet.name,
+        sql: snippet.sql,
+        description: snippet.description,
+        connectionId: snippet.connectionId,
+        userId: snippet.userId,
+        embedding: snippet.embedding ? JSON.stringify(snippet.embedding) : null,
+      })
+      .returning();
+
+    return result[0];
+  }
+
+  async getSQLSnippets(connectionId: number, userId: string) {
+    const result = await this.db
+      .select()
+      .from(sql.table("sql_snippets"))
+      .where(
+        sql.and(
+          sql.eq(sql.table("sql_snippets").connectionId, connectionId),
+          sql.eq(sql.table("sql_snippets").userId, userId)
+        )
+      )
+      .orderBy(sql.desc(sql.table("sql_snippets").updatedAt));
+
+    return result.map(row => ({
+      id: row.id,
+      name: row.name,
+      sql: row.sql,
+      description: row.description,
+      connectionId: row.connectionId,
+      userId: row.userId,
+      embedding: row.embedding ? JSON.parse(row.embedding) : null,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }));
+  }
+
+  async updateSQLSnippet(id: number, updates: Partial<{
+    name: string;
+    sql: string;
+    description: string;
+    embedding: number[];
+  }>, userId: string) {
+    const result = await this.db
+      .update(sql.table("sql_snippets"))
+      .set({
+        ...updates,
+        embedding: updates.embedding ? JSON.stringify(updates.embedding) : undefined,
+        updatedAt: new Date(),
+      })
+      .where(
+        sql.and(
+          sql.eq(sql.table("sql_snippets").id, id),
+          sql.eq(sql.table("sql_snippets").userId, userId)
+        )
+      )
+      .returning();
+
+    return result[0];
+  }
+
+  async deleteSQLSnippet(id: number, userId: string) {
+    await this.db
+      .delete(sql.table("sql_snippets"))
+      .where(
+        sql.and(
+          sql.eq(sql.table("sql_snippets").id, id),
+          sql.eq(sql.table("sql_snippets").userId, userId)
+        )
+      );
+  }
+
+  // AI Database Query History
+  async saveAIDatabaseQuery(query: {
+    userId: string;
+    connectionId: number;
+    userQuery: string;
+    generatedSql?: string;
+    executionResult?: any;
+    success: boolean;
+    executionTime?: number;
+  }) {
+    const result = await this.db
+      .insert(sql.table("ai_database_queries", {
+        id: sql.serial("id").primaryKey(),
+        userId: sql.varchar("user_id").notNull(),
+        connectionId: sql.integer("connection_id").notNull(),
+        userQuery: sql.text("user_query").notNull(),
+        generatedSql: sql.text("generated_sql"),
+        executionResult: sql.jsonb("execution_result"),
+        success: sql.boolean("success").default(false),
+        executionTime: sql.integer("execution_time"),
+        createdAt: sql.timestamp("created_at").defaultNow(),
+      }))
+      .values({
+        userId: query.userId,
+        connectionId: query.connectionId,
+        userQuery: query.userQuery,
+        generatedSql: query.generatedSql,
+        executionResult: query.executionResult,
+        success: query.success,
+        executionTime: query.executionTime,
+      })
+      .returning();
+
+    return result[0];
+  }
+
+  async getAIDatabaseQueryHistory(connectionId: number, userId: string, limit: number = 50) {
+    return await this.db
+      .select()
+      .from(sql.table("ai_database_queries"))
+      .where(
+        sql.and(
+          sql.eq(sql.table("ai_database_queries").connectionId, connectionId),
+          sql.eq(sql.table("ai_database_queries").userId, userId)
+        )
+      )
+      .orderBy(sql.desc(sql.table("ai_database_queries").createdAt))
+      .limit(limit);
   }
 }
 
