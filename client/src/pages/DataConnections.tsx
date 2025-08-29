@@ -374,6 +374,8 @@ export default function DataConnections() {
         if (!selectedExistingFile || !excelValidation?.isValid) {
           throw new Error('Please select and validate an existing Excel file first');
         }
+        // Corrected apiRequest call for existing file validation
+        return apiRequest('POST', '/api/sqlite/validate-existing-excel', selectedExistingFile.id.toString());
       } else {
         if (!selectedExcelFile || !excelValidation?.isValid) {
           throw new Error('Please select and validate an Excel file first');
