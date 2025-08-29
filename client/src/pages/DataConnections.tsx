@@ -2,6 +2,8 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
 import { 
   Plus, 
@@ -35,7 +37,7 @@ import DashboardLayout from "@/components/Layout/DashboardLayout";
 
 // ConnectionUrlDisplay component for showing connection URLs  
 function ConnectionUrlDisplay({ connectionId }: { connectionId: number }) {
-  const { toast } = useUseToast(); // Corrected hook name
+  const { toast } = useToast();
 
   const { data: connectionData } = useQuery({
     queryKey: [`/api/database-connections/${connectionId}/details`],
