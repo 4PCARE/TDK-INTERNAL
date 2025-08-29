@@ -338,39 +338,67 @@ export default function DataConnections() {
         description: "Please select an Excel file (.xlsx or .xls)",
         variant: "destructive",
       });
+      // Reset file input
+      if (excelFileInputRef.current) {
+        excelFileInputRef.current.value = '';
+      }
       return;
     }
 
+    // Reset states first
     setSelectedExcelFile(file);
     setUseExistingFile(false);
     setSelectedExistingFile(null);
-    setShowExcelForm(true); // Ensure the Excel form is visible
+    setExcelValidation(null);
+    setShowExcelForm(true);
 
     try {
+      // Add loading state
+      setExcelValidation({ isValid: false, errors: [], warnings: [], sheets: [] });
+      
       const formData = new FormData();
       formData.append('excel', file);
 
-      const response = await apiRequest('POST', '/api/sqlite/validate-excel', {
+      const response = await fetch('/api/sqlite/validate-excel', {
+        method: 'POST',
         body: formData,
+        credentials: 'include',
       });
 
-      setExcelValidation(response);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const validationResult = await response.json();
+      setExcelValidation(validationResult);
       
-      if (!response.isValid) {
+      if (!validationResult.isValid) {
         toast({
           title: "Validation Failed",
-          description: `Excel validation failed: ${response.errors?.join(', ') || 'Unknown error'}`,
+          description: `Excel validation failed: ${validationResult.errors?.join(', ') || 'Unknown error'}`,
           variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "File Validated",
+          description: "Excel file validated successfully!",
         });
       }
     } catch (error) {
       console.error('Excel validation failed:', error);
       toast({
         title: "Validation Error",
-        description: `Failed to validate Excel file: ${error.message}`,
+        description: `Failed to validate Excel file: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
       setExcelValidation(null);
+      setSelectedExcelFile(null);
+      setShowExcelForm(false);
+      // Reset file input
+      if (excelFileInputRef.current) {
+        excelFileInputRef.current.value = '';
+      }
     }
   };
 
@@ -393,8 +421,15 @@ export default function DataConnections() {
           throw new Error('Please select and validate an existing Excel file first');
         }
         // Validate existing file before creation
-        const validationResponse = await apiRequest('POST', `/api/sqlite/validate-existing-excel/${selectedExistingFile.id}`);
-        if (!validationResponse.isValid) {
+        const validationResponse = await fetch(`/api/sqlite/validate-existing-excel/${selectedExistingFile.id}`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (!validationResponse.ok) {
+          throw new Error('Failed to validate existing Excel file');
+        }
+        const validationResult = await validationResponse.json();
+        if (!validationResult.isValid) {
           throw new Error('Excel file validation failed');
         }
       } else {
@@ -417,10 +452,18 @@ export default function DataConnections() {
         formData.append('description', data.description);
       }
 
-      return apiRequest('/api/sqlite/create-sqlite', {
+      const response = await fetch('/api/sqlite/create-sqlite', {
         method: 'POST',
         body: formData,
+        credentials: 'include',
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      return await response.json();
     },
     onSuccess: () => {
       toast({
@@ -434,16 +477,22 @@ export default function DataConnections() {
       setUseExistingFile(false);
       setSqliteName('');
       setSqliteDescription('');
-      setShowExcelForm(false); // Hide the Excel form on success
+      setShowExcelForm(false);
+      setIsCreatingSQLite(false);
+      // Reset file input
+      if (excelFileInputRef.current) {
+        excelFileInputRef.current.value = '';
+      }
 
       // Refresh connections list
-      queryClient.invalidateQueries({ queryKey: ['database-connections'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/database-connections'] });
     },
     onError: (error: any) => {
       console.error('SQLite creation error:', error);
+      setIsCreatingSQLite(false);
       toast({
         title: "Error",
-        description: error.message || "Failed to create SQLite database",
+        description: error instanceof Error ? error.message : "Failed to create SQLite database",
         variant: "destructive",
       });
     },
@@ -1035,57 +1084,78 @@ export default function DataConnections() {
                       )}
                     </div>
 
-                    {(selectedExcelFile) && excelValidation && (
+                    {selectedExcelFile && (
                       <div className="space-y-2">
-                        <div className="text-sm">
-                          <strong>Validation Results:</strong>
-                          {excelValidation.isValid ? (
-                            <span className="text-green-600 ml-2">✓ Valid Excel file</span>
-                          ) : (
-                            <span className="text-red-600 ml-2">✗ Issues found</span>
-                          )}
-                        </div>
-                        {excelValidation.sheets.map(sheet => (
-                          <div key={sheet.name} className="text-xs bg-gray-50 p-2 rounded">
-                            <strong>{sheet.name}:</strong> {sheet.rowCount} rows, {sheet.columnCount} columns
-                            <br />Headers: {sheet.hasHeaders ? 'Yes' : 'No'}
-                            <br />Columns: {sheet.columns.join(', ')}
+                        {!excelValidation ? (
+                          <div className="text-sm text-blue-600">
+                            <strong>Validating Excel file...</strong>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 inline-block ml-2"></div>
                           </div>
-                        ))}
-                        {excelValidation.warnings.length > 0 && (
-                          <div className="text-xs text-yellow-600">
-                            <strong>Warnings:</strong>
-                            <ul className="list-disc list-inside">
-                              {excelValidation.warnings.map((warning, i) => (
-                                <li key={i}>{warning}</li>
-                              ))}
-                            </ul>
-                          </div>
+                        ) : (
+                          <>
+                            <div className="text-sm">
+                              <strong>Validation Results:</strong>
+                              {excelValidation.isValid ? (
+                                <span className="text-green-600 ml-2">✓ Valid Excel file</span>
+                              ) : (
+                                <span className="text-red-600 ml-2">✗ Issues found</span>
+                              )}
+                            </div>
+                          </>
                         )}
-                        {excelValidation.isValid && (
-                          <div className="space-y-2">
-                            <input
-                              type="text"
-                              placeholder="Database name (e.g., Sales Data)"
-                              value={sqliteName}
-                              onChange={(e) => setSqliteName(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                            />
-                            <textarea
-                              placeholder="Description (optional)"
-                              value={sqliteDescription}
-                              onChange={(e) => setSqliteDescription(e.target.value)}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                              rows={2}
-                            />
-                            <Button
-                              onClick={handleCreateSQLite}
-                              disabled={!sqliteName.trim() || isCreatingSQLite || !excelValidation.isValid}
-                              className="w-full"
-                            >
-                              {isCreatingSQLite ? 'Creating Database...' : 'Create SQLite Database'}
-                            </Button>
-                          </div>
+                        {excelValidation && (
+                        {excelValidation.sheets.map(sheet => (
+                              <div key={sheet.name} className="text-xs bg-gray-50 p-2 rounded">
+                                <strong>{sheet.name}:</strong> {sheet.rowCount} rows, {sheet.columnCount} columns
+                                <br />Headers: {sheet.hasHeaders ? 'Yes' : 'No'}
+                                <br />Columns: {sheet.columns.join(', ')}
+                              </div>
+                            ))}
+                            {excelValidation.warnings && excelValidation.warnings.length > 0 && (
+                              <div className="text-xs text-yellow-600">
+                                <strong>Warnings:</strong>
+                                <ul className="list-disc list-inside">
+                                  {excelValidation.warnings.map((warning, i) => (
+                                    <li key={i}>{warning}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {excelValidation.isValid && (
+                              <div className="space-y-2">
+                                <input
+                                  type="text"
+                                  placeholder="Database name (e.g., Sales Data)"
+                                  value={sqliteName}
+                                  onChange={(e) => setSqliteName(e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                  disabled={isCreatingSQLite}
+                                />
+                                <textarea
+                                  placeholder="Description (optional)"
+                                  value={sqliteDescription}
+                                  onChange={(e) => setSqliteDescription(e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                  rows={2}
+                                  disabled={isCreatingSQLite}
+                                />
+                                <Button
+                                  onClick={handleCreateSQLite}
+                                  disabled={!sqliteName.trim() || isCreatingSQLite || !excelValidation.isValid}
+                                  className="w-full"
+                                >
+                                  {isCreatingSQLite ? (
+                                    <>
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                      Creating Database...
+                                    </>
+                                  ) : (
+                                    'Create SQLite Database'
+                                  )}
+                                </Button>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     )}

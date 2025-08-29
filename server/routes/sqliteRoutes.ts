@@ -30,15 +30,44 @@ const upload = multer({
 // Validate Excel file
 router.post('/validate-excel', isAuthenticated, upload.single('excel'), async (req, res) => {
   try {
+    console.log('📊 [validate-excel] Starting validation...');
+    
     if (!req.file) {
-      return res.status(400).json({ error: 'No Excel file uploaded' });
+      console.error('❌ [validate-excel] No file uploaded');
+      return res.status(400).json({ 
+        error: 'No Excel file uploaded',
+        isValid: false,
+        errors: ['No file was uploaded'],
+        warnings: [],
+        sheets: []
+      });
     }
 
+    console.log(`📊 [validate-excel] Processing file: ${req.file.originalname}, size: ${req.file.size}`);
+    
     const validation = await sqliteService.validateExcelFile(req.file.path);
-    res.json(validation);
+    
+    console.log(`✅ [validate-excel] Validation completed. Valid: ${validation.isValid}`);
+    
+    // Ensure we always return a proper validation object
+    const response = {
+      isValid: validation.isValid || false,
+      errors: validation.errors || [],
+      warnings: validation.warnings || [],
+      sheets: validation.sheets || []
+    };
+    
+    res.json(response);
   } catch (error) {
-    console.error('Excel validation error:', error);
-    res.status(500).json({ error: 'Excel validation failed' });
+    console.error('💥 [validate-excel] Error:', error);
+    res.status(500).json({ 
+      error: 'Excel validation failed',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      isValid: false,
+      errors: ['Excel validation failed'],
+      warnings: [],
+      sheets: []
+    });
   }
 });
 
