@@ -18,7 +18,7 @@ import { registerDocumentRoutes } from "./routes/documentRoutes";
 import { registerWidgetRoutes } from "./routes/widgetRoutes";
 import { registerAnalyticRoutes } from "./routes/analyticRoutes";
 import { registerChatBotRoutes } from "./routes/chatBotRoutes";
-import sqliteRoutes from './routes/sqliteRoutes.js';
+import { sqliteRoutes } from './routes/sqliteRoutes.js';
 
 // Initialize OpenAI for CSAT analysis
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
