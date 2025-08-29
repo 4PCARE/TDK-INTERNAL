@@ -3,7 +3,7 @@
  * Simple test runner for SQLite service
  */
 
-import { runAllTests } from './server/test-sqlite-service.js';
+import { runAllTests } from './server/test-sqlite-service.ts';
 
 console.log('🧪 SQLite Service Test Runner');
 console.log('Testing Step 1: SQLite database creation from Excel');
