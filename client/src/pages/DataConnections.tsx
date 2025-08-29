@@ -1104,7 +1104,8 @@ export default function DataConnections() {
                           </>
                         )}
                         {excelValidation && (
-                        {excelValidation.sheets.map(sheet => (
+                          <>
+                            {excelValidation.sheets.map(sheet => (
                               <div key={sheet.name} className="text-xs bg-gray-50 p-2 rounded">
                                 <strong>{sheet.name}:</strong> {sheet.rowCount} rows, {sheet.columnCount} columns
                                 <br />Headers: {sheet.hasHeaders ? 'Yes' : 'No'}
@@ -1121,6 +1122,7 @@ export default function DataConnections() {
                                 </ul>
                               </div>
                             )}
+                          </>
                             {excelValidation.isValid && (
                               <div className="space-y-2">
                                 <input
