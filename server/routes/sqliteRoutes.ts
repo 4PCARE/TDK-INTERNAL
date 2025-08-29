@@ -120,6 +120,15 @@ router.get('/existing-excel', isAuthenticated, async (req, res) => {
 
     const { storage } = await import('../storage.js');
 
+    // Check if method exists
+    if (typeof storage.getDocumentsByUserId !== 'function') {
+      console.error('💥 [existing-excel] storage.getDocumentsByUserId method not found');
+      return res.status(500).json({ 
+        error: 'Storage method not available',
+        details: 'getDocumentsByUserId method is not implemented'
+      });
+    }
+
     // Get documents that are Excel files
     const documents = await storage.getDocumentsByUserId(userId, {
       type: 'excel',
@@ -130,25 +139,31 @@ router.get('/existing-excel', isAuthenticated, async (req, res) => {
 
     const excelFiles = documents.map(doc => ({
       id: doc.id,
-      name: doc.name,
+      name: doc.name || doc.originalName,
       filePath: doc.filePath,
       createdAt: doc.createdAt,
       size: doc.fileSize
     }));
 
-    console.log('✅ [existing-excel] Sending response with Excel files');
-    res.json(excelFiles);
+    console.log('✅ [existing-excel] Sending response with Excel files:', excelFiles.length);
+    
+    // Ensure we're sending JSON response
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).json(excelFiles);
   } catch (error) {
     console.error('💥 [existing-excel] Error details:', {
       message: error.message,
       stack: error.stack,
-      name: error.name
+      name: error.name,
+      userId: req.user?.id
     });
 
-    // Send proper JSON error response
+    // Ensure we're sending JSON error response
+    res.setHeader('Content-Type', 'application/json');
     res.status(500).json({ 
       error: 'Failed to fetch Excel files',
-      details: error.message
+      details: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 });

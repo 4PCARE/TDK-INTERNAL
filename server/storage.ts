@@ -1489,12 +1489,12 @@ export class DatabaseStorage implements IStorage {
       return result[0]?.count || 0;
     } catch (error: any) {
       console.error("Error getting folder document count:", error);
-      
+
       // Check if it's a connection error and retry once
       if (error.code === '57P01' || error.code === 'ECONNRESET' || error.code === 'ENOTFOUND') {
         console.log("🔄 Retrying database connection for getFolderDocumentCount...");
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         try {
           const result = await db
             .select({ count: sql<number>`count(*)` })
@@ -1512,7 +1512,7 @@ export class DatabaseStorage implements IStorage {
           return 0; // Return 0 instead of throwing to prevent UI breakage
         }
       }
-      
+
       return 0; // Return 0 for any other errors to prevent UI breakage
     }
   }
@@ -2585,12 +2585,12 @@ export class DatabaseStorage implements IStorage {
       if (options.extensions && options.extensions.length > 0) {
         filteredDocuments = filteredDocuments.filter(doc => {
           if (!doc.fileName) return false;
-          
+
           const fileExtension = doc.fileName.toLowerCase().split('.').pop();
           const isMatchingExtension = options.extensions!.some(ext => 
             fileExtension === ext.toLowerCase()
           );
-          
+
           // Also check MIME type for additional filtering
           const isMimeMatch = doc.mimeType && (
             doc.mimeType.includes('spreadsheet') ||
@@ -2598,7 +2598,7 @@ export class DatabaseStorage implements IStorage {
             doc.mimeType.includes('vnd.openxmlformats-officedocument.spreadsheetml') ||
             doc.mimeType.includes('vnd.ms-excel')
           );
-          
+
           return isMatchingExtension || isMimeMatch;
         });
       }
