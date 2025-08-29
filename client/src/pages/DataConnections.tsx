@@ -1122,9 +1122,14 @@ export default function DataConnections() {
                                 </ul>
                               </div>
                             )}
-                          </>
+                          ))}
                             {excelValidation.isValid && (
-                              <div className="space-y-2">
+                              <div className="space-y-2"></div>
+                            )}
+                          </>
+                        )}
+                        {excelValidation?.isValid && (
+                          <div className="space-y-2">
                                 <input
                                   type="text"
                                   placeholder="Database name (e.g., Sales Data)"
@@ -1156,8 +1161,7 @@ export default function DataConnections() {
                                   )}
                                 </Button>
                               </div>
-                            )}
-                          </>
+                            )
                         )}
                       </div>
                     )}
