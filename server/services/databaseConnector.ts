@@ -61,8 +61,15 @@ export class DatabaseConnector {
   }
 
   private async testDatabaseConnection(connection: DatabaseConnection): Promise<{ success: boolean; message: string }> {
-    if (!connection.host || !connection.username || !connection.password) {
-      return { success: false, message: 'Missing required database connection parameters' };
+    // SQLite has different requirements than other databases
+    if (connection.dbType === 'sqlite') {
+      if (!connection.filePath) {
+        return { success: false, message: 'SQLite file path is required' };
+      }
+    } else {
+      if (!connection.host || !connection.username || !connection.password) {
+        return { success: false, message: 'Missing required database connection parameters' };
+      }
     }
 
     try {
