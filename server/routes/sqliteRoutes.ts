@@ -114,14 +114,15 @@ router.post('/validate-existing-excel/:fileId', isAuthenticated, async (req, res
 
 // Get existing Excel files
 router.get('/existing-excel', isAuthenticated, async (req, res) => {
-  // Ensure JSON response from the start
-  res.setHeader('Content-Type', 'application/json');
-  
   try {
-    const userId = req.user.claims?.sub || req.user.id;
+    // Set JSON headers immediately
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-cache');
+    
+    // Simplified user ID extraction
+    const userId = req.user?.id || req.user?.claims?.sub;
     
     console.log(`🔍 [existing-excel] Request received for user: ${userId}`);
-    console.log(`🔍 [existing-excel] User object:`, JSON.stringify(req.user, null, 2));
     
     if (!userId) {
       console.error('💥 [existing-excel] No user ID found in request');
@@ -135,74 +136,37 @@ router.get('/existing-excel', isAuthenticated, async (req, res) => {
 
     const { storage } = await import('../storage.js');
 
-    // Get documents with fallback approach
-    let documents;
+    // Always use the simple approach - get all documents and filter
+    const allDocs = await storage.getDocuments(userId);
+    console.log(`📋 [existing-excel] Retrieved ${allDocs?.length || 0} total documents`);
     
-    if (typeof storage.getDocumentsByUserId === 'function') {
-      try {
-        console.log(`📋 [existing-excel] Using getDocumentsByUserId method`);
-        documents = await storage.getDocumentsByUserId(userId, {
-          type: 'excel',
-          extensions: ['xlsx', 'xls']
-        });
-        console.log(`📋 [existing-excel] getDocumentsByUserId returned ${documents?.length || 0} documents`);
-      } catch (error) {
-        console.warn('💥 [existing-excel] getDocumentsByUserId failed, falling back to getDocuments:', error.message);
-        // Fallback to getting all documents and filtering
-        const allDocs = await storage.getDocuments(userId);
-        console.log(`📋 [existing-excel] getDocuments returned ${allDocs?.length || 0} documents`);
-        
-        documents = allDocs.filter(doc => {
-          const fileName = doc.fileName || doc.originalName || '';
-          const mimeType = doc.mimeType || '';
-          return fileName.toLowerCase().endsWith('.xlsx') || 
-                 fileName.toLowerCase().endsWith('.xls') ||
-                 mimeType.includes('spreadsheet') ||
-                 mimeType.includes('excel');
-        });
-        console.log(`📋 [existing-excel] Filtered to ${documents?.length || 0} Excel files`);
-      }
-    } else {
-      console.warn('💥 [existing-excel] getDocumentsByUserId method not found, using fallback');
-      // Fallback to getting all documents and filtering
-      const allDocs = await storage.getDocuments(userId);
-      console.log(`📋 [existing-excel] getDocuments returned ${allDocs?.length || 0} documents`);
-      
-      documents = allDocs.filter(doc => {
-        const fileName = doc.fileName || doc.originalName || '';
-        const mimeType = doc.mimeType || '';
-        return fileName.toLowerCase().endsWith('.xlsx') || 
-               fileName.toLowerCase().endsWith('.xls') ||
+    const excelFiles = (allDocs || [])
+      .filter(doc => {
+        const fileName = (doc.fileName || doc.originalName || '').toLowerCase();
+        const mimeType = (doc.mimeType || '').toLowerCase();
+        return fileName.endsWith('.xlsx') || 
+               fileName.endsWith('.xls') ||
                mimeType.includes('spreadsheet') ||
                mimeType.includes('excel');
-      });
-      console.log(`📋 [existing-excel] Filtered to ${documents?.length || 0} Excel files`);
-    }
+      })
+      .map(doc => ({
+        id: doc.id,
+        name: doc.name || doc.originalName || 'Unnamed Document',
+        filePath: doc.filePath,
+        createdAt: doc.createdAt,
+        size: doc.fileSize
+      }));
 
-    console.log(`📊 [existing-excel] Found ${documents?.length || 0} Excel files`);
-
-    const excelFiles = (documents || []).map(doc => ({
-      id: doc.id,
-      name: doc.name || doc.originalName || 'Unnamed Document',
-      filePath: doc.filePath,
-      createdAt: doc.createdAt,
-      size: doc.fileSize
-    }));
-
-    console.log('✅ [existing-excel] Sending JSON response with Excel files:', excelFiles.length);
+    console.log(`📊 [existing-excel] Found ${excelFiles.length} Excel files`);
+    console.log('✅ [existing-excel] Sending JSON response');
     
-    return res.status(200).json(excelFiles);
+    res.status(200).json(excelFiles);
     
   } catch (error) {
-    console.error('💥 [existing-excel] Error details:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-      userId: req.user?.id,
-      userObject: req.user
-    });
-
-    return res.status(500).json({ 
+    console.error('💥 [existing-excel] Error:', error.message);
+    
+    // Ensure we always send JSON even on error
+    res.status(500).json({ 
       error: 'Failed to fetch Excel files',
       details: error.message,
       timestamp: new Date().toISOString()
