@@ -1,12 +1,15 @@
 
-/**
- * Simple test runner for SQLite service
- */
-
 import { runAllTests } from './server/test-sqlite-service.js';
 
-console.log('🧪 SQLite Service Test Runner');
-console.log('Testing Step 1: SQLite database creation from Excel');
-console.log('This will test Excel validation, SQLite creation, and safety checks\n');
+async function main() {
+  try {
+    await runAllTests();
+    console.log('🎉 All SQLite tests completed successfully!');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Test suite failed:', error);
+    process.exit(1);
+  }
+}
 
-runAllTests().catch(console.error);
+main();
