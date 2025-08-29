@@ -245,6 +245,14 @@ export interface IStorage {
     role: 'user' | 'assistant';
     content: string;
   }): Promise<InternalAgentChatMessage>;
+
+  // Document filtering operations
+  getDocumentsByUserId(userId: string, options?: {
+    type?: string;
+    extensions?: string[];
+    limit?: number;
+    offset?: number;
+  }): Promise<Document[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2550,6 +2558,83 @@ export class DatabaseStorage implements IStorage {
           eq(internalAgentChatSessions.userId, userId)
         )
       );
+  }
+
+  // Document filtering method for SQLite service
+  async getDocumentsByUserId(userId: string, options?: {
+    type?: string;
+    extensions?: string[];
+    limit?: number;
+    offset?: number;
+  }): Promise<Document[]> {
+    console.log(`📄 getDocumentsByUserId called - userId: ${userId}, options:`, options);
+
+    try {
+      // Get all documents for the user
+      const allDocuments = await this.getDocuments(userId);
+      console.log(`📊 Found ${allDocuments.length} total documents for user`);
+
+      // If no filtering options provided, return all documents
+      if (!options) {
+        return allDocuments;
+      }
+
+      let filteredDocuments = allDocuments;
+
+      // Filter by file extensions (for Excel files)
+      if (options.extensions && options.extensions.length > 0) {
+        filteredDocuments = filteredDocuments.filter(doc => {
+          if (!doc.fileName) return false;
+          
+          const fileExtension = doc.fileName.toLowerCase().split('.').pop();
+          const isMatchingExtension = options.extensions!.some(ext => 
+            fileExtension === ext.toLowerCase()
+          );
+          
+          // Also check MIME type for additional filtering
+          const isMimeMatch = doc.mimeType && (
+            doc.mimeType.includes('spreadsheet') ||
+            doc.mimeType.includes('excel') ||
+            doc.mimeType.includes('vnd.openxmlformats-officedocument.spreadsheetml') ||
+            doc.mimeType.includes('vnd.ms-excel')
+          );
+          
+          return isMatchingExtension || isMimeMatch;
+        });
+      }
+
+      // Filter by type (generic type filtering)
+      if (options.type) {
+        if (options.type === 'excel') {
+          filteredDocuments = filteredDocuments.filter(doc => {
+            const isExcelFile = doc.fileName && (
+              doc.fileName.toLowerCase().endsWith('.xlsx') || 
+              doc.fileName.toLowerCase().endsWith('.xls')
+            );
+            const isExcelMime = doc.mimeType && (
+              doc.mimeType.includes('spreadsheet') ||
+              doc.mimeType.includes('excel') ||
+              doc.mimeType.includes('vnd.openxmlformats-officedocument.spreadsheetml') ||
+              doc.mimeType.includes('vnd.ms-excel')
+            );
+            return isExcelFile || isExcelMime;
+          });
+        }
+      }
+
+      console.log(`📊 After filtering: ${filteredDocuments.length} documents match criteria`);
+
+      // Apply pagination if specified
+      if (options.limit !== undefined) {
+        const offset = options.offset || 0;
+        filteredDocuments = filteredDocuments.slice(offset, offset + options.limit);
+      }
+
+      return filteredDocuments;
+    } catch (error) {
+      console.error('Error in getDocumentsByUserId:', error);
+      throw error;
+    }
   }
 }
 
