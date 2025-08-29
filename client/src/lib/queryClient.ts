@@ -43,10 +43,90 @@ export const getQueryFn: <T>(options: {
     return await res.json();
   };
 
+// Mock implementations for analyzeErrorResponse and debugHtmlError for demonstration
+// In a real scenario, these would be imported from './errorUtils'
+const analyzeErrorResponse = (res: Response, htmlContent: string) => {
+  // Basic parsing of HTML for a simplified error message
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlContent, 'text/html');
+  const titleElement = doc.querySelector('title');
+  const bodyElement = doc.querySelector('body');
+
+  let errorMessage = `An unexpected HTML error occurred. Status: ${res.status}`;
+  if (titleElement && titleElement.textContent) {
+    errorMessage = titleElement.textContent.trim();
+  } else if (bodyElement && bodyElement.textContent) {
+    // Fallback to body text if no title
+    errorMessage = bodyElement.textContent.trim().split('\n')[0]; // Take the first line
+  }
+  return { errorMessage, htmlContent };
+};
+
+const debugHtmlError = (htmlContent: string, url: string) => {
+  console.log(`Opening HTML error for URL: ${url} in a new tab.`);
+  const newTab = window.open('', '_blank');
+  if (newTab) {
+    newTab.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>HTML Error Debug</title>
+        <style>
+          body { font-family: sans-serif; margin: 20px; }
+          pre { background-color: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        </style>
+      </head>
+      <body>
+        <h1>HTML Error Response</h1>
+        <p><strong>URL:</strong> ${url}</p>
+        <p><strong>Content:</strong></p>
+        <pre><code>${htmlContent}</code></pre>
+      </body>
+      </html>
+    `);
+    newTab.document.close();
+  } else {
+    console.error('Failed to open new tab for debugging. Please allow pop-ups.');
+  }
+};
+
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
+      queryFn: async ({ queryKey }) => {
+        const res = await fetch(queryKey[0] as string, {
+          credentials: "include",
+        });
+
+        if (!res.ok) {
+          const contentType = res.headers.get('content-type') || '';
+
+          if (contentType.includes('text/html')) {
+            const htmlContent = await res.text();
+            // Assuming analyzeErrorResponse and debugHtmlError are available in the scope or imported
+            const analysis = analyzeErrorResponse(res, htmlContent);
+
+            // Log detailed error analysis
+            console.error('🚨 HTML Error Response Detected:', {
+              url: queryKey[0],
+              status: res.status,
+              analysis
+            });
+
+            // Open debug window in development
+            if (process.env.NODE_ENV === 'development') {
+              debugHtmlError(htmlContent, queryKey[0] as string);
+            }
+
+            throw new Error(`${analysis.errorMessage} (Status: ${res.status})`);
+          }
+
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        return await res.json();
+      },
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: 2 * 60 * 1000, // 2 minutes default instead of Infinity
