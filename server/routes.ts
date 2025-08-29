@@ -168,8 +168,7 @@ export async function registerRoutes(app: Express): Server {
     res.sendFile(path.join(process.cwd(), "test-frontend-excel-endpoint.html"));
   });
 
-  // Catch-all handler for client-side routing
-  app.get("*", vitePluginServe);
+  // Catch-all handler for client-side routing will be handled by vite setup in index.ts
 
 
   // Audit & Monitoring routes
