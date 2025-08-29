@@ -3,6 +3,7 @@ import mysql from 'mysql2/promise';
 import sqlite3 from 'sqlite3';
 import jsforce from 'jsforce';
 import fetch from 'node-fetch';
+import fs from 'fs';
 
 // Oracle DB is optional - only use if available
 let oracledb: any = null;
@@ -165,7 +166,6 @@ export class DatabaseConnector {
 
     try {
       // Check if file exists
-      const fs = require('fs');
       if (!fs.existsSync(connection.filePath)) {
         return { success: false, message: 'SQLite database file not found' };
       }
