@@ -5,9 +5,9 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
-import { 
-  Plus, 
-  Settings, 
+import {
+  Plus,
+  Settings,
   Database,
   Check,
   X,
@@ -35,7 +35,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
 
-// ConnectionUrlDisplay component for showing connection URLs  
+// ConnectionUrlDisplay component for showing connection URLs
 function ConnectionUrlDisplay({ connectionId }: { connectionId: number }) {
   const { toast } = useToast();
 
@@ -360,30 +360,12 @@ export default function DataConnections() {
     setSelectedExistingFile(file);
     setUseExistingFile(true);
     setSelectedExcelFile(null);
-    setShowExcelForm(true); // Ensure the Excel form is visible
+    setExcelValidation(null);
+  };
 
-    try {
-      // Validate the existing file by creating a form with the file path
-      const formData = new FormData();
-      // We'll need to modify the validation endpoint to accept file ID
-      const response = await fetch(`/api/sqlite/validate-existing-excel/${file.id}`, {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error('Validation failed');
-      }
-
-      const validation = await response.json();
-      setExcelValidation(validation);
-    } catch (error) {
-      console.error('Excel validation failed:', error);
-      toast({
-        title: "Validation Error",
-        description: "Failed to validate existing Excel file",
-        variant: "destructive",
-      });
-    }
+  const clearExistingFileSelection = () => {
+    setSelectedExistingFile(null);
+    setUseExistingFile(false);
   };
 
   const createSQLiteMutation = useMutation({
@@ -560,6 +542,19 @@ export default function DataConnections() {
   const [sqliteName, setSqliteName] = useState('');
   const [sqliteDescription, setSqliteDescription] = useState('');
 
+  const handleExcelFileSelect = (file: File) => {
+    setSelectedExcelFile(file);
+    setExcelValidation(null);
+  };
+
+  const clearExcelSelection = () => {
+    setSelectedExcelFile(null);
+    setExcelValidation(null);
+    if (excelFileInputRef.current) {
+      excelFileInputRef.current.value = '';
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -642,7 +637,7 @@ export default function DataConnections() {
                             </div>
                           ))}
                           {existingConnections.length > 2 && (
-                            <button 
+                            <button
                               className="text-xs text-blue-600 hover:text-blue-800 text-center w-full py-1 hover:underline"
                               onClick={() => handleManageConnections(dbType.id)}
                             >
@@ -973,7 +968,7 @@ export default function DataConnections() {
                       </div>
                     ))}
                     {sqliteConnections.length > 2 && (
-                      <button 
+                      <button
                         className="text-xs text-blue-600 hover:text-blue-800 text-center w-full py-1 hover:underline"
                         onClick={() => handleManageConnections('sqlite')}
                       >
@@ -991,7 +986,7 @@ export default function DataConnections() {
                       <h3 className="text-lg font-semibold">Create SQLite from Excel</h3>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Upload an Excel file or select an existing one to automatically create a SQLite database.
+                      Upload an Excel file to automatically create a SQLite database.
                     </p>
                     <div className="flex items-center space-x-4">
                       <input
@@ -1017,35 +1012,7 @@ export default function DataConnections() {
                       )}
                     </div>
 
-                    <div className="flex items-center space-x-4 py-2">
-                      <span className="text-sm text-muted-foreground">Or select an existing file:</span>
-                      <Select onValueChange={(value) => {
-                        const selectedFile = existingExcelFiles.find(f => f.id.toString() === value);
-                        if (selectedFile) {
-                          handleExistingFileSelect(selectedFile);
-                        }
-                      }} 
-                      disabled={isCreatingSQLite || !!selectedExcelFile}
-                      value={selectedExistingFile?.id?.toString() || ''}>
-                        <SelectTrigger className="w-[280px]">
-                          <SelectValue placeholder="Select an existing Excel file" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {existingExcelFiles.map((file) => (
-                            <SelectItem key={file.id} value={file.id.toString()}>
-                              {file.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {selectedExistingFile && (
-                        <span className="text-sm text-muted-foreground">
-                          Selected: {selectedExistingFile.name}
-                        </span>
-                      )}
-                    </div>
-
-                    {(selectedExcelFile || selectedExistingFile) && excelValidation && (
+                    {(selectedExcelFile) && excelValidation && (
                       <div className="space-y-2">
                         <div className="text-sm">
                           <strong>Validation Results:</strong>
