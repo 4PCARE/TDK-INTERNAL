@@ -119,8 +119,8 @@ router.get('/existing-excel', isAuthenticated, async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-cache');
     
-    // Simplified user ID extraction
-    const userId = req.user?.id || req.user?.claims?.sub;
+    // Extract user ID from claims structure
+    const userId = req.user?.claims?.sub;
     
     console.log(`🔍 [existing-excel] Request received for user: ${userId}`);
     
