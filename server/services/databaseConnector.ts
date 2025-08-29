@@ -157,17 +157,21 @@ export class DatabaseConnector {
       }
 
       // Test actual SQLite connection
-      const sqlite3 = require('sqlite3');
-      const db = new sqlite3.Database(connection.filePath, sqlite3.OPEN_READONLY);
-      
       return new Promise((resolve) => {
-        db.get("SELECT sqlite_version() as version", (err: any, row: any) => {
-          db.close();
+        const db = new sqlite3.Database(connection.filePath, sqlite3.OPEN_READONLY, (err: any) => {
           if (err) {
             resolve({ success: false, message: `SQLite connection failed: ${err.message}` });
-          } else {
-            resolve({ success: true, message: `Connected successfully to SQLite. Version: ${row.version}` });
+            return;
           }
+          
+          db.get("SELECT sqlite_version() as version", (err: any, row: any) => {
+            db.close();
+            if (err) {
+              resolve({ success: false, message: `SQLite connection failed: ${err.message}` });
+            } else {
+              resolve({ success: true, message: `Connected successfully to SQLite. Version: ${row.version}` });
+            }
+          });
         });
       });
     } catch (error) {
@@ -363,17 +367,52 @@ export class DatabaseConnector {
     }
   }
 
-  async executeQuery(connectionId: number, query: string): Promise<QueryResult> {
-    // Implementation for executing queries on established connections
-    // This would be used by the AI assistant to query data
+  async executeQuery(connectionOrId: DatabaseConnection | number, query: string): Promise<QueryResult> {
     try {
-      // Get connection from storage and execute query
-      // Return formatted results
+      let connection: DatabaseConnection;
+      
+      if (typeof connectionOrId === 'number') {
+        // Get connection from storage by ID
+        // This would be implemented when we have storage integration
+        return {
+          success: false,
+          error: 'Connection lookup by ID not implemented yet'
+        };
+      } else {
+        connection = connectionOrId;
+      }
+
+      // Handle SQLite queries
+      if (connection.dbType === 'sqlite' && connection.filePath) {
+        return new Promise((resolve) => {
+          const db = new sqlite3.Database(connection.filePath!, sqlite3.OPEN_READONLY, (err: any) => {
+            if (err) {
+              resolve({ success: false, error: `SQLite connection failed: ${err.message}` });
+              return;
+            }
+            
+            db.all(query, (err: any, rows: any[]) => {
+              db.close();
+              if (err) {
+                resolve({ success: false, error: `Query failed: ${err.message}` });
+              } else {
+                const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+                resolve({
+                  success: true,
+                  data: rows,
+                  columns,
+                  rowCount: rows.length
+                });
+              }
+            });
+          });
+        });
+      }
+
+      // Other database types would be implemented here
       return {
-        success: true,
-        data: [],
-        columns: [],
-        rowCount: 0
+        success: false,
+        error: `Unsupported database type: ${connection.dbType}`
       };
     } catch (error) {
       return {
