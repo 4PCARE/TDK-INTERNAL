@@ -176,33 +176,6 @@ export class DatabaseConnector {
         message: `SQLite connection failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
       };
     }
-
-      // Test connection by opening database
-      const db = new sqlite3.Database(connection.filePath, sqlite3.OPEN_READONLY);
-      
-      return new Promise((resolve) => {
-        db.get('SELECT sqlite_version() as version', (err, row: any) => {
-          db.close();
-          
-          if (err) {
-            resolve({ 
-              success: false, 
-              message: `Failed to connect to SQLite database: ${err.message}` 
-            });
-          } else {
-            resolve({ 
-              success: true, 
-              message: `Connected successfully to SQLite database. Version: ${row.version}` 
-            });
-          }
-        });
-      });
-    } catch (error) {
-      return { 
-        success: false, 
-        message: `SQLite connection failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
-      };
-    }
   }
 
   private async testOracleConnection(connection: DatabaseConnection): Promise<{ success: boolean; message: string }> {
