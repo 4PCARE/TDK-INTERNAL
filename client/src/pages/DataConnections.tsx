@@ -159,11 +159,64 @@ export default function DataConnections() {
   const [selectedExistingFile, setSelectedExistingFile] = useState<any>(null);
   const excelFileInputRef = useRef<HTMLInputElement>(null);
 
+  // State for showing/hiding Excel form
+  const [showExcelForm, setShowExcelForm] = useState(false);
+  const [existingExcelFiles, setExistingExcelFiles] = useState<any[]>([]);
+  const [loadingExcelFiles, setLoadingExcelFiles] = useState(false);
+
   // Query for existing Excel files
-  const { data: existingExcelFiles = [] } = useQuery({
-    queryKey: ["/api/sqlite/existing-excel"],
-    enabled: isAuthenticated,
-  }) as { data: any[] };
+  useEffect(() => {
+    if (showExcelForm) {
+      fetchExistingExcelFiles();
+    }
+  }, [showExcelForm]);
+
+  const fetchExistingExcelFiles = async () => {
+    try {
+      setLoadingExcelFiles(true);
+      console.log('🔍 Fetching existing Excel files...');
+
+      const response = await fetch('/api/sqlite/existing-excel', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for authentication
+      });
+
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Non-OK response:', errorText.substring(0, 500));
+        throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
+      }
+
+      // Check if response is actually JSON
+      const contentType = response.headers.get('content-type');
+      console.log('📄 Content-Type:', contentType);
+
+      if (!contentType || !contentType.includes('application/json')) {
+        const responseText = await response.text();
+        console.error('❌ Expected JSON but got:', responseText.substring(0, 500));
+        throw new Error(`Expected JSON response but got ${contentType}`);
+      }
+
+      const files = await response.json();
+      console.log('✅ Successfully fetched Excel files:', files);
+      setExistingExcelFiles(files);
+    } catch (error) {
+      console.error('💥 Failed to fetch existing Excel files:', error);
+      toast({
+        title: "Error",
+        description: `Failed to load existing Excel files: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingExcelFiles(false);
+    }
+  };
 
   // Fetch database connections
   const { data: connections = [], isLoading: connectionsLoading } = useQuery({
@@ -281,6 +334,7 @@ export default function DataConnections() {
     setSelectedExcelFile(file);
     setUseExistingFile(false);
     setSelectedExistingFile(null);
+    setShowExcelForm(true); // Ensure the Excel form is visible
 
     try {
       const formData = new FormData();
@@ -306,6 +360,7 @@ export default function DataConnections() {
     setSelectedExistingFile(file);
     setUseExistingFile(true);
     setSelectedExcelFile(null);
+    setShowExcelForm(true); // Ensure the Excel form is visible
 
     try {
       // Validate the existing file by creating a form with the file path
@@ -374,6 +429,7 @@ export default function DataConnections() {
       setUseExistingFile(false);
       setSqliteName('');
       setSqliteDescription('');
+      setShowExcelForm(false); // Hide the Excel form on success
 
       // Refresh connections list
       queryClient.invalidateQueries({ queryKey: ['database-connections'] });
@@ -397,8 +453,11 @@ export default function DataConnections() {
     }
 
     setIsCreatingSQLite(true);
-    createSQLiteMutation.mutate({ name: sqliteName, description: sqliteDescription });
-    setIsCreatingSQLite(false); // This will be reset in onSuccess/onError of the mutation
+    try {
+      await createSQLiteMutation.mutateAsync({ name: sqliteName, description: sqliteDescription });
+    } finally {
+      setIsCreatingSQLite(false);
+    }
   };
 
   const handleTestConnection = (connection: DatabaseConnection) => {
