@@ -7,7 +7,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import XLSX from 'xlsx';
-import { sqliteService } from './services/sqliteService.js';
+import { sqliteService } from './services/sqliteService.ts';
 import { storage } from './storage.js';
 
 const TEST_DIR = path.join(process.cwd(), 'test-files');
@@ -304,7 +304,7 @@ async function testDatabaseConnector() {
 
   if (creation.success && creation.sqliteFilePath) {
     // Test database connector
-    const { databaseConnector } = await import('./services/databaseConnector.js');
+    const { databaseConnector } = await import('./services/databaseConnector.ts');
     
     const testConnection = {
       id: 999,
