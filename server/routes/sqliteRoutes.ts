@@ -3,7 +3,7 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import { sqliteService } from '../services/sqliteService.js';
-import { authenticateUser } from '../replitAuth.js';
+import { isAuthenticated } from '../replitAuth.js';
 
 const router = express.Router();
 
@@ -29,7 +29,7 @@ const upload = multer({
 });
 
 // Validate Excel file
-router.post('/validate-excel', authenticateUser, upload.single('excel'), async (req, res) => {
+router.post('/validate-excel', isAuthenticated, upload.single('excel'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No Excel file uploaded' });
@@ -44,7 +44,7 @@ router.post('/validate-excel', authenticateUser, upload.single('excel'), async (
 });
 
 // Create SQLite database from Excel
-router.post('/create-sqlite', authenticateUser, upload.single('excel'), async (req, res) => {
+router.post('/create-sqlite', isAuthenticated, upload.single('excel'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No Excel file uploaded' });
