@@ -1,4 +1,3 @@
-
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
@@ -17,7 +16,7 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
     if (file.mimetype.includes('spreadsheet') || file.originalname.match(/\.(xlsx|xls)$/)) {
@@ -74,4 +73,25 @@ router.post('/create-sqlite', isAuthenticated, upload.single('excel'), async (re
   }
 });
 
-export default router;
+// Validate existing Excel file
+router.post('/validate-existing-excel/:fileId', isAuthenticated, async (req, res) => {
+  try {
+    const fileId = parseInt(req.params.fileId);
+    const userId = req.user.claims.sub;
+    const { storage } = await import('../storage.js');
+
+    const document = await storage.getDocument(fileId, userId);
+
+    if (!document) {
+      return res.status(404).json({ error: 'Excel file not found' });
+    }
+
+    const validation = await sqliteService.validateExcelFile(document.filePath);
+    res.json(validation);
+  } catch (error) {
+    console.error('Excel validation error:', error);
+    res.status(500).json({ error: 'Excel validation failed' });
+  }
+});
+
+export { router as sqliteRoutes };

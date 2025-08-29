@@ -154,10 +154,16 @@ export default function DataConnections() {
   // SQLite creation state
   const [selectedExcelFile, setSelectedExcelFile] = useState<File | null>(null);
   const [excelValidation, setExcelValidation] = useState<any>(null);
-  const [sqliteName, setSqliteName] = useState('');
-  const [sqliteDescription, setSqliteDescription] = useState('');
   const [isCreatingSQLite, setIsCreatingSQLite] = useState(false);
+  const [useExistingFile, setUseExistingFile] = useState(false);
+  const [selectedExistingFile, setSelectedExistingFile] = useState<any>(null);
   const excelFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Query for existing Excel files
+  const { data: existingExcelFiles = [] } = useQuery({
+    queryKey: ["/api/sqlite/existing-excel"],
+    enabled: isAuthenticated,
+  }) as { data: any[] };
 
   // Fetch database connections
   const { data: connections = [], isLoading: connectionsLoading } = useQuery({
@@ -273,66 +279,126 @@ export default function DataConnections() {
     if (!file) return;
 
     setSelectedExcelFile(file);
-    setIsCreatingSQLite(true);
+    setUseExistingFile(false);
+    setSelectedExistingFile(null);
 
     try {
       const formData = new FormData();
       formData.append('excel', file);
 
-      const response = await fetch('/api/validate-excel', {
+      const response = await apiRequest('/api/sqlite/validate-excel', {
         method: 'POST',
         body: formData,
       });
 
-      if (!response.ok) throw new Error('Excel validation failed');
-
-      const validation = await response.json();
-      setExcelValidation(validation);
-      setSqliteName(file.name.replace(/\.[^/.]+$/, ""));
+      setExcelValidation(response);
     } catch (error) {
-      console.error('Excel validation error:', error);
-      alert('Failed to validate Excel file');
-    } finally {
-      setIsCreatingSQLite(false);
+      console.error('Excel validation failed:', error);
+      toast({
+        title: "Validation Error",
+        description: "Failed to validate Excel file",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleCreateSQLite = async () => {
-    if (!selectedExcelFile || !sqliteName.trim()) return;
-
-    setIsCreatingSQLite(true);
+  const handleExistingFileSelect = async (file: any) => {
+    setSelectedExistingFile(file);
+    setUseExistingFile(true);
+    setSelectedExcelFile(null);
 
     try {
+      // Validate the existing file by creating a form with the file path
       const formData = new FormData();
-      formData.append('excel', selectedExcelFile);
-      formData.append('name', sqliteName);
-      formData.append('description', sqliteDescription);
+      // We'll need to modify the validation endpoint to accept file ID
+      const response = await fetch(`/api/sqlite/validate-existing-excel/${file.id}`, {
+        method: 'POST',
+      });
 
-      const response = await fetch('/api/create-sqlite', {
+      if (!response.ok) {
+        throw new Error('Validation failed');
+      }
+
+      const validation = await response.json();
+      setExcelValidation(validation);
+    } catch (error) {
+      console.error('Excel validation failed:', error);
+      toast({
+        title: "Validation Error",
+        description: "Failed to validate existing Excel file",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const createSQLiteMutation = useMutation({
+    mutationFn: async (data: { name: string; description: string }) => {
+      if (useExistingFile) {
+        if (!selectedExistingFile || !excelValidation?.isValid) {
+          throw new Error('Please select and validate an existing Excel file first');
+        }
+      } else {
+        if (!selectedExcelFile || !excelValidation?.isValid) {
+          throw new Error('Please select and validate an Excel file first');
+        }
+      }
+
+      const formData = new FormData();
+
+      if (useExistingFile) {
+        formData.append('useExistingFile', 'true');
+        formData.append('existingFileId', selectedExistingFile.id.toString());
+      } else {
+        formData.append('excel', selectedExcelFile!);
+      }
+
+      formData.append('name', data.name);
+      if (data.description) {
+        formData.append('description', data.description);
+      }
+
+      return apiRequest('/api/sqlite/create-sqlite', {
         method: 'POST',
         body: formData,
       });
-
-      if (!response.ok) throw new Error('SQLite creation failed');
-
-      const result = await response.json();
-
-      // Reset form
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "SQLite database created successfully!",
+      });
+      // Reset form states
       setSelectedExcelFile(null);
+      setSelectedExistingFile(null);
       setExcelValidation(null);
+      setUseExistingFile(false);
       setSqliteName('');
       setSqliteDescription('');
 
       // Refresh connections list
       queryClient.invalidateQueries({ queryKey: ['database-connections'] });
-
-      alert('SQLite database created successfully!');
-    } catch (error) {
+    },
+    onError: (error: any) => {
       console.error('SQLite creation error:', error);
-      alert('Failed to create SQLite database');
-    } finally {
-      setIsCreatingSQLite(false);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create SQLite database",
+        variant: "destructive",
+      });
+    },
+  });
+
+
+  const handleCreateSQLite = async () => {
+    if (useExistingFile) {
+      if (!selectedExistingFile || !sqliteName.trim() || !excelValidation?.isValid) return;
+    } else {
+      if (!selectedExcelFile || !sqliteName.trim() || !excelValidation?.isValid) return;
     }
+
+    setIsCreatingSQLite(true);
+    createSQLiteMutation.mutate({ name: sqliteName, description: sqliteDescription });
+    setIsCreatingSQLite(false); // This will be reset in onSuccess/onError of the mutation
   };
 
   const handleTestConnection = (connection: DatabaseConnection) => {
@@ -430,6 +496,10 @@ export default function DataConnections() {
   const postgresConnections = connections.filter(conn => conn.type === 'postgresql');
   const mysqlConnections = connections.filter(conn => conn.type === 'mysql');
   const sqliteConnections = connections.filter(conn => conn.type === 'sqlite'); // Filter for SQLite connections
+
+  // State for SQLite creation form
+  const [sqliteName, setSqliteName] = useState('');
+  const [sqliteDescription, setSqliteDescription] = useState('');
 
   return (
     <DashboardLayout>
@@ -862,7 +932,7 @@ export default function DataConnections() {
                       <h3 className="text-lg font-semibold">Create SQLite from Excel</h3>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Upload an Excel file to automatically create a SQLite database with validation and safety checks.
+                      Upload an Excel file or select an existing one to automatically create a SQLite database.
                     </p>
                     <div className="flex items-center space-x-4">
                       <input
@@ -876,10 +946,10 @@ export default function DataConnections() {
                       <Button
                         onClick={() => excelFileInputRef.current?.click()}
                         variant="outline"
-                        disabled={isCreatingSQLite}
+                        disabled={isCreatingSQLite || !!selectedExistingFile}
                       >
                         <Upload className="h-4 w-4 mr-2" />
-                        {isCreatingSQLite ? 'Processing...' : 'Upload Excel File'}
+                        {isCreatingSQLite ? 'Processing...' : 'Upload New Excel File'}
                       </Button>
                       {selectedExcelFile && (
                         <span className="text-sm text-muted-foreground">
@@ -887,7 +957,36 @@ export default function DataConnections() {
                         </span>
                       )}
                     </div>
-                    {excelValidation && (
+
+                    <div className="flex items-center space-x-4 py-2">
+                      <span className="text-sm text-muted-foreground">Or select an existing file:</span>
+                      <Select onValueChange={(value) => {
+                        const selectedFile = existingExcelFiles.find(f => f.id.toString() === value);
+                        if (selectedFile) {
+                          handleExistingFileSelect(selectedFile);
+                        }
+                      }} 
+                      disabled={isCreatingSQLite || !!selectedExcelFile}
+                      value={selectedExistingFile?.id?.toString() || ''}>
+                        <SelectTrigger className="w-[280px]">
+                          <SelectValue placeholder="Select an existing Excel file" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {existingExcelFiles.map((file) => (
+                            <SelectItem key={file.id} value={file.id.toString()}>
+                              {file.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedExistingFile && (
+                        <span className="text-sm text-muted-foreground">
+                          Selected: {selectedExistingFile.name}
+                        </span>
+                      )}
+                    </div>
+
+                    {(selectedExcelFile || selectedExistingFile) && excelValidation && (
                       <div className="space-y-2">
                         <div className="text-sm">
                           <strong>Validation Results:</strong>
@@ -932,7 +1031,7 @@ export default function DataConnections() {
                             />
                             <Button
                               onClick={handleCreateSQLite}
-                              disabled={!sqliteName.trim() || isCreatingSQLite}
+                              disabled={!sqliteName.trim() || isCreatingSQLite || !excelValidation.isValid}
                               className="w-full"
                             >
                               {isCreatingSQLite ? 'Creating Database...' : 'Create SQLite Database'}
