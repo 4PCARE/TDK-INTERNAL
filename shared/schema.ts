@@ -149,17 +149,13 @@ export const dataConnections = pgTable("data_connections", {
   type: varchar("type").notNull(), // 'database', 'api', or 'enterprise'
 
   // Database connection fields
-  dbType: varchar("db_type"), // 'postgresql', 'mysql', 'sqlite', 'sqlserver', 'oracle', 'redshift', 'snowflake', 'tidb'
+  dbType: varchar("db_type"), // 'postgresql', 'mysql', 'sqlserver', 'oracle', 'redshift', 'snowflake', 'tidb'
   host: varchar("host"),
   port: integer("port"),
   database: varchar("database"),
   username: varchar("username"),
   password: varchar("password"), // encrypted
   connectionString: text("connection_string"), // encrypted
-  
-  // SQLite specific fields
-  filePath: varchar("file_path"), // Path to SQLite database file
-  originalExcelPath: varchar("original_excel_path"), // Path to source Excel file (if created from Excel)
 
   // API connection fields
   apiUrl: text("api_url"),

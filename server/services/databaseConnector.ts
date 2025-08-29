@@ -1,9 +1,7 @@
 import { Pool as PgPool } from 'pg';
 import mysql from 'mysql2/promise';
-import sqlite3 from 'sqlite3';
 import jsforce from 'jsforce';
 import fetch from 'node-fetch';
-import fs from 'fs';
 
 // Oracle DB is optional - only use if available
 let oracledb: any = null;
@@ -27,7 +25,6 @@ export interface DatabaseConnection {
   apiKey?: string;
   bearerToken?: string;
   enterpriseType?: string;
-  filePath?: string; // Added for SQLite
 }
 
 export interface QueryResult {
@@ -41,31 +38,18 @@ export interface QueryResult {
 export class DatabaseConnector {
   private connections: Map<number, any> = new Map();
 
-  async testConnection(connection: DatabaseConnection): Promise<{ success: boolean; message?: string; error?: string }> {
+  async testConnection(connection: DatabaseConnection): Promise<{ success: boolean; message: string }> {
     try {
-      let result: { success: boolean; message?: string; error?: string };
-      
       switch (connection.type) {
         case 'database':
-          result = await this.testDatabaseConnection(connection);
-          break;
+          return await this.testDatabaseConnection(connection);
         case 'api':
-          result = await this.testApiConnection(connection);
-          break;
+          return await this.testApiConnection(connection);
         case 'enterprise':
-          result = await this.testEnterpriseConnection(connection);
-          break;
+          return await this.testEnterpriseConnection(connection);
         default:
-          result = { success: false, message: 'Unknown connection type' };
+          return { success: false, message: 'Unknown connection type' };
       }
-      
-      // Ensure we never return undefined
-      if (!result) {
-        console.error('Connection test returned undefined result');
-        return { success: false, message: 'Connection test returned no result' };
-      }
-      
-      return result;
     } catch (error) {
       console.error('Connection test failed:', error);
       return { 
@@ -75,16 +59,9 @@ export class DatabaseConnector {
     }
   }
 
-  private async testDatabaseConnection(connection: DatabaseConnection): Promise<{ success: boolean; message?: string; error?: string }> {
-    // SQLite has different requirements than other databases
-    if (connection.dbType === 'sqlite') {
-      if (!connection.filePath) {
-        return { success: false, message: 'SQLite file path is required' };
-      }
-    } else {
-      if (!connection.host || !connection.username || !connection.password) {
-        return { success: false, message: 'Missing required database connection parameters' };
-      }
+  private async testDatabaseConnection(connection: DatabaseConnection): Promise<{ success: boolean; message: string }> {
+    if (!connection.host || !connection.username || !connection.password) {
+      return { success: false, message: 'Missing required database connection parameters' };
     }
 
     try {
@@ -93,8 +70,6 @@ export class DatabaseConnector {
           return await this.testPostgreSQLConnection(connection);
         case 'mysql':
           return await this.testMySQLConnection(connection);
-        case 'sqlite':
-          return await this.testSQLiteConnection(connection);
         case 'oracle':
           return await this.testOracleConnection(connection);
         default:
@@ -108,7 +83,7 @@ export class DatabaseConnector {
     }
   }
 
-  private async testPostgreSQLConnection(connection: DatabaseConnection): Promise<{ success: boolean; message?: string; error?: string }> {
+  private async testPostgreSQLConnection(connection: DatabaseConnection): Promise<{ success: boolean; message: string }> {
     const pool = new PgPool({
       host: connection.host,
       port: connection.port || 5432,
@@ -124,7 +99,7 @@ export class DatabaseConnector {
       const result = await client.query('SELECT version()');
       client.release();
       await pool.end();
-
+      
       return { 
         success: true, 
         message: `Connected successfully to PostgreSQL. Version: ${result.rows[0].version.split(' ')[0]} ${result.rows[0].version.split(' ')[1]}` 
@@ -135,7 +110,7 @@ export class DatabaseConnector {
     }
   }
 
-  private async testMySQLConnection(connection: DatabaseConnection): Promise<{ success: boolean; message?: string; error?: string }> {
+  private async testMySQLConnection(connection: DatabaseConnection): Promise<{ success: boolean; message: string }> {
     const mysqlConnection = await mysql.createConnection({
       host: connection.host,
       port: connection.port || 3306,
@@ -148,7 +123,7 @@ export class DatabaseConnector {
     try {
       const [rows] = await mysqlConnection.execute('SELECT VERSION() as version');
       await mysqlConnection.end();
-
+      
       return { 
         success: true, 
         message: `Connected successfully to MySQL. Version: ${(rows as any)[0].version}` 
@@ -159,58 +134,10 @@ export class DatabaseConnector {
     }
   }
 
-  private async testSQLiteConnection(connection: DatabaseConnection): Promise<{ success: boolean; message?: string; error?: string }> {
-    if (!connection.filePath) {
-      return { success: false, message: 'SQLite file path is required' };
-    }
-
-    try {
-      // Check if file exists
-      if (!fs.existsSync(connection.filePath)) {
-        return { success: false, message: 'SQLite database file not found' };
-      }
-
-      // Test actual SQLite connection
-      return new Promise((resolve, reject) => {
-        const db = new sqlite3.Database(connection.filePath!, sqlite3.OPEN_READONLY, (err: any) => {
-          if (err) {
-            resolve({ success: false, message: `SQLite connection failed: ${err.message}` });
-            return;
-          }
-
-          db.get("SELECT sqlite_version() as version", (err: any, row: any) => {
-            db.close((closeErr: any) => {
-              if (closeErr) {
-                console.warn('Warning: Failed to close SQLite database:', closeErr);
-              }
-            });
-            
-            if (err) {
-              resolve({ success: false, message: `SQLite query failed: ${err.message}` });
-            } else if (!row || !row.version) {
-              resolve({ success: false, message: 'SQLite version query returned no data' });
-            } else {
-              resolve({ success: true, message: `Connected successfully to SQLite. Version: ${row.version}` });
-            }
-          });
-        });
-      });
-    } catch (error) {
-      console.error('SQLite connection test error:', error);
-      return { 
-        success: false, 
-        message: `SQLite connection failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
-      };
-    }
-  }
-
-  private async testOracleConnection(connection: DatabaseConnection): Promise<{ success: boolean; message?: string; error?: string }> {
+  private async testOracleConnection(connection: DatabaseConnection): Promise<{ success: boolean; message: string }> {
     let oracleConnection;
-
+    
     try {
-      if (!oracledb) {
-        return { success: false, message: 'Oracle DB driver not available' };
-      }
       oracleConnection = await oracledb.getConnection({
         user: connection.username,
         password: connection.password,
@@ -219,7 +146,7 @@ export class DatabaseConnector {
 
       const result = await oracleConnection.execute('SELECT banner FROM v$version WHERE ROWNUM = 1');
       await oracleConnection.close();
-
+      
       return { 
         success: true, 
         message: `Connected successfully to Oracle Database. ${(result.rows as any)[0][0]}` 
@@ -232,7 +159,7 @@ export class DatabaseConnector {
     }
   }
 
-  private async testApiConnection(connection: DatabaseConnection): Promise<{ success: boolean; message?: string; error?: string }> {
+  private async testApiConnection(connection: DatabaseConnection): Promise<{ success: boolean; message: string }> {
     if (!connection.apiUrl) {
       return { success: false, message: 'API URL is required' };
     }
@@ -250,13 +177,13 @@ export class DatabaseConnector {
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
-
+      
       const response = await fetch(connection.apiUrl, {
         method: 'GET',
         headers,
         signal: controller.signal,
       });
-
+      
       clearTimeout(timeoutId);
 
       if (response.ok) {
@@ -275,7 +202,7 @@ export class DatabaseConnector {
     }
   }
 
-  private async testEnterpriseConnection(connection: DatabaseConnection): Promise<{ success: boolean; message?: string; error?: string }> {
+  private async testEnterpriseConnection(connection: DatabaseConnection): Promise<{ success: boolean; message: string }> {
     try {
       switch (connection.enterpriseType) {
         case 'salesforce':
@@ -295,7 +222,7 @@ export class DatabaseConnector {
     }
   }
 
-  private async testSalesforceConnection(connection: DatabaseConnection): Promise<{ success: boolean; message?: string; error?: string }> {
+  private async testSalesforceConnection(connection: DatabaseConnection): Promise<{ success: boolean; message: string }> {
     if (!connection.username || !connection.password) {
       return { success: false, message: 'Salesforce username and password are required' };
     }
@@ -306,7 +233,7 @@ export class DatabaseConnector {
       });
 
       const userInfo = await conn.login(connection.username, connection.password);
-
+      
       return { 
         success: true, 
         message: `Connected to Salesforce successfully. Organization ID: ${userInfo.organizationId}` 
@@ -316,17 +243,17 @@ export class DatabaseConnector {
     }
   }
 
-  private async testSAPConnection(connection: DatabaseConnection): Promise<{ success: boolean; message?: string; error?: string }> {
+  private async testSAPConnection(connection: DatabaseConnection): Promise<{ success: boolean; message: string }> {
     if (!connection.apiUrl || !connection.username || !connection.password) {
       return { success: false, message: 'SAP API URL, username, and password are required' };
     }
 
     try {
       const auth = Buffer.from(`${connection.username}:${connection.password}`).toString('base64');
-
+      
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-
+      
       const response = await fetch(`${connection.apiUrl}/sap/opu/odata/sap/API_BUSINESSPARTNER_SRV/`, {
         method: 'GET',
         headers: {
@@ -335,7 +262,7 @@ export class DatabaseConnector {
         },
         signal: controller.signal,
       });
-
+      
       clearTimeout(timeoutId);
 
       if (response.ok) {
@@ -354,17 +281,17 @@ export class DatabaseConnector {
     }
   }
 
-  private async testOracleERPConnection(connection: DatabaseConnection): Promise<{ success: boolean; message?: string; error?: string }> {
+  private async testOracleERPConnection(connection: DatabaseConnection): Promise<{ success: boolean; message: string }> {
     if (!connection.apiUrl || !connection.username || !connection.password) {
       return { success: false, message: 'Oracle ERP Cloud API URL, username, and password are required' };
     }
 
     try {
       const auth = Buffer.from(`${connection.username}:${connection.password}`).toString('base64');
-
+      
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-
+      
       const response = await fetch(`${connection.apiUrl}/fscmRestApi/resources/11.13.18.05/`, {
         method: 'GET',
         headers: {
@@ -373,7 +300,7 @@ export class DatabaseConnector {
         },
         signal: controller.signal,
       });
-
+      
       clearTimeout(timeoutId);
 
       if (response.ok) {
@@ -392,52 +319,17 @@ export class DatabaseConnector {
     }
   }
 
-  async executeQuery(connectionOrId: DatabaseConnection | number, query: string): Promise<QueryResult> {
+  async executeQuery(connectionId: number, query: string): Promise<QueryResult> {
+    // Implementation for executing queries on established connections
+    // This would be used by the AI assistant to query data
     try {
-      let connection: DatabaseConnection;
-
-      if (typeof connectionOrId === 'number') {
-        // Get connection from storage by ID
-        // This would be implemented when we have storage integration
-        return {
-          success: false,
-          error: 'Connection lookup by ID not implemented yet'
-        };
-      } else {
-        connection = connectionOrId;
-      }
-
-      // Handle SQLite queries
-      if (connection.dbType === 'sqlite' && connection.filePath) {
-        return new Promise((resolve) => {
-          const db = new sqlite3.Database(connection.filePath!, sqlite3.OPEN_READONLY, (err: any) => {
-            if (err) {
-              resolve({ success: false, error: `SQLite connection failed: ${err.message}` });
-              return;
-            }
-
-            db.all(query, (err: any, rows: any[]) => {
-              db.close();
-              if (err) {
-                resolve({ success: false, error: `Query failed: ${err.message}` });
-              } else {
-                const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
-                resolve({
-                  success: true,
-                  data: rows,
-                  columns,
-                  rowCount: rows.length
-                });
-              }
-            });
-          });
-        });
-      }
-
-      // Other database types would be implemented here
+      // Get connection from storage and execute query
+      // Return formatted results
       return {
-        success: false,
-        error: `Unsupported database type: ${connection.dbType}`
+        success: true,
+        data: [],
+        columns: [],
+        rowCount: 0
       };
     } catch (error) {
       return {

@@ -18,7 +18,6 @@ import { registerDocumentRoutes } from "./routes/documentRoutes";
 import { registerWidgetRoutes } from "./routes/widgetRoutes";
 import { registerAnalyticRoutes } from "./routes/analyticRoutes";
 import { registerChatBotRoutes } from "./routes/chatBotRoutes";
-import { sqliteRoutes } from './routes/sqliteRoutes.js';
 
 // Initialize OpenAI for CSAT analysis
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -144,7 +143,6 @@ export async function registerRoutes(app: Express): Server {
   registerWidgetRoutes(app);
   registerAnalyticRoutes(app);
   registerChatBotRoutes(app);
-  app.use('/api', sqliteRoutes);
 
   // Serve uploaded files and Line images
   const uploadsPath = path.join(process.cwd(), 'uploads');
@@ -162,14 +160,6 @@ export async function registerRoutes(app: Express): Server {
 
   // Register public HR API routes (no authentication required)
   registerHrApiRoutes(app);
-
-  // Test route for Excel endpoint debugging
-  app.get("/test-excel-endpoint", (req, res) => {
-    res.sendFile(path.join(process.cwd(), "test-frontend-excel-endpoint.html"));
-  });
-
-  // Catch-all handler for client-side routing will be handled by vite setup in index.ts
-
 
   // Audit & Monitoring routes
   app.get("/api/audit/logs", isAuthenticated, async (req: any, res) => {
@@ -329,7 +319,7 @@ export async function registerRoutes(app: Express): Server {
     }
   });
 
-
+  
 
   // Get authentication methods available
   app.get("/api/auth/methods", async (req, res) => {
@@ -2732,11 +2722,11 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     }
   });
 
+  
 
+  
 
-
-
-
+  
 
   // HR Employee management endpoints
   app.get("/api/hr-employees", isAuthenticated, async (req: any, res) => {
@@ -2811,7 +2801,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     }
   });
 
-
+  
   // Survey routes
   app.post("/api/survey/submit", isAuthenticated, async (req: any, res) => {
     try {
@@ -2873,7 +2863,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     }
   });
 
-
+  
 
   // Debug endpoint to test WebSocket broadcasting
   app.post('/api/debug/websocket-test', async (req: any, res) => {
@@ -3081,7 +3071,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
             'assistant', // role (must be 'assistant' to pass DB constraint, but message_type will be 'agent')
             message, // content
             'agent', // message_type (this distinguishes human agent from AI assistant)
-            JSON.stringify({
+            JSON.JSON.stringify({
               sentBy: req.user.claims.sub,
               humanAgent: true,
               humanAgentName: req.user.claims.first_name || req.user.claims.email || 'Human Agent'

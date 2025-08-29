@@ -1,13 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { isUnauthorizedError } from "@/lib/authUtils";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { isUnauthorizedError } from "@/lib/authUtils";
 import { Link, useLocation } from "wouter";
-import {
-  Plus,
-  Settings,
+import { 
+  Plus, 
+  Settings, 
   Database,
   Check,
   X,
@@ -19,8 +20,7 @@ import {
   Globe,
   LinkIcon,
   AlertCircle,
-  Cloud,
-  Upload // Import Upload icon
+  Cloud
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
 
-// ConnectionUrlDisplay component for showing connection URLs
+// ConnectionUrlDisplay component for showing connection URLs  
 function ConnectionUrlDisplay({ connectionId }: { connectionId: number }) {
   const { toast } = useToast();
 
@@ -104,7 +104,7 @@ function ConnectionUrlDisplay({ connectionId }: { connectionId: number }) {
 interface DatabaseConnection {
   id: number;
   name: string;
-  type: 'postgresql' | 'mysql' | 'mongodb' | 'redis' | 'sqlite'; // Added sqlite type
+  type: 'postgresql' | 'mysql' | 'mongodb' | 'redis';
   host?: string;
   port?: number;
   database?: string;
@@ -150,73 +150,6 @@ export default function DataConnections() {
     password: "",
     description: ""
   });
-
-  // SQLite creation state
-  const [selectedExcelFile, setSelectedExcelFile] = useState<File | null>(null);
-  const [excelValidation, setExcelValidation] = useState<any>(null);
-  const [isCreatingSQLite, setIsCreatingSQLite] = useState(false);
-  const [useExistingFile, setUseExistingFile] = useState(false);
-  const [selectedExistingFile, setSelectedExistingFile] = useState<any>(null);
-  const excelFileInputRef = useRef<HTMLInputElement>(null);
-
-  // State for showing/hiding Excel form
-  const [showExcelForm, setShowExcelForm] = useState(false);
-  const [existingExcelFiles, setExistingExcelFiles] = useState<any[]>([]);
-  const [loadingExcelFiles, setLoadingExcelFiles] = useState(false);
-
-  // Query for existing Excel files
-  useEffect(() => {
-    if (showExcelForm) {
-      fetchExistingExcelFiles();
-    }
-  }, [showExcelForm]);
-
-  const fetchExistingExcelFiles = async () => {
-    try {
-      setLoadingExcelFiles(true);
-      console.log('🔍 Fetching existing Excel files...');
-
-      const response = await fetch('/api/sqlite/existing-excel', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies for authentication
-      });
-
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Non-OK response:', errorText.substring(0, 500));
-        throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 100)}`);
-      }
-
-      // Check if response is actually JSON
-      const contentType = response.headers.get('content-type');
-      console.log('📄 Content-Type:', contentType);
-
-      if (!contentType || !contentType.includes('application/json')) {
-        const responseText = await response.text();
-        console.error('❌ Expected JSON but got:', responseText.substring(0, 500));
-        throw new Error(`Expected JSON response but got ${contentType}`);
-      }
-
-      const files = await response.json();
-      console.log('✅ Successfully fetched Excel files:', files);
-      setExistingExcelFiles(files);
-    } catch (error) {
-      console.error('💥 Failed to fetch existing Excel files:', error);
-      toast({
-        title: "Error",
-        description: `Failed to load existing Excel files: ${error.message}`,
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingExcelFiles(false);
-    }
-  };
 
   // Fetch database connections
   const { data: connections = [], isLoading: connectionsLoading } = useQuery({
@@ -314,206 +247,6 @@ export default function DataConnections() {
     },
   });
 
-  // Delete connection mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await fetch(`/api/database-connections/${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Failed to delete connection');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['database-connections'] });
-    },
-  });
-
-  const handleExcelUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.name.match(/\.(xlsx|xls)$/i)) {
-      toast({
-        title: "Invalid File Type",
-        description: "Please select an Excel file (.xlsx or .xls)",
-        variant: "destructive",
-      });
-      // Reset file input
-      if (excelFileInputRef.current) {
-        excelFileInputRef.current.value = '';
-      }
-      return;
-    }
-
-    // Reset states first
-    setSelectedExcelFile(file);
-    setUseExistingFile(false);
-    setSelectedExistingFile(null);
-    setExcelValidation(null);
-    setShowExcelForm(true);
-
-    try {
-      // Add loading state
-      setExcelValidation({ isValid: false, errors: [], warnings: [], sheets: [] });
-      
-      const formData = new FormData();
-      formData.append('excel', file);
-
-      const response = await fetch('/api/sqlite/validate-excel', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const validationResult = await response.json();
-      setExcelValidation(validationResult);
-      
-      if (!validationResult.isValid) {
-        toast({
-          title: "Validation Failed",
-          description: `Excel validation failed: ${validationResult.errors?.join(', ') || 'Unknown error'}`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "File Validated",
-          description: "Excel file validated successfully!",
-        });
-      }
-    } catch (error) {
-      console.error('Excel validation failed:', error);
-      toast({
-        title: "Validation Error",
-        description: `Failed to validate Excel file: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: "destructive",
-      });
-      setExcelValidation(null);
-      setSelectedExcelFile(null);
-      setShowExcelForm(false);
-      // Reset file input
-      if (excelFileInputRef.current) {
-        excelFileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const handleExistingFileSelect = async (file: any) => {
-    setSelectedExistingFile(file);
-    setUseExistingFile(true);
-    setSelectedExcelFile(null);
-    setExcelValidation(null);
-  };
-
-  const clearExistingFileSelection = () => {
-    setSelectedExistingFile(null);
-    setUseExistingFile(false);
-  };
-
-  const createSQLiteMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string }) => {
-      if (useExistingFile) {
-        if (!selectedExistingFile || !excelValidation?.isValid) {
-          throw new Error('Please select and validate an existing Excel file first');
-        }
-        // Validate existing file before creation
-        const validationResponse = await fetch(`/api/sqlite/validate-existing-excel/${selectedExistingFile.id}`, {
-          method: 'POST',
-          credentials: 'include',
-        });
-        if (!validationResponse.ok) {
-          throw new Error('Failed to validate existing Excel file');
-        }
-        const validationResult = await validationResponse.json();
-        if (!validationResult.isValid) {
-          throw new Error('Excel file validation failed');
-        }
-      } else {
-        if (!selectedExcelFile || !excelValidation?.isValid) {
-          throw new Error('Please select and validate an Excel file first');
-        }
-      }
-
-      const formData = new FormData();
-
-      if (useExistingFile) {
-        formData.append('useExistingFile', 'true');
-        formData.append('existingFileId', selectedExistingFile.id.toString());
-      } else {
-        formData.append('excel', selectedExcelFile!);
-      }
-
-      formData.append('name', data.name);
-      if (data.description) {
-        formData.append('description', data.description);
-      }
-
-      const response = await fetch('/api/sqlite/create-sqlite', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      return await response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "SQLite database created successfully!",
-      });
-      // Reset form states
-      setSelectedExcelFile(null);
-      setSelectedExistingFile(null);
-      setExcelValidation(null);
-      setUseExistingFile(false);
-      setSqliteName('');
-      setSqliteDescription('');
-      setShowExcelForm(false);
-      setIsCreatingSQLite(false);
-      // Reset file input
-      if (excelFileInputRef.current) {
-        excelFileInputRef.current.value = '';
-      }
-
-      // Refresh connections list
-      queryClient.invalidateQueries({ queryKey: ['/api/database-connections'] });
-    },
-    onError: (error: any) => {
-      console.error('SQLite creation error:', error);
-      setIsCreatingSQLite(false);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create SQLite database",
-        variant: "destructive",
-      });
-    },
-  });
-
-
-  const handleCreateSQLite = async () => {
-    if (useExistingFile) {
-      if (!selectedExistingFile || !sqliteName.trim() || !excelValidation?.isValid) return;
-    } else {
-      if (!selectedExcelFile || !sqliteName.trim() || !excelValidation?.isValid) return;
-    }
-
-    setIsCreatingSQLite(true);
-    try {
-      await createSQLiteMutation.mutateAsync({ name: sqliteName, description: sqliteDescription });
-    } finally {
-      setIsCreatingSQLite(false);
-    }
-  };
-
   const handleTestConnection = (connection: DatabaseConnection) => {
     testConnectionMutation.mutate(connection);
   };
@@ -589,11 +322,11 @@ export default function DataConnections() {
     {
       id: 'sqlite',
       name: 'SQLite',
-      description: 'Lightweight, serverless SQL database engine - Create from Excel files',
+      description: 'Lightweight, serverless SQL database engine',
       icon: Database,
       color: 'bg-gray-500',
-      available: true,
-      comingSoon: false
+      available: false,
+      comingSoon: true
     },
     {
       id: 'elasticsearch',
@@ -608,24 +341,6 @@ export default function DataConnections() {
 
   const postgresConnections = connections.filter(conn => conn.type === 'postgresql');
   const mysqlConnections = connections.filter(conn => conn.type === 'mysql');
-  const sqliteConnections = connections.filter(conn => conn.type === 'sqlite'); // Filter for SQLite connections
-
-  // State for SQLite creation form
-  const [sqliteName, setSqliteName] = useState('');
-  const [sqliteDescription, setSqliteDescription] = useState('');
-
-  const handleExcelFileSelect = (file: File) => {
-    setSelectedExcelFile(file);
-    setExcelValidation(null);
-  };
-
-  const clearExcelSelection = () => {
-    setSelectedExcelFile(null);
-    setExcelValidation(null);
-    if (excelFileInputRef.current) {
-      excelFileInputRef.current.value = '';
-    }
-  };
 
   return (
     <DashboardLayout>
@@ -648,10 +363,11 @@ export default function DataConnections() {
           </Link>
         </div>
 
-        {/* New Connection Section (Including SQLite from Excel) */}
+        
+
+        {/* Database Types Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {/* Existing Database Types Grid */}
-          {databaseTypes.filter(dbType => dbType.id !== 'sqlite').map((dbType) => { // Filter out SQLite to render it separately
+          {databaseTypes.map((dbType) => {
             const Icon = dbType.icon;
             const existingConnections = connections.filter(conn => conn.type === dbType.id);
 
@@ -709,7 +425,7 @@ export default function DataConnections() {
                             </div>
                           ))}
                           {existingConnections.length > 2 && (
-                            <button
+                            <button 
                               className="text-xs text-blue-600 hover:text-blue-800 text-center w-full py-1 hover:underline"
                               onClick={() => handleManageConnections(dbType.id)}
                             >
@@ -986,187 +702,7 @@ export default function DataConnections() {
               </Card>
             );
           })}
-
-          {/* SQLite from Excel Card */}
-          <Card className="relative overflow-hidden">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="p-3 rounded-lg bg-gray-500 text-white">
-                  <Database className="w-6 h-6" />
-                </div>
-                {databaseTypes.find(d => d.id === 'sqlite')?.comingSoon && (
-                  <Badge variant="secondary">Coming Soon</Badge>
-                )}
-                {sqliteConnections.length > 0 && (
-                  <Badge variant="default" className="bg-green-500">
-                    {sqliteConnections.length} Connected
-                  </Badge>
-                )}
-              </div>
-              <CardTitle className="text-lg">SQLite</CardTitle>
-              <CardDescription>
-                Lightweight, serverless SQL database engine - Create from Excel files
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {sqliteConnections.length > 0 && (
-                  <div className="space-y-2">
-                    {sqliteConnections.slice(0, 2).map((connection) => (
-                      <div key={connection.id} className="space-y-2">
-                        <div className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${connection.isConnected ? 'bg-green-500' : 'bg-orange-500'}`} />
-                            <span className="text-sm font-medium">{connection.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {!connection.isConnected && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-xs h-6"
-                                onClick={() => handleTestConnection(connection)}
-                              >
-                                <Check className="w-3 h-3 mr-1" />
-                                Test
-                              </Button>
-                            )}
-                            <Badge variant="outline" className="text-xs">
-                              {connection.database || 'No DB'}
-                            </Badge>
-                          </div>
-                        </div>
-                        <ConnectionUrlDisplay connectionId={connection.id} />
-                      </div>
-                    ))}
-                    {sqliteConnections.length > 2 && (
-                      <button
-                        className="text-xs text-blue-600 hover:text-blue-800 text-center w-full py-1 hover:underline"
-                        onClick={() => handleManageConnections('sqlite')}
-                      >
-                        +{sqliteConnections.length - 2} more
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* SQLite from Excel Section */}
-                <CardContent className="border-b">
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <Database className="h-5 w-5" />
-                      <h3 className="text-lg font-semibold">Create SQLite from Excel</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Upload an Excel file to automatically create a SQLite database.
-                    </p>
-                    <div className="flex items-center space-x-4">
-                      <input
-                        type="file"
-                        accept=".xlsx,.xls"
-                        onChange={handleExcelUpload}
-                        ref={excelFileInputRef}
-                        className="hidden"
-                        id="excel-upload"
-                      />
-                      <Button
-                        onClick={() => excelFileInputRef.current?.click()}
-                        variant="outline"
-                        disabled={isCreatingSQLite || !!selectedExistingFile}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        {isCreatingSQLite ? 'Processing...' : 'Upload New Excel File'}
-                      </Button>
-                      {selectedExcelFile && (
-                        <span className="text-sm text-muted-foreground">
-                          Selected: {selectedExcelFile.name}
-                        </span>
-                      )}
-                    </div>
-
-                    {selectedExcelFile && (
-                      <div className="space-y-2">
-                        {!excelValidation ? (
-                          <div className="text-sm text-blue-600">
-                            <strong>Validating Excel file...</strong>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 inline-block ml-2"></div>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="text-sm">
-                              <strong>Validation Results:</strong>
-                              {excelValidation.isValid ? (
-                                <span className="text-green-600 ml-2">✓ Valid Excel file</span>
-                              ) : (
-                                <span className="text-red-600 ml-2">✗ Issues found</span>
-                              )}
-                            </div>
-                          </>
-                        )}
-                        {excelValidation && (
-                          <>
-                            {excelValidation.sheets.map(sheet => (
-                              <div key={sheet.name} className="text-xs bg-gray-50 p-2 rounded">
-                                <strong>{sheet.name}:</strong> {sheet.rowCount} rows, {sheet.columnCount} columns
-                                <br />Headers: {sheet.hasHeaders ? 'Yes' : 'No'}
-                                <br />Columns: {sheet.columns.join(', ')}
-                              </div>
-                            ))}
-                            {excelValidation.warnings && excelValidation.warnings.length > 0 && (
-                              <div className="text-xs text-yellow-600">
-                                <strong>Warnings:</strong>
-                                <ul className="list-disc list-inside">
-                                  {excelValidation.warnings.map((warning, i) => (
-                                    <li key={i}>{warning}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            {excelValidation.isValid && (
-                              <div className="space-y-2">
-                                <input
-                                  type="text"
-                                  placeholder="Database name (e.g., Sales Data)"
-                                  value={sqliteName}
-                                  onChange={(e) => setSqliteName(e.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                                  disabled={isCreatingSQLite}
-                                />
-                                <textarea
-                                  placeholder="Description (optional)"
-                                  value={sqliteDescription}
-                                  onChange={(e) => setSqliteDescription(e.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                                  rows={2}
-                                  disabled={isCreatingSQLite}
-                                />
-                                <Button
-                                  onClick={handleCreateSQLite}
-                                  disabled={!sqliteName.trim() || isCreatingSQLite || !excelValidation.isValid}
-                                  className="w-full"
-                                >
-                                  {isCreatingSQLite ? (
-                                    <>
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                      Creating Database...
-                                    </>
-                                  ) : (
-                                    'Create SQLite Database'
-                                  )}
-                                </Button>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </div>
-            </CardContent>
-          </Card>
         </div>
-
 
         {/* Manage Connections Modal */}
         <Dialog open={manageConnectionsOpen} onOpenChange={setManageConnectionsOpen}>
@@ -1255,8 +791,6 @@ export default function DataConnections() {
                                 size="sm"
                                 variant="outline"
                                 className="text-red-600 hover:text-red-700"
-                                onClick={() => deleteMutation.mutate(connection.id)}
-                                disabled={deleteMutation.isPending}
                               >
                                 <X className="w-4 h-4 mr-2" />
                                 Delete
