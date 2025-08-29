@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -51,88 +50,92 @@
   <div class="container">
     <h1>🧪 Excel Endpoint Test</h1>
     <p>This page tests the <code>/api/sqlite/existing-excel</code> endpoint from the browser.</p>
-    
+
     <div>
       <button onclick="testEndpoint()">Test Excel Endpoint</button>
       <button onclick="testWithFetch()">Test with Fetch API</button>
       <button onclick="testAuthentication()">Test Authentication</button>
       <button onclick="clearOutput()">Clear Output</button>
     </div>
-    
+
     <div id="output" class="output">Click a test button to begin...\n</div>
   </div>
 
   <script>
     const output = document.getElementById('output');
-    
+
     function log(message, type = 'info') {
       const timestamp = new Date().toLocaleTimeString();
       const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
       output.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
       output.scrollTop = output.scrollHeight;
     }
-    
+
     function clearOutput() {
       output.innerHTML = '';
     }
-    
+
     async function testEndpoint() {
       log('🧪 Testing /api/sqlite/existing-excel endpoint...', 'info');
-      
+
+      // Use the correct server URL
+      const serverUrl = window.location.origin.includes('replit') 
+        ? window.location.origin 
+        : 'http://localhost:5000';
+
       try {
-        const response = await fetch('/api/sqlite/existing-excel', {
+        const response = await fetch(`${serverUrl}/api/sqlite/existing-excel`, {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include'
-        });
-        
-        log(`📡 Response Status: ${response.status} ${response.statusText}`, 'info');
-        log(`📄 Content-Type: ${response.headers.get('content-type')}`, 'info');
-        log(`🍪 Has Cookies: ${document.cookie ? 'Yes' : 'No'}`, 'info');
-        
-        const responseText = await response.text();
-        
-        if (response.ok) {
-          try {
-            const jsonData = JSON.parse(responseText);
-            log(`✅ SUCCESS: Received JSON response`, 'success');
-            log(`📊 Data: ${JSON.stringify(jsonData, null, 2)}`, 'success');
-          } catch (jsonError) {
-            log(`❌ ERROR: Response is not valid JSON`, 'error');
-            log(`📄 Response Body (first 500 chars): ${responseText.substring(0, 500)}`, 'error');
-          }
-        } else {
-          log(`❌ ERROR: HTTP ${response.status}`, 'error');
-          log(`📄 Error Response: ${responseText.substring(0, 500)}`, 'error');
-        }
-        
-      } catch (error) {
-        log(`💥 FETCH ERROR: ${error.message}`, 'error');
-      }
-    }
-    
-    async function testWithFetch() {
-      log('🔍 Testing with different fetch configuration...', 'info');
-      
-      try {
-        const response = await fetch('/api/sqlite/existing-excel', {
-          method: 'GET',
+          credentials: 'include',
           headers: {
             'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-          },
-          credentials: 'same-origin'
+            'Content-Type': 'application/json'
+          }
         });
-        
+
+        log(`📊 Response Status: ${response.status}`, 'info');
+        log(`📋 Response Headers: ${JSON.stringify([...response.headers.entries()], null, 2)}`, 'info');
+
+        const contentType = response.headers.get('content-type');
+        log(`🎭 Content-Type: ${contentType}`, 'info');
+
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          log(`✅ JSON Response: ${JSON.stringify(data, null, 2)}`, 'success');
+        } else {
+          const text = await response.text();
+          log(`📄 Text Response (first 500 chars): ${text.substring(0, 500)}`, 'info');
+
+          if (text.includes('<!DOCTYPE html>')) {
+            log(`❌ ERROR: Received HTML instead of JSON! This means the endpoint is not working correctly.`, 'error');
+          }
+        }
+
+      } catch (error) {
+        log(`💥 ERROR: ${error.message}`, 'error');
+      }
+    }
+
+    async function testWithFetch() {
+      log('🔬 Testing with Fetch API (more detailed)...', 'info');
+
+      // Use the correct server URL
+      const serverUrl = window.location.origin.includes('replit') 
+        ? window.location.origin 
+        : 'http://localhost:5000';
+
+      try {
+        const response = await fetch(`${serverUrl}/api/sqlite/existing-excel`, {
+          method: 'GET',
+          credentials: 'include'
+        });
+
         log(`📡 Response Status: ${response.status}`, 'info');
-        
+
         // Get response as text first
         const responseText = await response.text();
         log(`📄 Raw Response: ${responseText.substring(0, 200)}...`, 'info');
-        
+
         if (responseText.trim().startsWith('<!DOCTYPE') || responseText.includes('<html')) {
           log(`❌ ERROR: Received HTML instead of JSON`, 'error');
           log(`🌐 This suggests routing or authentication issues`, 'error');
@@ -145,27 +148,27 @@
             log(`❌ ERROR: Invalid JSON format`, 'error');
           }
         }
-        
+
       } catch (error) {
         log(`💥 ERROR: ${error.message}`, 'error');
       }
     }
-    
+
     async function testAuthentication() {
       log('🔐 Testing authentication status...', 'info');
-      
+
       // Check if we have session cookies
       log(`🍪 Current Cookies: ${document.cookie || 'None'}`, 'info');
-      
+
       try {
         // Test a simple endpoint that requires auth
         const authTest = await fetch('/api/documents', {
           method: 'GET',
           credentials: 'include'
         });
-        
+
         log(`🔐 Auth Test Status: ${authTest.status}`, 'info');
-        
+
         if (authTest.status === 401 || authTest.status === 403) {
           log(`❌ AUTHENTICATION FAILED: Not logged in or session expired`, 'error');
           log(`💡 TIP: Try logging in first, then test again`, 'info');
@@ -174,12 +177,12 @@
         } else {
           log(`⚠️ AUTHENTICATION UNCLEAR: Status ${authTest.status}`, 'info');
         }
-        
+
       } catch (error) {
         log(`💥 AUTH TEST ERROR: ${error.message}`, 'error');
       }
     }
-    
+
     // Auto-run basic test on page load
     window.addEventListener('load', () => {
       log('🚀 Page loaded. Ready to test!', 'info');

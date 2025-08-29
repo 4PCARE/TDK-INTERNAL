@@ -163,6 +163,15 @@ export async function registerRoutes(app: Express): Server {
   // Register public HR API routes (no authentication required)
   registerHrApiRoutes(app);
 
+  // Test route for Excel endpoint debugging
+  app.get("/test-excel-endpoint", (req, res) => {
+    res.sendFile(path.join(process.cwd(), "test-frontend-excel-endpoint.html"));
+  });
+
+  // Catch-all handler for client-side routing
+  app.get("*", vitePluginServe);
+
+
   // Audit & Monitoring routes
   app.get("/api/audit/logs", isAuthenticated, async (req: any, res) => {
     try {
