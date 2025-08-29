@@ -95,7 +95,7 @@ router.post('/create-sqlite', isAuthenticated, upload.single('excel'), async (re
 router.post('/validate-existing-excel/:fileId', isAuthenticated, async (req, res) => {
   try {
     const fileId = parseInt(req.params.fileId);
-    const userId = req.user.claims.sub;
+    const userId = req.user.id || req.user.claims?.sub;
     const { storage } = await import('../storage.js');
 
     const document = await storage.getDocument(fileId, userId);
@@ -120,7 +120,7 @@ router.get('/existing-excel', isAuthenticated, async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     
     // Extract user ID from claims structure
-    const userId = req.user?.claims?.sub;
+    const userId = req.user?.id || req.user?.claims?.sub;
     
     console.log(`🔍 [existing-excel] Request received for user: ${userId}`);
     

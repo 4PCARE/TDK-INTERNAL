@@ -1,0 +1,157 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Upload Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+        button { margin: 5px; padding: 10px; }
+        input[type="file"] { margin: 10px 0; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Excel Upload Test Page</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Upload New Excel File</h2>
+        <input type="file" id="excelFile" accept=".xlsx,.xls">
+        <button onclick="testExcelUpload()">Test Upload & Validation</button>
+        <div id="uploadResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: Get Existing Excel Files</h2>
+        <button onclick="testExistingFiles()">Get Existing Excel Files</button>
+        <div id="existingResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 3: Create SQLite from Excel</h2>
+        <input type="text" id="dbName" placeholder="Database Name" value="Test Database">
+        <textarea id="dbDescription" placeholder="Description">Test database created from uploaded Excel file</textarea>
+        <button onclick="testSQLiteCreation()">Create SQLite Database</button>
+        <div id="sqliteResult"></div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        let validationResult = null;
+
+        async function testExcelUpload() {
+            const fileInput = document.getElementById('excelFile');
+            const file = fileInput.files[0];
+            const resultDiv = document.getElementById('uploadResult');
+            
+            if (!file) {
+                resultDiv.innerHTML = '<div class="error">Please select an Excel file</div>';
+                return;
+            }
+            
+            selectedFile = file;
+            resultDiv.innerHTML = '<div class="info">Uploading and validating...</div>';
+            
+            try {
+                const formData = new FormData();
+                formData.append('excel', file);
+                
+                const response = await fetch('/api/sqlite/validate-excel', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                validationResult = result;
+                
+                resultDiv.innerHTML = `
+                    <div class="${result.isValid ? 'success' : 'error'}">
+                        <h3>Validation Result:</h3>
+                        <p>Valid: ${result.isValid}</p>
+                        ${result.errors && result.errors.length > 0 ? `<p>Errors: ${result.errors.join(', ')}</p>` : ''}
+                        ${result.warnings && result.warnings.length > 0 ? `<p>Warnings: ${result.warnings.join(', ')}</p>` : ''}
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Upload failed: ${error.message}</div>`;
+            }
+        }
+        
+        async function testExistingFiles() {
+            const resultDiv = document.getElementById('existingResult');
+            resultDiv.innerHTML = '<div class="info">Fetching existing Excel files...</div>';
+            
+            try {
+                const response = await fetch('/api/sqlite/existing-excel');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                }
+                
+                const files = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h3>Existing Excel Files (${files.length}):</h3>
+                        <pre>${JSON.stringify(files, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Failed to fetch existing files: ${error.message}</div>`;
+            }
+        }
+        
+        async function testSQLiteCreation() {
+            const resultDiv = document.getElementById('sqliteResult');
+            const dbName = document.getElementById('dbName').value;
+            const dbDescription = document.getElementById('dbDescription').value;
+            
+            if (!selectedFile || !validationResult) {
+                resultDiv.innerHTML = '<div class="error">Please upload and validate an Excel file first</div>';
+                return;
+            }
+            
+            if (!validationResult.isValid) {
+                resultDiv.innerHTML = '<div class="error">Cannot create database from invalid Excel file</div>';
+                return;
+            }
+            
+            if (!dbName.trim()) {
+                resultDiv.innerHTML = '<div class="error">Please enter a database name</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="info">Creating SQLite database...</div>';
+            
+            try {
+                const formData = new FormData();
+                formData.append('excel', selectedFile);
+                formData.append('name', dbName);
+                formData.append('description', dbDescription);
+                
+                const response = await fetch('/api/sqlite/create-sqlite', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <div class="${result.success ? 'success' : 'error'}">
+                        <h3>SQLite Creation Result:</h3>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">SQLite creation failed: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

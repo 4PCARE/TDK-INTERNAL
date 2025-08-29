@@ -331,6 +331,16 @@ export default function DataConnections() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Validate file type
+    if (!file.name.match(/\.(xlsx|xls)$/i)) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please select an Excel file (.xlsx or .xls)",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSelectedExcelFile(file);
     setUseExistingFile(false);
     setSelectedExistingFile(null);
@@ -340,19 +350,27 @@ export default function DataConnections() {
       const formData = new FormData();
       formData.append('excel', file);
 
-      const response = await apiRequest('/api/sqlite/validate-excel', {
-        method: 'POST',
+      const response = await apiRequest('POST', '/api/sqlite/validate-excel', {
         body: formData,
       });
 
       setExcelValidation(response);
+      
+      if (!response.isValid) {
+        toast({
+          title: "Validation Failed",
+          description: `Excel validation failed: ${response.errors?.join(', ') || 'Unknown error'}`,
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error('Excel validation failed:', error);
       toast({
         title: "Validation Error",
-        description: "Failed to validate Excel file",
+        description: `Failed to validate Excel file: ${error.message}`,
         variant: "destructive",
       });
+      setExcelValidation(null);
     }
   };
 
@@ -374,8 +392,11 @@ export default function DataConnections() {
         if (!selectedExistingFile || !excelValidation?.isValid) {
           throw new Error('Please select and validate an existing Excel file first');
         }
-        // Corrected apiRequest call for existing file validation
-        return apiRequest('POST', '/api/sqlite/validate-existing-excel', selectedExistingFile.id.toString());
+        // Validate existing file before creation
+        const validationResponse = await apiRequest('POST', `/api/sqlite/validate-existing-excel/${selectedExistingFile.id}`);
+        if (!validationResponse.isValid) {
+          throw new Error('Excel file validation failed');
+        }
       } else {
         if (!selectedExcelFile || !excelValidation?.isValid) {
           throw new Error('Please select and validate an Excel file first');
