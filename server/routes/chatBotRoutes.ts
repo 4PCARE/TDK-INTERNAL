@@ -60,7 +60,7 @@ export function registerChatBotRoutes(app: Express) {
       console.log("User ID:", userId);
 
       // Extract documentIds from request body
-      const { documentIds, lineOaChannelId, ...agentData } = req.body;
+      const { documentIds, lineOaChannelId, databaseIds, ...agentData } = req.body;
 
       // Handle LINE OA configuration
       let lineOaConfig = undefined;
@@ -129,18 +129,26 @@ export function registerChatBotRoutes(app: Express) {
         finalAgentData.specialSkills,
       );
 
-      const agent = await storage.createAgentChatbot(finalAgentData);
-console.log("Agent created successfully:", agent);
+      const newAgent = await storage.createAgentChatbot(finalAgentData);
+console.log("Agent created successfully:", newAgent);
 
-      // Associate documents with the agent if provided
+      // Add documents to agent if provided
       if (documentIds && documentIds.length > 0) {
         console.log("Adding documents to agent:", documentIds);
         for (const documentId of documentIds) {
-          await storage.addDocumentToAgent(agent.id, documentId, userId);
+          await storage.addDocumentToAgent(newAgent.id, documentId, userId);
         }
       }
 
-      res.status(201).json(agent);
+      // Add database connections to agent if provided
+      if (databaseIds && databaseIds.length > 0) {
+        console.log("Adding database connections to agent:", databaseIds);
+        for (const connectionId of databaseIds) {
+          await storage.addDatabaseToAgent(newAgent.id, connectionId, userId);
+        }
+      }
+
+      res.status(201).json(newAgent);
     } catch (error) {
       console.error("Error creating agent chatbot:", error);
       console.error("Error details:", error.message);
@@ -158,7 +166,7 @@ console.log("Agent created successfully:", agent);
       const agentId = parseInt(req.params.id);
 
       // Extract documentIds from request body
-      const { documentIds, ...agentData } = req.body;
+      const { documentIds, databaseIds, ...agentData } = req.body;
 
       console.log("PUT /api/agent-chatbots/:id - Request body:", JSON.stringify(req.body, null, 2));
       console.log("Agent data to update:", JSON.stringify(agentData, null, 2));
@@ -181,6 +189,21 @@ console.log("Agent created successfully:", agent);
         if (documentIds && documentIds.length > 0) {
           for (const documentId of documentIds) {
             await storage.addDocumentToAgent(agentId, documentId, userId);
+          }
+        }
+      }
+
+      // Update database associations if provided
+      if (databaseIds !== undefined) {
+        console.log("Updating agent database connections:", databaseIds);
+
+        // Remove all existing database associations
+        await storage.removeAllDatabasesFromAgent(agentId, userId);
+
+        // Add new database associations
+        if (databaseIds && databaseIds.length > 0) {
+          for (const connectionId of databaseIds) {
+            await storage.addDatabaseToAgent(agentId, connectionId, userId);
           }
         }
       }
@@ -264,6 +287,66 @@ console.log("Agent created successfully:", agent);
       }
     },
   );
+
+  // Add routes for database connections
+  app.get(
+    "/api/agent-chatbots/:id/databases",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const databases = await storage.getAgentChatbotDatabases(
+          parseInt(req.params.id),
+          userId,
+        );
+        res.json(databases);
+      } catch (error) {
+        console.error("Error fetching agent databases:", error);
+        res.status(500).json({ message: "Failed to fetch agent databases" });
+      }
+    },
+  );
+
+  app.post(
+    "/api/agent-chatbots/:agentId/databases/:connectionId",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const agentDatabase = await storage.addDatabaseToAgent(
+          parseInt(req.params.agentId),
+          parseInt(req.params.connectionId),
+          userId,
+        );
+        res.status(201).json(agentDatabase);
+      } catch (error) {
+        console.error("Error adding database to agent:", error);
+        res.status(500).json({ message: "Failed to add database to agent" });
+      }
+    },
+  );
+
+  app.delete(
+    "/api/agent-chatbots/:agentId/databases/:connectionId",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        await storage.removeDatabaseFromAgent(
+          parseInt(req.params.agentId),
+          parseInt(req.params.connectionId),
+          userId,
+        );
+        res.status(204).send();
+      } catch (error) {
+        console.error("Error removing database from agent:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to remove database from agent" });
+      }
+    },
+  );
+
 
   // Test Agent endpoint (single message)
   app.post(

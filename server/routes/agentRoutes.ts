@@ -236,6 +236,61 @@ export function registerAgentRoutes(app: Express) {
     },
   );
 
+  // Agent Database Connection endpoints
+  app.get(
+    "/api/agent-chatbots/:agentId/databases",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const agentId = parseInt(req.params.agentId);
+        const connections = await storage.getAgentDatabaseConnections(agentId, userId);
+        res.json(connections);
+      } catch (error) {
+        console.error("Error fetching agent database connections:", error);
+        res.status(500).json({ message: "Failed to fetch database connections" });
+      }
+    },
+  );
+
+  app.post(
+    "/api/agent-chatbots/:agentId/databases/:connectionId",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const agentConnection = await storage.addDatabaseToAgent(
+          parseInt(req.params.agentId),
+          parseInt(req.params.connectionId),
+          userId,
+        );
+        res.status(201).json(agentConnection);
+      } catch (error) {
+        console.error("Error adding database to agent:", error);
+        res.status(500).json({ message: "Failed to add database to agent" });
+      }
+    },
+  );
+
+  app.delete(
+    "/api/agent-chatbots/:agentId/databases/:connectionId",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        await storage.removeDatabaseFromAgent(
+          parseInt(req.params.agentId),
+          parseInt(req.params.connectionId),
+          userId,
+        );
+        res.status(204).send();
+      } catch (error) {
+        console.error("Error removing database from agent:", error);
+        res.status(500).json({ message: "Failed to remove database from agent" });
+      }
+    },
+  );</old_str>
+
   // Test Agent endpoint (single message)
   app.post(
     "/api/agent-chatbots/test",

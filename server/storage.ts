@@ -168,6 +168,12 @@ export interface IStorage {
   getAgentChatbotDocumentsForWidget(agentId: number): Promise<AgentChatbotDocument[]>;
   getDocumentForWidget(documentId: number): Promise<any>;
 
+  // Agent Database Connection operations
+  getAgentDatabaseConnections(agentId: number, userId: string): Promise<any[]>;
+  addDatabaseToAgent(agentId: number, connectionId: number, userId: string): Promise<any>;
+  removeDatabaseFromAgent(agentId: number, connectionId: number, userId: string): Promise<void>;
+  removeAllDatabasesFromAgent(agentId: number, userId: string): Promise<void>;
+
   // AI Response Analysis operations
   createAiResponseAnalysis(analysis: InsertAiResponseAnalysis): Promise<AiResponseAnalysis>;
   getAiResponseAnalysis(userId: string, options?: { limit?: number; offset?: number; analysisResult?: string }): Promise<AiResponseAnalysis[]>;
@@ -201,6 +207,7 @@ export interface IStorage {
     agentId?: number,
     memoryLimit: number,
   ): Promise<ChatHistory[]>;
+  getAllChatHistoryForUser(userId: string): Promise<any[]>;
 
   // Line Message Template operations
   getLineMessageTemplates(userId: string, integrationId?: number): Promise<LineMessageTemplate[]>;
@@ -1371,15 +1378,68 @@ export class DatabaseStorage implements IStorage {
   }
 
   async removeAllDocumentsFromAgent(agentId: number, userId: string): Promise<void> {
-    // Verify the agent belongs to the user
-    const agent = await this.getAgentChatbot(agentId, userId);
-    if (!agent) {
-      throw new Error("Agent not found");
-    }
+    await db.delete(agentChatbotDocuments)
+      .where(and(
+        eq(agentChatbotDocuments.agentId, agentId),
+        eq(agentChatbotDocuments.userId, userId)
+      ));
+  }
 
+  // Agent Database Connection operations
+  async getAgentDatabaseConnections(agentId: number, userId: string): Promise<any[]> {
+    const connections = await db
+      .select({
+        id: agentDatabaseConnections.id,
+        agentId: agentDatabaseConnections.agentId,
+        connectionId: agentDatabaseConnections.connectionId,
+        connectionName: dataConnections.name,
+        connectionType: dataConnections.type,
+        dbType: dataConnections.dbType,
+        host: dataConnections.host,
+        port: dataConnections.port,
+        database: dataConnections.database,
+        isActive: dataConnections.isActive,
+        createdAt: agentDatabaseConnections.createdAt,
+      })
+      .from(agentDatabaseConnections)
+      .innerJoin(dataConnections, eq(agentDatabaseConnections.connectionId, dataConnections.id))
+      .where(and(
+        eq(agentDatabaseConnections.agentId, agentId),
+        eq(agentDatabaseConnections.userId, userId)
+      ));
+
+    return connections;
+  }
+
+  async addDatabaseToAgent(agentId: number, connectionId: number, userId: string): Promise<any> {
+    const [result] = await db
+      .insert(agentDatabaseConnections)
+      .values({
+        agentId,
+        connectionId,
+        userId,
+      })
+      .returning();
+
+    return result;
+  }
+
+  async removeDatabaseFromAgent(agentId: number, connectionId: number, userId: string): Promise<void> {
     await db
-      .delete(agentChatbotDocuments)
-      .where(eq(agentChatbotDocuments.agentId, agentId));
+      .delete(agentDatabaseConnections)
+      .where(and(
+        eq(agentDatabaseConnections.agentId, agentId),
+        eq(agentDatabaseConnections.connectionId, connectionId),
+        eq(agentDatabaseConnections.userId, userId)
+      ));
+  }
+
+  async removeAllDatabasesFromAgent(agentId: number, userId: string): Promise<void> {
+    await db.delete(agentDatabaseConnections)
+      .where(and(
+        eq(agentDatabaseConnections.agentId, agentId),
+        eq(agentDatabaseConnections.userId, userId)
+      ));
   }
 
   // Folder management methods

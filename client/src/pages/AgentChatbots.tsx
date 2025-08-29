@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Bot,
   Plus,
@@ -25,6 +26,7 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  Database
 } from "lucide-react";
 import { Link } from "wouter";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
@@ -202,6 +204,67 @@ export default function AgentChatbots() {
     );
   };
 
+  // Component to display agent database list
+  const AgentDatabaseList = ({ agentId }: { agentId: number }) => {
+    const { data: agentDatabases = [], isLoading } = useQuery({
+      queryKey: [`/api/agent-chatbots/${agentId}/databases`],
+      enabled: isAuthenticated && !!agentId,
+      retry: false,
+      refetchInterval: 120000, // Refresh every 120 seconds
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
+      staleTime: 0, // Always consider data stale for immediate refresh
+    }) as { data: any[]; isLoading: boolean };
+
+    if (isLoading) {
+      return (
+        <div className="flex items-center space-x-1 text-xs text-slate-500">
+          <Database className="w-3 h-3" />
+          <span>Loading...</span>
+        </div>
+      );
+    }
+
+    if (agentDatabases.length === 0) {
+      return (
+        <div className="flex items-center space-x-1 text-xs text-slate-500">
+          <Database className="w-3 h-3" />
+          <span>No databases</span>
+        </div>
+      );
+    }
+
+    const databaseNames = agentDatabases
+      .map((agentDb) => agentDb.name || `Database ${agentDb.databaseId}`)
+      .filter(Boolean);
+
+    const maxDisplay = 2;
+    const displayNames = databaseNames.slice(0, maxDisplay);
+    const remainingCount = databaseNames.length - maxDisplay;
+
+    return (
+      <div className="text-xs text-slate-500">
+        <div className="flex items-center space-x-1 mb-1">
+          <Database className="w-3 h-3" />
+          <span>{databaseNames.length} databases:</span>
+        </div>
+        <div className="ml-4 space-y-0.5">
+          {displayNames.map((name, index) => (
+            <div key={index} className="text-slate-600 truncate max-w-48">
+              • {name}
+            </div>
+          ))}
+          {remainingCount > 0 && (
+            <div className="text-slate-400 italic">
+              ...and {remainingCount} more
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Delete agent mutation
   const deleteAgentMutation = useMutation({
     mutationFn: async (agentId: number) => {
@@ -289,6 +352,9 @@ export default function AgentChatbots() {
     queryClient.invalidateQueries({ 
       queryKey: [`/api/agent-chatbots/${agentId}/documents`] 
     });
+    queryClient.invalidateQueries({ 
+      queryKey: [`/api/agent-chatbots/${agentId}/databases`] 
+    });
 
     // Navigate to edit page
     window.location.href = `/create-agent-chatbot?edit=${agentId}`;
@@ -320,14 +386,14 @@ export default function AgentChatbots() {
     if (agentSessions.length === 0) {
       return ""; // No sessions found
     }
-    
+
     // Find the most recent session
     const latestSession = agentSessions.reduce((latest, current) => {
       const latestTime = new Date(latest.lastMessageAt || latest.createdAt).getTime();
       const currentTime = new Date(current.lastMessageAt || current.createdAt).getTime();
       return currentTime > latestTime ? current : latest;
     });
-    
+
     return latestSession.lastMessageAt || latestSession.createdAt;
   };
 
@@ -341,16 +407,16 @@ export default function AgentChatbots() {
     .sort((a, b) => {
       const aLatestSession = getLatestSessionTimestamp(a.id);
       const bLatestSession = getLatestSessionTimestamp(b.id);
-      
+
       // If both have sessions, sort by latest session timestamp (most recent first)
       if (aLatestSession && bLatestSession) {
         return new Date(bLatestSession).getTime() - new Date(aLatestSession).getTime();
       }
-      
+
       // If only one has sessions, prioritize the one with sessions
       if (aLatestSession && !bLatestSession) return -1;
       if (!aLatestSession && bLatestSession) return 1;
-      
+
       // If neither has sessions, sort by creation date (most recent first)
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
@@ -480,9 +546,8 @@ export default function AgentChatbots() {
                   </div>
                 </div>
 
-                {/* Documents */}
+                {/* Documents & Databases */}
                 <div className="pt-3 border-t border-gray-100">
-                  {/* Conditionally render AgentDocumentList only when agent is expanded */}
                   <div onClick={() => {
                     setExpandedAgents(prev => {
                       const next = new Set(prev);
@@ -495,6 +560,7 @@ export default function AgentChatbots() {
                     });
                   }} className="cursor-pointer">
                     <AgentDocumentList agentId={agent.id} />
+                    <AgentDatabaseList agentId={agent.id} />
                   </div>
                 </div>
 
@@ -588,7 +654,7 @@ export default function AgentChatbots() {
                     .map((page, index, array) => {
                       // Add ellipsis if there's a gap
                       const showEllipsis = index > 0 && page - array[index - 1] > 1;
-                      
+
                       return (
                         <div key={page} className="flex items-center">
                           {showEllipsis && (

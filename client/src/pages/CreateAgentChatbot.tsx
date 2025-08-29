@@ -80,6 +80,8 @@ import {
   Wand2
 } from "lucide-react";
 import { Link } from "wouter";
+import DocumentSelector from "@/components/DocumentSelector";
+import DatabaseConnectionSelector from "@/components/DatabaseConnectionSelector";
 
 // Schema for form validation
 const createAgentSchema = z.object({
@@ -202,6 +204,7 @@ export default function CreateAgentChatbot() {
   const queryClient = useQueryClient();
 
   const [selectedDocuments, setSelectedDocuments] = useState<number[]>([]);
+  const [selectedDatabases, setSelectedDatabases] = useState<number[]>([]);
   const [selectedFolders, setSelectedFolders] = useState<Set<number>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<number>>(new Set());
   const [folderDocuments, setFolderDocuments] = useState<Record<number, FolderDocument[]>>({});
@@ -345,17 +348,17 @@ export default function CreateAgentChatbot() {
         const result = await response.json();
         const docs = result.documents || result; // Handle both formats
         const totalCount = result.totalCount || docs.length;
-        
+
         setFolderDocuments(prev => ({
           ...prev,
           [folderId]: append ? [...(prev[folderId] || []), ...docs] : docs
         }));
-        
+
         setFolderDocumentCounts(prev => ({
           ...prev,
           [folderId]: totalCount
         }));
-        
+
         setFolderDocumentOffsets(prev => ({
           ...prev,
           [folderId]: offset + docs.length
@@ -615,7 +618,7 @@ export default function CreateAgentChatbot() {
   // Save or update agent mutation
   const saveAgentMutation = useMutation({
     mutationFn: async (
-      agentData: CreateAgentForm & { documentIds: number[] },
+      agentData: CreateAgentForm & { documentIds: number[], databaseIds: number[] },
     ) => {
       if (isEditing) {
         return await apiRequest(
@@ -637,6 +640,7 @@ export default function CreateAgentChatbot() {
       // Clear form and navigate back
       form.reset();
       setSelectedDocuments([]);
+      setSelectedDatabases([]);
       setFolderDocuments({});
       setExpandedFolders(new Set());
 
@@ -747,6 +751,7 @@ export default function CreateAgentChatbot() {
       const finalData = {
         ...data,
         documentIds: allDocumentIds,
+        databaseIds: selectedDatabases,
         guardrailsConfig,
         // Ensure arrays are properly formatted
         specialSkills: Array.isArray(data.specialSkills) ? data.specialSkills : [],
@@ -758,6 +763,7 @@ export default function CreateAgentChatbot() {
       console.log("Guardrails enabled:", data.guardrailsEnabled);
       console.log("Guardrails config:", data.guardrailsConfig);
       console.log("Selected documents:", selectedDocuments);
+      console.log("Selected databases:", selectedDatabases);
       console.log("All document IDs:", allDocumentIds);
 
       saveAgentMutation.mutate(finalData);
@@ -907,14 +913,14 @@ export default function CreateAgentChatbot() {
     // First ensure we have all documents for this folder loaded
     const totalCount = folderDocumentCounts[folderId];
     const loadedDocs = folderDocuments[folderId] || [];
-    
+
     // If we don't have all documents loaded, we need to load them all first
     if (totalCount && loadedDocs.length < totalCount) {
       toast({
         title: "Loading all documents",
         description: `Loading all ${totalCount} documents from this folder...`,
       });
-      
+
       try {
         // Load all remaining documents
         const response = await fetch(`/api/folders/${folderId}/documents?limit=${totalCount}`);
@@ -1073,10 +1079,10 @@ export default function CreateAgentChatbot() {
 
   const loadMoreFolderDocuments = async (folderId: number) => {
     setLoadingMoreDocuments(prev => new Set([...prev, folderId]));
-    
+
     const currentOffset = folderDocumentOffsets[folderId] || 0;
     await fetchFolderDocuments(folderId, currentOffset, true);
-    
+
     setLoadingMoreDocuments(prev => {
       const next = new Set(prev);
       next.delete(folderId);
@@ -1810,9 +1816,9 @@ export default function CreateAgentChatbot() {
                                                 </div>
                                               </div>
                                             ))}
-                                            
+
                                             {/* Load More Button */}
-                                            {folderDocumentCounts[folder.id] && 
+                                            {folderDocumentCounts[folder.id] &&
                                              folderDocuments[folder.id].length < folderDocumentCounts[folder.id] && (
                                               <div className="ml-6 py-2 px-3">
                                                 <Button

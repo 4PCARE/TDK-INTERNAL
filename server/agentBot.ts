@@ -299,6 +299,25 @@ async function getAiResponseDirectly(
     });
 
     let aiResponse = "";
+    let databaseQueryResult: string | null = null; // Variable to store database query results
+
+    // Simulate fetching database results based on query analysis
+    if (queryAnalysis.needsSearch) {
+      // Placeholder for actual database query logic
+      // In a real scenario, this would involve parsing queryAnalysis.enhancedQuery
+      // and executing a database query.
+      console.log(`🗄️ AgentBot: Simulating database query for enhanced query: "${queryAnalysis.enhancedQuery}"`);
+      // Example: If the query is "What is the status of order 123?", you'd query a 'orders' table.
+      // For now, we'll just return a placeholder string.
+      if (queryAnalysis.enhancedQuery.toLowerCase().includes("order status")) {
+        databaseQueryResult = "Database Query Result: Order #123 status is 'Shipped'. Estimated delivery: 2024-07-28.";
+      } else if (queryAnalysis.enhancedQuery.toLowerCase().includes("customer information")) {
+        databaseQueryResult = "Database Query Result: Customer John Doe (ID: 456) has email john.doe@example.com and phone number 123-456-7890.";
+      } else {
+        databaseQueryResult = "Database Query Result: No specific database information found for this query.";
+      }
+    }
+
 
     if (!queryAnalysis.needsSearch) {
       console.log(
@@ -520,7 +539,7 @@ async function getAiResponseDirectly(
                 } else {
                   documentsWithNames = await storage.getDocumentsByIds(documentIds, userId);
                 }
-                
+
                 documentsWithNames.forEach(doc => {
                   documentNamesMap.set(doc.id, doc.name);
                 });
@@ -540,28 +559,28 @@ async function getAiResponseDirectly(
         console.log(
           `📄 AgentBot: Building document context from search results (max: ${maxContextLength} chars):`,
         );
-        
+
         // Debug: Log the complete structure of first search result
         if (finalSearchResults.length > 0) {
           console.log(`📄 AgentBot DEBUG: Complete first search result structure:`, JSON.stringify(finalSearchResults[0], null, 2));
         }
         for (let i = 0; i < finalSearchResults.length; i++) {
           const result = finalSearchResults[i];
-          
+
           // Bulletproof document ID extraction with multiple fallback strategies
           let docId = 0;
           let extractionMethod = "none";
-          
+
           // Strategy 1: Direct documentId
           if (result.documentId && result.documentId !== '0' && result.documentId !== 0) {
             docId = parseInt(result.documentId);
             extractionMethod = "documentId";
-          } 
+          }
           // Strategy 2: metadata.originalDocumentId
           else if (result.metadata?.originalDocumentId && result.metadata.originalDocumentId !== '0' && result.metadata.originalDocumentId !== 0) {
             docId = parseInt(result.metadata.originalDocumentId);
             extractionMethod = "metadata.originalDocumentId";
-          } 
+          }
           // Strategy 3: Extract from chunk ID format like "315-0"
           else if (result.id) {
             const idStr = result.id.toString();
@@ -570,7 +589,7 @@ async function getAiResponseDirectly(
               docId = parseInt(parts[0]);
               extractionMethod = "id-split";
             }
-          } 
+          }
           // Strategy 4: Extract from chunkId format
           else if (result.chunkId) {
             const chunkIdStr = result.chunkId.toString();
@@ -594,16 +613,16 @@ async function getAiResponseDirectly(
               }
             }
           }
-          
+
           console.log(`📄 AgentBot DEBUG: Result ${i + 1} - documentId: ${result.documentId}, originalDocumentId: ${result.metadata?.originalDocumentId}, id: ${result.id}, chunkId: ${result.chunkId}, extracted docId: ${docId}, method: ${extractionMethod}`);
-          
+
           const documentName = documentNamesMap.get(docId);
-          
+
           // Use actual document name or fallback to Document ID format
-          const cleanDocumentName = documentName 
+          const cleanDocumentName = documentName
             ? documentName.replace(/\s*\(Chunk\s*\d+\)$/i, '').trim()
             : `Document ${docId}`;
-          
+
           const chunkText = `=== ข้อมูลจากเอกสาร: ${cleanDocumentName} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${result.content}\n\n`;
 
           console.log(
@@ -683,7 +702,7 @@ async function getAiResponseDirectly(
 เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
 ${documentContext}
 
-สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้อมูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว`;
+สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้อมูลการวิเคราะห์รูปภาพในข้อความของผู้ user ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว`;
 
         // Add HR employee context if available
         if (hrEmployeeData) {

@@ -698,6 +698,14 @@ export const agentChatbotDocuments = pgTable("agent_chatbot_documents", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const agentDatabaseConnections = pgTable("agent_database_connections", {
+  id: serial("id").primaryKey(),
+  agentId: integer("agent_id").references(() => agentChatbots.id, { onDelete: "cascade" }).notNull(),
+  connectionId: integer("connection_id").references(() => dataConnections.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});</old_str>
+
 // Add folder relationship to documents
 // Note: You'll need to add folderId: integer("folder_id").references(() => folders.id, { onDelete: "set null" })
 // to your existing documents table definition
@@ -756,6 +764,21 @@ export const agentChatbotDocumentsRelations = relations(agentChatbotDocuments, (
     references: [users.id],
   }),
 }));
+
+export const agentDatabaseConnectionsRelations = relations(agentDatabaseConnections, ({ one }) => ({
+  agent: one(agentChatbots, {
+    fields: [agentDatabaseConnections.agentId],
+    references: [agentChatbots.id],
+  }),
+  connection: one(dataConnections, {
+    fields: [agentDatabaseConnections.connectionId],
+    references: [dataConnections.id],
+  }),
+  user: one(users, {
+    fields: [agentDatabaseConnections.userId],
+    references: [users.id],
+  }),
+}));</old_str>
 
 export const socialIntegrationsRelations = relations(socialIntegrations, ({ one }) => ({
   user: one(users, {
