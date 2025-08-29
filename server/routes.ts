@@ -19,7 +19,6 @@ import { registerWidgetRoutes } from "./routes/widgetRoutes";
 import { registerAnalyticRoutes } from "./routes/analyticRoutes";
 import { registerChatBotRoutes } from "./routes/chatBotRoutes";
 import { sqliteRoutes } from './routes/sqliteRoutes.js';
-import { serveStatic } from "./vite";
 
 // Initialize OpenAI for CSAT analysis
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -169,8 +168,8 @@ export async function registerRoutes(app: Express): Server {
     res.sendFile(path.join(process.cwd(), "test-frontend-excel-endpoint.html"));
   });
 
-  // Catch-all handler for client-side routing  
-  serveStatic(app);
+  // Catch-all handler for client-side routing
+  app.get("*", vitePluginServe);
 
 
   // Audit & Monitoring routes
