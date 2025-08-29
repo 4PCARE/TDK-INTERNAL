@@ -1,0 +1,71 @@
+DataConnections.tsx:350 Excel validation failed: TypeError: Failed to execute 'fetch' on 'Window': '/api/sqlite/validate-excel' is not a valid HTTP method.
+    at apiRequest (queryClient.ts:17:21)
+    at handleExcelUpload (DataConnections.tsx:343:30)
+    at HTMLUnknownElement.callCallback2 (chunk-RPCDYKBN.js?v=3a4f0766:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-RPCDYKBN.js?v=3a4f0766:3699:24)
+    at invokeGuardedCallback (chunk-RPCDYKBN.js?v=3a4f0766:3733:39)
+    at invokeGuardedCallbackAndCatchFirstError (chunk-RPCDYKBN.js?v=3a4f0766:3736:33)
+    at executeDispatch (chunk-RPCDYKBN.js?v=3a4f0766:7014:11)
+    at processDispatchQueueItemsInOrder (chunk-RPCDYKBN.js?v=3a4f0766:7034:15)
+    at processDispatchQueue (chunk-RPCDYKBN.js?v=3a4f0766:7043:13)
+    at dispatchEventsForPlugins (chunk-RPCDYKBN.js?v=3a4f0766:7051:11)
+handleExcelUpload @ DataConnections.tsx:350
+await in handleExcelUpload
+callCallback2 @ chunk-RPCDYKBN.js?v=3a4f0766:3674
+invokeGuardedCallbackDev @ chunk-RPCDYKBN.js?v=3a4f0766:3699
+invokeGuardedCallback @ chunk-RPCDYKBN.js?v=3a4f0766:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-RPCDYKBN.js?v=3a4f0766:3736
+executeDispatch @ chunk-RPCDYKBN.js?v=3a4f0766:7014
+processDispatchQueueItemsInOrder @ chunk-RPCDYKBN.js?v=3a4f0766:7034
+processDispatchQueue @ chunk-RPCDYKBN.js?v=3a4f0766:7043
+dispatchEventsForPlugins @ chunk-RPCDYKBN.js?v=3a4f0766:7051
+(anonymous) @ chunk-RPCDYKBN.js?v=3a4f0766:7174
+batchedUpdates$1 @ chunk-RPCDYKBN.js?v=3a4f0766:18913
+batchedUpdates @ chunk-RPCDYKBN.js?v=3a4f0766:3579
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=3a4f0766:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=3a4f0766:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=3a4f0766:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=3a4f0766:5449Understand this error
+DataConnections.tsx:202 ❌ Expected JSON but got: <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script type="module">
+import { createHotContext } from "/@vite/client";
+const hot = createHotContext("/__dummy__runtime-error-plugin");
+
+function sendError(error) {
+  if (!(error instanceof Error)) {
+    error = new Error("(unknown runtime error)");
+  }
+  const serialized = {
+    message: error.message,
+    stack: error.stack,
+  };
+  hot.send("runtime-error-plugin:error", serialized);
+}
+
+window.addEventListener("error", (evt) => {
+  sendError(evt.er
+fetchExistingExcelFiles @ DataConnections.tsx:202
+await in fetchExistingExcelFiles
+(anonymous) @ DataConnections.tsx:170
+commitHookEffectListMount @ chunk-RPCDYKBN.js?v=3a4f0766:16915
+commitPassiveMountOnFiber @ chunk-RPCDYKBN.js?v=3a4f0766:18156
+commitPassiveMountEffects_complete @ chunk-RPCDYKBN.js?v=3a4f0766:18129
+commitPassiveMountEffects_begin @ chunk-RPCDYKBN.js?v=3a4f0766:18119
+commitPassiveMountEffects @ chunk-RPCDYKBN.js?v=3a4f0766:18109
+flushPassiveEffectsImpl @ chunk-RPCDYKBN.js?v=3a4f0766:19490
+flushPassiveEffects @ chunk-RPCDYKBN.js?v=3a4f0766:19447
+commitRootImpl @ chunk-RPCDYKBN.js?v=3a4f0766:19416
+commitRoot @ chunk-RPCDYKBN.js?v=3a4f0766:19277
+performSyncWorkOnRoot @ chunk-RPCDYKBN.js?v=3a4f0766:18895
+flushSyncCallbacks @ chunk-RPCDYKBN.js?v=3a4f0766:9119
+flushSync @ chunk-RPCDYKBN.js?v=3a4f0766:18959
+finishEventHandler @ chunk-RPCDYKBN.js?v=3a4f0766:3569
+batchedUpdates @ chunk-RPCDYKBN.js?v=3a4f0766:3582
+dispatchEventForPluginEventSystem @ chunk-RPCDYKBN.js?v=3a4f0766:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-RPCDYKBN.js?v=3a4f0766:5478
+dispatchEvent @ chunk-RPCDYKBN.js?v=3a4f0766:5472
+dispatchDiscreteEvent @ chunk-RPCDYKBN.js?v=3a4f0766:5449Understand this error
+DataConnections.tsx:210 💥 Failed to fetch existing Excel files: Error: Expected JSON response but got text/html; charset=utf-8
+    at fetchExistingExcelFiles (DataConnections.tsx:203:15)
