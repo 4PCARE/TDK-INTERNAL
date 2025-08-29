@@ -45,20 +45,38 @@ router.post('/validate-excel', isAuthenticated, upload.single('excel'), async (r
 // Create SQLite database from Excel
 router.post('/create-sqlite', isAuthenticated, upload.single('excel'), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No Excel file uploaded' });
-    }
-
-    const { name, description } = req.body;
+    const { name, description, useExistingFile, existingFileId } = req.body;
+    
     if (!name) {
       return res.status(400).json({ error: 'Database name is required' });
+    }
+
+    let excelFilePath: string;
+
+    if (useExistingFile && existingFileId) {
+      // Use existing file
+      const userId = req.user.id;
+      const { storage } = await import('../storage.js');
+      const document = await storage.getDocument(parseInt(existingFileId), userId);
+      
+      if (!document) {
+        return res.status(404).json({ error: 'Excel file not found' });
+      }
+      
+      excelFilePath = document.filePath;
+    } else {
+      // Use uploaded file
+      if (!req.file) {
+        return res.status(400).json({ error: 'No Excel file uploaded' });
+      }
+      excelFilePath = req.file.path;
     }
 
     const result = await sqliteService.createSQLiteFromExcel({
       userId: req.user.id,
       name,
       description,
-      excelFilePath: req.file.path,
+      excelFilePath,
       sanitizeColumnNames: true
     });
 
@@ -91,6 +109,33 @@ router.post('/validate-existing-excel/:fileId', isAuthenticated, async (req, res
   } catch (error) {
     console.error('Excel validation error:', error);
     res.status(500).json({ error: 'Excel validation failed' });
+  }
+});
+
+// Get existing Excel files
+router.get('/existing-excel', isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { storage } = await import('../storage.js');
+
+    // Get documents that are Excel files
+    const documents = await storage.getDocumentsByUserId(userId, {
+      type: 'excel',
+      extensions: ['xlsx', 'xls']
+    });
+
+    const excelFiles = documents.map(doc => ({
+      id: doc.id,
+      name: doc.name,
+      filePath: doc.filePath,
+      createdAt: doc.createdAt,
+      size: doc.fileSize
+    }));
+
+    res.json(excelFiles);
+  } catch (error) {
+    console.error('Error fetching existing Excel files:', error);
+    res.status(500).json({ error: 'Failed to fetch Excel files' });
   }
 });
 
