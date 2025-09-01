@@ -25,7 +25,10 @@ import {
   Trash2,
   Play,
   Wrench,
-  Search
+  Search,
+  Filter,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -39,6 +42,203 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+
+// TableDataViewer component for DBeaver-style display
+const TableDataViewer = ({ table }: { table: any }) => {
+  const [filters, setFilters] = useState<{[key: string]: string}>({});
+  const [currentPage, setCurrentPage] = useState(0);
+  const [showFilters, setShowFilters] = useState(false);
+  const rowsPerPage = 10;
+
+  const filteredData = table.sampleData?.filter((row: any) => {
+    return Object.entries(filters).every(([column, filterValue]) => {
+      if (!filterValue) return true;
+      const cellValue = row[column]?.toString().toLowerCase() || '';
+      return cellValue.includes(filterValue.toLowerCase());
+    });
+  }) || [];
+
+  const paginatedData = filteredData.slice(
+    currentPage * rowsPerPage,
+    (currentPage + 1) * rowsPerPage
+  );
+
+  const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Database className="w-4 h-4" />
+            {table.name}
+            <Badge variant="outline">{table.rowCount} rows</Badge>
+          </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            Filters
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Schema Section */}
+        <div>
+          <h4 className="font-medium mb-2">Schema</h4>
+          <div className="space-y-2">
+            {table.columns.map((column: any) => (
+              <div key={column.name} className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{column.name}</span>
+                  {column.isPrimaryKey && <Badge variant="default" className="text-xs">PK</Badge>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">{column.type}</Badge>
+                  {!column.nullable && <Badge variant="secondary" className="text-xs">NOT NULL</Badge>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Data Section */}
+        {table.sampleData && table.sampleData.length > 0 && (
+          <div>
+            <h4 className="font-medium mb-2">Sample Data</h4>
+
+            {/* Filters */}
+            {showFilters && (
+              <div className="mb-4 p-3 bg-slate-50 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {table.columns.map((column: any) => (
+                    <div key={column.name}>
+                      <Label className="text-xs text-slate-600">{column.name}</Label>
+                      <Input
+                        placeholder={`Filter ${column.name}...`}
+                        value={filters[column.name] || ''}
+                        onChange={(e) => {
+                          setFilters(prev => ({
+                            ...prev,
+                            [column.name]: e.target.value
+                          }));
+                          setCurrentPage(0);
+                        }}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+                {Object.values(filters).some(f => f) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setFilters({});
+                      setCurrentPage(0);
+                    }}
+                    className="mt-2"
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Table */}
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    {table.columns.map((column: any) => (
+                      <TableHead key={column.name} className="font-medium">
+                        <div className="flex items-center gap-1">
+                          {column.name}
+                          {column.isPrimaryKey && (
+                            <Badge variant="default" className="text-xs">PK</Badge>
+                          )}
+                        </div>
+                        <div className="text-xs font-normal text-slate-500 mt-1">
+                          {column.type}
+                        </div>
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedData.length > 0 ? (
+                    paginatedData.map((row: any, index: number) => (
+                      <TableRow key={index}>
+                        {table.columns.map((column: any) => (
+                          <TableCell key={column.name} className="max-w-48">
+                            <div className="truncate" title={row[column.name]?.toString()}>
+                              {row[column.name] === null || row[column.name] === undefined ? (
+                                <span className="text-slate-400 italic">NULL</span>
+                              ) : (
+                                row[column.name]?.toString()
+                              )}
+                            </div>
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={table.columns.length}
+                        className="text-center text-slate-500 py-8"
+                      >
+                        {Object.values(filters).some(f => f) ? 'No matching data' : 'No data available'}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-slate-600">
+                  Showing {currentPage * rowsPerPage + 1} to{' '}
+                  {Math.min((currentPage + 1) * rowsPerPage, filteredData.length)} of{' '}
+                  {filteredData.length} rows
+                  {Object.values(filters).some(f => f) && ` (filtered from ${table.sampleData.length})`}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                    disabled={currentPage === 0}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <span className="text-sm">
+                    Page {currentPage + 1} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+                    disabled={currentPage === totalPages - 1}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 // ConnectionUrlDisplay component for showing connection URLs
 function ConnectionUrlDisplay({ connectionId }: { connectionId: number }) {
@@ -732,7 +932,7 @@ export default function DataConnections() {
 
   return (
     <DashboardLayout>
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -1841,33 +2041,9 @@ export default function DataConnections() {
                             </div>
                           </div>
 
-                          <div className="space-y-4 max-h-96 overflow-y-auto">
+                          <div className="space-y-6">
                             {schemaData.tables.map((table: any) => (
-                              <Card key={table.name}>
-                                <CardHeader>
-                                  <CardTitle className="flex items-center gap-2 text-lg">
-                                    <Database className="w-4 h-4" />
-                                    {table.name}
-                                    <Badge variant="outline">{table.rowCount} rows</Badge>
-                                  </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                  <div className="space-y-2">
-                                    {table.columns.map((column: any) => (
-                                      <div key={column.name} className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                                        <div className="flex items-center gap-2">
-                                          <span className="font-medium">{column.name}</span>
-                                          {column.isPrimaryKey && <Badge variant="default" className="text-xs">PK</Badge>}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <Badge variant="outline">{column.type}</Badge>
-                                          {!column.nullable && <Badge variant="secondary" className="text-xs">NOT NULL</Badge>}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </CardContent>
-                              </Card>
+                              <TableDataViewer key={table.name} table={table} />
                             ))}
                           </div>
                         </div>
