@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -64,7 +63,7 @@ export default function DatabaseConnectionSelector({
           Database Connections ({selectedConnections.length})
         </Button>
       </DialogTrigger>
-      
+
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -129,13 +128,18 @@ export default function DatabaseConnectionSelector({
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-2">
                           <Badge 
-                            variant={connection.dbType === 'postgresql' ? 'default' : 'secondary'}
-                            className="text-xs"
+                            variant="outline" 
+                            className={`text-xs ${
+                              connection.type && connection.type.toUpperCase() === 'MYSQL' ? 'bg-orange-100 text-orange-800' :
+                              connection.type && connection.type.toUpperCase() === 'POSTGRESQL' ? 'bg-blue-100 text-blue-800' :
+                              connection.type && connection.type.toUpperCase() === 'SQLITE' ? 'bg-green-100 text-green-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}
                           >
-                            {connection.dbType.toUpperCase()}
+                            {connection.type ? connection.type.toUpperCase() : 'UNKNOWN'}
                           </Badge>
                           {isCurrentlyConnected && (
                             <Badge variant="default" className="bg-green-500 text-xs">
