@@ -549,7 +549,15 @@ export default function DataConnections() {
   const [sortBy, setSortBy] = useState<'createdAt' | 'updatedAt' | 'name'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<'settings' | 'schema' | 'inference'>('settings');
+  const [selectedTab, setSelectedTab] = useState<'settings' | 'schema' | 'snippets' | 'inference'>('settings');
+  
+  // SQL Snippets state
+  const [sqlSnippets, setSqlSnippets] = useState<Array<{
+    id?: number;
+    name: string;
+    sql: string;
+    description: string;
+  }>>([]);
 
   // SQLite file analysis states
   const [selectedFile, setSelectedFile] = useState<{ filePath: string; name: string } | null>(null);
@@ -576,6 +584,14 @@ export default function DataConnections() {
     queryKey: [`/api/database-connections/${editingConnection?.id}/infer-types`],
     enabled: !!(editingConnection?.id && selectedTab === 'inference'),
     staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  // Fetch SQL snippets
+  const { data: snippetsData, isLoading: snippetsLoading, refetch: refetchSnippets } = useQuery({
+    queryKey: [`/api/database/${editingConnection?.id}/snippets`],
+    enabled: !!(editingConnection?.id && selectedTab === 'snippets'),
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
@@ -857,6 +873,67 @@ export default function DataConnections() {
     },
   });
 
+  // SQL Snippets mutations
+  const createSnippetMutation = useMutation({
+    mutationFn: async (snippet: { name: string; sql: string; description: string }) => {
+      return await apiRequest("POST", `/api/database/${editingConnection?.id}/snippets`, snippet);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "SQL snippet created successfully!",
+      });
+      refetchSnippets();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to create SQL snippet",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateSnippetMutation = useMutation({
+    mutationFn: async ({ id, snippet }: { id: number; snippet: { name: string; sql: string; description: string } }) => {
+      return await apiRequest("PUT", `/api/database/snippets/${id}`, snippet);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "SQL snippet updated successfully!",
+      });
+      refetchSnippets();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update SQL snippet",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteSnippetMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest("DELETE", `/api/database/snippets/${id}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "SQL snippet deleted successfully!",
+      });
+      refetchSnippets();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to delete SQL snippet",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleTestConnection = (connection: DatabaseConnection) => {
     testConnectionMutation.mutate(connection);
   };
@@ -865,6 +942,46 @@ export default function DataConnections() {
     setEditingConnection(connection);
     setEditDialogOpen(true);
     setSelectedTab('schema'); // Default to schema tab for better data preview
+    setSqlSnippets([]); // Reset snippets state
+  };
+
+  // SQL Snippets helper functions
+  const addSqlSnippet = () => {
+    setSqlSnippets(prev => [...prev, { name: "", sql: "", description: "" }]);
+  };
+
+  const updateSqlSnippet = (index: number, field: 'name' | 'sql' | 'description', value: string) => {
+    setSqlSnippets(prev => prev.map((snippet, i) => 
+      i === index ? { ...snippet, [field]: value } : snippet
+    ));
+  };
+
+  const removeSqlSnippet = (index: number) => {
+    setSqlSnippets(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const saveSqlSnippet = async (index: number) => {
+    const snippet = sqlSnippets[index];
+    if (!snippet.name || !snippet.sql) {
+      toast({
+        title: "Missing Information",
+        description: "Please provide both name and SQL query",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (snippet.id) {
+      await updateSnippetMutation.mutateAsync({ id: snippet.id, snippet });
+    } else {
+      await createSnippetMutation.mutateAsync(snippet);
+    }
+  };
+
+  const deleteSqlSnippet = async (id: number) => {
+    if (confirm('Are you sure you want to delete this SQL snippet?')) {
+      await deleteSnippetMutation.mutateAsync(id);
+    }
   };
 
   const handleUpdateConnection = () => {
@@ -2017,17 +2134,17 @@ export default function DataConnections() {
 
         {/* Edit Database Dialog */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>Configure Database</DialogTitle>
               <DialogDescription>
-                Edit database settings and view schema information
+                Edit database settings, view schema, and manage SQL snippets
               </DialogDescription>
             </DialogHeader>
 
             {editingConnection && (
-              <div className="flex flex-col h-full">
-                <div className="border-b">
+              <div className="flex flex-col flex-1 min-h-0">
+                <div className="border-b pb-2">
                   <div className="flex space-x-1">
                     <Button
                       variant={selectedTab === 'settings' ? 'default' : 'ghost'}
@@ -2044,6 +2161,13 @@ export default function DataConnections() {
                       Schema
                     </Button>
                     <Button
+                      variant={selectedTab === 'snippets' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setSelectedTab('snippets')}
+                    >
+                      SQL Snippets
+                    </Button>
+                    <Button
                       variant={selectedTab === 'inference' ? 'default' : 'ghost'}
                       size="sm"
                       onClick={() => setSelectedTab('inference')}
@@ -2053,7 +2177,7 @@ export default function DataConnections() {
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4">
+                <div className="flex-1 overflow-y-auto p-4 min-h-0">
                   {selectedTab === 'settings' && (
                     <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
@@ -2201,6 +2325,129 @@ export default function DataConnections() {
                     </div>
                   )}
 
+                  {selectedTab === 'snippets' && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium">SQL Snippets for AI Training</h4>
+                          <p className="text-sm text-slate-600">Create example queries to help the AI understand your data better</p>
+                        </div>
+                        <Button onClick={addSqlSnippet} size="sm">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Snippet
+                        </Button>
+                      </div>
+
+                      {snippetsLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                          <span className="ml-2">Loading SQL snippets...</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-4 max-h-96 overflow-y-auto">
+                          {/* Existing snippets from database */}
+                          {snippetsData?.map((snippet: any) => (
+                            <Card key={snippet.id} className="border">
+                              <CardContent className="p-4">
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <div className="font-medium">{snippet.name}</div>
+                                    <Button
+                                      onClick={() => deleteSqlSnippet(snippet.id)}
+                                      size="sm"
+                                      variant="ghost"
+                                      className="text-red-600 hover:text-red-800"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                  {snippet.description && (
+                                    <p className="text-sm text-slate-600">{snippet.description}</p>
+                                  )}
+                                  <div className="bg-slate-50 p-3 rounded-lg">
+                                    <code className="text-sm">{snippet.sql}</code>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+
+                          {/* New snippets being created */}
+                          {sqlSnippets.map((snippet, index) => (
+                            <Card key={index} className="border-dashed border-2">
+                              <CardContent className="p-4">
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-sm font-medium">New SQL Snippet</Label>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        onClick={() => saveSqlSnippet(index)}
+                                        size="sm"
+                                        disabled={createSnippetMutation.isPending || updateSnippetMutation.isPending}
+                                      >
+                                        {createSnippetMutation.isPending || updateSnippetMutation.isPending ? (
+                                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                                        ) : (
+                                          <Check className="w-3 h-3" />
+                                        )}
+                                      </Button>
+                                      <Button
+                                        onClick={() => removeSqlSnippet(index)}
+                                        size="sm"
+                                        variant="ghost"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  
+                                  <div>
+                                    <Label className="text-xs">Name</Label>
+                                    <Input
+                                      value={snippet.name}
+                                      onChange={(e) => updateSqlSnippet(index, 'name', e.target.value)}
+                                      placeholder="e.g., Get top 10 sales"
+                                      className="text-sm"
+                                    />
+                                  </div>
+                                  
+                                  <div>
+                                    <Label className="text-xs">Description (optional)</Label>
+                                    <Input
+                                      value={snippet.description}
+                                      onChange={(e) => updateSqlSnippet(index, 'description', e.target.value)}
+                                      placeholder="What does this query do?"
+                                      className="text-sm"
+                                    />
+                                  </div>
+                                  
+                                  <div>
+                                    <Label className="text-xs">SQL Query</Label>
+                                    <Textarea
+                                      value={snippet.sql}
+                                      onChange={(e) => updateSqlSnippet(index, 'sql', e.target.value)}
+                                      placeholder="SELECT * FROM sales ORDER BY amount DESC LIMIT 10"
+                                      rows={3}
+                                      className="text-sm font-mono"
+                                    />
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+
+                          {(!snippetsData || snippetsData.length === 0) && sqlSnippets.length === 0 && (
+                            <div className="text-center py-8 text-slate-500">
+                              <Database className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                              <p>No SQL snippets yet</p>
+                              <p className="text-xs mt-2">Add example queries to help the AI understand your data better</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {selectedTab === 'inference' && (
                     <div className="space-y-4">
                       {inferenceLoading ? (
@@ -2254,6 +2501,7 @@ export default function DataConnections() {
                         setEditDialogOpen(false);
                         setEditingConnection(null);
                         setSelectedTab('settings');
+                        setSqlSnippets([]);
                       }}
                     >
                       Cancel
@@ -2285,6 +2533,7 @@ export default function DataConnections() {
                         setEditDialogOpen(false);
                         setEditingConnection(null);
                         setSelectedTab('settings');
+                        setSqlSnippets([]);
                       }}
                     >
                       Close
