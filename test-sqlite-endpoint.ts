@@ -1,231 +1,159 @@
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
-import axios, { AxiosResponse, AxiosError } from 'axios';
-
-interface ExistingFile {
-  id: string;
-  name: string;
-  fileName: string;
-  filePath: string;
-  fileSize: number;
-  createdAt: string;
-  mimeType: string;
-}
-
-interface ErrorResponse {
-  message: string;
-  error?: string;
-}
+const execAsync = promisify(exec);
 
 interface TestResult {
   endpoint: string;
-  status: number;
   success: boolean;
+  status?: number;
   data?: any;
   error?: string;
-  contentType?: string;
+  isHtml?: boolean;
 }
 
-const BASE_URL = 'http://localhost:5000';
+async function makeAuthenticatedRequest(endpoint: string, options: any = {}): Promise<TestResult> {
+  try {
+    const curlCommand = `curl -s -w "HTTPSTATUS:%{http_code}" -H "Content-Type: application/json" -H "Accept: application/json" ${options.method ? `-X ${options.method}` : ''} ${options.data ? `-d '${JSON.stringify(options.data)}'` : ''} "http://localhost:5000${endpoint}"`;
 
-class SQLiteEndpointTester {
-  private authToken: string | null = null;
+    console.log(`🔍 Testing: ${endpoint}`);
+    console.log(`📤 Command: ${curlCommand}`);
 
-  async testSQLiteExistingFilesEndpoint(): Promise<void> {
-    console.log('🧪 Testing SQLite existing-files endpoint (TypeScript)...\n');
+    const { stdout, stderr } = await execAsync(curlCommand);
 
-    const results: TestResult[] = [];
-
-    try {
-      // Test 1: Check endpoint without authentication
-      console.log('1. Testing without authentication...');
-      const unauthResult = await this.testEndpoint('/api/sqlite/existing-files', 'GET');
-      results.push(unauthResult);
-      
-      if (unauthResult.status === 401) {
-        console.log('✅ Correctly returns 401 for unauthenticated requests');
-      } else if (unauthResult.contentType?.includes('text/html')) {
-        console.log('❌ Getting HTML response - likely Vite catch-all route issue');
-      }
-
-      // Test 2: Check server health
-      console.log('\n2. Testing server health...');
-      const healthResult = await this.testEndpoint('/api/health', 'GET');
-      results.push(healthResult);
-
-      // Test 3: Test with mock authentication (if you have a test user)
-      console.log('\n3. Testing with authentication...');
-      // You would need to implement actual auth here
-      // For now, let's test the route registration
-      
-      // Test 4: Check route registration
-      console.log('\n4. Testing route registration...');
-      const routes = [
-        '/api/auth/user',
-        '/api/database-connections',
-        '/api/sqlite/existing-files',
-        '/api/sqlite/analyze-file',
-        '/api/sqlite/create-database',
-        '/api/sqlite/test-query'
-      ];
-
-      for (const route of routes) {
-        const result = await this.testEndpoint(route, 'GET');
-        results.push(result);
-        
-        if (result.contentType?.includes('text/html')) {
-          console.log(`🚨 ${route}: Getting HTML instead of JSON - route not properly registered`);
-        } else {
-          console.log(`✅ ${route}: Proper API response (${result.status})`);
-        }
-      }
-
-      // Test 5: Test with proper headers
-      console.log('\n5. Testing with proper API headers...');
-      const headerResult = await this.testWithHeaders('/api/sqlite/existing-files');
-      results.push(headerResult);
-
-      // Summary
-      console.log('\n📊 Test Summary:');
-      this.printSummary(results);
-
-    } catch (error) {
-      console.error('❌ Test script error:', error);
+    if (stderr) {
+      console.log(`⚠️  stderr: ${stderr}`);
     }
-  }
 
-  private async testEndpoint(endpoint: string, method: 'GET' | 'POST' = 'GET'): Promise<TestResult> {
-    try {
-      const response: AxiosResponse = await axios({
-        method,
-        url: `${BASE_URL}${endpoint}`,
-        timeout: 5000,
-        validateStatus: () => true, // Accept all status codes
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      });
+    // Parse response
+    const parts = stdout.split('HTTPSTATUS:');
+    const responseBody = parts[0];
+    const statusCode = parseInt(parts[1] || '0');
 
+    console.log(`📥 Status: ${statusCode}`);
+    console.log(`📥 Response body: ${responseBody.substring(0, 200)}${responseBody.length > 200 ? '...' : ''}`);
+
+    // Check if response is HTML (Vite error page)
+    const isHtml = responseBody.trim().startsWith('<!DOCTYPE html') || responseBody.includes('<html');
+
+    if (isHtml) {
+      console.log(`🚨 HTML Response detected - likely Vite error page`);
       return {
         endpoint,
-        status: response.status,
-        success: response.status < 400,
-        data: response.data,
-        contentType: response.headers['content-type']
-      };
-    } catch (error) {
-      const axiosError = error as AxiosError;
-      return {
-        endpoint,
-        status: axiosError.response?.status || 0,
         success: false,
-        error: axiosError.message,
-        contentType: axiosError.response?.headers['content-type']
+        status: statusCode,
+        data: responseBody,
+        error: 'HTML response (Vite error page)',
+        isHtml: true
       };
     }
-  }
 
-  private async testWithHeaders(endpoint: string): Promise<TestResult> {
+    // Try to parse JSON
+    let parsedData;
     try {
-      const response = await axios.get(`${BASE_URL}${endpoint}`, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'User-Agent': 'SQLite-Test-Client/1.0',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-        timeout: 5000,
-        validateStatus: () => true
-      });
-
-      console.log(`Headers test - Status: ${response.status}, Content-Type: ${response.headers['content-type']}`);
-      
-      if (response.headers['content-type']?.includes('text/html')) {
-        console.log('📄 HTML Response detected - first 200 chars:');
-        console.log(typeof response.data === 'string' 
-          ? response.data.substring(0, 200) 
-          : JSON.stringify(response.data).substring(0, 200)
-        );
-      }
-
+      parsedData = JSON.parse(responseBody);
+    } catch (e) {
+      console.log(`❌ Failed to parse JSON response`);
       return {
         endpoint,
-        status: response.status,
-        success: response.status < 400,
-        data: response.data,
-        contentType: response.headers['content-type']
-      };
-    } catch (error) {
-      const axiosError = error as AxiosError;
-      return {
-        endpoint,
-        status: axiosError.response?.status || 0,
         success: false,
-        error: axiosError.message,
-        contentType: axiosError.response?.headers['content-type']
+        status: statusCode,
+        data: responseBody,
+        error: 'Invalid JSON response'
       };
     }
-  }
 
-  private printSummary(results: TestResult[]): void {
-    const successful = results.filter(r => r.success).length;
-    const failed = results.length - successful;
-    const htmlResponses = results.filter(r => r.contentType?.includes('text/html')).length;
+    const isSuccess = statusCode >= 200 && statusCode < 300;
+    console.log(`${isSuccess ? '✅' : '❌'} ${endpoint}: ${statusCode} - ${isSuccess ? 'SUCCESS' : 'FAILED'}`);
+    console.log(`📊 Response data:`, JSON.stringify(parsedData, null, 2));
 
-    console.log(`✅ Successful: ${successful}`);
-    console.log(`❌ Failed: ${failed}`);
-    console.log(`🚨 HTML Responses: ${htmlResponses}`);
-    
-    if (htmlResponses > 0) {
-      console.log('\n💡 Recommendations:');
-      console.log('   - Check if Express routes are properly registered');
-      console.log('   - Verify the SQLite routes are imported in server/index.ts');
-      console.log('   - Ensure the server is running on the correct port');
-      console.log('   - Check for middleware conflicts');
-    }
-  }
+    return {
+      endpoint,
+      success: isSuccess,
+      status: statusCode,
+      data: parsedData
+    };
 
-  // Method to test with authentication (once you have auth working)
-  async testWithAuth(userToken: string): Promise<void> {
-    this.authToken = userToken;
-    
-    try {
-      const response = await axios.get(`${BASE_URL}/api/sqlite/existing-files`, {
-        headers: {
-          'Authorization': `Bearer ${userToken}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      });
-
-      console.log('🔐 Authenticated test result:');
-      console.log(`Status: ${response.status}`);
-      console.log(`Files found: ${Array.isArray(response.data) ? response.data.length : 'N/A'}`);
-      
-      if (Array.isArray(response.data)) {
-        response.data.forEach((file: ExistingFile, index: number) => {
-          console.log(`  ${index + 1}. ${file.name} (${file.fileSize} bytes)`);
-        });
-      }
-    } catch (error) {
-      console.error('🔐 Authenticated test failed:', error);
-    }
+  } catch (error) {
+    console.log(`❌ Network error for ${endpoint}:`, error);
+    return {
+      endpoint,
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
   }
 }
 
-// Run the tests
-async function runTests(): Promise<void> {
-  const tester = new SQLiteEndpointTester();
-  await tester.testSQLiteExistingFilesEndpoint();
-  
-  // Uncomment and provide a valid token to test authentication
-  // await tester.testWithAuth('your-jwt-token-here');
-}
+async function testSQLiteEndpoints() {
+  console.log('🧪 Testing SQLite existing-files endpoint (TypeScript)...\n');
 
-runTests().then(() => {
+  const results: TestResult[] = [];
+
+  // Test 1: existing-files endpoint
+  console.log('1. Testing /api/sqlite/existing-files...');
+  const existingFilesResult = await makeAuthenticatedRequest('/api/sqlite/existing-files');
+  results.push(existingFilesResult);
+
+  // Test 2: analyze-file endpoint (should fail without file path)
+  console.log('\n2. Testing /api/sqlite/analyze-file (without file path)...');
+  const analyzeFileResult = await makeAuthenticatedRequest('/api/sqlite/analyze-file', {
+    method: 'POST',
+    data: {}
+  });
+  results.push(analyzeFileResult);
+
+  // Test 3: create-database endpoint (should fail without required fields)
+  console.log('\n3. Testing /api/sqlite/create-database (without required fields)...');
+  const createDbResult = await makeAuthenticatedRequest('/api/sqlite/create-database', {
+    method: 'POST',
+    data: {}
+  });
+  results.push(createDbResult);
+
+  // Test 4: test-query endpoint (should fail without required fields)
+  console.log('\n4. Testing /api/sqlite/test-query (without required fields)...');
+  const testQueryResult = await makeAuthenticatedRequest('/api/sqlite/test-query', {
+    method: 'POST',
+    data: {}
+  });
+  results.push(testQueryResult);
+
+  // Test 5: Check server logs for any authentication issues
+  console.log('\n5. Testing server authentication status...');
+  const authTestResult = await makeAuthenticatedRequest('/api/auth/user');
+  results.push(authTestResult);
+
+  // Summary
+  const successful = results.filter(r => r.success).length;
+  const failed = results.filter(r => !r.success).length;
+  const htmlResponses = results.filter(r => r.isHtml).length;
+
+  console.log('\n📊 Test Summary:');
+  console.log(`✅ Successful: ${successful}`);
+  console.log(`❌ Failed: ${failed}`);
+  console.log(`🚨 HTML Responses: ${htmlResponses}`);
+
+  if (htmlResponses > 0) {
+    console.log('\n🔍 HTML Response Analysis:');
+    results.filter(r => r.isHtml).forEach(result => {
+      console.log(`📄 ${result.endpoint}: Got HTML instead of JSON`);
+      console.log(`   This usually means the route isn't properly registered or there's a server error`);
+    });
+  }
+
+  // Check if any endpoints returned proper JSON
+  const jsonResponses = results.filter(r => !r.isHtml && r.data && typeof r.data === 'object');
+  if (jsonResponses.length > 0) {
+    console.log('\n📈 Successful JSON Responses:');
+    jsonResponses.forEach(result => {
+      console.log(`✅ ${result.endpoint}:`);
+      console.log(`   Status: ${result.status}`);
+      console.log(`   Data keys: ${Object.keys(result.data).join(', ')}`);
+    });
+  }
+
   console.log('\n✅ SQLite endpoint test completed');
-  process.exit(0);
-}).catch((error: Error) => {
-  console.error('💥 Test script failed:', error.message);
-  process.exit(1);
-});
+}
+
+// Run the test
+testSQLiteEndpoints().catch(console.error);
