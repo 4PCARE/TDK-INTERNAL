@@ -2748,6 +2748,12 @@ export class DatabaseStorage implements IStorage {
       `);
       return result.rows[0];
     } catch (error) {
+      // If table doesn't exist, provide helpful error message
+      if (error.code === '42P01' && error.message?.includes('relation "sql_snippets" does not exist')) {
+        console.error('SQL snippets table does not exist. Please run the migration: migrations/add_sql_snippets_tables.sql');
+        throw new Error('SQL snippets table not found. Database migration required.');
+      }
+      
       console.error('Error creating SQL snippet:', error);
       throw error;
     }
@@ -2773,6 +2779,12 @@ export class DatabaseStorage implements IStorage {
         updatedAt: row.updated_at,
       }));
     } catch (error) {
+      // Handle missing sql_snippets table gracefully
+      if (error.code === '42P01' && error.message?.includes('relation "sql_snippets" does not exist')) {
+        console.log('📝 SQL snippets table does not exist yet. Returning empty array.');
+        return [];
+      }
+      
       console.error('Error getting SQL snippets:', error);
       return [];
     }

@@ -138,13 +138,15 @@ export class AIDatabaseAgent {
     dbType: string,
     maxRows: number
   ): Promise<string | null> {
+    const hasExamples = !snippetContext.includes('No example SQL patterns available');
+    
     const systemPrompt = `You are an expert SQL query generator. Generate precise SQL queries based on user questions.
 
 Database Type: ${dbType}
 Schema Information:
 ${schemaContext}
 
-Example SQL Patterns:
+${hasExamples ? 'Example SQL Patterns:' : 'Note:'}
 ${snippetContext}
 
 IMPORTANT GUIDELINES:
@@ -153,7 +155,8 @@ IMPORTANT GUIDELINES:
 - Limit results with LIMIT ${maxRows} unless user specifies otherwise
 - Use READ-ONLY operations only (SELECT statements)
 - For date comparisons, use appropriate date functions for ${dbType}
-- Return only the SQL query, no explanations`;
+- When no examples are provided, use common SQL patterns and best practices
+- Return only the SQL query, no explanations or markdown formatting`;
 
     try {
       const completion = await this.openai.chat.completions.create({
@@ -190,10 +193,12 @@ IMPORTANT GUIDELINES:
   }
 
   private formatSnippetsForPrompt(snippets: SQLSnippet[]): string {
-    if (snippets.length === 0) return 'No example patterns available.';
+    if (snippets.length === 0) {
+      return 'No example SQL patterns available. Generate query based on schema and user request.';
+    }
 
     return snippets.map((snippet, index) => 
-      `Example ${index + 1}: ${snippet.name}\n${snippet.description}\n${snippet.sql}\n`
+      `Example ${index + 1}: ${snippet.name}\n${snippet.description || 'No description'}\n${snippet.sql}\n`
     ).join('\n');
   }
 
@@ -207,7 +212,10 @@ IMPORTANT GUIDELINES:
       // Get all snippets for this connection
       const allSnippets = await storage.getSQLSnippets(connectionId, userId);
 
-      if (allSnippets.length === 0) return [];
+      if (allSnippets.length === 0) {
+        console.log(`📝 No SQL snippets found for connection ${connectionId}. AI will generate query without examples.`);
+        return [];
+      }
 
       // Use BM25 for similarity scoring
       const corpus = allSnippets.map(s => `${s.name} ${s.description} ${s.sql}`);
@@ -219,12 +227,21 @@ IMPORTANT GUIDELINES:
       }));
 
       // Sort by score and return top results
-      return scoredSnippets
+      const topSnippets = scoredSnippets
         .sort((a, b) => b.score - a.score)
         .slice(0, limit)
         .map(item => item.snippet);
 
+      console.log(`📝 Found ${topSnippets.length} related SQL snippets for query context`);
+      return topSnippets;
+
     } catch (error) {
+      // Handle missing sql_snippets table or other database errors gracefully
+      if (error.code === '42P01' || error.message?.includes('relation "sql_snippets" does not exist')) {
+        console.log(`📝 SQL snippets table not found for connection ${connectionId}. AI will generate query without examples.`);
+        return [];
+      }
+      
       console.error('Error getting related snippets:', error);
       return [];
     }
