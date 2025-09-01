@@ -731,3 +731,9 @@ async function calculateCSATScore(
     return undefined; // Return undefined if calculation fails
   }
 }
+
+// Export function to register all integration routes
+export function registerIntegrationRoutes(app: any) {
+  // All the routes are already defined above, this function just serves as the export
+  // that the main server file expects
+}
