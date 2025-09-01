@@ -882,9 +882,17 @@ export default function DataConnections() {
   const createSnippetMutation = useMutation({
     mutationFn: async (snippet: { name: string; sql: string; description: string }) => {
       console.log('Frontend: Creating snippet:', snippet, 'for connection ID:', editingConnection?.id);
-      return await apiRequest("POST", `/api/database/${editingConnection?.id}/snippets`, snippet);
+      
+      if (!editingConnection?.id) {
+        throw new Error('No connection selected');
+      }
+      
+      const response = await apiRequest("POST", `/api/database/${editingConnection.id}/snippets`, snippet);
+      console.log('Frontend: Create snippet response:', response);
+      return response;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Frontend: Snippet created successfully:', data);
       toast({
         title: "Success",
         description: "SQL snippet created successfully!",
@@ -893,9 +901,16 @@ export default function DataConnections() {
     },
     onError: (error) => {
       console.error('Frontend: Error creating snippet:', error);
+      console.error('Frontend: Error details:', {
+        message: error?.message,
+        response: error?.response,
+        status: error?.response?.status,
+        data: error?.response?.data
+      });
+      
       toast({
         title: "Error",
-        description: "Failed to create SQL snippet",
+        description: `Failed to create SQL snippet: ${error?.message || 'Unknown error'}`,
         variant: "destructive",
       });
     },

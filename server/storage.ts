@@ -2732,7 +2732,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // SQL Snippets Management
-  async createSQLSnippet(snippet: {
+  async createSQLSnippet(data: {
     name: string;
     sql: string;
     description: string;
@@ -2741,18 +2741,27 @@ export class DatabaseStorage implements IStorage {
     embedding?: number[];
   }) {
     try {
-      // Ensure all fields are properly typed and description is never null/undefined
+      console.log('💾 Storage: Attempting to create SQL snippet');
+      console.log('💾 Storage: Raw input data:', data);
+
       const cleanData = {
-        name: String(snippet.name || '').trim(),
-        sql: String(snippet.sql || '').trim(),
-        description: String(snippet.description || '').trim(),
-        connectionId: Number(snippet.connectionId),
-        userId: String(snippet.userId),
-        embedding: snippet.embedding
+        name: String(data.name || '').trim(),
+        sql: String(data.sql || '').trim(),
+        description: String(data.description || '').trim(),
+        connectionId: Number(data.connectionId),
+        userId: String(data.userId),
+        embedding: data.embedding || null
       };
 
-      // Validate required fields
-      if (!cleanData.name || !cleanData.sql || !cleanData.connectionId || !cleanData.userId) {
+      console.log('💾 Storage: Cleaned data:', cleanData);
+
+      if (!cleanData.name || !cleanData.sql || !cleanData.userId || !cleanData.connectionId) {
+        console.error('💾 Storage: Missing required fields:', {
+          hasName: !!cleanData.name,
+          hasSql: !!cleanData.sql,
+          hasUserId: !!cleanData.userId,
+          hasConnectionId: !!cleanData.connectionId
+        });
         throw new Error('Missing required fields for SQL snippet creation');
       }
 
@@ -2769,8 +2778,8 @@ export class DatabaseStorage implements IStorage {
         VALUES (${cleanData.name}, ${cleanData.sql}, ${cleanData.description}, ${cleanData.connectionId}, ${cleanData.userId}, ${cleanData.embedding ? JSON.stringify(cleanData.embedding) : null}, NOW(), NOW())
         RETURNING *
       `);
-      
-      console.log('✅ Storage: SQL snippet created successfully');
+
+      console.log('✅ Storage: SQL snippet created successfully:', result.rows[0]);
       return result.rows[0];
     } catch (error) {
       // If table doesn't exist, provide helpful error message

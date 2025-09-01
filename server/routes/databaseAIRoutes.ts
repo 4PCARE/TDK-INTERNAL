@@ -81,14 +81,23 @@ export function registerDatabaseAIRoutes(app: Express) {
 
   app.post("/api/database/:connectionId/snippets", isAuthenticated, async (req: any, res) => {
     try {
+      // Set content type to ensure JSON response
+      res.setHeader('Content-Type', 'application/json');
+      
       const userId = req.user.claims.sub;
       const connectionId = parseInt(req.params.connectionId);
       const { name, sql, description } = req.body;
 
       console.log('📝 Creating SQL snippet:', { name, sql, description, connectionId, userId });
+      console.log('📝 Request body:', req.body);
+      console.log('📝 Connection ID parsed:', connectionId);
 
       if (!name || !sql) {
         return res.status(400).json({ message: "Name and SQL are required" });
+      }
+
+      if (isNaN(connectionId)) {
+        return res.status(400).json({ message: "Invalid connection ID" });
       }
 
       // Ensure description is always a string (never null/undefined)
@@ -103,9 +112,12 @@ export function registerDatabaseAIRoutes(app: Express) {
       });
 
       console.log('✅ SQL snippet created successfully:', snippet);
-      res.status(201).json(snippet);
+      return res.status(201).json(snippet);
     } catch (error) {
       console.error("💥 Error creating SQL snippet:", error);
+      
+      // Ensure JSON error response
+      res.setHeader('Content-Type', 'application/json');
       
       // Return JSON error response, not HTML
       if (error.message?.includes('sql_snippets') && error.message?.includes('does not exist')) {
@@ -115,7 +127,7 @@ export function registerDatabaseAIRoutes(app: Express) {
         });
       }
       
-      res.status(500).json({ 
+      return res.status(500).json({ 
         message: "Failed to create SQL snippet",
         error: error instanceof Error ? error.message : 'Unknown error'
       });
