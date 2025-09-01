@@ -1,0 +1,316 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Chatbot Query Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .response-container {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        .response-header {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        .response-content {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border: 1px solid #dee2e6;
+        }
+        .error {
+            color: #dc3545;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .success {
+            color: #155724;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .info-box {
+            background-color: #e7f3ff;
+            border: 1px solid #b8daff;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .info-box h3 {
+            margin-top: 0;
+            color: #004085;
+        }
+        .endpoint-info {
+            font-family: monospace;
+            background-color: #f8f9fa;
+            padding: 5px;
+            border-radius: 3px;
+            border: 1px solid #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Agent Chatbot Query Test</h1>
+        
+        <div class="info-box">
+            <h3>Available Endpoints</h3>
+            <p><strong>Internal Agent Chat:</strong> <span class="endpoint-info">POST /api/internal-agent-chat</span></p>
+            <p><strong>Agent Test:</strong> <span class="endpoint-info">POST /api/agent-chatbots/test</span></p>
+            <p><strong>Agent Test Chat:</strong> <span class="endpoint-info">POST /api/agent-chatbots/test-chat</span></p>
+        </div>
+
+        <form id="queryForm">
+            <div class="form-group">
+                <label for="endpoint">Endpoint:</label>
+                <select id="endpoint" required>
+                    <option value="/api/internal-agent-chat">Internal Agent Chat</option>
+                    <option value="/api/agent-chatbots/test">Agent Test (Single Message)</option>
+                    <option value="/api/agent-chatbots/test-chat">Agent Test Chat (With History)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="agentId">Agent ID:</label>
+                <input type="number" id="agentId" value="31" required>
+            </div>
+
+            <div class="form-group" id="sessionIdGroup">
+                <label for="sessionId">Session ID (for internal chat):</label>
+                <input type="number" id="sessionId" placeholder="Leave empty to create new session">
+            </div>
+
+            <div class="form-group">
+                <label for="message">Message:</label>
+                <textarea id="message" placeholder="Enter your message here..." required>ปีใหม่มีโปรอะไรบ้าง</textarea>
+            </div>
+
+            <div class="form-group" id="chatHistoryGroup" style="display: none;">
+                <label for="chatHistory">Chat History (JSON array):</label>
+                <textarea id="chatHistory" placeholder='[{"role": "user", "content": "previous message"}, {"role": "assistant", "content": "previous response"}]'>[]</textarea>
+            </div>
+
+            <button type="submit" id="submitBtn">Send Query</button>
+        </form>
+
+        <div id="responseContainer" class="response-container" style="display: none;">
+            <div class="response-header">Response:</div>
+            <div id="responseContent" class="response-content"></div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('queryForm');
+        const endpointSelect = document.getElementById('endpoint');
+        const sessionIdGroup = document.getElementById('sessionIdGroup');
+        const chatHistoryGroup = document.getElementById('chatHistoryGroup');
+        const submitBtn = document.getElementById('submitBtn');
+        const responseContainer = document.getElementById('responseContainer');
+        const responseContent = document.getElementById('responseContent');
+
+        // Show/hide fields based on endpoint selection
+        endpointSelect.addEventListener('change', function() {
+            const endpoint = this.value;
+            
+            if (endpoint === '/api/internal-agent-chat') {
+                sessionIdGroup.style.display = 'block';
+                chatHistoryGroup.style.display = 'none';
+            } else if (endpoint === '/api/agent-chatbots/test-chat') {
+                sessionIdGroup.style.display = 'none';
+                chatHistoryGroup.style.display = 'block';
+            } else {
+                sessionIdGroup.style.display = 'none';
+                chatHistoryGroup.style.display = 'none';
+            }
+        });
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const endpoint = document.getElementById('endpoint').value;
+            const agentId = parseInt(document.getElementById('agentId').value);
+            const sessionId = document.getElementById('sessionId').value;
+            const message = document.getElementById('message').value;
+            const chatHistory = document.getElementById('chatHistory').value;
+
+            // Prepare request body based on endpoint
+            let requestBody = {};
+            
+            if (endpoint === '/api/internal-agent-chat') {
+                requestBody = {
+                    message,
+                    agentId,
+                    sessionId: sessionId ? parseInt(sessionId) : undefined
+                };
+                
+                // If no session ID provided, create a new session first
+                if (!sessionId) {
+                    try {
+                        const sessionResponse = await fetch('/api/internal-agent-chat/sessions', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                agentId,
+                                title: `Test Chat ${new Date().toLocaleString()}`
+                            })
+                        });
+                        
+                        if (sessionResponse.ok) {
+                            const session = await sessionResponse.json();
+                            requestBody.sessionId = session.id;
+                            document.getElementById('sessionId').value = session.id;
+                        } else {
+                            throw new Error('Failed to create session');
+                        }
+                    } catch (error) {
+                        showResponse(`Error creating session: ${error.message}`, 'error');
+                        return;
+                    }
+                }
+            } else {
+                // For agent test endpoints
+                requestBody = {
+                    message,
+                    agentConfig: {
+                        id: agentId,
+                        name: "Test Agent",
+                        systemPrompt: "You are a helpful AI assistant.",
+                        responseLength: "medium",
+                        memoryLimit: 10,
+                        searchConfiguration: {
+                            chunkMaxType: "number",
+                            chunkMaxValue: 8,
+                            documentMass: 0.3
+                        }
+                    },
+                    documentIds: [],
+                    chatHistory: endpoint === '/api/agent-chatbots/test-chat' ? 
+                        (chatHistory ? JSON.parse(chatHistory) : []) : []
+                };
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sending...';
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResponse(JSON.stringify(data, null, 2), 'success');
+                } else {
+                    showResponse(`Error: ${data.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showResponse(`Network error: ${error.message}`, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Send Query';
+            }
+        });
+
+        function showResponse(content, type) {
+            responseContent.textContent = content;
+            responseContent.className = `response-content ${type}`;
+            responseContainer.style.display = 'block';
+            responseContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Create a new session on page load for convenience
+        window.addEventListener('load', async function() {
+            try {
+                const response = await fetch('/api/internal-agent-chat/sessions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        agentId: 31,
+                        title: `Test Session ${new Date().toLocaleString()}`
+                    })
+                });
+                
+                if (response.ok) {
+                    const session = await response.json();
+                    document.getElementById('sessionId').value = session.id;
+                }
+            } catch (error) {
+                console.log('Could not create initial session:', error);
+            }
+        });
+    </script>
+</body>
+</html>
