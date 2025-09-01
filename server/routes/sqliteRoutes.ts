@@ -212,4 +212,47 @@ export function registerSQLiteRoutes(app: Express) {
       });
     }
   });
+
+  // Delete SQLite database
+  app.delete("/api/sqlite/delete-database/:connectionId", isAuthenticated, async (req: any, res: any) => {
+    console.log('🔍 SQLite delete-database endpoint hit');
+    try {
+      const userId = req.user.claims.sub;
+      const { connectionId } = req.params;
+      console.log('🔍 User ID:', userId, 'Connection ID:', connectionId);
+
+      if (!connectionId) {
+        console.log('❌ Connection ID missing');
+        return res.status(400).json({ message: "Connection ID is required" });
+      }
+
+      // Get connection details to verify ownership and get database path
+      const connection = await storage.getDataConnection(parseInt(connectionId), userId);
+      if (!connection) {
+        console.log('❌ Database connection not found for ID:', connectionId);
+        return res.status(404).json({ message: "Database connection not found" });
+      }
+
+      // Delete the physical database file if it exists
+      if (connection.database && fs.existsSync(connection.database)) {
+        fs.unlinkSync(connection.database);
+        console.log('🗑️ Deleted database file:', connection.database);
+      }
+
+      // Delete the connection record
+      await storage.deleteDataConnection(parseInt(connectionId), userId);
+      console.log('🗑️ Deleted connection record:', connectionId);
+
+      res.json({
+        success: true,
+        message: "Database deleted successfully"
+      });
+    } catch (error) {
+      console.error("Error deleting database:", error);
+      res.status(500).json({ 
+        message: "Failed to delete database",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
 }

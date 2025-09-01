@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -6,9 +5,9 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Link, useLocation } from "wouter";
-import { 
-  Plus, 
-  Settings, 
+import {
+  Plus,
+  Settings,
   Database,
   Check,
   X,
@@ -23,7 +22,8 @@ import {
   Cloud,
   Upload,
   FileSpreadsheet,
-  Trash2
+  Trash2,
+  Play
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
 
-// ConnectionUrlDisplay component for showing connection URLs  
+// ConnectionUrlDisplay component for showing connection URLs
 function ConnectionUrlDisplay({ connectionId }: { connectionId: number }) {
   const { toast } = useToast();
 
@@ -117,6 +117,8 @@ interface DatabaseConnection {
   connectionString?: string;
   createdAt: string;
   updatedAt: string;
+  dbType?: string; // Added for the new section
+  description?: string; // Added for the new section
 }
 
 export default function DataConnections() {
@@ -252,7 +254,7 @@ export default function DataConnections() {
       console.log('🔍 Mutation data received:', data);
       console.log('🔍 Selected file:', selectedFile);
       console.log('🔍 Existing file ID:', existingFileId);
-      
+
       const formData = new FormData();
       if (selectedFile) {
         formData.append('file', selectedFile);
@@ -265,12 +267,12 @@ export default function DataConnections() {
       formData.append('tableName', data.tableName);
       formData.append('description', data.description || '');
       formData.append('snippets', JSON.stringify(data.snippets || []));
-      
+
       console.log('🔍 FormData contents:');
       for (let [key, value] of formData.entries()) {
         console.log(`  ${key}:`, value);
       }
-      
+
       return await apiRequest("POST", "/api/sqlite/create-database", formData);
     },
     onSuccess: () => {
@@ -405,7 +407,7 @@ export default function DataConnections() {
   const updateSqliteSnippet = (index: number, field: 'question' | 'sql', value: string) => {
     setSqliteForm(prev => ({
       ...prev,
-      snippets: prev.snippets.map((snippet, i) => 
+      snippets: prev.snippets.map((snippet, i) =>
         i === index ? { ...snippet, [field]: value } : snippet
       )
     }));
@@ -481,26 +483,108 @@ export default function DataConnections() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-              Database Connections
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Database className="w-8 h-8 text-blue-600" />
+              Data Connections
             </h1>
-            <p className="text-slate-600 dark:text-slate-400 mt-2">
-              Connect to databases and manage your data connections for AI-powered insights
+            <p className="text-slate-600 mt-2">
+              Manage your database connections and data sources
             </p>
           </div>
-          <Link href="/integrations">
-            <Button variant="outline" className="flex items-center gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              Back to Integrations
-            </Button>
-          </Link>
         </div>
 
-        
+        {/* Database Management Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="w-5 h-5" />
+              Created Databases
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {connectionsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : connections.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">
+                No databases created yet. Create your first database from files below.
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {connections.map((conn) => (
+                  <div key={conn.id} className="border rounded-lg p-4 hover:bg-slate-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium">{conn.name}</h3>
+                          <Badge variant={conn.isActive ? "default" : "secondary"}>
+                            {conn.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                          <Badge variant="outline">{conn.type?.toUpperCase()}</Badge>
+                        </div>
+                        {conn.description && (
+                          <p className="text-sm text-slate-600 mt-1">{conn.description}</p>
+                        )}
+                        <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                          <span>Created: {new Date(conn.createdAt).toLocaleDateString()}</span>
+                          {conn.database && (
+                            <span>Path: {conn.database.split('/').pop()}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            // TODO: Implement query interface
+                            toast({
+                              title: "Info",
+                              description: "Query interface coming soon!",
+                            });
+                          }}
+                        >
+                          <Play className="w-4 h-4 mr-1" />
+                          Query
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            if (confirm('Are you sure you want to delete this database?')) {
+                              try {
+                                await apiRequest("DELETE", `/api/sqlite/delete-database/${conn.id}`);
+                                toast({
+                                  title: "Success",
+                                  description: "Database deleted successfully",
+                                });
+                                queryClient.invalidateQueries({ queryKey: ['/api/database-connections'] });
+                              } catch (error) {
+                                toast({
+                                  title: "Error",
+                                  description: "Failed to delete database",
+                                  variant: "destructive",
+                                });
+                              }
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
 
         {/* Database Types Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -562,7 +646,7 @@ export default function DataConnections() {
                             </div>
                           ))}
                           {existingConnections.length > 2 && (
-                            <button 
+                            <button
                               className="text-xs text-blue-600 hover:text-blue-800 text-center w-full py-1 hover:underline"
                               onClick={() => handleManageConnections(dbType.id)}
                             >
@@ -1049,7 +1133,7 @@ export default function DataConnections() {
                         <div className="space-y-4">
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-3">
-                              <div className={`w-3 h-3 rounded-full ${connection.isConnected ? 'bg-green-500' : 'bg-orange-500'}`} />
+                              <div className={`w-2 h-2 rounded-full ${connection.isConnected ? 'bg-green-500' : 'bg-orange-500'}`} />
                               <div>
                                 <h4 className="font-semibold text-lg">{connection.name}</h4>
                                 <div className="flex items-center gap-4 text-sm text-slate-500">
