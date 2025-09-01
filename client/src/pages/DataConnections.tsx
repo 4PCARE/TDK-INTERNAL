@@ -46,10 +46,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 
 // DatabaseConnectionCard component with data preview
-const DatabaseConnectionCard = ({ 
-  connection, 
-  onEdit 
-}: { 
+const DatabaseConnectionCard = ({
+  connection,
+  onEdit
+}: {
   connection: DatabaseConnection;
   onEdit: (connection: DatabaseConnection) => void;
 }) => {
@@ -550,7 +550,7 @@ export default function DataConnections() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'settings' | 'schema' | 'snippets' | 'inference'>('settings');
-  
+
   // SQL Snippets state
   const [sqlSnippets, setSqlSnippets] = useState<Array<{
     id?: number;
@@ -590,9 +590,13 @@ export default function DataConnections() {
   // Fetch SQL snippets
   const { data: snippetsData, isLoading: snippetsLoading, refetch: refetchSnippets } = useQuery({
     queryKey: [`/api/database/${editingConnection?.id}/snippets`],
-    enabled: !!(editingConnection?.id && selectedTab === 'snippets'),
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    enabled: !!editingConnection?.id,
+    onError: (error) => {
+      console.error('💥 Frontend: Error fetching snippets:', error);
+    },
+    onSuccess: (data) => {
+      console.log('📋 Frontend: Fetched snippets:', data);
+    }
   });
 
   // Form states for PostgreSQL
@@ -717,7 +721,8 @@ export default function DataConnections() {
 
       const formData = new FormData();
       if (selectedFile) {
-        formData.append('file', selectedFile);
+        formData.append('file', selectedFile.filePath as any); // Assuming filePath can be directly appended if it's a File object or URL
+        formData.append('fileName', selectedFile.name);
         console.log('🔍 Added file to FormData:', selectedFile.name);
       } else if (existingFileId) {
         formData.append('existingFileId', existingFileId);
@@ -797,7 +802,7 @@ export default function DataConnections() {
 
       let errorMessage = "Failed to create SQLite database";
 
-      if (error.message === 'Request timeout after 30 seconds') {
+      if (error.message === 'Request timeout after 60 seconds') {
         errorMessage = "Request timed out. Please try again with a smaller file.";
       } else if (error.message && error.message.includes('Selected file no longer exists')) {
         errorMessage = "The selected file no longer exists. Please upload a new file.";
@@ -876,6 +881,7 @@ export default function DataConnections() {
   // SQL Snippets mutations
   const createSnippetMutation = useMutation({
     mutationFn: async (snippet: { name: string; sql: string; description: string }) => {
+      console.log('Frontend: Creating snippet:', snippet, 'for connection ID:', editingConnection?.id);
       return await apiRequest("POST", `/api/database/${editingConnection?.id}/snippets`, snippet);
     },
     onSuccess: () => {
@@ -886,6 +892,7 @@ export default function DataConnections() {
       refetchSnippets();
     },
     onError: (error) => {
+      console.error('Frontend: Error creating snippet:', error);
       toast({
         title: "Error",
         description: "Failed to create SQL snippet",
@@ -896,6 +903,7 @@ export default function DataConnections() {
 
   const updateSnippetMutation = useMutation({
     mutationFn: async ({ id, snippet }: { id: number; snippet: { name: string; sql: string; description: string } }) => {
+      console.log('Frontend: Updating snippet:', { id, snippet });
       return await apiRequest("PUT", `/api/database/snippets/${id}`, snippet);
     },
     onSuccess: () => {
@@ -906,6 +914,7 @@ export default function DataConnections() {
       refetchSnippets();
     },
     onError: (error) => {
+      console.error('Frontend: Error updating snippet:', error);
       toast({
         title: "Error",
         description: "Failed to update SQL snippet",
@@ -916,6 +925,7 @@ export default function DataConnections() {
 
   const deleteSnippetMutation = useMutation({
     mutationFn: async (id: number) => {
+      console.log('Frontend: Deleting snippet with ID:', id);
       return await apiRequest("DELETE", `/api/database/snippets/${id}`);
     },
     onSuccess: () => {
@@ -926,6 +936,7 @@ export default function DataConnections() {
       refetchSnippets();
     },
     onError: (error) => {
+      console.error('Frontend: Error deleting snippet:', error);
       toast({
         title: "Error",
         description: "Failed to delete SQL snippet",
@@ -951,7 +962,7 @@ export default function DataConnections() {
   };
 
   const updateSqlSnippet = (index: number, field: 'name' | 'sql' | 'description', value: string) => {
-    setSqlSnippets(prev => prev.map((snippet, i) => 
+    setSqlSnippets(prev => prev.map((snippet, i) =>
       i === index ? { ...snippet, [field]: value } : snippet
     ));
   };
@@ -1048,7 +1059,8 @@ export default function DataConnections() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedFile({ filePath: URL.createObjectURL(file), name: file.name });
+      // Pass the File object directly, let the mutation handle FormData creation
+      setSelectedFile({ filePath: file.name, name: file.name }); // Store name and use file itself later
       setExistingFileId("");
       if (!sqliteForm.name) {
         setSqliteForm(prev => ({ ...prev, name: file.name.replace(/\.[^/.]+$/, "") }));
@@ -1058,6 +1070,7 @@ export default function DataConnections() {
       }
     }
   };
+
 
   const addSqliteSnippet = () => {
     setSqliteForm(prev => ({
@@ -1092,7 +1105,7 @@ export default function DataConnections() {
 
     try {
       const response = await apiRequest('POST', '/api/sqlite/analyze-file', {
-        filePath: selectedFile.filePath
+        filePath: selectedFile.filePath // Assuming this is the path or identifier recognized by the backend
       });
 
       setAnalysis(response);
@@ -1110,7 +1123,7 @@ export default function DataConnections() {
 
     try {
       const response = await apiRequest('POST', '/api/sqlite/diagnose-file', {
-        filePath: selectedFile.filePath
+        filePath: selectedFile.filePath // Assuming this is the path or identifier recognized by the backend
       });
 
       setDiagnosis(response);
@@ -1130,7 +1143,7 @@ export default function DataConnections() {
 
     try {
       const response = await apiRequest('POST', '/api/sqlite/clean-file', {
-        filePath: selectedFile.filePath
+        filePath: selectedFile.filePath // Assuming this is the path or identifier recognized by the backend
       });
 
       // Update the analysis with the cleaned file result
@@ -1140,7 +1153,7 @@ export default function DataConnections() {
       // Update selected file to point to cleaned file
       setSelectedFile(prev => prev ? {
         ...prev,
-        filePath: response.cleanedFilePath,
+        filePath: response.cleanedFilePath, // Assuming the response contains the new path
         name: prev.name + ' (cleaned)'
       } : null);
 
@@ -1325,9 +1338,9 @@ export default function DataConnections() {
             ) : (
               <div className="grid gap-4">
                 {filteredConnections.map((conn) => (
-                  <DatabaseConnectionCard 
-                    key={conn.id} 
-                    connection={conn} 
+                  <DatabaseConnectionCard
+                    key={conn.id}
+                    connection={conn}
                     onEdit={handleEditConnection}
                   />
                 ))}
@@ -2400,7 +2413,7 @@ export default function DataConnections() {
                                       </Button>
                                     </div>
                                   </div>
-                                  
+
                                   <div>
                                     <Label className="text-xs">Name</Label>
                                     <Input
@@ -2410,7 +2423,7 @@ export default function DataConnections() {
                                       className="text-sm"
                                     />
                                   </div>
-                                  
+
                                   <div>
                                     <Label className="text-xs">Description (optional)</Label>
                                     <Input
@@ -2420,7 +2433,7 @@ export default function DataConnections() {
                                       className="text-sm"
                                     />
                                   </div>
-                                  
+
                                   <div>
                                     <Label className="text-xs">SQL Query</Label>
                                     <Textarea
