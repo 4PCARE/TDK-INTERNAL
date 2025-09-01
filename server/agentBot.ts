@@ -303,35 +303,35 @@ async function getAiResponseDirectly(
     // Check if agent has database connections and try database search first
     let databaseResults: any = null;
     let hasDatabaseConnections = false;
-    
+
     if (queryAnalysis.needsSearch) {
       console.log(`🗄️ AgentBot: Query needs search - checking for database connections first`);
-      
+
       try {
-        // Check if agent has database connections
-        const agentDatabases = await storage.getAgentDatabases(agentData.id, userId);
+        // Get agent's database connections
+        const agentDatabases = await storage.getAgentDatabaseConnections(agentId, userId);
         hasDatabaseConnections = agentDatabases && agentDatabases.length > 0;
-        
+
         console.log(`🗄️ AgentBot: Agent has ${agentDatabases?.length || 0} database connections`);
-        
+
         if (hasDatabaseConnections) {
           console.log(`🗄️ AgentBot: Attempting database search for query: "${queryAnalysis.enhancedQuery}"`);
-          
+
           // Import and use the AI Database Agent
           const { aiDatabaseAgent } = await import("./services/aiDatabaseAgent");
-          
+
           // Try each database connection until we get results
           for (const dbConnection of agentDatabases) {
             try {
               console.log(`🗄️ AgentBot: Trying database connection ${dbConnection.connectionId}`);
-              
+
               const dbResult = await aiDatabaseAgent.generateSQL(
                 queryAnalysis.enhancedQuery,
                 dbConnection.connectionId,
                 userId,
                 50 // maxRows
               );
-              
+
               if (dbResult.success && dbResult.data && dbResult.data.length > 0) {
                 console.log(`✅ AgentBot: Database query successful - found ${dbResult.data.length} rows`);
                 databaseResults = dbResult;
@@ -497,12 +497,12 @@ async function getAiResponseDirectly(
       console.log(
         `🔍 AgentBot: Query needs search - checking database results first`,
       );
-      
+
       // If we have database results, use them
       if (databaseResults && databaseResults.success) {
         if (databaseResults.data && databaseResults.data.length > 0) {
           console.log(`🗄️ AgentBot: Using database results (${databaseResults.data.length} rows) for response`);
-          
+
           // Format database results for AI response
           const dbResultsText = `Database Query Results:
 SQL: ${databaseResults.sql}
@@ -575,10 +575,10 @@ Be friendly and helpful.`;
           });
 
           aiResponse = completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลผลลัพธ์จากฐานข้อมูลได้";
-          
+
           console.log(`✅ AgentBot: Generated response with database results (${aiResponse.length} chars)`);
           return aiResponse;
-          
+
         } else if (databaseResults.data && databaseResults.data.length === 0) {
           console.log(`🗄️ AgentBot: Database query returned no results - falling back to document search`);
         }
@@ -611,7 +611,7 @@ Be friendly and helpful.`;
       if (agentDocIds.length === 0) {
         console.log(`📄 AgentBot: No documents attached to agent - treating as conversation without documents`);
         documentContext = '';
-        
+
         // Redirect to no-document conversation logic
         console.log(
           `⏭️ AgentBot: No documents available, using agent conversation without document search`,
@@ -752,7 +752,7 @@ Be friendly and helpful.`;
         console.log(
           `✅ AgentBot: Generated response without documents (${aiResponse.length} chars)`,
         );
-        
+
         return aiResponse; // Return early since no documents are available
       } else {
         // Perform new search workflow with agent's bound documents (smart hybrid)
@@ -1192,7 +1192,7 @@ ${documentContext}
         );
       } else {
         console.log(`❌ AgentBot: No relevant documents found for query and no search was performed.`);
-        
+
         if (hasDatabaseConnections && (!databaseResults || (databaseResults.data && databaseResults.data.length === 0))) {
           aiResponse = "ขออภัย ไม่พบข้อมูลที่เกี่ยวข้องในฐานข้อมูล และไม่มีเอกสารอ้างอิงที่เกี่ยวข้อง กรุณาลองถามในรูปแบบอื่นหรือตรวจสอบข้อมูลในฐานข้อมูล";
         } else {
