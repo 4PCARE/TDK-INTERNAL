@@ -300,20 +300,55 @@ async function getAiResponseDirectly(
     let aiResponse = "";
     let databaseQueryResult: string | null = null; // Variable to store database query results
 
-    // Simulate fetching database results based on query analysis
+    // Check if agent has database connections and try database search first
+    let databaseResults: any = null;
+    let hasDatabaseConnections = false;
+    
     if (queryAnalysis.needsSearch) {
-      // Placeholder for actual database query logic
-      // In a real scenario, this would involve parsing queryAnalysis.enhancedQuery
-      // and executing a database query.
-      console.log(`🗄️ AgentBot: Simulating database query for enhanced query: "${queryAnalysis.enhancedQuery}"`);
-      // Example: If the query is "What is the status of order 123?", you'd query a 'orders' table.
-      // For now, we'll just return a placeholder string.
-      if (queryAnalysis.enhancedQuery.toLowerCase().includes("order status")) {
-        databaseQueryResult = "Database Query Result: Order #123 status is 'Shipped'. Estimated delivery: 2024-07-28.";
-      } else if (queryAnalysis.enhancedQuery.toLowerCase().includes("customer information")) {
-        databaseQueryResult = "Database Query Result: Customer John Doe (ID: 456) has email john.doe@example.com and phone number 123-456-7890.";
-      } else {
-        databaseQueryResult = "Database Query Result: No specific database information found for this query.";
+      console.log(`🗄️ AgentBot: Query needs search - checking for database connections first`);
+      
+      try {
+        // Check if agent has database connections
+        const agentDatabases = await storage.getAgentDatabases(agentData.id, userId);
+        hasDatabaseConnections = agentDatabases && agentDatabases.length > 0;
+        
+        console.log(`🗄️ AgentBot: Agent has ${agentDatabases?.length || 0} database connections`);
+        
+        if (hasDatabaseConnections) {
+          console.log(`🗄️ AgentBot: Attempting database search for query: "${queryAnalysis.enhancedQuery}"`);
+          
+          // Import and use the AI Database Agent
+          const { aiDatabaseAgent } = await import("./services/aiDatabaseAgent");
+          
+          // Try each database connection until we get results
+          for (const dbConnection of agentDatabases) {
+            try {
+              console.log(`🗄️ AgentBot: Trying database connection ${dbConnection.connectionId}`);
+              
+              const dbResult = await aiDatabaseAgent.generateSQL(
+                queryAnalysis.enhancedQuery,
+                dbConnection.connectionId,
+                userId,
+                50 // maxRows
+              );
+              
+              if (dbResult.success && dbResult.data && dbResult.data.length > 0) {
+                console.log(`✅ AgentBot: Database query successful - found ${dbResult.data.length} rows`);
+                databaseResults = dbResult;
+                break; // Found results, stop trying other connections
+              } else if (dbResult.success && (!dbResult.data || dbResult.data.length === 0)) {
+                console.log(`⚠️ AgentBot: Database query successful but returned no rows`);
+                databaseResults = dbResult; // Keep for explanation even if no data
+              } else {
+                console.log(`❌ AgentBot: Database query failed: ${dbResult.error}`);
+              }
+            } catch (dbError) {
+              console.error(`❌ AgentBot: Error querying database ${dbConnection.connectionId}:`, dbError);
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`❌ AgentBot: Error checking database connections:`, error);
       }
     }
 
@@ -460,7 +495,99 @@ async function getAiResponseDirectly(
       );
     } else {
       console.log(
-        `🔍 AgentBot: Query needs search, performing smart hybrid search with enhanced query`,
+        `🔍 AgentBot: Query needs search - checking database results first`,
+      );
+      
+      // If we have database results, use them
+      if (databaseResults && databaseResults.success) {
+        if (databaseResults.data && databaseResults.data.length > 0) {
+          console.log(`🗄️ AgentBot: Using database results (${databaseResults.data.length} rows) for response`);
+          
+          // Format database results for AI response
+          const dbResultsText = `Database Query Results:
+SQL: ${databaseResults.sql}
+Rows returned: ${databaseResults.data.length}
+Execution time: ${databaseResults.executionTime}ms
+
+Data:
+${JSON.stringify(databaseResults.data, null, 2)}
+
+${databaseResults.explanation || ''}`;
+
+          // Build system prompt with database results
+          let systemPrompt = `${agentData.systemPrompt}
+
+Database Query Results:
+${dbResultsText}
+
+Based on the database query results above, provide a helpful response to the user's question.
+Answer in Thai unless the user communicates in another language.
+Be friendly and helpful.`;
+
+          // Add HR employee context if available
+          if (hrEmployeeData) {
+            console.log(`👤 AgentBot: Adding HR employee context with database results`);
+            systemPrompt += `
+
+🏢 ข้อมูลพนักงาน: คุณกำลังสนทนากับ ${hrEmployeeData.firstName || hrEmployeeData.first_name} ${hrEmployeeData.lastName || hrEmployeeData.last_name}
+- รหัสพนักงาน: ${hrEmployeeData.employeeId || hrEmployeeData.employee_id}
+- แผนก: ${hrEmployeeData.department}
+- ตำแหน่ง: ${hrEmployeeData.position}
+- อีเมล: ${hrEmployeeData.email}
+- วันที่เริ่มงาน: ${hrEmployeeData.startDate || hrEmployeeData.hire_date}
+- สถานะ: ${hrEmployeeData.isActive ? 'Active' : 'Inactive'}
+
+กรุณาให้คำตอบที่เป็นส่วนตัวและเหมาะสมกับตำแหน่งและแผนกของพนักงาน`;
+          }
+
+          const messages: any[] = [
+            {
+              role: "system",
+              content: systemPrompt,
+            },
+          ];
+
+          // Add chat history
+          const userBotMessages = chatHistory.filter(
+            (msg) => msg.messageType === "user" || msg.messageType === "assistant",
+          );
+
+          userBotMessages.forEach((msg) => {
+            messages.push({
+              role: msg.messageType === "user" ? "user" : "assistant",
+              content: msg.content,
+            });
+          });
+
+          // Add current user message
+          messages.push({
+            role: "user",
+            content: userMessage,
+          });
+
+          console.log(`🤖 AgentBot: Generating response with database results`);
+
+          const completion = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: messages,
+            max_tokens: 1000,
+            temperature: 0.7,
+          });
+
+          aiResponse = completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลผลลัพธ์จากฐานข้อมูลได้";
+          
+          console.log(`✅ AgentBot: Generated response with database results (${aiResponse.length} chars)`);
+          return aiResponse;
+          
+        } else if (databaseResults.data && databaseResults.data.length === 0) {
+          console.log(`🗄️ AgentBot: Database query returned no results - falling back to document search`);
+        }
+      } else if (hasDatabaseConnections && !databaseResults) {
+        console.log(`❌ AgentBot: Database connections exist but query failed - falling back to document search`);
+      }
+
+      console.log(
+        `🔍 AgentBot: Proceeding with document search (database search ${hasDatabaseConnections ? 'attempted but' : 'not attempted -'} ${databaseResults ? 'returned no results' : 'no database connections'})`,
       );
 
       // Use agent's search configuration if available
@@ -1065,7 +1192,12 @@ ${documentContext}
         );
       } else {
         console.log(`❌ AgentBot: No relevant documents found for query and no search was performed.`);
-        aiResponse = "ขออภัย ไม่พบข้อมูลที่เกี่ยวข้องกับคำถามของคุณ กรุณาลองถามในรูปแบบอื่น";
+        
+        if (hasDatabaseConnections && (!databaseResults || (databaseResults.data && databaseResults.data.length === 0))) {
+          aiResponse = "ขออภัย ไม่พบข้อมูลที่เกี่ยวข้องในฐานข้อมูล และไม่มีเอกสารอ้างอิงที่เกี่ยวข้อง กรุณาลองถามในรูปแบบอื่นหรือตรวจสอบข้อมูลในฐานข้อมูล";
+        } else {
+          aiResponse = "ขออภัย ไม่พบข้อมูลที่เกี่ยวข้องกับคำถามของคุณ กรุณาลองถามในรูปแบบอื่น";
+        }
       }
     }
 
