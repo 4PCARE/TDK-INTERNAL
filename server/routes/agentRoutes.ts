@@ -289,7 +289,7 @@ export function registerAgentRoutes(app: Express) {
         res.status(500).json({ message: "Failed to remove database from agent" });
       }
     },
-  );</old_str>
+  );
 
   // Test Agent endpoint (single message)
   app.post(

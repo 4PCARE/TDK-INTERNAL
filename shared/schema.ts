@@ -704,7 +704,7 @@ export const agentDatabaseConnections = pgTable("agent_database_connections", {
   connectionId: integer("connection_id").references(() => dataConnections.id, { onDelete: "cascade" }).notNull(),
   userId: varchar("user_id").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});</old_str>
+});
 
 // Add folder relationship to documents
 // Note: You'll need to add folderId: integer("folder_id").references(() => folders.id, { onDelete: "set null" })
@@ -778,7 +778,7 @@ export const agentDatabaseConnectionsRelations = relations(agentDatabaseConnecti
     fields: [agentDatabaseConnections.userId],
     references: [users.id],
   }),
-}));</old_str>
+}));
 
 export const socialIntegrationsRelations = relations(socialIntegrations, ({ one }) => ({
   user: one(users, {
