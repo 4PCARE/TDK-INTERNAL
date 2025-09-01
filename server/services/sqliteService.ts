@@ -75,13 +75,350 @@ class SQLiteService {
   async analyzeFileSchema(filePath: string): Promise<{ schema: TableSchema[], preview: any[], rowCount: number }> {
     const ext = path.extname(filePath).toLowerCase();
     
-    if (ext === '.csv') {
-      return this.analyzeCsvSchema(filePath);
-    } else if (['.xlsx', '.xls'].includes(ext)) {
-      return this.analyzeExcelSchema(filePath);
+    try {
+      if (ext === '.csv') {
+        return this.analyzeCsvSchema(filePath);
+      } else if (['.xlsx', '.xls'].includes(ext)) {
+        return this.analyzeExcelSchema(filePath);
+      }
+      
+      throw new Error('Unsupported file format');
+    } catch (error) {
+      // If analysis fails, try to diagnose and suggest cleanup
+      const diagnostics = await this.diagnoseFileProblems(filePath);
+      throw new Error(`Schema analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}. Issues detected: ${diagnostics.issues.join(', ')}`);
     }
+  }
+
+  async diagnoseFileProblems(filePath: string): Promise<{
+    issues: string[];
+    canCleanup: boolean;
+    cleanupSuggestions: string[];
+  }> {
+    const ext = path.extname(filePath).toLowerCase();
+    const issues: string[] = [];
+    const cleanupSuggestions: string[] = [];
+
+    try {
+      if (ext === '.csv') {
+        const diagnosis = await this.diagnoseCsvProblems(filePath);
+        issues.push(...diagnosis.issues);
+        cleanupSuggestions.push(...diagnosis.suggestions);
+      } else if (['.xlsx', '.xls'].includes(ext)) {
+        const diagnosis = await this.diagnoseExcelProblems(filePath);
+        issues.push(...diagnosis.issues);
+        cleanupSuggestions.push(...diagnosis.suggestions);
+      }
+    } catch (error) {
+      issues.push('File format analysis failed');
+    }
+
+    return {
+      issues,
+      canCleanup: issues.length > 0,
+      cleanupSuggestions
+    };
+  }
+
+  private async diagnoseCsvProblems(filePath: string): Promise<{ issues: string[]; suggestions: string[] }> {
+    const issues: string[] = [];
+    const suggestions: string[] = [];
+
+    return new Promise((resolve) => {
+      const results: any[] = [];
+      let lineCount = 0;
+      let firstNonEmptyRow: any = null;
+      let headerRow: any = null;
+
+      fs.createReadStream(filePath)
+        .pipe(csv({ skipEmptyLines: false }))
+        .on('data', (data) => {
+          lineCount++;
+          if (Object.keys(data).length > 0 && !firstNonEmptyRow) {
+            firstNonEmptyRow = data;
+          }
+          if (lineCount === 1) {
+            headerRow = data;
+          }
+          if (results.length < 20) {
+            results.push(data);
+          }
+        })
+        .on('end', () => {
+          // Check for missing or invalid headers
+          if (!headerRow || Object.keys(headerRow).some(key => key.includes('Unnamed') || key.trim() === '')) {
+            issues.push('Missing or invalid column headers');
+            suggestions.push('Add proper column headers in the first row');
+          }
+
+          // Check for inconsistent column count
+          const columnCounts = results.map(row => Object.keys(row).length);
+          const uniqueCounts = [...new Set(columnCounts)];
+          if (uniqueCounts.length > 1) {
+            issues.push('Inconsistent number of columns across rows');
+            suggestions.push('Ensure all rows have the same number of columns');
+          }
+
+          // Check for empty rows at the beginning
+          if (results.length > 0 && Object.values(results[0]).every(val => !val || val.toString().trim() === '')) {
+            issues.push('Empty rows at the beginning of file');
+            suggestions.push('Remove empty rows from the start of the file');
+          }
+
+          resolve({ issues, suggestions });
+        })
+        .on('error', () => {
+          issues.push('CSV parsing failed');
+          suggestions.push('Check file encoding and format');
+          resolve({ issues, suggestions });
+        });
+    });
+  }
+
+  private async diagnoseExcelProblems(filePath: string): Promise<{ issues: string[]; suggestions: string[] }> {
+    const issues: string[] = [];
+    const suggestions: string[] = [];
+
+    try {
+      const workbook = XLSX.readFile(filePath);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+
+      // Check for merged cells
+      if (worksheet['!merges'] && worksheet['!merges'].length > 0) {
+        issues.push('Contains merged cells');
+        suggestions.push('Unmerge all cells to ensure proper data structure');
+      }
+
+      // Convert to JSON to analyze data structure
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      if (jsonData.length === 0) {
+        issues.push('No data found in Excel file');
+        suggestions.push('Ensure the Excel file contains data');
+        return { issues, suggestions };
+      }
+
+      // Check for empty rows at the beginning
+      const firstRow = jsonData[0] as any[];
+      if (firstRow && firstRow.every(cell => !cell || cell.toString().trim() === '')) {
+        issues.push('Empty first row');
+        suggestions.push('Remove empty rows from the beginning');
+      }
+
+      // Check for inconsistent data types in columns
+      const dataRows = jsonData.slice(1) as any[][];
+      if (dataRows.length > 0) {
+        const columnCount = Math.max(...dataRows.map(row => row.length));
+        
+        for (let colIndex = 0; colIndex < columnCount; colIndex++) {
+          const columnValues = dataRows.map(row => row[colIndex]).filter(v => v !== undefined && v !== null && v !== '');
+          
+          if (columnValues.length > 0) {
+            const types = columnValues.map(v => typeof v);
+            const uniqueTypes = [...new Set(types)];
+            
+            if (uniqueTypes.length > 2) { // Allow for some type variation
+              issues.push(`Column ${colIndex + 1} has mixed data types`);
+              suggestions.push(`Standardize data types in column ${colIndex + 1}`);
+            }
+          }
+        }
+      }
+
+      // Check for formula cells
+      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:A1');
+      let hasFormulas = false;
+      
+      for (let row = range.s.r; row <= range.e.r && !hasFormulas; row++) {
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+          const cell = worksheet[cellAddress];
+          if (cell && cell.f) {
+            hasFormulas = true;
+            break;
+          }
+        }
+      }
+
+      if (hasFormulas) {
+        issues.push('Contains formula cells');
+        suggestions.push('Convert formulas to values before importing');
+      }
+
+    } catch (error) {
+      issues.push('Excel file analysis failed');
+      suggestions.push('Check if the Excel file is corrupted or password protected');
+    }
+
+    return { issues, suggestions };
+  }
+
+  async createCleanedFile(filePath: string, userId: string): Promise<{ 
+    cleanedFilePath: string; 
+    originalIssues: string[]; 
+    fixesApplied: string[] 
+  }> {
+    const ext = path.extname(filePath).toLowerCase();
+    const originalName = path.basename(filePath, ext);
+    const cleanedFileName = `${originalName}_cleaned${ext}`;
+    const cleanedFilePath = path.join(path.dirname(filePath), cleanedFileName);
+
+    const fixesApplied: string[] = [];
+    const diagnosis = await this.diagnoseFileProblems(filePath);
+
+    if (ext === '.csv') {
+      await this.cleanCsvFile(filePath, cleanedFilePath, fixesApplied);
+    } else if (['.xlsx', '.xls'].includes(ext)) {
+      await this.cleanExcelFile(filePath, cleanedFilePath, fixesApplied);
+    }
+
+    return {
+      cleanedFilePath,
+      originalIssues: diagnosis.issues,
+      fixesApplied
+    };
+  }
+
+  private async cleanCsvFile(inputPath: string, outputPath: string, fixesApplied: string[]): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const cleanedRows: any[] = [];
+      let isFirstRow = true;
+      let headers: string[] = [];
+
+      fs.createReadStream(inputPath)
+        .pipe(csv({ skipEmptyLines: true }))
+        .on('data', (data) => {
+          if (isFirstRow) {
+            // Clean and fix headers
+            const originalHeaders = Object.keys(data);
+            headers = originalHeaders.map((header, index) => {
+              let cleanHeader = header.trim();
+              
+              // Fix unnamed headers
+              if (!cleanHeader || cleanHeader.includes('Unnamed') || cleanHeader.startsWith('__EMPTY')) {
+                cleanHeader = `Column_${index + 1}`;
+                fixesApplied.push(`Fixed unnamed header at position ${index + 1}`);
+              }
+              
+              // Sanitize header names
+              cleanHeader = cleanHeader.replace(/[^a-zA-Z0-9_]/g, '_');
+              
+              return cleanHeader;
+            });
+            
+            isFirstRow = false;
+          }
+
+          // Skip completely empty rows
+          const hasData = Object.values(data).some(value => value && value.toString().trim() !== '');
+          if (hasData) {
+            // Create cleaned row with proper headers
+            const cleanedRow: any = {};
+            headers.forEach((header, index) => {
+              const originalKey = Object.keys(data)[index];
+              cleanedRow[header] = data[originalKey] || '';
+            });
+            cleanedRows.push(cleanedRow);
+          } else {
+            fixesApplied.push('Removed empty row');
+          }
+        })
+        .on('end', () => {
+          // Write cleaned CSV
+          if (cleanedRows.length > 0) {
+            const csvWriter = require('csv-writer').createObjectCsvWriter({
+              path: outputPath,
+              header: headers.map(h => ({ id: h, title: h }))
+            });
+
+            csvWriter.writeRecords(cleanedRows)
+              .then(() => {
+                fixesApplied.push(`Created cleaned file with ${cleanedRows.length} rows`);
+                resolve();
+              })
+              .catch(reject);
+          } else {
+            reject(new Error('No valid data found after cleanup'));
+          }
+        })
+        .on('error', reject);
+    });
+  }
+
+  private async cleanExcelFile(inputPath: string, outputPath: string, fixesApplied: string[]): Promise<void> {
+    const workbook = XLSX.readFile(inputPath);
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+
+    // Remove merged cells
+    if (worksheet['!merges']) {
+      delete worksheet['!merges'];
+      fixesApplied.push('Removed merged cells');
+    }
+
+    // Convert to array format for easier manipulation
+    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
     
-    throw new Error('Unsupported file format');
+    if (data.length === 0) {
+      throw new Error('No data found in Excel file');
+    }
+
+    // Find the first row with actual data (skip empty rows)
+    let dataStartRow = 0;
+    for (let i = 0; i < data.length; i++) {
+      if (data[i].some(cell => cell && cell.toString().trim() !== '')) {
+        dataStartRow = i;
+        break;
+      }
+    }
+
+    if (dataStartRow > 0) {
+      fixesApplied.push(`Removed ${dataStartRow} empty rows from the beginning`);
+    }
+
+    // Clean the data
+    const cleanedData = data.slice(dataStartRow);
+    
+    // Fix headers (first row)
+    if (cleanedData.length > 0) {
+      const headers = cleanedData[0].map((header: any, index: number) => {
+        let cleanHeader = header ? header.toString().trim() : '';
+        
+        if (!cleanHeader) {
+          cleanHeader = `Column_${index + 1}`;
+          fixesApplied.push(`Added header for column ${index + 1}`);
+        }
+        
+        // Sanitize header names
+        return cleanHeader.replace(/[^a-zA-Z0-9_\s]/g, '_');
+      });
+      
+      cleanedData[0] = headers;
+    }
+
+    // Ensure consistent column count
+    const maxColumns = Math.max(...cleanedData.map(row => row.length));
+    const normalizedData = cleanedData.map(row => {
+      const normalizedRow = [...row];
+      while (normalizedRow.length < maxColumns) {
+        normalizedRow.push('');
+      }
+      return normalizedRow;
+    });
+
+    if (normalizedData.some((row, index) => row.length !== data[dataStartRow + index]?.length)) {
+      fixesApplied.push('Normalized column count across all rows');
+    }
+
+    // Create new workbook with cleaned data
+    const newWorksheet = XLSX.utils.aoa_to_sheet(normalizedData);
+    const newWorkbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(newWorkbook, newWorksheet, 'CleanedData');
+    
+    // Write cleaned file
+    XLSX.writeFile(newWorkbook, outputPath);
+    fixesApplied.push(`Created cleaned Excel file with ${normalizedData.length} rows and ${maxColumns} columns`);
   }
 
   private async analyzeCsvSchema(filePath: string): Promise<{ schema: TableSchema[], preview: any[], rowCount: number }> {

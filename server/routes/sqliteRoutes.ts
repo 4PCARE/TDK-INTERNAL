@@ -59,6 +59,62 @@ export function registerSQLiteRoutes(app: Express) {
     }
   });
 
+  // Diagnose file problems
+  app.post("/api/sqlite/diagnose-file", isAuthenticated, async (req: any, res: any) => {
+    console.log('🔍 SQLite diagnose-file endpoint hit');
+    try {
+      const userId = req.user.claims.sub;
+      const { filePath } = req.body;
+      console.log('🔍 User ID:', userId, 'File path:', filePath);
+
+      if (!filePath) {
+        console.log('❌ File path missing');
+        return res.status(400).json({ message: "File path is required" });
+      }
+
+      const diagnosis = await sqliteService.diagnoseFileProblems(filePath);
+      res.json(diagnosis);
+    } catch (error) {
+      console.error("Error diagnosing file:", error);
+      res.status(500).json({ 
+        message: "Failed to diagnose file",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Clean problematic file
+  app.post("/api/sqlite/clean-file", isAuthenticated, async (req: any, res: any) => {
+    console.log('🔍 SQLite clean-file endpoint hit');
+    try {
+      const userId = req.user.claims.sub;
+      const { filePath } = req.body;
+      console.log('🔍 User ID:', userId, 'File path:', filePath);
+
+      if (!filePath) {
+        console.log('❌ File path missing');
+        return res.status(400).json({ message: "File path is required" });
+      }
+
+      const result = await sqliteService.createCleanedFile(filePath, userId);
+      
+      // Now analyze the cleaned file
+      const analysis = await sqliteService.analyzeFileSchema(result.cleanedFilePath);
+      
+      res.json({
+        ...result,
+        analysis,
+        message: 'File cleaned successfully'
+      });
+    } catch (error) {
+      console.error("Error cleaning file:", error);
+      res.status(500).json({ 
+        message: "Failed to clean file",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Upload new file for database creation
   app.post("/api/sqlite/upload-file", isAuthenticated, upload.single('file'), async (req: any, res: any) => {
     console.log('🔍 SQLite upload-file endpoint hit');

@@ -23,7 +23,9 @@ import {
   Upload,
   FileSpreadsheet,
   Trash2,
-  Play
+  Play,
+  Wrench,
+  Search
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -139,6 +141,19 @@ export default function DataConnections() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'settings' | 'schema' | 'inference'>('settings');
 
+  // SQLite file analysis states
+  const [selectedFile, setSelectedFile] = useState<{ filePath: string; name: string } | null>(null);
+  const [analysis, setAnalysis] = useState<any>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [diagnosis, setDiagnosis] = useState<{
+    issues: string[];
+    canCleanup: boolean;
+    cleanupSuggestions: string[];
+  } | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [uploadMethod, setUploadMethod] = useState<'existing' | 'upload'>('existing');
+  const [isLoading, setIsLoading] = useState(false); // Loading state for file analysis
+
   // Schema discovery queries
   const { data: schemaData, isLoading: schemaLoading } = useQuery({
     queryKey: [`/api/database-connections/${editingConnection?.id}/schema`],
@@ -184,7 +199,6 @@ export default function DataConnections() {
     description: "",
     snippets: [] as Array<{question: string, sql: string}>
   });
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [existingFileId, setExistingFileId] = useState<string>("");
 
   // Fetch database connections
@@ -332,17 +346,17 @@ export default function DataConnections() {
       setSqliteForm({ name: "", tableName: "", description: "", snippets: [] });
       setSelectedFile(null);
       setExistingFileId("");
-      
+
       // Force refresh the database connections list
       queryClient.invalidateQueries({ queryKey: ['/api/database-connections'] });
       queryClient.refetchQueries({ queryKey: ['/api/database-connections'] });
-      
+
       // Also refresh the existing files list
       queryClient.invalidateQueries({ queryKey: ['/api/sqlite/existing-files'] });
     },
     onError: (error: any) => {
       console.error('SQLite creation error:', error);
-      
+
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -356,7 +370,7 @@ export default function DataConnections() {
       }
 
       let errorMessage = "Failed to create SQLite database";
-      
+
       if (error.message === 'Request timeout after 30 seconds') {
         errorMessage = "Request timed out. Please try again with a smaller file.";
       } else if (error.message && error.message.includes('Selected file no longer exists')) {
@@ -444,7 +458,7 @@ export default function DataConnections() {
 
   const handleUpdateConnection = () => {
     if (!editingConnection) return;
-    
+
     updateDatabaseMutation.mutate({
       id: editingConnection.id,
       updates: editingConnection
@@ -506,7 +520,7 @@ export default function DataConnections() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedFile(file);
+      setSelectedFile({ filePath: URL.createObjectURL(file), name: file.name });
       setExistingFileId("");
       if (!sqliteForm.name) {
         setSqliteForm(prev => ({ ...prev, name: file.name.replace(/\.[^/.]+$/, "") }));
@@ -539,6 +553,78 @@ export default function DataConnections() {
       snippets: prev.snippets.filter((_, i) => i !== index)
     }));
   };
+
+  const handleAnalyzeFile = async () => {
+    if (!selectedFile?.filePath) return;
+
+    setIsLoading(true);
+    setAnalysisError(null);
+    setAnalysis(null);
+    setDiagnosis(null);
+
+    try {
+      const response = await apiRequest('POST', '/api/sqlite/analyze-file', {
+        filePath: selectedFile.filePath
+      });
+
+      setAnalysis(response);
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : 'Failed to analyze file');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDiagnoseFile = async () => {
+    if (!selectedFile?.filePath) return;
+
+    setIsLoading(true);
+
+    try {
+      const response = await apiRequest('POST', '/api/sqlite/diagnose-file', {
+        filePath: selectedFile.filePath
+      });
+
+      setDiagnosis(response);
+    } catch (error) {
+      console.error('Error diagnosing file:', error);
+      setAnalysisError(error instanceof Error ? error.message : 'Failed to diagnose file');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFileCleanup = async () => {
+    if (!selectedFile?.filePath) return;
+
+    setIsCreating(true);
+    setAnalysisError(null);
+
+    try {
+      const response = await apiRequest('POST', '/api/sqlite/clean-file', {
+        filePath: selectedFile.filePath
+      });
+
+      // Update the analysis with the cleaned file result
+      setAnalysis(response.analysis);
+      setDiagnosis(null);
+
+      // Update selected file to point to cleaned file
+      setSelectedFile(prev => prev ? {
+        ...prev,
+        filePath: response.cleanedFilePath,
+        name: prev.name + ' (cleaned)'
+      } : null);
+
+      alert(`File cleaned successfully!\n\nOriginal issues: ${response.originalIssues.join(', ')}\n\nFixes applied: ${response.fixesApplied.join(', ')}`);
+
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : 'Failed to clean file');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
 
   const databaseTypes = [
     {
@@ -600,7 +686,7 @@ export default function DataConnections() {
   // Filter and sort connections with memoization
   const filteredConnections = useMemo(() => {
     if (!connections || connections.length === 0) return [];
-    
+
     const filtered = connections.filter(conn => {
       if (!searchQuery) return true;
       const query = searchQuery.toLowerCase();
@@ -611,7 +697,7 @@ export default function DataConnections() {
 
     return filtered.sort((a, b) => {
       let aValue, bValue;
-      
+
       switch (sortBy) {
         case 'name':
           aValue = a.name.toLowerCase();
@@ -626,7 +712,7 @@ export default function DataConnections() {
           bValue = new Date(b.createdAt).getTime();
           break;
       }
-      
+
       if (sortOrder === 'asc') {
         return aValue > bValue ? 1 : -1;
       } else {
@@ -1219,6 +1305,97 @@ export default function DataConnections() {
                                 />
                               </div>
 
+                              {/* AI Analysis & Cleanup */}
+                              {selectedFile && (
+                                <div className="border p-4 rounded-lg bg-slate-50">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <Label className="text-lg font-semibold">AI File Analysis</Label>
+                                    <Button size="sm" onClick={handleAnalyzeFile} disabled={isLoading}>
+                                      {isLoading ? 'Analyzing...' : 'Analyze File'}
+                                    </Button>
+                                  </div>
+
+                                  {analysisError && (
+                                    <Alert variant="destructive" className="mt-4">
+                                      <AlertCircle className="h-4 w-4" />
+                                      <AlertTitle>Analysis Failed</AlertTitle>
+                                      <AlertDescription>
+                                        {analysisError}
+                                        {analysisError.includes('Issues detected') && (
+                                          <div className="mt-3">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={handleFileCleanup}
+                                              disabled={isCreating}
+                                              className="mr-2"
+                                            >
+                                              <Wrench className="w-4 h-4 mr-2" />
+                                              Try File Cleanup
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={handleDiagnoseFile}
+                                              disabled={isCreating}
+                                            >
+                                              <Search className="w-4 h-4 mr-2" />
+                                              Diagnose Issues
+                                            </Button>
+                                          </div>
+                                        )}
+                                      </AlertDescription>
+                                    </Alert>
+                                  )}
+
+                                  {diagnosis && (
+                                    <Alert className="mt-4">
+                                      <AlertCircle className="h-4 w-4" />
+                                      <AlertTitle>File Issues Detected</AlertTitle>
+                                      <AlertDescription>
+                                        <div className="space-y-2">
+                                          <p><strong>Problems found:</strong></p>
+                                          <ul className="list-disc pl-5 space-y-1">
+                                            {diagnosis.issues.map((issue, index) => (
+                                              <li key={index} className="text-sm">{issue}</li>
+                                            ))}
+                                          </ul>
+
+                                          <p className="mt-3"><strong>Suggested fixes:</strong></p>
+                                          <ul className="list-disc pl-5 space-y-1">
+                                            {diagnosis.cleanupSuggestions.map((suggestion, index) => (
+                                              <li key={index} className="text-sm text-muted-foreground">{suggestion}</li>
+                                            ))}
+                                          </ul>
+
+                                          <div className="mt-3">
+                                            <Button
+                                              variant="default"
+                                              size="sm"
+                                              onClick={handleFileCleanup}
+                                              disabled={isCreating}
+                                            >
+                                              <Wrench className="w-4 h-4 mr-2" />
+                                              Create Cleaned File
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </AlertDescription>
+                                    </Alert>
+                                  )}
+
+                                  {analysis && !analysisError && !diagnosis && (
+                                    <div className="mt-4 border-t pt-4">
+                                      <h4 className="font-medium mb-2">Analysis Summary:</h4>
+                                      <p className="text-sm text-gray-700">
+                                        {analysis.summary || "No specific summary available. Analysis complete."}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+
                               {/* SQL Snippets */}
                               <div>
                                 <div className="flex items-center justify-between mb-3">
@@ -1269,6 +1446,9 @@ export default function DataConnections() {
                                     setSqliteForm({ name: "", tableName: "", description: "", snippets: [] });
                                     setSelectedFile(null);
                                     setExistingFileId("");
+                                    setAnalysis(null);
+                                    setAnalysisError(null);
+                                    setDiagnosis(null);
                                   }}
                                 >
                                   Cancel
@@ -1400,6 +1580,24 @@ export default function DataConnections() {
                                 size="sm"
                                 variant="outline"
                                 className="text-red-600 hover:text-red-700"
+                                onClick={async () => {
+                                  if (confirm('Are you sure you want to delete this database connection?')) {
+                                    try {
+                                      await apiRequest("DELETE", `/api/database-connections/${connection.id}`);
+                                      toast({
+                                        title: "Success",
+                                        description: "Database connection deleted successfully",
+                                      });
+                                      queryClient.invalidateQueries({ queryKey: ['/api/database-connections'] });
+                                    } catch (error) {
+                                      toast({
+                                        title: "Error",
+                                        description: "Failed to delete database connection",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                  }
+                                }}
                               >
                                 <X className="w-4 h-4 mr-2" />
                                 Delete
