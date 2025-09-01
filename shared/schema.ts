@@ -965,6 +965,31 @@ export const lineTemplateActionsRelations = relations(lineTemplateActions, ({ on
   }),
 }));
 
+// SQL Snippets table for AI training
+export const sqlSnippets = pgTable("sql_snippets", {
+  id: serial("id").primaryKey(),
+  connectionId: integer("connection_id").notNull().references(() => dataConnections.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name").notNull(),
+  sql: text("sql").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// AI Database Queries table for query history
+export const aiDatabaseQueries = pgTable("ai_database_queries", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  connectionId: integer("connection_id").notNull().references(() => dataConnections.id, { onDelete: "cascade" }),
+  userQuery: text("user_query").notNull(),
+  generatedSql: text("generated_sql"),
+  executionResult: jsonb("execution_result"),
+  success: boolean("success").notNull(),
+  executionTime: integer("execution_time"), // in milliseconds
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // SQL Snippets relations
 export const sqlSnippetsRelations = relations(sqlSnippets, ({ one }) => ({
   connection: one(dataConnections, {
@@ -1013,31 +1038,6 @@ export type LineCarouselColumn = typeof lineCarouselColumns.$inferSelect;
 export type InsertLineCarouselColumn = z.infer<typeof insertLineCarouselColumnSchema>;
 export type LineTemplateAction = typeof lineTemplateActions.$inferSelect;
 export type InsertLineTemplateAction = z.infer<typeof insertLineTemplateActionSchema>;
-
-// SQL Snippets table for AI training
-export const sqlSnippets = pgTable("sql_snippets", {
-  id: serial("id").primaryKey(),
-  connectionId: integer("connection_id").notNull().references(() => dataConnections.id, { onDelete: "cascade" }),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  name: varchar("name").notNull(),
-  sql: text("sql").notNull(),
-  description: text("description"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// AI Database Queries table for query history
-export const aiDatabaseQueries = pgTable("ai_database_queries", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  connectionId: integer("connection_id").notNull().references(() => dataConnections.id, { onDelete: "cascade" }),
-  userQuery: text("user_query").notNull(),
-  generatedSql: text("generated_sql"),
-  executionResult: jsonb("execution_result"),
-  success: boolean("success").notNull(),
-  executionTime: integer("execution_time"), // in milliseconds
-  createdAt: timestamp("created_at").defaultNow(),
-});
 
 // Internal Agent Chat Sessions table
 export const internalAgentChatSessions = pgTable("internal_agent_chat_sessions", {
