@@ -48,18 +48,28 @@ class SQLiteService {
     // Get user's uploaded files that are Excel/CSV
     const documents = await storage.getDocuments(userId, { limit: null });
     
-    return documents.filter(doc => {
+    const filteredDocs = documents.filter(doc => {
       const ext = path.extname(doc.fileName || '').toLowerCase();
       return ['.xlsx', '.xls', '.csv'].includes(ext);
-    }).map(doc => ({
-      id: doc.id,
-      name: doc.name,
-      fileName: doc.fileName,
-      filePath: doc.filePath,
-      fileSize: doc.fileSize,
-      createdAt: doc.createdAt,
-      mimeType: doc.mimeType
-    }));
+    }).map(doc => {
+      // Check if the file actually exists and log the result
+      const fileExists = fs.existsSync(doc.filePath);
+      console.log(`🔍 File ${doc.fileName}: exists=${fileExists}, path=${doc.filePath}`);
+      
+      return {
+        id: doc.id,
+        name: doc.name,
+        fileName: doc.fileName,
+        filePath: doc.filePath,
+        fileSize: doc.fileSize,
+        createdAt: doc.createdAt,
+        mimeType: doc.mimeType,
+        exists: fileExists
+      };
+    });
+    
+    console.log(`🔍 Found ${filteredDocs.length} Excel/CSV files for user ${userId}`);
+    return filteredDocs;
   }
 
   async analyzeFileSchema(filePath: string): Promise<{ schema: TableSchema[], preview: any[], rowCount: number }> {

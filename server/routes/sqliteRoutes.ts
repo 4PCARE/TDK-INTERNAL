@@ -3,6 +3,7 @@ import { isAuthenticated } from "../replitAuth";
 import { sqliteService } from "../services/sqliteService";
 import multer from "multer";
 import path from "path";
+import fs from "fs";
 import { storage } from "../storage"; // Use the correct storage import
 
 const upload = multer({ dest: 'uploads/sqlite-temp/' });
@@ -108,7 +109,29 @@ export function registerSQLiteRoutes(app: Express) {
           const existingFiles = await sqliteService.getExistingExcelCsvFiles(userId);
           const selectedFile = existingFiles.find(f => f.id === parseInt(req.body.existingFileId));
           if (selectedFile) {
+            // Use the actual file path from the database
             filePath = selectedFile.filePath;
+            console.log('🔍 Using existing file:', selectedFile.fileName, 'at path:', filePath);
+            
+            // Check if file actually exists
+            const fs = require('fs');
+            if (!fs.existsSync(filePath)) {
+              console.log('❌ File does not exist at path:', filePath);
+              console.log('🔍 Available files in selectedFile:', selectedFile);
+              return res.status(400).json({ 
+                message: `Selected file no longer exists: ${selectedFile.fileName}`,
+                debug: {
+                  expectedPath: filePath,
+                  fileName: selectedFile.fileName,
+                  fileId: selectedFile.id
+                }
+              });
+            }
+          } else {
+            console.log('❌ File not found with ID:', req.body.existingFileId);
+            return res.status(400).json({ 
+              message: `File with ID ${req.body.existingFileId} not found` 
+            });
           }
         }
         
