@@ -3107,182 +3107,232 @@ export default function CreateAgentChatbot() {
 
                     {activeTab === "test" && (
                       <div className="space-y-6">
-                        {!isTestChatMode ? (
-                          <div className="text-center py-12">
-                            <TestTube className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                            <h3 className="text-xl font-medium text-gray-900 mb-2">
-                              Test Your Agent
-                            </h3>
-                            <p className="text-gray-500 mb-6">
-                              Start a test conversation to see how your agent responds
-                            </p>
-                            <Button
-                              onClick={handleStartTestChat}
-                              disabled={createTempSessionMutation.isPending}
-                              className="bg-green-500 hover:bg-green-600"
-                            >
-                              {createTempSessionMutation.isPending ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Setting up...
-                                </>
-                              ) : (
-                                <>
-                                  <Plus className="w-4 h-4 mr-2" />
-                                  Start Test Chat
-                                </>
-                              )}
-                            </Button>
+                        {/* Save/Update Button */}
+                        <div className="flex justify-end items-center gap-4 p-4 bg-slate-50 rounded-lg border">
+                          <div className="flex items-center gap-2 text-sm text-slate-600">
+                            {isEditing ? "Update your agent configuration" : "Save your agent configuration"}
                           </div>
-                        ) : (
-                          <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-[600px]">
-                            {/* Chat Header */}
-                            <div className="p-4 border-b border-gray-200">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                  <Avatar className="w-8 h-8">
-                                    <AvatarFallback>
-                                      <Bot className="w-4 h-4" />
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div>
-                                    <h3 className="font-medium text-gray-900">
-                                      Testing: {form.watch('name') || "Unnamed Agent"}
-                                    </h3>
-                                    <p className="text-sm text-gray-500">Test Session</p>
+                          <Button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              console.log("💾 Save button clicked - triggering manual submission");
+
+                              // Get form data and validate
+                              const formData = form.getValues();
+                              console.log("Form data for submission:", formData);
+
+                              // Call the onSubmit function manually
+                              onSubmit(formData);
+                            }}
+                            disabled={saveAgentMutation.isPending}
+                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                          >
+                            {saveAgentMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                {isEditing ? "Updating..." : "Saving..."}
+                              </>
+                            ) : (
+                              <>
+                                <Bot className="w-4 h-4" />
+                                {isEditing ? "Update Agent" : "Save Agent"}
+                              </>
+                            )}
+                          </Button>
+                        </div>
+
+                        {/* Test Agent Card */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <TestTube className="h-5 w-5" />
+                              Test Your Agent
+                            </CardTitle>
+                            <CardDescription>
+                              Test your agent configuration before saving or deploying
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-6">
+                            {!isTestChatMode ? (
+                              <div className="text-center py-12">
+                                <TestTube className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                                <h3 className="text-xl font-medium text-gray-900 mb-2">
+                                  Test Your Agent
+                                </h3>
+                                <p className="text-gray-500 mb-6">
+                                  Start a test conversation to see how your agent responds
+                                </p>
+                                <Button
+                                  onClick={handleStartTestChat}
+                                  disabled={createTempSessionMutation.isPending}
+                                  className="bg-green-500 hover:bg-green-600"
+                                >
+                                  {createTempSessionMutation.isPending ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                      Setting up...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Plus className="w-4 h-4 mr-2" />
+                                      Start Test Chat
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-[600px]">
+                                {/* Chat Header */}
+                                <div className="p-4 border-b border-gray-200">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-3">
+                                      <Avatar className="w-8 h-8">
+                                        <AvatarFallback>
+                                          <Bot className="w-4 h-4" />
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div>
+                                        <h3 className="font-medium text-gray-900">
+                                          Testing: {form.watch('name') || "Unnamed Agent"}
+                                        </h3>
+                                        <p className="text-sm text-gray-500">Test Session</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleClearTestChat}
+                                      >
+                                        <RefreshCw className="w-4 h-4 mr-2" />
+                                        Clear Chat
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsTestChatMode(false)}
+                                      >
+                                        <ArrowLeft className="w-4 h-4 mr-2" />
+                                        Back
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleClearTestChat}
-                                  >
-                                    <RefreshCw className="w-4 h-4 mr-2" />
-                                    Clear Chat
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setIsTestChatMode(false)}
-                                  >
-                                    <ArrowLeft className="w-4 h-4 mr-2" />
-                                    Back
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
 
-                            {/* Messages */}
-                            <ScrollArea className="flex-1 p-4">
-                              <div className="space-y-4">
-                                {testChatHistory && testChatHistory.length > 0 ? (
-                                  testChatHistory.map((message) => (
-                                    <div
-                                      key={message.id}
-                                      className={`flex space-x-3 ${
-                                        message.role === 'user' ? 'justify-end' : 'justify-start'
-                                      }`}
-                                    >
-                                      {message.role === 'assistant' && (
-                                        <Avatar className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 flex-shrink-0">
+                                {/* Messages */}
+                                <ScrollArea className="flex-1 p-4">
+                                  <div className="space-y-4">
+                                    {testChatHistory && testChatHistory.length > 0 ? (
+                                      testChatHistory.map((message) => (
+                                        <div
+                                          key={message.id}
+                                          className={`flex space-x-3 ${
+                                            message.role === 'user' ? 'justify-end' : 'justify-start'
+                                          }`}
+                                        >
+                                          {message.role === 'assistant' && (
+                                            <Avatar className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 flex-shrink-0">
+                                              <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600">
+                                                <Bot className="w-4 h-4 text-white" />
+                                              </AvatarFallback>
+                                            </Avatar>
+                                          )}
+
+                                          <div className={`flex-1 max-w-xs lg:max-w-md ${message.role === 'user' ? 'flex justify-end' : ''}`}>
+                                            <div className="flex flex-col">
+                                              <div className={`rounded-lg px-4 py-3 ${
+                                                message.role === 'user'
+                                                  ? 'bg-blue-500 text-white rounded-tr-none'
+                                                  : 'bg-gray-100 text-gray-900 rounded-tl-none'
+                                              }`}>
+                                                <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                                              </div>
+                                              <p className={`text-xs text-gray-500 mt-1 px-1 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
+                                                {formatTime(message.createdAt)}
+                                              </p>
+                                            </div>
+                                          </div>
+
+                                          {message.role === 'user' && (
+                                            <Avatar className="w-8 h-8 bg-gray-500 flex-shrink-0">
+                                              <AvatarFallback className="bg-gray-500">
+                                                <User className="w-4 h-4 text-white" />
+                                              </AvatarFallback>
+                                            </Avatar>
+                                          )}
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div className="text-center py-8 text-gray-500">
+                                        <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                                        <p className="text-sm">Start testing your agent by sending a message!</p>
+                                      </div>
+                                    )}
+
+                                    <div ref={messagesEndRef} />
+
+                                    {sendTestMessageMutation.isPending && (
+                                      <div className="flex items-start space-x-3 mt-4">
+                                        <Avatar className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600">
                                           <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600">
                                             <Bot className="w-4 h-4 text-white" />
                                           </AvatarFallback>
                                         </Avatar>
-                                      )}
-
-                                      <div className={`flex-1 max-w-xs lg:max-w-md ${message.role === 'user' ? 'flex justify-end' : ''}`}>
-                                        <div className="flex flex-col">
-                                          <div className={`rounded-lg px-4 py-3 ${
-                                            message.role === 'user'
-                                              ? 'bg-blue-500 text-white rounded-tr-none'
-                                              : 'bg-gray-100 text-gray-900 rounded-tl-none'
-                                          }`}>
-                                            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                                        <div className="bg-gray-100 rounded-lg rounded-tl-none px-3 py-2 inline-block">
+                                          <div className="flex items-center space-x-1">
+                                            <div className="animate-bounce w-1 h-1 bg-gray-500 rounded-full"></div>
+                                            <div className="animate-bounce w-1 h-1 bg-gray-500 rounded-full" style={{ animationDelay: "0.1s" }}></div>
+                                            <div className="animate-bounce w-1 h-1 bg-gray-500 rounded-full" style={{ animationDelay: "0.2s" }}></div>
                                           </div>
-                                          <p className={`text-xs text-gray-500 mt-1 px-1 ${message.role === 'user' ? 'text-right' : 'text-left'}`}>
-                                            {formatTime(message.createdAt)}
-                                          </p>
                                         </div>
                                       </div>
+                                    )}
+                                  </div>
+                                </ScrollArea>
 
-                                      {message.role === 'user' && (
-                                        <Avatar className="w-8 h-8 bg-gray-500 flex-shrink-0">
-                                          <AvatarFallback className="bg-gray-500">
-                                            <User className="w-4 h-4 text-white" />
-                                          </AvatarFallback>
-                                        </Avatar>
+                                {/* Message Input */}
+                                <div className="p-4 border-t border-gray-200">
+                                  <form onSubmit={handleTestAgent} className="flex items-center space-x-2">
+                                    <Input
+                                      type="text"
+                                      placeholder="Test your agent..."
+                                      value={testMessage}
+                                      onChange={(e) => setTestMessage(e.target.value)}
+                                      className="flex-1"
+                                      disabled={sendTestMessageMutation.isPending}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                          e.preventDefault();
+                                          handleTestAgent(e as any); // Cast to any to satisfy the expected type
+                                        }
+                                      }}
+                                    />
+                                    <Button
+                                      type="submit"
+                                      disabled={!testMessage.trim() || sendTestMessageMutation.isPending}
+                                      className="bg-blue-500 hover:bg-blue-600 text-white min-w-[44px]"
+                                    >
+                                      {sendTestMessageMutation.isPending ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                      ) : (
+                                        <Send className="w-4 h-4" />
                                       )}
+                                    </Button>
+                                  </form>
+
+                                  {sendTestMessageMutation.isPending && (
+                                    <div className="text-center text-xs text-gray-500 mt-2">
+                                      <Loader2 className="w-3 h-3 animate-spin inline mr-1" />
+                                      Processing your message...
                                     </div>
-                                  ))
-                                ) : (
-                                  <div className="text-center py-8 text-gray-500">
-                                    <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                                    <p className="text-sm">Start testing your agent by sending a message!</p>
-                                  </div>
-                                )}
-
-                                <div ref={messagesEndRef} />
-
-                                {sendTestMessageMutation.isPending && (
-                                  <div className="flex items-start space-x-3 mt-4">
-                                    <Avatar className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600">
-                                      <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600">
-                                        <Bot className="w-4 h-4 text-white" />
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <div className="bg-gray-100 rounded-lg rounded-tl-none px-3 py-2 inline-block">
-                                      <div className="flex items-center space-x-1">
-                                        <div className="animate-bounce w-1 h-1 bg-gray-500 rounded-full"></div>
-                                        <div className="animate-bounce w-1 h-1 bg-gray-500 rounded-full" style={{ animationDelay: "0.1s" }}></div>
-                                        <div className="animate-bounce w-1 h-1 bg-gray-500 rounded-full" style={{ animationDelay: "0.2s" }}></div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </ScrollArea>
-
-                            {/* Message Input */}
-                            <div className="p-4 border-t border-gray-200">
-                              <form onSubmit={handleTestAgent} className="flex items-center space-x-2">
-                                <Input
-                                  type="text"
-                                  placeholder="Test your agent..."
-                                  value={testMessage}
-                                  onChange={(e) => setTestMessage(e.target.value)}
-                                  className="flex-1"
-                                  disabled={sendTestMessageMutation.isPending}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                      e.preventDefault();
-                                      handleTestAgent(e as any); // Cast to any to satisfy the expected type
-                                    }
-                                  }}
-                                />
-                                <Button
-                                  type="submit"
-                                  disabled={!testMessage.trim() || sendTestMessageMutation.isPending}
-                                  className="bg-blue-500 hover:bg-blue-600 text-white min-w-[44px]"
-                                >
-                                  {sendTestMessageMutation.isPending ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : (
-                                    <Send className="w-4 h-4" />
                                   )}
-                                </Button>
-                              </form>
-
-                              {sendTestMessageMutation.isPending && (
-                                <div className="text-center text-xs text-gray-500 mt-2">
-                                  <Loader2 className="w-3 h-3 animate-spin inline mr-1" />
-                                  Processing your message...
                                 </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
                       </div>
                     )}
 
