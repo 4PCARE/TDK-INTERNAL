@@ -393,14 +393,14 @@ export default function CreateAgentChatbot() {
   });
 
   // Fetch agent documents for editing
-  const { data: agentDocuments = [] } = useQuery({
+  const { data: agentDocuments } = useQuery({
     queryKey: [`/api/agent-chatbots/${editAgentId}/documents`],
     enabled: isAuthenticated && isEditing,
     retry: false,
   });
 
   // Fetch agent database connections for editing
-  const { data: agentDatabases = [] } = useQuery({
+  const { data: agentDatabases } = useQuery({
     queryKey: [`/api/agent-chatbots/${editAgentId}/databases`],
     enabled: isAuthenticated && isEditing,
     retry: false,
@@ -466,16 +466,16 @@ export default function CreateAgentChatbot() {
       form.reset(mergedAgentData);
       setSavedAgent(mergedAgentData); // Store for testing purposes
 
-      // Load selected documents
-      const docs = agentDocuments as any[];
-      if (docs && docs.length > 0) {
-        setSelectedDocuments(docs.map((doc: any) => doc.documentId));
+      // Load selected documents with null safety
+      const docs = Array.isArray(agentDocuments) ? agentDocuments as any[] : [];
+      if (docs.length > 0) {
+        setSelectedDocuments(docs.map((doc: any) => doc.documentId).filter(id => id != null));
       }
 
-      // Load selected databases
-      const dbs = agentDatabases as any[];
-      if (dbs && dbs.length > 0) {
-        setSelectedDatabases(dbs.map((db: any) => db.connectionId));
+      // Load selected databases with null safety
+      const dbs = Array.isArray(agentDatabases) ? agentDatabases as any[] : [];
+      if (dbs.length > 0) {
+        setSelectedDatabases(dbs.map((db: any) => db.connectionId).filter(id => id != null));
       }
     }
   }, [existingAgent, agentDocuments, isEditing, form]);
