@@ -2741,14 +2741,36 @@ export class DatabaseStorage implements IStorage {
     embedding?: number[];
   }) {
     try {
-      // Ensure description is never null/undefined - use empty string as default
-      const description = snippet.description || '';
+      // Ensure all fields are properly typed and description is never null/undefined
+      const cleanData = {
+        name: String(snippet.name || '').trim(),
+        sql: String(snippet.sql || '').trim(),
+        description: String(snippet.description || '').trim(),
+        connectionId: Number(snippet.connectionId),
+        userId: String(snippet.userId),
+        embedding: snippet.embedding
+      };
+
+      // Validate required fields
+      if (!cleanData.name || !cleanData.sql || !cleanData.connectionId || !cleanData.userId) {
+        throw new Error('Missing required fields for SQL snippet creation');
+      }
+
+      console.log('💾 Storage: Creating SQL snippet with data:', {
+        name: cleanData.name,
+        sqlLength: cleanData.sql.length,
+        descriptionLength: cleanData.description.length,
+        connectionId: cleanData.connectionId,
+        userId: cleanData.userId
+      });
 
       const result = await db.execute(sql`
         INSERT INTO sql_snippets (name, sql, description, connection_id, user_id, embedding, created_at, updated_at)
-        VALUES (${snippet.name}, ${snippet.sql}, ${description}, ${snippet.connectionId}, ${snippet.userId}, ${snippet.embedding ? JSON.stringify(snippet.embedding) : null}, NOW(), NOW())
+        VALUES (${cleanData.name}, ${cleanData.sql}, ${cleanData.description}, ${cleanData.connectionId}, ${cleanData.userId}, ${cleanData.embedding ? JSON.stringify(cleanData.embedding) : null}, NOW(), NOW())
         RETURNING *
       `);
+      
+      console.log('✅ Storage: SQL snippet created successfully');
       return result.rows[0];
     } catch (error) {
       // If table doesn't exist, provide helpful error message
@@ -2757,7 +2779,7 @@ export class DatabaseStorage implements IStorage {
         throw new Error('SQL snippets table not found. Database migration required.');
       }
 
-      console.error('Error creating SQL snippet:', error);
+      console.error('💥 Storage: Error creating SQL snippet:', error);
       throw error;
     }
   }

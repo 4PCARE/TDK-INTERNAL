@@ -85,25 +85,40 @@ export function registerDatabaseAIRoutes(app: Express) {
       const connectionId = parseInt(req.params.connectionId);
       const { name, sql, description } = req.body;
 
+      console.log('📝 Creating SQL snippet:', { name, sql, description, connectionId, userId });
+
       if (!name || !sql) {
         return res.status(400).json({ message: "Name and SQL are required" });
       }
 
-      // Handle blank/undefined description properly
-      const cleanDescription = description || '';
+      // Ensure description is always a string (never null/undefined)
+      const cleanDescription = typeof description === 'string' ? description : '';
 
       const snippet = await aiDatabaseAgent.createSQLSnippet({
-        name,
-        sql,
+        name: String(name),
+        sql: String(sql),
         description: cleanDescription,
         connectionId,
         userId,
       });
 
+      console.log('✅ SQL snippet created successfully:', snippet);
       res.status(201).json(snippet);
     } catch (error) {
-      console.error("Error creating SQL snippet:", error);
-      res.status(500).json({ message: "Failed to create SQL snippet" });
+      console.error("💥 Error creating SQL snippet:", error);
+      
+      // Return JSON error response, not HTML
+      if (error.message?.includes('sql_snippets') && error.message?.includes('does not exist')) {
+        return res.status(500).json({ 
+          message: "SQL snippets table not found. Database migration required.",
+          error: "MISSING_TABLE"
+        });
+      }
+      
+      res.status(500).json({ 
+        message: "Failed to create SQL snippet",
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 

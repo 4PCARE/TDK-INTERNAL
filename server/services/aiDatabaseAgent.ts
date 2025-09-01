@@ -319,11 +319,27 @@ Provide a brief, user-friendly explanation of what the query does and what the r
     connectionId: number;
     userId: string;
   }) {
-    // Ensure description is never null/undefined
+    // Ensure description is never null/undefined and all data is properly cleaned
     const cleanData = {
-      ...data,
-      description: data.description || ''
+      name: String(data.name || '').trim(),
+      sql: String(data.sql || '').trim(),
+      description: String(data.description || '').trim(),
+      connectionId: Number(data.connectionId),
+      userId: String(data.userId)
     };
+
+    // Validate required fields
+    if (!cleanData.name || !cleanData.sql) {
+      throw new Error('Name and SQL are required fields');
+    }
+
+    console.log('🤖 AI Agent: Creating SQL snippet:', {
+      name: cleanData.name,
+      sqlLength: cleanData.sql.length,
+      descriptionLength: cleanData.description.length,
+      connectionId: cleanData.connectionId
+    });
+
     return await storage.createSQLSnippet(cleanData);
   }
 
