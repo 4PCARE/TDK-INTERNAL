@@ -52,7 +52,9 @@ export function registerDatabaseConnectionRoutes(app: Express) {
         return res.status(404).json({ message: "Database connection not found" });
       }
 
-      const result = await databaseConnector.executeQuery(connectionId, sql.trim());
+      // Use the correct query service based on connection type
+      const { databaseQueryService } = await import("../services/databaseQueryService");
+      const result = await databaseQueryService.executeQuery(connectionId, userId, sql.trim());
       
       // Limit rows if specified
       if (result.data && maxRows && result.data.length > maxRows) {

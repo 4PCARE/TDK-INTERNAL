@@ -296,10 +296,38 @@ export class DatabaseQueryService {
       const stmt = db.prepare(query);
       const rows = stmt.all();
 
-      // Extract column names
+      // Extract column names - handle both cases where we have data and where we don't
       let columns: string[] = [];
       if (rows.length > 0) {
         columns = Object.keys(rows[0]);
+      } else {
+        // For queries like SELECT 1, we might still get column info from the statement
+        try {
+          const columnInfo = stmt.columns();
+          if (columnInfo && columnInfo.length > 0) {
+            columns = columnInfo.map(col => col.name);
+          }
+        } catch (e) {
+          // If we can't get column info, try to execute once to get structure
+          try {
+            const sampleResult = db.prepare(query).get();
+            if (sampleResult) {
+              columns = Object.keys(sampleResult);
+              // Re-run to get all results
+              const allResults = db.prepare(query).all();
+              db.close();
+              return {
+                success: true,
+                data: allResults,
+                columns,
+                rowCount: allResults.length,
+                executionTime: Date.now() - startTime
+              };
+            }
+          } catch (e2) {
+            console.log(`⚠️ Could not determine columns for query: ${query}`);
+          }
+        }
       }
 
       db.close();
