@@ -1860,7 +1860,7 @@ Generate only the title, nothing else:`;
       // Update associated database connections - always refresh
       console.log("Removing all existing database connections for agent:", agentId);
       await storage.removeAllDatabasesFromAgent(agentId, userId);
-      
+
       if (databaseIds.length > 0) {
         console.log("Adding", databaseIds.length, "database connections to agent");
         for (const connectionId of databaseIds) {

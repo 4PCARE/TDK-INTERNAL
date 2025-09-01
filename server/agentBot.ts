@@ -252,7 +252,9 @@ async function getAiResponseDirectly(
 
       if (agentDocs.length > 0) {
         console.log(`📚 Found ${agentDocs.length} documents for agent`);
-        agentDocIds = agentDocs.map((doc) => doc.id);
+        // FIXED: Use documentId from the relationship table, not the relationship ID
+        agentDocIds = agentDocs.map((doc) => doc.documentId);
+        console.log(`📚 Agent document IDs: [${agentDocIds.join(', ')}]`);
       } else {
         console.log(`⚠️ No documents found for agent`);
       }
