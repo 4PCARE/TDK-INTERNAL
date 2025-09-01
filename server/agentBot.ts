@@ -316,14 +316,18 @@ async function getAiResponseDirectly(
 
         if (hasDatabaseConnections) {
           console.log(`🗄️ AgentBot: Attempting database search for query: "${queryAnalysis.enhancedQuery}"`);
+          console.log(`🗄️ AgentBot: Available databases:`, agentDatabases.map(db => ({
+            connectionId: db.connectionId,
+            name: db.name || 'Unnamed'
+          })));
 
-          // Import and use the AI Database Agent
+          // Import and use the AI database agent
           const { aiDatabaseAgent } = await import("./services/aiDatabaseAgent");
 
           // Try each database connection until we get results
           for (const dbConnection of agentDatabases) {
             try {
-              console.log(`🗄️ AgentBot: Trying database connection ${dbConnection.connectionId}`);
+              console.log(`🗄️ AgentBot: Trying database connection ${dbConnection.connectionId} (${dbConnection.name || 'Unnamed'})`);
 
               const dbResult = await aiDatabaseAgent.generateSQL(
                 queryAnalysis.enhancedQuery,
@@ -344,6 +348,7 @@ async function getAiResponseDirectly(
               }
             } catch (dbError) {
               console.error(`❌ AgentBot: Error querying database ${dbConnection.connectionId}:`, dbError);
+              console.error(`Full error details:`, dbError);
             }
           }
         }

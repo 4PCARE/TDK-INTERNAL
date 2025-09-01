@@ -125,10 +125,20 @@ export class DatabaseQueryService {
 
   async getDatabaseSchema(connectionId: number, userId: string): Promise<DatabaseSchema | null> {
     try {
+      console.log(`🔍 Getting database schema for connection ${connectionId}, user ${userId}`);
+      
       const connection = await storage.getDataConnection(connectionId, userId);
-      if (!connection || connection.type !== 'database') {
+      if (!connection) {
+        console.error(`❌ Database connection ${connectionId} not found for user ${userId}`);
         return null;
       }
+      
+      if (connection.type !== 'database') {
+        console.error(`❌ Connection ${connectionId} is not a database type: ${connection.type}`);
+        return null;
+      }
+
+      console.log(`📊 Database connection found: ${connection.dbType} at ${connection.host}:${connection.port}`);
 
       switch (connection.dbType) {
         case 'postgresql':
@@ -136,15 +146,19 @@ export class DatabaseQueryService {
         case 'mysql':
           return await this.getMySQLSchema(connection);
         default:
+          console.error(`❌ Unsupported database type: ${connection.dbType}`);
           return null;
       }
     } catch (error) {
-      console.error('Error getting database schema:', error);
+      console.error('❌ Error getting database schema:', error);
+      console.error('Stack trace:', error instanceof Error ? error.stack : 'Unknown error');
       return null;
     }
   }
 
   private async getPostgreSQLSchema(connection: any): Promise<DatabaseSchema> {
+    console.log(`🐘 Connecting to PostgreSQL: ${connection.host}:${connection.port}/${connection.database}`);
+    
     const pool = new PgPool({
       host: connection.host,
       port: connection.port || 5432,
@@ -157,6 +171,7 @@ export class DatabaseQueryService {
 
     try {
       const client = await pool.connect();
+      console.log(`✅ Connected to PostgreSQL successfully`);
       
       // Get tables
       const tablesResult = await client.query(`
@@ -167,6 +182,7 @@ export class DatabaseQueryService {
         ORDER BY table_name
       `);
 
+      console.log(`📋 Found ${tablesResult.rows.length} tables in PostgreSQL database`);
       const tables = [];
       
       for (const tableRow of tablesResult.rows) {
@@ -196,11 +212,15 @@ export class DatabaseQueryService {
           name: tableName,
           columns
         });
+        
+        console.log(`📋 Table ${tableName}: ${columns.length} columns`);
       }
 
       client.release();
+      console.log(`✅ PostgreSQL schema retrieved successfully`);
       return { tables };
     } catch (error) {
+      console.error(`❌ PostgreSQL schema error:`, error);
       throw error;
     } finally {
       await pool.end();
@@ -208,6 +228,8 @@ export class DatabaseQueryService {
   }
 
   private async getMySQLSchema(connection: any): Promise<DatabaseSchema> {
+    console.log(`🐬 Connecting to MySQL: ${connection.host}:${connection.port}/${connection.database}`);
+    
     const mysqlConnection = await mysql.createConnection({
       host: connection.host,
       port: connection.port || 3306,
@@ -218,8 +240,12 @@ export class DatabaseQueryService {
     });
 
     try {
+      console.log(`✅ Connected to MySQL successfully`);
+      
       // Get tables
       const [tablesResult] = await mysqlConnection.execute('SHOW TABLES');
+      console.log(`📋 Found ${(tablesResult as any[]).length} tables in MySQL database`);
+      
       const tables = [];
       
       for (const tableRow of tablesResult as any[]) {
@@ -239,10 +265,14 @@ export class DatabaseQueryService {
           name: tableName,
           columns
         });
+        
+        console.log(`📋 Table ${tableName}: ${columns.length} columns`);
       }
 
+      console.log(`✅ MySQL schema retrieved successfully`);
       return { tables };
     } catch (error) {
+      console.error(`❌ MySQL schema error:`, error);
       throw error;
     } finally {
       await mysqlConnection.end();
