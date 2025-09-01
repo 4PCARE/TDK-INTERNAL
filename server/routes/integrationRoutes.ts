@@ -1,7 +1,9 @@
-// Social Integrations routes
+// Export function to register all integration routes
+export function registerIntegrationRoutes(app: any) {
+  // Social Integrations routes
 
-// Get webhook URL for a specific integration
-app.get(
+  // Get webhook URL for a specific integration
+  app.get(
   "/api/social-integrations/:id/webhook-url",
   isAuthenticated,
   async (req: any, res) => {
@@ -732,8 +734,4 @@ async function calculateCSATScore(
   }
 }
 
-// Export function to register all integration routes
-export function registerIntegrationRoutes(app: any) {
-  // All the routes are already defined above, this function just serves as the export
-  // that the main server file expects
 }
