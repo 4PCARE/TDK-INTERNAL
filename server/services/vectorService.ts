@@ -307,6 +307,13 @@ export class VectorService {
     try {
       console.log(`VectorService: Using pure vector similarity search for query: "${query}"`);
 
+      // If specificDocumentIds is explicitly provided but empty, return no results
+      // This prevents searching entire knowledge base when agent has no documents
+      if (specificDocumentIds !== undefined && specificDocumentIds.length === 0) {
+        console.log(`VectorService: No documents specified for search - returning empty results`);
+        return [];
+      }
+
       // Always use vector similarity search - no keyword prioritization
 
       // Get all vectors from database for this user (with optional document filtering)

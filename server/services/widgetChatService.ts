@@ -58,21 +58,28 @@ export class WidgetChatService {
       try {
         // Get agent document IDs to restrict search scope
         const agentDocumentIds = agentDocuments.map(doc => doc.id);
-        console.log(`Widget Chat: Restricting search to agent's ${agentDocumentIds.length} documents: [${agentDocumentIds.join(', ')}]`);
+        console.log(`Widget Chat: Restricting search to ${agentDocumentIds.length} documents: [${agentDocumentIds.join(', ')}]`);
 
-        aiResponseFromDocs = await generateChatResponse(
-          userMessage,
-          agentDocuments,
-          undefined, // No specific document ID - will be handled by hybrid search internally
-          'hybrid',  // Use hybrid search like debug page
-          0.4,       // keywordWeight
-          0.6        // vectorWeight
-        );
-        console.log(`✅ Widget Chat: Generated response using hybrid search (${aiResponseFromDocs.length} chars)`);
+        // If no documents are attached to the agent, skip search entirely
+        if (agentDocumentIds.length === 0) {
+          console.log(`Widget Chat: No documents attached to agent - skipping search`);
+          aiResponseFromDocs = "No documents are attached to this agent.";
+        } else {
+          aiResponseFromDocs = await generateChatResponse(
+            userMessage,
+            agentDocuments,
+            undefined, // No specific document ID - will be handled by hybrid search internally
+            'hybrid',  // Use hybrid search like debug page
+            0.4,       // keywordWeight
+            0.6        // vectorWeight
+          );
+          console.log(`✅ Widget Chat: Generated response with document context (${aiResponseFromDocs.length} chars)`);
+        }
       } catch (error) {
-        console.error("Widget Chat: generateChatResponse failed:", error);
-        aiResponseFromDocs = "";
+        console.error(`❌ Widget Chat: Error generating response with documents:`, error);
+        aiResponseFromDocs = "Error accessing document information.";
       }
+
 
       // Initialize guardrails service if configured
       let guardrailsService: GuardrailsService | null = null;
@@ -93,7 +100,7 @@ export class WidgetChatService {
       }
 
       // If we got a response from hybrid search, use it directly
-      if (aiResponseFromDocs && aiResponseFromDocs.trim()) {
+      if (aiResponseFromDocs && aiResponseFromDocs.trim() && !aiResponseFromDocs.includes("No documents are attached to this agent.")) {
         console.log(`✅ Widget Chat: Using hybrid search response directly`);
 
         // Validate output with guardrails if configured
@@ -234,7 +241,7 @@ export class WidgetChatService {
       if (estimatedTokens > 8000) {
         console.log(`  ⚠️  WARNING: High token count, may hit limits`);
       }
-      if (documentContents.length > 0 && documentContents.every(doc => doc.includes("..."))) {
+      if (agentDocuments.length > 0 && agentDocuments.every(doc => doc.content.includes("..."))) {
         console.log(`  ⚠️  WARNING: All documents truncated at 2000 chars`);
       }
 

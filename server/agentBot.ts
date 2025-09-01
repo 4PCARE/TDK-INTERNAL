@@ -253,7 +253,7 @@ async function getAiResponseDirectly(
 
       if (agentDocs.length > 0) {
         console.log(`📚 Found ${agentDocs.length} documents for agent`);
-        agentDocIds = agentDocs.map((doc) => doc.documentId);
+        agentDocIds = agentDocs.map((doc) => doc.id);
       } else {
         console.log(`⚠️ No documents found for agent`);
       }
@@ -481,207 +481,222 @@ async function getAiResponseDirectly(
 
       console.log(`🔧 AgentBot: Using agent's search config - ${chunkMaxType}=${chunkMaxValue}, mass=${Math.round(documentMass * 100)}%${tokenLimitEnabled ? `, token limit: ${tokenLimitType}=${tokenLimitType === 'document' ? documentTokenLimit : finalTokenLimit}` : ''}`);
 
-      const searchResults = await searchSmartHybridDebug(
-          queryAnalysis.enhancedQuery || userMessage,
-          userId,
-          {
-            specificDocumentIds: agentDocIds,
-            keywordWeight: searchConfig.keywordWeight,
-            vectorWeight: searchConfig.vectorWeight,
-            threshold: 0.3,
-            massSelectionPercentage: searchConfig.documentMass || 0.6,
-            enhancedQuery: queryAnalysis.enhancedQuery || userMessage,
-            isLineOAContext: true,
-            chunkMaxType: searchConfig.chunkMaxType || 'number',
-            chunkMaxValue: searchConfig.chunkMaxValue || 16,
-            documentTokenLimit: searchConfig.documentTokenLimit,
-            finalTokenLimit: searchConfig.finalTokenLimit,
-          },
+      let documentContext = ''; // Initialize documentContext here
+
+      // Get agent document IDs to restrict search scope
+      const agentDocIds = agentDocs.map(doc => doc.id);
+      console.log(`📄 AgentBot: Using ${agentDocs.length} documents for hybrid search: [${agentDocIds.join(', ')}]`);
+
+      // If no documents are attached to the agent, skip search entirely
+      if (agentDocIds.length === 0) {
+        console.log(`📄 AgentBot: No documents attached to agent - skipping search`);
+        documentContext = '';
+      } else {
+        const searchResults = await searchSmartHybridDebug(
+            queryAnalysis.enhancedQuery || userMessage,
+            userId,
+            {
+              specificDocumentIds: agentDocIds,
+              keywordWeight: searchConfig.keywordWeight,
+              vectorWeight: searchConfig.vectorWeight,
+              threshold: 0.3,
+              massSelectionPercentage: searchConfig.documentMass || 0.6,
+              enhancedQuery: queryAnalysis.enhancedQuery || userMessage,
+              isLineOAContext: true,
+              chunkMaxType: searchConfig.chunkMaxType || 'number',
+              chunkMaxValue: searchConfig.chunkMaxValue || 16,
+              documentTokenLimit: searchConfig.documentTokenLimit,
+              finalTokenLimit: searchConfig.finalTokenLimit,
+            },
+          );
+
+        console.log(
+          `🔍 AgentBot: Smart hybrid search found ${searchResults.length} relevant chunks from agent's bound documents`,
         );
 
-      console.log(
-        `🔍 AgentBot: Smart hybrid search found ${searchResults.length} relevant chunks from agent's bound documents`,
-      );
+        // Apply token limit filtering if enabled
+        let finalSearchResults = searchResults;
+        if (searchConfig?.tokenLimitEnabled && searchConfig?.documentTokenLimit) {
+          const tokenLimit = searchConfig.documentTokenLimit;
+          const charLimit = tokenLimit * 4; // Convert tokens to characters (4 chars per token)
+          let accumulatedChars = 0;
+          const filteredResults = [];
 
-      // Apply token limit filtering if enabled
-      let finalSearchResults = searchResults;
-      if (searchConfig?.tokenLimitEnabled && searchConfig?.documentTokenLimit) {
-        const tokenLimit = searchConfig.documentTokenLimit;
-        const charLimit = tokenLimit * 4; // Convert tokens to characters (4 chars per token)
-        let accumulatedChars = 0;
-        const filteredResults = [];
-
-        for (const result of searchResults) {
-          const contentLength = result.content.length;
-          if (accumulatedChars + contentLength <= charLimit) {
-            filteredResults.push(result);
-            accumulatedChars += contentLength;
-          } else {
-            break;
+          for (const result of searchResults) {
+            const contentLength = result.content.length;
+            if (accumulatedChars + contentLength <= charLimit) {
+              filteredResults.push(result);
+              accumulatedChars += contentLength;
+            } else {
+              break;
+            }
           }
+
+          console.log(`📄 AgentBot: Applied ${tokenLimit} token limit (${charLimit} chars): ${filteredResults.length}/${searchResults.length} chunks (${accumulatedChars} chars, ~${Math.round(accumulatedChars/4)} tokens)`);
+          finalSearchResults = filteredResults;
         }
 
-        console.log(`📄 AgentBot: Applied ${tokenLimit} token limit (${charLimit} chars): ${filteredResults.length}/${searchResults.length} chunks (${accumulatedChars} chars, ~${Math.round(accumulatedChars/4)} tokens)`);
-        finalSearchResults = filteredResults;
+        if (finalSearchResults.length > 0) {
+          // Get document names for better context
+              const documentIds = [...new Set(finalSearchResults.map(r => parseInt(r.documentId || r.metadata?.originalDocumentId || '0')))].filter(id => id > 0);
+              const documentNamesMap = new Map<number, string>();
+
+              if (documentIds.length > 0) {
+                try {
+                  // For widget contexts, use widget-specific methods that don't require user ownership
+                  let documentsWithNames;
+                  if (channelType === 'web' || channelType === 'chat_widget') {
+                    documentsWithNames = await storage.getDocumentsByIdsForWidget(documentIds);
+                  } else {
+                    documentsWithNames = await storage.getDocumentsByIds(documentIds, userId);
+                  }
+
+                  documentsWithNames.forEach(doc => {
+                    documentNamesMap.set(doc.id, doc.name);
+                  });
+                  console.log(`📄 AgentBot: Retrieved names for ${documentNamesMap.size} documents:`, Array.from(documentNamesMap.entries()).map(([id, name]) => `${id}: ${name}`));
+                } catch (error) {
+                  console.warn(`⚠️ AgentBot: Could not retrieve document names:`, error);
+                }
+              }
+
+          // Build document context from search results
+          let documentContextBuilder = ""; // Use a different variable name to avoid conflict
+          const maxContextLength = tokenLimitEnabled && tokenLimitType === 'document'
+            ? documentTokenLimit * 4  // Convert tokens to characters (4 chars per token)
+            : 12000; // Use configured document token limit or default
+          let chunksUsed = 0;
+
+          console.log(
+            `📄 AgentBot: Building document context from search results (max: ${maxContextLength} chars):`,
+          );
+
+          // Debug: Log the complete structure of first search result
+          if (finalSearchResults.length > 0) {
+            console.log(`📄 AgentBot DEBUG: Complete first search result structure:`, JSON.stringify(finalSearchResults[0], null, 2));
+          }
+          for (let i = 0; i < finalSearchResults.length; i++) {
+            const result = finalSearchResults[i];
+
+            // Bulletproof document ID extraction with multiple fallback strategies
+            let docId = 0;
+            let extractionMethod = "none";
+
+            // Strategy 1: Direct documentId
+            if (result.documentId && result.documentId !== '0' && result.documentId !== 0) {
+              docId = parseInt(result.documentId);
+              extractionMethod = "documentId";
+            }
+            // Strategy 2: metadata.originalDocumentId
+            else if (result.metadata?.originalDocumentId && result.metadata.originalDocumentId !== '0' && result.metadata.originalDocumentId !== 0) {
+              docId = parseInt(result.metadata.originalDocumentId);
+              extractionMethod = "metadata.originalDocumentId";
+            }
+            // Strategy 3: Extract from chunk ID format like "315-0"
+            else if (result.id) {
+              const idStr = result.id.toString();
+              const parts = idStr.split('-');
+              if (parts.length >= 2 && !isNaN(parseInt(parts[0])) && parseInt(parts[0]) > 0) {
+                docId = parseInt(parts[0]);
+                extractionMethod = "id-split";
+              }
+            }
+            // Strategy 4: Extract from chunkId format
+            else if (result.chunkId) {
+              const chunkIdStr = result.chunkId.toString();
+              const parts = chunkIdStr.split('-');
+              if (parts.length >= 2 && !isNaN(parseInt(parts[0])) && parseInt(parts[0]) > 0) {
+                docId = parseInt(parts[0]);
+                extractionMethod = "chunkId-split";
+              }
+            }
+            // Strategy 5: Check if the result object has any other ID fields
+            else {
+              // Look for any field that might contain document ID
+              for (const [key, value] of Object.entries(result)) {
+                if (key.toLowerCase().includes('doc') && value && value !== '0' && value !== 0) {
+                  const numValue = parseInt(value.toString());
+                  if (!isNaN(numValue) && numValue > 0) {
+                    docId = numValue;
+                    extractionMethod = `field-${key}`;
+                    break;
+                  }
+                }
+              }
+            }
+
+            console.log(`📄 AgentBot DEBUG: Result ${i + 1} - documentId: ${result.documentId}, originalDocumentId: ${result.metadata?.originalDocumentId}, id: ${result.id}, chunkId: ${result.chunkId}, extracted docId: ${docId}, method: ${extractionMethod}`);
+
+            const documentName = documentNamesMap.get(docId);
+
+            // Use actual document name or fallback to Document ID format
+            const cleanDocumentName = documentName
+              ? documentName.replace(/\s*\(Chunk\s*\d+\)$/i, '').trim()
+              : `Document ${docId}`;
+
+            const chunkText = `=== ข้อมูลจากเอกสาร: ${cleanDocumentName} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${result.content}\n\n`;
+
+            console.log(
+              `  ${i + 1}. ${cleanDocumentName} (ID: ${docId}) - Similarity: ${result.similarity.toFixed(4)}`,
+            );
+            console.log(
+              `      Content preview: ${result.content.substring(0, 100)}...`,
+            );
+
+            if (
+              documentContextBuilder.length + chunkText.length <=
+              maxContextLength
+            ) {
+              documentContextBuilder += chunkText;
+              chunksUsed++;
+              console.log(`      ✅ Added chunk ${i + 1} (${chunkText.length} chars, total: ${documentContextBuilder.length}/${maxContextLength} chars)`);
+            } else {
+              const remainingSpace =
+                maxContextLength - documentContextBuilder.length;
+              if (remainingSpace > 300) {
+                const headerText = `=== ข้อมูลที่ ${i + 1}: ${documentName} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: `;
+                const availableContentSpace = remainingSpace - headerText.length - 10; // 10 chars for "...\n\n"
+                if (availableContentSpace > 100) {
+                  const truncatedContent =
+                    result.content.substring(0, availableContentSpace) +
+                    "...";
+                  const truncatedChunkText = headerText + truncatedContent + "\n\n";
+                  documentContextBuilder += truncatedChunkText;
+                  chunksUsed++;
+                  console.log(`      ✂️ Added truncated chunk ${i + 1} (${truncatedChunkText.length} chars, total: ${documentContextBuilder.length}/${maxContextLength} chars)`);
+                }
+              }
+              console.log(`      🛑 Stopping: Would exceed max context length`);
+              break;
+            }
+          }
+
+          documentContext = documentContextBuilder; // Assign the built context
+          console.log(
+            `📄 AgentBot: Used ${chunksUsed}/${finalSearchResults.length} chunks (${documentContext.length} chars, max: ${maxContextLength} chars)`,
+          );
+        }
+      } // End of else block for document search
+
+      // Apply final token limit if enabled
+      if (tokenLimitEnabled && tokenLimitType === 'final') {
+        const finalTokenLimit = searchConfig.finalTokenLimit;
+        const finalCharLimit = finalTokenLimit * 4; // Convert tokens to characters
+        if (documentContext.length > finalCharLimit) {
+          console.log(`📄 AgentBot: Final context exceeds ${finalTokenLimit} tokens (${finalCharLimit} chars), current: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens), truncating...`);
+          // Truncate the document context while preserving system prompt and user message
+          const maxDocumentChars = finalCharLimit - agentData.systemPrompt.length - userMessage.length - 200; // Buffer for formatting
+          if (maxDocumentChars > 0) {
+            documentContext = documentContext.substring(0, maxDocumentChars) + "\n[Content truncated due to token limit]";
+          } else {
+            // If even system prompt + user message exceeds final limit, truncate document context to minimum
+            documentContext = "[Content truncated due to token limit]";
+          }
+        }
+        console.log(`📄 AgentBot: Final context: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens, limit: ${finalTokenLimit} tokens/${finalCharLimit} chars)`);
       }
 
-      if (finalSearchResults.length > 0) {
-        // Get document names for better context
-            const documentIds = [...new Set(finalSearchResults.map(r => parseInt(r.documentId || r.metadata?.originalDocumentId || '0')))].filter(id => id > 0);
-            const documentNamesMap = new Map<number, string>();
-
-            if (documentIds.length > 0) {
-              try {
-                // For widget contexts, use widget-specific methods that don't require user ownership
-                let documentsWithNames;
-                if (channelType === 'web' || channelType === 'chat_widget') {
-                  documentsWithNames = await storage.getDocumentsByIdsForWidget(documentIds);
-                } else {
-                  documentsWithNames = await storage.getDocumentsByIds(documentIds, userId);
-                }
-
-                documentsWithNames.forEach(doc => {
-                  documentNamesMap.set(doc.id, doc.name);
-                });
-                console.log(`📄 AgentBot: Retrieved names for ${documentNamesMap.size} documents:`, Array.from(documentNamesMap.entries()).map(([id, name]) => `${id}: ${name}`));
-              } catch (error) {
-                console.warn(`⚠️ AgentBot: Could not retrieve document names:`, error);
-              }
-            }
-
-        // Build document context from search results
-        let documentContext = "";
-        const maxContextLength = tokenLimitEnabled && tokenLimitType === 'document'
-          ? documentTokenLimit * 4  // Convert tokens to characters (4 chars per token)
-          : 12000; // Use configured document token limit or default
-        let chunksUsed = 0;
-
-        console.log(
-          `📄 AgentBot: Building document context from search results (max: ${maxContextLength} chars):`,
-        );
-
-        // Debug: Log the complete structure of first search result
-        if (finalSearchResults.length > 0) {
-          console.log(`📄 AgentBot DEBUG: Complete first search result structure:`, JSON.stringify(finalSearchResults[0], null, 2));
-        }
-        for (let i = 0; i < finalSearchResults.length; i++) {
-          const result = finalSearchResults[i];
-
-          // Bulletproof document ID extraction with multiple fallback strategies
-          let docId = 0;
-          let extractionMethod = "none";
-
-          // Strategy 1: Direct documentId
-          if (result.documentId && result.documentId !== '0' && result.documentId !== 0) {
-            docId = parseInt(result.documentId);
-            extractionMethod = "documentId";
-          }
-          // Strategy 2: metadata.originalDocumentId
-          else if (result.metadata?.originalDocumentId && result.metadata.originalDocumentId !== '0' && result.metadata.originalDocumentId !== 0) {
-            docId = parseInt(result.metadata.originalDocumentId);
-            extractionMethod = "metadata.originalDocumentId";
-          }
-          // Strategy 3: Extract from chunk ID format like "315-0"
-          else if (result.id) {
-            const idStr = result.id.toString();
-            const parts = idStr.split('-');
-            if (parts.length >= 2 && !isNaN(parseInt(parts[0])) && parseInt(parts[0]) > 0) {
-              docId = parseInt(parts[0]);
-              extractionMethod = "id-split";
-            }
-          }
-          // Strategy 4: Extract from chunkId format
-          else if (result.chunkId) {
-            const chunkIdStr = result.chunkId.toString();
-            const parts = chunkIdStr.split('-');
-            if (parts.length >= 2 && !isNaN(parseInt(parts[0])) && parseInt(parts[0]) > 0) {
-              docId = parseInt(parts[0]);
-              extractionMethod = "chunkId-split";
-            }
-          }
-          // Strategy 5: Check if the result object has any other ID fields
-          else {
-            // Look for any field that might contain document ID
-            for (const [key, value] of Object.entries(result)) {
-              if (key.toLowerCase().includes('doc') && value && value !== '0' && value !== 0) {
-                const numValue = parseInt(value.toString());
-                if (!isNaN(numValue) && numValue > 0) {
-                  docId = numValue;
-                  extractionMethod = `field-${key}`;
-                  break;
-                }
-              }
-            }
-          }
-
-          console.log(`📄 AgentBot DEBUG: Result ${i + 1} - documentId: ${result.documentId}, originalDocumentId: ${result.metadata?.originalDocumentId}, id: ${result.id}, chunkId: ${result.chunkId}, extracted docId: ${docId}, method: ${extractionMethod}`);
-
-          const documentName = documentNamesMap.get(docId);
-
-          // Use actual document name or fallback to Document ID format
-          const cleanDocumentName = documentName
-            ? documentName.replace(/\s*\(Chunk\s*\d+\)$/i, '').trim()
-            : `Document ${docId}`;
-
-          const chunkText = `=== ข้อมูลจากเอกสาร: ${cleanDocumentName} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${result.content}\n\n`;
-
-          console.log(
-            `  ${i + 1}. ${cleanDocumentName} (ID: ${docId}) - Similarity: ${result.similarity.toFixed(4)}`,
-          );
-          console.log(
-            `      Content preview: ${result.content.substring(0, 100)}...`,
-          );
-
-          if (
-            documentContext.length + chunkText.length <=
-            maxContextLength
-          ) {
-            documentContext += chunkText;
-            chunksUsed++;
-            console.log(`      ✅ Added chunk ${i + 1} (${chunkText.length} chars, total: ${documentContext.length}/${maxContextLength} chars)`);
-          } else {
-            const remainingSpace =
-              maxContextLength - documentContext.length;
-            if (remainingSpace > 300) {
-              const headerText = `=== ข้อมูลที่ ${i + 1}: ${documentName} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: `;
-              const availableContentSpace = remainingSpace - headerText.length - 10; // 10 chars for "...\n\n"
-              if (availableContentSpace > 100) {
-                const truncatedContent =
-                  result.content.substring(0, availableContentSpace) +
-                  "...";
-                const truncatedChunkText = headerText + truncatedContent + "\n\n";
-                documentContext += truncatedChunkText;
-                chunksUsed++;
-                console.log(`      ✂️ Added truncated chunk ${i + 1} (${truncatedChunkText.length} chars, total: ${documentContext.length}/${maxContextLength} chars)`);
-              }
-            }
-            console.log(`      🛑 Stopping: Would exceed max context length`);
-            break;
-          }
-        }
-
-        console.log(
-          `📄 AgentBot: Used ${chunksUsed}/${finalSearchResults.length} chunks (${documentContext.length} chars, max: ${maxContextLength} chars)`,
-        );
-
-        // Apply final token limit if enabled
-        if (tokenLimitEnabled && tokenLimitType === 'final') {
-          const finalTokenLimit = searchConfig.finalTokenLimit;
-          const finalCharLimit = finalTokenLimit * 4; // Convert tokens to characters
-          if (documentContext.length > finalCharLimit) {
-            console.log(`📄 AgentBot: Final context exceeds ${finalTokenLimit} tokens (${finalCharLimit} chars), current: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens), truncating...`);
-            // Truncate the document context while preserving system prompt and user message
-            const maxDocumentChars = finalCharLimit - agentData.systemPrompt.length - userMessage.length - 200; // Buffer for formatting
-            if (maxDocumentChars > 0) {
-              documentContext = documentContext.substring(0, maxDocumentChars) + "\n[Content truncated due to token limit]";
-            } else {
-              // If even system prompt + user message exceeds final limit, truncate document context to minimum
-              documentContext = "[Content truncated due to token limit]";
-            }
-          }
-          console.log(`📄 AgentBot: Final context: ${documentContext.length} chars (~${Math.round(documentContext.length/4)} tokens, limit: ${finalTokenLimit} tokens/${finalCharLimit} chars)`);
-        }
-
+      if (documentContext || queryAnalysis.needsSearch) { // Only proceed if there's document context or if search was intended
         const now = new Date();
         now.setHours(now.getHours() + 7)
         const thaiDate = now.toLocaleDateString('th-TH', {
@@ -909,7 +924,7 @@ ${documentContext}
           `✅ AgentBot: Generated response with document search (${aiResponse.length} chars)`,
         );
       } else {
-        console.log(`❌ AgentBot: No relevant documents found for query`);
+        console.log(`❌ AgentBot: No relevant documents found for query and no search was performed.`);
         aiResponse = "ขออภัย ไม่พบข้อมูลที่เกี่ยวข้องกับคำถามของคุณ กรุณาลองถามในรูปแบบอื่น";
       }
     }
