@@ -965,6 +965,30 @@ export const lineTemplateActionsRelations = relations(lineTemplateActions, ({ on
   }),
 }));
 
+// SQL Snippets relations
+export const sqlSnippetsRelations = relations(sqlSnippets, ({ one }) => ({
+  connection: one(dataConnections, {
+    fields: [sqlSnippets.connectionId],
+    references: [dataConnections.id],
+  }),
+  user: one(users, {
+    fields: [sqlSnippets.userId],
+    references: [users.id],
+  }),
+}));
+
+// AI Database Queries relations
+export const aiDatabaseQueriesRelations = relations(aiDatabaseQueries, ({ one }) => ({
+  connection: one(dataConnections, {
+    fields: [aiDatabaseQueries.connectionId],
+    references: [dataConnections.id],
+  }),
+  user: one(users, {
+    fields: [aiDatabaseQueries.userId],
+    references: [users.id],
+  }),
+}));
+
 // Insert schemas for Line templates
 export const insertLineMessageTemplateSchema = createInsertSchema(lineMessageTemplates).omit({
   id: true,
@@ -989,6 +1013,31 @@ export type LineCarouselColumn = typeof lineCarouselColumns.$inferSelect;
 export type InsertLineCarouselColumn = z.infer<typeof insertLineCarouselColumnSchema>;
 export type LineTemplateAction = typeof lineTemplateActions.$inferSelect;
 export type InsertLineTemplateAction = z.infer<typeof insertLineTemplateActionSchema>;
+
+// SQL Snippets table for AI training
+export const sqlSnippets = pgTable("sql_snippets", {
+  id: serial("id").primaryKey(),
+  connectionId: integer("connection_id").notNull().references(() => dataConnections.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name").notNull(),
+  sql: text("sql").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// AI Database Queries table for query history
+export const aiDatabaseQueries = pgTable("ai_database_queries", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  connectionId: integer("connection_id").notNull().references(() => dataConnections.id, { onDelete: "cascade" }),
+  userQuery: text("user_query").notNull(),
+  generatedSql: text("generated_sql"),
+  executionResult: jsonb("execution_result"),
+  success: boolean("success").notNull(),
+  executionTime: integer("execution_time"), // in milliseconds
+  createdAt: timestamp("created_at").defaultNow(),
+});
 
 // Internal Agent Chat Sessions table
 export const internalAgentChatSessions = pgTable("internal_agent_chat_sessions", {
@@ -1025,3 +1074,20 @@ export type InternalAgentChatSession = typeof internalAgentChatSessions.$inferSe
 export type InsertInternalAgentChatSession = z.infer<typeof insertInternalAgentChatSessionSchema>;
 export type InternalAgentChatMessage = typeof internalAgentChatMessages.$inferSelect;
 export type InsertInternalAgentChatMessage = z.infer<typeof insertInternalAgentChatMessageSchema>;
+
+// SQL Snippets schemas and types
+export const insertSQLSnippetSchema = createInsertSchema(sqlSnippets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAIDatabaseQuerySchema = createInsertSchema(aiDatabaseQueries).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type SQLSnippet = typeof sqlSnippets.$inferSelect;
+export type InsertSQLSnippet = z.infer<typeof insertSQLSnippetSchema>;
+export type AIDatabaseQuery = typeof aiDatabaseQueries.$inferSelect;
+export type InsertAIDatabaseQuery = z.infer<typeof insertAIDatabaseQuerySchema>;
