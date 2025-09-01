@@ -40,7 +40,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -98,10 +98,11 @@ const DatabaseConnectionCard = ({
             size="sm"
             variant="outline"
             onClick={() => {
-              toast({
-                title: "Info",
-                description: "Query interface coming soon!",
-              });
+              setQueryConnection(connection);
+              setQueryDialogOpen(true);
+              setSqlQuery('');
+              setQueryResults(null);
+              setQueryError(null);
             }}
           >
             <Play className="w-4 h-4 mr-1" />
@@ -551,6 +552,14 @@ export default function DataConnections() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'settings' | 'schema' | 'snippets' | 'inference'>('settings');
 
+  // Query interface state
+  const [queryDialogOpen, setQueryDialogOpen] = useState(false);
+  const [queryConnection, setQueryConnection] = useState<DatabaseConnection | null>(null);
+  const [sqlQuery, setSqlQuery] = useState('');
+  const [queryResults, setQueryResults] = useState<any>(null);
+  const [queryError, setQueryError] = useState<string | null>(null);
+  const [isExecutingQuery, setIsExecutingQuery] = useState(false);
+
   // SQL Snippets state
   const [sqlSnippets, setSqlSnippets] = useState<Array<{
     id?: number;
@@ -960,6 +969,38 @@ export default function DataConnections() {
     },
   });
 
+  // Execute SQL query mutation
+  const executeQueryMutation = useMutation({
+    mutationFn: async ({ connectionId, sql }: { connectionId: number; sql: string }) => {
+      const endpoint = queryConnection?.type === 'sqlite' 
+        ? '/api/sqlite/test-query'
+        : `/api/database-connections/${connectionId}/query`;
+      
+      return await apiRequest("POST", endpoint, { 
+        connectionId, 
+        sql: sql.trim(),
+        maxRows: 100 
+      });
+    },
+    onSuccess: (data) => {
+      setQueryResults(data);
+      setQueryError(null);
+      toast({
+        title: "Query Executed",
+        description: `Query completed successfully. Returned ${data.data?.length || 0} rows.`,
+      });
+    },
+    onError: (error: any) => {
+      setQueryError(error.message || 'Query execution failed');
+      setQueryResults(null);
+      toast({
+        title: "Query Failed",
+        description: error.message || 'Failed to execute query',
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleTestConnection = (connection: DatabaseConnection) => {
     testConnectionMutation.mutate(connection);
   };
@@ -1178,6 +1219,30 @@ export default function DataConnections() {
       setAnalysisError(error instanceof Error ? error.message : 'Failed to clean file');
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleExecuteQuery = async () => {
+    if (!queryConnection || !sqlQuery.trim()) return;
+
+    setIsExecutingQuery(true);
+    executeQueryMutation.mutate({ 
+      connectionId: queryConnection.id, 
+      sql: sqlQuery 
+    });
+    setIsExecutingQuery(false);
+  };
+
+  const getDefaultQuery = (dbType: string) => {
+    switch (dbType) {
+      case 'postgresql':
+        return 'SELECT table_name FROM information_schema.tables WHERE table_schema = \'public\' LIMIT 10;';
+      case 'mysql':
+        return 'SHOW TABLES LIMIT 10;';
+      case 'sqlite':
+        return 'SELECT name FROM sqlite_master WHERE type=\'table\' LIMIT 10;';
+      default:
+        return 'SELECT 1;';
     }
   };
 
@@ -2156,6 +2221,196 @@ export default function DataConnections() {
                   Close
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Query Interface Dialog */}
+        <Dialog open={queryDialogOpen} onOpenChange={setQueryDialogOpen}>
+          <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Play className="w-5 h-5" />
+                Query Database: {queryConnection?.name}
+              </DialogTitle>
+              <DialogDescription>
+                Execute SQL queries against your {queryConnection?.type?.toUpperCase()} database
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex flex-col flex-1 min-h-0 space-y-4">
+              {/* Query Input */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="sql-query">SQL Query</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (queryConnection) {
+                          setSqlQuery(getDefaultQuery(queryConnection.type));
+                        }
+                      }}
+                    >
+                      <Database className="w-4 h-4 mr-1" />
+                      Sample Query
+                    </Button>
+                    <Button
+                      onClick={handleExecuteQuery}
+                      disabled={!sqlQuery.trim() || isExecutingQuery || executeQueryMutation.isPending}
+                      size="sm"
+                    >
+                      {isExecutingQuery || executeQueryMutation.isPending ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Executing...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-4 h-4 mr-2" />
+                          Execute
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                <Textarea
+                  id="sql-query"
+                  value={sqlQuery}
+                  onChange={(e) => setSqlQuery(e.target.value)}
+                  placeholder={`Enter your ${queryConnection?.type?.toUpperCase()} query here...`}
+                  className="font-mono text-sm min-h-24"
+                  rows={4}
+                />
+              </div>
+
+              {/* Results Section */}
+              <div className="flex-1 min-h-0">
+                {queryError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Query Error:</strong> {queryError}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {queryResults && (
+                  <div className="space-y-4 h-full flex flex-col">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <Badge variant="default" className="bg-green-500">
+                          {queryResults.data?.length || 0} rows returned
+                        </Badge>
+                        {queryResults.executionTime && (
+                          <Badge variant="outline">
+                            {queryResults.executionTime}ms
+                          </Badge>
+                        )}
+                      </div>
+                      {queryResults.data?.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const csvContent = [
+                              queryResults.columns?.join(',') || '',
+                              ...queryResults.data.map((row: any) => 
+                                queryResults.columns?.map((col: string) => 
+                                  JSON.stringify(row[col] || '')
+                                ).join(',') || ''
+                              )
+                            ].join('\n');
+                            
+                            const blob = new Blob([csvContent], { type: 'text/csv' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `query_results_${Date.now()}.csv`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          }}
+                        >
+                          <Copy className="w-4 h-4 mr-1" />
+                          Export CSV
+                        </Button>
+                      )}
+                    </div>
+
+                    {queryResults.data?.length > 0 ? (
+                      <div className="flex-1 border rounded-lg overflow-hidden">
+                        <div className="h-full overflow-auto">
+                          <Table>
+                            <TableHeader className="sticky top-0 bg-white z-10">
+                              <TableRow>
+                                {queryResults.columns?.map((column: string) => (
+                                  <TableHead key={column} className="font-medium border-r">
+                                    {column}
+                                  </TableHead>
+                                ))}
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {queryResults.data.map((row: any, index: number) => (
+                                <TableRow key={index}>
+                                  {queryResults.columns?.map((column: string) => (
+                                    <TableCell key={column} className="border-r max-w-48">
+                                      <div className="truncate" title={row[column]?.toString()}>
+                                        {row[column] === null || row[column] === undefined ? (
+                                          <span className="text-slate-400 italic">NULL</span>
+                                        ) : (
+                                          row[column]?.toString()
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                  ))}
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center border rounded-lg">
+                        <div className="text-center text-slate-500">
+                          <Database className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <p>No data returned</p>
+                          <p className="text-sm">Query executed successfully but returned no rows</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!queryResults && !queryError && (
+                  <div className="flex-1 flex items-center justify-center border rounded-lg border-dashed">
+                    <div className="text-center text-slate-500">
+                      <Play className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>Ready to execute queries</p>
+                      <p className="text-sm">Enter a SQL query above and click Execute</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-4 border-t">
+              <div className="text-sm text-slate-500">
+                Connected to: {queryConnection?.host}:{queryConnection?.port} • {queryConnection?.database}
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setQueryDialogOpen(false);
+                  setQueryConnection(null);
+                  setSqlQuery('');
+                  setQueryResults(null);
+                  setQueryError(null);
+                }}
+              >
+                Close
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

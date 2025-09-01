@@ -17,6 +17,7 @@ import { registerChatBotRoutes } from "./routes/chatBotRoutes";
 import { registerAnalyticRoutes } from "./routes/analyticRoutes";
 import { registerDocumentRoutes } from "./routes/documentRoutes";
 import { registerFolderRoutes } from "./routes/folderRoutes";
+import { registerDatabaseConnectionRoutes } from "./routes/databaseConnectionRoutes";
 
 
 const app = express();
@@ -108,6 +109,7 @@ app.use((req, res, next) => {
   registerChatBotRoutes(app);
   registerAnalyticRoutes(app);
   registerDocumentRoutes(app);
+  registerDatabaseConnectionRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
