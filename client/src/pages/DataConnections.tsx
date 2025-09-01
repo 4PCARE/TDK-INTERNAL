@@ -20,7 +20,10 @@ import {
   Globe,
   LinkIcon,
   AlertCircle,
-  Cloud
+  Cloud,
+  Upload,
+  FileSpreadsheet,
+  Trash2
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -151,12 +154,29 @@ export default function DataConnections() {
     description: ""
   });
 
+  // Form states for SQLite
+  const [sqliteDialogOpen, setSqliteDialogOpen] = useState(false);
+  const [sqliteForm, setSqliteForm] = useState({
+    name: "",
+    tableName: "",
+    description: "",
+    snippets: [] as Array<{question: string, sql: string}>
+  });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [existingFileId, setExistingFileId] = useState<string>("");
+
   // Fetch database connections
   const { data: connections = [], isLoading: connectionsLoading } = useQuery({
     queryKey: ['/api/database-connections'],
     enabled: isAuthenticated,
     retry: false,
   }) as { data: DatabaseConnection[], isLoading: boolean };
+
+  // Fetch existing files for SQLite
+  const { data: existingFiles = [] } = useQuery({
+    queryKey: ['/api/sqlite/existing-files'],
+    enabled: isAuthenticated && sqliteDialogOpen,
+  });
 
   // Create PostgreSQL connection mutation
   const createPostgresMutation = useMutation({
@@ -226,6 +246,53 @@ export default function DataConnections() {
     },
   });
 
+  // Create SQLite database mutation
+  const createSqliteMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const formData = new FormData();
+      if (selectedFile) {
+        formData.append('file', selectedFile);
+      } else if (existingFileId) {
+        formData.append('existingFileId', existingFileId);
+      }
+      formData.append('dbName', data.name);
+      formData.append('tableName', data.tableName);
+      formData.append('description', data.description);
+      formData.append('snippets', JSON.stringify(data.snippets));
+      
+      return await apiRequest("POST", "/api/sqlite/create-database", formData);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "SQLite database created successfully!",
+      });
+      setSqliteDialogOpen(false);
+      setSqliteForm({ name: "", tableName: "", description: "", snippets: [] });
+      setSelectedFile(null);
+      setExistingFileId("");
+      queryClient.invalidateQueries({ queryKey: ['/api/database-connections'] });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to create SQLite database",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Test connection mutation
   const testConnectionMutation = useMutation({
     mutationFn: async (connection: DatabaseConnection) => {
@@ -282,6 +349,56 @@ export default function DataConnections() {
     createMysqlMutation.mutate(mysqlForm);
   };
 
+  const handleCreateSqlite = () => {
+    if (!sqliteForm.name || !sqliteForm.tableName || (!selectedFile && !existingFileId)) {
+      toast({
+        title: "Missing Information",
+        description: "Please provide a name, table name, and select a file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createSqliteMutation.mutate(sqliteForm);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setExistingFileId("");
+      if (!sqliteForm.name) {
+        setSqliteForm(prev => ({ ...prev, name: file.name.replace(/\.[^/.]+$/, "") }));
+      }
+      if (!sqliteForm.tableName) {
+        setSqliteForm(prev => ({ ...prev, tableName: file.name.replace(/\.[^/.]+$/, "").toLowerCase() }));
+      }
+    }
+  };
+
+  const addSqliteSnippet = () => {
+    setSqliteForm(prev => ({
+      ...prev,
+      snippets: [...prev.snippets, { question: "", sql: "" }]
+    }));
+  };
+
+  const updateSqliteSnippet = (index: number, field: 'question' | 'sql', value: string) => {
+    setSqliteForm(prev => ({
+      ...prev,
+      snippets: prev.snippets.map((snippet, i) => 
+        i === index ? { ...snippet, [field]: value } : snippet
+      )
+    }));
+  };
+
+  const removeSqliteSnippet = (index: number) => {
+    setSqliteForm(prev => ({
+      ...prev,
+      snippets: prev.snippets.filter((_, i) => i !== index)
+    }));
+  };
+
   const databaseTypes = [
     {
       id: 'postgresql',
@@ -322,11 +439,11 @@ export default function DataConnections() {
     {
       id: 'sqlite',
       name: 'SQLite',
-      description: 'Lightweight, serverless SQL database engine',
+      description: 'Create databases from CSV/Excel files - AI-enabled',
       icon: Database,
       color: 'bg-gray-500',
-      available: false,
-      comingSoon: true
+      available: true,
+      comingSoon: false
     },
     {
       id: 'elasticsearch',
@@ -341,6 +458,7 @@ export default function DataConnections() {
 
   const postgresConnections = connections.filter(conn => conn.type === 'postgresql');
   const mysqlConnections = connections.filter(conn => conn.type === 'mysql');
+  const sqliteConnections = connections.filter(conn => conn.type === 'sqlite');
 
   return (
     <DashboardLayout>
@@ -687,7 +805,192 @@ export default function DataConnections() {
                         </Dialog>
                       )}
 
-                      {!['postgresql', 'mysql'].includes(dbType.id) && (
+                      {/* SQLite Dialog */}
+                      {dbType.id === 'sqlite' && (
+                        <Dialog open={sqliteDialogOpen} onOpenChange={setSqliteDialogOpen}>
+                          <DialogTrigger asChild>
+                            <Button className="w-full" size="sm">
+                              <Plus className="w-4 h-4 mr-2" />
+                              Create from File
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>Create SQLite Database from File</DialogTitle>
+                              <DialogDescription>
+                                Upload a CSV or Excel file to create an AI-enabled SQLite database
+                              </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="space-y-6">
+                              {/* File Selection */}
+                              <div className="grid grid-cols-2 gap-4">
+                                <Card>
+                                  <CardHeader>
+                                    <CardTitle className="flex items-center gap-2 text-sm">
+                                      <Upload className="w-4 h-4" />
+                                      Upload New File
+                                    </CardTitle>
+                                  </CardHeader>
+                                  <CardContent>
+                                    <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center">
+                                      <Input
+                                        type="file"
+                                        accept=".csv,.xlsx,.xls"
+                                        onChange={handleFileSelect}
+                                        className="hidden"
+                                        id="sqlite-file-upload"
+                                      />
+                                      <Label htmlFor="sqlite-file-upload" className="cursor-pointer">
+                                        <FileSpreadsheet className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                                        <p className="text-xs text-slate-600">
+                                          CSV or Excel file
+                                        </p>
+                                      </Label>
+                                    </div>
+                                    {selectedFile && (
+                                      <div className="mt-2 text-xs text-green-600">
+                                        Selected: {selectedFile.name}
+                                      </div>
+                                    )}
+                                  </CardContent>
+                                </Card>
+
+                                <Card>
+                                  <CardHeader>
+                                    <CardTitle className="flex items-center gap-2 text-sm">
+                                      <FileSpreadsheet className="w-4 h-4" />
+                                      Use Existing File
+                                    </CardTitle>
+                                  </CardHeader>
+                                  <CardContent>
+                                    <Select value={existingFileId} onValueChange={setExistingFileId}>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select existing file" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {existingFiles.map((file: any) => (
+                                          <SelectItem key={file.id} value={file.id.toString()}>
+                                            {file.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </CardContent>
+                                </Card>
+                              </div>
+
+                              {/* Database Configuration */}
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <Label htmlFor="sqlite-name">Database Name *</Label>
+                                  <Input
+                                    id="sqlite-name"
+                                    value={sqliteForm.name}
+                                    onChange={(e) => setSqliteForm(prev => ({ ...prev, name: e.target.value }))}
+                                    placeholder="My Database"
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="sqlite-table">Table Name *</Label>
+                                  <Input
+                                    id="sqlite-table"
+                                    value={sqliteForm.tableName}
+                                    onChange={(e) => setSqliteForm(prev => ({ ...prev, tableName: e.target.value }))}
+                                    placeholder="main_table"
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                                <Label htmlFor="sqlite-description">Description</Label>
+                                <Textarea
+                                  id="sqlite-description"
+                                  value={sqliteForm.description}
+                                  onChange={(e) => setSqliteForm(prev => ({ ...prev, description: e.target.value }))}
+                                  placeholder="Describe what this database contains..."
+                                  rows={2}
+                                />
+                              </div>
+
+                              {/* SQL Snippets */}
+                              <div>
+                                <div className="flex items-center justify-between mb-3">
+                                  <Label>AI Training Snippets (Optional)</Label>
+                                  <Button onClick={addSqliteSnippet} size="sm" variant="outline">
+                                    <Plus className="w-3 h-3 mr-1" />
+                                    Add
+                                  </Button>
+                                </div>
+                                <div className="space-y-3 max-h-48 overflow-y-auto">
+                                  {sqliteForm.snippets.map((snippet, index) => (
+                                    <div key={index} className="border rounded-lg p-3 space-y-2">
+                                      <div className="flex justify-between items-start">
+                                        <Label className="text-xs">Question</Label>
+                                        <Button
+                                          onClick={() => removeSqliteSnippet(index)}
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-6 w-6 p-0"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </Button>
+                                      </div>
+                                      <Input
+                                        value={snippet.question}
+                                        onChange={(e) => updateSqliteSnippet(index, 'question', e.target.value)}
+                                        placeholder="What are the top 10 sales?"
+                                        className="text-xs"
+                                      />
+                                      <Label className="text-xs">SQL Query</Label>
+                                      <Textarea
+                                        value={snippet.sql}
+                                        onChange={(e) => updateSqliteSnippet(index, 'sql', e.target.value)}
+                                        placeholder="SELECT * FROM sales ORDER BY amount DESC LIMIT 10"
+                                        rows={2}
+                                        className="text-xs"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="flex justify-end gap-3 pt-4 border-t">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSqliteDialogOpen(false);
+                                    setSqliteForm({ name: "", tableName: "", description: "", snippets: [] });
+                                    setSelectedFile(null);
+                                    setExistingFileId("");
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  onClick={handleCreateSqlite}
+                                  disabled={createSqliteMutation.isPending}
+                                  className="bg-gray-600 hover:bg-gray-700"
+                                >
+                                  {createSqliteMutation.isPending ? (
+                                    <>
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                      Creating...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Database className="w-4 h-4 mr-2" />
+                                      Create Database
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      )}
+
+                      {!['postgresql', 'mysql', 'sqlite'].includes(dbType.id) && (
                         <Button disabled className="w-full" size="sm" variant="outline">
                           Coming Soon
                         </Button>
@@ -838,6 +1141,18 @@ export default function DataConnections() {
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Add MySQL
+                  </Button>
+                )}
+                {selectedDatabaseType === 'sqlite' && (
+                  <Button
+                    onClick={() => {
+                      setManageConnectionsOpen(false);
+                      setSqliteDialogOpen(true);
+                    }}
+                    className="bg-gray-600 hover:bg-gray-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create from File
                   </Button>
                 )}
                 <Button

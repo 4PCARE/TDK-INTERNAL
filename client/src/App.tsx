@@ -36,7 +36,7 @@ import OmnichannelSummarization from "@/pages/dashboards/OmnichannelSummarizatio
 import AIAssistant from "@/pages/AIAssistant";
 import InternalAIChat from "@/pages/InternalAIChat";
 import Upload from "@/pages/Upload";
-import SQLiteManager from "./pages/SQLiteManager";
+
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -103,7 +103,7 @@ function Router() {
           <Route path="/ai-live-chat" component={InternalAIChat} />
           <Route path="/not-found" component={NotFound} />
           <Route component={NotFound} />
-          <Route path="/sqlite-manager" element={<SQLiteManager />} />
+          
         </Switch>
       )}
     </>

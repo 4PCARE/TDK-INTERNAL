@@ -338,24 +338,7 @@ export default function Sidebar({
                         </Link>
                       );
                     })}
-                    {/* Inserted SQLite Manager link here */}
-                    <Link
-                      key="SQLite Manager"
-                      href="/sqlite-manager"
-                      className={cn(
-                        "flex items-start space-x-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
-                        location === "/sqlite-manager"
-                          ? "bg-blue-100 text-blue-700 shadow-sm"
-                          : "text-white hover:bg-navy-700/50 hover:text-white"
-                      )}
-                    >
-                      <Database className={cn("w-4 h-4 mt-0.5", isCollapsed && !isMobile && "w-6 h-6")} />
-                      {(!isCollapsed || isMobile) && (
-                        <span className="break-words whitespace-normal text-left drop-shadow-sm">
-                          SQLite Manager
-                        </span>
-                      )}
-                    </Link>
+                    
                   </div>
                   {groupIndex < navigationGroups.length - 1 && (!isCollapsed || isMobile) && (
                     <div className="border-t border-slate-200 mt-4"></div>
