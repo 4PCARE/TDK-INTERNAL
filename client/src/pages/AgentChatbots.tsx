@@ -405,7 +405,7 @@ export default function AgentChatbots() {
     .filter((agent) =>
       agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (agent.description && agent.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      agent.channels.some(channel => channel.toLowerCase().includes(searchTerm.toLowerCase()))
+      (Array.isArray(agent.channels) && agent.channels.some(channel => channel.toLowerCase().includes(searchTerm.toLowerCase())))
     )
     .sort((a, b) => {
       const aLatestSession = getLatestSessionTimestamp(a.id);
