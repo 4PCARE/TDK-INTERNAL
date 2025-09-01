@@ -104,6 +104,7 @@ export class AIDatabaseAgent {
         connection.dbType || 'postgresql',
         maxRows
       );
+      console.log('🤖 AI Database Agent - Generated SQL:', sqlQuery);
 
       if (!sqlQuery) {
         return { success: false, error: 'Failed to generate SQL query' };
@@ -139,7 +140,7 @@ export class AIDatabaseAgent {
     maxRows: number
   ): Promise<string | null> {
     const hasExamples = !snippetContext.includes('No example SQL patterns available');
-    
+
     const systemPrompt = `You are an expert SQL query generator. Generate precise SQL queries based on user questions.
 
 Database Type: ${dbType}
@@ -159,6 +160,9 @@ IMPORTANT GUIDELINES:
 - Return only the SQL query, no explanations or markdown formatting`;
 
     try {
+      console.log('🤖 AI Database Agent - Calling OpenAI with system prompt length:', systemPrompt.length);
+      console.log('🤖 AI Database Agent - User query:', userQuery);
+
       const completion = await this.openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -170,6 +174,7 @@ IMPORTANT GUIDELINES:
       });
 
       const response = completion.choices[0].message.content;
+      console.log('🤖 AI Database Agent - Raw OpenAI response:', response);
       if (!response) return null;
 
       // Extract SQL from response (remove any markdown formatting)
@@ -241,7 +246,7 @@ IMPORTANT GUIDELINES:
         console.log(`📝 SQL snippets table not found for connection ${connectionId}. AI will generate query without examples.`);
         return [];
       }
-      
+
       console.error('Error getting related snippets:', error);
       return [];
     }
