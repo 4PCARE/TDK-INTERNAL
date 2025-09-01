@@ -81,16 +81,11 @@ export function registerDatabaseAIRoutes(app: Express) {
 
   app.post("/api/database/:connectionId/snippets", isAuthenticated, async (req: any, res) => {
     try {
-      // Set content type to ensure JSON response
-      res.setHeader('Content-Type', 'application/json');
-      
       const userId = req.user.claims.sub;
       const connectionId = parseInt(req.params.connectionId);
       const { name, sql, description } = req.body;
 
       console.log('📝 Creating SQL snippet:', { name, sql, description, connectionId, userId });
-      console.log('📝 Request body:', req.body);
-      console.log('📝 Connection ID parsed:', connectionId);
 
       if (!name || !sql) {
         return res.status(400).json({ message: "Name and SQL are required" });
@@ -100,13 +95,19 @@ export function registerDatabaseAIRoutes(app: Express) {
         return res.status(400).json({ message: "Invalid connection ID" });
       }
 
-      // Ensure description is always a string (never null/undefined)
+      // Verify the connection exists and belongs to the user
+      const connection = await storage.getDataConnection(connectionId, userId);
+      if (!connection) {
+        return res.status(404).json({ message: "Database connection not found" });
+      }
+
+      // Ensure description is always a string
       const cleanDescription = typeof description === 'string' ? description : '';
 
-      const snippet = await aiDatabaseAgent.createSQLSnippet({
-        name: String(name),
-        sql: String(sql),
-        description: cleanDescription,
+      const snippet = await storage.createSQLSnippet({
+        name: String(name).trim(),
+        sql: String(sql).trim(),
+        description: cleanDescription.trim(),
         connectionId,
         userId,
       });
@@ -116,14 +117,11 @@ export function registerDatabaseAIRoutes(app: Express) {
     } catch (error) {
       console.error("💥 Error creating SQL snippet:", error);
       
-      // Ensure JSON error response
-      res.setHeader('Content-Type', 'application/json');
-      
-      // Return JSON error response, not HTML
-      if (error.message?.includes('sql_snippets') && error.message?.includes('does not exist')) {
+      if (error instanceof Error && error.message?.includes('relation "sql_snippets" does not exist')) {
         return res.status(500).json({ 
-          message: "SQL snippets table not found. Database migration required.",
-          error: "MISSING_TABLE"
+          message: "SQL snippets table not found. Please run database migrations.",
+          error: "MISSING_TABLE",
+          hint: "Run: psql $DATABASE_URL -f migrations/add_sql_snippets_tables.sql"
         });
       }
       

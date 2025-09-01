@@ -22,6 +22,7 @@ import {
   lineMessageTemplates,
   lineCarouselColumns,
   lineTemplateActions,
+  sqlSnippets, // Import sqlSnippets
   type User,
   type UpsertUser,
   type Category,
@@ -63,6 +64,8 @@ import {
   type InsertInternalAgentChatSession,
   type InternalAgentChatMessage,
   type InsertInternalAgentChatMessage,
+  type SQLSnippet, // Import SQLSnippet type
+  type InsertSQLSnippet, // Import InsertSQLSnippet type
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, like, count, sql, ilike, getTableColumns, gte, lte, inArray, isNull } from "drizzle-orm";
@@ -257,10 +260,10 @@ export interface IStorage {
   }): Promise<InternalAgentChatMessage>;
 
   // SQL Snippets Management
-  createSQLSnippet(snippet: { name: string; sql: string; description: string; connectionId: number; userId: string; embedding?: number[]; });
-  getSQLSnippets(connectionId: number, userId: string);
-  updateSQLSnippet(id: number, updates: Partial<{ name: string; sql: string; description: string; embedding: number[]; }>, userId: string);
-  deleteSQLSnippet(id: number, userId: string);
+  createSQLSnippet(snippet: InsertSQLSnippet): Promise<SQLSnippet>;
+  getSQLSnippets(connectionId: number, userId: string): Promise<SQLSnippet[]>;
+  updateSQLSnippet(id: number, updates: Partial<InsertSQLSnippet>, userId: string): Promise<SQLSnippet>;
+  deleteSQLSnippet(id: number, userId: string): Promise<void>;
 
   // AI Database Query History
   saveAIDatabaseQuery(query: { userId: string; connectionId: number; userQuery: string; generatedSql?: string; executionResult?: any; success: boolean; executionTime?: number; });
@@ -2732,152 +2735,61 @@ export class DatabaseStorage implements IStorage {
   }
 
   // SQL Snippets Management
-  async createSQLSnippet(data: {
-    name: string;
-    sql: string;
-    description: string;
-    connectionId: number;
-    userId: string;
-    embedding?: number[];
-  }) {
+  async createSQLSnippet(data: InsertSQLSnippet): Promise<SQLSnippet> {
     try {
-      console.log('💾 Storage: Attempting to create SQL snippet');
-      console.log('💾 Storage: Raw input data:', data);
+      const [snippet] = await db.insert(sqlSnippets).values({
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }).returning();
 
-      const cleanData = {
-        name: String(data.name || '').trim(),
-        sql: String(data.sql || '').trim(),
-        description: String(data.description || '').trim(),
-        connectionId: Number(data.connectionId),
-        userId: String(data.userId),
-        embedding: data.embedding || null
-      };
-
-      console.log('💾 Storage: Cleaned data:', cleanData);
-
-      if (!cleanData.name || !cleanData.sql || !cleanData.userId || !cleanData.connectionId) {
-        console.error('💾 Storage: Missing required fields:', {
-          hasName: !!cleanData.name,
-          hasSql: !!cleanData.sql,
-          hasUserId: !!cleanData.userId,
-          hasConnectionId: !!cleanData.connectionId
-        });
-        throw new Error('Missing required fields for SQL snippet creation');
-      }
-
-      console.log('💾 Storage: Creating SQL snippet with data:', {
-        name: cleanData.name,
-        sqlLength: cleanData.sql.length,
-        descriptionLength: cleanData.description.length,
-        connectionId: cleanData.connectionId,
-        userId: cleanData.userId
-      });
-
-      const result = await db.execute(sql`
-        INSERT INTO sql_snippets (name, sql, description, connection_id, user_id, embedding, created_at, updated_at)
-        VALUES (${cleanData.name}, ${cleanData.sql}, ${cleanData.description}, ${cleanData.connectionId}, ${cleanData.userId}, ${cleanData.embedding ? JSON.stringify(cleanData.embedding) : null}, NOW(), NOW())
-        RETURNING *
-      `);
-
-      console.log('✅ Storage: SQL snippet created successfully:', result.rows[0]);
-      return result.rows[0];
+      return snippet;
     } catch (error) {
-      // If table doesn't exist, provide helpful error message
-      if (error.code === '42P01' && error.message?.includes('relation "sql_snippets" does not exist')) {
-        console.error('SQL snippets table does not exist. Please run the migration: migrations/add_sql_snippets_tables.sql');
-        throw new Error('SQL snippets table not found. Database migration required.');
-      }
-
-      console.error('💥 Storage: Error creating SQL snippet:', error);
+      console.error('Error creating SQL snippet:', error);
       throw error;
     }
   }
 
-  async getSQLSnippets(connectionId: number, userId: string) {
-    try {
-      const result = await db.execute(sql`
-        SELECT * FROM sql_snippets 
-        WHERE connection_id = ${connectionId} AND user_id = ${userId}
-        ORDER BY updated_at DESC
-      `);
-
-      return result.rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        sql: row.sql,
-        description: row.description,
-        connectionId: row.connection_id,
-        userId: row.user_id,
-        embedding: row.embedding ? JSON.parse(row.embedding) : null,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      }));
-    } catch (error) {
-      // Handle missing sql_snippets table gracefully
-      if (error.code === '42P01' && error.message?.includes('relation "sql_snippets" does not exist')) {
-        console.log('📝 SQL snippets table does not exist yet. Returning empty array.');
-        return [];
-      }
-
-      console.error('Error getting SQL snippets:', error);
-      return [];
-    }
+  async getSQLSnippets(connectionId: number, userId: string): Promise<SQLSnippet[]> {
+    return await db
+      .select()
+      .from(sqlSnippets)
+      .where(
+        and(
+          eq(sqlSnippets.connectionId, connectionId),
+          eq(sqlSnippets.userId, userId)
+        )
+      )
+      .orderBy(desc(sqlSnippets.createdAt));
   }
 
-  async updateSQLSnippet(id: number, updates: Partial<{
-    name: string;
-    sql: string;
-    description: string;
-    embedding: number[];
-  }>, userId: string) {
-    try {
-      const setClause = [];
-      const values = [];
+  async updateSQLSnippet(id: number, data: Partial<InsertSQLSnippet>, userId: string): Promise<SQLSnippet> {
+    const [snippet] = await db
+      .update(sqlSnippets)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(sqlSnippets.id, id),
+          eq(sqlSnippets.userId, userId)
+        )
+      )
+      .returning();
 
-      if (updates.name !== undefined) {
-        setClause.push('name = $' + (values.length + 1));
-        values.push(updates.name);
-      }
-      if (updates.sql !== undefined) {
-        setClause.push('sql = $' + (values.length + 1));
-        values.push(updates.sql);
-      }
-      if (updates.description !== undefined) {
-        setClause.push('description = $' + (values.length + 1));
-        values.push(updates.description);
-      }
-      if (updates.embedding !== undefined) {
-        setClause.push('embedding = $' + (values.length + 1));
-        values.push(JSON.stringify(updates.embedding));
-      }
-
-      setClause.push('updated_at = NOW()');
-      values.push(id, userId);
-
-      const result = await db.execute(sql`
-        UPDATE sql_snippets 
-        SET ${sql.raw(setClause.join(', '))}
-        WHERE id = $${values.length - 1} AND user_id = $${values.length}
-        RETURNING *
-      `);
-
-      return result.rows[0];
-    } catch (error) {
-      console.error('Error updating SQL snippet:', error);
-      throw error;
-    }
+    return snippet;
   }
 
-  async deleteSQLSnippet(id: number, userId: string) {
-    try {
-      await db.execute(sql`
-        DELETE FROM sql_snippets 
-        WHERE id = ${id} AND user_id = ${userId}
-      `);
-    } catch (error) {
-      console.error('Error deleting SQL snippet:', error);
-      throw error;
-    }
+  async deleteSQLSnippet(id: number, userId: string): Promise<void> {
+    await db
+      .delete(sqlSnippets)
+      .where(
+        and(
+          eq(sqlSnippets.id, id),
+          eq(sqlSnippets.userId, userId)
+        )
+      );
   }
 
   // AI Database Query History
