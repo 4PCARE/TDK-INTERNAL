@@ -68,92 +68,62 @@ export class SchemaDiscoveryService {
   }
 
   private async discoverSQLiteSchema(connection: any): Promise<DatabaseSchema> {
-    const sqlite3 = await import('sqlite3');
-    const { Database } = sqlite3;
+    const Database = (await import('better-sqlite3')).default;
 
-    return new Promise((resolve, reject) => {
-      const db = new Database(connection.database, async (err) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+    try {
+      const db = new Database(connection.database, { readonly: true });
+      
+      const tables: TableInfo[] = [];
+      const relationships: Relationship[] = [];
 
-        try {
-          const tables: TableInfo[] = [];
-          const relationships: Relationship[] = [];
+      // Get all tables
+      const tableRows = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all();
 
-          // Get all tables
-          db.all("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'", async (err, tableRows: any[]) => {
-            if (err) {
-              reject(err);
-              return;
-            }
+      for (const tableRow of tableRows as any[]) {
+        const tableName = tableRow.name;
+        
+        // Get table info
+        const columnRows = db.prepare(`PRAGMA table_info(${tableName})`).all();
 
-            for (const tableRow of tableRows) {
-              const tableName = tableRow.name;
-              
-              // Get table info
-              db.all(`PRAGMA table_info(${tableName})`, (err, columnRows: any[]) => {
-                if (err) {
-                  console.error(`Error getting table info for ${tableName}:`, err);
-                  return;
-                }
+        const columns: ColumnInfo[] = (columnRows as any[]).map(col => ({
+          name: col.name,
+          type: col.type,
+          nullable: !col.notnull,
+          defaultValue: col.dflt_value,
+          isPrimaryKey: !!col.pk
+        }));
 
-                const columns: ColumnInfo[] = columnRows.map(col => ({
-                  name: col.name,
-                  type: col.type,
-                  nullable: !col.notnull,
-                  defaultValue: col.dflt_value,
-                  isPrimaryKey: !!col.pk
-                }));
+        // Get row count
+        const countResult = db.prepare(`SELECT COUNT(*) as count FROM ${tableName}`).get() as any;
+        const rowCount = countResult?.count || 0;
 
-                // Get row count
-                db.get(`SELECT COUNT(*) as count FROM ${tableName}`, (err, countResult: any) => {
-                  const rowCount = countResult?.count || 0;
+        // Get sample data
+        const sampleRows = db.prepare(`SELECT * FROM ${tableName} LIMIT 5`).all();
 
-                  // Get sample data
-                  db.all(`SELECT * FROM ${tableName} LIMIT 5`, (err, sampleRows: any[]) => {
-                    tables.push({
-                      name: tableName,
-                      columns,
-                      rowCount,
-                      sampleData: sampleRows || []
-                    });
+        tables.push({
+          name: tableName,
+          columns,
+          rowCount,
+          sampleData: sampleRows || []
+        });
+      }
 
-                    // If this is the last table, resolve
-                    if (tables.length === tableRows.length) {
-                      const summary = {
-                        totalTables: tables.length,
-                        totalColumns: tables.reduce((sum, table) => sum + table.columns.length, 0),
-                        estimatedRows: tables.reduce((sum, table) => sum + (table.rowCount || 0), 0)
-                      };
+      const summary = {
+        totalTables: tables.length,
+        totalColumns: tables.reduce((sum, table) => sum + table.columns.length, 0),
+        estimatedRows: tables.reduce((sum, table) => sum + (table.rowCount || 0), 0)
+      };
 
-                      resolve({
-                        tables,
-                        relationships,
-                        summary
-                      });
-                    }
-                  });
-                });
-              });
-            }
+      db.close();
 
-            if (tableRows.length === 0) {
-              resolve({
-                tables: [],
-                relationships: [],
-                summary: { totalTables: 0, totalColumns: 0, estimatedRows: 0 }
-              });
-            }
-          });
-        } catch (error) {
-          reject(error);
-        } finally {
-          db.close();
-        }
-      });
-    });
+      return {
+        tables,
+        relationships,
+        summary
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 
   private async discoverPostgreSQLSchema(connection: any): Promise<DatabaseSchema> {
