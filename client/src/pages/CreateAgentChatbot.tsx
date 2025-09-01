@@ -672,27 +672,10 @@ export default function CreateAgentChatbot() {
         }) : Promise.resolve(),
       ]).then(() => {
         console.log("✅ Cache invalidation complete");
-
-        // Use setTimeout to ensure all state updates are complete before navigation
-        setTimeout(() => {
-          try {
-            window.history.back();
-          } catch (error) {
-            console.error("Navigation error, using fallback:", error);
-            window.location.href = "/agent-chatbots";
-          }
-        }, 100);
+        // The original auto-redirect is removed as per the request.
+        // "Apply" and "Cancel" buttons will now control navigation.
       }).catch(error => {
         console.error("Cache invalidation error:", error);
-        // Still navigate even if cache invalidation fails
-        setTimeout(() => {
-          try {
-            window.history.back();
-          } catch (navError) {
-            console.error("Navigation error, using fallback:", navError);
-            window.location.href = "/agent-chatbots";
-          }
-        }, 100);
       });
     },
     onError: (error) => {
@@ -798,7 +781,7 @@ export default function CreateAgentChatbot() {
       console.log("All document IDs:", allDocumentIds);
       console.log("All database IDs (final):", allDatabaseIds);
       console.log("Is editing mode:", isEditing);
-      
+
       // Debug database update specifically for editing mode
       if (isEditing) {
         console.log("🔧 EDIT MODE: Database connections update");
@@ -3346,56 +3329,45 @@ export default function CreateAgentChatbot() {
                       </div>
                     )}
 
-                    {/* Save/Update Button - At Bottom of Form */}
-                    <div className="bg-white border-t border-gray-200 px-6 py-4 mt-8">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm text-gray-600">
-                          {isEditing ? "Changes are saved automatically" : "Click Save to create your agent"}
-                        </div>
-                        <Button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            console.log("🔘 Manual save button clicked");
+                    {/* Action Buttons: Apply and Cancel */}
+                    <div className="flex justify-end gap-4 px-6 py-4 border-t border-gray-200 bg-white mt-8">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          // Handle cancel action: revert form to saved state or navigate back
+                          console.log("Canceling changes...");
+                          // Potentially revert form state if there are unsaved changes
+                          // For now, we'll just navigate back
+                          window.history.back();
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log("🔘 Apply button clicked - triggering manual submission");
 
-                            // Add try-catch wrapper for form submission
-                            try {
-                              form.handleSubmit((data) => {
-                                console.log("✅ Manual form submission triggered");
-                                onSubmit(data);
-                              }, (errors) => {
-                                console.log("❌ Manual form validation failed:", errors);
-                                toast({
-                                  title: "Validation Error",
-                                  description: "Please check the form for errors and try again.",
-                                  variant: "destructive",
-                                });
-                              })();
-                            } catch (error) {
-                              console.error("❌ Form submission error:", error);
-                              toast({
-                                title: "Form Error",
-                                description: "An unexpected error occurred. Please try again.",
-                                variant: "destructive",
-                              });
-                            }
-                          }}
-                          disabled={saveAgentMutation.isPending}
-                          className="bg-blue-600 hover:bg-blue-700"
-                        >
-                          {saveAgentMutation.isPending ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                              {isEditing ? "Updating..." : "Creating..."}
-                            </>
-                          ) : (
-                            <>
-                              {isEditing ? "Update Agent" : "Create Agent"}
-                            </>
-                          )}
-                        </Button>
-                      </div>
+                          const formData = form.getValues();
+                          console.log("Form data for submission:", formData);
+
+                          onSubmit(formData);
+                        }}
+                        disabled={saveAgentMutation.isPending}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        {saveAgentMutation.isPending ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            {isEditing ? "Updating..." : "Creating..."}
+                          </>
+                        ) : (
+                          <>{isEditing ? "Apply Changes" : "Create Agent"}</>
+                        )}
+                      </Button>
                     </div>
                   </form>
                 </Form>
