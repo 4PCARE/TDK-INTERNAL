@@ -133,6 +133,22 @@ export default function DataConnections() {
   const [editingConnection, setEditingConnection] = useState<DatabaseConnection | null>(null);
   const [manageConnectionsOpen, setManageConnectionsOpen] = useState(false);
   const [selectedDatabaseType, setSelectedDatabaseType] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [sortBy, setSortBy] = useState<'createdAt' | 'updatedAt' | 'name'>('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedTab, setSelectedTab] = useState<'settings' | 'schema' | 'inference'>('settings');
+
+  // Schema discovery queries
+  const { data: schemaData, isLoading: schemaLoading } = useQuery({
+    queryKey: [`/api/database-connections/${editingConnection?.id}/schema`],
+    enabled: editingConnection && selectedTab === 'schema',
+  });
+
+  const { data: inferenceData, isLoading: inferenceLoading } = useQuery({
+    queryKey: [`/api/database-connections/${editingConnection?.id}/infer-types`],
+    enabled: editingConnection && selectedTab === 'inference',
+  });
 
   // Form states for PostgreSQL
   const [postgresForm, setPostgresForm] = useState({
@@ -336,6 +352,40 @@ export default function DataConnections() {
     },
   });
 
+  // Update database mutation
+  const updateDatabaseMutation = useMutation({
+    mutationFn: async (data: { id: number; updates: any }) => {
+      return await apiRequest("PUT", `/api/database-connections/${data.id}`, data.updates);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Database updated successfully!",
+      });
+      setEditDialogOpen(false);
+      setEditingConnection(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/database-connections'] });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to update database",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Test connection mutation
   const testConnectionMutation = useMutation({
     mutationFn: async (connection: DatabaseConnection) => {
@@ -359,6 +409,20 @@ export default function DataConnections() {
 
   const handleTestConnection = (connection: DatabaseConnection) => {
     testConnectionMutation.mutate(connection);
+  };
+
+  const handleEditConnection = (connection: DatabaseConnection) => {
+    setEditingConnection(connection);
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateConnection = () => {
+    if (!editingConnection) return;
+    
+    updateDatabaseMutation.mutate({
+      id: editingConnection.id,
+      updates: editingConnection
+    });
   };
 
   const handleManageConnections = (databaseType: string) => {
@@ -507,9 +571,40 @@ export default function DataConnections() {
     }
   ];
 
-  const postgresConnections = connections.filter(conn => conn.type === 'postgresql');
-  const mysqlConnections = connections.filter(conn => conn.type === 'mysql');
-  const sqliteConnections = connections.filter(conn => conn.type === 'sqlite');
+  // Filter and sort connections
+  const filteredConnections = connections.filter(conn => {
+    if (!searchQuery) return true;
+    return conn.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           (conn.description && conn.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+           conn.type.toLowerCase().includes(searchQuery.toLowerCase());
+  }).sort((a, b) => {
+    let aValue, bValue;
+    
+    switch (sortBy) {
+      case 'name':
+        aValue = a.name.toLowerCase();
+        bValue = b.name.toLowerCase();
+        break;
+      case 'updatedAt':
+        aValue = new Date(a.updatedAt).getTime();
+        bValue = new Date(b.updatedAt).getTime();
+        break;
+      default: // createdAt
+        aValue = new Date(a.createdAt).getTime();
+        bValue = new Date(b.createdAt).getTime();
+        break;
+    }
+    
+    if (sortOrder === 'asc') {
+      return aValue > bValue ? 1 : -1;
+    } else {
+      return aValue < bValue ? 1 : -1;
+    }
+  });
+
+  const postgresConnections = filteredConnections.filter(conn => conn.type === 'postgresql');
+  const mysqlConnections = filteredConnections.filter(conn => conn.type === 'mysql');
+  const sqliteConnections = filteredConnections.filter(conn => conn.type === 'sqlite');
 
   return (
     <DashboardLayout>
@@ -533,19 +628,46 @@ export default function DataConnections() {
               <Database className="w-5 h-5" />
               Created Databases
             </CardTitle>
+            <div className="flex gap-4 mt-4">
+              <div className="flex-1">
+                <Input
+                  placeholder="Search databases..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="max-w-sm"
+                />
+              </div>
+              <Select value={sortBy} onValueChange={(value: 'createdAt' | 'updatedAt' | 'name') => setSortBy(value)}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt">Created Date</SelectItem>
+                  <SelectItem value="updatedAt">Updated Date</SelectItem>
+                  <SelectItem value="name">Name</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              >
+                {sortOrder === 'asc' ? '↑' : '↓'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {connectionsLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
-            ) : connections.length === 0 ? (
+            ) : filteredConnections.length === 0 ? (
               <div className="text-center py-8 text-slate-500">
                 No databases created yet. Create your first database from files below.
               </div>
             ) : (
               <div className="grid gap-4">
-                {connections.map((conn) => (
+                {filteredConnections.map((conn) => (
                   <div key={conn.id} className="border rounded-lg p-4 hover:bg-slate-50">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
@@ -580,6 +702,14 @@ export default function DataConnections() {
                         >
                           <Play className="w-4 h-4 mr-1" />
                           Query
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEditConnection(conn)}
+                        >
+                          <Settings className="w-4 h-4 mr-1" />
+                          Configure
                         </Button>
                         <Button
                           size="sm"
@@ -1296,6 +1426,311 @@ export default function DataConnections() {
                 </Button>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Database Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Configure Database</DialogTitle>
+              <DialogDescription>
+                Edit database settings and view schema information
+              </DialogDescription>
+            </DialogHeader>
+
+            {editingConnection && (
+              <div className="flex flex-col h-full">
+                <div className="border-b">
+                  <div className="flex space-x-1">
+                    <Button
+                      variant={selectedTab === 'settings' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setSelectedTab('settings')}
+                    >
+                      Settings
+                    </Button>
+                    <Button
+                      variant={selectedTab === 'schema' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setSelectedTab('schema')}
+                    >
+                      Schema
+                    </Button>
+                    <Button
+                      variant={selectedTab === 'inference' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setSelectedTab('inference')}
+                    >
+                      Type Inference
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4">
+                  {selectedTab === 'settings' && (
+                    <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-name">Database Name</Label>
+                    <Input
+                      id="edit-name"
+                      value={editingConnection.name}
+                      onChange={(e) => setEditingConnection({
+                        ...editingConnection,
+                        name: e.target.value
+                      })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-type">Type</Label>
+                    <Input
+                      id="edit-type"
+                      value={editingConnection.type}
+                      disabled
+                      className="bg-gray-100"
+                    />
+                  </div>
+                </div>
+
+                {editingConnection.type !== 'sqlite' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="edit-host">Host</Label>
+                        <Input
+                          id="edit-host"
+                          value={editingConnection.host || ''}
+                          onChange={(e) => setEditingConnection({
+                            ...editingConnection,
+                            host: e.target.value
+                          })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="edit-port">Port</Label>
+                        <Input
+                          id="edit-port"
+                          type="number"
+                          value={editingConnection.port || ''}
+                          onChange={(e) => setEditingConnection({
+                            ...editingConnection,
+                            port: parseInt(e.target.value) || undefined
+                          })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="edit-database">Database Name</Label>
+                        <Input
+                          id="edit-database"
+                          value={editingConnection.database || ''}
+                          onChange={(e) => setEditingConnection({
+                            ...editingConnection,
+                            database: e.target.value
+                          })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="edit-username">Username</Label>
+                        <Input
+                          id="edit-username"
+                          value={editingConnection.username || ''}
+                          onChange={(e) => setEditingConnection({
+                            ...editingConnection,
+                            username: e.target.value
+                          })}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div>
+                  <Label htmlFor="edit-description">Description</Label>
+                  <Textarea
+                    id="edit-description"
+                    value={editingConnection.description || ''}
+                    onChange={(e) => setEditingConnection({
+                      ...editingConnection,
+                      description: e.target.value
+                    })}
+                    placeholder="Optional description"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="edit-active"
+                          checked={editingConnection.isActive}
+                          onChange={(e) => setEditingConnection({
+                            ...editingConnection,
+                            isActive: e.target.checked
+                          })}
+                        />
+                        <Label htmlFor="edit-active">Active</Label>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedTab === 'schema' && (
+                    <div className="space-y-4">
+                      {schemaLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                          <span className="ml-2">Discovering schema...</span>
+                        </div>
+                      ) : schemaData ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-3 gap-4 p-4 bg-slate-50 rounded-lg">
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-blue-600">{schemaData.summary.totalTables}</div>
+                              <div className="text-sm text-slate-600">Tables</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-green-600">{schemaData.summary.totalColumns}</div>
+                              <div className="text-sm text-slate-600">Columns</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-purple-600">{schemaData.summary.estimatedRows}</div>
+                              <div className="text-sm text-slate-600">Rows</div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-4 max-h-96 overflow-y-auto">
+                            {schemaData.tables.map((table: any) => (
+                              <Card key={table.name}>
+                                <CardHeader>
+                                  <CardTitle className="flex items-center gap-2 text-lg">
+                                    <Database className="w-4 h-4" />
+                                    {table.name}
+                                    <Badge variant="outline">{table.rowCount} rows</Badge>
+                                  </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                  <div className="space-y-2">
+                                    {table.columns.map((column: any) => (
+                                      <div key={column.name} className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-medium">{column.name}</span>
+                                          {column.isPrimaryKey && <Badge variant="default" className="text-xs">PK</Badge>}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Badge variant="outline">{column.type}</Badge>
+                                          {!column.nullable && <Badge variant="secondary" className="text-xs">NOT NULL</Badge>}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <p>Failed to discover schema</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedTab === 'inference' && (
+                    <div className="space-y-4">
+                      {inferenceLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                          <span className="ml-2">Analyzing data types...</span>
+                        </div>
+                      ) : inferenceData ? (
+                        <div className="space-y-4">
+                          {inferenceData.recommendations.length === 0 ? (
+                            <div className="text-center py-8">
+                              <Check className="w-12 h-12 mx-auto mb-4 text-green-500" />
+                              <p className="text-green-600">All data types look optimal!</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <h4 className="font-medium">Data Type Recommendations</h4>
+                              {inferenceData.recommendations.map((rec: any, index: number) => (
+                                <div key={index} className="border rounded-lg p-4">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="font-medium">{rec.table}.{rec.column}</span>
+                                    <Badge variant="outline" className="bg-blue-50">
+                                      {Math.round(rec.confidence * 100)}% confidence
+                                    </Badge>
+                                  </div>
+                                  <div className="text-sm text-slate-600 space-y-1">
+                                    <div>Current: <code className="bg-red-100 px-1 rounded">{rec.currentType}</code></div>
+                                    <div>Recommended: <code className="bg-green-100 px-1 rounded">{rec.recommendedType}</code></div>
+                                    <div>Reason: {rec.reason}</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <p>Failed to analyze data types</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {selectedTab === 'settings' && (
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditDialogOpen(false);
+                        setEditingConnection(null);
+                        setSelectedTab('settings');
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleUpdateConnection}
+                      disabled={updateDatabaseMutation.isPending}
+                    >
+                      {updateDatabaseMutation.isPending ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Updating...
+                        </>
+                      ) : (
+                        <>
+                          <Settings className="w-4 h-4 mr-2" />
+                          Update Database
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {selectedTab !== 'settings' && (
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditDialogOpen(false);
+                        setEditingConnection(null);
+                        setSelectedTab('settings');
+                      }}
+                    >
+                      Close
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </DialogContent>
         </Dialog>
 

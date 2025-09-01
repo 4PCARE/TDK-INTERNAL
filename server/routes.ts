@@ -2685,6 +2685,24 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     }
   });
 
+  app.put("/api/database-connections/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const connectionId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      const updates = req.body;
+      
+      const connection = await storage.updateDataConnection(connectionId, updates, userId);
+      if (!connection) {
+        return res.status(404).json({ message: "Database connection not found" });
+      }
+
+      res.json(connection);
+    } catch (error) {
+      console.error("Error updating database connection:", error);
+      res.status(500).json({ message: "Failed to update database connection" });
+    }
+  });
+
   app.get("/api/database-connections/:id/details", isAuthenticated, async (req: any, res) => {
     try {
       const connectionId = parseInt(req.params.id);
@@ -2715,6 +2733,36 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     } catch (error) {
       console.error("Error fetching connection details:", error);
       res.status(500).json({ message: "Failed to fetch connection details" });
+    }
+  });
+
+  app.get("/api/database-connections/:id/schema", isAuthenticated, async (req: any, res) => {
+    try {
+      const connectionId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      const { schemaDiscoveryService } = await import("./services/schemaDiscovery");
+      const schema = await schemaDiscoveryService.discoverDatabaseSchema(connectionId, userId);
+      
+      res.json(schema);
+    } catch (error) {
+      console.error("Error discovering database schema:", error);
+      res.status(500).json({ message: "Failed to discover database schema" });
+    }
+  });
+
+  app.get("/api/database-connections/:id/infer-types", isAuthenticated, async (req: any, res) => {
+    try {
+      const connectionId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      const { schemaDiscoveryService } = await import("./services/schemaDiscovery");
+      const analysis = await schemaDiscoveryService.inferDataTypes(connectionId, userId);
+      
+      res.json(analysis);
+    } catch (error) {
+      console.error("Error inferring data types:", error);
+      res.status(500).json({ message: "Failed to infer data types" });
     }
   });
 
