@@ -314,15 +314,13 @@ export class VectorService {
         return [];
       }
 
-      // Always use vector similarity search - no keyword prioritization
-
       // Get all vectors from database for this user (with optional document filtering)
       let whereCondition: any = eq(documentVectors.userId, userId);
 
       if (specificDocumentIds && specificDocumentIds.length > 0) {
         whereCondition = and(
           eq(documentVectors.userId, userId),
-          or(...specificDocumentIds.map(id => eq(documentVectors.documentId, id)))
+          inArray(documentVectors.documentId, specificDocumentIds)
         );
         console.log(`VectorService: Filtering search to ${specificDocumentIds.length} specific documents: [${specificDocumentIds.join(', ')}]`);
       } else {
@@ -333,7 +331,19 @@ export class VectorService {
         .from(documentVectors)
         .where(whereCondition);
 
-      console.log(`VectorService: Retrieved ${dbVectors.length} vectors from database`);
+      console.log(`VectorService: Retrieved ${dbVectors.length} vectors from database for user ${userId}`);
+
+      // Debug: Log document IDs found vs expected
+      if (specificDocumentIds && specificDocumentIds.length > 0) {
+        const foundDocIds = [...new Set(dbVectors.map(v => v.documentId))];
+        console.log(`VectorService: Expected docs [${specificDocumentIds.join(', ')}], found docs [${foundDocIds.join(', ')}]`);
+        
+        // Check if any documents are missing vectors
+        const missingDocs = specificDocumentIds.filter(id => !foundDocIds.includes(id));
+        if (missingDocs.length > 0) {
+          console.warn(`⚠️ VectorService: Documents missing from vector database: [${missingDocs.join(', ')}]`);
+        }
+      }
 
       // Additional filtering at database level to ensure we only get proper chunks
       const validChunks = dbVectors.filter(dbVector => {
