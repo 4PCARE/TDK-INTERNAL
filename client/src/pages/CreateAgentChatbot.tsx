@@ -3294,100 +3294,108 @@ export default function CreateAgentChatbot() {
                       </div>
                     )}
 
-                    {/* Action Buttons: Cancel | Apply | Done */}
-                    <div className="flex justify-end gap-4 px-6 py-4 border-t border-gray-200 bg-white mt-8">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          // Handle cancel action: revert form to saved state or navigate back
-                          console.log("Canceling changes...");
-                          // Potentially revert form state if there are unsaved changes
-                          // For now, we'll just navigate back
-                          window.history.back();
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          console.log("🔘 Apply button clicked - triggering manual submission");
-
-                          const formData = form.getValues();
-                          console.log("Form data for submission:", formData);
-
-                          onSubmit(formData);
-                        }}
-                        disabled={saveAgentMutation.isPending}
-                        className="border-blue-600 text-blue-600 hover:bg-blue-50"
-                      >
-                        {saveAgentMutation.isPending ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                            Applying...
-                          </>
-                        ) : (
-                          <>Apply</>
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          console.log("✅ Done button clicked - apply and redirect");
-
-                          const formData = form.getValues();
-                          console.log("Form data for submission:", formData);
-
-                          // We'll modify the mutation to redirect after success for this button
-                          const originalOnSuccess = saveAgentMutation.options?.onSuccess;
-                          
-                          // Temporarily override onSuccess to include redirect
-                          saveAgentMutation.mutate(
-                            {
-                              ...formData,
-                              documentIds: Array.isArray(selectedDocuments) ? [...new Set(selectedDocuments.filter(id => id != null))] : [],
-                              databaseIds: Array.isArray(selectedDatabases) ? [...new Set(selectedDatabases.filter(id => id != null))] : [],
-                              guardrailsConfig: formData.guardrailsEnabled ? formData.guardrailsConfig : null,
-                              specialSkills: Array.isArray(formData.specialSkills) ? formData.specialSkills.filter(skill => skill != null) : [],
-                              allowedTopics: Array.isArray(formData.allowedTopics) ? formData.allowedTopics.filter(topic => topic != null) : [],
-                              blockedTopics: Array.isArray(formData.blockedTopics) ? formData.blockedTopics.filter(topic => topic != null) : [],
-                            },
-                            {
-                              onSuccess: (data) => {
-                                // Call original onSuccess first
-                                if (originalOnSuccess) {
-                                  originalOnSuccess(data);
-                                }
-                                // Then redirect
-                                setTimeout(() => {
-                                  window.location.href = "/agent-chatbots";
-                                }, 1000);
-                              }
-                            }
-                          );
-                        }}
-                        disabled={saveAgentMutation.isPending}
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        {saveAgentMutation.isPending ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            {isEditing ? "Updating..." : "Creating..."}
-                          </>
-                        ) : (
-                          <>Done</>
-                        )}
-                      </Button>
-                    </div>
-                  </form>
+                    </form>
                 </Form>
-              </div>
+
+                {/* Action Buttons: Cancel | Apply | Done - Fixed positioned footer */}
+                <div className="sticky bottom-0 left-0 right-0 z-10 bg-white border-t border-gray-200 shadow-lg">
+                  <div className="max-w-7xl mx-auto px-6 py-4">
+                    <div className="flex justify-between items-center">
+                      <div className="text-sm text-gray-500">
+                        {isEditing ? "Editing agent configuration" : "Creating new agent"}
+                      </div>
+                      <div className="flex gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            console.log("Canceling changes...");
+                            window.history.back();
+                          }}
+                          className="min-w-[80px]"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log("🔘 Apply button clicked - triggering manual submission");
+
+                            const formData = form.getValues();
+                            console.log("Form data for submission:", formData);
+
+                            onSubmit(formData);
+                          }}
+                          disabled={saveAgentMutation.isPending}
+                          className="border-blue-600 text-blue-600 hover:bg-blue-50 min-w-[80px]"
+                        >
+                          {saveAgentMutation.isPending ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Applying...
+                            </>
+                          ) : (
+                            "Apply"
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log("✅ Done button clicked - apply and redirect");
+
+                            const formData = form.getValues();
+                            console.log("Form data for submission:", formData);
+
+                            // We'll modify the mutation to redirect after success for this button
+                            const originalOnSuccess = saveAgentMutation.options?.onSuccess;
+                            
+                            // Temporarily override onSuccess to include redirect
+                            saveAgentMutation.mutate(
+                              {
+                                ...formData,
+                                documentIds: Array.isArray(selectedDocuments) ? [...new Set(selectedDocuments.filter(id => id != null))] : [],
+                                databaseIds: Array.isArray(selectedDatabases) ? [...new Set(selectedDatabases.filter(id => id != null))] : [],
+                                guardrailsConfig: formData.guardrailsEnabled ? formData.guardrailsConfig : null,
+                                specialSkills: Array.isArray(formData.specialSkills) ? formData.specialSkills.filter(skill => skill != null) : [],
+                                allowedTopics: Array.isArray(formData.allowedTopics) ? formData.allowedTopics.filter(topic => topic != null) : [],
+                                blockedTopics: Array.isArray(formData.blockedTopics) ? formData.blockedTopics.filter(topic => topic != null) : [],
+                              },
+                              {
+                                onSuccess: (data) => {
+                                  // Call original onSuccess first
+                                  if (originalOnSuccess) {
+                                    originalOnSuccess(data);
+                                  }
+                                  // Then redirect
+                                  setTimeout(() => {
+                                    window.location.href = "/agent-chatbots";
+                                  }, 1000);
+                                }
+                              }
+                            );
+                          }}
+                          disabled={saveAgentMutation.isPending}
+                          className="bg-blue-600 hover:bg-blue-700 text-white min-w-[80px]"
+                        >
+                          {saveAgentMutation.isPending ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              {isEditing ? "Updating..." : "Creating..."}
+                            </>
+                          ) : (
+                            "Done"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                  </div>
             </div>
           </div>
         </div>
