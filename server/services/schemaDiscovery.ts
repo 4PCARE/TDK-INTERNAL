@@ -52,7 +52,10 @@ export class SchemaDiscoveryService {
       throw new Error("Database connection not found or access denied");
     }
 
-    switch (connection.type) {
+    // Check both type and dbType for compatibility
+    const dbType = connection.dbType || connection.type;
+    
+    switch (dbType) {
       case 'sqlite':
         return await this.discoverSQLiteSchema(connection);
       case 'postgresql':
@@ -60,7 +63,7 @@ export class SchemaDiscoveryService {
       case 'mysql':
         return await this.discoverMySQLSchema(connection);
       default:
-        throw new Error(`Schema discovery not supported for ${connection.type}`);
+        throw new Error(`Schema discovery not supported for ${dbType}`);
     }
   }
 
