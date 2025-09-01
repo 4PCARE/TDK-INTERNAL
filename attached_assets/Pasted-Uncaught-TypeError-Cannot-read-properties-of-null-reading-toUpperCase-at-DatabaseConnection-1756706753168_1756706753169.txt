@@ -1,0 +1,54 @@
+Uncaught TypeError: Cannot read properties of null (reading 'toUpperCase')
+    at DatabaseConnectionSelector.tsx:138:48
+    at Array.map (<anonymous>)
+    at DatabaseConnectionSelector (DatabaseConnectionSelector.tsx:100:34)
+    at renderWithHooks (chunk-RPCDYKBN.js?v=d9d2912e:11548:26)
+    at updateFunctionComponent (chunk-RPCDYKBN.js?v=d9d2912e:14582:28)
+    at beginWork (chunk-RPCDYKBN.js?v=d9d2912e:15924:22)
+    at HTMLUnknownElement.callCallback2 (chunk-RPCDYKBN.js?v=d9d2912e:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-RPCDYKBN.js?v=d9d2912e:3699:24)
+    at invokeGuardedCallback (chunk-RPCDYKBN.js?v=d9d2912e:3733:39)
+    at beginWork$1 (chunk-RPCDYKBN.js?v=d9d2912e:19765:15)Understand this error
+chunk-RPCDYKBN.js?v=d9d2912e:14032 The above error occurred in the <DatabaseConnectionSelector> component:
+
+    at DatabaseConnectionSelector (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/components/DatabaseConnectionSelector.tsx:28:3)
+    at div
+    at div
+    at _c9 (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/components/ui/card.tsx:114:12)
+    at div
+    at _c (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/components/ui/card.tsx:20:11)
+    at div
+    at form
+    at FormProvider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-4BFJKWC4.js?v=d9d2912e:102:11)
+    at div
+    at div
+    at div
+    at div
+    at div
+    at main
+    at div
+    at div
+    at DashboardLayout (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/components/Layout/DashboardLayout.tsx:22:43)
+    at CreateAgentChatbot (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/pages/CreateAgentChatbot.tsx:175:21)
+    at Route (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=d9d2912e:323:16)
+    at Switch (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=d9d2912e:379:17)
+    at Router (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/src/App.tsx?v=FBd6JMIDFtfpuX3lWCSlv:57:42)
+    at Provider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-OXZDJRWN.js?v=d9d2912e:38:15)
+    at TooltipProvider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=d9d2912e:66:5)
+    at QueryClientProvider (https://372605f0-45bc-4472-9833-ce8d6cb297a8-00-iumlc89wjmzm.pike.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=d9d2912e:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+logCapturedError @ chunk-RPCDYKBN.js?v=d9d2912e:14032Understand this error
+chunk-RPCDYKBN.js?v=d9d2912e:9129 Uncaught TypeError: Cannot read properties of null (reading 'toUpperCase')
+    at DatabaseConnectionSelector.tsx:138:48
+    at Array.map (<anonymous>)
+    at DatabaseConnectionSelector (DatabaseConnectionSelector.tsx:100:34)
+    at renderWithHooks (chunk-RPCDYKBN.js?v=d9d2912e:11548:26)
+    at updateFunctionComponent (chunk-RPCDYKBN.js?v=d9d2912e:14582:28)
+    at beginWork (chunk-RPCDYKBN.js?v=d9d2912e:15924:22)
+    at beginWork$1 (chunk-RPCDYKBN.js?v=d9d2912e:19753:22)
+    at performUnitOfWork (chunk-RPCDYKBN.js?v=d9d2912e:19198:20)
+    at workLoopSync (chunk-RPCDYKBN.js?v=d9d2912e:19137:13)
+    at renderRootSync (chunk-RPCDYKBN.js?v=d9d2912e:19116:15)
