@@ -3100,41 +3100,6 @@ export default function CreateAgentChatbot() {
 
                     {activeTab === "test" && (
                       <div className="space-y-6">
-                        {/* Save/Update Button */}
-                        <div className="flex justify-end items-center gap-4 p-4 bg-slate-50 rounded-lg border">
-                          <div className="flex items-center gap-2 text-sm text-slate-600">
-                            {isEditing ? "Update your agent configuration" : "Save your agent configuration"}
-                          </div>
-                          <Button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              console.log("💾 Save button clicked - triggering manual submission");
-
-                              // Get form data and validate
-                              const formData = form.getValues();
-                              console.log("Form data for submission:", formData);
-
-                              // Call the onSubmit function manually
-                              onSubmit(formData);
-                            }}
-                            disabled={saveAgentMutation.isPending}
-                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
-                          >
-                            {saveAgentMutation.isPending ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                {isEditing ? "Updating..." : "Saving..."}
-                              </>
-                            ) : (
-                              <>
-                                <Bot className="w-4 h-4" />
-                                {isEditing ? "Update Agent" : "Save Agent"}
-                              </>
-                            )}
-                          </Button>
-                        </div>
 
                         {/* Test Agent Card */}
                         <Card>
@@ -3329,7 +3294,7 @@ export default function CreateAgentChatbot() {
                       </div>
                     )}
 
-                    {/* Action Buttons: Apply and Cancel */}
+                    {/* Action Buttons: Cancel | Apply | Done */}
                     <div className="flex justify-end gap-4 px-6 py-4 border-t border-gray-200 bg-white mt-8">
                       <Button
                         type="button"
@@ -3346,6 +3311,7 @@ export default function CreateAgentChatbot() {
                       </Button>
                       <Button
                         type="button"
+                        variant="outline"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -3357,6 +3323,56 @@ export default function CreateAgentChatbot() {
                           onSubmit(formData);
                         }}
                         disabled={saveAgentMutation.isPending}
+                        className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                      >
+                        {saveAgentMutation.isPending ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                            Applying...
+                          </>
+                        ) : (
+                          <>Apply</>
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log("✅ Done button clicked - apply and redirect");
+
+                          const formData = form.getValues();
+                          console.log("Form data for submission:", formData);
+
+                          // We'll modify the mutation to redirect after success for this button
+                          const originalOnSuccess = saveAgentMutation.options?.onSuccess;
+                          
+                          // Temporarily override onSuccess to include redirect
+                          saveAgentMutation.mutate(
+                            {
+                              ...formData,
+                              documentIds: Array.isArray(selectedDocuments) ? [...new Set(selectedDocuments.filter(id => id != null))] : [],
+                              databaseIds: Array.isArray(selectedDatabases) ? [...new Set(selectedDatabases.filter(id => id != null))] : [],
+                              guardrailsConfig: formData.guardrailsEnabled ? formData.guardrailsConfig : null,
+                              specialSkills: Array.isArray(formData.specialSkills) ? formData.specialSkills.filter(skill => skill != null) : [],
+                              allowedTopics: Array.isArray(formData.allowedTopics) ? formData.allowedTopics.filter(topic => topic != null) : [],
+                              blockedTopics: Array.isArray(formData.blockedTopics) ? formData.blockedTopics.filter(topic => topic != null) : [],
+                            },
+                            {
+                              onSuccess: (data) => {
+                                // Call original onSuccess first
+                                if (originalOnSuccess) {
+                                  originalOnSuccess(data);
+                                }
+                                // Then redirect
+                                setTimeout(() => {
+                                  window.location.href = "/agent-chatbots";
+                                }, 1000);
+                              }
+                            }
+                          );
+                        }}
+                        disabled={saveAgentMutation.isPending}
                         className="bg-blue-600 hover:bg-blue-700"
                       >
                         {saveAgentMutation.isPending ? (
@@ -3365,7 +3381,7 @@ export default function CreateAgentChatbot() {
                             {isEditing ? "Updating..." : "Creating..."}
                           </>
                         ) : (
-                          <>{isEditing ? "Apply Changes" : "Create Agent"}</>
+                          <>Done</>
                         )}
                       </Button>
                     </div>
