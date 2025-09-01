@@ -240,10 +240,9 @@ async function getAiResponseDirectly(
     let contextPrompt = "";
     const documentContents: string[] = [];
     let agentDocIds: number[] = [];
+    let agentDocs: any[] = [];
 
     if (!skipSearch) {
-      let agentDocs;
-
       // For widget contexts, use widget-specific methods that don't require user ownership
       if (channelType === 'web' || channelType === 'chat_widget') {
         agentDocs = await storage.getAgentChatbotDocumentsForWidget(agentId);
@@ -464,11 +463,6 @@ async function getAiResponseDirectly(
         `🔍 AgentBot: Query needs search, performing smart hybrid search with enhanced query`,
       );
 
-      // Perform new search workflow with agent's bound documents (smart hybrid)
-      const { searchSmartHybridDebug } = await import(
-        "./services/newSearch"
-      );
-
       // Use agent's search configuration if available
       const searchConfig = agentData.searchConfiguration || {};
       const chunkMaxType = searchConfig.chunkMaxType || 'number';
@@ -484,14 +478,160 @@ async function getAiResponseDirectly(
       let documentContext = ''; // Initialize documentContext here
 
       // Get agent document IDs to restrict search scope
-      const agentDocIds = agentDocs.map(doc => doc.id);
       console.log(`📄 AgentBot: Using ${agentDocs.length} documents for hybrid search: [${agentDocIds.join(', ')}]`);
 
-      // If no documents are attached to the agent, skip search entirely
+      // If no documents are attached to the agent, skip search entirely and handle as no-document query
       if (agentDocIds.length === 0) {
-        console.log(`📄 AgentBot: No documents attached to agent - skipping search`);
+        console.log(`📄 AgentBot: No documents attached to agent - treating as conversation without documents`);
         documentContext = '';
+        
+        // Redirect to no-document conversation logic
+        console.log(
+          `⏭️ AgentBot: No documents available, using agent conversation without document search`,
+        );
+
+        // Build system prompt without document context (same as non-search path)
+        let systemPrompt = `${agentData.systemPrompt}
+
+สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้อมูลการวิเคราะห์รูปภาพในข้อความของผู้ใช้ ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว
+
+ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
+ตอบอย่างเป็นมิตรและช่วยเหลือ`;
+
+        // Add HR employee context if available
+        if (hrEmployeeData) {
+          console.log(`👤 AgentBot: Adding HR employee context (no docs) for ${hrEmployeeData.firstName || hrEmployeeData.first_name} ${hrEmployeeData.lastName || hrEmployeeData.last_name} (${hrEmployeeData.employeeId})`);
+          systemPrompt += `
+
+🏢 ข้อมูลพนักงาน: คุณกำลังสนทนากับ ${hrEmployeeData.firstName || hrEmployeeData.first_name} ${hrEmployeeData.lastName || hrEmployeeData.last_name}
+- รหัสพนักงาน: ${hrEmployeeData.employeeId || hrEmployeeData.employee_id}
+- แผนก: ${hrEmployeeData.department}
+- ตำแหน่ง: ${hrEmployeeData.position}
+- อีเมล: ${hrEmployeeData.email}
+- วันที่เริ่มงาน: ${hrEmployeeData.startDate || hrEmployeeData.hire_date}
+- สถานะ: ${hrEmployeeData.isActive ? 'Active' : 'Inactive'}
+
+กรุณาให้คำตอบที่เป็นส่วนตัวและเหมาะสมกับตำแหน่งและแผนกของพนักงาน`;
+        } else {
+          console.log(`👤 AgentBot: No HR employee context available for no-document conversation`);
+        }
+
+        systemPrompt += `
+
+⚠️ สำคัญมาก: ไม่มีเอกสารอ้างอิงสำหรับคำถามนี้
+- ห้ามให้ข้อมูลเฉพาะเจาะจง เช่น ที่อยู่ เบอร์โทร ราคา ชั้น หรือรายละเอียดใดๆ ที่ต้องอาศัยข้อมูลจากเอกสาร
+- ให้ตอบเพียงว่าไม่สามารถให้ข้อมูลเฉพาะเจาะจงได้เนื่องจากไม่มีเอกสารอ้างอิง
+- แนะนำให้ติดต่อแหล่งข้อมูลที่เชื่อถือได้แทน`;
+
+        const messages: any[] = [
+          {
+            role: "system",
+            content: systemPrompt,
+          },
+        ];
+
+        // Add chat history (exclude system messages from conversation flow)
+        const userBotMessages = chatHistory.filter(
+          (msg) => msg.messageType === "user" || msg.messageType === "assistant",
+        );
+
+        userBotMessages.forEach((msg) => {
+          messages.push({
+            role: msg.messageType === "user" ? "user" : "assistant",
+            content: msg.content,
+          });
+        });
+
+        // Add current user message
+        messages.push({
+          role: "user",
+          content: userMessage,
+        });
+
+        console.log(
+          `🤖 AgentBot: Sending ${messages.length} messages to OpenAI (no documents available)`,
+        );
+
+        // Initialize guardrails service if configured
+        let guardrailsService: GuardrailsService | null = null;
+        if (agentData.guardrailsConfig) {
+          guardrailsService = new GuardrailsService(agentData.guardrailsConfig);
+          console.log(
+            `🛡️ AgentBot: Guardrails enabled for no-document conversation`,
+          );
+        }
+
+        // Validate input
+        if (guardrailsService) {
+          const inputValidation = await guardrailsService.evaluateInput(
+            userMessage,
+            {
+              documents: [],
+              agent: agentData,
+            },
+          );
+
+          if (!inputValidation.allowed) {
+            console.log(
+              `🚫 AgentBot: Input blocked by guardrails - ${inputValidation.reason}`,
+            );
+            const suggestions = inputValidation.suggestions?.join(" ") || "";
+            aiResponse = `ขออภัย ไม่สามารถประมวลผลคำถามนี้ได้ ${inputValidation.reason ? `(${inputValidation.reason})` : ""} ${suggestions}`;
+
+            return aiResponse; // Exit function early
+          }
+
+          // Use modified content if privacy protection applied
+          if (inputValidation.modifiedContent) {
+            messages[messages.length - 1].content = inputValidation.modifiedContent;
+          }
+        }
+
+        // Generate AI response
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: messages,
+          max_tokens: 1000,
+          temperature: 0.7,
+        });
+
+        aiResponse =
+          completion.choices[0].message.content ||
+          "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+
+        // Validate AI output with guardrails
+        if (guardrailsService) {
+          const outputValidation = await guardrailsService.evaluateOutput(
+            aiResponse,
+            {
+              documents: [],
+              agent: agentData,
+              userQuery: userMessage,
+            },
+          );
+
+          if (!outputValidation.allowed) {
+            console.log(
+              `🚫 AgentBot: Output blocked by guardrails - ${outputValidation.reason}`,
+            );
+            const suggestions = outputValidation.suggestions?.join(" ") || "";
+            aiResponse = `ขออภัย ไม่สามารถให้คำตอบนี้ได้ ${outputValidation.reason ? `(${outputValidation.reason})` : ""} ${suggestions}`;
+          } else if (outputValidation.modifiedContent) {
+            console.log(`🔒 AgentBot: AI output modified for compliance`);
+            aiResponse = outputValidation.modifiedContent;
+          }
+        }
+
+        console.log(
+          `✅ AgentBot: Generated response without documents (${aiResponse.length} chars)`,
+        );
+        
+        return aiResponse; // Return early since no documents are available
       } else {
+        // Perform new search workflow with agent's bound documents (smart hybrid)
+        const { searchSmartHybridDebug } = await import(
+          "./services/newSearch"
+        );
         const searchResults = await searchSmartHybridDebug(
             queryAnalysis.enhancedQuery || userMessage,
             userId,
