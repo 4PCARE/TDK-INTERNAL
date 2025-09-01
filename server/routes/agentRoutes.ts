@@ -142,12 +142,12 @@ export function registerAgentRoutes(app: Express) {
           agentDocuments.map(async (agentDoc: any) => {
             try {
               const document = await storage.getDocument(agentDoc.documentId, userId);
-              console.log(`📋 Document ${agentDoc.documentId} details:`, { 
-                name: document?.name, 
+              console.log(`📋 Document ${agentDoc.documentId} details:`, {
+                name: document?.name,
                 hasDocument: !!document,
                 folderId: document?.folderId
               });
-              
+
               // Always return the document entry, even if document is not found
               // This ensures folder-based selections are preserved
               return {
@@ -181,7 +181,7 @@ export function registerAgentRoutes(app: Express) {
 
         // Filter out any null/undefined entries but keep all valid agent document relationships
         const validDocuments = documentsWithNames.filter(doc => doc !== null && doc !== undefined);
-        
+
         console.log(`📋 Agent ${req.params.id} document summary:`, {
           totalAgentDocuments: agentDocuments.length,
           validDocumentsReturned: validDocuments.length,
@@ -1773,6 +1773,109 @@ Generate only the title, nothing else:`;
       res.status(500).json({ message: "Failed to send message" });
     }
   });
+
+  app.post("/api/agent-chatbots", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const {
+        documentIds = [],
+        databaseIds = [],
+        ...agentData
+      } = req.body;
+
+      console.log("Creating agent with data:", JSON.stringify(agentData, null, 2));
+      console.log("Agent guardrails config:", agentData.guardrailsConfig);
+
+      // Create the agent
+      const agent = await storage.createAgentChatbot({
+        ...agentData,
+        userId,
+      });
+
+      console.log("Agent created:", JSON.stringify(agent, null, 2));
+
+      // Add associated documents
+      if (documentIds.length > 0) {
+        console.log("Adding", documentIds.length, "documents to agent");
+        for (const documentId of documentIds) {
+          try {
+            await storage.addDocumentToAgent(agent.id, documentId, userId);
+          } catch (error) {
+            console.error(`Failed to add document ${documentId}:`, error);
+          }
+        }
+      }
+
+      // Add associated database connections
+      if (databaseIds.length > 0) {
+        console.log("Adding", databaseIds.length, "database connections to agent");
+        for (const connectionId of databaseIds) {
+          try {
+            await storage.addDatabaseToAgent(agent.id, connectionId, userId);
+          } catch (error) {
+            console.error(`Failed to add database ${connectionId}:`, error);
+          }
+        }
+      }
+
+      res.status(201).json(agent);
+    } catch (error) {
+      console.error("Error creating agent chatbot:", error);
+      res.status(500).json({ message: "Failed to create agent chatbot" });
+    }
+  });
+
+  app.put("/api/agent-chatbots/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const agentId = parseInt(req.params.id);
+      const {
+        documentIds = [],
+        databaseIds = [],
+        ...agentData
+      } = req.body;
+
+      console.log("Updating agent with data:", JSON.stringify(agentData, null, 2));
+      console.log("Agent guardrails config:", agentData.guardrailsConfig);
+
+      // Update the agent
+      const updatedAgent = await storage.updateAgentChatbot(agentId, agentData, userId);
+
+      console.log("Agent updated:", JSON.stringify(updatedAgent, null, 2));
+
+      // Update associated documents
+      await storage.removeAllDocumentsFromAgent(agentId, userId);
+      if (documentIds.length > 0) {
+        console.log("Adding", documentIds.length, "documents to agent");
+        for (const documentId of documentIds) {
+          try {
+            await storage.addDocumentToAgent(agentId, documentId, userId);
+          } catch (error) {
+            console.error(`Failed to add document ${documentId}:`, error);
+          }
+        }
+      }
+
+      // Update associated database connections
+      await storage.removeAllDatabasesFromAgent(agentId, userId);
+      if (databaseIds.length > 0) {
+        console.log("Adding", databaseIds.length, "database connections to agent");
+        for (const connectionId of databaseIds) {
+          try {
+            await storage.addDatabaseToAgent(agentId, connectionId, userId);
+          } catch (error) {
+            console.error(`Failed to add database ${connectionId}:`, error);
+          }
+        }
+      }
+
+      res.json(updatedAgent);
+    } catch (error) {
+      console.error("Error updating agent chatbot:", error);
+      res.status(500).json({ message: "Failed to update agent chatbot" });
+    }
+  });
+
 
   // Internal Agent Chat Session endpoints
   app.get('/api/internal-agent-chat/sessions', isAuthenticated, async (req: any, res) => {

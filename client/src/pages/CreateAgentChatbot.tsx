@@ -77,7 +77,8 @@ import {
   FolderOpen,
   ChevronRight,
   ChevronDown,
-  Wand2
+  Wand2,
+  Database
 } from "lucide-react";
 import { Link } from "wouter";
 import DocumentSelector from "@/components/DocumentSelector";
@@ -398,6 +399,13 @@ export default function CreateAgentChatbot() {
     retry: false,
   });
 
+  // Fetch agent database connections for editing
+  const { data: agentDatabases = [] } = useQuery({
+    queryKey: [`/api/agent-chatbots/${editAgentId}/databases`],
+    enabled: isAuthenticated && isEditing,
+    retry: false,
+  });
+
   // Store fetched agent data to access ID for testing
   const [savedAgent, setSavedAgent] = useState<CreateAgentForm | null>(null);
 
@@ -462,6 +470,12 @@ export default function CreateAgentChatbot() {
       const docs = agentDocuments as any[];
       if (docs && docs.length > 0) {
         setSelectedDocuments(docs.map((doc: any) => doc.documentId));
+      }
+
+      // Load selected databases
+      const dbs = agentDatabases as any[];
+      if (dbs && dbs.length > 0) {
+        setSelectedDatabases(dbs.map((db: any) => db.connectionId));
       }
     }
   }, [existingAgent, agentDocuments, isEditing, form]);
@@ -747,11 +761,12 @@ export default function CreateAgentChatbot() {
 
       // Use only the selected documents (folders are converted to individual documents)
       const allDocumentIds = [...new Set(selectedDocuments)];
+      const allDatabaseIds = [...new Set(selectedDatabases)];
 
       const finalData = {
         ...data,
         documentIds: allDocumentIds,
-        databaseIds: selectedDatabases,
+        databaseIds: allDatabaseIds,
         guardrailsConfig,
         // Ensure arrays are properly formatted
         specialSkills: Array.isArray(data.specialSkills) ? data.specialSkills : [],
@@ -1705,10 +1720,10 @@ export default function CreateAgentChatbot() {
                           <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                               <BookOpen className="h-5 w-5" />
-                              Knowledge Base (RAG Documents & Folders)
+                              Knowledge Base (Documents & Folders)
                             </CardTitle>
                             <CardDescription>
-                              Select individual documents or entire folders. You can deselect specific files from folders if needed.
+                              Select individual documents or entire folders for this agent's knowledge base.
                             </CardDescription>
                           </CardHeader>
                           <CardContent>
@@ -1890,6 +1905,56 @@ export default function CreateAgentChatbot() {
                                   <div className="text-center py-4 text-slate-500">
                                     <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
                                     <p>No documents or folders found</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Database Connections */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Database className="h-5 w-5" />
+                              Database Connections
+                            </CardTitle>
+                            <CardDescription>
+                              Connect databases to enable your agent to query data and answer questions from your databases.
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              {/* Database Selection Component */}
+                              <DatabaseConnectionSelector 
+                                agentId={isEditing ? parseInt(editAgentId!) : 0}
+                                selectedConnections={selectedDatabases}
+                                onConnectionsChange={setSelectedDatabases}
+                              />
+
+                              {/* Database Info */}
+                              <div className="bg-amber-50 rounded-lg p-4 space-y-2">
+                                <h4 className="font-medium text-amber-900 flex items-center gap-2">
+                                  <Info className="w-4 h-4" />
+                                  Database Integration
+                                </h4>
+                                <div className="text-sm text-amber-700 space-y-1">
+                                  <p>• Your agent will be able to generate and execute SQL queries</p>
+                                  <p>• Only read-only operations are allowed for security</p>
+                                  <p>• Database schema will be automatically analyzed</p>
+                                  <p>• Queries are validated before execution</p>
+                                </div>
+                                {selectedDatabases.length === 0 && (
+                                  <div className="mt-3 p-3 bg-white rounded border">
+                                    <p className="text-sm text-slate-600 mb-2">
+                                      No databases connected yet. To get started:
+                                    </p>
+                                    <ol className="text-sm text-slate-600 space-y-1 list-decimal list-inside">
+                                      <li>Go to <Link href="/data-connections" className="text-blue-600 hover:underline">Data Connections</Link> to create a database connection</li>
+                                      <li>Configure your database credentials</li>
+                                      <li>Test the connection</li>
+                                      <li>Return here to select the database for this agent</li>
+                                    </ol>
                                   </div>
                                 )}
                               </div>

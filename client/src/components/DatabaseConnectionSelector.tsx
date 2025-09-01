@@ -83,9 +83,15 @@ export default function DatabaseConnectionSelector({
               <CardContent className="p-6 text-center">
                 <Database className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p className="text-slate-500 mb-4">No database connections available</p>
-                <Button variant="outline" onClick={() => setOpen(false)}>
+                <p className="text-xs text-slate-400 mb-4">
+                  Create database connections first to enable your agent to query data
+                </p>
+                <Button variant="outline" onClick={() => {
+                  setOpen(false);
+                  window.open('/data-connections', '_blank');
+                }}>
                   <Plus className="w-4 h-4 mr-2" />
-                  Add Database Connection
+                  Create Database Connection
                 </Button>
               </CardContent>
             </Card>

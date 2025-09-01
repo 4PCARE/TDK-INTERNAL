@@ -16,6 +16,7 @@ import {
   userFavorites,
   agentChatbots,
   agentChatbotDocuments,
+  agentDatabaseConnections,
   socialIntegrations,
   chatHistory,
   lineMessageTemplates,
