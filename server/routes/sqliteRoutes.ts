@@ -3,7 +3,7 @@ import { isAuthenticated } from "../replitAuth";
 import { sqliteService } from "../services/sqliteService";
 import multer from "multer";
 import path from "path";
-import { storage } from "../services/storageService"; // Assuming storage is used elsewhere in the original code
+import { storage } from "../storage"; // Use the correct storage import
 
 const upload = multer({ dest: 'uploads/sqlite-temp/' });
 
