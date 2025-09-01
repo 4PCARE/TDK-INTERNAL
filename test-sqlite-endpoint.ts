@@ -14,17 +14,19 @@ interface TestResult {
 
 async function makeAuthenticatedRequest(endpoint: string, options: any = {}): Promise<TestResult> {
   try {
-    // Add test bypass header for authentication
+    // Add test bypass header for authentication with multiple formats
     const authHeaders = [
       '-H "Content-Type: application/json"',
       '-H "Accept: application/json"',
-      '-H "X-Test-Bypass: allow-sqlite-testing"'
+      '-H "X-Test-Bypass: allow-sqlite-testing"',
+      '-H "x-test-bypass: allow-sqlite-testing"'
     ].join(' ');
 
     const curlCommand = `curl -s -w "HTTPSTATUS:%{http_code}" ${authHeaders} ${options.method ? `-X ${options.method}` : ''} ${options.data ? `-d '${JSON.stringify(options.data)}'` : ''} "http://localhost:5000${endpoint}"`;
 
     console.log(`🔍 Testing: ${endpoint}`);
     console.log(`📤 Command: ${curlCommand}`);
+    console.log(`🔍 Headers being sent: X-Test-Bypass and x-test-bypass both with 'allow-sqlite-testing'`);
 
     const { stdout, stderr } = await execAsync(curlCommand);
 
