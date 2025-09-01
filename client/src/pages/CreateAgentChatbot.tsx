@@ -796,6 +796,16 @@ export default function CreateAgentChatbot() {
       console.log("Selected documents:", selectedDocuments);
       console.log("Selected databases:", selectedDatabases);
       console.log("All document IDs:", allDocumentIds);
+      console.log("All database IDs (final):", allDatabaseIds);
+      console.log("Is editing mode:", isEditing);
+      
+      // Debug database update specifically for editing mode
+      if (isEditing) {
+        console.log("🔧 EDIT MODE: Database connections update");
+        console.log("- Original selected databases:", selectedDatabases);
+        console.log("- Final database IDs to send:", allDatabaseIds);
+        console.log("- Edit agent ID:", editAgentId);
+      }
 
       saveAgentMutation.mutate(finalData);
     } catch (error) {

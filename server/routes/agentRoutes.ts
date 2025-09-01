@@ -1837,6 +1837,7 @@ Generate only the title, nothing else:`;
 
       console.log("Updating agent with data:", JSON.stringify(agentData, null, 2));
       console.log("Agent guardrails config:", agentData.guardrailsConfig);
+      console.log("Database IDs to update:", databaseIds);
 
       // Update the agent
       const updatedAgent = await storage.updateAgentChatbot(agentId, agentData, userId);
@@ -1856,18 +1857,28 @@ Generate only the title, nothing else:`;
         }
       }
 
-      // Update associated database connections
+      // Update associated database connections - always refresh
+      console.log("Removing all existing database connections for agent:", agentId);
       await storage.removeAllDatabasesFromAgent(agentId, userId);
+      
       if (databaseIds.length > 0) {
         console.log("Adding", databaseIds.length, "database connections to agent");
         for (const connectionId of databaseIds) {
           try {
+            console.log(`Adding database connection ${connectionId} to agent ${agentId}`);
             await storage.addDatabaseToAgent(agentId, connectionId, userId);
+            console.log(`Successfully added database connection ${connectionId}`);
           } catch (error) {
             console.error(`Failed to add database ${connectionId}:`, error);
           }
         }
+      } else {
+        console.log("No database connections to add for agent:", agentId);
       }
+
+      // Verify the database connections were properly updated
+      const verifyConnections = await storage.getAgentDatabaseConnections(agentId, userId);
+      console.log("Verified database connections after update:", verifyConnections.length);
 
       res.json(updatedAgent);
     } catch (error) {
