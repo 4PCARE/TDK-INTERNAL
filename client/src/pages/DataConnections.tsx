@@ -273,7 +273,13 @@ export default function DataConnections() {
         console.log(`  ${key}:`, value);
       }
 
-      return await apiRequest("POST", "/api/sqlite/create-database", formData);
+      // Create a promise with timeout
+      const requestPromise = apiRequest("POST", "/api/sqlite/create-database", formData);
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout after 30 seconds')), 30000);
+      });
+
+      return await Promise.race([requestPromise, timeoutPromise]);
     },
     onSuccess: () => {
       toast({
@@ -286,7 +292,9 @@ export default function DataConnections() {
       setExistingFileId("");
       queryClient.invalidateQueries({ queryKey: ['/api/database-connections'] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error('SQLite creation error:', error);
+      
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -298,9 +306,25 @@ export default function DataConnections() {
         }, 500);
         return;
       }
+
+      let errorMessage = "Failed to create SQLite database";
+      
+      if (error.message === 'Request timeout after 30 seconds') {
+        errorMessage = "Request timed out. Please try again with a smaller file.";
+      } else if (error.message && error.message.includes('Selected file no longer exists')) {
+        errorMessage = "The selected file no longer exists. Please upload a new file.";
+        // Clear the existing file selection
+        setExistingFileId("");
+      } else if (error.message && error.message.includes('File with ID')) {
+        errorMessage = "The selected file is no longer available. Please choose another file.";
+        setExistingFileId("");
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
       toast({
         title: "Error",
-        description: "Failed to create SQLite database",
+        description: errorMessage,
         variant: "destructive",
       });
     },

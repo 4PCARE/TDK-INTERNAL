@@ -16,8 +16,19 @@ export function registerSQLiteRoutes(app: Express) {
     try {
       const userId = req.user.claims.sub;
       console.log('🔍 User ID from claims:', userId);
-      const files = await sqliteService.getExistingExcelCsvFiles(userId);
-      res.json(files);
+      const allFiles = await sqliteService.getExistingExcelCsvFiles(userId);
+      
+      // Filter out files that don't exist on the filesystem
+      const existingFiles = allFiles.filter(file => {
+        const exists = fs.existsSync(file.filePath);
+        if (!exists) {
+          console.log(`🗑️ File no longer exists: ${file.fileName} at ${file.filePath}`);
+        }
+        return exists;
+      });
+      
+      console.log(`🔍 Found ${allFiles.length} total files, ${existingFiles.length} actually exist`);
+      res.json(existingFiles);
     } catch (error) {
       console.error("Error fetching existing files:", error);
       res.status(500).json({ message: "Failed to fetch existing files" });
@@ -118,12 +129,9 @@ export function registerSQLiteRoutes(app: Express) {
               console.log('❌ File does not exist at path:', filePath);
               console.log('🔍 Available files in selectedFile:', selectedFile);
               return res.status(400).json({ 
-                message: `Selected file no longer exists: ${selectedFile.fileName}`,
-                debug: {
-                  expectedPath: filePath,
-                  fileName: selectedFile.fileName,
-                  fileId: selectedFile.id
-                }
+                message: `The selected file "${selectedFile.fileName}" no longer exists on the server. Please upload a new file or select a different existing file.`,
+                code: 'FILE_NOT_FOUND',
+                fileName: selectedFile.fileName
               });
             }
           } else {
