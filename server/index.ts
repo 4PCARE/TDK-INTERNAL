@@ -9,6 +9,15 @@ import debugChunkTest from "./debug-chunk-test";
 import { registerHrApiRoutes } from "./hrApi";
 import { setupVite, serveStatic, log } from "./vite";
 import { registerDatabaseAIRoutes } from "./routes/databaseAIRoutes";
+import { registerSQLiteRoutes } from "./routes/sqliteRoutes";
+import { registerAgentRoutes } from "./routes/agentRoutes";
+import { registerIntegrationRoutes } from "./routes/integrationRoutes";
+import { registerWidgetRoutes } from "./routes/widgetRoutes";
+import { registerChatBotRoutes } from "./routes/chatBotRoutes";
+import { registerAnalyticRoutes } from "./routes/analyticRoutes";
+import { registerDocumentRoutes } from "./routes/documentRoutes";
+import { registerFolderRoutes } from "./routes/folderRoutes";
+
 
 const app = express();
 

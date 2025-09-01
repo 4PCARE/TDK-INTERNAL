@@ -1,4 +1,3 @@
-
 import OpenAI from 'openai';
 import { DatabaseQueryService, DatabaseSchema } from './databaseQueryService';
 import { databaseConnector, DatabaseConnection } from './databaseConnector';
@@ -20,20 +19,20 @@ class BM25 {
     const queryTerms = query.toLowerCase().split(' ');
     const docTerms = doc.toLowerCase().split(' ');
     const docLength = docTerms.length;
-    
+
     let score = 0;
-    
+
     for (const term of queryTerms) {
       const tf = docTerms.filter(t => t === term).length;
       const df = this.corpus.filter(d => d.toLowerCase().includes(term)).length;
       const idf = Math.log((this.corpus.length - df + 0.5) / (df + 0.5));
-      
+
       const numerator = tf * (this.k1 + 1);
       const denominator = tf + this.k1 * (1 - this.b + this.b * (docLength / this.avgdl!));
-      
+
       score += idf * (numerator / denominator);
     }
-    
+
     return score;
   }
 }
@@ -57,6 +56,7 @@ export interface QueryResult {
   error?: string;
   executionTime?: number;
   explanation?: string;
+  rowCount?: number;
 }
 
 export class AIDatabaseAgent {
@@ -111,7 +111,7 @@ export class AIDatabaseAgent {
 
       // Validate and execute the query
       const executionResult = await this.queryService.executeQuery(connectionId, sqlQuery, userId);
-      
+
       return {
         success: executionResult.success,
         sql: sqlQuery,
@@ -184,14 +184,14 @@ IMPORTANT GUIDELINES:
       const columns = table.columns.map(col => 
         `  ${col.name} (${col.type}${col.nullable ? ', nullable' : ''})`
       ).join('\n');
-      
+
       return `Table: ${table.name}\n${columns}`;
     }).join('\n\n');
   }
 
   private formatSnippetsForPrompt(snippets: SQLSnippet[]): string {
     if (snippets.length === 0) return 'No example patterns available.';
-    
+
     return snippets.map((snippet, index) => 
       `Example ${index + 1}: ${snippet.name}\n${snippet.description}\n${snippet.sql}\n`
     ).join('\n');
@@ -206,13 +206,13 @@ IMPORTANT GUIDELINES:
     try {
       // Get all snippets for this connection
       const allSnippets = await storage.getSQLSnippets(connectionId, userId);
-      
+
       if (allSnippets.length === 0) return [];
 
       // Use BM25 for similarity scoring
       const corpus = allSnippets.map(s => `${s.name} ${s.description} ${s.sql}`);
       const bm25 = new BM25(corpus);
-      
+
       const scoredSnippets = allSnippets.map(snippet => ({
         snippet,
         score: bm25.score(userQuery, `${snippet.name} ${snippet.description} ${snippet.sql}`)
