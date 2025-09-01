@@ -17,7 +17,7 @@ export function registerSQLiteRoutes(app: Express) {
       const userId = req.user.claims.sub;
       console.log('🔍 User ID from claims:', userId);
       const allFiles = await sqliteService.getExistingExcelCsvFiles(userId);
-      
+
       // Filter out files that don't exist on the filesystem
       const existingFiles = allFiles.filter(file => {
         const exists = fs.existsSync(file.filePath);
@@ -26,7 +26,7 @@ export function registerSQLiteRoutes(app: Express) {
         }
         return exists;
       });
-      
+
       console.log(`🔍 Found ${allFiles.length} total files, ${existingFiles.length} actually exist`);
       res.json(existingFiles);
     } catch (error) {
@@ -103,10 +103,10 @@ export function registerSQLiteRoutes(app: Express) {
     console.log('🔍 SQLite create-database endpoint hit');
     try {
       const userId = req.user.claims.sub;
-      
+
       // Handle both JSON and FormData requests
       let filePath, dbName, tableName, description, snippets;
-      
+
       if (req.is('multipart/form-data')) {
         // FormData request
         filePath = req.body.filePath;
@@ -114,7 +114,7 @@ export function registerSQLiteRoutes(app: Express) {
         tableName = req.body.tableName;
         description = req.body.description || '';
         snippets = req.body.snippets ? JSON.parse(req.body.snippets) : [];
-        
+
         // Handle existing file ID
         if (req.body.existingFileId && !filePath) {
           const existingFiles = await sqliteService.getExistingExcelCsvFiles(userId);
@@ -123,7 +123,7 @@ export function registerSQLiteRoutes(app: Express) {
             // Use the actual file path from the database
             filePath = selectedFile.filePath;
             console.log('🔍 Using existing file:', selectedFile.fileName, 'at path:', filePath);
-            
+
             // Check if file actually exists
             if (!fs.existsSync(filePath)) {
               console.log('❌ File does not exist at path:', filePath);
@@ -141,7 +141,7 @@ export function registerSQLiteRoutes(app: Express) {
             });
           }
         }
-        
+
         // Handle uploaded file
         if (req.file && !filePath) {
           filePath = req.file.path;
@@ -150,7 +150,7 @@ export function registerSQLiteRoutes(app: Express) {
         // JSON request
         ({ filePath, dbName, tableName, description = '', snippets = [] } = req.body);
       }
-      
+
       console.log('🔍 User ID:', userId, 'DB Name:', dbName, 'Table Name:', tableName, 'File Path:', filePath);
 
       if (!filePath || !dbName || !tableName) {
@@ -168,6 +168,24 @@ export function registerSQLiteRoutes(app: Express) {
         userId,
         snippets
       );
+
+      // Store database connection in existing system
+      const connectionData = {
+        name: dbName,
+        description,
+        type: 'sqlite' as const,
+        dbType: 'sqlite',
+        host: 'localhost',
+        port: 0,
+        database: dbInfo.filePath, // Use the actual path from dbInfo
+        username: '',
+        password: '',
+        isActive: true,
+        userId
+      };
+
+      await storage.saveDataConnection(connectionData);
+      console.log('💾 Saved connection details for new database:', dbName);
 
       res.json({
         success: true,

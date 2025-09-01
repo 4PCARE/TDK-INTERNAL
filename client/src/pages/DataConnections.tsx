@@ -290,7 +290,13 @@ export default function DataConnections() {
       setSqliteForm({ name: "", tableName: "", description: "", snippets: [] });
       setSelectedFile(null);
       setExistingFileId("");
+      
+      // Force refresh the database connections list
       queryClient.invalidateQueries({ queryKey: ['/api/database-connections'] });
+      queryClient.refetchQueries({ queryKey: ['/api/database-connections'] });
+      
+      // Also refresh the existing files list
+      queryClient.invalidateQueries({ queryKey: ['/api/sqlite/existing-files'] });
     },
     onError: (error: any) => {
       console.error('SQLite creation error:', error);
