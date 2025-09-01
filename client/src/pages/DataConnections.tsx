@@ -1154,7 +1154,7 @@ export default function DataConnections() {
                               Add PostgreSQL
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
+                          <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto">
                             <DialogHeader>
                               <DialogTitle>Create PostgreSQL Connection</DialogTitle>
                               <DialogDescription>
@@ -1280,7 +1280,7 @@ export default function DataConnections() {
                               Add MySQL
                             </Button>
                           </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
+                          <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto">
                             <DialogHeader>
                               <DialogTitle>Create MySQL Connection</DialogTitle>
                               <DialogDescription>
