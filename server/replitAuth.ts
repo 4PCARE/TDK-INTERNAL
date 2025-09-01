@@ -79,14 +79,28 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
-  await storage.upsertUser({
+  const userInfo = {
     id: claims["sub"],
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
     loginMethod: "replit",
-  });
+  };
+
+  try {
+    const upsertResult = await storage.upsertUser(userInfo);
+    
+    // If the upserted user has a different ID than what we expected,
+    // update the claims to use the existing user's ID
+    if (upsertResult.id !== userInfo.id) {
+      console.log(`Replit auth: Using existing user ID ${upsertResult.id} instead of ${userInfo.id} for email ${userInfo.email}`);
+      claims["sub"] = upsertResult.id; // Update claims for session consistency
+    }
+  } catch (error) {
+    console.error("Error upserting Replit user:", error);
+    throw error;
+  }
 }
 
 export async function setupAuth(app: Express) {

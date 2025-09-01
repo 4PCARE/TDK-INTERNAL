@@ -111,11 +111,18 @@ export async function setupMicrosoftAuth(app: Express) {
 
       console.log("Extracted userInfo for database:", userInfo);
 
-      // Upsert user in database
+      // Upsert user in database with cross-provider handling
       try {
         const upsertResult = await storage.upsertUser(userInfo);
         console.log("User upsert result:", upsertResult);
         console.log("User info being upserted:", userInfo);
+        
+        // If the upserted user has a different ID than what we expected,
+        // update the profile to use the existing user's ID
+        if (upsertResult.id !== userInfo.id) {
+          console.log(`Microsoft auth: Using existing user ID ${upsertResult.id} instead of ${userInfo.id} for email ${userInfo.email}`);
+          userInfo.id = upsertResult.id; // Update for session creation
+        }
       } catch (error) {
         console.error("Error upserting Microsoft user:", error);
         throw error;
@@ -239,10 +246,17 @@ export async function setupMicrosoftAuth(app: Express) {
 
         console.log("Extracted userInfo for database (dynamic):", userInfo);
 
-        // Upsert user in database
+        // Upsert user in database with cross-provider handling
         try {
           const upsertResult = await storage.upsertUser(userInfo);
           console.log("User upsert result (dynamic):", upsertResult);
+          
+          // If the upserted user has a different ID than what we expected,
+          // update the profile to use the existing user's ID
+          if (upsertResult.id !== userInfo.id) {
+            console.log(`Microsoft auth (dynamic): Using existing user ID ${upsertResult.id} instead of ${userInfo.id} for email ${userInfo.email}`);
+            userInfo.id = upsertResult.id; // Update for session creation
+          }
         } catch (error) {
           console.error("Error upserting Microsoft user (dynamic):", error);
           throw error;

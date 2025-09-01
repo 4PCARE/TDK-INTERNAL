@@ -72,6 +72,7 @@ export interface IStorage {
   // User operations
   // (IMPORTANT) these user operations are mandatory for Replit Auth.
   getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
 
   // Category operations
@@ -270,34 +271,82 @@ export class DatabaseStorage implements IStorage {
   // (IMPORTANT) these user operations are mandatory for Replit Auth.
 
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      return user;
+    } catch (error) {
+      console.error("Error getting user:", error);
+      throw error;
+    }
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.email, email));
+      return user;
+    } catch (error) {
+      console.error("Error getting user by email:", error);
+      throw error;
+    }
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
     console.log("Storage upsertUser called with:", userData);
 
-    const [user] = await db
-      .insert(users)
-      .values({
-        ...userData,
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
+    try {
+      // First check if there's an existing user with this email but different ID
+      const existingUserByEmail = await this.getUserByEmail(userData.email);
+
+      if (existingUserByEmail && existingUserByEmail.id !== userData.id) {
+        console.log(`Cross-provider account detected: email ${userData.email} exists with ID ${existingUserByEmail.id}, but trying to create/update with ID ${userData.id}`);
+
+        // Update the existing user with the new login method and latest info
+        const [updatedUser] = await db
+          .update(users)
+          .set({
+            firstName: userData.firstName || existingUserByEmail.firstName,
+            lastName: userData.lastName || existingUserByEmail.lastName,
+            profileImageUrl: userData.profileImageUrl || existingUserByEmail.profileImageUrl,
+            loginMethod: userData.loginMethod, // Update to the current login method
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, existingUserByEmail.id))
+          .returning();
+
+        console.log("Storage upsertUser - merged existing user:", updatedUser);
+        return updatedUser;
+      }
+
+      // Normal upsert for same ID or new email
+      const [user] = await db
+        .insert(users)
+        .values({
+          id: userData.id,
           email: userData.email,
           firstName: userData.firstName,
           lastName: userData.lastName,
           profileImageUrl: userData.profileImageUrl,
-          loginMethod: userData.loginMethod || "replit",
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
+          loginMethod: userData.loginMethod,
+        })
+        .onConflictDoUpdate({
+          target: users.id,
+          set: {
+            email: userData.email,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            profileImageUrl: userData.profileImageUrl,
+            loginMethod: userData.loginMethod,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
 
-    console.log("Storage upsertUser result:", user);
-    return user;
+      console.log("Storage upsertUser result:", user);
+      return user;
+    } catch (error) {
+      console.error("Error upserting user:", error);
+      throw error;
+    }
   }
 
   // Category operations
