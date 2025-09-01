@@ -1,0 +1,44 @@
+Uncaught ReferenceError: setQueryConnection is not defined
+    at onClick (DataConnections.tsx:101:15)
+    at HTMLUnknownElement.callCallback2 (chunk-RPCDYKBN.js?v=792b59ee:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-RPCDYKBN.js?v=792b59ee:3699:24)
+    at invokeGuardedCallback (chunk-RPCDYKBN.js?v=792b59ee:3733:39)
+    at invokeGuardedCallbackAndCatchFirstError (chunk-RPCDYKBN.js?v=792b59ee:3736:33)
+    at executeDispatch (chunk-RPCDYKBN.js?v=792b59ee:7014:11)
+    at processDispatchQueueItemsInOrder (chunk-RPCDYKBN.js?v=792b59ee:7034:15)
+    at processDispatchQueue (chunk-RPCDYKBN.js?v=792b59ee:7043:13)
+    at dispatchEventsForPlugins (chunk-RPCDYKBN.js?v=792b59ee:7051:11)
+    at chunk-RPCDYKBN.js?v=792b59ee:7174:20Understand this error
+chunk-RPCDYKBN.js?v=792b59ee:3750 Uncaught ReferenceError: setQueryConnection is not defined
+    at onClick (DataConnections.tsx:101:15)
+    at HTMLUnknownElement.callCallback2 (chunk-RPCDYKBN.js?v=792b59ee:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-RPCDYKBN.js?v=792b59ee:3699:24)
+    at invokeGuardedCallback (chunk-RPCDYKBN.js?v=792b59ee:3733:39)
+    at invokeGuardedCallbackAndCatchFirstError (chunk-RPCDYKBN.js?v=792b59ee:3736:33)
+    at executeDispatch (chunk-RPCDYKBN.js?v=792b59ee:7014:11)
+    at processDispatchQueueItemsInOrder (chunk-RPCDYKBN.js?v=792b59ee:7034:15)
+    at processDispatchQueue (chunk-RPCDYKBN.js?v=792b59ee:7043:13)
+    at dispatchEventsForPlugins (chunk-RPCDYKBN.js?v=792b59ee:7051:11)
+    at chunk-RPCDYKBN.js?v=792b59ee:7174:20Understand this error
+DataConnections.tsx:101 Uncaught ReferenceError: setQueryConnection is not defined
+    at onClick (DataConnections.tsx:101:15)
+    at HTMLUnknownElement.callCallback2 (chunk-RPCDYKBN.js?v=792b59ee:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-RPCDYKBN.js?v=792b59ee:3699:24)
+    at invokeGuardedCallback (chunk-RPCDYKBN.js?v=792b59ee:3733:39)
+    at invokeGuardedCallbackAndCatchFirstError (chunk-RPCDYKBN.js?v=792b59ee:3736:33)
+    at executeDispatch (chunk-RPCDYKBN.js?v=792b59ee:7014:11)
+    at processDispatchQueueItemsInOrder (chunk-RPCDYKBN.js?v=792b59ee:7034:15)
+    at processDispatchQueue (chunk-RPCDYKBN.js?v=792b59ee:7043:13)
+    at dispatchEventsForPlugins (chunk-RPCDYKBN.js?v=792b59ee:7051:11)
+    at chunk-RPCDYKBN.js?v=792b59ee:7174:20Understand this error
+chunk-RPCDYKBN.js?v=792b59ee:3750 Uncaught ReferenceError: setQueryConnection is not defined
+    at onClick (DataConnections.tsx:101:15)
+    at HTMLUnknownElement.callCallback2 (chunk-RPCDYKBN.js?v=792b59ee:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-RPCDYKBN.js?v=792b59ee:3699:24)
+    at invokeGuardedCallback (chunk-RPCDYKBN.js?v=792b59ee:3733:39)
+    at invokeGuardedCallbackAndCatchFirstError (chunk-RPCDYKBN.js?v=792b59ee:3736:33)
+    at executeDispatch (chunk-RPCDYKBN.js?v=792b59ee:7014:11)
+    at processDispatchQueueItemsInOrder (chunk-RPCDYKBN.js?v=792b59ee:7034:15)
+    at processDispatchQueue (chunk-RPCDYKBN.js?v=792b59ee:7043:13)
+    at dispatchEventsForPlugins (chunk-RPCDYKBN.js?v=792b59ee:7051:11)
+    at chunk-RPCDYKBN.js?v=792b59ee:7174:20
