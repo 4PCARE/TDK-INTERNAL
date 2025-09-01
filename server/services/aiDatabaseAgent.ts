@@ -111,17 +111,31 @@ export class AIDatabaseAgent {
       }
 
       // Validate and execute the query
-      const executionResult = await this.queryService.executeQuery(connectionId, sqlQuery, userId);
+      try {
+        const executionResult = await this.queryService.executeQuery(connectionId, sqlQuery, userId);
+        console.log('🤖 AI Database Agent - Query execution result:', {
+          success: executionResult.success,
+          rowCount: executionResult.data?.length || 0,
+          error: executionResult.error
+        });
 
-      return {
-        success: executionResult.success,
-        sql: sqlQuery,
-        data: executionResult.data,
-        columns: executionResult.columns,
-        error: executionResult.error,
-        executionTime: executionResult.executionTime,
-        explanation: await this.generateExplanation(sqlQuery, userQuery, executionResult)
-      };
+        return {
+          success: executionResult.success,
+          sql: sqlQuery,
+          data: executionResult.data,
+          columns: executionResult.columns,
+          error: executionResult.error,
+          executionTime: executionResult.executionTime,
+          explanation: await this.generateExplanation(sqlQuery, userQuery, executionResult)
+        };
+      } catch (queryError) {
+        console.error('🤖 AI Database Agent - Query execution failed:', queryError);
+        return {
+          success: false,
+          sql: sqlQuery,
+          error: `Database query failed: ${queryError instanceof Error ? queryError.message : 'Unknown error'}`
+        };
+      }
 
     } catch (error) {
       console.error('Error in AI database agent:', error);
@@ -178,8 +192,26 @@ IMPORTANT GUIDELINES:
       if (!response) return null;
 
       // Extract SQL from response (remove any markdown formatting)
-      const sqlMatch = response.match(/```sql\n([\s\S]*?)\n```/) || response.match(/```\n([\s\S]*?)\n```/);
-      return sqlMatch ? sqlMatch[1].trim() : response.trim();
+      let cleanSQL = response.trim();
+      
+      // Remove markdown code fences
+      if (cleanSQL.includes('```sql')) {
+        const sqlMatch = cleanSQL.match(/```sql\s*\n?([\s\S]*?)\n?```/);
+        if (sqlMatch) {
+          cleanSQL = sqlMatch[1].trim();
+        }
+      } else if (cleanSQL.includes('```')) {
+        const codeMatch = cleanSQL.match(/```\s*\n?([\s\S]*?)\n?```/);
+        if (codeMatch) {
+          cleanSQL = codeMatch[1].trim();
+        }
+      }
+      
+      // Remove any remaining backticks at start/end
+      cleanSQL = cleanSQL.replace(/^`+|`+$/g, '');
+      
+      console.log('🤖 AI Database Agent - Cleaned SQL:', cleanSQL);
+      return cleanSQL;
 
     } catch (error) {
       console.error('OpenAI API error:', error);
