@@ -764,26 +764,23 @@ Be friendly and helpful.`;
         const { searchSmartHybridDebug } = await import(
           "./services/newSearch"
         );
-        // Pass original query to vector search while using enhanced query for keywords
-        console.log(`🔍 AgentBot: Query needs search - checking database results first`);
         const searchResults = await searchSmartHybridDebug(
-          userMessage, // Use ORIGINAL query for vector search
-          userId,
-          {
-            specificDocumentIds: agentDocs.map(doc => doc.id),
-            enhancedQuery: queryAnalysis.enhancedQuery, // Enhanced query for keyword search only
-            keywordWeight: parseFloat(queryAnalysis.keywordWeight),
-            vectorWeight: parseFloat(queryAnalysis.vectorWeight),
-            massSelectionPercentage: searchConfig.chunkMaxType === 'percentage'
-              ? searchConfig.chunkMaxValue / 100
-              : 0.3, // Default 30%
-            chunkMaxType: searchConfig.chunkMaxType || 'number',
-            chunkMaxValue: searchConfig.chunkMaxValue || 16,
-            isLineOAContext: true,
-            documentTokenLimit: searchConfig.documentTokenLimit,
-            finalTokenLimit: searchConfig.finalTokenLimit,
-          }
-        );
+            queryAnalysis.enhancedQuery || userMessage,
+            userId,
+            {
+              specificDocumentIds: agentDocIds,
+              keywordWeight: searchConfig.keywordWeight,
+              vectorWeight: searchConfig.vectorWeight,
+              threshold: 0.3,
+              massSelectionPercentage: searchConfig.documentMass || 0.6,
+              enhancedQuery: queryAnalysis.enhancedQuery || userMessage,
+              isLineOAContext: true,
+              chunkMaxType: searchConfig.chunkMaxType || 'number',
+              chunkMaxValue: searchConfig.chunkMaxValue || 16,
+              documentTokenLimit: searchConfig.documentTokenLimit,
+              finalTokenLimit: searchConfig.finalTokenLimit,
+            },
+          );
 
         console.log(
           `🔍 AgentBot: Smart hybrid search found ${searchResults.length} relevant chunks from agent's bound documents`,
