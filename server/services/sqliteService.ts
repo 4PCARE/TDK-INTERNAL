@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import csv from 'csv-parser';
-import * as XLSX from 'xlsx';
+import XLSX from 'xlsx';
 import { storage } from '../storage';
 
 export interface TableSchema {
