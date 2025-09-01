@@ -2740,54 +2740,42 @@ export class DatabaseStorage implements IStorage {
     userId: string;
     embedding?: number[];
   }) {
-    const result = await this.db
-      .insert(sql.table("sql_snippets", {
-        id: sql.serial("id").primaryKey(),
-        name: sql.varchar("name", { length: 255 }).notNull(),
-        sql: sql.text("sql").notNull(),
-        description: sql.text("description").default(''),
-        connectionId: sql.integer("connection_id").notNull(),
-        userId: sql.varchar("user_id").notNull(),
-        embedding: sql.vector("embedding", { dimensions: 1536 }),
-        createdAt: sql.timestamp("created_at").defaultNow(),
-        updatedAt: sql.timestamp("updated_at").defaultNow(),
-      }))
-      .values({
-        name: snippet.name,
-        sql: snippet.sql,
-        description: snippet.description,
-        connectionId: snippet.connectionId,
-        userId: snippet.userId,
-        embedding: snippet.embedding ? JSON.stringify(snippet.embedding) : null,
-      })
-      .returning();
-
-    return result[0];
+    try {
+      const result = await db.execute(sql`
+        INSERT INTO sql_snippets (name, sql, description, connection_id, user_id, embedding, created_at, updated_at)
+        VALUES (${snippet.name}, ${snippet.sql}, ${snippet.description}, ${snippet.connectionId}, ${snippet.userId}, ${snippet.embedding ? JSON.stringify(snippet.embedding) : null}, NOW(), NOW())
+        RETURNING *
+      `);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error creating SQL snippet:', error);
+      throw error;
+    }
   }
 
   async getSQLSnippets(connectionId: number, userId: string) {
-    const result = await this.db
-      .select()
-      .from(sql.table("sql_snippets"))
-      .where(
-        sql.and(
-          sql.eq(sql.table("sql_snippets").connectionId, connectionId),
-          sql.eq(sql.table("sql_snippets").userId, userId)
-        )
-      )
-      .orderBy(sql.desc(sql.table("sql_snippets").updatedAt));
+    try {
+      const result = await db.execute(sql`
+        SELECT * FROM sql_snippets 
+        WHERE connection_id = ${connectionId} AND user_id = ${userId}
+        ORDER BY updated_at DESC
+      `);
 
-    return result.map(row => ({
-      id: row.id,
-      name: row.name,
-      sql: row.sql,
-      description: row.description,
-      connectionId: row.connectionId,
-      userId: row.userId,
-      embedding: row.embedding ? JSON.parse(row.embedding) : null,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    }));
+      return result.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        sql: row.sql,
+        description: row.description,
+        connectionId: row.connection_id,
+        userId: row.user_id,
+        embedding: row.embedding ? JSON.parse(row.embedding) : null,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+    } catch (error) {
+      console.error('Error getting SQL snippets:', error);
+      return [];
+    }
   }
 
   async updateSQLSnippet(id: number, updates: Partial<{
@@ -2796,33 +2784,54 @@ export class DatabaseStorage implements IStorage {
     description: string;
     embedding: number[];
   }>, userId: string) {
-    const result = await this.db
-      .update(sql.table("sql_snippets"))
-      .set({
-        ...updates,
-        embedding: updates.embedding ? JSON.stringify(updates.embedding) : undefined,
-        updatedAt: new Date(),
-      })
-      .where(
-        sql.and(
-          sql.eq(sql.table("sql_snippets").id, id),
-          sql.eq(sql.table("sql_snippets").userId, userId)
-        )
-      )
-      .returning();
-
-    return result[0];
+    try {
+      const setClause = [];
+      const values = [];
+      
+      if (updates.name !== undefined) {
+        setClause.push('name = $' + (values.length + 1));
+        values.push(updates.name);
+      }
+      if (updates.sql !== undefined) {
+        setClause.push('sql = $' + (values.length + 1));
+        values.push(updates.sql);
+      }
+      if (updates.description !== undefined) {
+        setClause.push('description = $' + (values.length + 1));
+        values.push(updates.description);
+      }
+      if (updates.embedding !== undefined) {
+        setClause.push('embedding = $' + (values.length + 1));
+        values.push(JSON.stringify(updates.embedding));
+      }
+      
+      setClause.push('updated_at = NOW()');
+      values.push(id, userId);
+      
+      const result = await db.execute(sql`
+        UPDATE sql_snippets 
+        SET ${sql.raw(setClause.join(', '))}
+        WHERE id = $${values.length - 1} AND user_id = $${values.length}
+        RETURNING *
+      `);
+      
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error updating SQL snippet:', error);
+      throw error;
+    }
   }
 
   async deleteSQLSnippet(id: number, userId: string) {
-    await this.db
-      .delete(sql.table("sql_snippets"))
-      .where(
-        sql.and(
-          sql.eq(sql.table("sql_snippets").id, id),
-          sql.eq(sql.table("sql_snippets").userId, userId)
-        )
-      );
+    try {
+      await db.execute(sql`
+        DELETE FROM sql_snippets 
+        WHERE id = ${id} AND user_id = ${userId}
+      `);
+    } catch (error) {
+      console.error('Error deleting SQL snippet:', error);
+      throw error;
+    }
   }
 
   // AI Database Query History
@@ -2835,44 +2844,32 @@ export class DatabaseStorage implements IStorage {
     success: boolean;
     executionTime?: number;
   }) {
-    const result = await this.db
-      .insert(sql.table("ai_database_queries", {
-        id: sql.serial("id").primaryKey(),
-        userId: sql.varchar("user_id").notNull(),
-        connectionId: sql.integer("connection_id").notNull(),
-        userQuery: sql.text("user_query").notNull(),
-        generatedSql: sql.text("generated_sql"),
-        executionResult: sql.jsonb("execution_result"),
-        success: sql.boolean("success").default(false),
-        executionTime: sql.integer("execution_time"),
-        createdAt: sql.timestamp("created_at").defaultNow(),
-      }))
-      .values({
-        userId: query.userId,
-        connectionId: query.connectionId,
-        userQuery: query.userQuery,
-        generatedSql: query.generatedSql,
-        executionResult: query.executionResult,
-        success: query.success,
-        executionTime: query.executionTime,
-      })
-      .returning();
-
-    return result[0];
+    try {
+      const result = await db.execute(sql`
+        INSERT INTO ai_database_queries (user_id, connection_id, user_query, generated_sql, execution_result, success, execution_time, created_at)
+        VALUES (${query.userId}, ${query.connectionId}, ${query.userQuery}, ${query.generatedSql || null}, ${JSON.stringify(query.executionResult) || null}, ${query.success}, ${query.executionTime || null}, NOW())
+        RETURNING *
+      `);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error saving AI database query:', error);
+      throw error;
+    }
   }
 
   async getAIDatabaseQueryHistory(connectionId: number, userId: string, limit: number = 50) {
-    return await this.db
-      .select()
-      .from(sql.table("ai_database_queries"))
-      .where(
-        sql.and(
-          sql.eq(sql.table("ai_database_queries").connectionId, connectionId),
-          sql.eq(sql.table("ai_database_queries").userId, userId)
-        )
-      )
-      .orderBy(sql.desc(sql.table("ai_database_queries").createdAt))
-      .limit(limit);
+    try {
+      const result = await db.execute(sql`
+        SELECT * FROM ai_database_queries 
+        WHERE connection_id = ${connectionId} AND user_id = ${userId}
+        ORDER BY created_at DESC
+        LIMIT ${limit}
+      `);
+      return result.rows;
+    } catch (error) {
+      console.error('Error getting AI database query history:', error);
+      return [];
+    }
   }
 }
 
