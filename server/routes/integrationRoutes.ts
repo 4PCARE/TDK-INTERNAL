@@ -1,3 +1,5 @@
+import { isAuthenticated } from './shared';
+
 // Export function to register all integration routes
 export function registerIntegrationRoutes(app: any) {
   // Social Integrations routes
