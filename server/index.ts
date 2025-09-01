@@ -98,6 +98,17 @@ app.use((req, res, next) => {
   // Register SQLite routes
   registerSQLiteRoutes(app);
 
+  // Register database AI routes (this was missing!)
+  registerDatabaseAIRoutes(app);
+
+  // Register other route modules that might be missing
+  registerAgentRoutes(app);
+  registerIntegrationRoutes(app);
+  registerWidgetRoutes(app);
+  registerChatBotRoutes(app);
+  registerAnalyticRoutes(app);
+  registerDocumentRoutes(app);
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
