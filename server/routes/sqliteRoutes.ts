@@ -114,7 +114,6 @@ export function registerSQLiteRoutes(app: Express) {
             console.log('🔍 Using existing file:', selectedFile.fileName, 'at path:', filePath);
             
             // Check if file actually exists
-            const fs = require('fs');
             if (!fs.existsSync(filePath)) {
               console.log('❌ File does not exist at path:', filePath);
               console.log('🔍 Available files in selectedFile:', selectedFile);
