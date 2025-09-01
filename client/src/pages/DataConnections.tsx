@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -142,12 +142,16 @@ export default function DataConnections() {
   // Schema discovery queries
   const { data: schemaData, isLoading: schemaLoading } = useQuery({
     queryKey: [`/api/database-connections/${editingConnection?.id}/schema`],
-    enabled: editingConnection && selectedTab === 'schema',
+    enabled: !!(editingConnection?.id && selectedTab === 'schema'),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
   });
 
   const { data: inferenceData, isLoading: inferenceLoading } = useQuery({
     queryKey: [`/api/database-connections/${editingConnection?.id}/infer-types`],
-    enabled: editingConnection && selectedTab === 'inference',
+    enabled: !!(editingConnection?.id && selectedTab === 'inference'),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
   });
 
   // Form states for PostgreSQL
@@ -289,13 +293,35 @@ export default function DataConnections() {
         console.log(`  ${key}:`, value);
       }
 
-      // Create a promise with timeout
-      const requestPromise = apiRequest("POST", "/api/sqlite/create-database", formData);
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout after 30 seconds')), 30000);
-      });
+      // Create abort controller for cleanup
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, 60000); // 60 seconds timeout
 
-      return await Promise.race([requestPromise, timeoutPromise]);
+      try {
+        const response = await fetch("/api/sqlite/create-database", {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        return await response.json();
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          throw new Error('Request timeout after 60 seconds');
+        }
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({
@@ -571,40 +597,52 @@ export default function DataConnections() {
     }
   ];
 
-  // Filter and sort connections
-  const filteredConnections = connections.filter(conn => {
-    if (!searchQuery) return true;
-    return conn.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           (conn.description && conn.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-           conn.type.toLowerCase().includes(searchQuery.toLowerCase());
-  }).sort((a, b) => {
-    let aValue, bValue;
+  // Filter and sort connections with memoization
+  const filteredConnections = useMemo(() => {
+    if (!connections || connections.length === 0) return [];
     
-    switch (sortBy) {
-      case 'name':
-        aValue = a.name.toLowerCase();
-        bValue = b.name.toLowerCase();
-        break;
-      case 'updatedAt':
-        aValue = new Date(a.updatedAt).getTime();
-        bValue = new Date(b.updatedAt).getTime();
-        break;
-      default: // createdAt
-        aValue = new Date(a.createdAt).getTime();
-        bValue = new Date(b.createdAt).getTime();
-        break;
-    }
-    
-    if (sortOrder === 'asc') {
-      return aValue > bValue ? 1 : -1;
-    } else {
-      return aValue < bValue ? 1 : -1;
-    }
-  });
+    const filtered = connections.filter(conn => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      return conn.name.toLowerCase().includes(query) ||
+             (conn.description && conn.description.toLowerCase().includes(query)) ||
+             conn.type.toLowerCase().includes(query);
+    });
 
-  const postgresConnections = filteredConnections.filter(conn => conn.type === 'postgresql');
-  const mysqlConnections = filteredConnections.filter(conn => conn.type === 'mysql');
-  const sqliteConnections = filteredConnections.filter(conn => conn.type === 'sqlite');
+    return filtered.sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortBy) {
+        case 'name':
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+          break;
+        case 'updatedAt':
+          aValue = new Date(a.updatedAt).getTime();
+          bValue = new Date(b.updatedAt).getTime();
+          break;
+        default: // createdAt
+          aValue = new Date(a.createdAt).getTime();
+          bValue = new Date(b.createdAt).getTime();
+          break;
+      }
+      
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+  }, [connections, searchQuery, sortBy, sortOrder]);
+
+  // Optimized connection type filtering
+  const connectionsByType = useMemo(() => {
+    return {
+      postgresql: filteredConnections.filter(conn => conn.type === 'postgresql'),
+      mysql: filteredConnections.filter(conn => conn.type === 'mysql'),
+      sqlite: filteredConnections.filter(conn => conn.type === 'sqlite')
+    };
+  }, [filteredConnections]);
 
   return (
     <DashboardLayout>
@@ -660,6 +698,11 @@ export default function DataConnections() {
             {connectionsLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-2 text-slate-600">Loading databases...</span>
+              </div>
+            ) : filteredConnections.length === 0 && searchQuery ? (
+              <div className="text-center py-8 text-slate-500">
+                No databases match your search criteria.
               </div>
             ) : filteredConnections.length === 0 ? (
               <div className="text-center py-8 text-slate-500">
@@ -750,7 +793,7 @@ export default function DataConnections() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {databaseTypes.map((dbType) => {
             const Icon = dbType.icon;
-            const existingConnections = connections.filter(conn => conn.type === dbType.id);
+            const existingConnections = connectionsByType[dbType.id as keyof typeof connectionsByType] || [];
 
             return (
               <Card key={dbType.id} className="relative overflow-hidden">
