@@ -229,7 +229,7 @@ export function registerSQLiteRoutes(app: Express) {
       const connectionData = {
         name: dbName,
         description,
-        type: 'sqlite' as const,
+        type: 'database' as const,
         dbType: 'sqlite',
         host: 'localhost',
         port: 0,
