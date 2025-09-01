@@ -45,6 +45,216 @@ import DashboardLayout from "@/components/Layout/DashboardLayout";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 
+// DatabaseConnectionCard component with data preview
+const DatabaseConnectionCard = ({ 
+  connection, 
+  onEdit 
+}: { 
+  connection: DatabaseConnection;
+  onEdit: (connection: DatabaseConnection) => void;
+}) => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [showPreview, setShowPreview] = useState(false);
+
+  const { data: schemaData, isLoading: schemaLoading } = useQuery({
+    queryKey: [`/api/database-connections/${connection.id}/schema`],
+    enabled: showPreview,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  return (
+    <div className="border rounded-lg p-4 hover:bg-slate-50">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium">{connection.name}</h3>
+            <Badge variant={connection.isActive ? "default" : "secondary"}>
+              {connection.isActive ? "Active" : "Inactive"}
+            </Badge>
+            <Badge variant="outline">{connection.type?.toUpperCase()}</Badge>
+          </div>
+          {connection.description && (
+            <p className="text-sm text-slate-600 mt-1">{connection.description}</p>
+          )}
+          <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+            <span>Created: {new Date(connection.createdAt).toLocaleDateString()}</span>
+            {connection.database && (
+              <span>Path: {connection.database.split('/').pop()}</span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowPreview(!showPreview)}
+          >
+            <Database className="w-4 h-4 mr-1" />
+            {showPreview ? 'Hide Preview' : 'Preview Data'}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              toast({
+                title: "Info",
+                description: "Query interface coming soon!",
+              });
+            }}
+          >
+            <Play className="w-4 h-4 mr-1" />
+            Query
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onEdit(connection)}
+          >
+            <Settings className="w-4 h-4 mr-1" />
+            Configure
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              if (confirm('Are you sure you want to delete this database?')) {
+                try {
+                  await apiRequest("DELETE", `/api/sqlite/delete-database/${connection.id}`);
+                  toast({
+                    title: "Success",
+                    description: "Database deleted successfully",
+                  });
+                  queryClient.invalidateQueries({ queryKey: ['/api/database-connections'] });
+                } catch (error) {
+                  toast({
+                    title: "Error",
+                    description: "Failed to delete database",
+                    variant: "destructive",
+                  });
+                }
+              }
+            }}
+          >
+            <Trash2 className="w-4 h-4 mr-1" />
+            Delete
+          </Button>
+        </div>
+      </div>
+
+      {/* Data Preview Section */}
+      {showPreview && (
+        <div className="mt-4 border-t pt-4">
+          {schemaLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              <span className="ml-2 text-sm">Loading data preview...</span>
+            </div>
+          ) : schemaData ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4 p-3 bg-slate-50 rounded-lg">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-blue-600">{schemaData.summary.totalTables}</div>
+                  <div className="text-xs text-slate-600">Tables</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-green-600">{schemaData.summary.totalColumns}</div>
+                  <div className="text-xs text-slate-600">Columns</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-purple-600">{schemaData.summary.estimatedRows}</div>
+                  <div className="text-xs text-slate-600">Rows</div>
+                </div>
+              </div>
+
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {schemaData.tables.map((table: any) => (
+                  <Card key={table.name} className="border">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <Database className="w-4 h-4" />
+                        {table.name}
+                        <Badge variant="outline" className="text-xs">{table.rowCount} rows</Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      {/* Schema Info */}
+                      <div className="mb-3">
+                        <div className="text-xs font-medium text-slate-600 mb-1">Columns:</div>
+                        <div className="flex flex-wrap gap-1">
+                          {table.columns.slice(0, 6).map((column: any) => (
+                            <Badge key={column.name} variant="outline" className="text-xs">
+                              {column.name} ({column.type})
+                            </Badge>
+                          ))}
+                          {table.columns.length > 6 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{table.columns.length - 6} more
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Sample Data */}
+                      {table.sampleData && table.sampleData.length > 0 && (
+                        <div>
+                          <div className="text-xs font-medium text-slate-600 mb-2">Sample Data (First 3 rows):</div>
+                          <div className="border rounded overflow-hidden">
+                            <Table className="text-xs">
+                              <TableHeader>
+                                <TableRow className="bg-slate-50">
+                                  {table.columns.slice(0, 4).map((column: any) => (
+                                    <TableHead key={column.name} className="text-xs font-medium px-2 py-1">
+                                      {column.name}
+                                    </TableHead>
+                                  ))}
+                                  {table.columns.length > 4 && (
+                                    <TableHead className="text-xs font-medium px-2 py-1">...</TableHead>
+                                  )}
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {table.sampleData.slice(0, 3).map((row: any, index: number) => (
+                                  <TableRow key={index}>
+                                    {table.columns.slice(0, 4).map((column: any) => (
+                                      <TableCell key={column.name} className="px-2 py-1 max-w-32">
+                                        <div className="truncate" title={row[column.name]?.toString()}>
+                                          {row[column.name] === null || row[column.name] === undefined ? (
+                                            <span className="text-slate-400 italic">NULL</span>
+                                          ) : (
+                                            row[column.name]?.toString()
+                                          )}
+                                        </div>
+                                      </TableCell>
+                                    ))}
+                                    {table.columns.length > 4 && (
+                                      <TableCell className="px-2 py-1 text-slate-400">...</TableCell>
+                                    )}
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm text-slate-500">Failed to load data preview</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // TableDataViewer component for DBeaver-style display
 const TableDataViewer = ({ table }: { table: any }) => {
   const [filters, setFilters] = useState<{[key: string]: string}>({});
@@ -654,6 +864,7 @@ export default function DataConnections() {
   const handleEditConnection = (connection: DatabaseConnection) => {
     setEditingConnection(connection);
     setEditDialogOpen(true);
+    setSelectedTab('schema'); // Default to schema tab for better data preview
   };
 
   const handleUpdateConnection = () => {
@@ -997,77 +1208,11 @@ export default function DataConnections() {
             ) : (
               <div className="grid gap-4">
                 {filteredConnections.map((conn) => (
-                  <div key={conn.id} className="border rounded-lg p-4 hover:bg-slate-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium">{conn.name}</h3>
-                          <Badge variant={conn.isActive ? "default" : "secondary"}>
-                            {conn.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                          <Badge variant="outline">{conn.type?.toUpperCase()}</Badge>
-                        </div>
-                        {conn.description && (
-                          <p className="text-sm text-slate-600 mt-1">{conn.description}</p>
-                        )}
-                        <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                          <span>Created: {new Date(conn.createdAt).toLocaleDateString()}</span>
-                          {conn.database && (
-                            <span>Path: {conn.database.split('/').pop()}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            // TODO: Implement query interface
-                            toast({
-                              title: "Info",
-                              description: "Query interface coming soon!",
-                            });
-                          }}
-                        >
-                          <Play className="w-4 h-4 mr-1" />
-                          Query
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEditConnection(conn)}
-                        >
-                          <Settings className="w-4 h-4 mr-1" />
-                          Configure
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={async () => {
-                            if (confirm('Are you sure you want to delete this database?')) {
-                              try {
-                                await apiRequest("DELETE", `/api/sqlite/delete-database/${conn.id}`);
-                                toast({
-                                  title: "Success",
-                                  description: "Database deleted successfully",
-                                });
-                                queryClient.invalidateQueries({ queryKey: ['/api/database-connections'] });
-                              } catch (error) {
-                                toast({
-                                  title: "Error",
-                                  description: "Failed to delete database",
-                                  variant: "destructive",
-                                });
-                              }
-                            }
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4 mr-1" />
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                  <DatabaseConnectionCard 
+                    key={conn.id} 
+                    connection={conn} 
+                    onEdit={handleEditConnection}
+                  />
                 ))}
               </div>
             )}
