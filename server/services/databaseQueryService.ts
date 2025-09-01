@@ -136,14 +136,14 @@ export class DatabaseQueryService {
         return null;
       }
       
-      if (connection.type !== 'database') {
+      if (connection.type !== 'database' && connection.type !== 'sqlite') {
         console.error(`❌ Connection ${connectionId} is not a database type: ${connection.type}`);
         return null;
       }
 
       console.log(`📊 Database connection found: ${connection.dbType} at ${connection.host}:${connection.port}`);
 
-      switch (connection.dbType) {
+      switch (connection.dbType || connection.type) {
         case 'postgresql':
           return await this.getPostgreSQLSchema(connection);
         case 'mysql':
@@ -151,7 +151,7 @@ export class DatabaseQueryService {
         case 'sqlite':
           return await this.getSQLiteSchema(connection);
         default:
-          console.error(`❌ Unsupported database type: ${connection.dbType}`);
+          console.error(`❌ Unsupported database type: ${connection.dbType || connection.type}`);
           return null;
       }
     } catch (error) {
