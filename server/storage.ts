@@ -1436,6 +1436,48 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Agent Database Connection operations
+  async getDataConnections(userId: string): Promise<any[]> {
+    const connections = await db
+      .select()
+      .from(dataConnections)
+      .where(eq(dataConnections.userId, userId))
+      .orderBy(dataConnections.createdAt);
+
+    return connections.map(conn => ({
+      ...conn,
+      isConnected: conn.isActive // Default to active status for now
+    }));
+  }
+
+  async saveDataConnection(connectionData: any): Promise<any> {
+    const [result] = await db
+      .insert(dataConnections)
+      .values({
+        ...connectionData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+
+    return result;
+  }
+
+  async updateDataConnection(connectionId: number, updateData: any, userId: string): Promise<any> {
+    const [result] = await db
+      .update(dataConnections)
+      .set({
+        ...updateData,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(dataConnections.id, connectionId),
+        eq(dataConnections.userId, userId)
+      ))
+      .returning();
+
+    return result;
+  }
+
   async getAgentDatabaseConnections(agentId: number, userId: string): Promise<any[]> {
     const connections = await db
       .select({

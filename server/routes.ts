@@ -2612,6 +2612,112 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     },
   );
 
+  // Database connections endpoints
+  app.get("/api/database-connections", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const connections = await storage.getDataConnections(userId);
+      res.json(connections);
+    } catch (error) {
+      console.error("Error fetching database connections:", error);
+      res.status(500).json({ message: "Failed to fetch database connections" });
+    }
+  });
+
+  app.post("/api/database-connections/postgresql", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const connectionData = {
+        ...req.body,
+        type: 'postgresql' as const,
+        dbType: 'postgresql',
+        userId,
+        isActive: true
+      };
+      const connection = await storage.saveDataConnection(connectionData);
+      res.json(connection);
+    } catch (error) {
+      console.error("Error creating PostgreSQL connection:", error);
+      res.status(500).json({ message: "Failed to create PostgreSQL connection" });
+    }
+  });
+
+  app.post("/api/database-connections/mysql", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const connectionData = {
+        ...req.body,
+        type: 'mysql' as const,
+        dbType: 'mysql',
+        userId,
+        isActive: true
+      };
+      const connection = await storage.saveDataConnection(connectionData);
+      res.json(connection);
+    } catch (error) {
+      console.error("Error creating MySQL connection:", error);
+      res.status(500).json({ message: "Failed to create MySQL connection" });
+    }
+  });
+
+  app.post("/api/database-connections/:id/test", isAuthenticated, async (req: any, res) => {
+    try {
+      const connectionId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      const connection = await storage.getDataConnection(connectionId, userId);
+      if (!connection) {
+        return res.status(404).json({ message: "Database connection not found" });
+      }
+
+      const { databaseConnector } = await import("./services/databaseConnector");
+      const result = await databaseConnector.testConnection(connection);
+      
+      if (result.success) {
+        // Update connection status
+        await storage.updateDataConnection(connectionId, { isConnected: true }, userId);
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error testing database connection:", error);
+      res.status(500).json({ message: "Failed to test database connection" });
+    }
+  });
+
+  app.get("/api/database-connections/:id/details", isAuthenticated, async (req: any, res) => {
+    try {
+      const connectionId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      const connection = await storage.getDataConnection(connectionId, userId);
+      if (!connection) {
+        return res.status(404).json({ message: "Database connection not found" });
+      }
+
+      // Generate connection string and details
+      let connectionString = '';
+      if (connection.type === 'postgresql') {
+        connectionString = `postgresql://${connection.username}:***@${connection.host}:${connection.port}/${connection.database}`;
+      } else if (connection.type === 'mysql') {
+        connectionString = `mysql://${connection.username}:***@${connection.host}:${connection.port}/${connection.database}`;
+      } else if (connection.type === 'sqlite') {
+        connectionString = `sqlite:///${connection.database}`;
+      }
+
+      res.json({
+        connectionString,
+        host: connection.host,
+        port: connection.port,
+        database: connection.database,
+        username: connection.username
+      });
+    } catch (error) {
+      console.error("Error fetching connection details:", error);
+      res.status(500).json({ message: "Failed to fetch connection details" });
+    }
+  });
+
   // Database query endpoints
   app.post(
     "/api/data-connections/:id/query",
