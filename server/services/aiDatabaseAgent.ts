@@ -112,7 +112,7 @@ export class AIDatabaseAgent {
 
       // Validate and execute the query
       try {
-        const executionResult = await this.queryService.executeQuery(connectionId, sqlQuery, userId);
+        const executionResult = await this.queryService.executeQuery(connectionId, userId, sqlQuery);
         console.log('🤖 AI Database Agent - Query execution result:', {
           success: executionResult.success,
           rowCount: executionResult.data?.length || 0,
