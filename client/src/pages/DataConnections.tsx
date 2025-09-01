@@ -536,7 +536,7 @@ export default function DataConnections() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
-  const [selectedConnection, setSelectedConnection] = useState<string | null>(null);
+  const [selectedConnection, setSelectedConnection] = useState<DatabaseConnection | null>(null);
   const [postgresDialogOpen, setPostgresDialogOpen] = useState(false);
   const [mysqlDialogOpen, setMysqlDialogOpen] = useState(false);
   const [editingConnection, setEditingConnection] = useState<DatabaseConnection | null>(null);
@@ -887,11 +887,11 @@ export default function DataConnections() {
   const createSnippetMutation = useMutation({
     mutationFn: async (snippet: { name: string; sql: string; description: string }) => {
       console.log('Frontend: Creating snippet:', snippet, 'for connection ID:', editingConnection?.id);
-      
+
       if (!editingConnection?.id) {
         throw new Error('No connection selected');
       }
-      
+
       const response = await apiRequest("POST", `/api/database/${editingConnection.id}/snippets`, snippet);
       console.log('Frontend: Create snippet response:', response);
       return response;
@@ -912,7 +912,7 @@ export default function DataConnections() {
         status: error?.response?.status,
         data: error?.response?.data
       });
-      
+
       toast({
         title: "Error",
         description: `Failed to create SQL snippet: ${error?.message || 'Unknown error'}`,
@@ -971,7 +971,7 @@ export default function DataConnections() {
       const endpoint = queryConnection?.type === 'sqlite' 
         ? '/api/sqlite/test-query'
         : `/api/database-connections/${connectionId}/query`;
-      
+
       return await apiRequest("POST", endpoint, { 
         connectionId, 
         sql: sql.trim(),
@@ -2327,7 +2327,7 @@ export default function DataConnections() {
                                 ).join(',') || ''
                               )
                             ].join('\n');
-                            
+
                             const blob = new Blob([csvContent], { type: 'text/csv' });
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
