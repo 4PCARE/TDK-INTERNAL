@@ -154,11 +154,10 @@ const createAgentSchema = z.object({
     }).optional(),
     businessContext: z.object({
       enabled: z.boolean().default(false),
-      stayOnBrand: z.boolean().default(true),
-      requireProfessionalTone: z.boolean().default(true),
-      blockCompetitorMentions: z.boolean().default(false),
       companyName: z.string().optional(),
-      brandGuidelines: z.string().optional(),
+      brandVoice: "professional",
+      industryContext: "",
+      complianceRequirements: [],
     }).optional(),
   }).optional(),
   // Memory Configuration
@@ -646,7 +645,7 @@ export default function CreateAgentChatbot() {
     },
     onSuccess: (data) => {
       console.log("✅ Agent save successful:", data);
-      
+
       toast({
         title: "Success",
         description: isEditing
@@ -673,7 +672,7 @@ export default function CreateAgentChatbot() {
         }) : Promise.resolve(),
       ]).then(() => {
         console.log("✅ Cache invalidation complete");
-        
+
         // Use setTimeout to ensure all state updates are complete before navigation
         setTimeout(() => {
           try {
@@ -698,7 +697,7 @@ export default function CreateAgentChatbot() {
     },
     onError: (error) => {
       console.error("❌ Agent save failed:", error);
-      
+
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -811,9 +810,16 @@ export default function CreateAgentChatbot() {
 
   const handleTestAgent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!testMessage.trim() || !tempSessionId || sendTestMessageMutation.isPending) return;
+    if (!testMessage.trim() || sendTestMessageMutation.isPending) return;
 
     const messageToSend = testMessage.trim();
+    console.log('🧪 Testing agent with message:', messageToSend);
+
+    // Ensure we're in test mode
+    if (!isTestChatMode) {
+      setIsTestChatMode(true);
+    }
+
     const currentAgentId = savedAgent?.id || (isEditing ? parseInt(editAgentId!) : null);
 
     if (!currentAgentId) {
@@ -828,11 +834,13 @@ export default function CreateAgentChatbot() {
     try {
       await sendTestMessageMutation.mutateAsync({
         message: messageToSend,
-        sessionId: tempSessionId,
+        sessionId: tempSessionId!, // Non-null assertion as we check for it
         agentId: currentAgentId
       });
     } catch (error) {
       console.error('❌ Failed to send test message:', error);
+      // Restore input on error for user to retry
+      setTestMessage(messageToSend);
     }
   };
 
@@ -1943,7 +1951,7 @@ export default function CreateAgentChatbot() {
                           <CardContent>
                             <div className="space-y-4">
                               {/* Database Selection Component */}
-                              <DatabaseConnectionSelector 
+                              <DatabaseConnectionSelector
                                 agentId={isEditing ? parseInt(editAgentId!) : 0}
                                 selectedConnections={selectedDatabases}
                                 onConnectionsChange={setSelectedDatabases}
@@ -3290,7 +3298,7 @@ export default function CreateAgentChatbot() {
                             e.preventDefault();
                             e.stopPropagation();
                             console.log("🔘 Manual save button clicked");
-                            
+
                             // Add try-catch wrapper for form submission
                             try {
                               form.handleSubmit((data) => {
