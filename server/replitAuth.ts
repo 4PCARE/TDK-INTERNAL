@@ -210,7 +210,8 @@ export async function setupAuth(app: Express) {
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   // TEMPORARY: Allow test requests with special header
-  if (req.headers['x-test-bypass'] === 'allow-sqlite-testing') {
+  const testBypass = req.headers['x-test-bypass'] || req.headers['X-Test-Bypass'];
+  if (testBypass === 'allow-sqlite-testing') {
     console.log("🧪 Test bypass activated for:", req.path);
     // Mock a test user
     req.user = {
