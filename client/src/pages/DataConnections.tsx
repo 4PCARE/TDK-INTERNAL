@@ -249,16 +249,27 @@ export default function DataConnections() {
   // Create SQLite database mutation
   const createSqliteMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log('🔍 Mutation data received:', data);
+      console.log('🔍 Selected file:', selectedFile);
+      console.log('🔍 Existing file ID:', existingFileId);
+      
       const formData = new FormData();
       if (selectedFile) {
         formData.append('file', selectedFile);
+        console.log('🔍 Added file to FormData:', selectedFile.name);
       } else if (existingFileId) {
         formData.append('existingFileId', existingFileId);
+        console.log('🔍 Added existingFileId to FormData:', existingFileId);
       }
       formData.append('dbName', data.name);
       formData.append('tableName', data.tableName);
-      formData.append('description', data.description);
-      formData.append('snippets', JSON.stringify(data.snippets));
+      formData.append('description', data.description || '');
+      formData.append('snippets', JSON.stringify(data.snippets || []));
+      
+      console.log('🔍 FormData contents:');
+      for (let [key, value] of formData.entries()) {
+        console.log(`  ${key}:`, value);
+      }
       
       return await apiRequest("POST", "/api/sqlite/create-database", formData);
     },
@@ -358,6 +369,14 @@ export default function DataConnections() {
       });
       return;
     }
+
+    console.log('🔍 Creating SQLite with:', {
+      name: sqliteForm.name,
+      tableName: sqliteForm.tableName,
+      description: sqliteForm.description,
+      selectedFile: selectedFile?.name,
+      existingFileId: existingFileId
+    });
 
     createSqliteMutation.mutate(sqliteForm);
   };

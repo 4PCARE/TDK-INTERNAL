@@ -87,17 +87,40 @@ export function registerSQLiteRoutes(app: Express) {
   });
 
   // Create database from file
-  app.post("/api/sqlite/create-database", isAuthenticated, async (req: any, res: any) => {
+  app.post("/api/sqlite/create-database", isAuthenticated, upload.single('file'), async (req: any, res: any) => {
     console.log('🔍 SQLite create-database endpoint hit');
     try {
       const userId = req.user.claims.sub;
-      const { 
-        filePath, 
-        dbName, 
-        tableName, 
-        description = '', 
-        snippets = [] 
-      } = req.body;
+      
+      // Handle both JSON and FormData requests
+      let filePath, dbName, tableName, description, snippets;
+      
+      if (req.is('multipart/form-data')) {
+        // FormData request
+        filePath = req.body.filePath;
+        dbName = req.body.dbName;
+        tableName = req.body.tableName;
+        description = req.body.description || '';
+        snippets = req.body.snippets ? JSON.parse(req.body.snippets) : [];
+        
+        // Handle existing file ID
+        if (req.body.existingFileId && !filePath) {
+          const existingFiles = await sqliteService.getExistingExcelCsvFiles(userId);
+          const selectedFile = existingFiles.find(f => f.id === parseInt(req.body.existingFileId));
+          if (selectedFile) {
+            filePath = selectedFile.filePath;
+          }
+        }
+        
+        // Handle uploaded file
+        if (req.file && !filePath) {
+          filePath = req.file.path;
+        }
+      } else {
+        // JSON request
+        ({ filePath, dbName, tableName, description = '', snippets = [] } = req.body);
+      }
+      
       console.log('🔍 User ID:', userId, 'DB Name:', dbName, 'Table Name:', tableName, 'File Path:', filePath);
 
       if (!filePath || !dbName || !tableName) {
