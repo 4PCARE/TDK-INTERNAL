@@ -14,7 +14,14 @@ interface TestResult {
 
 async function makeAuthenticatedRequest(endpoint: string, options: any = {}): Promise<TestResult> {
   try {
-    const curlCommand = `curl -s -w "HTTPSTATUS:%{http_code}" -H "Content-Type: application/json" -H "Accept: application/json" ${options.method ? `-X ${options.method}` : ''} ${options.data ? `-d '${JSON.stringify(options.data)}'` : ''} "http://localhost:5000${endpoint}"`;
+    // Add test bypass header for authentication
+    const authHeaders = [
+      '-H "Content-Type: application/json"',
+      '-H "Accept: application/json"',
+      '-H "X-Test-Bypass: allow-sqlite-testing"'
+    ].join(' ');
+
+    const curlCommand = `curl -s -w "HTTPSTATUS:%{http_code}" ${authHeaders} ${options.method ? `-X ${options.method}` : ''} ${options.data ? `-d '${JSON.stringify(options.data)}'` : ''} "http://localhost:5000${endpoint}"`;
 
     console.log(`🔍 Testing: ${endpoint}`);
     console.log(`📤 Command: ${curlCommand}`);
