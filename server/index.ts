@@ -95,6 +95,10 @@ app.use((req, res, next) => {
   const { registerFolderRoutes } = await import("./routes/folderRoutes");
   registerFolderRoutes(app);
 
+  // Import and register SQLite routes explicitly
+  const { default: sqliteRoutes } = await import("./routes/sqliteRoutes");
+  app.use("/api/sqlite", sqliteRoutes);
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
