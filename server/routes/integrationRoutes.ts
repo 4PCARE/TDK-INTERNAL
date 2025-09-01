@@ -1,4 +1,4 @@
-import { isAuthenticated } from '../smartAuth';
+import { smartAuth as isAuthenticated } from '../smartAuth';
 
 // Export function to register all integration routes
 export function registerIntegrationRoutes(app: any) {

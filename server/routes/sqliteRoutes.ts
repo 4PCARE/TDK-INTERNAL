@@ -11,6 +11,8 @@ import { eq, desc, and, inArray } from "drizzle-orm";
 
 const upload = multer({ dest: 'uploads/sqlite-temp/' });
 
+import { smartAuth as isAuthenticated } from '../smartAuth';
+
 export function registerSQLiteRoutes(app: Express) {
   // Get existing Excel/CSV files
   app.get("/api/sqlite/existing-files", isAuthenticated, async (req: any, res: any) => {
