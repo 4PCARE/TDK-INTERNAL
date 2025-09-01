@@ -193,7 +193,7 @@ IMPORTANT GUIDELINES:
 
       // Extract SQL from response (remove any markdown formatting)
       let cleanSQL = response.trim();
-      
+
       // Remove markdown code fences
       if (cleanSQL.includes('```sql')) {
         const sqlMatch = cleanSQL.match(/```sql\s*\n?([\s\S]*?)\n?```/);
@@ -206,10 +206,10 @@ IMPORTANT GUIDELINES:
           cleanSQL = codeMatch[1].trim();
         }
       }
-      
+
       // Remove any remaining backticks at start/end
       cleanSQL = cleanSQL.replace(/^`+|`+$/g, '');
-      
+
       console.log('🤖 AI Database Agent - Cleaned SQL:', cleanSQL);
       return cleanSQL;
 
@@ -312,8 +312,19 @@ Provide a brief, user-friendly explanation of what the query does and what the r
   }
 
   // SQL Snippet Management
-  async createSQLSnippet(snippet: Omit<SQLSnippet, 'id' | 'createdAt'>): Promise<SQLSnippet> {
-    return await storage.createSQLSnippet(snippet);
+  async createSQLSnippet(data: {
+    name: string;
+    sql: string;
+    description: string;
+    connectionId: number;
+    userId: string;
+  }) {
+    // Ensure description is never null/undefined
+    const cleanData = {
+      ...data,
+      description: data.description || ''
+    };
+    return await storage.createSQLSnippet(cleanData);
   }
 
   async updateSQLSnippet(id: number, snippet: Partial<SQLSnippet>, userId: string): Promise<SQLSnippet> {

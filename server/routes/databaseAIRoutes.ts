@@ -83,16 +83,19 @@ export function registerDatabaseAIRoutes(app: Express) {
     try {
       const userId = req.user.claims.sub;
       const connectionId = parseInt(req.params.connectionId);
-      const { name, sql, description = '' } = req.body;
+      const { name, sql, description } = req.body;
 
       if (!name || !sql) {
         return res.status(400).json({ message: "Name and SQL are required" });
       }
 
+      // Handle blank/undefined description properly
+      const cleanDescription = description || '';
+
       const snippet = await aiDatabaseAgent.createSQLSnippet({
         name,
         sql,
-        description,
+        description: cleanDescription,
         connectionId,
         userId,
       });

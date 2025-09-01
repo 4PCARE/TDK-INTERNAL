@@ -2741,9 +2741,12 @@ export class DatabaseStorage implements IStorage {
     embedding?: number[];
   }) {
     try {
+      // Ensure description is never null/undefined - use empty string as default
+      const description = snippet.description || '';
+
       const result = await db.execute(sql`
         INSERT INTO sql_snippets (name, sql, description, connection_id, user_id, embedding, created_at, updated_at)
-        VALUES (${snippet.name}, ${snippet.sql}, ${snippet.description}, ${snippet.connectionId}, ${snippet.userId}, ${snippet.embedding ? JSON.stringify(snippet.embedding) : null}, NOW(), NOW())
+        VALUES (${snippet.name}, ${snippet.sql}, ${description}, ${snippet.connectionId}, ${snippet.userId}, ${snippet.embedding ? JSON.stringify(snippet.embedding) : null}, NOW(), NOW())
         RETURNING *
       `);
       return result.rows[0];
@@ -2753,7 +2756,7 @@ export class DatabaseStorage implements IStorage {
         console.error('SQL snippets table does not exist. Please run the migration: migrations/add_sql_snippets_tables.sql');
         throw new Error('SQL snippets table not found. Database migration required.');
       }
-      
+
       console.error('Error creating SQL snippet:', error);
       throw error;
     }
@@ -2784,7 +2787,7 @@ export class DatabaseStorage implements IStorage {
         console.log('📝 SQL snippets table does not exist yet. Returning empty array.');
         return [];
       }
-      
+
       console.error('Error getting SQL snippets:', error);
       return [];
     }
@@ -2799,7 +2802,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const setClause = [];
       const values = [];
-      
+
       if (updates.name !== undefined) {
         setClause.push('name = $' + (values.length + 1));
         values.push(updates.name);
@@ -2816,17 +2819,17 @@ export class DatabaseStorage implements IStorage {
         setClause.push('embedding = $' + (values.length + 1));
         values.push(JSON.stringify(updates.embedding));
       }
-      
+
       setClause.push('updated_at = NOW()');
       values.push(id, userId);
-      
+
       const result = await db.execute(sql`
         UPDATE sql_snippets 
         SET ${sql.raw(setClause.join(', '))}
         WHERE id = $${values.length - 1} AND user_id = $${values.length}
         RETURNING *
       `);
-      
+
       return result.rows[0];
     } catch (error) {
       console.error('Error updating SQL snippet:', error);
