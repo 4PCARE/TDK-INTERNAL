@@ -246,12 +246,12 @@ export function registerSQLiteRoutes(app: Express) {
       // Check if connection already exists before inserting
       const existingConnection = await db
         .select()
-        .from(databaseConnections)
+        .from(dataConnections)
         .where(
           and(
-            eq(databaseConnections.userId, userId),
-            eq(databaseConnections.name, dbName),
-            eq(databaseConnections.type, 'sqlite')
+            eq(dataConnections.userId, userId),
+            eq(dataConnections.name, dbName),
+            eq(dataConnections.type, 'sqlite')
           )
         )
         .limit(1);
