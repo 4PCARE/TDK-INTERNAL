@@ -360,14 +360,17 @@ export default function AgentChatbots() {
     window.location.href = `/create-agent-chatbot?edit=${agentId}`;
   };
 
-  const getChannelBadges = (channels: string[]) => {
+  const getChannelBadges = (channels: string[] | null | undefined) => {
     const channelColors: Record<string, string> = {
       lineoa: "bg-green-100 text-green-800",
       facebook: "bg-blue-100 text-blue-800",
       tiktok: "bg-pink-100 text-pink-800",
     };
 
-    return channels.map((channel) => (
+    // Handle null/undefined channels safely
+    const safeChannels = Array.isArray(channels) ? channels : [];
+    
+    return safeChannels.map((channel) => (
       <Badge
         key={channel}
         variant="secondary"
