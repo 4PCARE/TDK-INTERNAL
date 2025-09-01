@@ -27,17 +27,14 @@ export interface DatabaseSchema {
 export class DatabaseQueryService {
   private connections: Map<number, any> = new Map();
 
-  async executeQuery(connectionId: number, query: string, userId: string): Promise<QueryResult> {
+  async executeQuery(connectionId: number, userId: string, query: string): Promise<QueryResult> {
     const startTime = Date.now();
-    
+
     try {
       // Get connection details from storage
       const connection = await storage.getDataConnection(connectionId, userId);
-      if (!connection || connection.type !== 'database') {
-        return {
-          success: false,
-          error: 'Database connection not found or invalid type'
-        };
+      if (!connection || (connection.type !== 'database' && connection.type !== 'sqlite')) {
+        return { success: false, error: 'Database connection not found or invalid type' };
       }
 
       // Execute query based on database type
@@ -78,10 +75,10 @@ export class DatabaseQueryService {
       const client = await pool.connect();
       const result = await client.query(query);
       client.release();
-      
+
       // Extract column names
       const columns = result.fields ? result.fields.map(field => field.name) : [];
-      
+
       return {
         success: true,
         data: result.rows,
@@ -108,10 +105,10 @@ export class DatabaseQueryService {
 
     try {
       const [rows, fields] = await mysqlConnection.execute(query);
-      
+
       // Extract column names
       const columns = Array.isArray(fields) ? fields.map((field: any) => field.name) : [];
-      
+
       return {
         success: true,
         data: Array.isArray(rows) ? rows : [],
@@ -129,13 +126,13 @@ export class DatabaseQueryService {
   async getDatabaseSchema(connectionId: number, userId: string): Promise<DatabaseSchema | null> {
     try {
       console.log(`🔍 Getting database schema for connection ${connectionId}, user ${userId}`);
-      
+
       const connection = await storage.getDataConnection(connectionId, userId);
       if (!connection) {
         console.error(`❌ Database connection ${connectionId} not found for user ${userId}`);
         return null;
       }
-      
+
       if (connection.type !== 'database' && connection.type !== 'sqlite') {
         console.error(`❌ Connection ${connectionId} is not a database type: ${connection.type}`);
         return null;
@@ -163,7 +160,7 @@ export class DatabaseQueryService {
 
   private async getPostgreSQLSchema(connection: any): Promise<DatabaseSchema> {
     console.log(`🐘 Connecting to PostgreSQL: ${connection.host}:${connection.port}/${connection.database}`);
-    
+
     const pool = new PgPool({
       host: connection.host,
       port: connection.port || 5432,
@@ -177,7 +174,7 @@ export class DatabaseQueryService {
     try {
       const client = await pool.connect();
       console.log(`✅ Connected to PostgreSQL successfully`);
-      
+
       // Get tables
       const tablesResult = await client.query(`
         SELECT table_name 
@@ -189,10 +186,10 @@ export class DatabaseQueryService {
 
       console.log(`📋 Found ${tablesResult.rows.length} tables in PostgreSQL database`);
       const tables = [];
-      
+
       for (const tableRow of tablesResult.rows) {
         const tableName = tableRow.table_name;
-        
+
         // Get columns for each table
         const columnsResult = await client.query(`
           SELECT 
@@ -217,7 +214,7 @@ export class DatabaseQueryService {
           name: tableName,
           columns
         });
-        
+
         console.log(`📋 Table ${tableName}: ${columns.length} columns`);
       }
 
@@ -234,7 +231,7 @@ export class DatabaseQueryService {
 
   private async getMySQLSchema(connection: any): Promise<DatabaseSchema> {
     console.log(`🐬 Connecting to MySQL: ${connection.host}:${connection.port}/${connection.database}`);
-    
+
     const mysqlConnection = await mysql.createConnection({
       host: connection.host,
       port: connection.port || 3306,
@@ -246,19 +243,19 @@ export class DatabaseQueryService {
 
     try {
       console.log(`✅ Connected to MySQL successfully`);
-      
+
       // Get tables
       const [tablesResult] = await mysqlConnection.execute('SHOW TABLES');
       console.log(`📋 Found ${(tablesResult as any[]).length} tables in MySQL database`);
-      
+
       const tables = [];
-      
+
       for (const tableRow of tablesResult as any[]) {
         const tableName = Object.values(tableRow)[0] as string;
-        
+
         // Get columns for each table
         const [columnsResult] = await mysqlConnection.execute(`DESCRIBE ${tableName}`);
-        
+
         const columns = (columnsResult as any[]).map(col => ({
           name: col.Field,
           type: col.Type,
@@ -270,7 +267,7 @@ export class DatabaseQueryService {
           name: tableName,
           columns
         });
-        
+
         console.log(`📋 Table ${tableName}: ${columns.length} columns`);
       }
 
@@ -286,7 +283,7 @@ export class DatabaseQueryService {
 
   private async executeSQLiteQuery(connection: any, query: string, startTime: number): Promise<QueryResult> {
     console.log(`🗄️ Connecting to SQLite: ${connection.filePath || connection.database}`);
-    
+
     const dbPath = connection.filePath || connection.database;
     if (!dbPath) {
       throw new Error('SQLite database path not found');
@@ -295,18 +292,18 @@ export class DatabaseQueryService {
     try {
       const db = new Database(dbPath, { readonly: true });
       console.log(`✅ Connected to SQLite successfully`);
-      
+
       const stmt = db.prepare(query);
       const rows = stmt.all();
-      
+
       // Extract column names
       let columns: string[] = [];
       if (rows.length > 0) {
         columns = Object.keys(rows[0]);
       }
-      
+
       db.close();
-      
+
       return {
         success: true,
         data: rows,
@@ -322,7 +319,7 @@ export class DatabaseQueryService {
 
   private async getSQLiteSchema(connection: any): Promise<DatabaseSchema> {
     console.log(`🗄️ Getting SQLite schema: ${connection.filePath || connection.database}`);
-    
+
     const dbPath = connection.filePath || connection.database;
     if (!dbPath) {
       throw new Error('SQLite database path not found');
@@ -331,7 +328,7 @@ export class DatabaseQueryService {
     try {
       const db = new Database(dbPath, { readonly: true });
       console.log(`✅ Connected to SQLite successfully`);
-      
+
       // Get all tables
       const tablesResult = db.prepare(`
         SELECT name FROM sqlite_master 
@@ -341,13 +338,13 @@ export class DatabaseQueryService {
 
       console.log(`📋 Found ${tablesResult.length} tables in SQLite database`);
       const tables = [];
-      
+
       for (const tableRow of tablesResult) {
         const tableName = tableRow.name;
-        
+
         // Get columns for each table
         const columnsResult = db.prepare(`PRAGMA table_info(${tableName})`).all();
-        
+
         const columns = columnsResult.map((col: any) => ({
           name: col.name,
           type: col.type,
@@ -359,7 +356,7 @@ export class DatabaseQueryService {
           name: tableName,
           columns
         });
-        
+
         console.log(`📋 Table ${tableName}: ${columns.length} columns`);
       }
 
@@ -381,13 +378,13 @@ export class DatabaseQueryService {
 
       // Generate sample queries based on schema and user question
       const queries: string[] = [];
-      
+
       // Add some basic exploratory queries
       if (schema.tables.length > 0) {
         const firstTable = schema.tables[0];
         queries.push(`SELECT * FROM ${firstTable.name} LIMIT 10;`);
         queries.push(`SELECT COUNT(*) FROM ${firstTable.name};`);
-        
+
         // If there are multiple tables, suggest a join
         if (schema.tables.length > 1) {
           queries.push(`SELECT t1.*, t2.* FROM ${schema.tables[0].name} t1 JOIN ${schema.tables[1].name} t2 ON t1.id = t2.id LIMIT 10;`);
