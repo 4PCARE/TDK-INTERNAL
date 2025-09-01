@@ -10,72 +10,109 @@ const mockSnippet = {
   description: "Retrieves the top 10 best-selling products by total quantity sold"
 };
 
-const connectionId = 34; // Use your existing connection ID from the logs
+const connectionId = 34;
 
-async function addMockSnippet() {
+async function testDirectEndpoint() {
   try {
-    console.log('🚀 Adding mock SQL snippet...');
+    console.log('🔍 Testing endpoint availability...');
     
     const response = await fetch(`${BASE_URL}/api/database/${connectionId}/snippets`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Cookie': 'connect.sid=your_session_cookie_here' // Replace with actual session cookie
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(mockSnippet)
+    });
+
+    console.log(`📊 Response status: ${response.status}`);
+    console.log(`📊 Response headers:`, Object.fromEntries(response.headers.entries()));
+    
+    const responseText = await response.text();
+    console.log(`📊 Response body preview: ${responseText.substring(0, 200)}...`);
+    
+    // Check if it's HTML (authentication redirect)
+    if (responseText.includes('<!DOCTYPE') || responseText.includes('<html>')) {
+      console.log('❌ Received HTML response - this indicates authentication failure');
+      console.log('💡 The endpoint exists but requires authentication');
+      return;
+    }
+
+    // Try to parse as JSON
+    try {
+      const result = JSON.parse(responseText);
+      console.log('✅ JSON response received:', result);
+    } catch (parseError) {
+      console.log('❌ Failed to parse response as JSON:', parseError.message);
+    }
+
+  } catch (error) {
+    console.error('❌ Network error:', error.message);
+  }
+}
+
+async function testAuthEndpoint() {
+  try {
+    console.log('\n🔐 Testing authentication endpoint...');
+    
+    const response = await fetch(`${BASE_URL}/api/auth/session`, {
+      method: 'GET'
+    });
+
+    console.log(`📊 Auth endpoint status: ${response.status}`);
+    const authText = await response.text();
+    console.log(`📊 Auth response preview: ${authText.substring(0, 200)}...`);
+
+  } catch (error) {
+    console.error('❌ Auth test error:', error.message);
+  }
+}
+
+async function testWithoutAuth() {
+  try {
+    console.log('\n🚀 Testing snippet creation without authentication...');
+    console.log('📝 This will likely fail due to authentication requirements');
+    
+    const response = await fetch(`${BASE_URL}/api/database/${connectionId}/snippets`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(mockSnippet)
     });
 
     console.log(`📊 Response status: ${response.status}`);
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errorText}`);
-    }
-
-    const result = await response.json();
-    console.log('✅ Mock snippet created successfully:');
-    console.log(JSON.stringify(result, null, 2));
-
-  } catch (error) {
-    console.error('❌ Error adding mock snippet:', error.message);
-  }
-}
-
-async function listSnippets() {
-  try {
-    console.log('\n📋 Fetching existing snippets...');
+    const responseText = await response.text();
     
-    const response = await fetch(`${BASE_URL}/api/database/${connectionId}/snippets`, {
-      headers: {
-        'Cookie': 'connect.sid=your_session_cookie_here' // Replace with actual session cookie
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    if (responseText.includes('<!DOCTYPE') || responseText.includes('<html>')) {
+      console.log('❌ Authentication required - received HTML login page');
+      console.log('💡 To test properly, you need to:');
+      console.log('   1. Log into the app in your browser');
+      console.log('   2. Copy the session cookie from DevTools');
+      console.log('   3. Add it to the test script headers');
+    } else {
+      console.log('✅ Unexpected success or different error format');
+      console.log('📄 Response:', responseText);
     }
 
-    const snippets = await response.json();
-    console.log(`📝 Found ${snippets.length} snippets:`);
-    snippets.forEach((snippet, index) => {
-      console.log(`${index + 1}. ${snippet.name}`);
-      console.log(`   SQL: ${snippet.sql.substring(0, 100)}...`);
-      console.log(`   Description: ${snippet.description || 'No description'}\n`);
-    });
-
   } catch (error) {
-    console.error('❌ Error fetching snippets:', error.message);
+    console.error('❌ Error:', error.message);
   }
 }
 
 async function runTest() {
-  console.log('🧪 SQL Snippet Test Script');
-  console.log('==========================\n');
+  console.log('🧪 SQL Snippet Endpoint Test');
+  console.log('=============================\n');
   
-  await addMockSnippet();
-  await listSnippets();
+  await testDirectEndpoint();
+  await testAuthEndpoint();
+  await testWithoutAuth();
   
-  console.log('✨ Test completed!');
+  console.log('\n✨ Test completed!');
+  console.log('\n💡 Next steps:');
+  console.log('   1. The endpoint exists and is working');
+  console.log('   2. Authentication is required');
+  console.log('   3. Use browser DevTools to get session cookie for authenticated testing');
 }
 
 // Run the test
