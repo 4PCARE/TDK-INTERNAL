@@ -228,22 +228,7 @@ export function registerSQLiteRoutes(app: Express) {
         snippets
       );
 
-      // Store database connection in existing system
-      const connectionData = {
-        name: dbName,
-        description,
-        type: 'database' as const,
-        dbType: 'sqlite',
-        host: 'localhost',
-        port: 0,
-        database: dbInfo.filePath, // Use the actual path from dbInfo
-        username: '',
-        password: '',
-        isActive: true,
-        userId
-      };
-
-      // Check if connection already exists before inserting
+      // Check if connection already exists before creating database
       const existingConnection = await db
         .select()
         .from(dataConnections)
@@ -251,17 +236,31 @@ export function registerSQLiteRoutes(app: Express) {
           and(
             eq(dataConnections.userId, userId),
             eq(dataConnections.name, dbName),
-            eq(dataConnections.type, 'sqlite')
+            eq(dataConnections.type, 'database')
           )
         )
         .limit(1);
 
       if (existingConnection.length === 0) {
-        // Save connection to dataConnections table only if it doesn't exist
+        // Store database connection in existing system only if it doesn't exist
+        const connectionData = {
+          name: dbName,
+          description,
+          type: 'database' as const,
+          dbType: 'sqlite',
+          host: 'localhost',
+          port: 0,
+          database: dbInfo.filePath, // Use the actual path from dbInfo
+          username: '',
+          password: '',
+          isActive: true,
+          userId
+        };
+
         await storage.saveDataConnection(connectionData);
         console.log('💾 Saved new connection details for database:', dbName);
       } else {
-        console.log('🔄 Database connection already exists for:', dbName);
+        console.log('🔄 Database connection already exists for:', dbName, '- skipping creation');
       }
 
       res.json({
@@ -365,7 +364,7 @@ export function registerSQLiteRoutes(app: Express) {
       const userId = req.user.claims.sub;
 
       // Remove duplicates first (keep the most recent one for each unique name+type combination)
-      const duplicates = await db
+      const allConnections = await db
         .select({
           id: dataConnections.id,
           name: dataConnections.name,
@@ -380,11 +379,12 @@ export function registerSQLiteRoutes(app: Express) {
       const uniqueConnections = new Map();
       const duplicateIds = [];
 
-      for (const conn of duplicates) {
-        const key = `${conn.name}-${conn.type}`;
+      for (const conn of allConnections) {
+        const key = `${conn.name.toLowerCase()}-${conn.type}`;
         if (uniqueConnections.has(key)) {
           // This is a duplicate, mark for deletion
           duplicateIds.push(conn.id);
+          console.log(`🔍 Found duplicate connection: ${conn.name} (${conn.type}) - marking for deletion`);
         } else {
           uniqueConnections.set(key, conn);
         }
