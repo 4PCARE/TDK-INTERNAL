@@ -5,6 +5,9 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { storage } from "../storage"; // Use the correct storage import
+import { db } from "../db";
+import { documents, databaseConnections } from "../../shared/schema";
+import { eq, desc, and, inArray } from "drizzle-orm";
 
 const upload = multer({ dest: 'uploads/sqlite-temp/' });
 
@@ -52,7 +55,7 @@ export function registerSQLiteRoutes(app: Express) {
       res.json(analysis);
     } catch (error) {
       console.error("Error analyzing file:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to analyze file",
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -76,7 +79,7 @@ export function registerSQLiteRoutes(app: Express) {
       res.json(diagnosis);
     } catch (error) {
       console.error("Error diagnosing file:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to diagnose file",
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -97,10 +100,10 @@ export function registerSQLiteRoutes(app: Express) {
       }
 
       const result = await sqliteService.createCleanedFile(filePath, userId);
-      
+
       // Now analyze the cleaned file
       const analysis = await sqliteService.analyzeFileSchema(result.cleanedFilePath);
-      
+
       res.json({
         ...result,
         analysis,
@@ -108,7 +111,7 @@ export function registerSQLiteRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error cleaning file:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to clean file",
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -133,8 +136,8 @@ export function registerSQLiteRoutes(app: Express) {
 
       if (!allowedExtensions.includes(fileExtension)) {
         console.log('❌ Invalid file type:', fileExtension);
-        return res.status(400).json({ 
-          message: "Invalid file type. Only CSV and Excel files are allowed." 
+        return res.status(400).json({
+          message: "Invalid file type. Only CSV and Excel files are allowed."
         });
       }
 
@@ -147,7 +150,7 @@ export function registerSQLiteRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error uploading file:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to upload and analyze file",
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -184,7 +187,7 @@ export function registerSQLiteRoutes(app: Express) {
             if (!fs.existsSync(filePath)) {
               console.log('❌ File does not exist at path:', filePath);
               console.log('🔍 Available files in selectedFile:', selectedFile);
-              return res.status(400).json({ 
+              return res.status(400).json({
                 message: `The selected file "${selectedFile.fileName}" no longer exists on the server. Please upload a new file or select a different existing file.`,
                 code: 'FILE_NOT_FOUND',
                 fileName: selectedFile.fileName
@@ -192,8 +195,8 @@ export function registerSQLiteRoutes(app: Express) {
             }
           } else {
             console.log('❌ File not found with ID:', req.body.existingFileId);
-            return res.status(400).json({ 
-              message: `File with ID ${req.body.existingFileId} not found` 
+            return res.status(400).json({
+              message: `File with ID ${req.body.existingFileId} not found`
             });
           }
         }
@@ -211,8 +214,8 @@ export function registerSQLiteRoutes(app: Express) {
 
       if (!filePath || !dbName || !tableName) {
         console.log('❌ Missing required fields for create-database');
-        return res.status(400).json({ 
-          message: "File path, database name, and table name are required" 
+        return res.status(400).json({
+          message: "File path, database name, and table name are required"
         });
       }
 
@@ -240,8 +243,26 @@ export function registerSQLiteRoutes(app: Express) {
         userId
       };
 
-      await storage.saveDataConnection(connectionData);
-      console.log('💾 Saved connection details for new database:', dbName);
+      // Check if connection already exists before inserting
+      const existingConnection = await db
+        .select()
+        .from(databaseConnections)
+        .where(
+          and(
+            eq(databaseConnections.userId, userId),
+            eq(databaseConnections.name, dbName),
+            eq(databaseConnections.type, 'sqlite')
+          )
+        )
+        .limit(1);
+
+      if (existingConnection.length === 0) {
+        // Save connection to database_connections table only if it doesn't exist
+        await storage.saveDataConnection(connectionData);
+        console.log('💾 Saved new connection details for database:', dbName);
+      } else {
+        console.log('🔄 Database connection already exists for:', dbName);
+      }
 
       res.json({
         success: true,
@@ -250,7 +271,7 @@ export function registerSQLiteRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error creating database:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to create database",
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -267,8 +288,8 @@ export function registerSQLiteRoutes(app: Express) {
 
       if (!connectionId || !sql) {
         console.log('❌ Missing required fields for test-query');
-        return res.status(400).json({ 
-          message: "Connection ID and SQL query are required" 
+        return res.status(400).json({
+          message: "Connection ID and SQL query are required"
         });
       }
 
@@ -288,7 +309,7 @@ export function registerSQLiteRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error executing query:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to execute query",
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -331,10 +352,68 @@ export function registerSQLiteRoutes(app: Express) {
       });
     } catch (error) {
       console.error("Error deleting database:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to delete database",
         error: error instanceof Error ? error.message : 'Unknown error'
       });
+    }
+  });
+
+  // Get all database connections for this user
+  app.get("/api/database-connections", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+
+      // Remove duplicates first (keep the most recent one for each unique name+type combination)
+      const duplicates = await db
+        .select({
+          id: databaseConnections.id,
+          name: databaseConnections.name,
+          type: databaseConnections.type,
+          createdAt: databaseConnections.createdAt
+        })
+        .from(databaseConnections)
+        .where(eq(databaseConnections.userId, userId))
+        .orderBy(desc(databaseConnections.createdAt));
+
+      // Group by name+type and keep only the newest
+      const uniqueConnections = new Map();
+      const duplicateIds = [];
+
+      for (const conn of duplicates) {
+        const key = `${conn.name}-${conn.type}`;
+        if (uniqueConnections.has(key)) {
+          // This is a duplicate, mark for deletion
+          duplicateIds.push(conn.id);
+        } else {
+          uniqueConnections.set(key, conn);
+        }
+      }
+
+      // Delete duplicates if any found
+      if (duplicateIds.length > 0) {
+        await db
+          .delete(databaseConnections)
+          .where(
+            and(
+              eq(databaseConnections.userId, userId),
+              inArray(databaseConnections.id, duplicateIds)
+            )
+          );
+        console.log(`🗑️ Removed ${duplicateIds.length} duplicate database connections`);
+      }
+
+      // Get cleaned connections
+      const connections = await db
+        .select()
+        .from(databaseConnections)
+        .where(eq(databaseConnections.userId, userId))
+        .orderBy(desc(databaseConnections.createdAt));
+
+      res.json(connections);
+    } catch (error) {
+      console.error("Error fetching database connections:", error);
+      res.status(500).json({ message: "Failed to fetch database connections" });
     }
   });
 }
