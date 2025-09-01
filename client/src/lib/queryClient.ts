@@ -7,22 +7,62 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-export async function apiRequest(
-  method: string,
-  url: string,
-  data?: unknown | undefined,
-): Promise<Response> {
-  const isFormData = data instanceof FormData;
-
-  const res = await fetch(url, {
+export async function apiRequest(method: string, url: string, data?: any) {
+  const options: RequestInit = {
     method,
-    headers: data && !isFormData ? { "Content-Type": "application/json" } : {},
-    body: isFormData ? data : data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+  };
 
-  await throwIfResNotOk(res);
-  return res;
+  if (data) {
+    if (data instanceof FormData) {
+      delete options.headers!['Content-Type']; // Let browser set it for FormData
+      options.body = data;
+    } else {
+      options.body = JSON.stringify(data);
+    }
+  }
+
+  const response = await fetch(url, options);
+
+  // Check if we got an HTML response (likely Vite error page)
+  const contentType = response.headers.get('content-type');
+  const isHtml = contentType && contentType.includes('text/html');
+
+  if (isHtml) {
+    const htmlText = await response.text();
+    // If it's an HTML error page from Vite, treat it as an error regardless of status code
+    if (htmlText.includes('<!DOCTYPE html') || htmlText.includes('<html')) {
+      throw new Error('Server returned HTML error page instead of JSON response');
+    }
+  }
+
+  if (!response.ok) {
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+
+    try {
+      // Try to get JSON error message if available
+      if (!isHtml) {
+        const errorData = await response.json();
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      }
+    } catch {
+      // If JSON parsing fails, use the default error message
+    }
+
+    throw new Error(errorMessage);
+  }
+
+  // Ensure we only try to parse JSON for non-HTML responses
+  if (isHtml) {
+    throw new Error('Expected JSON response but received HTML');
+  }
+
+  return response.json();
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
