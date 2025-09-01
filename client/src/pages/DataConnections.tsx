@@ -48,10 +48,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 // DatabaseConnectionCard component with data preview
 const DatabaseConnectionCard = ({
   connection,
-  onEdit
+  onEdit,
+  onQuery
 }: {
   connection: DatabaseConnection;
   onEdit: (connection: DatabaseConnection) => void;
+  onQuery: (connection: DatabaseConnection) => void;
 }) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -97,13 +99,7 @@ const DatabaseConnectionCard = ({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => {
-              setQueryConnection(connection);
-              setQueryDialogOpen(true);
-              setSqlQuery('');
-              setQueryResults(null);
-              setQueryError(null);
-            }}
+            onClick={() => onQuery(connection)}
           >
             <Play className="w-4 h-4 mr-1" />
             Query
@@ -1233,6 +1229,14 @@ export default function DataConnections() {
     setIsExecutingQuery(false);
   };
 
+  const handleQueryConnection = (connection: DatabaseConnection) => {
+    setQueryConnection(connection);
+    setQueryDialogOpen(true);
+    setSqlQuery('');
+    setQueryResults(null);
+    setQueryError(null);
+  };
+
   const getDefaultQuery = (dbType: string) => {
     switch (dbType) {
       case 'postgresql':
@@ -1422,6 +1426,7 @@ export default function DataConnections() {
                     key={conn.id}
                     connection={conn}
                     onEdit={handleEditConnection}
+                    onQuery={handleQueryConnection}
                   />
                 ))}
               </div>
