@@ -1,0 +1,818 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Query Tester</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8fafc;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 600;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .panel {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            border: 1px solid #e2e8f0;
+        }
+
+        .panel h3 {
+            margin: 0 0 20px 0;
+            color: #2d3748;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .auth-status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .auth-status.success {
+            background-color: #f0fff4;
+            border: 1px solid #9ae6b4;
+            color: #22543d;
+        }
+
+        .auth-status.error {
+            background-color: #fed7d7;
+            border: 1px solid #feb2b2;
+            color: #c53030;
+        }
+
+        .auth-status.info {
+            background-color: #ebf8ff;
+            border: 1px solid #90cdf4;
+            color: #2a69ac;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        select, input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+
+        select:focus, input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .sql-editor {
+            min-height: 200px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .button.secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .button.success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .results-panel {
+            grid-column: 1 / -1;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .results-header {
+            background: #f8fafc;
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+        }
+
+        .results-content {
+            padding: 20px;
+            max-height: 600px;
+            overflow: auto;
+        }
+
+        .result-item {
+            margin-bottom: 25px;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .result-item.success {
+            background: #f0fff4;
+            border-left-color: #48bb78;
+        }
+
+        .result-item.error {
+            background: #fed7d7;
+            border-left-color: #f56565;
+        }
+
+        .result-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .result-data {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 8px 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        tr:hover {
+            background: #f9fafb;
+        }
+
+        pre {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+            margin: 0;
+        }
+
+        .query-templates {
+            display: grid;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .template-btn {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #374151;
+            transition: all 0.2s;
+        }
+
+        .template-btn:hover {
+            background: #f1f5f9;
+            border-color: #667eea;
+        }
+
+        .connection-info {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🗄️ SQL Query Tester</h1>
+        <p>Test SQL queries against your database connections with real-time results</p>
+    </div>
+
+    <!-- Authentication Status -->
+    <div id="authStatus" class="auth-status info">
+        <strong>🔍 Checking authentication...</strong>
+    </div>
+
+    <!-- Login Section -->
+    <div id="loginSection" class="panel hidden">
+        <h3>🔐 Authentication Required</h3>
+        <p>You need to be logged in to test SQL queries.</p>
+        <div class="button-group">
+            <button class="button" onclick="window.location.href='/api/login'">Login with Replit</button>
+            <button class="button secondary" onclick="window.location.href='/api/auth/microsoft'">Login with Microsoft</button>
+        </div>
+    </div>
+
+    <!-- Main Interface -->
+    <div id="mainInterface" class="hidden">
+        <div class="container">
+            <!-- Connection Panel -->
+            <div class="panel">
+                <h3>🔌 Database Connection</h3>
+                
+                <div class="form-group">
+                    <label for="connectionSelect">Select Database Connection:</label>
+                    <select id="connectionSelect">
+                        <option value="">Loading connections...</option>
+                    </select>
+                </div>
+                
+                <div id="connectionInfo" class="connection-info hidden">
+                    <strong>Connection Details:</strong>
+                    <div id="connectionDetails"></div>
+                </div>
+
+                <div class="button-group">
+                    <button class="button" onclick="loadConnections()">🔄 Refresh Connections</button>
+                    <button class="button secondary" onclick="testConnection()">🧪 Test Connection</button>
+                </div>
+            </div>
+
+            <!-- Query Panel -->
+            <div class="panel">
+                <h3>📝 SQL Query</h3>
+                
+                <div class="form-group">
+                    <label for="sqlQuery">SQL Query:</label>
+                    <textarea id="sqlQuery" class="sql-editor" placeholder="SELECT * FROM your_table LIMIT 10;">SELECT * FROM your_table LIMIT 10;</textarea>
+                </div>
+
+                <div class="button-group">
+                    <button class="button success" onclick="executeQuery()">
+                        <span id="executeBtn">▶️ Execute Query</span>
+                    </button>
+                    <button class="button" onclick="formatQuery()">✨ Format SQL</button>
+                    <button class="button secondary" onclick="clearQuery()">🗑️ Clear</button>
+                </div>
+
+                <div class="form-group">
+                    <label>Quick Templates:</label>
+                    <div class="query-templates">
+                        <div class="template-btn" onclick="insertTemplate('SELECT * FROM {table} LIMIT 10;')">
+                            📋 Basic Select
+                        </div>
+                        <div class="template-btn" onclick="insertTemplate('SELECT COUNT(*) FROM {table};')">
+                            🔢 Count Records
+                        </div>
+                        <div class="template-btn" onclick="insertTemplate('DESCRIBE {table};')">
+                            📊 Describe Table
+                        </div>
+                        <div class="template-btn" onclick="insertTemplate('SHOW TABLES;')">
+                            📋 Show Tables
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div class="results-panel">
+            <div class="results-header">
+                <h3>📊 Query Results</h3>
+                <div class="button-group">
+                    <button class="button" onclick="exportResults()">💾 Export CSV</button>
+                    <button class="button secondary" onclick="clearResults()">🗑️ Clear Results</button>
+                </div>
+            </div>
+            <div class="results-content">
+                <div id="queryResults">
+                    <p style="color: #6b7280; text-align: center; padding: 40px;">
+                        🚀 Execute a query to see results here
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isAuthenticated = false;
+        let currentUser = null;
+        let connections = [];
+        let currentConnection = null;
+        let queryHistory = [];
+
+        // Initialize page
+        window.onload = function() {
+            checkAuthStatus();
+        };
+
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/api/auth/user', {
+                    credentials: 'include'
+                });
+                
+                const authStatusElement = document.getElementById('authStatus');
+                const loginSection = document.getElementById('loginSection');
+                const mainInterface = document.getElementById('mainInterface');
+
+                if (response.ok) {
+                    const user = await response.json();
+                    isAuthenticated = true;
+                    currentUser = user;
+                    
+                    authStatusElement.className = 'auth-status success';
+                    authStatusElement.innerHTML = `
+                        <strong>✅ Authenticated as:</strong> ${user.email || user.name || 'Unknown User'}<br>
+                        <strong>User ID:</strong> ${user.id || 'Unknown'}
+                    `;
+                    
+                    loginSection.classList.add('hidden');
+                    mainInterface.classList.remove('hidden');
+                    
+                    await loadConnections();
+                } else {
+                    isAuthenticated = false;
+                    authStatusElement.className = 'auth-status error';
+                    authStatusElement.innerHTML = '<strong>❌ Not Authenticated</strong>';
+                    
+                    loginSection.classList.remove('hidden');
+                    mainInterface.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                document.getElementById('authStatus').innerHTML = '<strong>⚠️ Auth Check Failed:</strong> ' + error.message;
+            }
+        }
+
+        async function loadConnections() {
+            try {
+                const response = await makeAuthenticatedRequest('/api/database-connections');
+                if (response.ok) {
+                    connections = await response.json();
+                    populateConnectionSelect();
+                } else {
+                    showError('Failed to load database connections');
+                }
+            } catch (error) {
+                showError('Error loading connections: ' + error.message);
+            }
+        }
+
+        function populateConnectionSelect() {
+            const select = document.getElementById('connectionSelect');
+            select.innerHTML = '<option value="">Select a connection...</option>';
+            
+            connections.forEach(conn => {
+                const option = document.createElement('option');
+                option.value = conn.id;
+                option.textContent = `${conn.name} (${conn.dbType || conn.type})`;
+                select.appendChild(option);
+            });
+
+            select.onchange = function() {
+                const connId = this.value;
+                if (connId) {
+                    currentConnection = connections.find(c => c.id == connId);
+                    showConnectionInfo();
+                } else {
+                    currentConnection = null;
+                    hideConnectionInfo();
+                }
+            };
+        }
+
+        function showConnectionInfo() {
+            if (!currentConnection) return;
+            
+            const infoDiv = document.getElementById('connectionInfo');
+            const detailsDiv = document.getElementById('connectionDetails');
+            
+            detailsDiv.innerHTML = `
+                <div><strong>Name:</strong> ${currentConnection.name}</div>
+                <div><strong>Type:</strong> ${currentConnection.dbType || currentConnection.type}</div>
+                <div><strong>Host:</strong> ${currentConnection.host || 'localhost'}</div>
+                <div><strong>Database:</strong> ${currentConnection.database || 'N/A'}</div>
+                <div><strong>Status:</strong> ${currentConnection.isActive ? '🟢 Active' : '🔴 Inactive'}</div>
+            `;
+            
+            infoDiv.classList.remove('hidden');
+        }
+
+        function hideConnectionInfo() {
+            document.getElementById('connectionInfo').classList.add('hidden');
+        }
+
+        async function testConnection() {
+            if (!currentConnection) {
+                showError('Please select a connection first');
+                return;
+            }
+
+            try {
+                const testQuery = currentConnection.dbType === 'sqlite' ? 
+                    'SELECT 1 as test;' : 
+                    'SELECT 1 as test;';
+
+                await executeSpecificQuery(testQuery, true);
+            } catch (error) {
+                showError('Connection test failed: ' + error.message);
+            }
+        }
+
+        async function executeQuery() {
+            const query = document.getElementById('sqlQuery').value.trim();
+            if (!query) {
+                showError('Please enter a SQL query');
+                return;
+            }
+
+            if (!currentConnection) {
+                showError('Please select a database connection');
+                return;
+            }
+
+            await executeSpecificQuery(query);
+        }
+
+        async function executeSpecificQuery(query, isTest = false) {
+            const executeBtn = document.getElementById('executeBtn');
+            const originalText = executeBtn.innerHTML;
+            
+            executeBtn.innerHTML = '<div class="loading"></div> Executing...';
+            document.querySelector('button[onclick="executeQuery()"]').disabled = true;
+
+            try {
+                let endpoint, payload;
+                
+                if (currentConnection.dbType === 'sqlite' || currentConnection.type === 'sqlite') {
+                    endpoint = '/api/sqlite/test-query';
+                    payload = {
+                        connectionId: currentConnection.id,
+                        sql: query
+                    };
+                } else {
+                    endpoint = '/api/database-ai/test-query';
+                    payload = {
+                        connectionId: currentConnection.id,
+                        query: query
+                    };
+                }
+
+                const response = await makeAuthenticatedRequest(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    displayQueryResult(query, result, isTest);
+                    if (!isTest) {
+                        addToHistory(query, result);
+                    }
+                } else {
+                    showError(result.message || 'Query execution failed');
+                }
+                
+            } catch (error) {
+                showError('Query execution error: ' + error.message);
+            } finally {
+                executeBtn.innerHTML = originalText;
+                document.querySelector('button[onclick="executeQuery()"]').disabled = false;
+            }
+        }
+
+        function displayQueryResult(query, result, isTest = false) {
+            const resultsDiv = document.getElementById('queryResults');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'result-item ' + (result.success !== false ? 'success' : 'error');
+            
+            let content = `
+                <div class="result-meta">
+                    <span><strong>${isTest ? '🧪 Connection Test' : '📊 Query Result'}</strong> - ${timestamp}</span>
+                    <span>Connection: ${currentConnection.name}</span>
+                </div>
+            `;
+
+            if (result.success !== false) {
+                const data = result.data || result.rows || [];
+                const columns = result.columns || (data.length > 0 ? Object.keys(data[0]) : []);
+                
+                content += `
+                    <div class="result-data">
+                        <div style="margin-bottom: 10px;">
+                            <strong>Query:</strong> 
+                            <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 3px;">${query}</code>
+                        </div>
+                `;
+
+                if (data.length > 0) {
+                    content += `
+                        <div style="margin-bottom: 10px;">
+                            <strong>Results:</strong> ${data.length} row(s)
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    ${columns.map(col => `<th>${col}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.slice(0, 100).map(row => `
+                                    <tr>
+                                        ${columns.map(col => `<td>${row[col] !== null ? String(row[col]) : 'NULL'}</td>`).join('')}
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    
+                    if (data.length > 100) {
+                        content += `<div style="margin-top: 10px; color: #6b7280;">Showing first 100 rows of ${data.length} total results.</div>`;
+                    }
+                } else {
+                    content += '<div style="color: #6b7280;">Query executed successfully - No results returned</div>';
+                }
+                
+                content += '</div>';
+            } else {
+                content += `
+                    <div class="result-data">
+                        <div style="margin-bottom: 10px;">
+                            <strong>Query:</strong> 
+                            <code style="background: #e5e7eb; padding: 2px 6px; border-radius: 3px;">${query}</code>
+                        </div>
+                        <div style="color: #dc2626;">
+                            <strong>Error:</strong> ${result.message || result.error || 'Unknown error'}
+                        </div>
+                    </div>
+                `;
+            }
+
+            resultDiv.innerHTML = content;
+            
+            if (resultsDiv.children[0]?.tagName === 'P') {
+                resultsDiv.innerHTML = '';
+            }
+            
+            resultsDiv.insertBefore(resultDiv, resultsDiv.firstChild);
+        }
+
+        function addToHistory(query, result) {
+            queryHistory.unshift({
+                query,
+                result,
+                timestamp: new Date(),
+                connection: currentConnection.name
+            });
+            
+            // Keep only last 50 queries
+            if (queryHistory.length > 50) {
+                queryHistory = queryHistory.slice(0, 50);
+            }
+        }
+
+        function insertTemplate(template) {
+            document.getElementById('sqlQuery').value = template;
+        }
+
+        function formatQuery() {
+            const textarea = document.getElementById('sqlQuery');
+            let query = textarea.value;
+            
+            // Basic SQL formatting
+            query = query
+                .replace(/\bSELECT\b/gi, 'SELECT')
+                .replace(/\bFROM\b/gi, '\nFROM')
+                .replace(/\bWHERE\b/gi, '\nWHERE')
+                .replace(/\bORDER BY\b/gi, '\nORDER BY')
+                .replace(/\bGROUP BY\b/gi, '\nGROUP BY')
+                .replace(/\bHAVING\b/gi, '\nHAVING')
+                .replace(/\bLIMIT\b/gi, '\nLIMIT')
+                .replace(/\bJOIN\b/gi, '\nJOIN')
+                .replace(/\bLEFT JOIN\b/gi, '\nLEFT JOIN')
+                .replace(/\bRIGHT JOIN\b/gi, '\nRIGHT JOIN')
+                .replace(/\bINNER JOIN\b/gi, '\nINNER JOIN');
+            
+            textarea.value = query;
+        }
+
+        function clearQuery() {
+            document.getElementById('sqlQuery').value = '';
+        }
+
+        function clearResults() {
+            document.getElementById('queryResults').innerHTML = `
+                <p style="color: #6b7280; text-align: center; padding: 40px;">
+                    🚀 Execute a query to see results here
+                </p>
+            `;
+        }
+
+        function exportResults() {
+            if (queryHistory.length === 0) {
+                showError('No results to export');
+                return;
+            }
+
+            const latestResult = queryHistory[0];
+            const data = latestResult.result.data || latestResult.result.rows || [];
+            
+            if (data.length === 0) {
+                showError('No data to export');
+                return;
+            }
+
+            const columns = Object.keys(data[0]);
+            let csv = columns.join(',') + '\n';
+            
+            data.forEach(row => {
+                const values = columns.map(col => {
+                    const value = row[col];
+                    if (value === null) return '';
+                    if (typeof value === 'string' && value.includes(',')) {
+                        return `"${value.replace(/"/g, '""')}"`;
+                    }
+                    return String(value);
+                });
+                csv += values.join(',') + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `query_results_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        async function makeAuthenticatedRequest(url, options = {}) {
+            const defaultOptions = {
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            };
+
+            const mergedOptions = {
+                ...defaultOptions,
+                ...options,
+                headers: {
+                    ...defaultOptions.headers,
+                    ...options.headers
+                }
+            };
+
+            return await fetch(url, mergedOptions);
+        }
+
+        function showError(message) {
+            const resultsDiv = document.getElementById('queryResults');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'result-item error';
+            errorDiv.innerHTML = `
+                <div class="result-meta">
+                    <span><strong>❌ Error</strong> - ${new Date().toLocaleTimeString()}</span>
+                </div>
+                <div class="result-data">
+                    <div style="color: #dc2626;">
+                        <strong>Error:</strong> ${message}
+                    </div>
+                </div>
+            `;
+            
+            if (resultsDiv.children[0]?.tagName === 'P') {
+                resultsDiv.innerHTML = '';
+            }
+            
+            resultsDiv.insertBefore(errorDiv, resultsDiv.firstChild);
+        }
+    </script>
+</body>
+</html>
