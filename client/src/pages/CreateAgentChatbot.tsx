@@ -154,10 +154,10 @@ const createAgentSchema = z.object({
     }).optional(),
     businessContext: z.object({
       enabled: z.boolean().default(false),
-      companyName: z.string().optional(),
-      brandVoice: "professional",
-      industryContext: "",
-      complianceRequirements: [],
+      companyName: z.string().default(""),
+      brandVoice: z.string().default("professional"),
+      industryContext: z.string().default(""),
+      complianceRequirements: z.array(z.string()).default([]),
     }).optional(),
   }).optional(),
   // Memory Configuration
