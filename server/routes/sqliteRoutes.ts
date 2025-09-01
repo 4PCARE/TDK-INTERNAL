@@ -6,7 +6,7 @@ import path from "path";
 import fs from "fs";
 import { storage } from "../storage"; // Use the correct storage import
 import { db } from "../db";
-import { documents, databaseConnections } from "../../shared/schema";
+import { documents, dataConnections } from "../../shared/schema";
 import { eq, desc, and, inArray } from "drizzle-orm";
 
 const upload = multer({ dest: 'uploads/sqlite-temp/' });
@@ -257,7 +257,7 @@ export function registerSQLiteRoutes(app: Express) {
         .limit(1);
 
       if (existingConnection.length === 0) {
-        // Save connection to database_connections table only if it doesn't exist
+        // Save connection to dataConnections table only if it doesn't exist
         await storage.saveDataConnection(connectionData);
         console.log('💾 Saved new connection details for database:', dbName);
       } else {
@@ -367,14 +367,14 @@ export function registerSQLiteRoutes(app: Express) {
       // Remove duplicates first (keep the most recent one for each unique name+type combination)
       const duplicates = await db
         .select({
-          id: databaseConnections.id,
-          name: databaseConnections.name,
-          type: databaseConnections.type,
-          createdAt: databaseConnections.createdAt
+          id: dataConnections.id,
+          name: dataConnections.name,
+          type: dataConnections.type,
+          createdAt: dataConnections.createdAt
         })
-        .from(databaseConnections)
-        .where(eq(databaseConnections.userId, userId))
-        .orderBy(desc(databaseConnections.createdAt));
+        .from(dataConnections)
+        .where(eq(dataConnections.userId, userId))
+        .orderBy(desc(dataConnections.createdAt));
 
       // Group by name+type and keep only the newest
       const uniqueConnections = new Map();
@@ -393,11 +393,11 @@ export function registerSQLiteRoutes(app: Express) {
       // Delete duplicates if any found
       if (duplicateIds.length > 0) {
         await db
-          .delete(databaseConnections)
+          .delete(dataConnections)
           .where(
             and(
-              eq(databaseConnections.userId, userId),
-              inArray(databaseConnections.id, duplicateIds)
+              eq(dataConnections.userId, userId),
+              inArray(dataConnections.id, duplicateIds)
             )
           );
         console.log(`🗑️ Removed ${duplicateIds.length} duplicate database connections`);
@@ -406,9 +406,9 @@ export function registerSQLiteRoutes(app: Express) {
       // Get cleaned connections
       const connections = await db
         .select()
-        .from(databaseConnections)
-        .where(eq(databaseConnections.userId, userId))
-        .orderBy(desc(databaseConnections.createdAt));
+        .from(dataConnections)
+        .where(eq(dataConnections.userId, userId))
+        .orderBy(desc(dataConnections.createdAt));
 
       res.json(connections);
     } catch (error) {
