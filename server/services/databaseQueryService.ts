@@ -1,5 +1,6 @@
 import { Pool as PgPool } from 'pg';
 import mysql from 'mysql2/promise';
+import Database from 'better-sqlite3';
 import { storage } from '../storage';
 
 export interface QueryResult {
@@ -45,6 +46,8 @@ export class DatabaseQueryService {
           return await this.executePostgreSQLQuery(connection, query, startTime);
         case 'mysql':
           return await this.executeMySQLQuery(connection, query, startTime);
+        case 'sqlite':
+          return await this.executeSQLiteQuery(connection, query, startTime);
         default:
           return {
             success: false,
@@ -145,6 +148,8 @@ export class DatabaseQueryService {
           return await this.getPostgreSQLSchema(connection);
         case 'mysql':
           return await this.getMySQLSchema(connection);
+        case 'sqlite':
+          return await this.getSQLiteSchema(connection);
         default:
           console.error(`❌ Unsupported database type: ${connection.dbType}`);
           return null;
@@ -276,6 +281,94 @@ export class DatabaseQueryService {
       throw error;
     } finally {
       await mysqlConnection.end();
+    }
+  }
+
+  private async executeSQLiteQuery(connection: any, query: string, startTime: number): Promise<QueryResult> {
+    console.log(`🗄️ Connecting to SQLite: ${connection.filePath || connection.database}`);
+    
+    const dbPath = connection.filePath || connection.database;
+    if (!dbPath) {
+      throw new Error('SQLite database path not found');
+    }
+
+    try {
+      const db = new Database(dbPath, { readonly: true });
+      console.log(`✅ Connected to SQLite successfully`);
+      
+      const stmt = db.prepare(query);
+      const rows = stmt.all();
+      
+      // Extract column names
+      let columns: string[] = [];
+      if (rows.length > 0) {
+        columns = Object.keys(rows[0]);
+      }
+      
+      db.close();
+      
+      return {
+        success: true,
+        data: rows,
+        columns,
+        rowCount: rows.length,
+        executionTime: Date.now() - startTime
+      };
+    } catch (error) {
+      console.error(`❌ SQLite query error:`, error);
+      throw error;
+    }
+  }
+
+  private async getSQLiteSchema(connection: any): Promise<DatabaseSchema> {
+    console.log(`🗄️ Getting SQLite schema: ${connection.filePath || connection.database}`);
+    
+    const dbPath = connection.filePath || connection.database;
+    if (!dbPath) {
+      throw new Error('SQLite database path not found');
+    }
+
+    try {
+      const db = new Database(dbPath, { readonly: true });
+      console.log(`✅ Connected to SQLite successfully`);
+      
+      // Get all tables
+      const tablesResult = db.prepare(`
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name NOT LIKE 'sqlite_%'
+        ORDER BY name
+      `).all();
+
+      console.log(`📋 Found ${tablesResult.length} tables in SQLite database`);
+      const tables = [];
+      
+      for (const tableRow of tablesResult) {
+        const tableName = tableRow.name;
+        
+        // Get columns for each table
+        const columnsResult = db.prepare(`PRAGMA table_info(${tableName})`).all();
+        
+        const columns = columnsResult.map((col: any) => ({
+          name: col.name,
+          type: col.type,
+          nullable: !col.notnull,
+          default: col.dflt_value
+        }));
+
+        tables.push({
+          name: tableName,
+          columns
+        });
+        
+        console.log(`📋 Table ${tableName}: ${columns.length} columns`);
+      }
+
+      db.close();
+      console.log(`✅ SQLite schema retrieved successfully`);
+      return { tables };
+    } catch (error) {
+      console.error(`❌ SQLite schema error:`, error);
+      throw error;
     }
   }
 
