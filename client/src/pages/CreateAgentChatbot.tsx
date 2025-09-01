@@ -644,44 +644,61 @@ export default function CreateAgentChatbot() {
         return await apiRequest("POST", "/api/agent-chatbots", agentData);
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("✅ Agent save successful:", data);
+      
       toast({
         title: "Success",
         description: isEditing
           ? "Agent chatbot updated successfully!"
           : "Agent chatbot created successfully!",
       });
-      // Clear form and navigate back
-      form.reset();
-      setSelectedDocuments([]);
-      setSelectedDatabases([]);
-      setFolderDocuments({});
-      setExpandedFolders(new Set());
 
-      // Invalidate comprehensive cache keys to ensure frontend updates
-      queryClient.invalidateQueries({ queryKey: ["/api/agent-chatbots"] });
-
-      // If editing, also invalidate the specific agent's cache
-      if (isEditing && editAgentId) {
-        queryClient.invalidateQueries({
-          queryKey: [`/api/agent-chatbots/${editAgentId}`]
-        });
-        queryClient.invalidateQueries({
-          queryKey: [`/api/agent-chatbots/${editAgentId}/documents`]
-        });
+      // Store the saved agent data for testing
+      if (data) {
+        setSavedAgent({ ...form.getValues(), id: data.id || parseInt(editAgentId || '0') });
       }
 
-      // Invalidate all agent-related cache to ensure complete refresh
-      queryClient.invalidateQueries({
-        predicate: (query) => {
-          const queryKey = query.queryKey[0];
-          return typeof queryKey === "string" && queryKey.includes("/api/agent-chatbots");
-        }
+      // Invalidate queries in a specific order to prevent race conditions
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["/api/agent-chatbots"] }),
+        isEditing && editAgentId ? queryClient.invalidateQueries({
+          queryKey: [`/api/agent-chatbots/${editAgentId}`]
+        }) : Promise.resolve(),
+        isEditing && editAgentId ? queryClient.invalidateQueries({
+          queryKey: [`/api/agent-chatbots/${editAgentId}/documents`]
+        }) : Promise.resolve(),
+        isEditing && editAgentId ? queryClient.invalidateQueries({
+          queryKey: [`/api/agent-chatbots/${editAgentId}/databases`]
+        }) : Promise.resolve(),
+      ]).then(() => {
+        console.log("✅ Cache invalidation complete");
+        
+        // Use setTimeout to ensure all state updates are complete before navigation
+        setTimeout(() => {
+          try {
+            window.history.back();
+          } catch (error) {
+            console.error("Navigation error, using fallback:", error);
+            window.location.href = "/agent-chatbots";
+          }
+        }, 100);
+      }).catch(error => {
+        console.error("Cache invalidation error:", error);
+        // Still navigate even if cache invalidation fails
+        setTimeout(() => {
+          try {
+            window.history.back();
+          } catch (navError) {
+            console.error("Navigation error, using fallback:", navError);
+            window.location.href = "/agent-chatbots";
+          }
+        }, 100);
       });
-
-      window.history.back();
     },
     onError: (error) => {
+      console.error("❌ Agent save failed:", error);
+      
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -760,18 +777,18 @@ export default function CreateAgentChatbot() {
       const guardrailsConfig = data.guardrailsEnabled ? data.guardrailsConfig : null;
 
       // Use only the selected documents (folders are converted to individual documents)
-      const allDocumentIds = [...new Set(selectedDocuments)];
-      const allDatabaseIds = [...new Set(selectedDatabases)];
+      const allDocumentIds = Array.isArray(selectedDocuments) ? [...new Set(selectedDocuments.filter(id => id != null))] : [];
+      const allDatabaseIds = Array.isArray(selectedDatabases) ? [...new Set(selectedDatabases.filter(id => id != null))] : [];
 
       const finalData = {
         ...data,
         documentIds: allDocumentIds,
         databaseIds: allDatabaseIds,
         guardrailsConfig,
-        // Ensure arrays are properly formatted
-        specialSkills: Array.isArray(data.specialSkills) ? data.specialSkills : [],
-        allowedTopics: Array.isArray(data.allowedTopics) ? data.allowedTopics : [],
-        blockedTopics: Array.isArray(data.blockedTopics) ? data.blockedTopics : [],
+        // Ensure arrays are properly formatted and not null
+        specialSkills: Array.isArray(data.specialSkills) ? data.specialSkills.filter(skill => skill != null) : [],
+        allowedTopics: Array.isArray(data.allowedTopics) ? data.allowedTopics.filter(topic => topic != null) : [],
+        blockedTopics: Array.isArray(data.blockedTopics) ? data.blockedTopics.filter(topic => topic != null) : [],
       };
 
       console.log("Form submission data:", JSON.stringify(finalData, null, 2));
@@ -3273,12 +3290,28 @@ export default function CreateAgentChatbot() {
                             e.preventDefault();
                             e.stopPropagation();
                             console.log("🔘 Manual save button clicked");
-                            form.handleSubmit((data) => {
-                              console.log("✅ Manual form submission triggered");
-                              onSubmit(data);
-                            }, (errors) => {
-                              console.log("❌ Manual form validation failed:", errors);
-                            })();
+                            
+                            // Add try-catch wrapper for form submission
+                            try {
+                              form.handleSubmit((data) => {
+                                console.log("✅ Manual form submission triggered");
+                                onSubmit(data);
+                              }, (errors) => {
+                                console.log("❌ Manual form validation failed:", errors);
+                                toast({
+                                  title: "Validation Error",
+                                  description: "Please check the form for errors and try again.",
+                                  variant: "destructive",
+                                });
+                              })();
+                            } catch (error) {
+                              console.error("❌ Form submission error:", error);
+                              toast({
+                                title: "Form Error",
+                                description: "An unexpected error occurred. Please try again.",
+                                variant: "destructive",
+                              });
+                            }
                           }}
                           disabled={saveAgentMutation.isPending}
                           className="bg-blue-600 hover:bg-blue-700"
