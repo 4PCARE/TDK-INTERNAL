@@ -209,29 +209,6 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  // TEMPORARY: Allow test requests with special header - COMPREHENSIVE DEBUG
-  console.log("🔍 Auth Debug - Path:", req.path);
-  console.log("🔍 Auth Debug - All Headers:", JSON.stringify(req.headers, null, 2));
-  
-  const testBypass = req.headers['x-test-bypass'] || req.headers['X-Test-Bypass'] || req.headers['x-test-bypass'.toLowerCase()];
-  console.log("🔍 Auth Debug - Test bypass header value:", testBypass);
-  
-  if (testBypass === 'allow-sqlite-testing') {
-    console.log("🧪 TEST BYPASS ACTIVATED for:", req.path);
-    // Mock a test user
-    req.user = {
-      claims: {
-        sub: 'test-user-123',
-        email: 'test@example.com',
-        exp: Math.floor(Date.now() / 1000) + 3600 // 1 hour from now
-      }
-    };
-    console.log("🧪 Mocked user set:", req.user);
-    return next();
-  }
-  
-  console.log("❌ No test bypass found, proceeding with normal auth");
-
   const user = req.user as any;
   const sessionUser = (req.session as any)?.passport?.user;
 

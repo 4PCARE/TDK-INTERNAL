@@ -1,0 +1,393 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQLite Endpoint Tester</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .endpoint-test {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .auth-status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 SQLite Endpoint Tester</h1>
+        <p>This page tests SQLite API endpoints using proper browser authentication.</p>
+        
+        <!-- Authentication Status -->
+        <div id="authStatus" class="auth-status info">
+            <strong>Authentication Status:</strong> Checking...
+        </div>
+        
+        <!-- Login Section -->
+        <div id="loginSection" style="display: none;">
+            <h3>🔐 Authentication Required</h3>
+            <p>You need to be logged in to test the SQLite endpoints.</p>
+            <button onclick="window.location.href='/api/login'">Login with Replit</button>
+            <button onclick="window.location.href='/api/auth/microsoft'">Login with Microsoft</button>
+        </div>
+
+        <!-- Test Controls -->
+        <div id="testSection" style="display: none;">
+            <h3>🧪 Test Controls</h3>
+            <button onclick="runAllTests()">Run All Tests</button>
+            <button onclick="clearResults()">Clear Results</button>
+        </div>
+
+        <!-- Individual Endpoint Tests -->
+        <div id="testsContainer">
+            <!-- Test 1: Check Authentication -->
+            <div class="endpoint-test">
+                <h4>1. Authentication Check</h4>
+                <button onclick="testAuthStatus()">Test /api/auth/user</button>
+                <div id="auth-result"></div>
+            </div>
+
+            <!-- Test 2: Existing Files -->
+            <div class="endpoint-test">
+                <h4>2. Get Existing Files</h4>
+                <button onclick="testExistingFiles()">Test /api/sqlite/existing-files</button>
+                <div id="existing-files-result"></div>
+            </div>
+
+            <!-- Test 3: Analyze File -->
+            <div class="endpoint-test">
+                <h4>3. Analyze File Schema</h4>
+                <div class="form-group">
+                    <label for="filePath">File Path:</label>
+                    <input type="text" id="filePath" placeholder="/path/to/your/file.csv" />
+                </div>
+                <button onclick="testAnalyzeFile()">Test /api/sqlite/analyze-file</button>
+                <div id="analyze-file-result"></div>
+            </div>
+
+            <!-- Test 4: Create Database -->
+            <div class="endpoint-test">
+                <h4>4. Create Database</h4>
+                <div class="form-group">
+                    <label for="createFilePath">File Path:</label>
+                    <input type="text" id="createFilePath" placeholder="/path/to/your/file.csv" />
+                </div>
+                <div class="form-group">
+                    <label for="dbName">Database Name:</label>
+                    <input type="text" id="dbName" placeholder="test_database" />
+                </div>
+                <div class="form-group">
+                    <label for="tableName">Table Name:</label>
+                    <input type="text" id="tableName" placeholder="main_table" />
+                </div>
+                <div class="form-group">
+                    <label for="dbDescription">Description:</label>
+                    <textarea id="dbDescription" placeholder="Test database description"></textarea>
+                </div>
+                <button onclick="testCreateDatabase()">Test /api/sqlite/create-database</button>
+                <div id="create-database-result"></div>
+            </div>
+
+            <!-- Test 5: Test Query -->
+            <div class="endpoint-test">
+                <h4>5. Test SQL Query</h4>
+                <div class="form-group">
+                    <label for="connectionId">Connection ID:</label>
+                    <input type="number" id="connectionId" placeholder="1" />
+                </div>
+                <div class="form-group">
+                    <label for="sqlQuery">SQL Query:</label>
+                    <textarea id="sqlQuery" placeholder="SELECT * FROM your_table LIMIT 10"></textarea>
+                </div>
+                <button onclick="testSqlQuery()">Test /api/sqlite/test-query</button>
+                <div id="test-query-result"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isAuthenticated = false;
+        let currentUser = null;
+
+        // Check authentication status on page load
+        window.onload = function() {
+            checkAuthStatus();
+        };
+
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/api/auth/user', {
+                    credentials: 'include'
+                });
+                
+                const authStatusElement = document.getElementById('authStatus');
+                const loginSection = document.getElementById('loginSection');
+                const testSection = document.getElementById('testSection');
+
+                if (response.ok) {
+                    const user = await response.json();
+                    isAuthenticated = true;
+                    currentUser = user;
+                    
+                    authStatusElement.className = 'auth-status success';
+                    authStatusElement.innerHTML = `
+                        <strong>✅ Authenticated as:</strong> ${user.email || user.name || 'Unknown User'}<br>
+                        <strong>User ID:</strong> ${user.id || 'Unknown'}
+                    `;
+                    
+                    loginSection.style.display = 'none';
+                    testSection.style.display = 'block';
+                } else {
+                    isAuthenticated = false;
+                    authStatusElement.className = 'auth-status error';
+                    authStatusElement.innerHTML = '<strong>❌ Not Authenticated</strong>';
+                    
+                    loginSection.style.display = 'block';
+                    testSection.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                document.getElementById('authStatus').innerHTML = '<strong>⚠️ Auth Check Failed:</strong> ' + error.message;
+            }
+        }
+
+        async function makeAuthenticatedRequest(url, options = {}) {
+            const defaultOptions = {
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            };
+
+            const mergedOptions = {
+                ...defaultOptions,
+                ...options,
+                headers: {
+                    ...defaultOptions.headers,
+                    ...options.headers
+                }
+            };
+
+            return await fetch(url, mergedOptions);
+        }
+
+        function displayResult(elementId, response, data, error = null) {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            
+            if (error) {
+                element.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Error (${timestamp}):</strong><br>
+                        <pre>${error}</pre>
+                    </div>
+                `;
+                return;
+            }
+
+            const statusClass = response.ok ? 'success' : 'error';
+            const statusIcon = response.ok ? '✅' : '❌';
+            
+            element.innerHTML = `
+                <div class="${statusClass}">
+                    <strong>${statusIcon} Status: ${response.status} (${timestamp})</strong><br>
+                    <strong>Response:</strong>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                </div>
+            `;
+        }
+
+        async function testAuthStatus() {
+            try {
+                const response = await makeAuthenticatedRequest('/api/auth/user');
+                const data = await response.json();
+                displayResult('auth-result', response, data);
+            } catch (error) {
+                displayResult('auth-result', null, null, error.message);
+            }
+        }
+
+        async function testExistingFiles() {
+            try {
+                const response = await makeAuthenticatedRequest('/api/sqlite/existing-files');
+                const data = await response.json();
+                displayResult('existing-files-result', response, data);
+            } catch (error) {
+                displayResult('existing-files-result', null, null, error.message);
+            }
+        }
+
+        async function testAnalyzeFile() {
+            const filePath = document.getElementById('filePath').value;
+            
+            if (!filePath.trim()) {
+                displayResult('analyze-file-result', null, null, 'File path is required');
+                return;
+            }
+
+            try {
+                const response = await makeAuthenticatedRequest('/api/sqlite/analyze-file', {
+                    method: 'POST',
+                    body: JSON.stringify({ filePath: filePath.trim() })
+                });
+                const data = await response.json();
+                displayResult('analyze-file-result', response, data);
+            } catch (error) {
+                displayResult('analyze-file-result', null, null, error.message);
+            }
+        }
+
+        async function testCreateDatabase() {
+            const filePath = document.getElementById('createFilePath').value;
+            const dbName = document.getElementById('dbName').value;
+            const tableName = document.getElementById('tableName').value;
+            const description = document.getElementById('dbDescription').value;
+
+            if (!filePath.trim() || !dbName.trim() || !tableName.trim()) {
+                displayResult('create-database-result', null, null, 'File path, database name, and table name are required');
+                return;
+            }
+
+            try {
+                const response = await makeAuthenticatedRequest('/api/sqlite/create-database', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        filePath: filePath.trim(),
+                        dbName: dbName.trim(),
+                        tableName: tableName.trim(),
+                        description: description.trim(),
+                        snippets: []
+                    })
+                });
+                const data = await response.json();
+                displayResult('create-database-result', response, data);
+            } catch (error) {
+                displayResult('create-database-result', null, null, error.message);
+            }
+        }
+
+        async function testSqlQuery() {
+            const connectionId = document.getElementById('connectionId').value;
+            const sql = document.getElementById('sqlQuery').value;
+
+            if (!connectionId.trim() || !sql.trim()) {
+                displayResult('test-query-result', null, null, 'Connection ID and SQL query are required');
+                return;
+            }
+
+            try {
+                const response = await makeAuthenticatedRequest('/api/sqlite/test-query', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        connectionId: parseInt(connectionId),
+                        sql: sql.trim()
+                    })
+                });
+                const data = await response.json();
+                displayResult('test-query-result', response, data);
+            } catch (error) {
+                displayResult('test-query-result', null, null, error.message);
+            }
+        }
+
+        async function runAllTests() {
+            if (!isAuthenticated) {
+                alert('Please log in first');
+                return;
+            }
+
+            // Run tests in sequence
+            await testAuthStatus();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await testExistingFiles();
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Only run file tests if we have sample data
+            const sampleFilePath = prompt('Enter a test file path (or cancel to skip file tests):');
+            if (sampleFilePath) {
+                document.getElementById('filePath').value = sampleFilePath;
+                document.getElementById('createFilePath').value = sampleFilePath;
+                
+                await testAnalyzeFile();
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+
+        function clearResults() {
+            const resultElements = [
+                'auth-result', 
+                'existing-files-result', 
+                'analyze-file-result', 
+                'create-database-result', 
+                'test-query-result'
+            ];
+            
+            resultElements.forEach(id => {
+                document.getElementById(id).innerHTML = '';
+            });
+        }
+    </script>
+</body>
+</html>
