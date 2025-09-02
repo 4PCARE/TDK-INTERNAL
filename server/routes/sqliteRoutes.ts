@@ -145,20 +145,28 @@ export function registerSQLiteRoutes(app: Express) {
         });
       }
 
+      // Create a new file path with the correct extension
+      const fileWithExtension = file.path + fileExtension;
+      
+      // Move the file to include the extension
+      fs.renameSync(file.path, fileWithExtension);
+      
+      console.log('🔄 Renamed file from:', file.path, 'to:', fileWithExtension);
+
       // Store file reference for SQLite use (no document processing)
       const fileInfo = await sqliteService.registerDirectUpload(userId, {
         originalName: file.originalname,
-        filePath: file.path,
+        filePath: fileWithExtension, // Use the new path with extension
         fileSize: file.size,
         mimeType: file.mimetype
       });
 
-      const analysis = await sqliteService.analyzeFileSchema(file.path);
+      const analysis = await sqliteService.analyzeFileSchema(fileWithExtension);
 
       res.json({
         ...analysis,
         fileId: fileInfo.id,
-        filePath: file.path,
+        filePath: fileWithExtension,
         originalName: file.originalname,
         fileSize: file.size
       });
