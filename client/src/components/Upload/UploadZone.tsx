@@ -28,11 +28,7 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
 
   const uploadMutation = useMutation({
     mutationFn: async (payload: { files: File[], metadataMap: Map<string, DocumentMetadata> }) => {
-      // Prevent duplicate uploads
-      if (uploadMutation.isPending) {
-        console.log('Upload already in progress, preventing duplicate');
-        return;
-      }
+      console.log('Starting upload mutation with files:', payload.files.map(f => f.name));
 
       setIsUploading(true);
       setUploadProgress(0);
@@ -74,7 +70,7 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
         
         return new Promise((resolve, reject) => {
           xhr.upload.addEventListener('progress', (event) => {
-            if (event.lengthComputable && !isPaused) {
+            if (event.lengthComputable) {
               const progress = (event.loaded / event.total) * 100;
               setUploadProgress(progress);
               setUploadedBytes(event.loaded);
@@ -163,7 +159,7 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
       setCurrentFileIndex(0);
       setFileMetadataMap(new Map());
 
-      // Force refresh all document-related data
+      // Refresh all document-related data without page reload
       console.log('Refreshing all document queries...');
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
@@ -171,11 +167,6 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
       queryClient.invalidateQueries({ queryKey: ["/api/stats/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/folders"] });
-      
-      // Force a page refresh to ensure data consistency
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
       
       onUploadComplete();
     },
@@ -206,15 +197,8 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
   });
 
   const handleMetadataSubmit = (metadata: DocumentMetadata) => {
-    // Prevent submission if upload is already in progress
-    if (uploadMutation.isPending) {
-      toast({
-        title: "Upload in progress",
-        description: "Please wait for the current upload to complete.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Allow metadata submission even if upload is in progress (for multi-file scenarios)
+    console.log('Submitting metadata for file:', pendingFiles[currentFileIndex]?.name);
 
     const currentFile = pendingFiles[currentFileIndex];
     if (currentFile) {
@@ -278,8 +262,8 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
     }
 
     if (acceptedFiles.length > 0) {
-      // Prevent new uploads if already uploading
-      if (uploadMutation.isPending) {
+      // Only prevent new uploads if we're actually uploading (not just pending metadata)
+      if (isUploading) {
         toast({
           title: "Upload in progress",
           description: "Please wait for the current upload to complete before uploading new files.",
@@ -360,7 +344,7 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
           isDragActive 
             ? 'border-blue-400 bg-blue-50' 
             : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
-        } ${(uploadMutation.isPending || isUploading) ? 'opacity-50 pointer-events-none' : ''}`}
+        } ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
       >
         <input {...getInputProps()} />
 
@@ -369,7 +353,7 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
         </div>
 
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          {(uploadMutation.isPending || isUploading) ? 'Uploading...' : 'Upload Documents'}
+          {isUploading ? 'Uploading...' : 'Upload Documents'}
         </h3>
 
         <p className="text-gray-600 mb-4">
@@ -386,7 +370,7 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
           Files are automatically classified and tagged using AI
         </p>
 
-        {(uploadMutation.isPending || isUploading) && (
+        {isUploading && (
           <div className="mt-4 space-y-3">
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div 
