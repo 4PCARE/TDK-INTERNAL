@@ -52,6 +52,12 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
       formData.append('metadata', JSON.stringify(metadataArray));
 
       const response = await apiRequest('POST', '/api/documents/upload', formData);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+      }
+      
       const result = await response.json();
       
       // Validate the response structure
@@ -59,11 +65,28 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
         throw new Error('Invalid response from server');
       }
       
+      console.log('Upload response:', result);
       return result;
     },
     onSuccess: (data) => {
-      // Add null/undefined checks for the response data
-      const uploadedCount = Array.isArray(data) ? data.length : (data?.documents?.length || 1);
+      console.log('Upload success data:', data);
+      
+      // More robust handling of different response structures
+      let uploadedCount = 1; // Default fallback
+      
+      if (Array.isArray(data)) {
+        uploadedCount = data.length;
+      } else if (data && typeof data === 'object') {
+        if (data.documents && Array.isArray(data.documents)) {
+          uploadedCount = data.documents.length;
+        } else if (data.success && data.count) {
+          uploadedCount = data.count;
+        } else if (data.uploaded && Array.isArray(data.uploaded)) {
+          uploadedCount = data.uploaded.length;
+        } else if (data.results && Array.isArray(data.results)) {
+          uploadedCount = data.results.length;
+        }
+      }
       
       toast({
         title: "Upload successful",
