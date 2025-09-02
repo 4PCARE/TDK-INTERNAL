@@ -44,16 +44,16 @@ const uploadStorage = multer.diskStorage({
     const timestamp = Date.now();
     const extension = path.extname(correctedFileName);
     const nameWithoutExt = path.basename(correctedFileName, extension);
-    
+
     // Limit the base filename to prevent filesystem errors
     // Account for timestamp (13 chars) + dash (1 char) + extension
     const maxBaseLength = 240 - timestamp.toString().length - 1 - extension.length;
-    const truncatedName = nameWithoutExt.length > maxBaseLength 
-      ? nameWithoutExt.substring(0, maxBaseLength) 
+    const truncatedName = nameWithoutExt.length > maxBaseLength
+      ? nameWithoutExt.substring(0, maxBaseLength)
       : nameWithoutExt;
-    
+
     const finalFilename = `${timestamp}-${truncatedName}${extension}`;
-    
+
     cb(null, finalFilename);
   },
 });
@@ -64,7 +64,7 @@ const upload = multer({ storage: uploadStorage });
 export function registerDocumentRoutes(app: Express) {
   // Register folder routes
   registerFolderRoutes(app);
-  
+
   app.post(
     "/api/documents/:id/permissions/user",
     isAuthenticated,
@@ -178,7 +178,7 @@ export function registerDocumentRoutes(app: Express) {
       // For agent creation, we need all documents - override default limits
       // If no limit specified or a high limit is requested, fetch ALL documents
       const effectiveLimit = (!limit || limit >= 1000) ? null : limit;
-      
+
       console.log(`📊 Using effective limit: ${effectiveLimit} (null means no limit)`);
 
       const documents = await storage.getDocuments(userId, {
@@ -539,18 +539,18 @@ ${document.summary}`;
           console.warn("Failed to parse metadata:", error);
         }
 
-        console.log("📤 Upload request received:", {
+        console.log('📤 Upload request received:', {
           userId,
-          filesCount: files?.length || 0,
-          bodyKeys: Object.keys(req.body || {}),
+          filesCount: files.length,
+          bodyKeys: Object.keys(req.body),
           hasFiles: !!files,
-          hasMetadata: metadataArray.length > 0,
-          metadataArray: metadataArray.map(m => ({
-            fileName: m.fileName,
-            name: m.name,
-            folderId: m.folderId
-          }))
+          hasMetadata: !!req.body.metadata,
+          metadataArray: metadataArray
         });
+
+        // Get socket instance for progress updates
+        const io = req.app.get('io');
+        const userSocketId = req.app.get('userSockets')?.[userId];
 
         if (!files || files.length === 0) {
           console.log("No files in request, body:", req.body);
@@ -558,18 +558,32 @@ ${document.summary}`;
         }
 
         const uploadedDocuments = [];
+        const documentIds: number[] = [];
+        const documentNames: string[] = [];
+        const uploadResults: any[] = [];
 
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          const metadata = metadataArray.find(meta => meta.fileName === file.originalname) || metadataArray[i]; // Fallback to index-based matching
+          const metadata = metadataArray.find(m => m.fileName === file.originalname) || metadataArray[i]; // Fallback to index-based matching
 
-          console.log(`📄 Processing file ${i + 1}/${files.length}:`, {
-            originalName: file.originalname,
-            foundMetadata: !!metadata,
-            metadataFolderId: metadata?.folderId,
-            metadataName: metadata?.name,
-            fileSize: (file.size / 1024 / 1024).toFixed(2) + 'MB'
-          });
+          console.log(`📄 Processing file ${i + 1}/${files.length}: {
+            originalName: '${file.originalname}',
+            foundMetadata: ${!!metadata},
+            metadataFolderId: ${metadata?.folderId || 'null'},
+            metadataName: '${metadata?.name || 'not provided'}',
+            fileSize: '${(file.size / (1024 * 1024)).toFixed(2)}MB'
+          }`);
+
+          // Emit upload progress
+          if (io && userSocketId) {
+            io.to(userSocketId).emit('upload_status', {
+              fileName: file.originalname,
+              progress: Math.round((i / files.length) * 30), // 30% for upload completion
+              status: 'uploading',
+              uploadedBytes: file.size,
+              totalBytes: file.size
+            });
+          }
 
           // Initialize upload status
           uploadStatusService.updateUploadStatus(file.originalname, {
@@ -602,6 +616,17 @@ ${document.summary}`;
               // Keep original filename if encoding fix fails
             }
 
+            // Emit text extraction progress
+            if (io && userSocketId) {
+              io.to(userSocketId).emit('upload_status', {
+                fileName: file.originalname,
+                progress: Math.round((i / files.length) * 30 + 30), // 60% for text extraction
+                status: 'extracting',
+                uploadedBytes: file.size,
+                totalBytes: file.size
+              });
+            }
+
             // Update status to extracting
             uploadStatusService.updateUploadStatus(file.originalname, {
               progress: 30,
@@ -610,77 +635,128 @@ ${document.summary}`;
             });
 
             // Process the document with enhanced AI classification
-            const { content, summary, tags, category, categoryColor } =
-              await processDocument(file.path, file.mimetype);
-
-            // Update status to embedding
-            uploadStatusService.updateUploadStatus(file.originalname, {
-              progress: 70,
-              status: 'embedding',
-              userId
-            });
-
-            const documentData = {
+            const result = await processDocument(file, {
               name: metadata?.name || correctedFileName, // Use correctedFileName here
-              fileName: file.filename,
-              filePath: file.path,
-              fileSize: file.size,
-              mimeType: file.mimetype,
-              content,
-              summary,
-              tags,
-              aiCategory: category,
-              aiCategoryColor: categoryColor,
-              userId,
-              processedAt: new Date(),
-              effectiveStartDate: metadata?.effectiveStartDate ? new Date(metadata.effectiveStartDate) : null,
-              effectiveEndDate: metadata?.effectiveEndDate ? new Date(metadata.effectiveEndDate) : null,
+              effectiveStartDate: metadata?.effectiveStartDate,
+              effectiveEndDate: metadata?.effectiveEndDate,
               folderId: metadata?.folderId || null, // Ensure folderId is properly set
-            };
-
-            const document = await storage.createDocument(documentData);
-            uploadedDocuments.push(document);
-
-            // Auto-vectorize the document if it has content
-            if (content && content.trim().length > 0) {
-              try {
-                await vectorService.addDocument(
-                  document.id.toString(),
-                  content,
-                  {
-                    userId,
-                    documentName: document.name,
-                    mimeType: document.mimeType,
-                    tags: document.tags || [],
-                    originalDocumentId: document.id.toString(),
-                  },
-                );
-                console.log(
-                  `Document ${document.id} auto-vectorized successfully`,
-                );
-              } catch (vectorError) {
-                console.error(
-                  `Failed to auto-vectorize document ${document.id}:`,
-                  vectorError,
-                );
-              }
-            }
-
-            // Update status to completed
-            uploadStatusService.updateUploadStatus(file.originalname, {
-              progress: 100,
-              status: 'completed',
-              userId
+              userId: userId
             });
 
-            console.log(
-              `✅ Document processed: ${correctedFileName} -> ID: ${document.id}, Category: ${category}, Tags: ${tags?.join(", ")}`,
-            );
+            if (result.success) {
+              // Emit embedding generation progress
+              if (io && userSocketId) {
+                io.to(userSocketId).emit('upload_status', {
+                  fileName: file.originalname,
+                  progress: Math.round((i / files.length) * 30 + 60), // 90% for embedding generation
+                  status: 'embedding',
+                  uploadedBytes: file.size,
+                  totalBytes: file.size
+                });
+              }
 
-            // Remove from status after a delay
-            setTimeout(() => {
-              uploadStatusService.removeUploadStatus(file.originalname);
-            }, 3000);
+              // Update status to embedding
+              uploadStatusService.updateUploadStatus(file.originalname, {
+                progress: 70,
+                status: 'embedding',
+                userId
+              });
+
+              const documentData = {
+                name: metadata?.name || correctedFileName, // Use correctedFileName here
+                fileName: file.filename,
+                filePath: file.path,
+                fileSize: file.size,
+                mimeType: file.mimetype,
+                content: result.content,
+                summary: result.summary,
+                tags: result.tags,
+                aiCategory: result.category,
+                aiCategoryColor: result.categoryColor,
+                userId,
+                processedAt: new Date(),
+                effectiveStartDate: metadata?.effectiveStartDate ? new Date(metadata.effectiveStartDate) : null,
+                effectiveEndDate: metadata?.effectiveEndDate ? new Date(metadata.effectiveEndDate) : null,
+                folderId: metadata?.folderId || null, // Ensure folderId is properly set
+              };
+
+              const document = await storage.createDocument(documentData);
+              uploadedDocuments.push(document);
+
+              // Auto-vectorize the document if it has content
+              if (result.content && result.content.trim().length > 0) {
+                try {
+                  await vectorService.addDocument(
+                    document.id.toString(),
+                    result.content,
+                    {
+                      userId,
+                      documentName: document.name,
+                      mimeType: document.mimeType,
+                      tags: document.tags || [],
+                      originalDocumentId: document.id.toString(),
+                    },
+                  );
+                  console.log(
+                    `Document ${document.id} auto-vectorized successfully`,
+                  );
+                } catch (vectorError) {
+                  console.error(
+                    `Failed to auto-vectorize document ${document.id}:`,
+                    vectorError,
+                  );
+                }
+              }
+
+              // Emit completion progress
+              if (io && userSocketId) {
+                io.to(userSocketId).emit('upload_status', {
+                  fileName: file.originalname,
+                  progress: Math.round(((i + 1) / files.length) * 100), // 100% for completion
+                  status: 'completed',
+                  uploadedBytes: file.size,
+                  totalBytes: file.size
+                });
+              }
+
+              // Update status to completed
+              uploadStatusService.updateUploadStatus(file.originalname, {
+                progress: 100,
+                status: 'completed',
+                userId
+              });
+
+              console.log(
+                `✅ Document processed: ${correctedFileName} -> ID: ${document.id}, Category: ${result.category}, Tags: ${result.tags?.join(", ")}`,
+              );
+
+              // Remove from status after a delay
+              setTimeout(() => {
+                uploadStatusService.removeUploadStatus(file.originalname);
+              }, 3000);
+            } else {
+              console.error(`❌ Failed to process ${file.originalname}:`, result.error);
+
+              // Emit error status
+              if (io && userSocketId) {
+                io.to(userSocketId).emit('upload_status', {
+                  fileName: file.originalname,
+                  progress: 0,
+                  status: 'error',
+                  uploadedBytes: 0,
+                  totalBytes: file.size
+                });
+              }
+
+              // Update status to error
+              uploadStatusService.updateUploadStatus(file.originalname, {
+                progress: 0,
+                status: 'error',
+                userId
+              });
+
+              throw new Error(`Failed to process ${file.originalname}: ${result.error}`);
+            }
           } catch (error) {
             // Fix Thai filename encoding for error fallback too
             let correctedFileName = file.originalname;
@@ -700,28 +776,49 @@ ${document.summary}`;
             }
 
             console.error(`Error processing file ${correctedFileName}:`, error);
-            
-            // Update status to error
+
+            // Emit error status if not already emitted
+            if (io && userSocketId && !uploadResults.some(res => res.name === file.originalname)) {
+              io.to(userSocketId).emit('upload_status', {
+                fileName: file.originalname,
+                progress: 0,
+                status: 'error',
+                uploadedBytes: 0,
+                totalBytes: file.size
+              });
+            }
+
+            // Update status to error if not already set
             uploadStatusService.updateUploadStatus(file.originalname, {
               progress: 0,
               status: 'error',
               userId
             });
 
-            // Still create document without AI processing
-            const documentData = {
-              name: correctedFileName,
-              fileName: file.filename,
-              filePath: file.path,
-              fileSize: file.size,
-              mimeType: file.mimetype,
-              aiCategory: "Uncategorized",
-              aiCategoryColor: "#6B7280",
-              userId,
-              folderId: metadata?.folderId || null, // Ensure folderId is properly set
-            };
-            const document = await storage.createDocument(documentData);
-            uploadedDocuments.push(document);
+
+            // Still create document without AI processing if file path is available
+            if (file.path) {
+              const documentData = {
+                name: metadata?.name || correctedFileName, // Use correctedFileName here
+                fileName: file.filename,
+                filePath: file.path,
+                fileSize: file.size,
+                mimeType: file.mimetype,
+                aiCategory: "Uncategorized",
+                aiCategoryColor: "#6B7280",
+                userId,
+                folderId: metadata?.folderId || null, // Ensure folderId is properly set
+              };
+              const document = await storage.createDocument(documentData);
+              uploadedDocuments.push(document);
+              documentIds.push(document.id);
+              documentNames.push(document.name);
+              uploadResults.push({ success: false, error: error.message, documentId: document.id, name: document.name });
+            } else {
+              // If file path is not available, log the error and potentially rethrow
+              console.error(`File path not available for ${correctedFileName}, skipping database entry.`);
+              throw error; // Rethrow if file path is critical and missing
+            }
           }
         }
 
@@ -748,7 +845,7 @@ ${document.summary}`;
           documentIds: uploadedDocuments.map(doc => doc.id),
           documentNames: uploadedDocuments.map(doc => doc.name)
         });
-        
+
         res.json({
           success: true,
           documents: uploadedDocuments,

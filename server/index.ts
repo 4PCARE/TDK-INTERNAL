@@ -19,6 +19,8 @@ import { registerDocumentRoutes } from "./routes/documentRoutes";
 import { registerFolderRoutes } from "./routes/folderRoutes";
 import { registerDatabaseConnectionRoutes } from "./routes/databaseConnectionRoutes";
 import { createServer } from "http";
+import { Server } from 'socket.io';
+import jwt from 'jsonwebtoken';
 import { uploadStatusService } from "./services/uploadStatusService";
 
 
@@ -83,6 +85,52 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// Initialize Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: process.env.NODE_ENV === 'production' ? false : ["http://localhost:5173"],
+    credentials: true
+  }
+});
+
+app.set('io', io);
+
+// Track user socket connections
+const userSockets: { [userId: string]: string } = {};
+app.set('userSockets', userSockets);
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+
+  // Store user socket mapping when authenticated
+  const token = socket.handshake.auth.token;
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+      if (decoded?.userId) {
+        userSockets[decoded.userId] = socket.id;
+        console.log(`User ${decoded.userId} connected with socket ${socket.id}`);
+      }
+    } catch (error) {
+      console.error('Socket auth error:', error);
+    }
+  }
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+    // Remove user socket mapping
+    for (const [userId, socketId] of Object.entries(userSockets)) {
+      if (socketId === socket.id) {
+        delete userSockets[userId];
+        console.log(`User ${userId} disconnected`);
+        break;
+      }
+    }
+  });
+});
+
 
 (async () => {
   // Mount debug routes BEFORE registerRoutes to ensure higher priority

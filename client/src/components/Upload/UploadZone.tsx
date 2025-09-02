@@ -46,7 +46,7 @@ export default function UploadZone({ onUploadComplete, defaultFolderId, onUpload
     const token = getToken();
     if (!token) return;
 
-    const newSocket = io('http://localhost:3000', { // Replace with your server URL
+    const newSocket = io(window.location.origin, { // Use current domain
       auth: {
         token: token,
       },
