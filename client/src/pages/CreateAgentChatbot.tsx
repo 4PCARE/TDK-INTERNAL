@@ -1390,6 +1390,14 @@ export default function CreateAgentChatbot() {
                   Search Configuration
                 </Button>
                 <Button
+                  variant={activeTab === "web-search" ? "default" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => setActiveTab("web-search")}
+                >
+                  <Globe className="w-4 h-4 mr-2" />
+                  Web Search
+                </Button>
+                <Button
                   variant={activeTab === "test" ? "default" : "ghost"}
                   className="w-full justify-start"
                   onClick={() => setActiveTab("test")}
@@ -3104,6 +3112,67 @@ export default function CreateAgentChatbot() {
                       </div>
                     )}
 
+                    {activeTab === "web-search" && (
+                      <div className="space-y-6">
+                        {/* Web Search Configuration */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Globe className="h-5 w-5" />
+                              Web Search Configuration
+                            </CardTitle>
+                            <CardDescription>
+                              Configure web search capabilities and URL whitelisting for your agent
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-6">
+                            {/* Web Search Whitelist Component - Now accessible without saving */}
+                            <div className="space-y-4">
+                              <div className="border-l-4 border-blue-500 pl-4">
+                                <h4 className="font-medium text-slate-800 mb-2">Website Whitelist</h4>
+                                <p className="text-sm text-slate-600 mb-4">
+                                  Configure which websites your agent can search and access. This allows your agent to fetch real-time information from trusted sources.
+                                </p>
+
+                                {agentId ? (
+                                  <WebSearchWhitelist agentId={agentId} />
+                                ) : (
+                                  <div className="bg-blue-50 rounded-lg p-4 space-y-3">
+                                    <div className="flex items-center gap-2">
+                                      <Info className="w-4 h-4 text-blue-600" />
+                                      <span className="font-medium text-blue-900">Web Search Preview</span>
+                                    </div>
+                                    <p className="text-sm text-blue-700">
+                                      Web search configuration will be available here after saving your agent. You can:
+                                    </p>
+                                    <ul className="text-sm text-blue-700 space-y-1 ml-4">
+                                      <li>• Add trusted websites for your agent to search</li>
+                                      <li>• Configure search trigger keywords</li>
+                                      <li>• Set up automatic content retrieval</li>
+                                      <li>• Control search result limits</li>
+                                    </ul>
+                                    <p className="text-xs text-blue-600 font-medium">
+                                      💡 Tip: Save your agent first to access full web search configuration
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <Separator />
+
+                            {/* Document Search Configuration */}
+                            <div className="space-y-4">
+                              <h4 className="font-medium text-slate-800">Document Search Configuration</h4>
+                              <p className="text-sm text-slate-600">
+                                Customize how your agent processes and enhances search queries within your document knowledge base
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+
                     {activeTab === "test" && (
                       <div className="space-y-6">
 
@@ -3323,10 +3392,6 @@ export default function CreateAgentChatbot() {
                           <Globe className="w-4 h-4" />
                           <span>Web Search</span>
                         </TabsTrigger>
-                        <TabsTrigger value="documents" className="flex items-center space-x-2">
-                          <FileText className="w-4 h-4" />
-                          <span>Documents</span>
-                        </TabsTrigger>
                         <TabsTrigger value="test" className="flex items-center space-x-2">
                           <TestTube className="w-4 h-4" />
                           <span>Test Agent</span>
@@ -3348,18 +3413,64 @@ export default function CreateAgentChatbot() {
                       </TabsContent>
 
                       <TabsContent value="web-search" className="space-y-4">
-                        {agentId ? (
-                          <WebSearchWhitelist agentId={agentId} />
-                        ) : (
-                          <div className="text-center py-8 text-gray-500">
-                            Please save the agent first to configure web search settings.
-                          </div>
-                        )}
+                        {/* Web Search Configuration */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                              <Globe className="h-5 w-5" />
+                              Web Search Configuration
+                            </CardTitle>
+                            <CardDescription>
+                              Configure web search capabilities and URL whitelisting for your agent
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-6">
+                            {/* Web Search Whitelist Component - Now accessible without saving */}
+                            <div className="space-y-4">
+                              <div className="border-l-4 border-blue-500 pl-4">
+                                <h4 className="font-medium text-slate-800 mb-2">Website Whitelist</h4>
+                                <p className="text-sm text-slate-600 mb-4">
+                                  Configure which websites your agent can search and access. This allows your agent to fetch real-time information from trusted sources.
+                                </p>
+
+                                {agentId ? (
+                                  <WebSearchWhitelist agentId={agentId} />
+                                ) : (
+                                  <div className="bg-blue-50 rounded-lg p-4 space-y-3">
+                                    <div className="flex items-center gap-2">
+                                      <Info className="w-4 h-4 text-blue-600" />
+                                      <span className="font-medium text-blue-900">Web Search Preview</span>
+                                    </div>
+                                    <p className="text-sm text-blue-700">
+                                      Web search configuration will be available here after saving your agent. You can:
+                                    </p>
+                                    <ul className="text-sm text-blue-700 space-y-1 ml-4">
+                                      <li>• Add trusted websites for your agent to search</li>
+                                      <li>• Configure search trigger keywords</li>
+                                      <li>• Set up automatic content retrieval</li>
+                                      <li>• Control search result limits</li>
+                                    </ul>
+                                    <p className="text-xs text-blue-600 font-medium">
+                                      💡 Tip: Save your agent first to access full web search configuration
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <Separator />
+
+                            {/* Document Search Configuration */}
+                            <div className="space-y-4">
+                              <h4 className="font-medium text-slate-800">Document Search Configuration</h4>
+                              <p className="text-sm text-slate-600">
+                                Customize how your agent processes and enhances search queries within your document knowledge base
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
                       </TabsContent>
 
-                      <TabsContent value="documents" className="space-y-4">
-                        {/* Document selection content is already rendered above */}
-                      </TabsContent>
                       <TabsContent value="test">
                         {/* Test Agent content is already rendered above */}
                       </TabsContent>
