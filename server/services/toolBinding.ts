@@ -4,9 +4,8 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { DynamicTool } from "@langchain/core/tools";
 import { llmRouter } from "./llmRouter";
 import { db } from "../db";
-import { documents, agentChatbots } from "@shared/schema";
+import { documents } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { WebSearchTool } from "./webSearchTool";
 
 // Define available tools
 const createSearchDocumentsTool = (userId: string) => {
@@ -80,62 +79,19 @@ export class ToolBindingService {
   private tools: DynamicTool[] = [];
 
   constructor(private userId: string) {
-    // Tools will be initialized when needed
+    this.initializeTools();
   }
 
-  private async ensureToolsInitialized() {
-    if (this.tools.length === 0) {
-      await this.initializeTools();
-    }
-  }
-
-  private async initializeTools() {
+  private initializeTools() {
     this.tools = [
       createSearchDocumentsTool(this.userId),
       createGetDocumentTool(this.userId),
       createCalculatorTool()
     ];
-
-    // Add web search tool if configured for user/agent
-    const webSearchConfig = await this.getWebSearchConfig();
-    if (webSearchConfig && webSearchConfig.whitelistedDomains.length > 0) {
-      const webSearchTool = new WebSearchTool(this.userId, webSearchConfig);
-      this.tools.push(webSearchTool.createSearchTool());
-    }
-  }
-
-  private async getWebSearchConfig() {
-    try {
-      // Get web search configuration from agent or user settings
-      // This could be stored in agent configuration or separate table
-      return {
-        whitelistedDomains: [
-          {
-            domain: "openai.com",
-            description: "Official OpenAI website with latest AI developments",
-            searchKeywords: ["AI", "ChatGPT", "GPT", "OpenAI", "machine learning"],
-            priority: 10
-          },
-          {
-            domain: "techcrunch.com", 
-            description: "Technology news and startup information",
-            searchKeywords: ["tech", "startup", "technology", "innovation"],
-            priority: 8
-          }
-        ],
-        maxResultsPerDomain: 2,
-        enableAutoTrigger: true
-      };
-    } catch (error) {
-      console.error("Error loading web search config:", error);
-      return null;
-    }
   }
 
   async chatWithTools(messages: any[], options?: { streaming?: boolean }): Promise<string> {
     try {
-      await this.ensureToolsInitialized();
-      
       await llmRouter.loadUserConfig(this.userId);
       const config = llmRouter.getCurrentConfig();
       
