@@ -66,6 +66,11 @@ export default function Dashboard() {
   // Upload mutation with progress tracking
   const uploadMutation = useMutation({
     mutationFn: async (uploadData: { files: File[], metadataList: any[] }) => {
+      // Prevent duplicate uploads if already uploading
+      if (uploadFiles.some(f => f.status === 'uploading' || f.status === 'processing')) {
+        throw new Error('Upload already in progress. Please wait for current upload to complete.');
+      }
+
       const { files, metadataList } = uploadData;
       const formData = new FormData();
 

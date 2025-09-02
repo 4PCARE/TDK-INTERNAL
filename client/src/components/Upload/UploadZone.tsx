@@ -142,13 +142,23 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
     }
 
     if (acceptedFiles.length > 0) {
+      // Prevent new uploads if already uploading
+      if (uploadMutation.isPending) {
+        toast({
+          title: "Upload in progress",
+          description: "Please wait for the current upload to complete before uploading new files.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Start metadata collection process
       setPendingFiles(acceptedFiles);
       setCurrentFileIndex(0);
       setFileMetadataMap(new Map());
       setIsModalOpen(true);
     }
-  }, [toast]);
+  }, [toast, uploadMutation.isPending, defaultFolderId]); // Added dependencies
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
