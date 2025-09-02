@@ -887,7 +887,7 @@ export default function CreateAgentChatbot() {
 
   const handleAddUrl = () => {
     if (!newUrl.trim()) return;
-    
+
     try {
       new URL(newUrl); // Validate URL format
       setWebSearchUrls(prev => [...prev, {
@@ -3454,7 +3454,7 @@ export default function CreateAgentChatbot() {
                       </div>
                     )}
 
-                    
+
 
                     </form>
                 </Form>

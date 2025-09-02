@@ -272,7 +272,7 @@ export interface IStorage {
   getAIDatabaseQueryHistory(connectionId: number, userId: string, limit?: number);
 
   // Web Search Whitelist methods
-  addUrlToAgentWhitelist(agentId: number, url: string, description: string, primaryDetails: any, userId: string): Promise<AgentWebSearchWhitelist>;
+  addUrlToAgentWhitelist(data: { agentId: number; url: string; description: string; userId: string; }): Promise<AgentWebSearchWhitelist>;
   getAgentWhitelistUrls(agentId: number, userId: string): Promise<AgentWebSearchWhitelist[]>;
   updateAgentWhitelistUrl(id: number, updates: any, userId: string): Promise<AgentWebSearchWhitelist>;
   removeUrlFromAgentWhitelist(id: number, userId: string): Promise<void>;
@@ -2837,20 +2837,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Web Search Whitelist method implementations
-  async addUrlToAgentWhitelist(agentId: number, url: string, description: string, primaryDetails: any, userId: string): Promise<AgentWebSearchWhitelist> {
+  async addUrlToAgentWhitelist(data: { agentId: number; url: string; description: string; userId: string; }): Promise<AgentWebSearchWhitelist> {
+    console.log("Storage: Adding URL to whitelist:", data);
     const [result] = await db
       .insert(agentWebSearchWhitelist)
       .values({
-        agentId,
-        url,
-        description,
-        primaryDetails,
-        userId,
+        agentId: data.agentId,
+        url: data.url,
+        description: data.description,
+        primaryDetails: null, // Set as null for now
+        userId: data.userId,
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date()
       })
       .returning();
+    console.log("Storage: Successfully added URL:", result);
     return result;
   }
 

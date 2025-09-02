@@ -1908,13 +1908,19 @@ Generate only the title, nothing else:`;
         console.log("No database connections to add for agent:", agentId);
       }
 
-      // Update web search URLs - only if webSearchUrls is explicitly provided
-      if (req.body.hasOwnProperty('webSearchUrls')) {
-        console.log("Web search URLs provided in request, updating for agent:", agentId);
+      // Update web search URLs - always process if webSearchUrls is defined
+      console.log("Processing web search URLs for agent:", agentId);
+      console.log("Received webSearchUrls:", webSearchUrls);
+      console.log("webSearchUrls type:", typeof webSearchUrls);
+      console.log("webSearchUrls length:", Array.isArray(webSearchUrls) ? webSearchUrls.length : 'not array');
+      
+      if (Array.isArray(webSearchUrls)) {
+        console.log("Web search URLs array provided, updating for agent:", agentId);
         console.log("Removing all existing web search URLs for agent:", agentId);
         
         try {
           const existingUrls = await storage.getAgentWhitelistUrls(agentId, userId);
+          console.log("Found", existingUrls.length, "existing URLs to remove");
           for (const existingUrl of existingUrls) {
             await storage.removeUrlFromAgentWhitelist(existingUrl.id, userId);
           }
@@ -1926,6 +1932,7 @@ Generate only the title, nothing else:`;
           console.log("Adding", webSearchUrls.length, "web search URLs to agent");
           for (const urlData of webSearchUrls) {
             try {
+              console.log("Adding URL:", urlData);
               await storage.addUrlToAgentWhitelist({
                 agentId: agentId,
                 url: urlData.url,
@@ -1937,10 +1944,10 @@ Generate only the title, nothing else:`;
             }
           }
         } else {
-          console.log("No web search URLs to add for agent:", agentId);
+          console.log("Empty web search URLs array provided for agent:", agentId);
         }
       } else {
-        console.log("Web search URLs not provided in request, keeping existing URLs for agent:", agentId);
+        console.log("Web search URLs not provided as array in request, keeping existing URLs for agent:", agentId);
       }
 
       // Verify the database connections were properly updated
