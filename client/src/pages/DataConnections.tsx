@@ -725,7 +725,7 @@ export default function DataConnections() {
       console.log('🔍 Existing file ID:', existingFileId);
 
       const formData = new FormData();
-      
+
       // Handle direct upload files
       if (selectedFile?.fileId) {
         formData.append('directFileId', selectedFile.fileId);
@@ -737,7 +737,7 @@ export default function DataConnections() {
         formData.append('existingFileId', existingFileId);
         console.log('🔍 Added existingFileId to FormData:', existingFileId);
       }
-      
+
       formData.append('dbName', data.name);
       formData.append('tableName', data.tableName);
       formData.append('description', data.description || '');
@@ -973,14 +973,14 @@ export default function DataConnections() {
   // Execute SQL query mutation
   const executeQueryMutation = useMutation({
     mutationFn: async ({ connectionId, sql }: { connectionId: number; sql: string }) => {
-      const endpoint = queryConnection?.type === 'sqlite' 
+      const endpoint = queryConnection?.type === 'sqlite'
         ? '/api/sqlite/test-query'
         : `/api/database-connections/${connectionId}/query`;
 
-      return await apiRequest("POST", endpoint, { 
-        connectionId, 
+      return await apiRequest("POST", endpoint, {
+        connectionId,
         sql: sql.trim(),
-        maxRows: 100 
+        maxRows: 100
       });
     },
     onSuccess: (data) => {
@@ -1118,7 +1118,7 @@ export default function DataConnections() {
     if (file) {
       setIsLoading(true);
       setAnalysisError(null);
-      
+
       try {
         // Upload file directly for SQLite processing
         const formData = new FormData();
@@ -1136,15 +1136,15 @@ export default function DataConnections() {
         }
 
         const uploadResult = await response.json();
-        
+
         // Store the upload result for database creation
-        setSelectedFile({ 
-          filePath: uploadResult.filePath, 
+        setSelectedFile({
+          filePath: uploadResult.filePath,
           name: uploadResult.originalName,
           fileId: uploadResult.fileId
         });
         setExistingFileId("");
-        
+
         // Set form defaults based on filename
         if (!sqliteForm.name) {
           setSqliteForm(prev => ({ ...prev, name: file.name.replace(/\.[^/.]+$/, "") }));
@@ -1155,7 +1155,7 @@ export default function DataConnections() {
 
         // Auto-analyze the uploaded file
         setAnalysis(uploadResult);
-        
+
         toast({
           title: "File Uploaded",
           description: `File "${file.name}" uploaded and analyzed successfully`,
@@ -1165,7 +1165,7 @@ export default function DataConnections() {
         console.error('File upload error:', error);
         setAnalysisError(error instanceof Error ? error.message : 'Failed to upload file');
         setSelectedFile(null);
-        
+
         toast({
           title: "Upload Failed",
           description: error instanceof Error ? error.message : 'Failed to upload file',
@@ -1276,9 +1276,9 @@ export default function DataConnections() {
     if (!queryConnection || !sqlQuery.trim()) return;
 
     setIsExecutingQuery(true);
-    executeQueryMutation.mutate({ 
-      connectionId: queryConnection.id, 
-      sql: sqlQuery 
+    executeQueryMutation.mutate({
+      connectionId: queryConnection.id,
+      sql: sqlQuery
     });
     setIsExecutingQuery(false);
   };
@@ -2045,9 +2045,9 @@ export default function DataConnections() {
                                       <Textarea
                                         value={snippet.sql}
                                         onChange={(e) => updateSqliteSnippet(index, 'sql', e.target.value)}
-                                        placeholder="SELECT * FROM sales ORDER BY amount DESC LIMIT 10"
-                                        rows={2}
-                                        className="text-xs"
+                                        placeholder="SELECT * FROM your_table WHERE condition"
+                                        rows={4}
+                                        className="text-sm font-mono"
                                       />
                                     </div>
                                   ))}
@@ -2377,8 +2377,8 @@ export default function DataConnections() {
                           onClick={() => {
                             const csvContent = [
                               queryResults.columns?.join(',') || '',
-                              ...queryResults.data.map((row: any) => 
-                                queryResults.columns?.map((col: string) => 
+                              ...queryResults.data.map((row: any) =>
+                                queryResults.columns?.map((col: string) =>
                                   JSON.stringify(row[col] || '')
                                 ).join(',') || ''
                               )
@@ -2770,8 +2770,8 @@ export default function DataConnections() {
                                     <Textarea
                                       value={snippet.sql}
                                       onChange={(e) => updateSqlSnippet(index, 'sql', e.target.value)}
-                                      placeholder="SELECT * FROM sales ORDER BY amount DESC LIMIT 10"
-                                      rows={3}
+                                      placeholder="SELECT * FROM your_table WHERE condition"
+                                      rows={4}
                                       className="text-sm font-mono"
                                     />
                                   </div>
