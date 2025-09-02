@@ -1908,33 +1908,39 @@ Generate only the title, nothing else:`;
         console.log("No database connections to add for agent:", agentId);
       }
 
-      // Update web search URLs - always refresh
-      console.log("Removing all existing web search URLs for agent:", agentId);
-      try {
-        const existingUrls = await storage.getAgentWhitelistUrls(agentId, userId);
-        for (const existingUrl of existingUrls) {
-          await storage.removeUrlFromAgentWhitelist(existingUrl.id, userId);
-        }
-      } catch (error) {
-        console.error("Error removing existing web search URLs:", error);
-      }
-
-      if (webSearchUrls.length > 0) {
-        console.log("Adding", webSearchUrls.length, "web search URLs to agent");
-        for (const urlData of webSearchUrls) {
-          try {
-            await storage.addUrlToAgentWhitelist({
-              agentId: agentId,
-              url: urlData.url,
-              description: urlData.description,
-              userId,
-            });
-          } catch (error) {
-            console.error(`Failed to add web search URL ${urlData.url}:`, error);
+      // Update web search URLs - only if webSearchUrls is explicitly provided
+      if (req.body.hasOwnProperty('webSearchUrls')) {
+        console.log("Web search URLs provided in request, updating for agent:", agentId);
+        console.log("Removing all existing web search URLs for agent:", agentId);
+        
+        try {
+          const existingUrls = await storage.getAgentWhitelistUrls(agentId, userId);
+          for (const existingUrl of existingUrls) {
+            await storage.removeUrlFromAgentWhitelist(existingUrl.id, userId);
           }
+        } catch (error) {
+          console.error("Error removing existing web search URLs:", error);
+        }
+
+        if (webSearchUrls.length > 0) {
+          console.log("Adding", webSearchUrls.length, "web search URLs to agent");
+          for (const urlData of webSearchUrls) {
+            try {
+              await storage.addUrlToAgentWhitelist({
+                agentId: agentId,
+                url: urlData.url,
+                description: urlData.description,
+                userId,
+              });
+            } catch (error) {
+              console.error(`Failed to add web search URL ${urlData.url}:`, error);
+            }
+          }
+        } else {
+          console.log("No web search URLs to add for agent:", agentId);
         }
       } else {
-        console.log("No web search URLs to add for agent:", agentId);
+        console.log("Web search URLs not provided in request, keeping existing URLs for agent:", agentId);
       }
 
       // Verify the database connections were properly updated
