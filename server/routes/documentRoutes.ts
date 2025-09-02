@@ -635,13 +635,7 @@ ${document.summary}`;
             });
 
             // Process the document with enhanced AI classification
-            const result = await processDocument(file, {
-              name: metadata?.name || correctedFileName, // Use correctedFileName here
-              effectiveStartDate: metadata?.effectiveStartDate,
-              effectiveEndDate: metadata?.effectiveEndDate,
-              folderId: metadata?.folderId || null, // Ensure folderId is properly set
-              userId: userId
-            });
+            const result = await processDocument(file.path, file.mimetype);
 
             if (result.success) {
               // Emit embedding generation progress
