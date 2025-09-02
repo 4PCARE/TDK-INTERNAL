@@ -28,7 +28,17 @@ import UploadZone from "@/components/Upload/UploadZone";
 import ChatModal from "@/components/Chat/ChatModal";
 import { apiRequest } from "@/lib/queryClient";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import UploadStatus from "@/components/Upload/UploadStatus"; // Assuming this path
 
+
+// Define the type for upload files
+type UploadFile = {
+  id: string;
+  name: string;
+  progress: number;
+  status: 'uploading' | 'paused' | 'completed' | 'error';
+  stage: string | null;
+};
 
 
 export default function Dashboard() {
@@ -38,6 +48,8 @@ export default function Dashboard() {
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [selectedDocumentSummary, setSelectedDocumentSummary] = useState<string | null>(null);
   const [showNavigationHint, setShowNavigationHint] = useState(false);
+  const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]); // State for upload files
+
 
   const { data: documents = [] } = useQuery({
     queryKey: ["/api/documents"],
@@ -55,16 +67,33 @@ export default function Dashboard() {
   const handleUploadComplete = () => {
     // Show navigation hint
     setShowNavigationHint(true);
-    
+
     // Hide navigation hint after upload completes
     setTimeout(() => setShowNavigationHint(false), 3000);
-    
+
     // Refresh data
     queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
     queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
   };
 
-  
+
+  // New upload status handlers
+  const handleUploadStatusChange = (files: UploadFile[]) => {
+    setUploadFiles(files);
+  };
+
+  const handlePauseResume = (fileName: string) => {
+    setUploadFiles(prev => prev.map(file => 
+      file.name === fileName 
+        ? { ...file, status: file.status === 'paused' ? 'uploading' : 'paused' }
+        : file
+    ));
+  };
+
+  const handleStop = (fileName: string) => {
+    setUploadFiles(prev => prev.filter(file => file.name !== fileName));
+  };
+
 
   // Content summary mutation
   const summaryMutation = useMutation({
@@ -132,9 +161,17 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto">
-                  <UploadZone onUploadComplete={handleUploadComplete} />
+                  <UploadZone 
+                    onUploadComplete={handleUploadComplete} 
+                    onStatusChange={handleUploadStatusChange}
+                  />
 
-                  
+                  {/* Render Upload Status Component */}
+                  <UploadStatus 
+                    files={uploadFiles} 
+                    onPauseResume={handlePauseResume} 
+                    onStop={handleStop} 
+                  />
 
                   {showNavigationHint && (
                     <Alert className="mt-4">

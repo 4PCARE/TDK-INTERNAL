@@ -6,12 +6,22 @@ import { apiRequest } from "@/lib/queryClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import DocumentMetadataModal, { DocumentMetadata } from "./DocumentMetadataModal";
 
+interface UploadFile {
+  name: string;
+  size: number;
+  progress: number;
+  status: 'uploading' | 'extracting' | 'embedding' | 'completed' | 'paused' | 'error';
+  uploadedBytes: number;
+  totalBytes: number;
+}
+
 interface UploadZoneProps {
   onUploadComplete: () => void;
   defaultFolderId?: number | null;
+  onUploadStatusChange: (files: UploadFile[]) => void;
 }
 
-export default function UploadZone({ onUploadComplete, defaultFolderId }: UploadZoneProps) {
+export default function UploadZone({ onUploadComplete, defaultFolderId, onUploadStatusChange }: UploadZoneProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -25,6 +35,7 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
   const [isPaused, setIsPaused] = useState(false);
   const [uploadedBytes, setUploadedBytes] = useState(0);
   const [totalBytes, setTotalBytes] = useState(0);
+  const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
 
   const uploadMutation = useMutation({
     mutationFn: async (payload: { files: File[], metadataMap: Map<string, DocumentMetadata> }) => {
@@ -43,6 +54,18 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
       });
 
       setTotalBytes(totalSize);
+
+      // Initialize upload files status
+      const initialUploadFiles: UploadFile[] = payload.files.map(file => ({
+        name: file.name,
+        size: file.size,
+        progress: 0,
+        status: 'uploading' as const,
+        uploadedBytes: 0,
+        totalBytes: file.size
+      }));
+      setUploadFiles(initialUploadFiles);
+      onUploadStatusChange(initialUploadFiles);
 
       // Add metadata for each file
       const metadataArray = payload.files.map(file => {
@@ -74,6 +97,17 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
               const progress = (event.loaded / event.total) * 100;
               setUploadProgress(progress);
               setUploadedBytes(event.loaded);
+              
+              // Update upload files status
+              const updatedFiles = uploadFiles.map(file => ({
+                ...file,
+                progress: progress,
+                uploadedBytes: Math.floor((event.loaded / payload.files.length)),
+                status: progress >= 100 ? 'extracting' as const : 'uploading' as const
+              }));
+              setUploadFiles(updatedFiles);
+              onUploadStatusChange(updatedFiles);
+              
               console.log(`Upload progress: ${progress.toFixed(1)}%`);
             }
           });
@@ -146,18 +180,31 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
         description: `${uploadedCount} document(s) uploaded successfully`,
       });
       
-      // Reset upload state
-      setIsUploading(false);
-      setUploadProgress(0);
-      setUploadedBytes(0);
-      setTotalBytes(0);
-      setIsPaused(false);
-      setAbortController(null);
+      // Update files to completed status
+      const completedFiles = uploadFiles.map(file => ({
+        ...file,
+        progress: 100,
+        status: 'completed' as const
+      }));
+      setUploadFiles(completedFiles);
+      onUploadStatusChange(completedFiles);
       
-      // Reset file state
-      setPendingFiles([]);
-      setCurrentFileIndex(0);
-      setFileMetadataMap(new Map());
+      // Reset upload state after a delay to show completion
+      setTimeout(() => {
+        setIsUploading(false);
+        setUploadProgress(0);
+        setUploadedBytes(0);
+        setTotalBytes(0);
+        setIsPaused(false);
+        setAbortController(null);
+        setUploadFiles([]);
+        onUploadStatusChange([]);
+        
+        // Reset file state
+        setPendingFiles([]);
+        setCurrentFileIndex(0);
+        setFileMetadataMap(new Map());
+      }, 2000);
 
       // Refresh all document-related data without page reload
       console.log('Refreshing all document queries...');
@@ -181,18 +228,30 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
         variant: "destructive",
       });
       
-      // Reset upload state on error
-      setIsUploading(false);
-      setUploadProgress(0);
-      setUploadedBytes(0);
-      setTotalBytes(0);
-      setIsPaused(false);
-      setAbortController(null);
+      // Update files to error status
+      const errorFiles = uploadFiles.map(file => ({
+        ...file,
+        status: 'error' as const
+      }));
+      setUploadFiles(errorFiles);
+      onUploadStatusChange(errorFiles);
       
-      // Reset file state on error
-      setPendingFiles([]);
-      setCurrentFileIndex(0);
-      setFileMetadataMap(new Map());
+      // Reset upload state on error after delay
+      setTimeout(() => {
+        setIsUploading(false);
+        setUploadProgress(0);
+        setUploadedBytes(0);
+        setTotalBytes(0);
+        setIsPaused(false);
+        setAbortController(null);
+        setUploadFiles([]);
+        onUploadStatusChange([]);
+        
+        // Reset file state on error
+        setPendingFiles([]);
+        setCurrentFileIndex(0);
+        setFileMetadataMap(new Map());
+      }, 3000);
     },
   });
 
@@ -306,6 +365,13 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
 
   const handlePauseResume = () => {
     setIsPaused(!isPaused);
+    
+    const updatedFiles = uploadFiles.map(file => ({
+      ...file,
+      status: (!isPaused ? 'paused' : 'uploading') as const
+    }));
+    setUploadFiles(updatedFiles);
+    onUploadStatusChange(updatedFiles);
   };
 
   const handleCancel = () => {
@@ -321,11 +387,23 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
     setPendingFiles([]);
     setCurrentFileIndex(0);
     setFileMetadataMap(new Map());
+    setUploadFiles([]);
+    onUploadStatusChange([]);
     
     toast({
       title: "Upload cancelled",
       description: "Upload was cancelled successfully",
     });
+  };
+
+  const handleFileCancel = (fileName: string) => {
+    const updatedFiles = uploadFiles.filter(file => file.name !== fileName);
+    setUploadFiles(updatedFiles);
+    onUploadStatusChange(updatedFiles);
+    
+    if (updatedFiles.length === 0) {
+      handleCancel();
+    }
   };
 
   const formatBytes = (bytes: number) => {
