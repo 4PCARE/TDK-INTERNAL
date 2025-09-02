@@ -954,19 +954,11 @@ export default function DataConnections() {
       return await apiRequest("DELETE", `/api/database/snippets/${id}`);
     },
     onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "SQL snippet deleted successfully!",
-      });
+      console.log('Frontend: Snippet deleted successfully');
       refetchSnippets();
     },
     onError: (error) => {
       console.error('Frontend: Error deleting snippet:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete SQL snippet",
-        variant: "destructive",
-      });
     },
   });
 
@@ -1048,7 +1040,21 @@ export default function DataConnections() {
 
   const deleteSqlSnippet = async (id: number) => {
     if (confirm('Are you sure you want to delete this SQL snippet?')) {
-      await deleteSnippetMutation.mutateAsync(id);
+      try {
+        await deleteSnippetMutation.mutateAsync(id);
+        // Force refresh the snippets data
+        refetchSnippets();
+        toast({
+          title: "Success",
+          description: "SQL snippet deleted successfully!",
+        });
+      } catch (error) {
+        toast({
+          title: "Error", 
+          description: "Failed to delete SQL snippet",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -2709,7 +2715,7 @@ export default function DataConnections() {
                                     <p className="text-sm text-slate-600">{snippet.description}</p>
                                   )}
                                   <div className="bg-slate-50 p-3 rounded-lg">
-                                    <code className="text-sm">{snippet.sql}</code>
+                                    <pre className="text-sm whitespace-pre-wrap overflow-x-auto"><code>{snippet.sql}</code></pre>
                                   </div>
                                 </div>
                               </CardContent>
