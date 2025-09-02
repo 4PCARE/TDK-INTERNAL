@@ -164,7 +164,7 @@ export default function Dashboard() {
                 <CardContent className="flex-1 overflow-y-auto">
                   <UploadZone 
                     onUploadComplete={handleUploadComplete} 
-                    onStatusChange={handleUploadStatusChange}
+                    onUploadStatusChange={handleUploadStatusChange}
                   />
 
                   {/* Render Upload Status Component */}
