@@ -1,7 +1,7 @@
 
 import { DynamicTool } from "@langchain/core/tools";
-import { CheerioWebBaseLoader } from "@langchain/community/document_loaders/web/cheerio";
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
+import * as cheerio from "cheerio";
+import axios from "axios";
 import OpenAI from "openai";
 
 const openai = new OpenAI({
@@ -169,24 +169,30 @@ Example response: ["example.com", "news.com"]
 
   private async scrapeWebContent(url: string): Promise<{content: string; snippet: string}> {
     try {
-      const loader = new CheerioWebBaseLoader(url);
-      const docs = await loader.load();
+      const response = await axios.get(url, {
+        timeout: 10000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
+
+      const $ = cheerio.load(response.data);
       
-      if (docs.length === 0) {
+      // Remove script and style elements
+      $('script, style, nav, footer, header, .nav, .footer, .header').remove();
+      
+      // Extract text content from main content areas
+      const textContent = $('body').text().replace(/\s+/g, ' ').trim();
+      
+      if (!textContent) {
         throw new Error("No content found");
       }
 
-      const textSplitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 2000,
-        chunkOverlap: 200,
-      });
-
-      const splits = await textSplitter.splitDocuments(docs);
-      const content = splits.map(split => split.pageContent).join('\n');
+      const content = textContent.substring(0, 4000); // Limit content size
       const snippet = content.substring(0, 300) + (content.length > 300 ? '...' : '');
 
       return {
-        content: content.substring(0, 4000), // Limit content size
+        content,
         snippet
       };
     } catch (error) {
