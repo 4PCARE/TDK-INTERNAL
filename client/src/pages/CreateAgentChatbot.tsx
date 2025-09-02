@@ -415,6 +415,13 @@ export default function CreateAgentChatbot() {
   // Store fetched agent data to access ID for testing
   const [savedAgent, setSavedAgent] = useState<CreateAgentForm | null>(null);
 
+  // Fetch agent web search URLs for editing
+  const { data: agentWebSearchUrls } = useQuery({
+    queryKey: [`/api/agent-chatbots/${editAgentId}/whitelist-urls`],
+    enabled: isAuthenticated && isEditing,
+    retry: false,
+  });
+
   // Load existing agent data into form when editing
   useEffect(() => {
     if (isEditing && existingAgent) {
@@ -483,8 +490,17 @@ export default function CreateAgentChatbot() {
       if (dbs.length > 0) {
         setSelectedDatabases(dbs.map((db: any) => db.connectionId).filter(id => id != null));
       }
+
+      // Load web search URLs with null safety
+      const urls = Array.isArray(agentWebSearchUrls) ? agentWebSearchUrls as any[] : [];
+      if (urls.length > 0) {
+        setWebSearchUrls(urls.map((url: any) => ({
+          url: url.url,
+          description: url.description || ''
+        })));
+      }
     }
-  }, [existingAgent, agentDocuments, isEditing, form]);
+  }, [existingAgent, agentDocuments, agentDatabases, agentWebSearchUrls, isEditing, form]);
 
   // Create temporary session mutation
   const createTempSessionMutation = useMutation({
@@ -709,7 +725,7 @@ export default function CreateAgentChatbot() {
     },
   });
 
-  const onSubmit = (data: CreateAgentForm) => {
+  const onSubmit = async (data: CreateAgentForm) => {
     console.log("🚀 Form onSubmit triggered");
     console.log("Form data received:", data);
     console.log("Is editing mode:", isEditing);
@@ -774,6 +790,7 @@ export default function CreateAgentChatbot() {
         documentIds: allDocumentIds,
         databaseIds: allDatabaseIds,
         guardrailsConfig,
+        webSearchUrls, // Add web search URLs to the payload
         // Ensure arrays are properly formatted and not null
         specialSkills: Array.isArray(data.specialSkills) ? data.specialSkills.filter(skill => skill != null) : [],
         allowedTopics: Array.isArray(data.allowedTopics) ? data.allowedTopics.filter(topic => topic != null) : [],
@@ -785,6 +802,7 @@ export default function CreateAgentChatbot() {
       console.log("Guardrails config:", data.guardrailsConfig);
       console.log("Selected documents:", selectedDocuments);
       console.log("Selected databases:", selectedDatabases);
+      console.log("Web search URLs:", webSearchUrls);
       console.log("All document IDs:", allDocumentIds);
       console.log("All database IDs (final):", allDatabaseIds);
       console.log("Is editing mode:", isEditing);

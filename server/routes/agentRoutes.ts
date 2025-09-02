@@ -1780,11 +1780,13 @@ Generate only the title, nothing else:`;
       const {
         documentIds = [],
         databaseIds = [],
+        webSearchUrls = [],
         ...agentData
       } = req.body;
 
       console.log("Creating agent with data:", JSON.stringify(agentData, null, 2));
       console.log("Agent guardrails config:", agentData.guardrailsConfig);
+      console.log("Web search URLs:", webSearchUrls);
 
       // Create the agent
       const agent = await storage.createAgentChatbot({
@@ -1818,6 +1820,23 @@ Generate only the title, nothing else:`;
         }
       }
 
+      // Add web search URLs
+      if (webSearchUrls.length > 0) {
+        console.log("Adding", webSearchUrls.length, "web search URLs to agent");
+        for (const urlData of webSearchUrls) {
+          try {
+            await storage.addUrlToAgentWhitelist({
+              agentId: agent.id,
+              url: urlData.url,
+              description: urlData.description,
+              userId,
+            });
+          } catch (error) {
+            console.error(`Failed to add web search URL ${urlData.url}:`, error);
+          }
+        }
+      }
+
       res.status(201).json(agent);
     } catch (error) {
       console.error("Error creating agent chatbot:", error);
@@ -1832,12 +1851,14 @@ Generate only the title, nothing else:`;
       const {
         documentIds = [],
         databaseIds = [],
+        webSearchUrls = [],
         ...agentData
       } = req.body;
 
       console.log("Updating agent with data:", JSON.stringify(agentData, null, 2));
       console.log("Agent guardrails config:", agentData.guardrailsConfig);
       console.log("Database IDs to update:", databaseIds);
+      console.log("Web search URLs to update:", webSearchUrls);
 
       // Clean up date fields to prevent toISOString errors
       const cleanedAgentData = { ...agentData };
@@ -1887,9 +1908,42 @@ Generate only the title, nothing else:`;
         console.log("No database connections to add for agent:", agentId);
       }
 
+      // Update web search URLs - always refresh
+      console.log("Removing all existing web search URLs for agent:", agentId);
+      try {
+        const existingUrls = await storage.getAgentWhitelistUrls(agentId, userId);
+        for (const existingUrl of existingUrls) {
+          await storage.removeUrlFromAgentWhitelist(existingUrl.id, userId);
+        }
+      } catch (error) {
+        console.error("Error removing existing web search URLs:", error);
+      }
+
+      if (webSearchUrls.length > 0) {
+        console.log("Adding", webSearchUrls.length, "web search URLs to agent");
+        for (const urlData of webSearchUrls) {
+          try {
+            await storage.addUrlToAgentWhitelist({
+              agentId: agentId,
+              url: urlData.url,
+              description: urlData.description,
+              userId,
+            });
+          } catch (error) {
+            console.error(`Failed to add web search URL ${urlData.url}:`, error);
+          }
+        }
+      } else {
+        console.log("No web search URLs to add for agent:", agentId);
+      }
+
       // Verify the database connections were properly updated
       const verifyConnections = await storage.getAgentDatabaseConnections(agentId, userId);
       console.log("Verified database connections after update:", verifyConnections.length);
+
+      // Verify web search URLs were properly updated
+      const verifyUrls = await storage.getAgentWhitelistUrls(agentId, userId);
+      console.log("Verified web search URLs after update:", verifyUrls.length);
 
       res.json(updatedAgent);
     } catch (error) {
