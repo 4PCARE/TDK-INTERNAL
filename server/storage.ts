@@ -276,7 +276,7 @@ export interface IStorage {
   getAgentWhitelistUrls(agentId: number, userId: string): Promise<AgentWebSearchWhitelist[]>;
   updateAgentWhitelistUrl(id: number, updates: any, userId: string): Promise<AgentWebSearchWhitelist>;
   removeUrlFromAgentWhitelist(id: number, userId: string): Promise<void>;
-  updateAgentWebSearchConfig(agentId: number, config: any, userId: string): Promise<AgentChatbot>;
+  updateAgentWebSearchConfig(agentId: number, userId: string, config: any): Promise<AgentChatbot>;
   getAgentWhitelistUrlsForWidget(agentId: number): Promise<AgentWebSearchWhitelist[]>;
 }
 
@@ -2906,9 +2906,9 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateAgentWebSearchConfig(agentId: number, userId: string, config: any): Promise<void> {
+  async updateAgentWebSearchConfig(agentId: number, userId: string, config: any): Promise<AgentChatbot> {
     try {
-      await this.db
+      const [updated] = await db
         .update(agentChatbots)
         .set({
           webSearchConfig: config,
@@ -2919,9 +2919,15 @@ export class DatabaseStorage implements IStorage {
             eq(agentChatbots.id, agentId),
             eq(agentChatbots.userId, userId)
           )
-        );
+        )
+        .returning();
+
+      if (!updated) {
+        throw new Error("Agent not found or access denied");
+      }
 
       console.log(`✅ Updated web search config for agent ${agentId}:`, config);
+      return updated;
     } catch (error) {
       console.error("Error updating web search config:", error);
       throw error;

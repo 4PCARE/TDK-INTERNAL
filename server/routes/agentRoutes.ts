@@ -1967,15 +1967,19 @@ Generate only the title, nothing else:`;
 
 
   // Update web search configuration
-  app.put("/api/agent-chatbots/:id/web-search-config", async (req, res) => {
+  app.put("/api/agent-chatbots/:id/web-search-config", isAuthenticated, async (req: any, res) => {
     try {
       const agentId = parseInt(req.params.id);
       const { enabled, triggerKeywords, maxResults, requireWhitelist } = req.body;
-      const userId = req.user?.userId;
+      const userId = req.user.claims.sub;
 
-      if (!userId) {
-        return res.status(401).json({ message: "User not authenticated" });
-      }
+      console.log(`🔧 Updating web search config for agent ${agentId}:`, {
+        enabled,
+        triggerKeywords,
+        maxResults,
+        requireWhitelist,
+        userId
+      });
 
       console.log(`🔧 Updating web search config for agent ${agentId}:`, {
         enabled,
@@ -1998,9 +2002,9 @@ Generate only the title, nothing else:`;
         requireWhitelist: requireWhitelist !== false // Default to true
       };
 
-      await storage.updateAgentWebSearchConfig(agentId, userId, webSearchConfig);
+      await storage.updateAgentWebSearchConfig(agentId, webSearchConfig, userId);
 
-      console.log(`✅ Updated web search config for agent ${agentId}`);
+      console.log(`✅ Updated web search config for agent ${agentId}:`, webSearchConfig);
       res.json({ success: true, config: webSearchConfig });
 
     } catch (error) {

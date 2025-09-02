@@ -64,10 +64,13 @@ export default function WebSearchWhitelist({ agentId }: WebSearchWhitelistProps)
   }) as { data: WhitelistUrl[] | undefined; isLoading: boolean };
 
   // Fetch agent details to get web search config
-  const { data: agentData } = useQuery({
+  const { data: agentData, isLoading: agentLoading } = useQuery({
     queryKey: [`/api/agent-chatbots/${agentId}`],
     enabled: !!agentId,
   });
+
+  console.log('🔍 Agent data for web search config:', agentData);
+  console.log('🔧 Raw web search config:', agentData?.webSearchConfig);
 
   // Ensure proper default values for web search config
   const webSearchConfig: WebSearchConfig = {
@@ -76,6 +79,8 @@ export default function WebSearchWhitelist({ agentId }: WebSearchWhitelistProps)
     maxResults: agentData?.webSearchConfig?.maxResults || 5,
     requireWhitelist: agentData?.webSearchConfig?.requireWhitelist !== false // Default to true
   };
+
+  console.log('✅ Final web search config:', webSearchConfig);
 
   // Add URL mutation
   const addUrlMutation = useMutation({
@@ -240,6 +245,9 @@ export default function WebSearchWhitelist({ agentId }: WebSearchWhitelistProps)
           <p className="text-sm text-gray-600">
             Configure web search settings for this agent. Current status: {webSearchConfig.enabled ? '✅ Enabled' : '❌ Disabled'}
           </p>
+          {agentLoading && (
+            <p className="text-sm text-blue-600">Loading agent configuration...</p>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
