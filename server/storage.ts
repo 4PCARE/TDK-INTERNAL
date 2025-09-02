@@ -23,6 +23,7 @@ import {
   lineCarouselColumns,
   lineTemplateActions,
   sqlSnippets, // Import sqlSnippets
+  agentWebSearchWhitelist, // Import agentWebSearchWhitelist schema
   type User,
   type UpsertUser,
   type Category,
@@ -66,6 +67,7 @@ import {
   type InsertInternalAgentChatMessage,
   type SQLSnippet, // Import SQLSnippet type
   type InsertSQLSnippet, // Import InsertSQLSnippet type
+  type AgentWebSearchWhitelist, // Import AgentWebSearchWhitelist type
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, like, count, sql, ilike, getTableColumns, gte, lte, inArray, isNull } from "drizzle-orm";
@@ -268,6 +270,13 @@ export interface IStorage {
   // AI Database Query History
   saveAIDatabaseQuery(query: { userId: string; connectionId: number; userQuery: string; generatedSql?: string; executionResult?: any; success: boolean; executionTime?: number; });
   getAIDatabaseQueryHistory(connectionId: number, userId: string, limit?: number);
+
+  // Web Search Whitelist methods
+  addUrlToAgentWhitelist(agentId: number, url: string, description: string, primaryDetails: any, userId: string): Promise<AgentWebSearchWhitelist>;
+  getAgentWhitelistUrls(agentId: number, userId: string): Promise<AgentWebSearchWhitelist[]>;
+  updateAgentWhitelistUrl(id: number, updates: any, userId: string): Promise<AgentWebSearchWhitelist>;
+  removeUrlFromAgentWhitelist(id: number, userId: string): Promise<void>;
+  updateAgentWebSearchConfig(agentId: number, config: any, userId: string): Promise<AgentChatbot>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2828,6 +2837,59 @@ export class DatabaseStorage implements IStorage {
       console.error('Error getting AI database query history:', error);
       return [];
     }
+  }
+
+  // Web Search Whitelist Methods
+  async addUrlToAgentWhitelist(agentId: number, url: string, description: string, primaryDetails: any, userId: string): Promise<AgentWebSearchWhitelist> {
+    return await this.db.insert(agentWebSearchWhitelist).values({
+      agentId,
+      url,
+      description,
+      primaryDetails,
+      userId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).returning();
+  }
+
+  async getAgentWhitelistUrls(agentId: number, userId: string): Promise<AgentWebSearchWhitelist[]> {
+    return await this.db.select().from(agentWebSearchWhitelist)
+      .where(and(
+        eq(agentWebSearchWhitelist.agentId, agentId),
+        eq(agentWebSearchWhitelist.userId, userId),
+        eq(agentWebSearchWhitelist.isActive, true)
+      ));
+  }
+
+  async updateAgentWhitelistUrl(id: number, updates: any, userId: string): Promise<AgentWebSearchWhitelist> {
+    return await this.db.update(agentWebSearchWhitelist)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(
+        eq(agentWebSearchWhitelist.id, id),
+        eq(agentWebSearchWhitelist.userId, userId)
+      ))
+      .returning();
+  }
+
+  async removeUrlFromAgentWhitelist(id: number, userId: string): Promise<void> {
+    return await this.db.delete(agentWebSearchWhitelist)
+      .where(and(
+        eq(agentWebSearchWhitelist.id, id),
+        eq(agentWebSearchWhitelist.userId, userId)
+      ));
+  }
+
+  async updateAgentWebSearchConfig(agentId: number, config: any, userId: string): Promise<AgentChatbot> {
+    return await this.db.update(agentChatbots)
+      .set({
+        webSearchConfig: config,
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(agentChatbots.id, agentId),
+        eq(agentChatbots.userId, userId)
+      ))
+      .returning();
   }
 }
 

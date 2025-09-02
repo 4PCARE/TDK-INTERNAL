@@ -706,6 +706,19 @@ export const agentDatabaseConnections = pgTable("agent_database_connections", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Web search whitelist table
+export const agentWebSearchWhitelist = pgTable("agent_web_search_whitelist", {
+  id: serial("id").primaryKey(),
+  agentId: integer("agent_id").references(() => agentChatbots.id, { onDelete: "cascade" }).notNull(),
+  url: varchar("url", { length: 500 }).notNull(),
+  description: text("description"),
+  primaryDetails: jsonb("primary_details"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+});
+
 // Add folder relationship to documents
 // Note: You'll need to add folderId: integer("folder_id").references(() => folders.id, { onDelete: "set null" })
 // to your existing documents table definition

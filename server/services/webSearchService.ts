@@ -17,6 +17,53 @@ export class WebSearchService {
     return WebSearchService.instance;
   }
 
+  async extractUrlDetails(url: string): Promise<{title: string, description: string, metadata: any}> {
+    try {
+      console.log(`🔍 Extracting details from URL: ${url}`);
+      
+      const response = await axios.get(url, {
+        timeout: 10000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; AI-KMS-Bot/1.0)',
+        }
+      });
+
+      // Basic HTML parsing to extract title and meta description
+      const html = response.data;
+      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+      const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["'][^>]*>/i);
+      
+      const title = titleMatch ? titleMatch[1].trim() : new URL(url).hostname;
+      const description = descMatch ? descMatch[1].trim() : `Content from ${new URL(url).hostname}`;
+
+      // Extract additional metadata
+      const metadata = {
+        domain: new URL(url).hostname,
+        contentType: response.headers['content-type'] || 'text/html',
+        lastModified: response.headers['last-modified'],
+        extractedAt: new Date().toISOString()
+      };
+
+      console.log(`✅ Extracted details - Title: ${title}, Description: ${description.substring(0, 100)}...`);
+      
+      return { title, description, metadata };
+    } catch (error) {
+      console.error(`❌ Failed to extract details from ${url}:`, error.message);
+      
+      // Fallback details
+      const domain = new URL(url).hostname;
+      return {
+        title: domain,
+        description: `Web content from ${domain}`,
+        metadata: {
+          domain,
+          extractedAt: new Date().toISOString(),
+          error: error.message
+        }
+      };
+    }
+  }
+
   async searchWeb(query: string, maxResults: number = 5): Promise<WebSearchResult[]> {
     try {
       // Check if we have Google Custom Search API credentials
@@ -110,6 +157,115 @@ export class WebSearchService {
         snippet: `I searched for "${query}" but couldn't retrieve specific results. You may want to search manually for the most current information.`
       }];
     }
+  }
+
+  async searchWhitelistedUrls(query: string, whitelistUrls: string[], maxResults: number = 5): Promise<WebSearchResult[]> {
+    console.log(`🔍 Searching whitelisted URLs for query: "${query}"`);
+    console.log(`📋 Whitelist: ${whitelistUrls.join(', ')}`);
+
+    const results: WebSearchResult[] = [];
+
+    for (const url of whitelistUrls) {
+      try {
+        console.log(`🌐 Searching content from: ${url}`);
+        
+        // Fetch content from the whitelisted URL
+        const response = await axios.get(url, {
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; AI-KMS-Bot/1.0)',
+          }
+        });
+
+        const html = response.data;
+        const textContent = this.extractTextFromHtml(html);
+        
+        // Simple text search within the content
+        if (this.contentMatchesQuery(textContent, query)) {
+          const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+          const title = titleMatch ? titleMatch[1].trim() : new URL(url).hostname;
+          
+          // Extract relevant snippet around the query match
+          const snippet = this.extractRelevantSnippet(textContent, query);
+          
+          results.push({
+            title,
+            url,
+            snippet
+          });
+
+          console.log(`✅ Found relevant content at: ${url}`);
+        }
+
+        if (results.length >= maxResults) {
+          break;
+        }
+
+      } catch (error) {
+        console.error(`❌ Error searching ${url}:`, error.message);
+        continue;
+      }
+    }
+
+    console.log(`📊 Found ${results.length} results from whitelisted URLs`);
+    return results;
+  }
+
+  private extractTextFromHtml(html: string): string {
+    // Remove script and style elements
+    let text = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+    text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+    
+    // Remove HTML tags
+    text = text.replace(/<[^>]*>/g, ' ');
+    
+    // Clean up whitespace
+    text = text.replace(/\s+/g, ' ').trim();
+    
+    return text;
+  }
+
+  private contentMatchesQuery(content: string, query: string): boolean {
+    const lowerContent = content.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    
+    // Split query into words and check if any appear in content
+    const queryWords = lowerQuery.split(/\s+/).filter(word => word.length > 2);
+    
+    return queryWords.some(word => lowerContent.includes(word));
+  }
+
+  private extractRelevantSnippet(content: string, query: string, snippetLength: number = 200): string {
+    const lowerContent = content.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    
+    // Find the first occurrence of any query word
+    const queryWords = lowerQuery.split(/\s+/).filter(word => word.length > 2);
+    let matchIndex = -1;
+    
+    for (const word of queryWords) {
+      const index = lowerContent.indexOf(word);
+      if (index !== -1) {
+        matchIndex = index;
+        break;
+      }
+    }
+    
+    if (matchIndex === -1) {
+      // No match found, return beginning of content
+      return content.substring(0, snippetLength) + (content.length > snippetLength ? '...' : '');
+    }
+    
+    // Extract snippet around the match
+    const start = Math.max(0, matchIndex - snippetLength / 2);
+    const end = Math.min(content.length, start + snippetLength);
+    
+    let snippet = content.substring(start, end);
+    
+    if (start > 0) snippet = '...' + snippet;
+    if (end < content.length) snippet = snippet + '...';
+    
+    return snippet;
   }
 
   formatSearchResults(results: WebSearchResult[]): string {

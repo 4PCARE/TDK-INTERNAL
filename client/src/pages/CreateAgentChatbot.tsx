@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
+import WebSearchWhitelist from "@/components/WebSearchWhitelist";
 import {
   Card,
   CardContent,
@@ -45,40 +46,35 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Bot,
-  Settings,
-  MessageSquare,
-  MessageCircle,
-  FileText,
-  Check,
-  X,
-  Search,
-  Plus,
+  Save,
   ArrowLeft,
-  Brain,
-  Shield,
-  User,
-  Briefcase,
-  Heart,
-  Zap,
-  Target,
-  AlertTriangle,
-  Info,
-  BookOpen,
-  Lightbulb,
-  Loader2,
+  Plus,
+  Trash2,
+  FileText,
+  Database,
   TestTube,
-  Send,
+  Settings,
+  MessageCircle,
+  Shield,
+  Target,
+  Zap,
+  Brain,
+  Sliders,
   RefreshCw,
-  ThumbsUp,
-  ThumbsDown,
-  Copy,
+  Info,
+  Globe,
+  Wand2,
+  Loader2,
   Sparkles,
   Folder,
   FolderOpen,
   ChevronRight,
   ChevronDown,
-  Wand2,
-  Database
+  Send,
+  Copy,
+  ThumbsUp,
+  ThumbsDown,
+  Search
 } from "lucide-react";
 import { Link } from "wouter";
 import DocumentSelector from "@/components/DocumentSelector";
@@ -420,7 +416,7 @@ export default function CreateAgentChatbot() {
       const mergedAgentData = {
         ...defaultFormValues, // Start with defaults
         ...agent, // Override with fetched data
-        // Explicitly preserve main form fields that might get overridden
+        // Explicitly preserve main form fields that might get overwritten
         name: agent.name || defaultFormValues.name,
         description: agent.description || defaultFormValues.description,
         systemPrompt: agent.systemPrompt || defaultFormValues.systemPrompt,
@@ -1316,6 +1312,8 @@ export default function CreateAgentChatbot() {
     "Competitor Information",
   ];
 
+  const agentId = isEditing ? parseInt(editAgentId!) : savedAgent?.id;
+
   if (isLoading || isLoadingAgent) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1945,7 +1943,7 @@ export default function CreateAgentChatbot() {
                             <div className="space-y-4">
                               {/* Database Selection Component */}
                               <DatabaseConnectionSelector
-                                agentId={isEditing ? parseInt(editAgentId!) : 0}
+                                agentId={agentId!}
                                 selectedConnections={selectedDatabases}
                                 onConnectionsChange={setSelectedDatabases}
                               />
@@ -3294,6 +3292,72 @@ export default function CreateAgentChatbot() {
                       </div>
                     )}
 
+                    {/* Tabs for Web Search, Documents, etc. */}
+                    <Tabs defaultValue="overview" value={activeTab} onValueChange={(value) => setActiveTab(value)}>
+                      <TabsList className="mb-6">
+                        <TabsTrigger value="overview" className="flex items-center space-x-2">
+                          <Settings className="w-4 h-4" />
+                          <span>Overview</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="skills" className="flex items-center space-x-2">
+                          <Brain className="w-4 h-4" />
+                          <span>Skills</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="guardrails" className="flex items-center space-x-2">
+                          <Shield className="w-4 h-4" />
+                          <span>Guardrails</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="searchConfig" className="flex items-center space-x-2">
+                          <Search className="w-4 h-4" />
+                          <span>Search Configuration</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="web-search" className="flex items-center space-x-2">
+                          <Globe className="w-4 h-4" />
+                          <span>Web Search</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="documents" className="flex items-center space-x-2">
+                          <FileText className="w-4 h-4" />
+                          <span>Documents</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="test" className="flex items-center space-x-2">
+                          <TestTube className="w-4 h-4" />
+                          <span>Test Agent</span>
+                        </TabsTrigger>
+                      </TabsList>
+
+                      {/* Content for each tab */}
+                      <TabsContent value="overview">
+                        {/* Overview content is already rendered above */}
+                      </TabsContent>
+                      <TabsContent value="skills">
+                        {/* Skills content is already rendered above */}
+                      </TabsContent>
+                      <TabsContent value="guardrails">
+                        {/* Guardrails content is already rendered above */}
+                      </TabsContent>
+                      <TabsContent value="searchConfig">
+                        {/* Search Config content is already rendered above */}
+                      </TabsContent>
+
+                      <TabsContent value="web-search" className="space-y-4">
+                        {agentId ? (
+                          <WebSearchWhitelist agentId={agentId} />
+                        ) : (
+                          <div className="text-center py-8 text-gray-500">
+                            Please save the agent first to configure web search settings.
+                          </div>
+                        )}
+                      </TabsContent>
+
+                      <TabsContent value="documents" className="space-y-4">
+                        {/* Document selection content is already rendered above */}
+                      </TabsContent>
+                      <TabsContent value="test">
+                        {/* Test Agent content is already rendered above */}
+                      </TabsContent>
+
+                    </Tabs>
+
                     </form>
                 </Form>
 
@@ -3353,7 +3417,7 @@ export default function CreateAgentChatbot() {
 
                             // We'll modify the mutation to redirect after success for this button
                             const originalOnSuccess = saveAgentMutation.options?.onSuccess;
-                            
+
                             // Temporarily override onSuccess to include redirect
                             saveAgentMutation.mutate(
                               {

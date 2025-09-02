@@ -2,6 +2,9 @@ import OpenAI from "openai";
 import { storage } from "./storage";
 import { LineImageService } from "./lineImageService";
 import { GuardrailsService, GuardrailConfig } from "./services/guardrails";
+import { semanticSearchServiceV2 } from "./services/semanticSearchV2";
+import { generateChatResponse, generateEmbedding } from "./services/openai";
+import { webSearchTool, WebSearchToolConfig } from "./services/webSearchTool";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_API_KEY });
 
@@ -471,8 +474,7 @@ async function getAiResponseDirectly(
       });
 
       aiResponse =
-        completion.choices[0].message.content ||
-        "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+        completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
 
       // Validate AI output with guardrails
       if (guardrailsService) {
@@ -612,6 +614,42 @@ Be friendly and helpful.`;
       let documentContext = ''; // Initialize documentContext here
       const availableDocumentNames: string[] = []; // To store document names
 
+      // Check if web search should be triggered
+      const webSearchConfig: WebSearchToolConfig = agentData.webSearchConfig || {
+        enabled: false,
+        triggerKeywords: [],
+        maxResults: 5,
+        requireWhitelist: true
+      };
+
+      let webSearchResults = '';
+
+      if (await webSearchTool.shouldTriggerWebSearch(userMessage, webSearchConfig)) {
+        console.log(`🌐 Web search triggered for agent ${agentId}`);
+
+        try {
+          const searchResult = await webSearchTool.performWebSearch(
+            queryAnalysis.enhancedQuery || userMessage,
+            agentId,
+            userId,
+            webSearchConfig
+          );
+
+          if (searchResult.results.length > 0) {
+            webSearchResults = webSearchTool.formatWebSearchResults(
+              searchResult.results,
+              searchResult.source
+            );
+            console.log(`✅ Web search completed: ${searchResult.results.length} results from ${searchResult.source}`);
+          } else {
+            console.log(`📭 No web search results found`);
+          }
+        } catch (error) {
+          console.error(`❌ Web search failed:`, error);
+          webSearchResults = '⚠️ Web search temporarily unavailable.';
+        }
+      }
+
       // If no documents are attached to the agent, skip search entirely and handle as no-document query
       if (agentDocIds.length === 0) {
         console.log(`📄 AgentBot: No documents attached to agent - treating as conversation without documents`);
@@ -728,8 +766,7 @@ Be friendly and helpful.`;
         });
 
         aiResponse =
-          completion.choices[0].message.content ||
-          "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+          completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
 
         // Validate AI output with guardrails
         if (guardrailsService) {
@@ -760,190 +797,52 @@ Be friendly and helpful.`;
 
         return aiResponse; // Return early since no documents are available
       } else {
-        // Perform new search workflow with agent's bound documents (smart hybrid)
-        const { searchSmartHybridDebug } = await import(
-          "./services/newSearch"
-        );
-        const searchResults = await searchSmartHybridDebug(
-            queryAnalysis.enhancedQuery || userMessage,
+        // Perform smart hybrid search if needed and agent has documents
+        if (queryAnalysis.needsSearch && agentDocIds.length > 0) {
+          console.log(
+            `🔍 Agent performing smart hybrid search with enhanced query: "${queryAnalysis.enhancedQuery}"`,
+          );
+
+          const { searchSmartHybridDebug } = await import("./services/newSearch");
+          const searchResults = await searchSmartHybridDebug(
+            queryAnalysis.enhancedQuery,
             userId,
             {
+              keywordWeight: queryAnalysis.keywordWeight || 0.5,
+              vectorWeight: queryAnalysis.vectorWeight || 0.5,
               specificDocumentIds: agentDocIds,
-              keywordWeight: searchConfig.keywordWeight,
-              vectorWeight: searchConfig.vectorWeight,
-              threshold: 0.3,
-              massSelectionPercentage: searchConfig.documentMass || 0.6,
-              enhancedQuery: queryAnalysis.enhancedQuery || userMessage,
-              isLineOAContext: true,
-              chunkMaxType: searchConfig.chunkMaxType || 'number',
-              chunkMaxValue: searchConfig.chunkMaxValue || 16,
-              documentTokenLimit: searchConfig.documentTokenLimit,
-              finalTokenLimit: searchConfig.finalTokenLimit,
+              massSelectionPercentage: agentData.searchConfiguration?.documentMass || 0.3,
+              limit: agentData.searchConfiguration?.chunkMaxType === 'number'
+                ? agentData.searchConfiguration?.chunkMaxValue || 8
+                : undefined
             },
           );
 
-        console.log(
-          `🔍 AgentBot: Smart hybrid search found ${searchResults.length} relevant chunks from agent's bound documents`,
-        );
-
-        // Apply token limit filtering if enabled
-        let finalSearchResults = searchResults;
-        if (searchConfig?.tokenLimitEnabled && searchConfig?.documentTokenLimit) {
-          const tokenLimit = searchConfig.documentTokenLimit;
-          const charLimit = tokenLimit * 4; // Convert tokens to characters (4 chars per token)
-          let accumulatedChars = 0;
-          const filteredResults = [];
-
-          for (const result of searchResults) {
-            const contentLength = result.content.length;
-            if (accumulatedChars + contentLength <= charLimit) {
-              filteredResults.push(result);
-              accumulatedChars += contentLength;
-            } else {
-              break;
-            }
-          }
-
-          console.log(`📄 AgentBot: Applied ${tokenLimit} token limit (${charLimit} chars): ${filteredResults.length}/${searchResults.length} chunks (${accumulatedChars} chars, ~${Math.round(accumulatedChars/4)} tokens)`);
-          finalSearchResults = filteredResults;
-        }
-
-        if (finalSearchResults.length > 0) {
-          // Get document names for better context
-              const documentIds = [...new Set(finalSearchResults.map(r => parseInt(r.documentId || r.metadata?.originalDocumentId || '0')))].filter(id => id > 0);
-
-              if (documentIds.length > 0) {
-                try {
-                  // For widget contexts, use widget-specific methods that don't require user ownership
-                  let documentsWithNames;
-                  if (channelType === 'web' || channelType === 'chat_widget') {
-                    documentsWithNames = await storage.getDocumentsByIdsForWidget(documentIds);
-                  } else {
-                    documentsWithNames = await storage.getDocumentsByIds(documentIds, userId);
-                  }
-
-                  documentsWithNames.forEach(doc => {
-                    availableDocumentNames.push(doc.name); // Add document name to the list
-                  });
-                  console.log(`📄 AgentBot: Retrieved names for ${availableDocumentNames.length} documents:`, availableDocumentNames);
-                } catch (error) {
-                  console.warn(`⚠️ AgentBot: Could not retrieve document names:`, error);
-                }
-              }
-
-          // Build document context from search results
-          let documentContextBuilder = ""; // Use a different variable name to avoid conflict
-          const maxContextLength = tokenLimitEnabled && tokenLimitType === 'document'
-            ? documentTokenLimit * 4  // Convert tokens to characters (4 chars per token)
-            : 12000; // Use configured document token limit or default
-          let chunksUsed = 0;
-
           console.log(
-            `📄 AgentBot: Building document context from search results (max: ${maxContextLength} chars):`,
+            `📊 Smart search returned ${searchResults.results.length} results`,
           );
 
-          // Debug: Log the complete structure of first search result
-          if (finalSearchResults.length > 0) {
-            console.log(`📄 AgentBot DEBUG: Complete first search result structure:`, JSON.stringify(finalSearchResults[0], null, 2));
-          }
-          for (let i = 0; i < finalSearchResults.length; i++) {
-            const result = finalSearchResults[i];
-
-            // Bulletproof document ID extraction with multiple fallback strategies
-            let docId = 0;
-            let extractionMethod = "none";
-
-            // Strategy 1: Direct documentId
-            if (result.documentId && result.documentId !== '0' && result.documentId !== 0) {
-              docId = parseInt(result.documentId);
-              extractionMethod = "documentId";
-            }
-            // Strategy 2: metadata.originalDocumentId
-            else if (result.metadata?.originalDocumentId && result.metadata.originalDocumentId !== '0' && result.metadata.originalDocumentId !== 0) {
-              docId = parseInt(result.metadata.originalDocumentId);
-              extractionMethod = "metadata.originalDocumentId";
-            }
-            // Strategy 3: Extract from chunk ID format like "315-0"
-            else if (result.id) {
-              const idStr = result.id.toString();
-              const parts = idStr.split('-');
-              if (parts.length >= 2 && !isNaN(parseInt(parts[0])) && parseInt(parts[0]) > 0) {
-                docId = parseInt(parts[0]);
-                extractionMethod = "id-split";
-              }
-            }
-            // Strategy 4: Extract from chunkId format
-            else if (result.chunkId) {
-              const chunkIdStr = result.chunkId.toString();
-              const parts = chunkIdStr.split('-');
-              if (parts.length >= 2 && !isNaN(parseInt(parts[0])) && parseInt(parts[0]) > 0) {
-                docId = parseInt(parts[0]);
-                extractionMethod = "chunkId-split";
-              }
-            }
-            // Strategy 5: Check if the result object has any other ID fields
-            else {
-              // Look for any field that might contain document ID
-              for (const [key, value] of Object.entries(result)) {
-                if (key.toLowerCase().includes('doc') && value && value !== '0' && value !== 0) {
-                  const numValue = parseInt(value.toString());
-                  if (!isNaN(numValue) && numValue > 0) {
-                    docId = numValue;
-                    extractionMethod = `field-${key}`;
-                    break;
-                  }
-                }
-              }
-            }
-
-            console.log(`📄 AgentBot DEBUG: Result ${i + 1} - documentId: ${result.documentId}, originalDocumentId: ${result.metadata?.originalDocumentId}, id: ${result.id}, chunkId: ${result.chunkId}, extracted docId: ${docId}, method: ${extractionMethod}`);
-
-            const documentName = availableDocumentNames.find(name => name.includes(`Document ${docId}`) || name.startsWith(`Document ${docId}`)); // Find name by ID
-            // Use actual document name or fallback to Document ID format
-            const cleanDocumentName = documentName
-              ? documentName.replace(/\s*\(Chunk\s*\d+\)$/i, '').trim()
-              : `Document ${docId}`;
-
-            const chunkText = `=== ข้อมูลจากเอกสาร: ${cleanDocumentName} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: ${result.content}\n\n`;
-
-            console.log(
-              `  ${i + 1}. ${cleanDocumentName} (ID: ${docId}) - Similarity: ${result.similarity.toFixed(4)}`,
-            );
-            console.log(
-              `      Content preview: ${result.content.substring(0, 100)}...`,
-            );
-
-            if (
-              documentContextBuilder.length + chunkText.length <=
-              maxContextLength
-            ) {
-              documentContextBuilder += chunkText;
-              chunksUsed++;
-              console.log(`      ✅ Added chunk ${i + 1} (${chunkText.length} chars, total: ${documentContextBuilder.length}/${maxContextLength} chars)`);
-            } else {
-              const remainingSpace =
-                maxContextLength - documentContextBuilder.length;
-              if (remainingSpace > 300) {
-                const headerText = `=== ข้อมูลจากเอกสาร: ${cleanDocumentName} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: `;
-                const availableContentSpace = remainingSpace - headerText.length - 10; // 10 chars for "...\n\n"
-                if (availableContentSpace > 100) {
-                  const truncatedContent =
-                    result.content.substring(0, availableContentSpace) +
-                    "...";
-                  const truncatedChunkText = headerText + truncatedContent + "\n\n";
-                  documentContextBuilder += truncatedChunkText;
-                  chunksUsed++;
-                  console.log(`      ✂️ Added truncated chunk ${i + 1} (${truncatedChunkText.length} chars, total: ${documentContextBuilder.length}/${maxContextLength} chars)`);
-                }
-              }
-              console.log(`      🛑 Stopping: Would exceed max context length`);
-              break;
-            }
+          // Apply chunk maximum if using percentage
+          let finalResults = searchResults.results;
+          if (agentData.searchConfiguration?.chunkMaxType === 'percentage' && agentData.searchConfiguration?.chunkMaxValue > 0) {
+            const maxChunks = Math.max(1, Math.ceil(searchResults.results.length * (agentData.searchConfiguration.chunkMaxValue / 100)));
+            finalResults = searchResults.results.slice(0, maxChunks);
+            console.log(`Applied ${agentData.searchConfiguration.chunkMaxValue}% limit: ${searchResults.results.length} → ${finalResults.length} chunks`);
           }
 
-          documentContext = documentContextBuilder; // Assign the built context
+          // Build document context from search results
+          const contextChunks = finalResults.map((result, index) => {
+            return `Document ${result.documentId} (Chunk ${result.chunkIndex}):\n${result.content}`;
+          });
+
+          documentContents.push(...contextChunks);
+          contextPrompt = documentContents.join("\n\n---\n\n");
           console.log(
-            `📄 AgentBot: Used ${chunksUsed}/${finalSearchResults.length} chunks (${documentContext.length} chars, max: ${maxContextLength} chars)`,
+            `📄 Built context with ${contextChunks.length} chunks (${contextPrompt.length} chars)`,
+          );
+        } else if (queryAnalysis.needsSearch) {
+          console.log(
+            `⚠️ Query needs search but agent has no documents configured`,
           );
         }
       } // End of else block for document search
@@ -1162,8 +1061,7 @@ ${documentContext}`;
         });
 
         aiResponse =
-          completion.choices[0].message.content ||
-          "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+          completion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
 
         // Validate AI output with guardrails
         if (guardrailsService) {
@@ -1198,6 +1096,51 @@ ${documentContext}`;
           aiResponse = "ขออภัย ไม่พบข้อมูลที่เกี่ยวข้องในฐานข้อมูล และไม่มีเอกสารอ้างอิงที่เกี่ยวข้อง กรุณาลองถามในรูปแบบอื่นหรือตรวจสอบข้อมูลในฐานข้อมูล";
         } else {
           aiResponse = "ขออภัย ไม่พบข้อมูลที่เกี่ยวข้องกับคำถามของคุณ กรุณาลองถามในรูปแบบอื่น";
+        }
+      }
+
+      // Combine all context sources
+      let combinedContext = contextPrompt;
+      if (webSearchResults) {
+        combinedContext += (combinedContext ? '\n\n---\n\n' : '') + `**WEB SEARCH RESULTS:**\n${webSearchResults}`;
+      }
+
+      const finalPrompt = systemPrompt + combinedContext;
+
+      // Re-evaluate the prompt with combined context
+      const finalCompletion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...messages.slice(1), // Include chat history and user message
+          { role: "user", content: `User Query: ${userMessage}\n\nContext:\n${combinedContext}` }
+        ],
+        max_tokens: 1000,
+        temperature: 0.7,
+      });
+
+      aiResponse = finalCompletion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+
+      // Re-apply guardrails if necessary after combining context
+      if (guardrailsService) {
+        const outputValidation = await guardrailsService.evaluateOutput(
+          aiResponse,
+          {
+            documents: documentContext ? [documentContext] : [],
+            agent: agentData,
+            userQuery: userMessage,
+          },
+        );
+
+        if (!outputValidation.allowed) {
+          console.log(
+            `🚫 AgentBot: Output blocked by guardrails - ${outputValidation.reason}`,
+          );
+          const suggestions = outputValidation.suggestions?.join(" ") || "";
+          aiResponse = `ขออภัย ไม่สามารถให้คำตอบนี้ได้ ${outputValidation.reason ? `(${outputValidation.reason})` : ""} ${suggestions}`;
+        } else if (outputValidation.modifiedContent) {
+          console.log(`🔒 AgentBot: AI output modified for compliance`);
+          aiResponse = outputValidation.modifiedContent;
         }
       }
     }
