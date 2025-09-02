@@ -55,6 +55,7 @@ export default function Dashboard() {
     queryKey: ["/api/documents"],
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    queryFn: () => apiRequest(`/api/documents?limit=10`),
   }) as { data: Array<any> };
 
   const { data: stats } = useQuery({
