@@ -33,14 +33,79 @@ export interface SQLSnippet {
 
 class SQLiteService {
   private dbsDir = path.join(process.cwd(), 'databases');
+  private uploadsDir = path.join(process.cwd(), 'uploads', 'sqlite-temp');
+  private directUploads = new Map<string, DirectUploadInfo>(); // In-memory registry
 
   constructor() {
     this.ensureDbsDir();
+    this.ensureUploadsDir();
   }
 
   private ensureDbsDir() {
     if (!fs.existsSync(this.dbsDir)) {
       fs.mkdirSync(this.dbsDir, { recursive: true });
+    }
+  }
+
+  private ensureUploadsDir() {
+    if (!fs.existsSync(this.uploadsDir)) {
+      fs.mkdirSync(this.uploadsDir, { recursive: true });
+    }
+  }
+
+  async registerDirectUpload(userId: string, fileInfo: {
+    originalName: string;
+    filePath: string;
+    fileSize: number;
+    mimeType: string;
+  }): Promise<DirectUploadInfo> {
+    const uploadId = `upload_${userId}_${Date.now()}`;
+    const directUpload: DirectUploadInfo = {
+      id: uploadId,
+      userId,
+      originalName: fileInfo.originalName,
+      filePath: fileInfo.filePath,
+      fileSize: fileInfo.fileSize,
+      mimeType: fileInfo.mimeType,
+      uploadedAt: new Date()
+    };
+
+    this.directUploads.set(uploadId, directUpload);
+    console.log('📁 Registered direct upload:', uploadId, 'for file:', fileInfo.originalName);
+    
+    // Clean up old uploads (older than 1 hour)
+    this.cleanupOldUploads();
+    
+    return directUpload;
+  }
+
+  async getDirectUpload(uploadId: string, userId: string): Promise<DirectUploadInfo | null> {
+    const upload = this.directUploads.get(uploadId);
+    if (!upload || upload.userId !== userId) {
+      return null;
+    }
+    return upload;
+  }
+
+  private cleanupOldUploads() {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    
+    for (const [uploadId, upload] of this.directUploads.entries()) {
+      if (upload.uploadedAt < oneHourAgo) {
+        // Remove file if it exists
+        if (fs.existsSync(upload.filePath)) {
+          try {
+            fs.unlinkSync(upload.filePath);
+            console.log('🗑️ Cleaned up old upload file:', upload.originalName);
+          } catch (error) {
+            console.error('❌ Failed to cleanup old upload:', error);
+          }
+        }
+        
+        // Remove from registry
+        this.directUploads.delete(uploadId);
+        console.log('🗑️ Removed old upload from registry:', uploadId);
+      }
     }
   }
 
@@ -695,3 +760,14 @@ class SQLiteService {
 }
 
 export const sqliteService = new SQLiteService();
+
+// Interface for direct uploads (SQLite-specific, not full documents)
+export interface DirectUploadInfo {
+  id: string;
+  userId: string;
+  originalName: string;
+  filePath: string;
+  fileSize: number;
+  mimeType: string;
+  uploadedAt: Date;
+}

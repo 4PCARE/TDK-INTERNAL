@@ -120,7 +120,7 @@ export function registerSQLiteRoutes(app: Express) {
     }
   });
 
-  // Upload new file for database creation
+  // Upload new file for database creation (direct upload without document processing)
   app.post("/api/sqlite/upload-file", isAuthenticated, upload.single('file'), async (req: any, res: any) => {
     console.log('🔍 SQLite upload-file endpoint hit');
     try {
@@ -138,20 +138,36 @@ export function registerSQLiteRoutes(app: Express) {
 
       if (!allowedExtensions.includes(fileExtension)) {
         console.log('❌ Invalid file type:', fileExtension);
+        // Clean up the uploaded file
+        fs.unlinkSync(file.path);
         return res.status(400).json({
           message: "Invalid file type. Only CSV and Excel files are allowed."
         });
       }
 
+      // Store file reference for SQLite use (no document processing)
+      const fileInfo = await sqliteService.registerDirectUpload(userId, {
+        originalName: file.originalname,
+        filePath: file.path,
+        fileSize: file.size,
+        mimeType: file.mimetype
+      });
+
       const analysis = await sqliteService.analyzeFileSchema(file.path);
 
       res.json({
         ...analysis,
+        fileId: fileInfo.id,
         filePath: file.path,
-        originalName: file.originalname
+        originalName: file.originalname,
+        fileSize: file.size
       });
     } catch (error) {
       console.error("Error uploading file:", error);
+      // Clean up file if analysis failed
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
       res.status(500).json({
         message: "Failed to upload and analyze file",
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -204,9 +220,34 @@ export function registerSQLiteRoutes(app: Express) {
           }
         }
 
-        // Handle uploaded file
+        // Handle uploaded file (direct upload)
         if (req.file && !filePath) {
           filePath = req.file.path;
+          console.log('🔍 Using newly uploaded file:', filePath);
+        }
+
+        // Handle direct upload file ID
+        if (req.body.directFileId && !filePath) {
+          const directFile = await sqliteService.getDirectUpload(req.body.directFileId, userId);
+          if (directFile) {
+            filePath = directFile.filePath;
+            console.log('🔍 Using direct upload file:', directFile.originalName, 'at path:', filePath);
+
+            // Verify file still exists
+            if (!fs.existsSync(filePath)) {
+              console.log('❌ Direct upload file no longer exists:', filePath);
+              return res.status(400).json({
+                message: `The uploaded file "${directFile.originalName}" is no longer available. Please upload again.`,
+                code: 'FILE_NOT_FOUND',
+                fileName: directFile.originalName
+              });
+            }
+          } else {
+            console.log('❌ Direct upload file not found with ID:', req.body.directFileId);
+            return res.status(400).json({
+              message: `Direct upload file with ID ${req.body.directFileId} not found`
+            });
+          }
         }
       } else {
         // JSON request

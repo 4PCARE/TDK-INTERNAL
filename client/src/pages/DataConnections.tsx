@@ -725,14 +725,19 @@ export default function DataConnections() {
       console.log('🔍 Existing file ID:', existingFileId);
 
       const formData = new FormData();
-      if (selectedFile) {
-        formData.append('file', selectedFile.filePath as any); // Assuming filePath can be directly appended if it's a File object or URL
-        formData.append('fileName', selectedFile.name);
-        console.log('🔍 Added file to FormData:', selectedFile.name);
+      
+      // Handle direct upload files
+      if (selectedFile?.fileId) {
+        formData.append('directFileId', selectedFile.fileId);
+        console.log('🔍 Added directFileId to FormData:', selectedFile.fileId);
+      } else if (selectedFile?.filePath) {
+        formData.append('filePath', selectedFile.filePath);
+        console.log('🔍 Added filePath to FormData:', selectedFile.filePath);
       } else if (existingFileId) {
         formData.append('existingFileId', existingFileId);
         console.log('🔍 Added existingFileId to FormData:', existingFileId);
       }
+      
       formData.append('dbName', data.name);
       formData.append('tableName', data.tableName);
       formData.append('description', data.description || '');
@@ -1108,17 +1113,66 @@ export default function DataConnections() {
     createSqliteMutation.mutate(sqliteForm);
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Pass the File object directly, let the mutation handle FormData creation
-      setSelectedFile({ filePath: file.name, name: file.name }); // Store name and use file itself later
-      setExistingFileId("");
-      if (!sqliteForm.name) {
-        setSqliteForm(prev => ({ ...prev, name: file.name.replace(/\.[^/.]+$/, "") }));
-      }
-      if (!sqliteForm.tableName) {
-        setSqliteForm(prev => ({ ...prev, tableName: file.name.replace(/\.[^/.]+$/, "").toLowerCase() }));
+      setIsLoading(true);
+      setAnalysisError(null);
+      
+      try {
+        // Upload file directly for SQLite processing
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch("/api/sqlite/upload-file", {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Upload failed: ${errorText}`);
+        }
+
+        const uploadResult = await response.json();
+        
+        // Store the upload result for database creation
+        setSelectedFile({ 
+          filePath: uploadResult.filePath, 
+          name: uploadResult.originalName,
+          fileId: uploadResult.fileId
+        });
+        setExistingFileId("");
+        
+        // Set form defaults based on filename
+        if (!sqliteForm.name) {
+          setSqliteForm(prev => ({ ...prev, name: file.name.replace(/\.[^/.]+$/, "") }));
+        }
+        if (!sqliteForm.tableName) {
+          setSqliteForm(prev => ({ ...prev, tableName: file.name.replace(/\.[^/.]+$/, "").toLowerCase() }));
+        }
+
+        // Auto-analyze the uploaded file
+        setAnalysis(uploadResult);
+        
+        toast({
+          title: "File Uploaded",
+          description: `File "${file.name}" uploaded and analyzed successfully`,
+        });
+
+      } catch (error) {
+        console.error('File upload error:', error);
+        setAnalysisError(error instanceof Error ? error.message : 'Failed to upload file');
+        setSelectedFile(null);
+        
+        toast({
+          title: "Upload Failed",
+          description: error instanceof Error ? error.message : 'Failed to upload file',
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
       }
     }
   };
@@ -1869,10 +1923,12 @@ export default function DataConnections() {
                               {selectedFile && (
                                 <div className="border p-4 rounded-lg bg-slate-50">
                                   <div className="flex items-center justify-between mb-3">
-                                    <Label className="text-lg font-semibold">AI File Analysis</Label>
-                                    <Button size="sm" onClick={handleAnalyzeFile} disabled={isLoading}>
-                                      {isLoading ? 'Analyzing...' : 'Analyze File'}
-                                    </Button>
+                                    <Label className="text-lg font-semibold">File Analysis Results</Label>
+                                    {analysis && (
+                                      <Badge variant="default" className="bg-green-500">
+                                        Analysis Complete
+                                      </Badge>
+                                    )}
                                   </div>
 
                                   {analysisError && (
