@@ -828,27 +828,31 @@ Be friendly and helpful.`;
           );
 
           console.log(
-            `📊 Smart search returned ${searchResults.results.length} results`,
+            `📊 Smart search returned ${searchResults?.length || 0} results`,
           );
 
-          // Apply chunk maximum if using percentage
-          let finalResults = searchResults.results;
-          if (agentData.searchConfiguration?.chunkMaxType === 'percentage' && agentData.searchConfiguration?.chunkMaxValue > 0) {
-            const maxChunks = Math.max(1, Math.ceil(searchResults.results.length * (agentData.searchConfiguration.chunkMaxValue / 100)));
-            finalResults = searchResults.results.slice(0, maxChunks);
-            console.log(`Applied ${agentData.searchConfiguration.chunkMaxValue}% limit: ${searchResults.results.length} → ${finalResults.length} chunks`);
+          // Apply chunk maximum if using percentage - handle both array and object with results property
+          let finalResults = Array.isArray(searchResults) ? searchResults : (searchResults?.results || []);
+          if (agentData.searchConfiguration?.chunkMaxType === 'percentage' && agentData.searchConfiguration?.chunkMaxValue > 0 && finalResults.length > 0) {
+            const maxChunks = Math.max(1, Math.ceil(finalResults.length * (agentData.searchConfiguration.chunkMaxValue / 100)));
+            finalResults = finalResults.slice(0, maxChunks);
+            console.log(`Applied ${agentData.searchConfiguration.chunkMaxValue}% limit: ${finalResults.length} → ${maxChunks} chunks`);
           }
 
           // Build document context from search results
-          const contextChunks = finalResults.map((result, index) => {
-            return `Document ${result.documentId} (Chunk ${result.chunkIndex}):\n${result.content}`;
-          });
+          if (finalResults && finalResults.length > 0) {
+            const contextChunks = finalResults.map((result, index) => {
+              return `Document ${result.documentId} (Chunk ${result.chunkIndex}):\n${result.content}`;
+            });
 
-          documentContents.push(...contextChunks);
-          contextPrompt = documentContents.join("\n\n---\n\n");
-          console.log(
-            `📄 Built context with ${contextChunks.length} chunks (${contextPrompt.length} chars)`,
-          );
+            documentContents.push(...contextChunks);
+            contextPrompt = documentContents.join("\n\n---\n\n");
+            console.log(
+              `📄 Built context with ${contextChunks.length} chunks (${contextPrompt.length} chars)`,
+            );
+          } else {
+            console.log(`📄 No search results to build context from`);
+          }
         } else if (queryAnalysis.needsSearch) {
           console.log(
             `⚠️ Query needs search but agent has no documents configured`,
