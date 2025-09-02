@@ -15,6 +15,7 @@ import { eq } from "drizzle-orm";
 import { GuardrailsService } from "./services/guardrails";
 import { registerAgentRoutes } from "./routes/agentRoutes";
 import { registerDocumentRoutes } from "./routes/documentRoutes";
+import { setupWebSearchRoutes } from "./routes/webSearchRoutes";
 import { registerWidgetRoutes } from "./routes/widgetRoutes";
 import { registerAnalyticRoutes } from "./routes/analyticRoutes";
 import { registerChatBotRoutes } from "./routes/chatBotRoutes";
@@ -139,12 +140,12 @@ export async function registerRoutes(app: Express): Server {
 
   // Get current IP address for whitelisting
   app.get("/api/current-ip", (req, res) => {
-    const ip = req.headers['x-forwarded-for'] || 
-               req.connection.remoteAddress || 
+    const ip = req.headers['x-forwarded-for'] ||
+               req.connection.remoteAddress ||
                req.socket.remoteAddress ||
                (req.connection.socket ? req.connection.socket.remoteAddress : null);
-    
-    res.json({ 
+
+    res.json({
       ip: ip,
       headers: req.headers,
       note: "Replit IPs may change, consider using databases that don't require IP whitelisting"
@@ -154,6 +155,7 @@ export async function registerRoutes(app: Express): Server {
   // Register extracted route modules
   registerAgentRoutes(app);
   registerDocumentRoutes(app);
+  setupWebSearchRoutes(app);
   registerWidgetRoutes(app);
   registerAnalyticRoutes(app);
   registerChatBotRoutes(app);
@@ -2678,7 +2680,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     try {
       const connectionId = parseInt(req.params.id);
       const userId = req.user.claims.sub;
-      
+
       const connection = await storage.getDataConnection(connectionId, userId);
       if (!connection) {
         return res.status(404).json({ message: "Database connection not found" });
@@ -2686,7 +2688,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
 
       const { databaseConnector } = await import("./services/databaseConnector");
       const result = await databaseConnector.testConnection(connection);
-      
+
       if (result.success) {
         // Update connection status
         await storage.updateDataConnection(connectionId, { isConnected: true }, userId);
@@ -2704,7 +2706,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
       const connectionId = parseInt(req.params.id);
       const userId = req.user.claims.sub;
       const updates = req.body;
-      
+
       const connection = await storage.updateDataConnection(connectionId, updates, userId);
       if (!connection) {
         return res.status(404).json({ message: "Database connection not found" });
@@ -2721,7 +2723,7 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     try {
       const connectionId = parseInt(req.params.id);
       const userId = req.user.claims.sub;
-      
+
       const connection = await storage.getDataConnection(connectionId, userId);
       if (!connection) {
         return res.status(404).json({ message: "Database connection not found" });
@@ -2754,10 +2756,10 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     try {
       const connectionId = parseInt(req.params.id);
       const userId = req.user.claims.sub;
-      
+
       const { schemaDiscoveryService } = await import("./services/schemaDiscovery");
       const schema = await schemaDiscoveryService.discoverDatabaseSchema(connectionId, userId);
-      
+
       res.json(schema);
     } catch (error) {
       console.error("Error discovering database schema:", error);
@@ -2769,10 +2771,10 @@ Respond with JSON: {"result": "positive" or "fallback", "confidence": 0.0-1.0, "
     try {
       const connectionId = parseInt(req.params.id);
       const userId = req.user.claims.sub;
-      
+
       const { schemaDiscoveryService } = await import("./services/schemaDiscovery");
       const analysis = await schemaDiscoveryService.inferDataTypes(connectionId, userId);
-      
+
       res.json(analysis);
     } catch (error) {
       console.error("Error inferring data types:", error);

@@ -1091,3 +1091,74 @@ export type SQLSnippet = typeof sqlSnippets.$inferSelect;
 export type InsertSQLSnippet = z.infer<typeof insertSQLSnippetSchema>;
 export type AIDatabaseQuery = typeof aiDatabaseQueries.$inferSelect;
 export type InsertAIDatabaseQuery = z.infer<typeof insertAIDatabaseQuerySchema>;
+// Web search configuration for agents
+export const agentWebSearchConfig = pgTable("agent_web_search_config", {
+  id: serial("id").primaryKey(),
+  agentId: integer("agent_id").references(() => agentChatbots.id, { onDelete: "cascade" }).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  whitelistedDomains: jsonb("whitelisted_domains").$type<Array<{
+    domain: string;
+    description: string;
+    searchKeywords: string[];
+    priority: number;
+    isActive: boolean;
+  }>>().default([]),
+  maxResultsPerDomain: integer("max_results_per_domain").default(2),
+  enableAutoTrigger: boolean("enable_auto_trigger").default(true),
+  searchConfidenceThreshold: real("search_confidence_threshold").default(0.7),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const agentWebSearchConfigRelations = relations(agentWebSearchConfig, ({ one }) => ({
+  agent: one(agentChatbots, {
+    fields: [agentWebSearchConfig.agentId],
+    references: [agentChatbots.id],
+  }),
+  user: one(users, {
+    fields: [agentWebSearchConfig.userId],
+    references: [users.id],
+  }),
+}));
+
+// Web search logs for tracking usage
+export const webSearchLogs = pgTable("web_search_logs", {
+  id: serial("id").primaryKey(),
+  agentId: integer("agent_id").references(() => agentChatbots.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  query: text("query").notNull(),
+  domainsSearched: text("domains_searched").array(),
+  resultsFound: integer("results_found").default(0),
+  searchTriggered: boolean("search_triggered").default(false),
+  confidence: real("confidence"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const webSearchLogsRelations = relations(webSearchLogs, ({ one }) => ({
+  agent: one(agentChatbots, {
+    fields: [webSearchLogs.agentId],
+    references: [agentChatbots.id],
+  }),
+  user: one(users, {
+    fields: [webSearchLogs.userId],
+    references: [users.id],
+  }),
+}));
+
+// Insert schemas
+export const insertAgentWebSearchConfigSchema = createInsertSchema(agentWebSearchConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertWebSearchLogSchema = createInsertSchema(webSearchLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Types
+export type AgentWebSearchConfig = typeof agentWebSearchConfig.$inferSelect;
+export type InsertAgentWebSearchConfig = z.infer<typeof insertAgentWebSearchConfigSchema>;
+export type WebSearchLog = typeof webSearchLogs.$inferSelect;
+export type InsertWebSearchLog = z.infer<typeof insertWebSearchLogSchema>;

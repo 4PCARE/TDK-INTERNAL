@@ -260,16 +260,23 @@ async function getAiResponseDirectly(
       }
     }
 
-    // Step 1: AI Query Preprocessing
+    // AI Query Preprocessing
     console.log(
       `🧠 AgentBot: Starting AI query preprocessing for: "${userMessage}"`,
     );
+
+    // Check if web search should be triggered
+    const { WebSearchTool } = await import("./services/webSearchTool");
+    const webSearchAnalysis = await WebSearchTool.shouldTriggerWebSearch(
+      userMessage,
+      chatHistory
+    );
+
+    console.log(`🔍 Web Search Analysis:`, webSearchAnalysis);
+
     const { queryPreprocessor } = await import(
       "./services/queryPreprocessor"
     );
-
-    // Get recent chat history if available (mock for now)
-    const recentChatHistory = []; // TODO: Integrate with actual chat history
 
     // Build additional context including search configuration
     let additionalContext = `Document scope: ${agentDocIds.length > 0 ? agentDocIds.join(', ') : 'All documents'}`;
