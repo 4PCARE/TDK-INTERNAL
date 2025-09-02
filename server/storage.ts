@@ -1450,19 +1450,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Agent Database Connection operations
-  async getDataConnections(userId: string): Promise<any[]> {
-    const connections = await db
-      .select()
-      .from(dataConnections)
-      .where(eq(dataConnections.userId, userId))
-      .orderBy(dataConnections.createdAt);
-
-    return connections.map(conn => ({
-      ...conn,
-      isConnected: conn.isActive // Default to active status for now
-    }));
-  }
-
   async saveDataConnection(connectionData: any): Promise<any> {
     const [result] = await db
       .insert(dataConnections)
@@ -1471,22 +1458,6 @@ export class DatabaseStorage implements IStorage {
         createdAt: new Date(),
         updatedAt: new Date(),
       })
-      .returning();
-
-    return result;
-  }
-
-  async updateDataConnection(connectionId: number, updateData: any, userId: string): Promise<any> {
-    const [result] = await db
-      .update(dataConnections)
-      .set({
-        ...updateData,
-        updatedAt: new Date(),
-      })
-      .where(and(
-        eq(dataConnections.id, connectionId),
-        eq(dataConnections.userId, userId)
-      ))
       .returning();
 
     return result;
@@ -2689,15 +2660,6 @@ export class DatabaseStorage implements IStorage {
     return message;
   }
 
-  async createInternalAgentChatSession(session: InsertInternalAgentChatSession): Promise<InternalAgentChatSession> {
-    const { internalAgentChatSessions } = await import('@shared/schema');
-    const [newSession] = await db
-      .insert(internalAgentChatSessions)
-      .values(session)
-      .returning();
-    return newSession;
-  }
-
   async updateInternalAgentChatSession(sessionId: number, updates: { title?: string }, userId: string): Promise<InternalAgentChatSession> {
     const { internalAgentChatSessions } = await import('@shared/schema');
     const [updatedSession] = await db
@@ -2714,18 +2676,6 @@ export class DatabaseStorage implements IStorage {
       )
       .returning();
     return updatedSession;
-  }
-
-  async deleteInternalAgentChatSession(sessionId: number, userId: string): Promise<void> {
-    const { internalAgentChatSessions } = await import('@shared/schema');
-    await db
-      .delete(internalAgentChatSessions)
-      .where(
-        and(
-          eq(internalAgentChatSessions.id, sessionId),
-          eq(internalAgentChatSessions.userId, userId)
-        )
-      );
   }
 
   // Helper method to check if user owns document

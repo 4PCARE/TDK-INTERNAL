@@ -1117,7 +1117,7 @@ ${documentContext}`;
         console.log(`🌐 Incorporating web search results into AI response`);
         
         // Create a new system prompt that includes web search context
-        const webSearchSystemPrompt = `${agentData.systemPrompt}
+        let webSearchSystemPrompt = `${agentData.systemPrompt}
 
 สำคัญ: ใช้ข้อมูลจากการค้นหาเว็บไซต์ด้านล่างเพื่อตอบคำถามของผู้ใช้:
 
