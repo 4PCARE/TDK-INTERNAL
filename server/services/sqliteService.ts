@@ -140,18 +140,34 @@ class SQLiteService {
   async analyzeFileSchema(filePath: string): Promise<{ schema: TableSchema[], preview: any[], rowCount: number }> {
     const ext = path.extname(filePath).toLowerCase();
     
+    console.log('🔍 Analyzing file:', filePath, 'Extension:', ext);
+    
     try {
       if (ext === '.csv') {
+        console.log('📊 Processing as CSV file');
         return this.analyzeCsvSchema(filePath);
       } else if (['.xlsx', '.xls'].includes(ext)) {
+        console.log('📊 Processing as Excel file');
         return this.analyzeExcelSchema(filePath);
       }
       
-      throw new Error('Unsupported file format');
+      console.log('❌ Unsupported file extension:', ext);
+      throw new Error(`Unsupported file format: ${ext}. Supported formats: .csv, .xlsx, .xls`);
     } catch (error) {
+      console.error('❌ Schema analysis error:', error);
+      
+      // If the error is about unsupported format, don't try to diagnose
+      if (error instanceof Error && error.message.includes('Unsupported file format')) {
+        throw error;
+      }
+      
       // If analysis fails, try to diagnose and suggest cleanup
-      const diagnostics = await this.diagnoseFileProblems(filePath);
-      throw new Error(`Schema analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}. Issues detected: ${diagnostics.issues.join(', ')}`);
+      try {
+        const diagnostics = await this.diagnoseFileProblems(filePath);
+        throw new Error(`Schema analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}. Issues detected: ${diagnostics.issues.join(', ')}`);
+      } catch (diagError) {
+        throw new Error(`Schema analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
     }
   }
 
@@ -514,23 +530,49 @@ class SQLiteService {
   }
 
   private async analyzeExcelSchema(filePath: string): Promise<{ schema: TableSchema[], preview: any[], rowCount: number }> {
-    const workbook = XLSX.readFile(filePath);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
+    console.log('📊 Starting Excel analysis for:', filePath);
     
-    const jsonData = XLSX.utils.sheet_to_json(worksheet);
-    
-    if (jsonData.length === 0) {
-      throw new Error('No data found in Excel file');
+    // Check if file exists first
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`Excel file not found at path: ${filePath}`);
     }
-
-    const schema = this.inferSchema(jsonData);
     
-    return {
-      schema,
-      preview: jsonData.slice(0, 10),
-      rowCount: jsonData.length
-    };
+    try {
+      console.log('📖 Reading Excel workbook...');
+      const workbook = XLSX.readFile(filePath);
+      
+      if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+        throw new Error('No sheets found in Excel file');
+      }
+      
+      const sheetName = workbook.SheetNames[0];
+      console.log('📊 Using sheet:', sheetName);
+      
+      const worksheet = workbook.Sheets[sheetName];
+      if (!worksheet) {
+        throw new Error(`Sheet "${sheetName}" not found in Excel file`);
+      }
+      
+      console.log('🔄 Converting sheet to JSON...');
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      
+      if (jsonData.length === 0) {
+        throw new Error('No data found in Excel file');
+      }
+
+      console.log(`✅ Found ${jsonData.length} rows of data`);
+      const schema = this.inferSchema(jsonData);
+      console.log(`📋 Inferred ${schema.length} columns`);
+      
+      return {
+        schema,
+        preview: jsonData.slice(0, 10),
+        rowCount: jsonData.length
+      };
+    } catch (error) {
+      console.error('❌ Excel analysis failed:', error);
+      throw new Error(`Failed to analyze Excel file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   private inferSchema(data: any[]): TableSchema[] {
