@@ -2847,6 +2847,7 @@ export class DatabaseStorage implements IStorage {
       description,
       primaryDetails,
       userId,
+      isActive: true,
       createdAt: new Date(),
       updatedAt: new Date()
     }).returning();
@@ -2858,7 +2859,8 @@ export class DatabaseStorage implements IStorage {
         eq(agentWebSearchWhitelist.agentId, agentId),
         eq(agentWebSearchWhitelist.userId, userId),
         eq(agentWebSearchWhitelist.isActive, true)
-      ));
+      ))
+      .orderBy(desc(agentWebSearchWhitelist.createdAt));
   }
 
   async updateAgentWhitelistUrl(id: number, updates: any, userId: string): Promise<AgentWebSearchWhitelist> {

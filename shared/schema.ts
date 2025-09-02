@@ -1104,3 +1104,7 @@ export type SQLSnippet = typeof sqlSnippets.$inferSelect;
 export type InsertSQLSnippet = z.infer<typeof insertSQLSnippetSchema>;
 export type AIDatabaseQuery = typeof aiDatabaseQueries.$inferSelect;
 export type InsertAIDatabaseQuery = z.infer<typeof insertAIDatabaseQuerySchema>;
+
+// Web Search Whitelist types
+export type AgentWebSearchWhitelist = typeof agentWebSearchWhitelist.$inferSelect;
+export type InsertAgentWebSearchWhitelist = typeof agentWebSearchWhitelist.$inferInsert;
