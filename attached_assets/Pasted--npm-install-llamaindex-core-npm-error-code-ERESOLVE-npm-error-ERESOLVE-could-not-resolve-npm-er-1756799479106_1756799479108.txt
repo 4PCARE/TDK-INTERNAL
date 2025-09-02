@@ -1,0 +1,46 @@
+--> npm install @llamaindex/core
+npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: @langchain/community@0.3.53
+npm error Found: openai@5.11.0
+npm error node_modules/openai
+npm error   peer openai@"*" from @langchain/community@0.3.53
+npm error   node_modules/@langchain/community
+npm error     @langchain/community@"^0.3.53" from the root project
+npm error   openai@"^5.3.0" from @langchain/openai@0.6.3
+npm error   node_modules/@langchain/openai
+npm error     @langchain/openai@">=0.2.0 <0.7.0" from @langchain/community@0.3.53
+npm error     node_modules/@langchain/community
+npm error       @langchain/community@"^0.3.53" from the root project
+npm error     @langchain/openai@">=0.1.0 <0.7.0" from langchain@0.3.31
+npm error     node_modules/langchain
+npm error       langchain@">=0.2.3 <0.3.0 || >=0.3.4 <0.4.0" from @langchain/community@0.3.53
+npm error       node_modules/@langchain/community
+npm error         @langchain/community@"^0.3.53" from the root project
+npm error       1 more (the root project)
+npm error     1 more (the root project)
+npm error   2 more (langsmith, the root project)
+npm error
+npm error Could not resolve dependency:
+npm error peer @browserbasehq/stagehand@"^1.0.0" from @langchain/community@0.3.53
+npm error node_modules/@langchain/community
+npm error   @langchain/community@"^0.3.53" from the root project
+npm error
+npm error Conflicting peer dependency: openai@4.104.0
+npm error node_modules/openai
+npm error   peer openai@"^4.62.1" from @browserbasehq/stagehand@1.14.0
+npm error   node_modules/@browserbasehq/stagehand
+npm error     peer @browserbasehq/stagehand@"^1.0.0" from @langchain/community@0.3.53
+npm error     node_modules/@langchain/community
+npm error       @langchain/community@"^0.3.53" from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error /home/runner/.npm/_logs/2025-09-02T07_51_03_940Z-eresolve-report.txt
+npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2025-09-02T07_51_03_940Z-debug-0.log
+exit status 1
