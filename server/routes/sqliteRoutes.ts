@@ -176,10 +176,11 @@ export function registerSQLiteRoutes(app: Express) {
         description = req.body.description || '';
         snippets = req.body.snippets ? JSON.parse(req.body.snippets) : [];
 
-        // Handle existing file ID
-        if (req.body.existingFileId && !filePath) {
+        // Handle existing file ID - check both existingFileId and selectedFileId
+        const fileId = req.body.existingFileId || req.body.selectedFileId;
+        if (fileId && !filePath) {
           const existingFiles = await sqliteService.getExistingExcelCsvFiles(userId);
-          const selectedFile = existingFiles.find(f => f.id === parseInt(req.body.existingFileId));
+          const selectedFile = existingFiles.find(f => f.id === parseInt(fileId));
           if (selectedFile) {
             // Use the actual file path from the database
             filePath = selectedFile.filePath;
@@ -196,9 +197,9 @@ export function registerSQLiteRoutes(app: Express) {
               });
             }
           } else {
-            console.log('❌ File not found with ID:', req.body.existingFileId);
+            console.log('❌ File not found with ID:', fileId);
             return res.status(400).json({
-              message: `File with ID ${req.body.existingFileId} not found`
+              message: `File with ID ${fileId} not found`
             });
           }
         }
@@ -213,6 +214,8 @@ export function registerSQLiteRoutes(app: Express) {
       }
 
       console.log('🔍 User ID:', userId, 'DB Name:', dbName, 'Table Name:', tableName, 'File Path:', filePath);
+      console.log('🔍 Request body keys:', Object.keys(req.body));
+      console.log('🔍 Request body:', JSON.stringify(req.body, null, 2));
 
       if (!filePath || !dbName || !tableName) {
         console.log('❌ Missing required fields for create-database');
