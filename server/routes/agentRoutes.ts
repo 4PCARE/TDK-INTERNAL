@@ -1839,8 +1839,19 @@ Generate only the title, nothing else:`;
       console.log("Agent guardrails config:", agentData.guardrailsConfig);
       console.log("Database IDs to update:", databaseIds);
 
+      // Clean up date fields to prevent toISOString errors
+      const cleanedAgentData = { ...agentData };
+      
+      // Remove or convert problematic date fields
+      if (cleanedAgentData.createdAt) {
+        delete cleanedAgentData.createdAt; // Don't update creation date
+      }
+      if (cleanedAgentData.updatedAt) {
+        delete cleanedAgentData.updatedAt; // Let database handle this
+      }
+
       // Update the agent
-      const updatedAgent = await storage.updateAgentChatbot(agentId, agentData, userId);
+      const updatedAgent = await storage.updateAgentChatbot(agentId, cleanedAgentData, userId);
 
       console.log("Agent updated:", JSON.stringify(updatedAgent, null, 2));
 
