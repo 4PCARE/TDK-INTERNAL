@@ -224,6 +224,9 @@ export default function CreateAgentChatbot() {
   const [isTestChatMode, setIsTestChatMode] = useState(false);
   const [tempSessionId, setTempSessionId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [webSearchUrls, setWebSearchUrls] = useState<{url: string, description: string}[]>([]);
+  const [newUrl, setNewUrl] = useState("");
+  const [newUrlDescription, setNewUrlDescription] = useState("");
 
   // Check if we're editing an existing agent
   const urlParams = new URLSearchParams(window.location.search);
@@ -862,6 +865,30 @@ export default function CreateAgentChatbot() {
     setTempSessionId(null);
     setIsTestChatMode(false);
     setTestMessage("");
+  };
+
+  const handleAddUrl = () => {
+    if (!newUrl.trim()) return;
+    
+    try {
+      new URL(newUrl); // Validate URL format
+      setWebSearchUrls(prev => [...prev, {
+        url: newUrl.trim(),
+        description: newUrlDescription.trim() || `Content from ${new URL(newUrl).hostname}`
+      }]);
+      setNewUrl("");
+      setNewUrlDescription("");
+    } catch {
+      toast({
+        title: "Invalid URL",
+        description: "Please enter a valid URL (e.g., https://example.com)",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRemoveUrl = (index: number) => {
+    setWebSearchUrls(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleRefinePrompt = () => {
@@ -3126,50 +3153,69 @@ export default function CreateAgentChatbot() {
                             </CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-6">
-                            {agentId ? (
-                              <WebSearchWhitelist agentId={agentId} />
-                            ) : (
-                              <div className="bg-amber-50 rounded-lg p-4 space-y-3">
-                                <div className="flex items-center gap-2">
-                                  <AlertTriangle className="w-4 h-4 text-amber-600" />
-                                  <span className="font-medium text-amber-900">Save Agent Required</span>
+                            {/* Add URL Section */}
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label htmlFor="newUrl">Website URL</Label>
+                                  <Input
+                                    id="newUrl"
+                                    placeholder="https://example.com"
+                                    value={newUrl}
+                                    onChange={(e) => setNewUrl(e.target.value)}
+                                  />
                                 </div>
-                                <p className="text-sm text-amber-700">
-                                  Please save your agent first to configure web search settings. After saving, you'll be able to:
-                                </p>
-                                <ul className="text-sm text-amber-700 space-y-1 ml-4">
-                                  <li>• Add trusted websites for your agent to search</li>
-                                  <li>• Set descriptions for each website</li>
-                                  <li>• Enable/disable specific URLs</li>
-                                  <li>• Configure search triggers and limits</li>
-                                </ul>
-                                <div className="mt-4">
-                                  <Button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      const formData = form.getValues();
-                                      onSubmit(formData);
-                                    }}
-                                    disabled={saveAgentMutation.isPending}
-                                    className="bg-amber-600 hover:bg-amber-700 text-white"
-                                  >
-                                    {saveAgentMutation.isPending ? (
-                                      <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                        Saving...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Save className="w-4 h-4 mr-2" />
-                                        Save Agent to Enable Web Search
-                                      </>
-                                    )}
-                                  </Button>
+                                <div>
+                                  <Label htmlFor="newDescription">Description</Label>
+                                  <Input
+                                    id="newDescription"
+                                    placeholder="Description of this website"
+                                    value={newUrlDescription}
+                                    onChange={(e) => setNewUrlDescription(e.target.value)}
+                                  />
                                 </div>
                               </div>
-                            )}
+                              <Button
+                                type="button"
+                                onClick={handleAddUrl}
+                                disabled={!newUrl.trim()}
+                                className="w-full"
+                              >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Add Website to Whitelist
+                              </Button>
+                            </div>
+
+                            {/* Current URLs List */}
+                            <div className="space-y-2">
+                              <Label>Whitelisted Websites ({webSearchUrls.length})</Label>
+                              {webSearchUrls.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500">
+                                  <Globe className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                                  <p>No websites added yet</p>
+                                  <p className="text-sm">Add trusted websites for your agent to search</p>
+                                </div>
+                              ) : (
+                                <div className="space-y-2 max-h-64 overflow-y-auto">
+                                  {webSearchUrls.map((entry, index) => (
+                                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                                      <div className="flex-1">
+                                        <div className="font-medium text-sm">{entry.url}</div>
+                                        <div className="text-xs text-gray-500">{entry.description}</div>
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleRemoveUrl(index)}
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
 
                             {/* Web Search Information */}
                             <div className="bg-blue-50 rounded-lg p-4 space-y-3">
