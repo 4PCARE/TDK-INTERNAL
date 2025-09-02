@@ -277,6 +277,7 @@ export interface IStorage {
   updateAgentWhitelistUrl(id: number, updates: any, userId: string): Promise<AgentWebSearchWhitelist>;
   removeUrlFromAgentWhitelist(id: number, userId: string): Promise<void>;
   updateAgentWebSearchConfig(agentId: number, config: any, userId: string): Promise<AgentChatbot>;
+  getAgentWhitelistUrlsForWidget(agentId: number): Promise<AgentWebSearchWhitelist[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2857,15 +2858,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAgentWhitelistUrls(agentId: number, userId: string): Promise<AgentWebSearchWhitelist[]> {
-    return await db
-      .select()
-      .from(agentWebSearchWhitelist)
-      .where(and(
-        eq(agentWebSearchWhitelist.agentId, agentId),
-        eq(agentWebSearchWhitelist.userId, userId),
-        eq(agentWebSearchWhitelist.isActive, true)
-      ))
-      .orderBy(desc(agentWebSearchWhitelist.createdAt));
+    try {
+      return await db
+        .select()
+        .from(agentWebSearchWhitelist)
+        .where(
+          and(
+            eq(agentWebSearchWhitelist.agentId, agentId),
+            eq(agentWebSearchWhitelist.userId, userId),
+            eq(agentWebSearchWhitelist.isActive, true)
+          )
+        )
+        .orderBy(agentWebSearchWhitelist.createdAt);
+    } catch (error) {
+      console.error(`❌ Error getting agent whitelist URLs:`, error);
+      return [];
+    }
   }
 
   async updateAgentWhitelistUrl(id: number, updates: any, userId: string): Promise<AgentWebSearchWhitelist> {
@@ -2899,6 +2907,25 @@ export class DatabaseStorage implements IStorage {
       ))
       .returning();
     return result;
+  }
+
+  async getAgentWhitelistUrlsForWidget(agentId: number): Promise<AgentWebSearchWhitelist[]> {
+    try {
+      // For widget contexts, get whitelist URLs without user restriction
+      return await db
+        .select()
+        .from(agentWebSearchWhitelist)
+        .where(
+          and(
+            eq(agentWebSearchWhitelist.agentId, agentId),
+            eq(agentWebSearchWhitelist.isActive, true)
+          )
+        )
+        .orderBy(agentWebSearchWhitelist.createdAt);
+    } catch (error) {
+      console.error(`❌ Error getting agent whitelist URLs for widget:`, error);
+      return [];
+    }
   }
 }
 

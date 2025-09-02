@@ -624,6 +624,13 @@ Be friendly and helpful.`;
 
       let webSearchResults = '';
 
+      console.log(`🔍 Web search config for agent ${agentId}:`, {
+        enabled: webSearchConfig.enabled,
+        triggerKeywords: webSearchConfig.triggerKeywords,
+        maxResults: webSearchConfig.maxResults,
+        requireWhitelist: webSearchConfig.requireWhitelist
+      });
+
       if (await webSearchTool.shouldTriggerWebSearch(userMessage, webSearchConfig)) {
         console.log(`🌐 Web search triggered for agent ${agentId}`);
 
@@ -648,6 +655,8 @@ Be friendly and helpful.`;
           console.error(`❌ Web search failed:`, error);
           webSearchResults = '⚠️ Web search temporarily unavailable.';
         }
+      } else {
+        console.log(`⏭️ Web search not triggered for query: "${userMessage}"`);
       }
 
       // If no documents are attached to the agent, skip search entirely and handle as no-document query
@@ -1099,49 +1108,98 @@ ${documentContext}`;
         }
       }
 
-      // Combine all context sources
-      let combinedContext = contextPrompt;
+      // If we have web search results, incorporate them into the response
       if (webSearchResults) {
-        combinedContext += (combinedContext ? '\n\n---\n\n' : '') + `**WEB SEARCH RESULTS:**\n${webSearchResults}`;
-      }
+        console.log(`🌐 Incorporating web search results into AI response`);
+        
+        // Create a new system prompt that includes web search context
+        const webSearchSystemPrompt = `${agentData.systemPrompt}
 
-      const finalPrompt = systemPrompt + combinedContext;
+สำคัญ: ใช้ข้อมูลจากการค้นหาเว็บไซต์ด้านล่างเพื่อตอบคำถามของผู้ใช้:
 
-      // Re-evaluate the prompt with combined context
-      const finalCompletion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages.slice(1), // Include chat history and user message
-          { role: "user", content: `User Query: ${userMessage}\n\nContext:\n${combinedContext}` }
-        ],
-        max_tokens: 1000,
-        temperature: 0.7,
-      });
+${webSearchResults}
 
-      aiResponse = finalCompletion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลคำถามได้ในขณะนี้";
+ตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
+ตอบอย่างเป็นมิตรและช่วยเหลือ โดยอ้างอิงข้อมูลจากเว็บไซต์ที่เชื่อถือได้`;
 
-      // Re-apply guardrails if necessary after combining context
-      if (guardrailsService) {
-        const outputValidation = await guardrailsService.evaluateOutput(
-          aiResponse,
+        // Add HR employee context if available
+        if (hrEmployeeData) {
+          console.log(`👤 AgentBot: Adding HR employee context with web search results`);
+          webSearchSystemPrompt += `
+
+🏢 ข้อมูลพนักงาน: คุณกำลังสนทนากับ ${hrEmployeeData.firstName || hrEmployeeData.first_name} ${hrEmployeeData.lastName || hrEmployeeData.last_name}
+- รหัสพนักงาน: ${hrEmployeeData.employeeId || hrEmployeeData.employee_id}
+- แผนก: ${hrEmployeeData.department}
+- ตำแหน่ง: ${hrEmployeeData.position}
+- อีเมล: ${hrEmployeeData.email}
+- วันที่เริ่มงาน: ${hrEmployeeData.startDate || hrEmployeeData.hire_date}
+- สถานะ: ${hrEmployeeData.isActive ? 'Active' : 'Inactive'}
+
+กรุณาให้คำตอบที่เป็นส่วนตัวและเหมาะสมกับตำแหน่งและแผนกของพนักงาน`;
+        }
+
+        const webSearchMessages: any[] = [
           {
-            documents: documentContext ? [documentContext] : [],
-            agent: agentData,
-            userQuery: userMessage,
+            role: "system",
+            content: webSearchSystemPrompt,
           },
+        ];
+
+        // Add chat history
+        const userBotMessages = chatHistory.filter(
+          (msg) => msg.messageType === "user" || msg.messageType === "assistant",
         );
 
-        if (!outputValidation.allowed) {
-          console.log(
-            `🚫 AgentBot: Output blocked by guardrails - ${outputValidation.reason}`,
+        userBotMessages.forEach((msg) => {
+          webSearchMessages.push({
+            role: msg.messageType === "user" ? "user" : "assistant",
+            content: msg.content,
+          });
+        });
+
+        // Add current user message
+        webSearchMessages.push({
+          role: "user",
+          content: userMessage,
+        });
+
+        console.log(`🤖 AgentBot: Generating response with web search results`);
+
+        const webSearchCompletion = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: webSearchMessages,
+          max_tokens: 1000,
+          temperature: 0.7,
+        });
+
+        aiResponse = webSearchCompletion.choices[0].message.content || "ขออภัย ไม่สามารถประมวลผลผลลัพธ์จากการค้นหาเว็บได้";
+
+        console.log(`✅ AgentBot: Generated response with web search results (${aiResponse.length} chars)`);
+        
+        // Apply guardrails if configured
+        if (guardrailsService) {
+          const outputValidation = await guardrailsService.evaluateOutput(
+            aiResponse,
+            {
+              documents: webSearchResults ? [webSearchResults] : [],
+              agent: agentData,
+              userQuery: userMessage,
+            },
           );
-          const suggestions = outputValidation.suggestions?.join(" ") || "";
-          aiResponse = `ขออภัย ไม่สามารถให้คำตอบนี้ได้ ${outputValidation.reason ? `(${outputValidation.reason})` : ""} ${suggestions}`;
-        } else if (outputValidation.modifiedContent) {
-          console.log(`🔒 AgentBot: AI output modified for compliance`);
-          aiResponse = outputValidation.modifiedContent;
+
+          if (!outputValidation.allowed) {
+            console.log(
+              `🚫 AgentBot: Web search output blocked by guardrails - ${outputValidation.reason}`,
+            );
+            const suggestions = outputValidation.suggestions?.join(" ") || "";
+            aiResponse = `ขออภัย ไม่สามารถให้คำตอบนี้ได้ ${outputValidation.reason ? `(${outputValidation.reason})` : ""} ${suggestions}`;
+          } else if (outputValidation.modifiedContent) {
+            console.log(`🔒 AgentBot: Web search AI output modified for compliance`);
+            aiResponse = outputValidation.modifiedContent;
+          }
         }
+        
+        return aiResponse; // Return early with web search results
       }
     }
 
