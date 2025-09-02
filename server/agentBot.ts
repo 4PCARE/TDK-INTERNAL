@@ -3,7 +3,7 @@ import { storage } from "./storage";
 import { LineImageService } from "./lineImageService";
 import { GuardrailsService, GuardrailConfig } from "./services/guardrails";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_API_KEY });
 
 export interface MessageMetadata {
   messageType?: string;
@@ -610,9 +610,7 @@ Be friendly and helpful.`;
       console.log(`🔧 AgentBot: Using agent's search config - ${chunkMaxType}=${chunkMaxValue}, mass=${Math.round(documentMass * 100)}%${tokenLimitEnabled ? `, token limit: ${tokenLimitType}=${tokenLimitType === 'document' ? documentTokenLimit : finalTokenLimit}` : ''}`);
 
       let documentContext = ''; // Initialize documentContext here
-
-      // Get agent document IDs to restrict search scope
-      console.log(`📄 AgentBot: Using ${agentDocs.length} documents for hybrid search: [${agentDocIds.join(', ')}]`);
+      const availableDocumentNames: string[] = []; // To store document names
 
       // If no documents are attached to the agent, skip search entirely and handle as no-document query
       if (agentDocIds.length === 0) {
@@ -813,7 +811,6 @@ Be friendly and helpful.`;
         if (finalSearchResults.length > 0) {
           // Get document names for better context
               const documentIds = [...new Set(finalSearchResults.map(r => parseInt(r.documentId || r.metadata?.originalDocumentId || '0')))].filter(id => id > 0);
-              const documentNamesMap = new Map<number, string>();
 
               if (documentIds.length > 0) {
                 try {
@@ -826,9 +823,9 @@ Be friendly and helpful.`;
                   }
 
                   documentsWithNames.forEach(doc => {
-                    documentNamesMap.set(doc.id, doc.name);
+                    availableDocumentNames.push(doc.name); // Add document name to the list
                   });
-                  console.log(`📄 AgentBot: Retrieved names for ${documentNamesMap.size} documents:`, Array.from(documentNamesMap.entries()).map(([id, name]) => `${id}: ${name}`));
+                  console.log(`📄 AgentBot: Retrieved names for ${availableDocumentNames.length} documents:`, availableDocumentNames);
                 } catch (error) {
                   console.warn(`⚠️ AgentBot: Could not retrieve document names:`, error);
                 }
@@ -901,8 +898,7 @@ Be friendly and helpful.`;
 
             console.log(`📄 AgentBot DEBUG: Result ${i + 1} - documentId: ${result.documentId}, originalDocumentId: ${result.metadata?.originalDocumentId}, id: ${result.id}, chunkId: ${result.chunkId}, extracted docId: ${docId}, method: ${extractionMethod}`);
 
-            const documentName = documentNamesMap.get(docId);
-
+            const documentName = availableDocumentNames.find(name => name.includes(`Document ${docId}`) || name.startsWith(`Document ${docId}`)); // Find name by ID
             // Use actual document name or fallback to Document ID format
             const cleanDocumentName = documentName
               ? documentName.replace(/\s*\(Chunk\s*\d+\)$/i, '').trim()
@@ -928,7 +924,7 @@ Be friendly and helpful.`;
               const remainingSpace =
                 maxContextLength - documentContextBuilder.length;
               if (remainingSpace > 300) {
-                const headerText = `=== ข้อมูลที่ ${i + 1}: ${documentName} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: `;
+                const headerText = `=== ข้อมูลจากเอกสาร: ${cleanDocumentName} ===\nคะแนนความเกี่ยวข้อง: ${result.similarity.toFixed(3)}\nเนื้อหา: `;
                 const availableContentSpace = remainingSpace - headerText.length - 10; // 10 chars for "...\n\n"
                 if (availableContentSpace > 100) {
                   const truncatedContent =
@@ -985,20 +981,10 @@ Be friendly and helpful.`;
           hour12: false
         });
 
-        // Build system prompt with document context
-        let baseSystemPrompt = `${agentData.systemPrompt}
-
-เอกสารอ้างอิงสำหรับการตอบคำถาม (เรียงตามความเกี่ยวข้อง):
-${documentContext}
-
-สำคัญ: เมื่อผู้ใช้ถามเกี่ยวกับรูปภาพหรือภาพที่ส่งมา และมีข้อมูลการวิเคราะห์รูปภาพในข้อความของผู้ user ให้ใช้ข้อมูลนั้นในการตอบคำถาม อย่าบอกว่า "ไม่สามารถดูรูปภาพได้" หากมีข้อมูลการวิเคราะห์รูปภาพให้แล้ว`;
-
-        // Add HR employee context if available
+        // Define hrPersonalizedPrompt outside of conditional blocks
+        let hrPersonalizedPrompt = "";
         if (hrEmployeeData) {
-          console.log(`👤 AgentBot: Adding HR employee context with documents for ${hrEmployeeData.firstName || hrEmployeeData.first_name} ${hrEmployeeData.lastName || hrEmployeeData.last_name} (${hrEmployeeData.employeeId})`);
-          baseSystemPrompt += `
-
-🏢 ข้อมูลพนักงาน: คุณกำลังสนทนากับ ${hrEmployeeData.firstName || hrEmployeeData.first_name} ${hrEmployeeData.lastName || hrEmployeeData.last_name}
+          hrPersonalizedPrompt = `🏢 ข้อมูลพนักงาน: คุณกำลังสนทนากับ ${hrEmployeeData.firstName || hrEmployeeData.first_name} ${hrEmployeeData.lastName || hrEmployeeData.last_name}
 - รหัสพนักงาน: ${hrEmployeeData.employeeId || hrEmployeeData.employee_id}
 - แผนก: ${hrEmployeeData.department}
 - ตำแหน่ง: ${hrEmployeeData.position}
@@ -1007,25 +993,33 @@ ${documentContext}
 - สถานะ: ${hrEmployeeData.isActive ? 'Active' : 'Inactive'}
 
 กรุณาให้คำตอบที่เป็นส่วนตัวและเหมาะสมกับตำแหน่งและแผนกของพนักงาน`;
-        } else {
-          console.log(`👤 AgentBot: No HR employee context available for document search personalization`);
         }
 
-        baseSystemPrompt += `
+        // Build system prompt with document context
+        const systemPrompt = `${agentData.systemPrompt}
 
-กรุณาใช้ข้อมูลจากเอกสารข้างต้นเป็นหลักในการตอบคำถาม และตอบเป็นภาษาไทยเสมอ เว้นแต่ผู้ใช้จะสื่อสารเป็นภาษาอื่น
-ตอบอย่างเป็นมิตรและช่วยเหลือ ให้ข้อมูลที่ถูกต้องและเป็นประโยชน์
-เมื่อตอบคำถาม ให้อ้างอิงชื่อเอกสารที่ข้อมูลมาจากเพื่อให้ผู้ใช้ทราบแหล่งที่มา
-คุณสามารถอ้างอิงบทสนทนาก่อนหน้านี้เพื่อให้คำตอบที่ต่อเนื่องและเหมาะสม
+${agentData.personality ? `Personality: ${agentData.personality}` : ''}
+${agentData.profession ? `Professional Role: ${agentData.profession}` : ''}
+${agentData.responseStyle ? `Response Style: ${agentData.responseStyle}` : ''}
+${agentData.responseLanguage ? `Primary Language: ${agentData.responseLanguage}` : ''}
 
-วันที่วันนี้: ${thaiDate}
-ตอนนี้เวลา: ${thaiTime}`;
+${hrEmployeeData ? hrPersonalizedPrompt : ''}
+
+${availableDocumentNames.length > 0 ? `AVAILABLE DOCUMENTS: I have access to the following documents: ${availableDocumentNames.join(', ')}. I can answer questions about topics covered in these documents.` : ''}
+
+IMPORTANT: Use the following document content to answer questions. Only provide information that can be found in the documents. If information is not available in the documents, clearly state that you don't have that information.
+
+${documentContext}`;
+
+        if (hrEmployeeData) {
+          console.log(`🏢 Added HR personalization for employee: ${hrEmployeeData.fullName || hrEmployeeData.first_name} ${hrEmployeeData.last_name || ''} (${hrEmployeeData.department})`);
+        }
 
         // Build conversation messages including chat history
         const messages: any[] = [
           {
             role: "system",
-            content: baseSystemPrompt,
+            content: systemPrompt,
           },
         ];
 

@@ -329,7 +329,17 @@ export class VectorService {
         console.log(`VectorService: No document ID filter applied - searching all user documents`);
       }
 
-      const dbVectors = await db.select()
+      const dbVectors = await db.select({
+          id: documentVectors.id,
+          documentId: documentVectors.documentId,
+          chunkIndex: documentVectors.chunkIndex,
+          totalChunks: documentVectors.totalChunks,
+          content: documentVectors.content,
+          embedding: documentVectors.embedding,
+          embeddingMulti: documentVectors.embeddingMulti,
+          userId: documentVectors.userId,
+          documentName: sql`(SELECT name FROM documents WHERE id = ${documentVectors.documentId})`.as('documentName')
+        })
         .from(documentVectors)
         .where(whereCondition);
 
@@ -422,7 +432,8 @@ export class VectorService {
               originalDocumentId: dbVector.documentId.toString(),
               userId: dbVector.userId,
               chunkIndex: dbVector.chunkIndex,
-              totalChunks: dbVector.totalChunks
+              totalChunks: dbVector.totalChunks,
+              documentName: dbVector.documentName || `Document ${dbVector.documentId}` // Include document name
             },
             chunkIndex: dbVector.chunkIndex,
             totalChunks: dbVector.totalChunks

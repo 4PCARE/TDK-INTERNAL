@@ -132,7 +132,7 @@ Analyze this query and provide your response.`;
       // Try to extract user ID from context or use a default
       // In production, this should come from the request context
       let userId = "43981095"; // Default fallback user ID
-      
+
       // Try to extract from additionalSearchDetail if it contains user info
       if (context && context.includes('userId:')) {
         const userIdMatch = context.match(/userId:\s*(\w+)/);
@@ -168,27 +168,27 @@ Analyze this query and provide your response.`;
           console.error("❌ Error parsing Gemini JSON response:", parseError);
           console.log("📝 Raw Gemini response (first 1000 chars):", response.substring(0, 1000));
           console.log("📏 Full response length:", response.length);
-          
+
           // Enhanced validation - check if response contains expected structure
-          const hasRequiredFields = response.includes('needsSearch') && 
-                                  response.includes('enhancedQuery') && 
+          const hasRequiredFields = response.includes('needsSearch') &&
+                                  response.includes('enhancedQuery') &&
                                   (response.includes('true') || response.includes('false'));
-          
+
           if (!hasRequiredFields) {
             console.error("🚨 Gemini response missing required fields - using fallback");
             throw new Error("Gemini response does not contain required JSON structure");
           }
-          
+
           // Try multiple extraction methods with better patterns
           let extractedJson = null;
-          
+
           // Method 1: Extract from markdown code blocks (more flexible)
           const markdownPatterns = [
             /```json\s*(\{[\s\S]*?\})\s*```/gi,
             /```\s*(\{[\s\S]*?\})\s*```/gi,
             /`(\{[\s\S]*?\})`/gi
           ];
-          
+
           for (const pattern of markdownPatterns) {
             const matches = [...response.matchAll(pattern)];
             for (const match of matches) {
@@ -200,7 +200,7 @@ Analyze this query and provide your response.`;
             }
             if (extractedJson) break;
           }
-          
+
           // Method 2: Extract JSON object from anywhere in text (improved with proper brace matching)
           if (!extractedJson) {
             const jsonStart = response.indexOf('{');
@@ -209,25 +209,25 @@ Analyze this query and provide your response.`;
               let jsonEnd = -1;
               let inString = false;
               let escapeNext = false;
-              
+
               for (let i = jsonStart; i < response.length; i++) {
                 const char = response[i];
-                
+
                 if (escapeNext) {
                   escapeNext = false;
                   continue;
                 }
-                
+
                 if (char === '\\') {
                   escapeNext = true;
                   continue;
                 }
-                
+
                 if (char === '"' && !escapeNext) {
                   inString = !inString;
                   continue;
                 }
-                
+
                 if (!inString) {
                   if (char === '{') braceCount++;
                   if (char === '}') {
@@ -239,14 +239,14 @@ Analyze this query and provide your response.`;
                   }
                 }
               }
-              
+
               if (jsonEnd !== -1) {
                 extractedJson = response.substring(jsonStart, jsonEnd + 1);
                 console.log("🔍 Extracted JSON using improved brace matching");
               }
             }
           }
-          
+
           // Method 3: More sophisticated pattern matching for required fields
           if (!extractedJson) {
             // Try to construct JSON from individual field matches
@@ -255,7 +255,7 @@ Analyze this query and provide your response.`;
             const keywordWeightMatch = response.match(/"keywordWeight"\s*:\s*(0\.\d+|1\.0?|0)/);
             const vectorWeightMatch = response.match(/"vectorWeight"\s*:\s*(0\.\d+|1\.0?|0)/);
             const reasoningMatch = response.match(/"reasoning"\s*:\s*"([^"\\]*(\\.[^"\\]*)*)"/i);
-            
+
             if (needsSearchMatch && enhancedQueryMatch) {
               const reconstructedJson = {
                 needsSearch: needsSearchMatch[1].toLowerCase() === 'true',
@@ -264,12 +264,12 @@ Analyze this query and provide your response.`;
                 vectorWeight: vectorWeightMatch ? parseFloat(vectorWeightMatch[1]) : 0.5,
                 reasoning: reasoningMatch ? reasoningMatch[1] : 'Reconstructed from Gemini response fields'
               };
-              
+
               console.log("🔧 Reconstructed JSON from individual fields:", JSON.stringify(reconstructedJson, null, 2));
               result = reconstructedJson;
             }
           }
-          
+
           // Try parsing extracted JSON
           if (extractedJson && !result) {
             try {
@@ -280,14 +280,14 @@ Analyze this query and provide your response.`;
                 .replace(/([{,]\s*)"?(\w+)"?\s*:/g, '$1"$2":') // Ensure property names are quoted
                 .replace(/:\s*'([^']*)'/g, ': "$1"') // Convert single quotes to double quotes
                 .trim();
-              
+
               console.log("🧹 Cleaned JSON (first 300 chars):", cleanedJson.substring(0, 300));
               result = JSON.parse(cleanedJson);
               console.log("✅ Successfully extracted and parsed JSON from Gemini response");
             } catch (extractError) {
               console.error("❌ Failed to parse cleaned JSON:", extractError);
               console.log("🔧 Final JSON attempt failed, using emergency fallback");
-              
+
               // Emergency fallback - create a minimal valid response
               result = {
                 needsSearch: response.toLowerCase().includes('needssearch') && !response.toLowerCase().includes('needssearch": false'),
@@ -299,7 +299,7 @@ Analyze this query and provide your response.`;
               console.log("🚑 Emergency response created:", JSON.stringify(result, null, 2));
             }
           }
-          
+
           // Final validation
           if (!result) {
             console.error("❌ All Gemini JSON extraction methods failed");
@@ -329,27 +329,27 @@ Analyze this query and provide your response.`;
         if (!content) {
           throw new Error('No response from AI');
         }
-        
+
         try {
           result = JSON.parse(content);
         } catch (parseError) {
           console.warn('Failed to parse OpenAI response, attempting to clean and retry');
-          
+
           // Try to clean the response and extract JSON
           let cleanedContent = content.trim();
-          
+
           // Remove markdown code blocks
           cleanedContent = cleanedContent.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
-          
+
           // Remove backticks
           cleanedContent = cleanedContent.replace(/`/g, '');
-          
+
           // Extract JSON object if there's extra text
           const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             cleanedContent = jsonMatch[0];
           }
-          
+
           try {
             result = JSON.parse(cleanedContent);
             console.log('✅ Successfully parsed cleaned OpenAI response');
