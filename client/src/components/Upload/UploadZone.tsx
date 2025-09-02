@@ -19,7 +19,12 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
   const [fileMetadataMap, setFileMetadataMap] = useState<Map<string, DocumentMetadata>>(new Map());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(defaultFolderId || null);
-
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [uploadedBytes, setUploadedBytes] = useState(0);
+  const [totalBytes, setTotalBytes] = useState(0);
 
   const uploadMutation = useMutation({
     mutationFn: async (payload: { files: File[], metadataMap: Map<string, DocumentMetadata> }) => {
@@ -29,11 +34,19 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
         return;
       }
 
+      setIsUploading(true);
+      setUploadProgress(0);
+      setIsPaused(false);
+
       const formData = new FormData();
+      let totalSize = 0;
 
       payload.files.forEach(file => {
         formData.append('files', file);
+        totalSize += file.size;
       });
+
+      setTotalBytes(totalSize);
 
       // Add metadata for each file
       const metadataArray = payload.files.map(file => {
@@ -51,22 +64,66 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
 
       formData.append('metadata', JSON.stringify(metadataArray));
 
-      const response = await apiRequest('POST', '/api/documents/upload', formData);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+      // Create abort controller for cancellation
+      const controller = new AbortController();
+      setAbortController(controller);
+
+      try {
+        // Create XMLHttpRequest for progress tracking
+        const xhr = new XMLHttpRequest();
+        
+        return new Promise((resolve, reject) => {
+          xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable && !isPaused) {
+              const progress = (event.loaded / event.total) * 100;
+              setUploadProgress(progress);
+              setUploadedBytes(event.loaded);
+              console.log(`Upload progress: ${progress.toFixed(1)}%`);
+            }
+          });
+
+          xhr.addEventListener('load', async () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const result = JSON.parse(xhr.responseText);
+                console.log('Upload response:', result);
+                setUploadProgress(100);
+                resolve(result);
+              } catch (error) {
+                reject(new Error('Invalid response format'));
+              }
+            } else {
+              reject(new Error(`Upload failed: ${xhr.status} - ${xhr.responseText}`));
+            }
+          });
+
+          xhr.addEventListener('error', () => {
+            reject(new Error('Upload failed due to network error'));
+          });
+
+          xhr.addEventListener('abort', () => {
+            reject(new Error('Upload was cancelled'));
+          });
+
+          // Handle abort signal
+          controller.signal.addEventListener('abort', () => {
+            xhr.abort();
+          });
+
+          xhr.open('POST', '/api/documents/upload');
+          
+          // Add authorization header if needed
+          const token = localStorage.getItem('auth_token');
+          if (token) {
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+          }
+
+          xhr.send(formData);
+        });
+      } finally {
+        setIsUploading(false);
+        setAbortController(null);
       }
-      
-      const result = await response.json();
-      
-      // Validate the response structure
-      if (!result) {
-        throw new Error('Invalid response from server');
-      }
-      
-      console.log('Upload response:', result);
-      return result;
     },
     onSuccess: (data) => {
       console.log('Upload success data:', data);
@@ -92,17 +149,34 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
         title: "Upload successful",
         description: `${uploadedCount} document(s) uploaded successfully`,
       });
-      // Reset state
+      
+      // Reset upload state
+      setIsUploading(false);
+      setUploadProgress(0);
+      setUploadedBytes(0);
+      setTotalBytes(0);
+      setIsPaused(false);
+      setAbortController(null);
+      
+      // Reset file state
       setPendingFiles([]);
       setCurrentFileIndex(0);
       setFileMetadataMap(new Map());
 
-      // Invalidate all document-related queries to ensure fresh data
+      // Force refresh all document-related data
+      console.log('Refreshing all document queries...');
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/documents/search"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/folders"] });
+      
+      // Force a page refresh to ensure data consistency
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+      
       onUploadComplete();
     },
     onError: (error) => {
@@ -115,7 +189,16 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
         description: errorMessage,
         variant: "destructive",
       });
-      // Reset state on error
+      
+      // Reset upload state on error
+      setIsUploading(false);
+      setUploadProgress(0);
+      setUploadedBytes(0);
+      setTotalBytes(0);
+      setIsPaused(false);
+      setAbortController(null);
+      
+      // Reset file state on error
       setPendingFiles([]);
       setCurrentFileIndex(0);
       setFileMetadataMap(new Map());
@@ -237,6 +320,38 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
 
   const currentFile = pendingFiles[currentFileIndex];
 
+  const handlePauseResume = () => {
+    setIsPaused(!isPaused);
+  };
+
+  const handleCancel = () => {
+    if (abortController) {
+      abortController.abort();
+    }
+    setIsUploading(false);
+    setUploadProgress(0);
+    setUploadedBytes(0);
+    setTotalBytes(0);
+    setIsPaused(false);
+    setAbortController(null);
+    setPendingFiles([]);
+    setCurrentFileIndex(0);
+    setFileMetadataMap(new Map());
+    
+    toast({
+      title: "Upload cancelled",
+      description: "Upload was cancelled successfully",
+    });
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   return (
     <>
       <div 
@@ -245,7 +360,7 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
           isDragActive 
             ? 'border-blue-400 bg-blue-50' 
             : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
-        } ${uploadMutation.isPending ? 'opacity-50 pointer-events-none' : ''}`}
+        } ${(uploadMutation.isPending || isUploading) ? 'opacity-50 pointer-events-none' : ''}`}
       >
         <input {...getInputProps()} />
 
@@ -254,7 +369,7 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
         </div>
 
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          {uploadMutation.isPending ? 'Uploading...' : 'Upload Documents'}
+          {(uploadMutation.isPending || isUploading) ? 'Uploading...' : 'Upload Documents'}
         </h3>
 
         <p className="text-gray-600 mb-4">
@@ -271,9 +386,32 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
           Files are automatically classified and tagged using AI
         </p>
 
-        {uploadMutation.isPending && (
-          <div className="mt-4">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
+        {(uploadMutation.isPending || isUploading) && (
+          <div className="mt-4 space-y-3">
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
+            <div className="text-sm text-gray-600">
+              {formatBytes(uploadedBytes)} / {formatBytes(totalBytes)} ({uploadProgress.toFixed(1)}%)
+            </div>
+            <div className="flex justify-center space-x-2">
+              <button
+                onClick={handlePauseResume}
+                className="px-3 py-1 text-xs bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                disabled={!isUploading}
+              >
+                {isPaused ? 'Resume' : 'Pause'}
+              </button>
+              <button
+                onClick={handleCancel}
+                className="px-3 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
       </div>

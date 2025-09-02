@@ -538,7 +538,7 @@ ${document.summary}`;
           console.warn("Failed to parse metadata:", error);
         }
 
-        console.log("Upload request received:", {
+        console.log("📤 Upload request received:", {
           userId,
           filesCount: files?.length || 0,
           bodyKeys: Object.keys(req.body || {}),
@@ -562,11 +562,12 @@ ${document.summary}`;
           const file = files[i];
           const metadata = metadataArray.find(meta => meta.fileName === file.originalname) || metadataArray[i]; // Fallback to index-based matching
 
-          console.log(`Processing file ${i}:`, {
+          console.log(`📄 Processing file ${i + 1}/${files.length}:`, {
             originalName: file.originalname,
             foundMetadata: !!metadata,
             metadataFolderId: metadata?.folderId,
-            metadataName: metadata?.name
+            metadataName: metadata?.name,
+            fileSize: (file.size / 1024 / 1024).toFixed(2) + 'MB'
           });
 
           try {
@@ -641,7 +642,7 @@ ${document.summary}`;
             }
 
             console.log(
-              `Document processed: ${correctedFileName} -> Category: ${category}, Tags: ${tags?.join(", ")}`,
+              `✅ Document processed: ${correctedFileName} -> ID: ${document.id}, Category: ${category}, Tags: ${tags?.join(", ")}`,
             );
           } catch (error) {
             // Fix Thai filename encoding for error fallback too
@@ -697,7 +698,18 @@ ${document.summary}`;
           console.error("Failed to create audit log for upload:", auditError);
         }
 
-        res.json(uploadedDocuments);
+        console.log(`🎉 Upload completed successfully:`, {
+          documentsUploaded: uploadedDocuments.length,
+          documentIds: uploadedDocuments.map(doc => doc.id),
+          documentNames: uploadedDocuments.map(doc => doc.name)
+        });
+        
+        res.json({
+          success: true,
+          documents: uploadedDocuments,
+          count: uploadedDocuments.length,
+          message: `Successfully uploaded ${uploadedDocuments.length} document(s)`
+        });
       } catch (error) {
         console.error("Error uploading documents:", error);
         res.status(500).json({ message: "Failed to upload documents" });
