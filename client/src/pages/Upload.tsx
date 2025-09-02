@@ -55,7 +55,11 @@ export default function Dashboard() {
     queryKey: ["/api/documents"],
     enabled: isAuthenticated,
     staleTime: 30 * 1000, // Reduce cache time to 30 seconds for more frequent updates
-    queryFn: () => apiRequest(`/api/documents?limit=10`),
+    queryFn: async () => {
+      const response = await fetch("/api/documents?limit=10");
+      if (!response.ok) throw new Error("Failed to fetch documents");
+      return response.json();
+    },
   }) as { data: Array<any>, isLoading: boolean, error: any };
 
   const { data: stats } = useQuery({
