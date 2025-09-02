@@ -1862,7 +1862,7 @@ Generate only the title, nothing else:`;
 
       // Clean up date fields to prevent toISOString errors
       const cleanedAgentData = { ...agentData };
-      
+
       // Remove or convert problematic date fields
       if (cleanedAgentData.createdAt) {
         delete cleanedAgentData.createdAt; // Don't update creation date
@@ -1913,11 +1913,11 @@ Generate only the title, nothing else:`;
       console.log("Received webSearchUrls:", webSearchUrls);
       console.log("webSearchUrls type:", typeof webSearchUrls);
       console.log("webSearchUrls length:", Array.isArray(webSearchUrls) ? webSearchUrls.length : 'not array');
-      
+
       if (Array.isArray(webSearchUrls)) {
         console.log("Web search URLs array provided, updating for agent:", agentId);
         console.log("Removing all existing web search URLs for agent:", agentId);
-        
+
         try {
           const existingUrls = await storage.getAgentWhitelistUrls(agentId, userId);
           console.log("Found", existingUrls.length, "existing URLs to remove");
@@ -1962,6 +1962,50 @@ Generate only the title, nothing else:`;
     } catch (error) {
       console.error("Error updating agent chatbot:", error);
       res.status(500).json({ message: "Failed to update agent chatbot" });
+    }
+  });
+
+
+  // Update web search configuration
+  app.put("/api/agent-chatbots/:id/web-search-config", async (req, res) => {
+    try {
+      const agentId = parseInt(req.params.id);
+      const { enabled, triggerKeywords, maxResults, requireWhitelist } = req.body;
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      console.log(`🔧 Updating web search config for agent ${agentId}:`, {
+        enabled,
+        triggerKeywords,
+        maxResults,
+        requireWhitelist
+      });
+
+      // Verify agent ownership
+      const agent = await storage.getAgentChatbot(agentId, userId);
+      if (!agent) {
+        return res.status(404).json({ message: "Agent not found" });
+      }
+
+      // Update the web search configuration
+      const webSearchConfig = {
+        enabled: enabled || false,
+        triggerKeywords: triggerKeywords || [],
+        maxResults: maxResults || 5,
+        requireWhitelist: requireWhitelist !== false // Default to true
+      };
+
+      await storage.updateAgentWebSearchConfig(agentId, userId, webSearchConfig);
+
+      console.log(`✅ Updated web search config for agent ${agentId}`);
+      res.json({ success: true, config: webSearchConfig });
+
+    } catch (error) {
+      console.error("Error updating web search config:", error);
+      res.status(500).json({ message: "Failed to update web search configuration" });
     }
   });
 

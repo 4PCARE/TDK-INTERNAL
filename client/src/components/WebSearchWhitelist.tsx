@@ -69,11 +69,12 @@ export default function WebSearchWhitelist({ agentId }: WebSearchWhitelistProps)
     enabled: !!agentId,
   });
 
-  const webSearchConfig: WebSearchConfig = agentData?.webSearchConfig || {
-    enabled: false,
-    triggerKeywords: [],
-    maxResults: 5,
-    requireWhitelist: true
+  // Ensure proper default values for web search config
+  const webSearchConfig: WebSearchConfig = {
+    enabled: agentData?.webSearchConfig?.enabled || false,
+    triggerKeywords: agentData?.webSearchConfig?.triggerKeywords || [],
+    maxResults: agentData?.webSearchConfig?.maxResults || 5,
+    requireWhitelist: agentData?.webSearchConfig?.requireWhitelist !== false // Default to true
   };
 
   // Add URL mutation
@@ -236,6 +237,9 @@ export default function WebSearchWhitelist({ agentId }: WebSearchWhitelistProps)
             <Globe className="w-5 h-5" />
             <span>Web Search Configuration</span>
           </CardTitle>
+          <p className="text-sm text-gray-600">
+            Configure web search settings for this agent. Current status: {webSearchConfig.enabled ? '✅ Enabled' : '❌ Disabled'}
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">

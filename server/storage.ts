@@ -2888,25 +2888,44 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async removeUrlFromAgentWhitelist(id: number, userId: string): Promise<void> {
-    await db
-      .delete(agentWebSearchWhitelist)
-      .where(and(
-        eq(agentWebSearchWhitelist.id, id),
-        eq(agentWebSearchWhitelist.userId, userId)
-      ));
+  async removeUrlFromAgentWhitelist(urlId: number, userId: string): Promise<void> {
+    try {
+      await this.db
+        .delete(agentWebSearchWhitelist)
+        .where(
+          and(
+            eq(agentWebSearchWhitelist.id, urlId),
+            eq(agentWebSearchWhitelist.userId, userId)
+          )
+        );
+
+      console.log(`✅ Removed URL ${urlId} from agent whitelist`);
+    } catch (error) {
+      console.error("Error removing URL from agent whitelist:", error);
+      throw error;
+    }
   }
 
-  async updateAgentWebSearchConfig(agentId: number, config: any, userId: string): Promise<AgentChatbot> {
-    const [result] = await db
-      .update(agentChatbots)
-      .set({ webSearchConfig: config, updatedAt: new Date() })
-      .where(and(
-        eq(agentChatbots.id, agentId),
-        eq(agentChatbots.userId, userId)
-      ))
-      .returning();
-    return result;
+  async updateAgentWebSearchConfig(agentId: number, userId: string, config: any): Promise<void> {
+    try {
+      await this.db
+        .update(agentChatbots)
+        .set({
+          webSearchConfig: config,
+          updatedAt: new Date()
+        })
+        .where(
+          and(
+            eq(agentChatbots.id, agentId),
+            eq(agentChatbots.userId, userId)
+          )
+        );
+
+      console.log(`✅ Updated web search config for agent ${agentId}:`, config);
+    } catch (error) {
+      console.error("Error updating web search config:", error);
+      throw error;
+    }
   }
 
   async getAgentWhitelistUrlsForWidget(agentId: number): Promise<AgentWebSearchWhitelist[]> {
