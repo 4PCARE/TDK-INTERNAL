@@ -51,12 +51,12 @@ export default function Dashboard() {
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]); // State for upload files
 
 
-  const { data: documents = [] } = useQuery({
+  const { data: documents = [], isLoading: documentsLoading, error: documentsError } = useQuery({
     queryKey: ["/api/documents"],
     enabled: isAuthenticated,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 30 * 1000, // Reduce cache time to 30 seconds for more frequent updates
     queryFn: () => apiRequest(`/api/documents?limit=10`),
-  }) as { data: Array<any> };
+  }) as { data: Array<any>, isLoading: boolean, error: any };
 
   const { data: stats } = useQuery({
     queryKey: ["/api/stats"],
@@ -72,9 +72,15 @@ export default function Dashboard() {
     // Hide navigation hint after upload completes
     setTimeout(() => setShowNavigationHint(false), 3000);
 
-    // Refresh data
+    // Refresh data with more aggressive cache invalidation
     queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
     queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+    queryClient.refetchQueries({ queryKey: ["/api/documents"] });
+    
+    // Force a complete refresh after a short delay to ensure data is loaded
+    setTimeout(() => {
+      queryClient.refetchQueries({ queryKey: ["/api/documents"] });
+    }, 1000);
   };
 
 
@@ -147,6 +153,15 @@ export default function Dashboard() {
 
   const recentDocuments = Array.isArray(documents) ? documents.slice(0, 5) : [];
 
+  // Debug logging
+  console.log('Dashboard documents state:', { 
+    documents, 
+    documentsLength: documents?.length, 
+    documentsLoading, 
+    documentsError,
+    isAuthenticated 
+  });
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -197,7 +212,24 @@ export default function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 overflow-hidden">
-                {documents.length === 0 ? (
+                {documentsLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                    <p className="text-gray-500">Loading documents...</p>
+                  </div>
+                ) : documentsError ? (
+                  <div className="text-center py-8">
+                    <FileText className="w-12 h-12 text-red-400 mx-auto mb-4" />
+                    <p className="text-red-500">Error loading documents</p>
+                    <p className="text-sm text-gray-400 mt-1">{documentsError.message}</p>
+                    <button 
+                      onClick={() => queryClient.refetchQueries({ queryKey: ["/api/documents"] })}
+                      className="mt-2 text-blue-500 hover:text-blue-700 text-sm"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : documents.length === 0 ? (
                   <div className="text-center py-8">
                     <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500">No documents uploaded yet</p>

@@ -242,6 +242,10 @@ export default function UploadZone({ onUploadComplete, defaultFolderId, onUpload
         queryClient.invalidateQueries({ queryKey: ["/api/stats/categories"] });
         queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
         queryClient.invalidateQueries({ queryKey: ["/api/folders"] });
+        
+        // Force immediate refetch to ensure fresh data
+        queryClient.refetchQueries({ queryKey: ["/api/documents"] });
+        queryClient.refetchQueries({ queryKey: ["/api/stats"] });
 
         onUploadComplete();
       }, 500); // Small delay before marking as completed to ensure socket updates are processed
