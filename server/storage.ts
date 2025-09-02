@@ -1634,7 +1634,7 @@ export class DatabaseStorage implements IStorage {
 
   async getFolderDocumentCount(folderId: number, userId: string): Promise<number> {
     try {
-      const result = await this.db
+      const result = await db
         .select({ count: sql<number>`count(*)` })
         .from(documents)
         .where(
@@ -1654,7 +1654,7 @@ export class DatabaseStorage implements IStorage {
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         try {
-          const result = await this.db
+          const result = await db
             .select({ count: sql<number>`count(*)` })
             .from(documents)
             .where(
