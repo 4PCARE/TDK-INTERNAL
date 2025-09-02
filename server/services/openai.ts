@@ -18,11 +18,13 @@ export async function processDocument(
   filePath: string,
   mimeType: string,
 ): Promise<{
+  success?: boolean;
   content: string;
   summary: string;
   tags: string[];
   category: string;
   categoryColor: string;
+  error?: string;
 }> {
   try {
     let content = "";
@@ -291,6 +293,7 @@ Respond with JSON in this exact format:
     const categoryColor = categoryColors[category] || "#6B7280";
 
     return {
+      success: true,
       content: content, // Keep full content for vector storage and search
       summary: analysis.summary || "Document processed successfully",
       tags: Array.isArray(analysis.tags) ? analysis.tags : ["document"],
@@ -300,6 +303,8 @@ Respond with JSON in this exact format:
   } catch (error) {
     console.error("Error processing document with AI:", error);
     return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
       content: "Error extracting content",
       summary: "Document uploaded but could not be processed with AI",
       tags: ["unprocessed"],

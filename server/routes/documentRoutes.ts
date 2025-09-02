@@ -637,7 +637,7 @@ ${document.summary}`;
             // Process the document with enhanced AI classification
             const result = await processDocument(file.path, file.mimetype);
 
-            if (result.success) {
+            if (result && result.content !== undefined) {
               // Emit embedding generation progress
               if (io && userSocketId) {
                 io.to(userSocketId).emit('upload_status', {
@@ -662,11 +662,11 @@ ${document.summary}`;
                 filePath: file.path,
                 fileSize: file.size,
                 mimeType: file.mimetype,
-                content: result.content,
-                summary: result.summary,
-                tags: result.tags,
-                aiCategory: result.category,
-                aiCategoryColor: result.categoryColor,
+                content: result.content || "",
+                summary: result.summary || "Document processed successfully",
+                tags: result.tags || ["document"],
+                aiCategory: result.category || "Uncategorized",
+                aiCategoryColor: result.categoryColor || "#6B7280",
                 userId,
                 processedAt: new Date(),
                 effectiveStartDate: metadata?.effectiveStartDate ? new Date(metadata.effectiveStartDate) : null,
@@ -729,7 +729,8 @@ ${document.summary}`;
                 uploadStatusService.removeUploadStatus(file.originalname);
               }, 3000);
             } else {
-              console.error(`❌ Failed to process ${file.originalname}:`, result.error);
+              const errorMsg = result?.error || "Unknown processing error";
+              console.error(`❌ Failed to process ${file.originalname}:`, errorMsg);
 
               // Emit error status
               if (io && userSocketId) {
@@ -749,7 +750,7 @@ ${document.summary}`;
                 userId
               });
 
-              throw new Error(`Failed to process ${file.originalname}: ${result.error}`);
+              throw new Error(`Failed to process ${file.originalname}: ${errorMsg}`);
             }
           } catch (error) {
             // Fix Thai filename encoding for error fallback too
