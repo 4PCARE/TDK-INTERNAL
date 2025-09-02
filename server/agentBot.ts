@@ -990,7 +990,7 @@ Be friendly and helpful.`;
 - ตำแหน่ง: ${hrEmployeeData.position}
 - อีเมล: ${hrEmployeeData.email}
 - วันที่เริ่มงาน: ${hrEmployeeData.startDate || hrEmployeeData.hire_date}
-- สถานะ: ${hrEmployeeData.isActive ? 'Active' : 'Inactive'}
+-สถานะ: ${hrEmployeeData.isActive ? 'Active' : 'Inactive'}
 
 กรุณาให้คำตอบที่เป็นส่วนตัวและเหมาะสมกับตำแหน่งและแผนกของพนักงาน`;
         }

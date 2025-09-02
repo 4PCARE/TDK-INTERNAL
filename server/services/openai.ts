@@ -403,9 +403,23 @@ export async function generateChatResponse(
   searchType: 'hybrid' | 'semantic' | 'keyword' = 'hybrid',
   keywordWeight: number = 0.95,
   vectorWeight: number = 0.05,
-  massSelectionPercentage?: number
+  massSelectionPercentage?: number,
+  useTools: boolean = false
 ): Promise<string> {
   try {
+    // Check if tools should be used
+    if (useTools && documents.length > 0) {
+      const { ToolBindingService } = await import('./toolBinding');
+      const toolService = new ToolBindingService(documents[0]?.userId);
+      
+      return await toolService.chatWithTools([
+        {
+          role: "user",
+          content: userMessage
+        }
+      ]);
+    }
+
     let relevantContent = "";
 
     // Use the same hybrid search system as Line OA bot
