@@ -74,7 +74,15 @@ import {
   Copy,
   ThumbsUp,
   ThumbsDown,
-  Search
+  Search,
+  Heart,
+  User,
+  Briefcase,
+  Lightbulb,
+  AlertTriangle,
+  MessageSquare,
+  Check,
+  BookOpen
 } from "lucide-react";
 import { Link } from "wouter";
 import DocumentSelector from "@/components/DocumentSelector";
