@@ -3436,58 +3436,7 @@ export default function CreateAgentChatbot() {
                       </div>
                     )}
 
-                    {/* Tabs for Web Search, Documents, etc. */}
-                    <Tabs defaultValue="overview" value={activeTab} onValueChange={(value) => setActiveTab(value)}>
-                      <TabsList className="mb-6">
-                        <TabsTrigger value="overview" className="flex items-center space-x-2">
-                          <Settings className="w-4 h-4" />
-                          <span>Overview</span>
-                        </TabsTrigger>
-                        <TabsTrigger value="skills" className="flex items-center space-x-2">
-                          <Brain className="w-4 h-4" />
-                          <span>Skills</span>
-                        </TabsTrigger>
-                        <TabsTrigger value="guardrails" className="flex items-center space-x-2">
-                          <Shield className="w-4 h-4" />
-                          <span>Guardrails</span>
-                        </TabsTrigger>
-                        <TabsTrigger value="searchConfig" className="flex items-center space-x-2">
-                          <Search className="w-4 h-4" />
-                          <span>Search Configuration</span>
-                        </TabsTrigger>
-                        <TabsTrigger value="web-search" className="flex items-center space-x-2">
-                          <Globe className="w-4 h-4" />
-                          <span>Web Search</span>
-                        </TabsTrigger>
-                        <TabsTrigger value="test" className="flex items-center space-x-2">
-                          <TestTube className="w-4 h-4" />
-                          <span>Test Agent</span>
-                        </TabsTrigger>
-                      </TabsList>
-
-                      {/* Content for each tab */}
-                      <TabsContent value="overview">
-                        {/* Overview content is already rendered above */}
-                      </TabsContent>
-                      <TabsContent value="skills">
-                        {/* Skills content is already rendered above */}
-                      </TabsContent>
-                      <TabsContent value="guardrails">
-                        {/* Guardrails content is already rendered above */}
-                      </TabsContent>
-                      <TabsContent value="searchConfig">
-                        {/* Search Config content is already rendered above */}
-                      </TabsContent>
-
-                      <TabsContent value="web-search">
-                        {/* Web Search content is already rendered above */}
-                      </TabsContent>
-
-                      <TabsContent value="test">
-                        {/* Test Agent content is already rendered above */}
-                      </TabsContent>
-
-                    </Tabs>
+                    
 
                     </form>
                 </Form>
