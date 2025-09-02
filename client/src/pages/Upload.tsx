@@ -20,7 +20,10 @@ import {
   Eye, 
   Download,
   Star,
-  Trash2
+  Trash2,
+  Pause,
+  Play,
+  X
 } from "lucide-react";
 import DashboardLayout from "@/components/Layout/DashboardLayout";
 import StatsCards from "@/components/Stats/StatsCards";
@@ -28,13 +31,15 @@ import CategoryStatsCards from "@/components/Stats/CategoryStatsCards";
 import UploadZone from "@/components/Upload/UploadZone";
 import ChatModal from "@/components/Chat/ChatModal";
 import { apiRequest } from "@/lib/queryClient";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface UploadFile {
   file: File;
   id: string;
-  status: 'uploading' | 'processing' | 'completed' | 'error';
+  status: 'uploading' | 'processing' | 'completed' | 'error' | 'paused' | 'aborted';
   progress: number;
   error?: string;
+  controller?: AbortController;
 }
 
 export default function Dashboard() {
@@ -44,6 +49,7 @@ export default function Dashboard() {
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [selectedDocumentSummary, setSelectedDocumentSummary] = useState<string | null>(null);
+  const [showNavigationHint, setShowNavigationHint] = useState(false);
 
   const { data: documents = [] } = useQuery({
     queryKey: ["/api/documents"],
@@ -62,7 +68,7 @@ export default function Dashboard() {
     mutationFn: async (uploadData: { files: File[], metadataList: any[] }) => {
       const { files, metadataList } = uploadData;
       const formData = new FormData();
-      
+
       files.forEach((file, index) => {
         formData.append('files', file);
         if (metadataList[index]) {
@@ -70,40 +76,63 @@ export default function Dashboard() {
         }
       });
 
-      // Initialize upload tracking
-      const fileTracking = files.map(file => ({
-        file,
-        id: Math.random().toString(36).substr(2, 9),
-        status: 'uploading' as const,
-        progress: 0
-      }));
+      // Initialize upload tracking with abort controllers
+      const fileTracking = files.map(file => {
+        const controller = new AbortController();
+        return {
+          file,
+          id: Math.random().toString(36).substr(2, 9),
+          status: 'uploading' as const,
+          progress: 0,
+          controller
+        };
+      });
       setUploadFiles(fileTracking);
+      setShowNavigationHint(true);
 
       // Simulate progress updates
+      const intervals: NodeJS.Timeout[] = [];
       fileTracking.forEach((fileTrack, index) => {
         let progress = 0;
         const interval = setInterval(() => {
-          progress += Math.random() * 20;
-          if (progress >= 90) {
-            setUploadFiles(prev => prev.map(f => 
-              f.id === fileTrack.id ? { ...f, status: 'processing', progress: 90 } : f
-            ));
-            clearInterval(interval);
-          } else {
-            setUploadFiles(prev => prev.map(f => 
-              f.id === fileTrack.id ? { ...f, progress } : f
-            ));
-          }
+          setUploadFiles(prev => {
+            const current = prev.find(f => f.id === fileTrack.id);
+            if (!current || current.status === 'paused' || current.status === 'aborted') {
+              clearInterval(interval);
+              return prev;
+            }
+
+            progress += Math.random() * 20;
+            if (progress >= 90) {
+              clearInterval(interval);
+              return prev.map(f => 
+                f.id === fileTrack.id ? { ...f, status: 'processing', progress: 90 } : f
+              );
+            } else {
+              return prev.map(f => 
+                f.id === fileTrack.id ? { ...f, progress } : f
+              );
+            }
+          });
         }, 500);
+        intervals.push(interval);
       });
 
       const response = await fetch("/api/documents/upload", {
         method: "POST",
         body: formData,
+        signal: AbortSignal.any(fileTracking.map(f => f.controller!.signal))
       });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
 
       // Mark as completed
       setUploadFiles(prev => prev.map(f => ({ ...f, status: 'completed', progress: 100 })));
+
+      // Hide navigation hint once upload is complete
+      setShowNavigationHint(false);
 
       // Clear after 3 seconds
       setTimeout(() => setUploadFiles([]), 3000);
@@ -125,8 +154,33 @@ export default function Dashboard() {
         description: error.message,
         variant: "destructive",
       });
+      setShowNavigationHint(false);
     },
   });
+
+  const pauseUpload = (fileId: string) => {
+    setUploadFiles(prev => prev.map(f => 
+      f.id === fileId ? { ...f, status: 'paused' } : f
+    ));
+  };
+
+  const resumeUpload = (fileId: string) => {
+    setUploadFiles(prev => prev.map(f => 
+      f.id === fileId && f.status === 'paused' ? { ...f, status: 'uploading' } : f
+    ));
+  };
+
+  const abortUpload = (fileId: string) => {
+    setUploadFiles(prev => {
+      const fileToAbort = prev.find(f => f.id === fileId);
+      if (fileToAbort?.controller) {
+        fileToAbort.controller.abort();
+      }
+      return prev.map(f => 
+        f.id === fileId ? { ...f, status: 'aborted' } : f
+      );
+    });
+  };
 
   // Content summary mutation
   const summaryMutation = useMutation({
@@ -205,13 +259,31 @@ export default function Dashboard() {
                         <div key={file.id} className="space-y-2">
                           <div className="flex items-center justify-between text-sm">
                             <span className="truncate">{file.file.name}</span>
-                            <Badge variant={
-                              file.status === 'completed' ? 'default' :
-                              file.status === 'error' ? 'destructive' :
-                              'secondary'
-                            }>
-                              {file.status}
-                            </Badge>
+                            <div className="flex items-center space-x-2">
+                              <Badge variant={
+                                file.status === 'completed' ? 'default' :
+                                file.status === 'error' || file.status === 'aborted' ? 'destructive' :
+                                file.status === 'paused' ? 'outline' :
+                                'secondary'
+                              }>
+                                {file.status}
+                              </Badge>
+                              {file.status === 'uploading' && (
+                                <Button variant="ghost" size="icon" onClick={() => pauseUpload(file.id)}>
+                                  <Pause className="w-4 h-4" />
+                                </Button>
+                              )}
+                              {file.status === 'paused' && (
+                                <Button variant="ghost" size="icon" onClick={() => resumeUpload(file.id)}>
+                                  <Play className="w-4 h-4" />
+                                </Button>
+                              )}
+                              {(file.status === 'uploading' || file.status === 'paused') && (
+                                <Button variant="ghost" size="icon" onClick={() => abortUpload(file.id)}>
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
                           <Progress value={file.progress} className="h-2" />
                           {file.error && (
@@ -220,6 +292,14 @@ export default function Dashboard() {
                         </div>
                       ))}
                     </div>
+                  )}
+
+                  {showNavigationHint && (
+                    <Alert className="mt-4">
+                      <AlertDescription>
+                        Your file upload is in progress. You can safely navigate away from this page and come back later.
+                      </AlertDescription>
+                    </Alert>
                   )}
                 </CardContent>
               </Card>
