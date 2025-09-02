@@ -677,6 +677,12 @@ export const agentChatbots = pgTable("agent_chatbots", {
     accountName?: string;
     accessToken?: string;
   }>(),
+  webSearchConfig: jsonb("web_search_config").$type<{
+    enabled?: boolean;
+    triggerKeywords?: string[];
+    maxResults?: number;
+    requireWhitelist?: boolean;
+  }>(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

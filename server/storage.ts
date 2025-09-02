@@ -2824,37 +2824,40 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getAIDatabaseQueryHistory(connectionId: number, userId: string, limit: number = 50) {
-    try {
-      const result = await db.execute(sql`
-        SELECT * FROM ai_database_queries 
-        WHERE connection_id = ${connectionId} AND user_id = ${userId}
-        ORDER BY created_at DESC
-        LIMIT ${limit}
-      `);
-      return result.rows;
-    } catch (error) {
-      console.error('Error getting AI database query history:', error);
-      return [];
-    }
+  async getAIDatabaseQueryHistory(connectionId: number, userId: string, limit = 50) {
+    return await db
+      .select()
+      .from(aiDatabaseQueries)
+      .where(and(
+        eq(aiDatabaseQueries.connectionId, connectionId),
+        eq(aiDatabaseQueries.userId, userId)
+      ))
+      .orderBy(desc(aiDatabaseQueries.createdAt))
+      .limit(limit);
   }
 
-  // Web Search Whitelist Methods
+  // Web Search Whitelist method implementations
   async addUrlToAgentWhitelist(agentId: number, url: string, description: string, primaryDetails: any, userId: string): Promise<AgentWebSearchWhitelist> {
-    return await this.db.insert(agentWebSearchWhitelist).values({
-      agentId,
-      url,
-      description,
-      primaryDetails,
-      userId,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }).returning();
+    const [result] = await db
+      .insert(agentWebSearchWhitelist)
+      .values({
+        agentId,
+        url,
+        description,
+        primaryDetails,
+        userId,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    return result;
   }
 
   async getAgentWhitelistUrls(agentId: number, userId: string): Promise<AgentWebSearchWhitelist[]> {
-    return await this.db.select().from(agentWebSearchWhitelist)
+    return await db
+      .select()
+      .from(agentWebSearchWhitelist)
       .where(and(
         eq(agentWebSearchWhitelist.agentId, agentId),
         eq(agentWebSearchWhitelist.userId, userId),
@@ -2864,17 +2867,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateAgentWhitelistUrl(id: number, updates: any, userId: string): Promise<AgentWebSearchWhitelist> {
-    return await this.db.update(agentWebSearchWhitelist)
+    const [result] = await db
+      .update(agentWebSearchWhitelist)
       .set({ ...updates, updatedAt: new Date() })
       .where(and(
         eq(agentWebSearchWhitelist.id, id),
         eq(agentWebSearchWhitelist.userId, userId)
       ))
       .returning();
+    return result;
   }
 
   async removeUrlFromAgentWhitelist(id: number, userId: string): Promise<void> {
-    return await this.db.delete(agentWebSearchWhitelist)
+    await db
+      .delete(agentWebSearchWhitelist)
       .where(and(
         eq(agentWebSearchWhitelist.id, id),
         eq(agentWebSearchWhitelist.userId, userId)
@@ -2882,16 +2888,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateAgentWebSearchConfig(agentId: number, config: any, userId: string): Promise<AgentChatbot> {
-    return await this.db.update(agentChatbots)
-      .set({
-        webSearchConfig: config,
-        updatedAt: new Date()
-      })
+    const [result] = await db
+      .update(agentChatbots)
+      .set({ webSearchConfig: config, updatedAt: new Date() })
       .where(and(
         eq(agentChatbots.id, agentId),
         eq(agentChatbots.userId, userId)
       ))
       .returning();
+    return result;
   }
 }
 
