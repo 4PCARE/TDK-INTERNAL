@@ -47,6 +47,21 @@ import {
   agentChatbotDocuments,
   documentVectors,
   chatHistory,
+
+  // Get current IP address for whitelisting
+  app.get("/api/current-ip", (req, res) => {
+    const ip = req.headers['x-forwarded-for'] || 
+               req.connection.remoteAddress || 
+               req.socket.remoteAddress ||
+               (req.connection.socket ? req.connection.socket.remoteAddress : null);
+    
+    res.json({ 
+      ip: ip,
+      headers: req.headers,
+      note: "Replit IPs may change, consider using databases that don't require IP whitelisting"
+    });
+  });
+
   widgetChatMessages,
   hrEmployees,
   llm_config,
