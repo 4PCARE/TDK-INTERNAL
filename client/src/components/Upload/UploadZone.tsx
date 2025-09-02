@@ -52,12 +52,22 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
       formData.append('metadata', JSON.stringify(metadataArray));
 
       const response = await apiRequest('POST', '/api/documents/upload', formData);
-      return response.json();
+      const result = await response.json();
+      
+      // Validate the response structure
+      if (!result) {
+        throw new Error('Invalid response from server');
+      }
+      
+      return result;
     },
     onSuccess: (data) => {
+      // Add null/undefined checks for the response data
+      const uploadedCount = Array.isArray(data) ? data.length : (data?.documents?.length || 1);
+      
       toast({
         title: "Upload successful",
-        description: `${data.length} document(s) uploaded successfully`,
+        description: `${uploadedCount} document(s) uploaded successfully`,
       });
       // Reset state
       setPendingFiles([]);
@@ -73,9 +83,13 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
       onUploadComplete();
     },
     onError: (error) => {
+      console.error('Upload error:', error);
+      
+      const errorMessage = error?.message || 'Unknown upload error occurred';
+      
       toast({
         title: "Upload failed",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
       // Reset state on error
