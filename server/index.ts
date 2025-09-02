@@ -18,9 +18,12 @@ import { registerAnalyticRoutes } from "./routes/analyticRoutes";
 import { registerDocumentRoutes } from "./routes/documentRoutes";
 import { registerFolderRoutes } from "./routes/folderRoutes";
 import { registerDatabaseConnectionRoutes } from "./routes/databaseConnectionRoutes";
+import { createServer } from "http";
+import { uploadStatusService } from "./services/uploadStatusService";
 
 
 const app = express();
+const server = createServer(app);
 
 // Session configuration is handled in setupAuth
 
@@ -131,15 +134,19 @@ app.use((req, res, next) => {
   // ALWAYS serve the app on port 80 for production or 5000 for development
   // this serves both the API and the client.
   // const port = process.env.NODE_ENV === 'production' ? 80 : 5000;
-  const port = process.env.PORT || 5000;
-  const httpServer = server.listen(
+  const PORT = parseInt(process.env.PORT ?? "5000", 10);
+
+  // Initialize upload status service
+  uploadStatusService.initialize(server);
+
+  server.listen(
     {
-      port,
+      port: PORT,
       host: "0.0.0.0",
       reusePort: true,
     },
     () => {
-      log(`serving on port ${port}`);
+      log(`serving on port ${PORT}`);
     },
   );
 
@@ -147,7 +154,7 @@ app.use((req, res, next) => {
   const gracefulShutdown = (signal: string) => {
     log(`Received ${signal}. Starting graceful shutdown...`);
 
-    httpServer.close((err) => {
+    server.close((err) => {
       if (err) {
         console.error('Error during server shutdown:', err);
         process.exit(1);

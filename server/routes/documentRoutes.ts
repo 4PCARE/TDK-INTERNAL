@@ -14,6 +14,7 @@ import { eq, sql } from "drizzle-orm";
 import { users, departments } from "@shared/schema";
 import { vectorService } from "../services/vectorService";
 import { documentProcessor } from "../services/documentProcessor";
+import { uploadStatusService } from "../services/uploadStatusService";
 import { pool, db } from "../db";
 import { registerFolderRoutes } from "./folderRoutes";
 
@@ -570,6 +571,16 @@ ${document.summary}`;
             fileSize: (file.size / 1024 / 1024).toFixed(2) + 'MB'
           });
 
+          // Initialize upload status
+          uploadStatusService.updateUploadStatus(file.originalname, {
+            fileName: file.originalname,
+            progress: 0,
+            status: 'uploading',
+            uploadedBytes: 0,
+            totalBytes: file.size,
+            userId
+          });
+
           try {
             // Fix Thai filename encoding if needed
             let correctedFileName = file.originalname;
@@ -591,9 +602,23 @@ ${document.summary}`;
               // Keep original filename if encoding fix fails
             }
 
+            // Update status to extracting
+            uploadStatusService.updateUploadStatus(file.originalname, {
+              progress: 30,
+              status: 'extracting',
+              userId
+            });
+
             // Process the document with enhanced AI classification
             const { content, summary, tags, category, categoryColor } =
               await processDocument(file.path, file.mimetype);
+
+            // Update status to embedding
+            uploadStatusService.updateUploadStatus(file.originalname, {
+              progress: 70,
+              status: 'embedding',
+              userId
+            });
 
             const documentData = {
               name: metadata?.name || correctedFileName, // Use correctedFileName here
@@ -641,9 +666,21 @@ ${document.summary}`;
               }
             }
 
+            // Update status to completed
+            uploadStatusService.updateUploadStatus(file.originalname, {
+              progress: 100,
+              status: 'completed',
+              userId
+            });
+
             console.log(
               `✅ Document processed: ${correctedFileName} -> ID: ${document.id}, Category: ${category}, Tags: ${tags?.join(", ")}`,
             );
+
+            // Remove from status after a delay
+            setTimeout(() => {
+              uploadStatusService.removeUploadStatus(file.originalname);
+            }, 3000);
           } catch (error) {
             // Fix Thai filename encoding for error fallback too
             let correctedFileName = file.originalname;
@@ -663,6 +700,14 @@ ${document.summary}`;
             }
 
             console.error(`Error processing file ${correctedFileName}:`, error);
+            
+            // Update status to error
+            uploadStatusService.updateUploadStatus(file.originalname, {
+              progress: 0,
+              status: 'error',
+              userId
+            });
+
             // Still create document without AI processing
             const documentData = {
               name: correctedFileName,
