@@ -278,7 +278,7 @@ export default function DocumentMetadataModal({
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit}>
+          <Button onClick={handleSubmit} disabled={false}>
             {currentFileIndex < totalFiles - 1 ? "Next File" : "Upload All"}
           </Button>
         </DialogFooter>

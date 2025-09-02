@@ -23,6 +23,12 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
 
   const uploadMutation = useMutation({
     mutationFn: async (payload: { files: File[], metadataMap: Map<string, DocumentMetadata> }) => {
+      // Prevent duplicate uploads
+      if (uploadMutation.isPending) {
+        console.log('Upload already in progress, preventing duplicate');
+        return;
+      }
+
       const formData = new FormData();
 
       payload.files.forEach(file => {
@@ -80,6 +86,16 @@ export default function UploadZone({ onUploadComplete, defaultFolderId }: Upload
   });
 
   const handleMetadataSubmit = (metadata: DocumentMetadata) => {
+    // Prevent submission if upload is already in progress
+    if (uploadMutation.isPending) {
+      toast({
+        title: "Upload in progress",
+        description: "Please wait for the current upload to complete.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const currentFile = pendingFiles[currentFileIndex];
     if (currentFile) {
       const newMetadataMap = new Map(fileMetadataMap);
