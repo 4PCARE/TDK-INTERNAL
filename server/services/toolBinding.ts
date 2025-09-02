@@ -75,6 +75,27 @@ const createCalculatorTool = () => {
   });
 };
 
+const createWebSearchTool = () => {
+  return new DynamicTool({
+    name: "web_search",
+    description: "Search the web for current information, news, and general knowledge. Use this when users ask about recent events, current information, or topics not covered in the document database.",
+    func: async (query: string) => {
+      try {
+        const { WebSearchService } = await import('./webSearchService');
+        const searchService = WebSearchService.getInstance();
+        
+        const results = await searchService.searchWeb(query, 5);
+        const formattedResults = searchService.formatSearchResults(results);
+        
+        return `Web search results for "${query}":\n\n${formattedResults}`;
+      } catch (error) {
+        console.error('Web search tool error:', error);
+        return `I encountered an error while searching the web for "${query}". Please try rephrasing your query or search manually for the most current information.`;
+      }
+    }
+  });
+};
+
 export class ToolBindingService {
   private tools: DynamicTool[] = [];
 
@@ -86,7 +107,8 @@ export class ToolBindingService {
     this.tools = [
       createSearchDocumentsTool(this.userId),
       createGetDocumentTool(this.userId),
-      createCalculatorTool()
+      createCalculatorTool(),
+      createWebSearchTool()
     ];
   }
 

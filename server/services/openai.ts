@@ -412,7 +412,25 @@ export async function generateChatResponse(
       const { ToolBindingService } = await import('./toolBinding');
       const toolService = new ToolBindingService(documents[0]?.userId);
       
+      // Add system context about available tools
+      const systemMessage = `You are an AI assistant with access to tools including document search, web search, and calculations. 
+
+Available tools:
+${toolService.getAvailableTools().join('\n')}
+
+Use the web_search tool when users ask about:
+- Current events or recent news
+- Real-time information
+- Topics not covered in the user's documents
+- General knowledge that requires up-to-date information
+
+Use document search for information that might be in the user's uploaded documents.`;
+
       return await toolService.chatWithTools([
+        {
+          role: "system",
+          content: systemMessage
+        },
         {
           role: "user",
           content: userMessage
