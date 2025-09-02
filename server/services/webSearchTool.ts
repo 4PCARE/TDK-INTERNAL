@@ -1,6 +1,6 @@
 
 import { DynamicTool } from "@langchain/core/tools";
-import { CheerioWebBaseLoader } from "langchain/document_loaders/web/cheerio";
+import { CheerioWebBaseLoader } from "@langchain/community/document_loaders/web/cheerio";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import OpenAI from "openai";
 
