@@ -276,6 +276,11 @@ export default function LiveChatWidget() {
     setDialogOpen(true);
   };
 
+  // Debug logging to help identify issues
+  console.log('Debug - isDialogOpen:', isDialogOpen);
+  console.log('Debug - selectedWidget:', selectedWidget);
+  console.log('Debug - widgets:', widgets);
+
   const handleCreateNew = () => {
     setEditingWidget(null);
     setFormData({
@@ -374,7 +379,10 @@ export default function LiveChatWidget() {
                       <div
                         key={widget.id}
                         className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer"
-                        onClick={() => setSelectedWidget(widget)}
+                        onClick={() => {
+                          console.log('Widget clicked:', widget);
+                          setSelectedWidget(widget);
+                        }}
                       >
                         <div className="flex items-center justify-between">
                           <div>
@@ -657,11 +665,13 @@ export default function LiveChatWidget() {
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium">Widget Settings</h4>
                       <div className="flex items-center space-x-2">
-                        <Switch
-                          checked={selectedWidget.isActive}
-                          onCheckedChange={(checked) => toggleWidgetMutation.mutate({ widgetId: selectedWidget.id, isActive: checked })}
-                        />
-                        <span className="text-sm">{selectedWidget.isActive ? "Active" : "Inactive"}</span>
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            checked={selectedWidget.isActive}
+                            onCheckedChange={(checked) => toggleWidgetMutation.mutate({ widgetId: selectedWidget.id, isActive: checked })}
+                          />
+                          <span className="text-sm">{selectedWidget.isActive ? "Active" : "Inactive"}</span>
+                        </div>
                       </div>
                     </div>
                     <div className="space-y-2 text-sm">
