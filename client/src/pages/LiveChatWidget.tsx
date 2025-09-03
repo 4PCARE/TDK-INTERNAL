@@ -651,7 +651,7 @@ export default function LiveChatWidget() {
                         Copy Code
                       </>
                     )}
-                  </Button>
+                  </Button>utton>
 
                   <div className="pt-4 border-t">
                     <h4 className="font-medium mb-2">Widget Settings</h4>
