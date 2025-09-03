@@ -708,6 +708,68 @@ export default function LiveChatWidget() {
                       </div>
                     )}
 
+                    {/* Embed Code Section for Editing Widget */}
+                    {editingWidget && (
+                      <div className="pt-4 border-t space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <Code className="w-4 h-4" />
+                          <h4 className="font-medium text-sm">Embed Code</h4>
+                        </div>
+                        
+                        <div className="bg-gray-900 border border-gray-300 p-3 rounded-lg">
+                          <pre className="text-xs font-mono whitespace-pre-wrap break-all leading-relaxed text-green-400 overflow-x-auto">
+{generateEmbedCode(editingWidget)}
+                          </pre>
+                        </div>
+                        
+                        <div className="flex space-x-2">
+                          <Button 
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              copyEmbedCode(editingWidget);
+                            }} 
+                            className="text-xs"
+                          >
+                            {copiedCode[editingWidget.id] ? (
+                              <>
+                                <Check className="w-3 h-3 mr-1" />
+                                Copied
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3 mr-1" />
+                                Copy
+                              </>
+                            )}
+                          </Button>
+                          <Button 
+                            type="button"
+                            size="sm"
+                            variant="outline" 
+                            onClick={() => {
+                              const code = generateEmbedCode(editingWidget);
+                              const blob = new Blob([code], { type: 'text/html' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `${editingWidget.name.replace(/\s+/g, '-').toLowerCase()}-embed.html`;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              URL.revokeObjectURL(url);
+                            }}
+                            className="text-xs"
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            Download
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex space-x-2">
                       <Button type="submit" disabled={createWidgetMutation.isPending || updateWidgetMutation.isPending}>
                         {editingWidget ? (updateWidgetMutation.isPending ? "Saving..." : "Save Changes") : (createWidgetMutation.isPending ? "Creating..." : "Create Widget")}
