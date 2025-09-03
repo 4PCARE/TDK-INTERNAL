@@ -624,7 +624,7 @@ export default function LiveChatWidget() {
           </div>
 
           {/* Display details when a widget is selected */}
-          {!isCreating && selectedWidget && (
+          {!isDialogOpen && selectedWidget && (
             <Card>
               <CardHeader>
                 <CardTitle>Embed Code</CardTitle>
@@ -654,12 +654,20 @@ export default function LiveChatWidget() {
                   </Button>
 
                   <div className="pt-4 border-t">
-                    <h4 className="font-medium mb-2">Widget Settings</h4>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium">Widget Settings</h4>
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          checked={selectedWidget.isActive}
+                          onCheckedChange={(checked) => toggleWidgetMutation.mutate({ widgetId: selectedWidget.id, isActive: checked })}
+                        />
+                        <span className="text-sm">{selectedWidget.isActive ? "Active" : "Inactive"}</span>
+                      </div>
+                    </div>
                     <div className="space-y-2 text-sm">
                       <div>Position: {selectedWidget.position}</div>
                       <div>Primary Color: {selectedWidget.primaryColor}</div>
                       <div>HR Lookup: {selectedWidget.enableHrLookup ? "Enabled" : "Disabled"}</div>
-                      <div>Status: {selectedWidget.isActive ? "Active" : "Inactive"}</div>
                       {selectedWidget.isPlatformWidget && (
                         <div className="text-purple-600 font-medium">Platform Widget: Yes</div>
                       )}
@@ -667,6 +675,13 @@ export default function LiveChatWidget() {
                         <div>AI Agent: {selectedWidget.agentName}</div>
                       )}
                     </div>
+                    {!selectedWidget.isActive && (
+                      <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-sm text-yellow-800">
+                          ⚠️ This widget is currently inactive. Activate it above to enable the chat functionality on your website.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -674,7 +689,7 @@ export default function LiveChatWidget() {
           )}
 
           {/* Getting Started Guide */}
-          {!isCreating && !selectedWidget && (
+          {!isDialogOpen && !selectedWidget && (
             <Card>
               <CardHeader>
                 <CardTitle>Getting Started</CardTitle>
