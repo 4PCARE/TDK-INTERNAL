@@ -413,10 +413,15 @@ export default function LiveChatWidget() {
                             </div>
                           </div>
                           <div className="flex space-x-2">
-                            <Button size="sm" variant="outline" onClick={(e) => {
-                              e.stopPropagation();
-                              copyEmbedCode(widget);
-                            }}>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                copyEmbedCode(widget);
+                              }}
+                            >
                               {copiedCode[widget.id] ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                             </Button>
                             <Button
@@ -648,7 +653,14 @@ export default function LiveChatWidget() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button onClick={() => copyEmbedCode(selectedWidget)} className="flex-1">
+                    <Button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        copyEmbedCode(selectedWidget);
+                      }} 
+                      className="flex-1"
+                    >
                       {copiedCode[selectedWidget.id] ? (
                         <>
                           <Check className="w-4 h-4 mr-2" />
