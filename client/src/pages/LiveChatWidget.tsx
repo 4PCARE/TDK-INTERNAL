@@ -381,7 +381,7 @@ export default function LiveChatWidget() {
                         className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer"
                         onClick={() => {
                           console.log('Widget clicked:', widget);
-                          setSelectedWidget(widget);
+                          handleEdit(widget);
                         }}
                       >
                         <div className="flex items-center justify-between">
