@@ -521,15 +521,15 @@ export default function LiveChatWidget() {
                     <p className="text-sm text-gray-600">
                       Copy and paste this code into your website's HTML:
                     </p>
-                    
+
                     {/* Embed Code Display Box */}
                     <div className="bg-gray-900 border border-gray-300 p-4 rounded-lg">
                       <pre className="text-sm font-mono whitespace-pre-wrap break-all leading-relaxed text-green-400 overflow-x-auto">
 {generateEmbedCode(selectedWidget)}
                       </pre>
                     </div>
-                    
-                    <div className="flex gap-2">
+
+                    <div className="flex space-x-2">
                       <Button 
                         onClick={(e) => {
                           e.preventDefault();
