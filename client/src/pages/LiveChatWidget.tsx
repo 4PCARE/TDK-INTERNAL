@@ -355,9 +355,9 @@ export default function LiveChatWidget() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Widget List */}
-          <div className="lg:col-span-2">
+          <div>
             <Card>
               <CardHeader>
                 <CardTitle>Your Chat Widgets</CardTitle>
@@ -506,7 +506,107 @@ export default function LiveChatWidget() {
           </div>
 
           {/* Widget Form / Details */}
-          <div>
+          <div className="space-y-6">
+            {/* Always show embed code when widget is selected */}
+            {selectedWidget && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Code className="w-5 h-5" />
+                    <span>Embed Code for "{selectedWidget.name}"</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-600">
+                      Copy and paste this code into your website's HTML:
+                    </p>
+                    
+                    {/* Embed Code Display Box */}
+                    <div className="bg-gray-900 border border-gray-300 p-4 rounded-lg">
+                      <pre className="text-sm font-mono whitespace-pre-wrap break-all leading-relaxed text-green-400 overflow-x-auto">
+{generateEmbedCode(selectedWidget)}
+                      </pre>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          copyEmbedCode(selectedWidget);
+                        }} 
+                        className="flex-1"
+                      >
+                        {copiedCode[selectedWidget.id] ? (
+                          <>
+                            <Check className="w-4 h-4 mr-2" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Copy Code
+                          </>
+                        )}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          const code = generateEmbedCode(selectedWidget);
+                          const blob = new Blob([code], { type: 'text/html' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `${selectedWidget.name.replace(/\s+/g, '-').toLowerCase()}-embed.html`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        }}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        Download
+                      </Button>
+                    </div>
+
+                    <div className="pt-4 border-t">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">Widget Settings</h4>
+                        <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              checked={selectedWidget.isActive}
+                              onCheckedChange={(checked) => toggleWidgetMutation.mutate({ widgetId: selectedWidget.id, isActive: checked })}
+                            />
+                            <span className="text-sm">{selectedWidget.isActive ? "Active" : "Inactive"}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div>Position: {selectedWidget.position}</div>
+                        <div>Primary Color: {selectedWidget.primaryColor}</div>
+                        <div>HR Lookup: {selectedWidget.enableHrLookup ? "Enabled" : "Disabled"}</div>
+                        {selectedWidget.isPlatformWidget && (
+                          <div className="text-purple-600 font-medium">Platform Widget: Yes</div>
+                        )}
+                        {selectedWidget.agentName && (
+                          <div>AI Agent: {selectedWidget.agentName}</div>
+                        )}
+                      </div>
+                      {!selectedWidget.isActive && (
+                        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-sm text-yellow-800">
+                            ⚠️ This widget is currently inactive. Activate it above to enable the chat functionality on your website.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {isDialogOpen && ( // Show form when dialog is open
               <Card>
                 <CardHeader>
@@ -636,102 +736,8 @@ export default function LiveChatWidget() {
             )}
           </div>
 
-          {/* Display details when a widget is selected */}
-          {!isDialogOpen && selectedWidget && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Embed Code</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-600">
-                    Copy and paste this code into your website's HTML to add the chat widget:
-                  </p>
-                  <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
-                    <div className="text-sm font-mono whitespace-pre-wrap break-all leading-relaxed text-gray-800">
-                      {generateEmbedCode(selectedWidget)}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        copyEmbedCode(selectedWidget);
-                      }} 
-                      className="flex-1"
-                    >
-                      {copiedCode[selectedWidget.id] ? (
-                        <>
-                          <Check className="w-4 h-4 mr-2" />
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-4 h-4 mr-2" />
-                          Copy Code
-                        </>
-                      )}
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => {
-                        const code = generateEmbedCode(selectedWidget);
-                        const blob = new Blob([code], { type: 'text/html' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `${selectedWidget.name.replace(/\s+/g, '-').toLowerCase()}-embed.html`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                      }}
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      Download
-                    </Button>
-                  </div>
-
-                  <div className="pt-4 border-t">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">Widget Settings</h4>
-                      <div className="flex items-center space-x-2">
-                        <div className="flex items-center space-x-2">
-                          <Switch
-                            checked={selectedWidget.isActive}
-                            onCheckedChange={(checked) => toggleWidgetMutation.mutate({ widgetId: selectedWidget.id, isActive: checked })}
-                          />
-                          <span className="text-sm">{selectedWidget.isActive ? "Active" : "Inactive"}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div>Position: {selectedWidget.position}</div>
-                      <div>Primary Color: {selectedWidget.primaryColor}</div>
-                      <div>HR Lookup: {selectedWidget.enableHrLookup ? "Enabled" : "Disabled"}</div>
-                      {selectedWidget.isPlatformWidget && (
-                        <div className="text-purple-600 font-medium">Platform Widget: Yes</div>
-                      )}
-                      {selectedWidget.agentName && (
-                        <div>AI Agent: {selectedWidget.agentName}</div>
-                      )}
-                    </div>
-                    {!selectedWidget.isActive && (
-                      <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-sm text-yellow-800">
-                          ⚠️ This widget is currently inactive. Activate it above to enable the chat functionality on your website.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Getting Started Guide */}
-          {!isDialogOpen && !selectedWidget && (
+          {!selectedWidget && (
             <Card>
               <CardHeader>
                 <CardTitle>Getting Started</CardTitle>
