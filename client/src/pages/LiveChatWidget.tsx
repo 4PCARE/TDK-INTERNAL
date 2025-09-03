@@ -51,7 +51,7 @@ export default function LiveChatWidget() {
   const [selectedWidget, setSelectedWidget] = useState<ChatWidget | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [editingWidget, setEditingWidget] = useState<ChatWidget | null>(null);
-  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedCode, setCopiedCode] = useState<{[key: number]: boolean}>({});
   const [isDialogOpen, setDialogOpen] = useState(false);
 
   // Form state for creating/editing widgets
@@ -252,12 +252,12 @@ export default function LiveChatWidget() {
   const copyEmbedCode = (widget: ChatWidget) => {
     const embedCode = generateEmbedCode(widget);
     navigator.clipboard.writeText(embedCode).then(() => {
-      setCopiedCode(true);
+      setCopiedCode(prev => ({ ...prev, [widget.id]: true }));
       toast({
         title: "Embed code copied",
         description: "The embed code has been copied to your clipboard.",
       });
-      setTimeout(() => setCopiedCode(false), 2000);
+      setTimeout(() => setCopiedCode(prev => ({ ...prev, [widget.id]: false })), 2000);
     });
   };
 
@@ -417,7 +417,7 @@ export default function LiveChatWidget() {
                               e.stopPropagation();
                               copyEmbedCode(widget);
                             }}>
-                              {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                              {copiedCode[widget.id] ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                             </Button>
                             <Button
                               size="sm"
@@ -642,24 +642,44 @@ export default function LiveChatWidget() {
                   <p className="text-sm text-gray-600">
                     Copy and paste this code into your website's HTML to add the chat widget:
                   </p>
-                  <div className="bg-gray-100 p-3 rounded-lg">
-                    <pre className="text-xs overflow-x-auto">
-                      <code>{generateEmbedCode(selectedWidget)}</code>
-                    </pre>
+                  <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                    <div className="text-sm font-mono whitespace-pre-wrap break-all leading-relaxed text-gray-800">
+                      {generateEmbedCode(selectedWidget)}
+                    </div>
                   </div>
-                  <Button onClick={() => copyEmbedCode(selectedWidget)} className="w-full">
-                    {copiedCode ? (
-                      <>
-                        <Check className="w-4 h-4 mr-2" />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4 mr-2" />
-                        Copy Code
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button onClick={() => copyEmbedCode(selectedWidget)} className="flex-1">
+                      {copiedCode[selectedWidget.id] ? (
+                        <>
+                          <Check className="w-4 h-4 mr-2" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-2" />
+                          Copy Code
+                        </>
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        const code = generateEmbedCode(selectedWidget);
+                        const blob = new Blob([code], { type: 'text/html' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${selectedWidget.name.replace(/\s+/g, '-').toLowerCase()}-embed.html`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                      }}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Download
+                    </Button>
+                  </div>
 
                   <div className="pt-4 border-t">
                     <div className="flex items-center justify-between mb-2">
